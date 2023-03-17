@@ -7,4 +7,4 @@
  * of this source tree.
  */
 
-pub(crate) mod impls;
+pub mod impls;

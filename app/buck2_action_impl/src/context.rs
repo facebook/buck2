@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::impls::dep_files::RunActionDepFiles;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
@@ -73,6 +72,7 @@ use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;
 use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
+use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::new_executor_preference;
 use crate::actions::impls::run::MetadataParameter;
 use crate::actions::impls::run::UnregisteredRunAction;

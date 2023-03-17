@@ -17,11 +17,6 @@ use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
-use buck2_build_api::actions::impls::dep_files::match_or_clear_dep_file;
-use buck2_build_api::actions::impls::dep_files::populate_dep_files;
-use buck2_build_api::actions::impls::dep_files::DepFilesCommandLineVisitor;
-use buck2_build_api::actions::impls::dep_files::DepFilesKey;
-use buck2_build_api::actions::impls::dep_files::RunActionDepFiles;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
@@ -60,8 +55,14 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
 
+use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
+use crate::actions::impls::run::dep_files::populate_dep_files;
+use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
+use crate::actions::impls::run::dep_files::DepFilesKey;
+use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
+pub mod dep_files;
 mod metadata;
 
 #[derive(Debug, Error)]

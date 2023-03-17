@@ -21,6 +21,7 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
+        "//buck2/app/buck2_action_impl:buck2_action_impl",
         "//buck2/app/buck2_build_api:buck2_build_api",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",

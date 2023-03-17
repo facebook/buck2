@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod action_execution_target;
+pub mod action_execution_target;
 pub mod action_executor;
 pub(crate) mod error;

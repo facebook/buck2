@@ -12,9 +12,9 @@ use std::io::Write;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::impls::dep_files::get_dep_files;
-use buck2_build_api::actions::impls::dep_files::DepFilesKey;
-use buck2_build_api::actions::impls::dep_files::StoredFingerprints;
+use buck2_action_impl::actions::impls::run::dep_files::get_dep_files;
+use buck2_action_impl::actions::impls::run::dep_files::DepFilesKey;
+use buck2_action_impl::actions::impls::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;

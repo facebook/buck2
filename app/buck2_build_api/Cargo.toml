@@ -40,7 +40,6 @@ either = { workspace = true }
 smallvec = { workspace = true }
 assert_matches = { workspace = true }
 crossbeam-epoch = { workspace = true }
-parking_lot = { workspace = true }
 fnv = { workspace = true }
 
 allocative = { workspace = true }

@@ -9,18 +9,23 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 ctor = { workspace = true }
+dashmap = { workspace = true }
+derive_more = { workspace = true }
 dupe = { workspace = true }
+futures = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
+parking_lot = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 relative-path = { workspace = true }
 sha1 = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 allocative = { workspace = true }
 gazebo = { workspace = true }

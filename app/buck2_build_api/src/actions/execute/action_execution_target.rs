@@ -35,11 +35,11 @@ impl<'a> ActionExecutionTarget<'a> {
         self.action.owner()
     }
 
-    pub(crate) fn category(&self) -> &'a Category {
+    pub fn category(&self) -> &'a Category {
         self.action.category()
     }
 
-    pub(crate) fn identifier(&self) -> Option<&'a str> {
+    pub fn identifier(&self) -> Option<&'a str> {
         self.action.identifier()
     }
 
