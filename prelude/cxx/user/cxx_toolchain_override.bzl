@@ -137,10 +137,8 @@ def _cxx_toolchain_override(ctx):
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
     )
 
-registration_spec = RuleRegistrationSpec(
-    name = "cxx_toolchain_override",
-    impl = _cxx_toolchain_override,
-    attrs = {
+def _cxx_toolchain_override_inheriting_target_platform_attrs():
+    return {
         "additional_c_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "additional_cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "archive_objects_locally": attrs.option(attrs.bool(), default = None),
@@ -186,5 +184,10 @@ registration_spec = RuleRegistrationSpec(
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
-    },
+    }
+
+registration_spec = RuleRegistrationSpec(
+    name = "cxx_toolchain_override",
+    impl = _cxx_toolchain_override,
+    attrs = _cxx_toolchain_override_inheriting_target_platform_attrs(),
 )
