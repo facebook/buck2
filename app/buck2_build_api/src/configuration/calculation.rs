@@ -420,7 +420,16 @@ async fn compute_platform_configuration(
     let result = ctx.get_configuration_analysis_result(target).await?;
     let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
-    platform_info.to_configuration()
+    let configuration_data: ConfigurationData = platform_info.to_configuration()?;
+
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    TargetLabel::parse(
+        configuration_data.label()?,
+        cell_resolver.root_cell_cell_alias_resolver(),
+    )
+    .context("`PlatformInfo` label for `platform()` rule should be a valid target label")?;
+
+    Ok(configuration_data)
 }
 
 #[async_trait]
