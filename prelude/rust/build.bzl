@@ -634,6 +634,7 @@ def _compute_common_args(
         ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
         _rustc_flags(toolchain_info.rustc_flags),
         _rustc_flags(toolchain_info.rustc_check_flags) if is_check else [],
+        _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
         _rustc_flags(ctx.attrs.rustc_flags),
         cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
         dependency_args,

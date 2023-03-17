@@ -20,6 +20,8 @@ _rust_toolchain_attrs = {
     "rustc_check_flags": [],
     # Extra flags for doing building tests
     "rustc_test_flags": [],
+    # Extra flags when coverage is enabled for a target
+    "rustc_coverage_flags": ["-Cinstrument-coverage"],
     # Extra flags for rustdoc invocations
     "rustdoc_flags": [],
     # Use rmeta for lib->lib dependencies, and only block

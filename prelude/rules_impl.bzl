@@ -541,6 +541,7 @@ inlined_extra_attributes = {
     },
     #rust
     "rust_binary": {
+        "coverage": attrs.bool(default = False),
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
@@ -556,6 +557,7 @@ inlined_extra_attributes = {
         # them and it simplifies the implementation of Rust rules since they
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
+        "coverage": attrs.bool(default = False),
         "doc_deps": attrs.list(attrs.dep(), default = []),
         "doc_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "doc_linker_flags": attrs.list(attrs.arg(), default = []),
@@ -576,6 +578,7 @@ inlined_extra_attributes = {
         "_target_os_type": _target_os_type(),
     },
     "rust_test": {
+        "coverage": attrs.bool(default = False),
         "framework": attrs.bool(default = True),
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
