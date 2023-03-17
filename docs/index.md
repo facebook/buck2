@@ -3,7 +3,7 @@ id: index
 title: Introduction
 ---
 
-Welcome to Buck2, a large scale, fast, reliable, and extensible build tool developed and used by Meta, which supports a variety of languages on many platforms.
+Welcome to Buck2, a large scale, fast, reliable, and extensible build tool developed and used by Meta. Buck2 supports a variety of languages on many platforms.
 
 Buck2's core is written in [Rust](https://www.rust-lang.org/). [Starlark](https://github.com/bazelbuild/starlark), which is a deterministic, immutable dialect of Python, is used to extend the Buck2 build system, enabling Buck2 to be language-agnostic. With Starlark, users can define their own custom rules.
 
@@ -40,7 +40,7 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 
 ### For people integrating with Buck2
 
-* [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of buck2's graphs
+* [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of Buck2's graphs.
 
 <FbInternalOnly>
 
