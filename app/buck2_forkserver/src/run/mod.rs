@@ -606,9 +606,12 @@ mod tests {
         }
 
         impl KillProcess for Kill {
-            fn kill(self, _child: &Child) -> anyhow::Result<()> {
+            fn kill(self, child: &Child) -> anyhow::Result<()> {
                 *self.killed.lock().unwrap() = true;
-                Ok(())
+
+                // We still need to kill the process. On Windows in particular our test will hang
+                // if we do not.
+                DefaultKillProcess.kill(child)
             }
         }
 
