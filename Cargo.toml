@@ -324,5 +324,5 @@ prost-derive = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c6
 tonic = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.3" }
 tonic-build = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.4" }
 # For https://github.com/jimblandy/perf-event/pull/29
-perf-event = { git = "https://github.com/krallin/perf-event.git", rev = "f15d5fa9c82a59d6134ca706b047a6baa2c24e58", version = "0.4" }
-perf-event-open-sys = { git = "https://github.com/krallin/perf-event.git", rev = "f15d5fa9c82a59d6134ca706b047a6baa2c24e58", version = "4.0" }
+perf-event = { git = "https://github.com/krallin/perf-event.git", rev = "86224a9bc025d5d19f719542f27c8c629a08b167", version = "0.4" }
+perf-event-open-sys = { git = "https://github.com/krallin/perf-event.git", rev = "86224a9bc025d5d19f719542f27c8c629a08b167", version = "4.0" }
