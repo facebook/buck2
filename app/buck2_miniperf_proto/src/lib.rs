@@ -15,6 +15,7 @@ pub struct MiniperfOutput {
 
     /// Total instructions executed.
     pub user_instructions: MiniperfCounter,
+    pub kernel_instructions: MiniperfCounter,
 }
 
 /// The fields here come straight out of `perf_event_open`. The count is

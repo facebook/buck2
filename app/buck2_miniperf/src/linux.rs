@@ -40,6 +40,14 @@ pub fn main() -> anyhow::Result<()> {
         .enable_on_exec()
         .build()?;
 
+    let mut kernel_counter = Builder::new()
+        .kind(Hardware::INSTRUCTIONS)
+        .include_kernel()
+        .exclude_user()
+        .inherit(true)
+        .enable_on_exec()
+        .build()?;
+
     let status = args.next().context("No process to run").and_then(|bin| {
         Command::new(bin)
             .args(args)
@@ -47,16 +55,25 @@ pub fn main() -> anyhow::Result<()> {
             .map_err(anyhow::Error::from)
     });
 
-    let value = user_counter
+    let user_value = user_counter
         .read_count_and_time()
         .context("Error reading user_counter")?;
+
+    let kernel_value = kernel_counter
+        .read_count_and_time()
+        .context("Error reading kernel_counter")?;
 
     let output = MiniperfOutput {
         raw_exit_code: status.map(|s| s.into_raw()).map_err(|e| e.to_string()),
         user_instructions: MiniperfCounter {
-            count: value.count,
-            time_enabled: value.time_enabled,
-            time_running: value.time_running,
+            count: user_value.count,
+            time_enabled: user_value.time_enabled,
+            time_running: user_value.time_running,
+        },
+        kernel_instructions: MiniperfCounter {
+            count: kernel_value.count,
+            time_enabled: kernel_value.time_enabled,
+            time_running: kernel_value.time_running,
         },
     };
 

@@ -1555,4 +1555,5 @@ message ConnectToInstallerEnd {}
 
 message CommandExecutionStats {
   optional uint64 cpu_instructions_user = 1;
+  optional uint64 cpu_instructions_kernel = 2;
 }

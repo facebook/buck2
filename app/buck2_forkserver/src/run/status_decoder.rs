@@ -115,6 +115,9 @@ impl StatusDecoder for MiniperfStatusDecoder {
                         exit_code,
                         execution_stats: Some(buck2_data::CommandExecutionStats {
                             cpu_instructions_user: Some(status.user_instructions.adjusted_count()),
+                            cpu_instructions_kernel: Some(
+                                status.kernel_instructions.adjusted_count(),
+                            ),
                         }),
                     })
                 }
