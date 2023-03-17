@@ -63,6 +63,10 @@ pub enum ConfigurationError {
         "Expected `{0}` to provide a `ExecutionPlatformRegistrationInfo` as it's configured as the `build.execution_platforms` value."
     )]
     MissingExecutionPlatformRegistrationInfo(TargetLabel),
+    #[error(
+        "Platform target `{0}` evaluation returned `ProviderInfo` label `{1}` which resolved to an unequal configuration"
+    )]
+    PlatformEvalUnequalConfiguration(TargetLabel, TargetLabel),
 }
 
 async fn get_target_platform_detector(
@@ -412,22 +416,44 @@ pub trait ConfigurationCalculation {
     ) -> SharedResult<ToolchainConstraints>;
 }
 
-/// Basically, evaluate `platform()` rule.
-async fn compute_platform_configuration(
+async fn compute_platform_configuration_no_label_check(
     ctx: &DiceComputations,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
     let result = ctx.get_configuration_analysis_result(target).await?;
     let platform_info = PlatformInfo::from_providers(result.providers().provider_collection())
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
-    let configuration_data: ConfigurationData = platform_info.to_configuration()?;
+    platform_info.to_configuration()
+}
+
+/// Basically, evaluate `platform()` rule.
+async fn compute_platform_configuration(
+    ctx: &DiceComputations,
+    target: &TargetLabel,
+) -> anyhow::Result<ConfigurationData> {
+    let configuration_data = compute_platform_configuration_no_label_check(ctx, target).await?;
 
     let cell_resolver = ctx.get_cell_resolver().await?;
-    TargetLabel::parse(
+    let parsed_target = TargetLabel::parse(
         configuration_data.label()?,
         cell_resolver.root_cell_cell_alias_resolver(),
     )
     .context("`PlatformInfo` label for `platform()` rule should be a valid target label")?;
+
+    if target != &parsed_target {
+        // `target` may be an `alias` target. In this case we evaluate the label
+        // from the configuration and check it resolves to the same configuration.
+
+        let cfg_again = compute_platform_configuration_no_label_check(ctx, &parsed_target).await
+            .context("Checking whether label of returned `PlatformInfo` resolves to the same configuration")?;
+        if cfg_again != configuration_data {
+            return Err(ConfigurationError::PlatformEvalUnequalConfiguration(
+                target.dupe(),
+                parsed_target,
+            )
+            .into());
+        }
+    }
 
     Ok(configuration_data)
 }
