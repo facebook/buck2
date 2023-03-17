@@ -6,7 +6,11 @@ oncall("buck2")
 rust_library(
     name = "buck2_miniperf_proto",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:bincode",
+    ],
     deps = [
         "fbsource//third-party/rust:serde",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

@@ -11,5 +11,6 @@ anyhow = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 bincode = { workspace = true }
+smallvec = { workspace = true }
 perf-event = { workspace = true }
 buck2_miniperf_proto = { workspace = true }

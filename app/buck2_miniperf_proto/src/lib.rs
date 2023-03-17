@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
+use dupe::Dupe;
+
 /// NOTE: those structs don't need to maintain wire compatibility, we use them only with matching
 /// writer & reader.
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct MiniperfOutput {
     pub raw_exit_code: Result<i32, String>,
 
@@ -18,8 +20,13 @@ pub struct MiniperfOutput {
     pub kernel_instructions: MiniperfCounter,
 }
 
+impl MiniperfOutput {
+    // This is the size we expect this record to take if the command worked out fine.
+    pub const EXPECTED_SIZE: usize = 56;
+}
+
 /// The fields here come straight out of `perf_event_open`. The count is
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Dupe)]
 pub struct MiniperfCounter {
     /// Value of the counter.
     pub count: u64,
@@ -65,6 +72,25 @@ mod test {
             }
             .adjusted_count(),
             246
+        );
+    }
+
+    #[test]
+    fn test_expected_size() {
+        let max_counter = MiniperfCounter {
+            count: u64::MAX,
+            time_enabled: u64::MAX,
+            time_running: u64::MAX,
+        };
+        let output = MiniperfOutput {
+            raw_exit_code: Ok(i32::MAX),
+            user_instructions: max_counter,
+            kernel_instructions: max_counter,
+        };
+
+        assert_eq!(
+            bincode::serialized_size(&output).unwrap() as usize,
+            MiniperfOutput::EXPECTED_SIZE
         );
     }
 }

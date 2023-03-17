@@ -8,8 +8,6 @@
  */
 
 use std::env;
-use std::fs::File;
-use std::io::Write;
 use std::os::unix::process::ExitStatusExt;
 use std::process::Command;
 
@@ -18,6 +16,7 @@ use buck2_miniperf_proto::MiniperfCounter;
 use buck2_miniperf_proto::MiniperfOutput;
 use perf_event::events::Hardware;
 use perf_event::Builder;
+use smallvec::SmallVec;
 
 /// First argument is an output path to write output data into. The rest is the command to execute.
 pub fn main() -> anyhow::Result<()> {
@@ -77,17 +76,13 @@ pub fn main() -> anyhow::Result<()> {
         },
     };
 
-    let mut file = File::options()
-        .write(true)
-        .create_new(true)
-        .open(&out)
-        .with_context(|| format!("Failed to open `{:?}`", out))?;
+    // Stack allocate in the happy path.
+    let mut buff = SmallVec::<[u8; MiniperfOutput::EXPECTED_SIZE]>::new();
 
-    bincode::serialize_into(&mut file, &output)
+    bincode::serialize_into(&mut buff, &output)
         .with_context(|| format!("Failed to write to `{:?}`", out))?;
 
-    file.flush()
-        .with_context(|| format!("Failed to flush to `{:?}`", out))?;
+    std::fs::write(&out, &buff).with_context(|| format!("Failed to write to `{:?}`", out))?;
 
     Ok(())
 }
