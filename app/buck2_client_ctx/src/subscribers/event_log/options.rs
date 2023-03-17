@@ -10,7 +10,7 @@
 use crate::client_ctx::ClientCommandContext;
 use crate::path_arg::PathArg;
 use crate::subscribers::event_log::file_names::retrieve_nth_recent_log;
-use crate::subscribers::event_log::EventLogPathBuf;
+use crate::subscribers::event_log::read::EventLogPathBuf;
 
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]

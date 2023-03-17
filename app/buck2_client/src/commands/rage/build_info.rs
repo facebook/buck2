@@ -12,7 +12,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::EventLogPathBuf;
+use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
 use chrono::DateTime;

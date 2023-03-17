@@ -19,8 +19,8 @@ use futures::StreamExt;
 use gazebo::prelude::VecExt;
 
 use crate::client_ctx::ClientCommandContext;
-use crate::subscribers::event_log::Encoding;
-use crate::subscribers::event_log::EventLogErrors;
+use crate::subscribers::event_log::utils::Encoding;
+use crate::subscribers::event_log::utils::EventLogErrors;
 
 pub(crate) fn get_logfile_name(
     event: &BuckEvent,

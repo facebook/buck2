@@ -18,7 +18,7 @@ use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
 use crate::subscribers::build_id_writer::BuildIdWriter;
-use crate::subscribers::event_log::EventLog;
+use crate::subscribers::event_log::subscriber::EventLog;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;

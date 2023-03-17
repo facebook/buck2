@@ -10,7 +10,7 @@
 use buck2_events::trace::TraceId;
 
 use crate::manifold;
-use crate::subscribers::event_log::EventLogPathBuf;
+use crate::subscribers::event_log::read::EventLogPathBuf;
 use crate::subscribers::should_upload_log;
 
 #[derive(thiserror::Error, Debug)]
