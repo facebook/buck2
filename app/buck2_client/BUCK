@@ -24,7 +24,6 @@ rust_library(
         "fbsource//third-party/rust:httparse",
         "fbsource//third-party/rust:humantime",
         "fbsource//third-party/rust:indexmap",
-        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:maplit",

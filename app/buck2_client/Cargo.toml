@@ -18,7 +18,6 @@ crossterm = { workspace = true }
 futures = { workspace = true }
 humantime = { workspace = true }
 indexmap = { workspace = true }
-itertools = { workspace = true }
 libc = { workspace = true }
 lsp-server = { workspace = true }
 maplit = { workspace = true }
