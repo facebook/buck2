@@ -18,7 +18,7 @@ fn main() -> io::Result<()> {
         let path = PathBuf::from(value);
         path.parent().unwrap().to_str().unwrap().to_owned()
     } else {
-        "../../buck2_data".to_owned()
+        "../buck2_data".to_owned()
     };
 
     buck2_protoc_dev::configure()

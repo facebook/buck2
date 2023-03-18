@@ -7,7 +7,7 @@ rust_protobuf_library(
     name = "buck2_cli_proto",
     srcs = glob(["src/**/*.rs"]),
     build_env = {
-        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/buck2_data:data.proto)",
+        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/app/buck2_data:data.proto)",
         "BUCK_HACK_SUBSCRIPTION_PROTOC_INCLUDE": "$(location //buck2/app/buck2_subscription_proto:subscription.proto)",
     },
     build_script = "build.rs",
@@ -19,7 +19,7 @@ rust_protobuf_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
-        "//buck2/buck2_data:buck2_data",
     ],
 )

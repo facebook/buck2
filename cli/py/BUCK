@@ -9,7 +9,7 @@ buck_filegroup(
     name = "proto_sources",
     srcs = [
         "//buck2/app/buck2_cli_proto:daemon.proto",
-        "//buck2/buck2_data:data.proto",
+        "//buck2/app/buck2_data:data.proto",
     ],
 )
 

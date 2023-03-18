@@ -49,7 +49,7 @@ members = [
     "app/buck2_server_commands",
     "app/buck2_server_ctx",
     "app/buck2_util",
-    "buck2_data",
+    "app/buck2_data",
     # @oss-disable: "buck2_tpx",
     # @oss-disable: "buck2_tpx_cli",
     "app/buck2_build_api",
@@ -264,7 +264,7 @@ buck2_query_derive = { path = "app/buck2_query_derive" }
 buck2_starlark = { path = "app/buck2_starlark" }
 buck2_audit = { path = "app/buck2_audit" }
 buck2_cli_proto = { path = "app/buck2_cli_proto" }
-buck2_data = { path = "buck2_data" }
+buck2_data = { path = "app/buck2_data" }
 buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
 buck2_query = { path = "app/buck2_query" }
