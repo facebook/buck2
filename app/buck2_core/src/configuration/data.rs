@@ -84,7 +84,7 @@ enum ConfigurationLookupError {
     Allocative,
     derive_more::Display
 )]
-pub struct ConfigurationData(Intern<HashedPlatformConfigurationData>);
+pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
 
 /// Intern doesn't implement Hash.
 #[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq (that uses pointer equality) is still correct.
@@ -96,13 +96,13 @@ impl Hash for ConfigurationData {
 
 impl Dupe for ConfigurationData {}
 
-impl Borrow<str> for HashedPlatformConfigurationData {
+impl Borrow<str> for HashedConfigurationPlatform {
     fn borrow(&self) -> &str {
         &self.output_hash
     }
 }
 
-static INTERNER: StaticInterner<HashedPlatformConfigurationData> = StaticInterner::new();
+static INTERNER: StaticInterner<HashedConfigurationPlatform> = StaticInterner::new();
 
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
@@ -126,14 +126,14 @@ impl ConfigurationData {
         if !data.buckconfigs.is_empty() {
             return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
         }
-        Ok(Self::from_data(HashedPlatformConfigurationData::new(
+        Ok(Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(label, data),
         )))
     }
 
     pub fn unspecified() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
+            ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Unspecified,
             ))
         });
@@ -142,7 +142,7 @@ impl ConfigurationData {
 
     pub fn unspecified_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
+            ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::UnspecifiedExec,
             ))
         });
@@ -153,7 +153,7 @@ impl ConfigurationData {
     /// their dependencies (which is done to form the initial "bound" configurations).
     pub fn unbound() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
+            ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Unbound,
             ))
         });
@@ -164,7 +164,7 @@ impl ConfigurationData {
     /// before we've determined the execution configuration for the node.
     pub fn unbound_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
+            ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::UnboundExec,
             ))
         });
@@ -174,14 +174,14 @@ impl ConfigurationData {
     /// Produces an "invalid" configuration for testing.
     pub fn testing_new() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedPlatformConfigurationData::new(
+            ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Testing,
             ))
         });
         CONFIG.dupe()
     }
 
-    fn from_data(data: HashedPlatformConfigurationData) -> Self {
+    fn from_data(data: HashedConfigurationPlatform) -> Self {
         Self(INTERNER.intern(data))
     }
 
@@ -417,7 +417,7 @@ impl ConfigurationDataData {
     derive_more::Display
 )]
 #[display(fmt = "{}", full_name)]
-pub(crate) struct HashedPlatformConfigurationData {
+pub(crate) struct HashedConfigurationPlatform {
     configuration_platform: ConfigurationPlatform,
     // The remaining fields are computed from `platform_configuration_data`.
     /// The "full name" includes both the platform and a hash of the configuration data.
@@ -426,21 +426,21 @@ pub(crate) struct HashedPlatformConfigurationData {
     output_hash: String,
 }
 
-impl Equiv<HashedPlatformConfigurationData> for HashedPlatformConfigurationData {
-    fn equivalent(&self, key: &HashedPlatformConfigurationData) -> bool {
+impl Equiv<HashedConfigurationPlatform> for HashedConfigurationPlatform {
+    fn equivalent(&self, key: &HashedConfigurationPlatform) -> bool {
         self == key
     }
 }
 
 /// This will hash just the "output_hash" which should uniquely identify this data.
 #[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
-impl std::hash::Hash for HashedPlatformConfigurationData {
+impl std::hash::Hash for HashedConfigurationPlatform {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.output_hash.hash(state)
     }
 }
 
-impl HashedPlatformConfigurationData {
+impl HashedConfigurationPlatform {
     fn new(configuration_platform: ConfigurationPlatform) -> Self {
         // TODO(cjhopman): Should this be a crypto hasher?
         let mut hasher = DefaultHasher::new();
