@@ -32,6 +32,10 @@ enum ConfigurationError {
     )]
     Unbound,
     #[error(
+        "Attempted to access the configuration data for the \"unbound_exec\" platform. This platform should only be used when processing configuration rules (`platform()`, `config_setting()`, etc) and these do not support configuration features (like `select()`)."
+    )]
+    UnboundExec,
+    #[error(
         "Attempted to access the configuration data for the \"unspecified\" platform. This platform is used when the global default platform is unspecified and in that case configuration features (like `select()`) are unsupported."
     )]
     Unspecified,
@@ -226,11 +230,13 @@ impl ConfigurationData {
     pub fn data(&self) -> anyhow::Result<&ConfigurationDataData> {
         match &self.0.configuration_platform {
             ConfigurationPlatform::Unbound => Err(ConfigurationError::Unbound.into()),
+            ConfigurationPlatform::UnboundExec => Err(ConfigurationError::UnboundExec.into()),
             ConfigurationPlatform::Unspecified => Err(ConfigurationError::Unspecified.into()),
             ConfigurationPlatform::UnspecifiedExec => {
                 Err(ConfigurationError::UnspecifiedExec.into())
             }
-            _ => Ok(self.0.configuration_platform.cfg_data_data()),
+            ConfigurationPlatform::Testing => Ok(ConfigurationDataData::empty_ref()),
+            ConfigurationPlatform::Bound(_, data) => Ok(data),
         }
     }
 
@@ -313,17 +319,6 @@ impl ConfigurationPlatform {
             ConfigurationPlatform::UnboundExec => "<unbound_exec>",
             ConfigurationPlatform::Unspecified => "<unspecified>",
             ConfigurationPlatform::UnspecifiedExec => "<unspecified_exec>",
-        }
-    }
-
-    fn cfg_data_data(&self) -> &ConfigurationDataData {
-        match self {
-            ConfigurationPlatform::Bound(_, cfg) => cfg,
-            ConfigurationPlatform::Unbound
-            | ConfigurationPlatform::Unspecified
-            | ConfigurationPlatform::UnspecifiedExec
-            | ConfigurationPlatform::Testing
-            | ConfigurationPlatform::UnboundExec => ConfigurationDataData::empty_ref(),
         }
     }
 }
