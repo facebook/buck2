@@ -268,7 +268,10 @@ mod tests {
         let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
         let configured = coerced.configure(&configuration_ctx())?;
         assert_eq!(
-            r#""$(exe root//:foo (cfg_for//:testing_exec)) $(location root//:bar (<testing>))""#,
+            format!(
+                r#""$(exe root//:foo ({})) $(location root//:bar (<testing>))""#,
+                configuration_ctx().exec_cfg()
+            ),
             configured.as_display_no_ctx().to_string(),
         );
 

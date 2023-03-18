@@ -396,10 +396,6 @@ impl ConfigurationDataData {
         other
     }
 
-    fn is_empty(&self) -> bool {
-        self.constraints.is_empty()
-    }
-
     fn is_subset<K: Ord, V: Eq>(a: &BTreeMap<K, V>, b: &BTreeMap<K, V>) -> bool {
         // TODO(nga): this can be done in linear time.
         a.len() <= b.len() && a.iter().all(|(k, v)| b.get(k) == Some(v))
@@ -457,10 +453,15 @@ impl HashedPlatformConfigurationData {
         let output_hash = hasher.finish();
         let output_hash = format!("{:x}", output_hash);
 
-        let full_name = if configuration_platform.cfg_data_data().is_empty() {
-            configuration_platform.label().to_owned()
-        } else {
-            format!("{:#}#{}", configuration_platform.label(), output_hash)
+        let full_name = match &configuration_platform {
+            ConfigurationPlatform::Bound(label, _cfg) => {
+                format!("{:#}#{}", label, output_hash)
+            }
+            ConfigurationPlatform::Unbound
+            | ConfigurationPlatform::Unspecified
+            | ConfigurationPlatform::UnspecifiedExec
+            | ConfigurationPlatform::Testing
+            | ConfigurationPlatform::UnboundExec => configuration_platform.label().to_owned(),
         };
         Self {
             configuration_platform,

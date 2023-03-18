@@ -30,6 +30,7 @@ use buck2_interpreter_for_build::attrs::coerce::testing::to_value;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_info::ConfiguredAttrInfo;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -411,7 +412,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);
     assert_eq!(
-        expected_deps.map(|s| format!("{} (cfg_for//:testing_exec)", s)),
+        expected_deps.map(|s| format!("{} ({})", s, configuration_ctx().exec_cfg())),
         info.execution_deps
             .iter()
             .map(ToString::to_string)
@@ -734,7 +735,10 @@ fn test_arg() -> anyhow::Result<()> {
     );
     let configured = coerced.configure(&configuration_ctx())?;
     assert_eq!(
-        "\"$(exe root//some:exe (cfg_for//:testing_exec)) --file=$(location root//some:location (<testing>))\"",
+        format!(
+            "\"$(exe root//some:exe ({})) --file=$(location root//some:location (<testing>))\"",
+            configuration_ctx().exec_cfg()
+        ),
         configured.as_display_no_ctx().to_string()
     );
 
@@ -752,7 +756,10 @@ fn test_arg() -> anyhow::Result<()> {
     let expected_deps = vec!["root//some:location"];
     let expected_exec_deps = vec!["root//some:exe"];
     let expected_configured_deps = vec!["root//some:location (<testing>)"];
-    let expected_configured_exec_deps = vec!["root//some:exe (cfg_for//:testing_exec)"];
+    let expected_configured_exec_deps = vec![format!(
+        "root//some:exe ({})",
+        configuration_ctx().exec_cfg()
+    )];
 
     assert_eq!(expected_deps, deps);
     assert_eq!(expected_exec_deps, exec_deps);
