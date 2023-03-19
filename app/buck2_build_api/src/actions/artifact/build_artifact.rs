@@ -18,7 +18,7 @@ use dupe::Dupe;
 use crate::actions::key::ActionKey;
 
 /// An artifact that is built by the build system
-#[allow(clippy::derive_hash_xor_eq)] // The Eq is equivalent to what would have been generated
+#[allow(clippy::derived_hash_with_manual_eq)] // The Eq is equivalent to what would have been generated
 #[derive(Clone, Debug, Dupe, Display, Derivative, Allocative)]
 #[derivative(PartialEq, Eq, Hash)]
 #[display(fmt = "`{}`, action: {}", path, key)]

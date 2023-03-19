@@ -689,7 +689,7 @@ where
         }
 
         Ok(response
-            .get(&digest)
+            .get(digest)
             .with_context(|| format!("Did not receive digest data for `{}`", digest))?
             .clone())
     };

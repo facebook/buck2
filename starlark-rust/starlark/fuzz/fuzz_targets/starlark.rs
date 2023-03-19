@@ -34,7 +34,7 @@ fn run_arbitrary_starlark(content: &str) -> anyhow::Result<()> {
     let mut eval: Evaluator = Evaluator::new(&module);
     let value = black_box(eval.eval_module(ast, &globals)?);
     _ = black_box(format!("{value:?}"));
-    return Ok(());
+    Ok(())
 }
 
 fuzz_target!(|content: &str| {

@@ -1050,7 +1050,7 @@ mod tests {
         // A type which always gives hash collisions
         #[derive(PartialEq, Eq, Debug)]
         struct K(i32);
-        #[allow(clippy::derive_hash_xor_eq)]
+        #[allow(clippy::derived_hash_with_manual_eq)]
         impl Hash for K {
             fn hash<H: Hasher>(&self, _state: &mut H) {}
         }

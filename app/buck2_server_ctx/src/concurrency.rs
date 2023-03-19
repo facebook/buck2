@@ -1343,7 +1343,7 @@ mod tests {
         T: EventSource,
         F: Fn(&BuckEvent) -> bool + Send,
     {
-        return tokio::time::timeout(Duration::from_millis(2), async {
+        tokio::time::timeout(Duration::from_millis(2), async {
             loop {
                 if let Some(event) = source.try_receive() {
                     if let Some(event) = event.unpack_buck() {
@@ -1356,7 +1356,7 @@ mod tests {
             }
         })
         .await
-        .context("Time out waiting for matching buck event");
+        .context("Time out waiting for matching buck event")
     }
 
     async fn wait_for_exclusive_span_start<T>(

@@ -25,7 +25,7 @@ pub struct Hashed<T> {
     value: T,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<T> Hash for Hashed<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.hash(state)

@@ -19,16 +19,11 @@ use dupe::Dupe;
 
 use crate::eval::ProfileMode;
 
-#[derive(Debug, Clone, Dupe, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Dupe, Eq, PartialEq)]
 pub(crate) enum ProfileOrInstrumentationMode {
+    #[default]
     None,
     Instrumentation(ProfileMode),
     Profile(ProfileMode),
     Collected,
-}
-
-impl Default for ProfileOrInstrumentationMode {
-    fn default() -> ProfileOrInstrumentationMode {
-        ProfileOrInstrumentationMode::None
-    }
 }

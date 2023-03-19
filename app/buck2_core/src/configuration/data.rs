@@ -87,7 +87,7 @@ enum ConfigurationLookupError {
 pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
 
 /// Intern doesn't implement Hash.
-#[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq (that uses pointer equality) is still correct.
+#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq (that uses pointer equality) is still correct.
 impl Hash for ConfigurationData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -338,7 +338,7 @@ pub struct ConfigurationDataData {
 /// We don't use derive(Hash) here because we build Buck 2 on two different versions of Rustc at
 /// the moment, and their hashing disagrees <https://github.com/rust-lang/rust/pull/89443>. In any
 /// case, we should control what goes into our hash here.
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for ConfigurationDataData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for elt in self.constraints.iter() {
@@ -433,7 +433,7 @@ impl Equiv<HashedConfigurationPlatform> for HashedConfigurationPlatform {
 }
 
 /// This will hash just the "output_hash" which should uniquely identify this data.
-#[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
+#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq is still correct.
 impl std::hash::Hash for HashedConfigurationPlatform {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.output_hash.hash(state)

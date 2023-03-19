@@ -35,7 +35,7 @@ pub struct Hashed<K> {
 }
 
 // We deliberately know that this is a hash and value, so our Eq/Hash are fine
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<K> Hash for Hashed<K> {
     fn hash<S: Hasher>(&self, state: &mut S) {
         // Only hash the hash, not the key.

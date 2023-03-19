@@ -50,7 +50,7 @@ pub(crate) struct Bucket<K, V> {
     value: V,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<K: Hash, V: Hash> Hash for Bucket<K, V> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash.hash(state);

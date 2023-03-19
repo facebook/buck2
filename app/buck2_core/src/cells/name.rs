@@ -27,7 +27,7 @@ enum CellNameError {
 #[derive(Clone, Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 struct CellNameData(Box<str>);
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl Hash for CellNameData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         CellNameDataRef(&self.0).hash(state)

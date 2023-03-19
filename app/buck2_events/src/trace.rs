@@ -84,7 +84,7 @@ impl TraceId {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)] // The derived PartialEq is still correct.
+#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq is still correct.
 impl Hash for TraceId {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash().hash(state);

@@ -30,8 +30,10 @@ enum StarlarkProfilerError {
 
 /// Global profiling configuration.
 #[derive(PartialEq, Eq, Clone, Dupe, Debug, Allocative)]
+#[derive(Default)]
 pub enum StarlarkProfilerConfiguration {
     /// No profiling.
+    #[default]
     None,
     /// Instrument everything, but no profiling.
     Instrument(StarlarkProfilerInstrumentation),
@@ -43,12 +45,6 @@ pub enum StarlarkProfilerConfiguration {
     ProfileAnalysisRecursively(ProfileMode),
     /// Profile BXL
     ProfileBxl(ProfileMode),
-}
-
-impl Default for StarlarkProfilerConfiguration {
-    fn default() -> StarlarkProfilerConfiguration {
-        StarlarkProfilerConfiguration::None
-    }
 }
 
 impl StarlarkProfilerConfiguration {
