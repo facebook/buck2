@@ -27,11 +27,25 @@ pub struct ConfigurationHash(pub(crate) String);
 
 impl ConfigurationHash {
     pub(crate) fn new(value: u64) -> ConfigurationHash {
-        ConfigurationHash(format!("{:x}", value))
+        ConfigurationHash(format!("{:0>16x}", value))
     }
 
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::configuration::hash::ConfigurationHash;
+
+    #[test]
+    fn test_hash() {
+        assert_eq!("0000000000000000", ConfigurationHash::new(0).as_str());
+        assert_eq!(
+            "ffffffffffffffff",
+            ConfigurationHash::new(u64::MAX).as_str()
+        );
     }
 }
