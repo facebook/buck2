@@ -144,7 +144,7 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
             "-anon/",
             self.name().pkg().cell_name().as_str(),
             "/",
-            self.exec_cfg().cfg().output_hash(),
+            self.exec_cfg().cfg().output_hash().as_str(),
             cell_relative_path,
             if cell_relative_path.is_empty() {
                 ""

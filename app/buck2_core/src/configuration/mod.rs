@@ -21,5 +21,6 @@
 pub mod cfg_diff;
 pub mod constraints;
 pub mod data;
+pub mod hash;
 pub mod pair;
 pub mod transition;

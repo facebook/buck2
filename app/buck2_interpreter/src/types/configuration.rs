@@ -40,6 +40,6 @@ fn configuration_methods(builder: &mut MethodsBuilder) {
 
     #[starlark(attribute)]
     fn hash<'v>(this: &StarlarkConfiguration) -> anyhow::Result<&'v str> {
-        Ok(this.0.output_hash())
+        Ok(this.0.output_hash().as_str())
     }
 }

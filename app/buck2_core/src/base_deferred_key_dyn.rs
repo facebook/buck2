@@ -94,9 +94,12 @@ impl BaseDeferredKeyDyn {
                     "/",
                     target.pkg().cell_name().as_str(),
                     "/",
-                    target.cfg().output_hash(),
+                    target.cfg().output_hash().as_str(),
                     if target.exec_cfg().is_some() { "-" } else { "" },
-                    target.exec_cfg().as_ref().map_or("", |x| x.output_hash()),
+                    target
+                        .exec_cfg()
+                        .as_ref()
+                        .map_or("", |x| x.output_hash().as_str()),
                     "/",
                     cell_relative_path,
                     if cell_relative_path.is_empty() {

@@ -457,7 +457,7 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label,);
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -487,7 +487,7 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label_with_slashes,);
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -506,7 +506,7 @@ mod tests {
                 _config_hash: config_hash,
             } => {
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
                 assert_eq!(target_label, expected_target_label,);
             }
             _ => panic!("Should have parsed buck-out path successfully"),
@@ -530,7 +530,7 @@ mod tests {
                 _config_hash: config_hash,
             } => {
                 assert_eq!(path, expected_test_cell_path,);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -552,7 +552,7 @@ mod tests {
                 assert_eq!(target_label, expected_target_label,);
                 assert_eq!(path, expected_cell_path,);
                 assert_eq!(attr_hash, "anon_hash",);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -581,7 +581,7 @@ mod tests {
                 };
 
                 assert_eq!(bxl_function_label, expected_bxl_function_label,);
-                assert_eq!(config_hash, expected_config_hash,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }

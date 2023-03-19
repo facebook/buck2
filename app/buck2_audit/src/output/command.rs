@@ -185,8 +185,8 @@ async fn audit_output<'v>(
         .await?;
 
     let command_config = configured_target_label.cfg();
-    let command_config_hash = command_config.output_hash().to_owned();
-    if !command_config_hash.eq(&config_hash) {
+    let command_config_hash = command_config.output_hash();
+    if command_config_hash.as_str() != config_hash {
         return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
     }
 

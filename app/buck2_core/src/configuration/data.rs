@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::hash::Hash;
@@ -24,6 +23,7 @@ use serde::Serializer;
 
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
+use crate::configuration::hash::ConfigurationHash;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfigurationError {
@@ -96,9 +96,12 @@ impl Hash for ConfigurationData {
 
 impl Dupe for ConfigurationData {}
 
-impl Borrow<str> for HashedConfigurationPlatform {
-    fn borrow(&self) -> &str {
-        &self.output_hash
+#[derive(Hash)]
+struct ConfigurationHashRef<'a>(&'a str);
+
+impl<'a> Equiv<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
+    fn equivalent(&self, key: &HashedConfigurationPlatform) -> bool {
+        self.0 == key.output_hash.as_str()
     }
 }
 
@@ -201,7 +204,7 @@ impl ConfigurationData {
     /// the current daemon process.
     pub fn lookup_from_string(cfg: &str) -> anyhow::Result<Self> {
         match cfg.rsplit_once('#') {
-            Some((_, hash)) => match INTERNER.get(hash) {
+            Some((_, hash)) => match INTERNER.get(ConfigurationHashRef(hash)) {
                 Some(cfg) => Ok(Self(cfg)),
                 None => Err(ConfigurationLookupError::ConfigNotFound(
                     cfg.to_owned(),
@@ -255,7 +258,7 @@ impl ConfigurationData {
         }
     }
 
-    pub fn output_hash(&self) -> &str {
+    pub fn output_hash(&self) -> &ConfigurationHash {
         &self.0.output_hash
     }
 
@@ -423,7 +426,7 @@ pub(crate) struct HashedConfigurationPlatform {
     /// The "full name" includes both the platform and a hash of the configuration data.
     full_name: String,
     /// A hash of the configuration data that is used for determining output paths.
-    output_hash: String,
+    output_hash: ConfigurationHash,
 }
 
 impl Equiv<HashedConfigurationPlatform> for HashedConfigurationPlatform {
@@ -446,7 +449,7 @@ impl HashedConfigurationPlatform {
         let mut hasher = DefaultHasher::new();
         configuration_platform.hash(&mut hasher);
         let output_hash = hasher.finish();
-        let output_hash = format!("{:x}", output_hash);
+        let output_hash = ConfigurationHash::new(output_hash);
 
         let full_name = match &configuration_platform {
             ConfigurationPlatform::Bound(label, _cfg) => {
@@ -590,7 +593,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(configuration.output_hash(), "fd698fb05d52efbc");
+        assert_eq!(configuration.output_hash().as_str(), "fd698fb05d52efbc");
         assert_eq!(
             configuration.to_string(),
             "cfg_for//:testing_exec#fd698fb05d52efbc"
