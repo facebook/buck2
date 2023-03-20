@@ -59,6 +59,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
+use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
@@ -71,6 +72,7 @@ use faccess::PathExt;
 use futures::future;
 use futures::future::select;
 use futures::future::FutureExt;
+use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
@@ -685,7 +687,20 @@ pub async fn materialize_inputs(
         }
     }
 
-    materializer.ensure_materialized(paths).await
+    let mut stream = materializer.materialize_many(paths).await?;
+    while let Some(res) = stream.next().await {
+        match res {
+            Ok(()) => {}
+            Err(e @ MaterializationError::NotFound { .. }) => {
+                return Err(quiet_soft_error!("cas_missing_fatal", e.into())?);
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 async fn check_inputs(

@@ -255,6 +255,15 @@ impl Uploader {
                             // a very long time, it might have expired.
                             if file.digest.to_re() == digest {
                                 if should_error_for_missing_digest(info) {
+                                    soft_error!(
+                                        "cas_missing_fatal",
+                                        anyhow::anyhow!(
+                                            "{} missing (origin: {})",
+                                            file.digest,
+                                            info.origin.as_display_for_not_found(),
+                                        )
+                                    )?;
+
                                     return Err(anyhow::anyhow!(
                                         "Your build requires an artifact that has expired in the RE CAS \
                                         and Buck does not have it. This likely happened because your Buck daemon \
