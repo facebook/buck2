@@ -65,7 +65,7 @@ mod imp {
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
 
-    fn get_stack() -> Vec<buck2_data::panic::StackFrame> {
+    fn get_stack() -> Vec<buck2_data::structured_error::StackFrame> {
         fn ptr_to_string<T>(ptr: *mut T) -> String {
             format!("0x{:x}", ptr as usize)
         }
@@ -78,7 +78,7 @@ mod imp {
                 let symbols = frame
                     .symbols()
                     .iter()
-                    .map(|symbol| buck2_data::panic::Symbol {
+                    .map(|symbol| buck2_data::structured_error::Symbol {
                         name: symbol
                             .name()
                             .map_or_else(|| "".to_owned(), |s| s.to_string()),
@@ -91,7 +91,7 @@ mod imp {
                     })
                     .collect::<Vec<_>>();
 
-                buck2_data::panic::StackFrame {
+                buck2_data::structured_error::StackFrame {
                     instruction_pointer: ptr_to_string(frame.ip()),
                     symbol_address: ptr_to_string(frame.symbol_address()),
                     module_base_address: frame
@@ -179,12 +179,12 @@ mod imp {
     fn panic_payload(
         location: Option<Location>,
         message: String,
-        backtrace: Vec<buck2_data::panic::StackFrame>,
+        backtrace: Vec<buck2_data::structured_error::StackFrame>,
         quiet: bool,
         soft_error_category: Option<&str>,
-    ) -> buck2_data::Panic {
+    ) -> buck2_data::StructuredError {
         let metadata = get_metadata_for_panic();
-        buck2_data::Panic {
+        buck2_data::StructuredError {
             location,
             payload: message,
             metadata,
@@ -195,7 +195,7 @@ mod imp {
     }
 
     /// Writes a representation of the given error (hard or soft) to Scribe
-    fn write_to_scribe(fb: FacebookInit, data: buck2_data::Panic) {
+    fn write_to_scribe(fb: FacebookInit, data: buck2_data::StructuredError) {
         use std::time::SystemTime;
 
         use buck2_core::facebook_only;

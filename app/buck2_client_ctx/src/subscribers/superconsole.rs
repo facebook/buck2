@@ -357,19 +357,18 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_panic(
+    async fn handle_structured_error(
         &mut self,
-        panic: &buck2_data::Panic,
+        err: &buck2_data::StructuredError,
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        if panic.quiet {
+        if err.quiet {
             return Ok(());
         }
         match &mut self.super_console {
             Some(super_console) => {
                 super_console.emit(
-                    panic
-                        .payload
+                    err.payload
                         .lines()
                         .map(|line| {
                             Line::from_iter([Span::new_colored_lossy(line, Color::DarkYellow)])
@@ -378,7 +377,12 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 );
                 Ok(())
             }
-            None => self.state.simple_console.handle_panic(panic, event).await,
+            None => {
+                self.state
+                    .simple_console
+                    .handle_structured_error(err, event)
+                    .await
+            }
         }
     }
 

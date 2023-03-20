@@ -135,7 +135,7 @@ message InstantEvent {
   reserved 9, 13;
 
   oneof data {
-    Panic panic = 1;
+    StructuredError structured_error = 1;
     MercurialInfo hg_info = 2;
     ConsoleMessage console_message = 3;
     BuildGraphExecutionInfo build_graph_info = 4;
@@ -204,8 +204,8 @@ message Location {
   uint32 column = 3;
 }
 
-// A panic, or an otherwise fatal error that causes the CLI or daemon to crash.
-message Panic {
+// An error that needs to be reported. This may be a panic, or a soft error.
+message StructuredError {
   // A resolved symbol, obtained through symbolicating the stack trace.
   message Symbol {
     // The name of the symbol (i.e. the function).
@@ -237,15 +237,16 @@ message Panic {
     repeated Symbol symbols = 4;
   }
 
-  // The payload of the panic (the argument to panic!).
+  // The payload of the error (the argument to panic! if we are reporting a
+  // panic).
   string payload = 1;
-  // The location of the panic.
+  // The code location this occurred at.
   Location location = 2;
-  // Metadata associated with this panic.
+  // Metadata associated with this daemon.
   map<string, string> metadata = 3;
-  // A backtrace associated with this panic.
+  // A backtrace, we set this for panics.
   repeated StackFrame backtrace = 4;
-  // Panic is also used to propagate soft_errors, which can be hidden from
+  // StructuredError is used to propagate soft_errors, which can be hidden from
   // users. If true, it won't get logged to console
   bool quiet = 5;
   // If this was a soft error, its category.

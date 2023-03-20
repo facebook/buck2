@@ -24,7 +24,7 @@ mod fbcode {
     use buck2_core::truncate::truncate;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
-    use buck2_data::Panic;
+    use buck2_data::StructuredError;
     use fbinit::FacebookInit;
     use prost::Message;
 
@@ -119,7 +119,7 @@ mod fbcode {
                         None,
                         buck2_data::buck_event::Data::Instant(InstantEvent {
                             data: Some(
-                                Panic {
+                                StructuredError {
                                     location: Some(Location {
                                         file: file!().to_string(),
                                         line: line!(),

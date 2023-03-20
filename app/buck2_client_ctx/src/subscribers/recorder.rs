@@ -619,8 +619,11 @@ mod imp {
             Ok(())
         }
 
-        fn handle_panic(&mut self, panic: &buck2_data::Panic) -> anyhow::Result<()> {
-            if let Some(soft_error_category) = panic.soft_error_category.as_ref() {
+        fn handle_structured_error(
+            &mut self,
+            err: &buck2_data::StructuredError,
+        ) -> anyhow::Result<()> {
+            if let Some(soft_error_category) = err.soft_error_category.as_ref() {
                 self.soft_error_categories
                     .insert(soft_error_category.to_owned());
             }
@@ -706,7 +709,9 @@ mod imp {
                         buck2_data::instant_event::Data::MaterializerStateInfo(
                             materializer_state,
                         ) => self.handle_materializer_state_info(materializer_state),
-                        buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic),
+                        buck2_data::instant_event::Data::StructuredError(err) => {
+                            self.handle_structured_error(err)
+                        }
                         _ => Ok(()),
                     }
                 }

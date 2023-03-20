@@ -114,7 +114,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::ReSession(session) => {
                 self.handle_re_session_created(session, event).await
             }
-            buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic, event).await,
+            buck2_data::instant_event::Data::StructuredError(err) => {
+                self.handle_structured_error(err, event).await
+            }
             buck2_data::instant_event::Data::TestDiscovery(discovery) => {
                 self.handle_test_discovery(discovery, event).await
             }
@@ -165,9 +167,9 @@ pub trait UnpackingEventSubscriber: Send {
     ) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_panic(
+    async fn handle_structured_error(
         &mut self,
-        _panic: &buck2_data::Panic,
+        _err: &buck2_data::StructuredError,
         _event: &BuckEvent,
     ) -> anyhow::Result<()>;
 
