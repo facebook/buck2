@@ -3,69 +3,67 @@ id: getting_started
 title: Getting Started
 ---
 
-# Getting started
-
 ## Installing Buck2
 
 To get started, first install the `buck2` executable:
 
-```
+```bash
 rustup install nightly
 cargo +nightly install --git https://github.com/facebook/buck2.git cli
 ```
 
-That will install `buck2` into a suitable directory, e.g. `$HOME/.cargo/bin`, which you should then add to your `$PATH`.
+The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:
 
-```
+```sh
 export PATH=$HOME/.cargo/bin:$PATH
 ```
 
+With Buck2 installed, you can build projects with `buck2`!
+
 ## Compiling your first project
 
-Once it is installed, you can now build projects with `buck2`!
+This section covers the building of a ['hello_world' example project](https://github.com/facebookincubator/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebookincubator/buck2/tree/main/examples/prelude), which contains Rust, C++, Python, and OCaml targets.
 
-In this section, we will go over building the [hello_world example project](https://github.com/facebook/buck2/tree/main/examples/hello_world), which builds a simple C++ binary. If you are interested in seeing how other languages can be built, check the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/prelude) which contains Rust, C++, Python, and OCaml targets.
+First, clone the buck2 repository and cd into the 'hello_world' project:
 
-First, clone the buck2 repository and cd into the hello_world project:
-
-```
-$ git clone https://github.com/facebook/buck2.git
-$ cd examples/hello_world
+```bash
+git clone https://github.com/facebookincubator/buck2.git
+cd examples/hello_world
 ```
 
- `buck2 init` is all the setup you need to start building. This will pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) in to your project:
+ `buck2 init` is all the setup you need to start building. This will pull [buck2-prelude](https://github.com/facebookincubator/buck2-prelude) into your project:
 
-```
-$ buck2 init
+```sh
+buck2 init
 ```
 
 To build the entire project, run:
 
-```
-$ buck2 build //...
+```sh
+buck2 build //...
 ```
 
 To list all targets available in the project, run:
 
-```
-$ buck2 targets //...
+```sh
+buck2 targets //...
 ```
 
 To run the main C++ binary, run:
 
-```
-$ buck2 run //:main
+```sh
+buck2 run //:main
 ```
 
 The newly built binary can be found with the `--show-output` flag:
 
-```
-$ buck2 build //:main --show-output
+```sh
+buck2 build //:main --show-output
 ```
 
 Output:
 
-```
+```sh
 Build ID: 0e890477-5b7f-4829-9ffe-662e572320a0
 Jobs completed: 3. Time elapsed: 0.0s.
 BUILD SUCCEEDED
@@ -74,34 +72,33 @@ root//:main buck-out/v2/gen/root/9f4d83578bb24895/__main__/main
 
 ## Creating your first hello_world project
 
-In this section, we’ll demonstrate how to create a simple C++ Hello World project.
+This section demonstrates how to create a simple C++ 'hello_world' project.
 
 To get started, make a new folder for your project and cd into it.
 
+```sh
+mkdir hello_world
+cd hello_world
 ```
-$ mkdir hello_world
-$ cd hello_world
-```
-
 
 Next, run `buck2 init` to initialize the project. This command will set up your project with `git` and pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) as a submodule. Additionally, it will generate multiple files with default values.
 
-```
-$ buck2 init
+```sh
+buck2 init
 ```
 
-Now let’s add our source code `main.cpp` ,
+Next, add the source code `main.cpp` ,
 
-```
+```c++
 #include <iostream>
 int main() {
     std::cout << "Hello from a C++ Buck2 program!" << std::endl;
 }
 ```
 
-Then, define a `cxx_binary` in our root `BUCK` file:
+Then, define a `cxx_binary` in the root `BUCK` file:
 
-```
+```Python
 # BUCK
 cxx_binary(
     name = "main",
@@ -110,11 +107,11 @@ cxx_binary(
 )
 ```
 
-If you try to build `//:main` at this point, you will see an error about `buck2` not being able to find `toolchains//:cxx`.
+If you try to build `//:main` at this point, you'll see an error about `buck2` not being able to find `toolchains//:cxx`.
 
-As a final step, let’s define the necessary toolchain targets. For this project, we will need  `system_cxx_toolchain` and `system_python_bootstrap_toolchain`. These will pick up necessary tools (clang++, python, etc.) from the system.
+The final step is to define the necessary toolchain targets. For that project, you need `system_cxx_toolchain` and `system_python_bootstrap_toolchain`, which will pick up the necessary tools (clang++, python, and so on) from the system.
 
-```
+```Python
 # toolchains/BUCK
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
@@ -132,7 +129,7 @@ system_python_bootstrap_toolchain(
 
 At this point, your project should have the following files:
 
-```
+```bash
 $ tree -a -I "buck-out|prelude|.git"
 |-- .buckconfig
 |-- .gitmodules
@@ -142,24 +139,23 @@ $ tree -a -I "buck-out|prelude|.git"
     `-- BUCK
 ```
 
-Now we’re ready to see the build in action.
+Now, you're ready to see the build in action.
 
 To build the main C++ target, run:
 
-```
-$ buck2 build //:main
+```sh
+buck2 build //:main
 ```
 
 To run the main C++ target, run:
 
-```
-$ buck2 run //:main
+```sh
+buck2 run //:main
 ```
 
 ## Learning More
 
-You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebook/buck2/tree/main/examples) folder and look out for more tutorials in the future.
-
+You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebookincubator/buck2/tree/main/examples) folder.  Look out for more tutorials in the future.
 
 <FbInternalOnly>
 
