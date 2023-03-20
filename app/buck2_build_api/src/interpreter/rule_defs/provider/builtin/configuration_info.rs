@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_common::legacy_configs::parse_config_section_and_key;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationDataData;
@@ -52,7 +53,7 @@ pub(crate) struct ConfigurationInfoGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
-    pub fn to_configuration_data(&self) -> ConfigurationDataData {
+    pub fn to_config_setting_data(&self) -> ConfigSettingData {
         let constraints =
             DictRef::from_value(self.constraints.to_value()).expect("type checked on construction");
         let mut converted_constraints = BTreeMap::new();
@@ -76,7 +77,21 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
             converted_values.insert(key_config, value_config);
         }
 
-        ConfigurationDataData::new(converted_constraints, converted_values)
+        ConfigSettingData {
+            constraints: converted_constraints,
+            buckconfigs: converted_values,
+        }
+    }
+
+    pub fn to_configuration_data(&self) -> ConfigurationDataData {
+        let ConfigSettingData {
+            constraints,
+            buckconfigs,
+        } = self.to_config_setting_data();
+        ConfigurationDataData {
+            constraints,
+            buckconfigs,
+        }
     }
 }
 

@@ -19,6 +19,7 @@
 //!
 
 pub mod cfg_diff;
+pub mod config_setting;
 pub mod constraints;
 pub mod data;
 pub mod hash;

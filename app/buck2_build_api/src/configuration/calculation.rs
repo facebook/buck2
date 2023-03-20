@@ -20,8 +20,8 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::unordered_map::UnorderedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -308,7 +308,7 @@ async fn configuration_matches(
     ctx: &DiceComputations,
     cfg: &ConfigurationData,
     target_node_cell: CellName,
-    constraints_and_configs: &ConfigurationDataData,
+    constraints_and_configs: &ConfigSettingData,
 ) -> SharedResult<bool> {
     for (key, value) in &constraints_and_configs.constraints {
         match cfg.get_constraint_value(key)? {
@@ -572,7 +572,7 @@ impl ConfigurationCalculation for DiceComputations {
                         .shared_error();
                     }
                 }
-                .to_configuration_data();
+                .to_config_setting_data();
 
                 let matches =
                     configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;

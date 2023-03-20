@@ -19,8 +19,8 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -495,7 +495,7 @@ impl AttrCoercionContext for AnonAttrCtx {
 }
 
 impl AttrConfigurationContext for AnonAttrCtx {
-    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
+    fn matches<'a>(&'a self, _label: &TargetLabel) -> Option<&'a ConfigSettingData> {
         None
     }
 

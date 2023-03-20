@@ -12,8 +12,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -36,7 +36,7 @@ pub enum PlatformConfigurationError {
 /// configuration.
 pub trait AttrConfigurationContext {
     /// Return the content of the resolved `config_setting` on match.
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData>;
+    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData>;
 
     fn cfg(&self) -> ConfigurationNoExec;
 
@@ -123,7 +123,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
+    fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
         self.resolved_cfg
             .setting_matches(ConfigurationSettingKeyRef(label))
     }

@@ -11,8 +11,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcSlice;
@@ -281,7 +281,7 @@ impl CoercedAttr {
         ctx: &dyn AttrConfigurationContext,
         select_entries: &'a [(TargetLabel, CoercedAttr)],
     ) -> anyhow::Result<Option<&'a CoercedAttr>> {
-        let mut matching: Option<(&TargetLabel, &ConfigurationDataData, &CoercedAttr)> = None;
+        let mut matching: Option<(&TargetLabel, &ConfigSettingData, &CoercedAttr)> = None;
         for (k, v) in select_entries {
             matching = match (ctx.matches(k), matching) {
                 (None, matching) => matching,

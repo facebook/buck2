@@ -145,10 +145,10 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_core::collections::ordered_map::OrderedMap;
+    use buck2_core::configuration::config_setting::ConfigSettingData;
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
     use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::configuration::data::ConfigurationDataData;
     use buck2_core::configuration::pair::ConfigurationNoExec;
     use buck2_core::configuration::pair::ConfigurationWithExec;
     use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -223,11 +223,11 @@ mod tests {
     #[test]
     fn select_the_most_specific() {
         struct SelectTestConfigurationContext {
-            settings: BTreeMap<TargetLabel, ConfigurationDataData>,
+            settings: BTreeMap<TargetLabel, ConfigSettingData>,
         }
 
         impl AttrConfigurationContext for SelectTestConfigurationContext {
-            fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
+            fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
                 self.settings.get(label)
             }
 
@@ -276,14 +276,14 @@ mod tests {
             settings: BTreeMap::from_iter([
                 (
                     linux.dupe(),
-                    ConfigurationDataData {
+                    ConfigSettingData {
                         constraints: BTreeMap::from_iter([(c_os.dupe(), c_linux.dupe())]),
                         buckconfigs: BTreeMap::new(),
                     },
                 ),
                 (
                     linux_arm64.dupe(),
-                    ConfigurationDataData {
+                    ConfigSettingData {
                         constraints: BTreeMap::from_iter([
                             (c_os.dupe(), c_linux.dupe()),
                             (c_cpu.dupe(), c_arm64.dupe()),
@@ -293,7 +293,7 @@ mod tests {
                 ),
                 (
                     linux_x86_64.dupe(),
-                    ConfigurationDataData {
+                    ConfigSettingData {
                         constraints: BTreeMap::from_iter([
                             (c_os.dupe(), c_linux.dupe()),
                             (c_cpu.dupe(), c_x86_64.dupe()),

@@ -21,8 +21,8 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -378,7 +378,7 @@ fn unpack_target_compatible_with_attr(
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
+        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
             self.resolved_cfg
                 .setting_matches(ConfigurationSettingKeyRef(label))
         }

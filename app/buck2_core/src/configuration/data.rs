@@ -383,21 +383,6 @@ impl ConfigurationDataData {
         }
         other
     }
-
-    fn is_subset<K: Ord, V: Eq>(a: &BTreeMap<K, V>, b: &BTreeMap<K, V>) -> bool {
-        // TODO(nga): this can be done in linear time.
-        a.len() <= b.len() && a.iter().all(|(k, v)| b.get(k) == Some(v))
-    }
-
-    fn len_sum(&self) -> usize {
-        self.constraints.len() + self.buckconfigs.len()
-    }
-
-    pub fn refines(&self, that: &ConfigurationDataData) -> bool {
-        self.len_sum() > that.len_sum()
-            && Self::is_subset(&that.constraints, &self.constraints)
-            && Self::is_subset(&that.buckconfigs, &self.buckconfigs)
-    }
 }
 
 #[derive(
@@ -462,102 +447,11 @@ impl HashedConfigurationPlatform {
 mod tests {
     use std::collections::BTreeMap;
 
-    use dupe::Dupe;
-
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
     use crate::target::label::TargetLabel;
-
-    #[test]
-    fn is_subset() {
-        let m_12_34 = BTreeMap::from_iter([(1, 2), (3, 4)]);
-        let m_12_35 = BTreeMap::from_iter([(1, 2), (3, 5)]);
-        let m_12 = BTreeMap::from_iter([(1, 2)]);
-        let empty = BTreeMap::<u32, u32>::new();
-
-        // A set is a subset of itself
-        assert!(ConfigurationDataData::is_subset(&m_12_34, &m_12_34));
-        assert!(ConfigurationDataData::is_subset(&m_12, &m_12));
-        assert!(ConfigurationDataData::is_subset(&empty, &empty));
-
-        assert!(ConfigurationDataData::is_subset(&m_12, &m_12_34));
-        assert!(!ConfigurationDataData::is_subset(&m_12_34, &m_12));
-
-        assert!(!ConfigurationDataData::is_subset(&m_12_34, &m_12_35));
-    }
-
-    #[test]
-    fn refines() {
-        fn constraint_key(t: &str) -> ConstraintKey {
-            ConstraintKey(TargetLabel::testing_parse(t))
-        }
-
-        fn constraint_value(t: &str) -> ConstraintValue {
-            ConstraintValue(TargetLabel::testing_parse(t))
-        }
-
-        let os = constraint_key("config//:os");
-        let linux = constraint_value("config//:linux");
-        let cpu = constraint_key("config//:cpu");
-        let arm64 = constraint_value("config//:arm64");
-        let x86_64 = constraint_value("config//:x86_64");
-
-        let c_linux = ConfigurationDataData {
-            constraints: BTreeMap::from_iter([(os.dupe(), linux.dupe())]),
-            buckconfigs: BTreeMap::new(),
-        };
-        let c_arm64 = ConfigurationDataData {
-            constraints: BTreeMap::from_iter([(cpu.dupe(), arm64.dupe())]),
-            buckconfigs: BTreeMap::new(),
-        };
-        let c_linux_arm64 = ConfigurationDataData {
-            constraints: BTreeMap::from_iter([
-                (os.dupe(), linux.dupe()),
-                (cpu.dupe(), arm64.dupe()),
-            ]),
-            buckconfigs: BTreeMap::new(),
-        };
-        let c_linux_x86_64 = ConfigurationDataData {
-            constraints: BTreeMap::from_iter([
-                (os.dupe(), linux.dupe()),
-                (cpu.dupe(), x86_64.dupe()),
-            ]),
-            buckconfigs: BTreeMap::new(),
-        };
-
-        // Config setting does not refines identical config setting.
-        assert!(!c_linux.refines(&c_linux));
-
-        assert!(!c_linux.refines(&c_arm64));
-        assert!(!c_arm64.refines(&c_linux));
-
-        assert!(c_linux_arm64.refines(&c_linux));
-        assert!(c_linux_arm64.refines(&c_arm64));
-
-        assert!(!c_linux_x86_64.refines(&c_linux_arm64));
-    }
-
-    #[test]
-    fn buckconfig_refines() {
-        let c1 = ConfigurationDataData {
-            constraints: BTreeMap::new(),
-            buckconfigs: BTreeMap::from_iter([("foo.bar".to_owned(), "baz".to_owned())]),
-        };
-        let c11 = ConfigurationDataData {
-            constraints: BTreeMap::new(),
-            buckconfigs: BTreeMap::from_iter([
-                ("foo.bar".to_owned(), "baz".to_owned()),
-                ("foo.qux".to_owned(), "quux".to_owned()),
-            ]),
-        };
-
-        assert!(c11.refines(&c1));
-        assert!(!c11.refines(&c11));
-        assert!(!c1.refines(&c1));
-        assert!(!c1.refines(&c11));
-    }
 
     /// We don't want the output hash to change by accident. This test is here to assert that it
     /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,

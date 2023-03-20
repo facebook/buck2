@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -23,11 +24,7 @@ use dupe::Dupe;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
-    struct TestAttrConfigurationContext(
-        ConfigurationData,
-        ConfigurationData,
-        ConfigurationDataData,
-    );
+    struct TestAttrConfigurationContext(ConfigurationData, ConfigurationData, ConfigSettingData);
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
             ConfigurationNoExec::new(self.0.dupe())
@@ -37,7 +34,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.1.dupe())
         }
 
-        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigurationDataData> {
+        fn matches<'a>(&'a self, label: &TargetLabel) -> Option<&'a ConfigSettingData> {
             match label.to_string().as_ref() {
                 "root//other:config" => Some(&self.2),
                 _ => None,
@@ -67,7 +64,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             },
         )
         .unwrap(),
-        ConfigurationDataData {
+        ConfigSettingData {
             constraints: BTreeMap::new(),
             buckconfigs: BTreeMap::new(),
         },

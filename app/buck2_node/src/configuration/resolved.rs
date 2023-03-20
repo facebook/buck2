@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::collections::unordered_map::UnorderedMap;
+use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -77,10 +77,7 @@ impl ResolvedConfiguration {
         &self.0.cfg
     }
 
-    pub fn setting_matches(
-        &self,
-        key: ConfigurationSettingKeyRef,
-    ) -> Option<&ConfigurationDataData> {
+    pub fn setting_matches(&self, key: ConfigurationSettingKeyRef) -> Option<&ConfigSettingData> {
         let configuration_node = self.0.settings.get(&key).expect(
             "framework should've ensured all necessary configuration setting keys are present",
         );
@@ -91,7 +88,7 @@ impl ResolvedConfiguration {
         }
     }
 
-    pub fn matches(&self, label: &TargetLabel) -> Option<&ConfigurationDataData> {
+    pub fn matches(&self, label: &TargetLabel) -> Option<&ConfigSettingData> {
         self.setting_matches(ConfigurationSettingKeyRef(label))
     }
 }
@@ -110,7 +107,7 @@ struct ConfigurationNodeData {
 
     label: TargetLabel,
 
-    configuration_data: ConfigurationDataData,
+    config_setting: ConfigSettingData,
 
     /// Indicates whether this node "matches" the configuration.
     ///
@@ -122,13 +119,13 @@ impl ConfigurationNode {
     pub fn new(
         cfg: ConfigurationData,
         label: TargetLabel,
-        configuration_data: ConfigurationDataData,
+        config_setting: ConfigSettingData,
         matches: bool,
     ) -> Self {
         Self(Arc::new(ConfigurationNodeData {
             cfg,
             label,
-            configuration_data,
+            config_setting,
             matches,
         }))
     }
@@ -141,7 +138,7 @@ impl ConfigurationNode {
         &self.0.label
     }
 
-    pub fn configuration_data(&self) -> &ConfigurationDataData {
-        &self.0.configuration_data
+    pub fn configuration_data(&self) -> &ConfigSettingData {
+        &self.0.config_setting
     }
 }
