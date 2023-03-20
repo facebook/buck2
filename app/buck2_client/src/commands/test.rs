@@ -182,6 +182,9 @@ impl StreamingCommand for TestCommand {
 
         let console = self.console_opts.final_console();
         print_build_result(&console, &response.error_messages)?;
+        if !response.error_messages.is_empty() {
+            console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
+        }
 
         // TODO(nmj): Might make sense for us to expose the event ctx, and use its
         //            handle_stdout method, instead of raw buck2_client::println!s here.
@@ -233,8 +236,6 @@ impl StreamingCommand for TestCommand {
         print_error_counter(&console, &fatals, "TESTS FATALS", "⚠")?;
         if passed.count + failed.count + fatals.count + skipped.count == 0 {
             console.print_warning("NO TESTS RAN")?;
-        } else if !response.error_messages.is_empty() {
-            console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
         }
 
         ExitResult::status_extended(response.exit_code)
