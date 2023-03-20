@@ -406,7 +406,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional.srcs,
             argsfiles_by_ext = compiled_srcs.compile_cmds.source_commands.argsfile_by_ext,
-            product_name = get_default_cxx_library_product_name(ctx),
+            product_name = get_default_cxx_library_product_name(ctx, impl_params),
         )
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
         providers.append(xcode_data_info)
@@ -459,7 +459,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     linkable_root = None
     if impl_params.generate_providers.omnibus_root:
         if impl_params.use_soname:
-            soname = _soname(ctx)
+            soname = _soname(ctx, impl_params)
         else:
             soname = None
         linker_type = get_cxx_toolchain_info(ctx).linker_info.type
@@ -630,13 +630,13 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         propagated_exported_preprocessor_info = propagated_exported_preprocessor_info,
     )
 
-def get_default_cxx_library_product_name(ctx) -> str.type:
+def get_default_cxx_library_product_name(ctx, impl_params) -> str.type:
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
     link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
     if link_style in (LinkStyle("static"), LinkStyle("static_pic")):
         return _base_static_library_name(ctx, False)
     else:
-        return _soname(ctx)
+        return _soname(ctx, impl_params)
 
 def cxx_compile_srcs(
         ctx: "context",
@@ -990,7 +990,7 @@ def _shared_library(
       3) the `LinkInfo` used to link against the shared library.
     """
 
-    soname = _soname(ctx)
+    soname = _soname(ctx, impl_params)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
 
@@ -1086,12 +1086,12 @@ def _shared_library(
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:
     return value_or(ctx.attrs.reexport_all_header_dependencies, False)
 
-def _soname(ctx: "context") -> str.type:
+def _soname(ctx: "context", impl_params) -> str.type:
     """
     Get the shared library name to set for the given C++ library.
     """
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    explicit_soname = ctx.attrs.soname
+    explicit_soname = value_or(ctx.attrs.soname, impl_params.soname)
     if explicit_soname != None:
         return get_shared_library_name_for_param(linker_info, explicit_soname)
     return get_default_shared_library_name(linker_info, ctx.label)

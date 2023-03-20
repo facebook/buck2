@@ -75,6 +75,10 @@ load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather
 def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     providers = []
 
+    module_name = value_or(ctx.attrs.module_name, ctx.label.name)
+    name = module_name + ".so"
+    base_module = dest_prefix(ctx.label, ctx.attrs.base_module)
+
     sub_targets = CxxRuleSubTargetParams(
         argsfiles = True,
         compilation_database = True,
@@ -104,6 +108,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         rule_type = "cxx_python_extension",
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
+        soname = name,
         use_soname = False,
         generate_providers = cxx_providers,
         generate_sub_targets = sub_targets,
@@ -124,9 +129,6 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
         sub_targets = cxx_library_info.sub_targets,
     ))
 
-    module_name = value_or(ctx.attrs.module_name, ctx.label.name)
-    name = module_name + ".so"
-    base_module = dest_prefix(ctx.label, ctx.attrs.base_module)
     cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
 
     extension_artifacts = {}

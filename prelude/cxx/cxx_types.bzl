@@ -132,9 +132,8 @@ CxxRuleConstructorParams = record(
     # e.g. when building Apple tests, we want to link with `-bundle` instead of `-shared` to allow
     # linking against the bundle loader.
     shared_library_flags = field([SharedLibraryFlagOverrides.type, None], None),
-    # If passed to cxx_library_parameterized, this field will be used to determine
-    # a shared subtarget's default output should be stripped.
-    #
+    # Optional argument to override the default name of the shared object being produced
+    soname = field([str.type, None], None),
     # If passed to cxx_executable, this field will be used to determine
     # a shared subtarget's default output should be stripped.
     strip_executable = field(bool.type, False),
