@@ -246,6 +246,8 @@ message Panic {
   // Panic is also used to propagate soft_errors, which can be hidden from
   // users. If true, it won't get logged to console
   bool quiet = 5;
+  // If this was a soft error, its category.
+  optional string soft_error_category = 6;
 }
 
 // An event capturing the input, output, and context during the execution of an

@@ -138,7 +138,10 @@ mod imp {
             line: loc.line(),
             column: loc.column(),
         });
-        write_to_scribe(fb, panic_payload(location, message, get_stack(), false));
+        write_to_scribe(
+            fb,
+            panic_payload(location, message, get_stack(), false, None),
+        );
     }
 
     pub(crate) fn write_soft_error(
@@ -153,6 +156,7 @@ mod imp {
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
             quiet,
+            Some(category),
         );
 
         // If the soft error was fired in a context with an ambient dispatcher, then we only send
@@ -177,6 +181,7 @@ mod imp {
         message: String,
         backtrace: Vec<buck2_data::panic::StackFrame>,
         quiet: bool,
+        soft_error_category: Option<&str>,
     ) -> buck2_data::Panic {
         let metadata = get_metadata_for_panic();
         buck2_data::Panic {
@@ -185,6 +190,7 @@ mod imp {
             metadata,
             backtrace,
             quiet,
+            soft_error_category: soft_error_category.map(ToOwned::to_owned),
         }
     }
 
