@@ -18,21 +18,22 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
-    _verify_attributes(ctx)
-
     extra_cmds = []
 
     # Force robolectric to only use local dependency resolution.
     extra_cmds.append("-Drobolectric.offline=true")
     if ctx.attrs.robolectric_runtime_dependency:
         runtime_dependencies_dir = ctx.attrs.robolectric_runtime_dependency
-    else:
+    elif ctx.attrs.robolectric_runtime_dependencies:
         runtime_dependencies_dir = ctx.actions.symlinked_dir("runtime_dependencies", {
             runtime_dep.basename: runtime_dep
             for runtime_dep in ctx.attrs.robolectric_runtime_dependencies
         })
+    else:
+        runtime_dependencies_dir = None
 
-    extra_cmds.append(cmd_args(runtime_dependencies_dir, format = "-Drobolectric.dependency.dir={}"))
+    if runtime_dependencies_dir:
+        extra_cmds.append(cmd_args(runtime_dependencies_dir, format = "-Drobolectric.dependency.dir={}"))
 
     all_packaging_deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_packaging_deps)
@@ -91,9 +92,3 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         java_providers.template_placeholder_info,
         java_providers.default_info,
     ]
-
-def _verify_attributes(ctx: "context"):
-    expect(
-        bool(ctx.attrs.robolectric_runtime_dependencies) != (ctx.attrs.robolectric_runtime_dependency != None),
-        "Exactly one of robolectric_runtime_dependencies and robolectric_runtime_dependency must be specified!",
-    )
