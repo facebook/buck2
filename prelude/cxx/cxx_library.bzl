@@ -455,6 +455,9 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_sub_targets.headers:
         sub_targets["headers"] = [propagated_preprocessor]
 
+    for additional_subtarget, additional_providers in impl_params.additional.subtargets.items():
+        sub_targets[additional_subtarget] = additional_providers
+
     # Omnibus root provider.
     linkable_root = None
     if impl_params.generate_providers.omnibus_root:

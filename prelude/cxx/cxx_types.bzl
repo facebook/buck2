@@ -83,6 +83,7 @@ CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
     argsfiles = field([CxxAdditionalArgsfileParams.type], []),
     external_debug_info = field(["_arglike"], []),
+    subtargets = field(dict.type, {}),  # [str.type: ["provider"]]
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.
