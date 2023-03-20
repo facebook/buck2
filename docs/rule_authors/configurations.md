@@ -5,8 +5,6 @@ the user docs (which are also quite helpful for understanding this), see ????? (
 try the [buck1 docs](https://buck.build/) or the [bazel docs](https://docs.bazel.build/versions/master/skylark/config.html) for similar features that buck2 has been
 modeled after).
 
-TODO(cjhopman): Configurations needs some user docs. Could probably skip some of the below context if we had them.
-
 ## Context
 
 Buck "Configurations" provides an API to express the different ways projects and targets can be built.
@@ -20,26 +18,27 @@ configuration.
 A build may involve many configurations and even a particular target label (`//:foo`) may end up with multiple
 instance in the configured graph with different configurations.
 
-### `platform()`, `constraint_setting()`, `config_setting()`, etc
-
-TODO(cjhopman): Describe this enough for context needed below
-
 ## Selectable attributes
 
 Almost all rule attributes can be set to a `select()` value, such an attribute is "selectable". These attributes final resolved value will depend on the configuration.
 
 There are some attributes that cannot use a `select()`, such attributes are "not selectable". Examples include attributes that buck needs to
-read from the unconfigured node (ex. "name", "default_target_platform") and attributes that are used by `platform()` rules and their
+read from the unconfigured node (ex. `name`, `default_target_platform`) and attributes that are used by `platform()` rules and their
 dependencies (see below).
-
-TODO(cjhopman): Should rule authors be able to set attrs as not selectable?
 
 ## Selectable resolution
 
-Resolving selectable attributes is pretty straightforward, it happens when constructing the "configured target node". At that point, we have the full configuration
-available and se we can lookup whether each constraint in the select is satisfied or not.
+Resolving selectable attributes is pretty straightforward, it happens when
+constructing the "configured target node". At that point, we have the full
+configuration available and so we can lookup whether each constraint in the
+select is satisfied or not.
 
-TODO(cjhopman): Describe how checking refinement is implemented.
+If multiple conditions of the select() match, then the select will be resolved
+to the "most refined" of the conditions that match. A set of constraints (as in
+a `config_setting`) is said to "refine" another if it is a superset of that
+other's constraints. The "most refined" of a set is then the condition that
+refines all the others. If there is no "most refined" condition of the matching
+ones, it is an error.
 
 ## Target Platform Resolution
 
@@ -47,19 +46,17 @@ When targets are provided on the command line (e.g. `buck build //:foo`) or othe
 that target will be built in, configurations are determined by performing "target platform resolution" on
 the unconfigured target labels.
 
-Target Platform Resolution for a target `foo` works by:
+Target Platform Resolution for a target `//:foo` works by:
 
-1. lookup (unconfigured) target node for "foo"
-2. if there's a "default_target_platform" attribute, use that
+1. lookup (unconfigured) target node for `//:foo`
+2. if the command has a `--target-platforms` flag, use that
+2. if there's a `default_target_platform` attribute, use that
 3. else, use the cell's default platform
 
-This is performed indepedently for any targets that need a platform. Since this resolution is done without
-a configuration, it means that the default_target_platform attribute **is not selectable**.
+This is performed independently for any targets that need a platform. Since this resolution is done without
+a configuration, it means that the `default_target_platform` attribute **is not selectable**.
 
 This target platform will form the initial configuration for the node.
-
-TODO(cjhopman): how does a user explicitly specify on the command line a target platform such that the target does not
-go through target platform resolution? Are there other cli options/flags/etc that affect target platform resolution?
 
 ## Configuration propagation
 
@@ -73,15 +70,15 @@ A "transition" transforms a configuration by adding or changing constraint value
 
 More details in: [Configuration transitions](configuration_transitions.md).
 
-## ConfigurationInfo, `platform()` analysis, and more
+## `ConfigurationInfo`, `platform()` analysis, and more
 
-The definition of a platform (either execution or target) is done with a "platform" rule instance. The configuration is actually
-part of the analysis result of the platform target (the ConfigurationInfo provider instance). This is convenient from
+The definition of a platform (either execution or target) is done with a `platform` rule instance. The configuration is actually
+part of the analysis result of the platform target (the `ConfigurationInfo` provider instance). This is convenient from
 an implementation standpoint, but it leads to a situation where some nodes are analyzed with an "unbound" Configuration. All the
 rule types involved in defining a platform may be analyzed with an unbound configuration (`platform()`, `config_setting()`,
 `constraint_setting()`, etc). These are sometimes called "configuration rules". This also means that all the attributes of these rules are not selectable.
 
-Configurations also reference a few other provider instances like ConstraintSettingInfo. All of these end up being potentially
+Configurations also reference a few other provider instances like `ConstraintSettingInfo`. All of these end up being potentially
 produced in a context with an "unbound" configuration.
 
 Using analysis for this also means that "configuration" and "analysis" are not distinct phases within a build (though are
@@ -102,11 +99,9 @@ constraints/config settings and it **is selectable**.
 Target platform compatibility is transitive, all *dependents* of an incompatible target are incompatible. In other words,
 a node is compatible if and only if the node itself and all of its transitive dependencies are compatible.
 
-In buck, this is implemented by target analysis returning either the normal analysis result or an indicator
-that the node is incompatible with the target platform. It is not part of the "configured target node" because
-the "configured target node" does not depend on information from dependencies.
-
-TODO(cjhopman): Something about debuggability of incompatibility, especially due to needing it to figure out transitive incompatibility.
+In buck, this is implemented by graph configuration returning either a
+configured target node or an indicator that the node is incompatible with the
+target platform.
 
 ### Buck v1 compatibility
 
@@ -221,27 +216,8 @@ def target_compatible_with(target, cfg):
     return True
 ```
 
-TODO(cjhopman): What are the requirements on rule authors? Especially, do they need to ensure that all possible execution platforms will produce the same results?
-
 ## Execution groups
 
-Execution groups allow a rule to do execution platform resolution multiple times and then specify which of the resolved platforms each
-action runs in.
-
-TODO(cjhopman): Finish this documentation as we figure it out.
-
-## Execution platform inheritance
-
-There are some (rare) cases where both a target and its dependency need to resolve to the same execution platform.
-
-An example of this would be a c++ toolchain that includes both target (ex. the stdlib) and
-execution (ex. the compiler) components. In that case, we need the toolchain's execution deps to affect its users
-execution platform resolution.
-
-To support this, there are mechanisms to indicate which dependencies need to inherit the execution platform resolution.
-
-Currently, since this could mean that a configured node appears in the build under multiple different execution platforms and since execution
-platforms are not included as part of output paths, users must use this feature carefully.
-
-TODO(cjhopman): figure out what restrictions this needs to apply so that users don't need to be the ones responsible for correctness
-TODO(cjhopman): figure out/document those "mechanisms"
+Execution groups are a future feature that will allow a rule to do execution
+platform resolution multiple times and then specify which of the resolved
+platforms each action runs in.
