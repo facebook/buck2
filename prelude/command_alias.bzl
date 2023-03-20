@@ -50,7 +50,7 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
         else:
             _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attrs.args)
 
-        trampoline_args.add('"${ARGS[@]}"')
+        trampoline_args.add('exec "${ARGS[@]}"')
 
         trampoline = _relativize_path(ctx, trampoline_args, exec_is_windows)
 
