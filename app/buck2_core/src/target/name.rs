@@ -13,6 +13,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
+use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 
@@ -60,12 +61,16 @@ impl TargetName {
         Self(ThinArcStr::from(name))
     }
 
-    fn verify(name: &str) -> bool {
+    fn verify(name: &str) -> anyhow::Result<bool> {
         const VALID_CHARS: &str =
             r"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_,.=-\/~@!+$";
         const SET: AsciiCharSet = AsciiCharSet::new(VALID_CHARS);
 
-        !name.is_empty() && name.as_bytes().iter().all(|&b| SET.contains(b))
+        let result = !name.is_empty() && name.as_bytes().iter().all(|&b| SET.contains(b));
+
+        emit_label_validation_errors(name)?;
+
+        Ok(result)
     }
 
     // Generic `as_ref` confuses typechecker because of overloads.
@@ -112,13 +117,37 @@ impl Deref for TargetName {
     }
 }
 
+#[derive(Error, Debug)]
+pub(crate) enum LabelValidationError {
+    #[error("Label `{0}` has special character `{1}`, which is discouraged")]
+    LabelHasSpecialCharacter(String, String),
+}
+
+pub(crate) fn emit_label_validation_errors(name: &str) -> anyhow::Result<()> {
+    if name.contains(',') {
+        quiet_soft_error!(
+            "label_has_comma",
+            LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), ",".to_owned()).into()
+        )
+        .unwrap();
+    }
+    if name.contains('$') {
+        quiet_soft_error!(
+            "label_has_dollar_sign",
+            LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), "$".to_owned()).into()
+        )
+        .unwrap();
+    }
+    Ok(())
+}
+
 #[derive(Debug, derive_more::Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct TargetNameRef(str);
 
 impl TargetNameRef {
     pub fn new(name: &str) -> anyhow::Result<&TargetNameRef> {
-        if TargetName::verify(name) {
+        if TargetName::verify(name)? {
             Ok(TargetNameRef::unchecked_new(name))
         } else {
             if let Some((_, p)) = name.split_once('[') {
@@ -183,9 +212,10 @@ mod tests {
         );
         assert_eq!(
             // Copied allowed symbols from above.
-            // `,`, `.`, `=`, `-`, `/`, `~`, `@`, `!`, `+` and `_`
-            TargetName::new("foo,.=-/~@$!+_1").unwrap(),
-            TargetName(ThinArcStr::from("foo,.=-/~@$!+_1"))
+            // `.`, `-`, `/`, `~`, `@`, `!`, `+` and `_`
+            // `,`, `$`, and `=` are currently soft errors and should eventually be removed.
+            TargetName::new("foo.-/~@!+_1").unwrap(),
+            TargetName(ThinArcStr::from("foo.-/~@!+_1"))
         );
         assert!(TargetName::new("foo bar").is_err());
         assert!(TargetName::new("foo?bar").is_err());
