@@ -1276,7 +1276,7 @@ message InvocationRecord {
   // Optional - present if BuildGraphExecutionInfo sent to client.
   google.protobuf.Duration critical_path_duration = 7;
   // Optional - any contents are copied directly to scuba buck2_builds.
-  TypedMetadata client_metadata = 8;
+  TypedMetadata metadata = 8;
   // Tags for this command
   repeated string tags = 9;
   // Count of actions that were executed locally

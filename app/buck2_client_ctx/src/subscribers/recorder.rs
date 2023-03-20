@@ -229,7 +229,7 @@ mod imp {
                 re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
                 cli_args: self.cli_args.clone(),
                 critical_path_duration: self.critical_path_duration.and_then(|x| x.try_into().ok()),
-                client_metadata: Some(Self::collect_client_metadata()),
+                metadata: Some(Self::default_metadata()),
                 tags: self.tags.drain(..).collect(),
                 run_local_count: self.run_local_count,
                 run_remote_count: self.run_remote_count,
@@ -304,7 +304,7 @@ mod imp {
 
         // Collects client-side state and data, suitable for telemetry.
         // NOTE: If data is visible from the daemon, put it in cli::metadata::collect()
-        fn collect_client_metadata() -> buck2_data::TypedMetadata {
+        fn default_metadata() -> buck2_data::TypedMetadata {
             let mut ints = HashMap::new();
             ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
             buck2_data::TypedMetadata {
