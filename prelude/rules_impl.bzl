@@ -225,6 +225,7 @@ def _cxx_python_extension_attrs():
         "_omnibus_environment": omnibus_environment_attr(),
         # Copied from python_library.
         "_python_toolchain": _python_toolchain(),
+        "_target_os_type": _target_os_type(),
     })
     return res
 

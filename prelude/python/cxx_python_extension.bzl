@@ -59,6 +59,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "merge_shared_libraries",
 )
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
@@ -75,8 +76,12 @@ load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather
 def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     providers = []
 
+    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+        library_extension = ".pyd"
+    else:
+        library_extension = ".so"
     module_name = value_or(ctx.attrs.module_name, ctx.label.name)
-    name = module_name + ".so"
+    name = module_name + library_extension
     base_module = dest_prefix(ctx.label, ctx.attrs.base_module)
 
     sub_targets = CxxRuleSubTargetParams(
