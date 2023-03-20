@@ -272,7 +272,8 @@ fn diagnostic_display(diagnostic: &Diagnostic, f: &mut Formatter<'_>) -> fmt::Re
     // adds in pretty strange unicode chars).
     let display_list = diagnostic.get_display_list(&annotation_label, false);
     writeln!(f, "{}", display_list)?;
-    // Print out the `Caused by:` trace, if exists
+    // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
+    // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
     if diagnostic.message.source().is_some() {
         writeln!(f, "\n\n{:?}", diagnostic.message)?;
     }
@@ -285,7 +286,8 @@ fn diagnostic_stderr(diagnostic: &Diagnostic) {
     let annotation_label = format!("{}", diagnostic.message);
     let display_list = diagnostic.get_display_list(&annotation_label, true);
     eprintln!("{}", display_list);
-    // Print out the `Caused by:` trace, if exists
+    // Print out the `Caused by:` trace (if exists) and rust backtrace (if enabled).
+    // The trace printed comes from an [`anyhow::Error`] that is not a [`Diagnostic`].
     if diagnostic.message.source().is_some() {
         eprintln!("\n\n{:?}", diagnostic.message);
     }

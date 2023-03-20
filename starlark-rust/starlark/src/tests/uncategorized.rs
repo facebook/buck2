@@ -19,6 +19,7 @@ use std::cell::RefCell;
 use std::fmt::Write;
 
 use allocative::Allocative;
+use anyhow::Context;
 use derive_more::Display;
 
 use crate as starlark;
@@ -33,6 +34,7 @@ use crate::errors::Diagnostic;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::values::none::NoneType;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -402,6 +404,111 @@ assert_eq(names[mine], "mine")
 assert_eq(names[str], "str")
 "#,
     );
+}
+
+#[test]
+// Tests diagnostics error display.
+//
+// > EYEBALL=1 cargo test -p starlark diagnostics_display -- --nocapture
+fn test_diagnostics_display() {
+    fn fail1() -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("fail 1"))
+    }
+
+    fn fail2() -> anyhow::Result<()> {
+        fail1().context("fail 2")
+    }
+
+    fn fail3() -> anyhow::Result<()> {
+        fail2().context("fail 3")
+    }
+
+    #[starlark_module]
+    fn module(builder: &mut GlobalsBuilder) {
+        fn rust_failure() -> anyhow::Result<NoneType> {
+            fail3().context("rust failure")?;
+            Ok(NoneType)
+        }
+    }
+
+    let display = std::env::var("EYEBALL") == Ok("1".to_owned());
+    let mut a = Assert::new();
+    a.globals_add(module);
+
+    a.module(
+        "imported",
+        r#"
+# blank lines to make line numbers bigger and more obvious
+#
+#
+#
+#
+x = []
+def should_fail():
+    rust_failure()"#,
+    );
+
+    let err = a.fail(
+        r#"
+load('imported', 'should_fail')
+should_fail()"#,
+        "rust failure",
+    );
+
+    if display {
+        Diagnostic::eprint(&err);
+    }
+
+    let diag = err.downcast::<Diagnostic>().unwrap();
+
+    // Checking using `contains()` because `RUST_BACKTRACE` is set to `full` for CI, and we
+    // only want to validate that the `Caused by` is printed out here.
+    assert!(format!("\n{}", diag).contains(
+        r#"
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+      should_fail()
+  * imported.bzl:9, in should_fail
+      rust_failure()
+error: rust failure
+ --> imported.bzl:9:5
+  |
+9 |     rust_failure()
+  |     ^^^^^^^^^^^^^^
+  |
+
+
+rust failure
+
+Caused by:
+    0: fail 3
+    1: fail 2
+    2: fail 1
+"#
+    ));
+    assert!(format!("\n{:#}", diag).contains(
+        r#"
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+      should_fail()
+  * imported.bzl:9, in should_fail
+      rust_failure()
+error: rust failure
+ --> imported.bzl:9:5
+  |
+9 |     rust_failure()
+  |     ^^^^^^^^^^^^^^
+  |
+
+
+rust failure
+
+Caused by:
+    0: fail 3
+    1: fail 2
+    2: fail 1
+"#
+    ));
 }
 
 #[test]
