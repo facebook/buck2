@@ -36,7 +36,7 @@ Buck2 has many minor differences from Buck1, but there are a number that give ne
 * **Buck2 can integrate with the virtual filesystem [Eden](https://github.com/facebook/sapling)** - this provides good performance, even when the file system is backed by source control fetches. However, Eden is not required, and a normal file system will also work well.
 * **The Buck2 Starlark implementation is available [as a standalone library](https://developers.facebook.com/blog/post/2021/04/08/rust-starlark-library/)** - this provides features such as IDE integration (both LSP and DAP bindings), linters, typecheckers, and more. These features are integrated into Buck2 to give a better developer experience (which is still evolving).
 * **Buck2 supports configurations**  - (such as `select`) to provide multi-platform/architecture builds, which are heavily inspired by Bazel. Within that space, there is a number of small differences, such as `toolchain_deps`.
-* **Compared to Buck1, Buck2 builds are typically 2x-3x faster**.
+* **Buck2 is fast** - in our internal tests, we observed that Buck2 completed builds 2x as fast as Buck1.
 
 For a comprehensive list of benefits, see [Benefits Compared to Buck1](benefits.md).
 
