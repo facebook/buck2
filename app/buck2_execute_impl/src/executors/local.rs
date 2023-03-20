@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::ops::ControlFlow;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
@@ -29,6 +30,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::quiet_soft_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -46,6 +48,7 @@ use buck2_execute::execute::inputs_directory::inputs_directory;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
+use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
@@ -414,6 +417,14 @@ impl LocalExecutor {
                 if exit_code == 0 {
                     manager.success(execution_kind, outputs, std_streams, timing)
                 } else {
+                    let manager = check_inputs(
+                        manager,
+                        &self.artifact_fs,
+                        self.blocking_executor.as_ref(),
+                        request,
+                    )
+                    .await?;
+
                     manager.failure(
                         execution_kind,
                         outputs,
@@ -424,6 +435,14 @@ impl LocalExecutor {
                 }
             }
             GatherOutputStatus::SpawnFailed(reason) => {
+                let manager = check_inputs(
+                    manager,
+                    &self.artifact_fs,
+                    self.blocking_executor.as_ref(),
+                    request,
+                )
+                .await?;
+
                 // We are lying about the std streams here because we don't have a good mechanism
                 // to report that the command does not exist, and because that's exactly what RE
                 // also does when this happens.
@@ -667,6 +686,41 @@ pub async fn materialize_inputs(
     }
 
     materializer.ensure_materialized(paths).await
+}
+
+async fn check_inputs(
+    manager: CommandExecutionManagerWithClaim,
+    artifact_fs: &ArtifactFs,
+    blocking_executor: &dyn BlockingExecutor,
+    request: &CommandExecutionRequest,
+) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
+    let res = blocking_executor
+        .execute_io_inline(|| {
+            for input in request.inputs() {
+                match input {
+                    CommandExecutionInput::Artifact(group) => {
+                        for (artifact, _) in group.iter() {
+                            if !artifact.is_source() {
+                                let path = artifact.resolve_path(artifact_fs)?;
+                                let abs_path = artifact_fs.fs().resolve(&path);
+                                fs_util::symlink_metadata(&abs_path).context("Missing input")?;
+                            }
+                        }
+                    }
+                    CommandExecutionInput::ActionMetadata(..) => {
+                        // Ignore those here.
+                    }
+                }
+            }
+
+            Ok(())
+        })
+        .await;
+
+    match res.or_else(|err| quiet_soft_error!("missing_local_inputs", err)) {
+        Ok(()) => ControlFlow::Continue(manager),
+        Err(e) => ControlFlow::Break(manager.error("local_check_inputs", e)),
+    }
 }
 
 /// Materialize build outputs from the previous run of the same command.

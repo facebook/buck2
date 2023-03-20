@@ -177,6 +177,8 @@ message InstantEvent {
 
     // Notify the client that the daemon would like to update the rendering.
     ConsolePreferences console_preferences = 21;
+
+    InternalError internal_error = 22;
   }
 
   reserved 12; // Log
@@ -1562,3 +1564,8 @@ message CommandExecutionStats {
   optional uint64 cpu_instructions_user = 1;
   optional uint64 cpu_instructions_kernel = 2;
 }
+
+// Notify the client that we've encountered an internal error. This is normally
+// indicative of an irrecoverable error that the user is not responsible for.
+// Use sparingly.
+message InternalError {}
