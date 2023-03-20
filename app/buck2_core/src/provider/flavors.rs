@@ -13,6 +13,7 @@ use regex::RegexSet;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
+use crate::quiet_soft_error;
 
 static PLATFORM_REGEX_SET: OnceCell<RegexSet> = OnceCell::new();
 
@@ -43,13 +44,19 @@ fn is_platform_flavor(flavor: &str) -> bool {
 /// via subtargets.
 ///
 /// This mapping is a hardcoded map of flavors that we know can be handled simply as subtargets.
-pub fn map_flavors(flavors: &str) -> anyhow::Result<ProvidersName> {
+pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<ProvidersName> {
     let mut flavors_parts: Vec<&str> = flavors.split(',').collect();
     assert!(!flavors_parts.is_empty());
 
     match flavors_parts.iter().position(|x| is_platform_flavor(x)) {
         Some(index) => {
             // remove platform flavor from the vector of flavors
+            // We log the target with the offending flavor here, though in practice we'll have to
+            // rely on the wrapping span in order to find
+            quiet_soft_error!(
+                "platform_flavor",
+                anyhow::anyhow!("Platform flavor found in target: {}", full_target)
+            )?;
             flavors_parts.remove(index);
         }
         None => {}

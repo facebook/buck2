@@ -150,7 +150,7 @@ impl PatternType for ProvidersPattern {
 
     fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)> {
         if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
-            let name = map_flavors(flavors)?;
+            let name = map_flavors(flavors, s)?;
             Ok((t, name))
         } else if let Some((t, p)) = split1_opt_ascii(s, AsciiChar::new('[')) {
             let mut names = Vec::new();
