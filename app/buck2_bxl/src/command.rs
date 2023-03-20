@@ -35,6 +35,7 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::quiet_soft_error;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::BxlFilePath;
@@ -206,7 +207,13 @@ async fn copy_output<W: Write>(
 
     // we write the output to a file in buck-out as cache so we don't use memory caching it in
     // DICE. So now we open the file and read it all into the destination stream.
-    io::copy(&mut fs_util::open_file(loc)?, &mut output)?;
+    let mut file = match fs_util::open_file(loc) {
+        Ok(f) => f,
+        Err(e) => {
+            return Err(quiet_soft_error!("bxl_output_missing", e)?);
+        }
+    };
+    io::copy(&mut file, &mut output)?;
     Ok(())
 }
 
