@@ -23,7 +23,7 @@ type SoftErrorHandler = Box<
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
-static HARD_ERROR: EnvHelper<HardErrorConfig> = EnvHelper::new("BUCK2_TEST_HARD_ERROR");
+static HARD_ERROR: EnvHelper<HardErrorConfig> = EnvHelper::new("BUCK2_HARD_ERROR");
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
@@ -86,7 +86,7 @@ pub fn handle_soft_error(
 
     if let Some(h) = HARD_ERROR.get()? {
         if h.should_hard_error(category) {
-            return Err(err.context("Upgraded warning to failure via $BUCK2_TEST_HARD_ERROR"));
+            return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
         }
     }
 
