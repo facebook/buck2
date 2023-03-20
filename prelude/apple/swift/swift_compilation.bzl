@@ -54,8 +54,8 @@ SwiftDependencyInfo = provider(fields = [
 ])
 
 SwiftCompilationOutput = record(
-    # The object files output from compilation.
-    object_files = field(["artifact"]),
+    # The object file output from compilation.
+    object_file = field("artifact"),
     # The swiftmodule file output from compilation.
     swiftmodule = field("artifact"),
     # The dependency info provider that provides the swiftmodule
@@ -206,7 +206,7 @@ def compile_swift(
 
     # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompilationOutput(
-        object_files = [output_object],
+        object_file = output_object,
         swiftmodule = output_swiftmodule,
         providers = [get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule)],
         pre = pre,
