@@ -85,9 +85,5 @@ fn print_cfg(stdout: &mut impl Write, cfg: &ConfigurationData) -> anyhow::Result
         )?;
     }
 
-    for (config_key, config_value) in data.buckconfigs.iter().sorted() {
-        writeln!(stdout, "  {}={}", config_key, config_value)?;
-    }
-
     Ok(())
 }

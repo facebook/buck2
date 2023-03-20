@@ -119,13 +119,8 @@ pub fn cfg_diff(a: &ConfigurationData, b: &ConfigurationData) -> Result<(), Stri
             self.diff_btree_map(a, b, |k, v| format!("constraint: {} -> {}", k, v))
         }
 
-        fn diff_buckconfig(&mut self, a: &BTreeMap<String, String>, b: &BTreeMap<String, String>) {
-            self.diff_btree_map(a, b, |k, v| format!("buckconfig: {} -> {}", k, v))
-        }
-
         fn diff_cfg_data(&mut self, a: &ConfigurationDataData, b: &ConfigurationDataData) {
             self.diff_constraints(&a.constraints, &b.constraints);
-            self.diff_buckconfig(&a.buckconfigs, &b.buckconfigs);
         }
 
         fn diff_cfg_data_result(
@@ -165,40 +160,34 @@ mod tests {
     fn test_diff() {
         let x = ConfigurationData::from_platform(
             "xx".to_owned(),
-            ConfigurationDataData::new(
-                BTreeMap::from_iter([
-                    (
-                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
-                    ),
-                    (
-                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
-                    ),
-                ]),
-                BTreeMap::from_iter([]),
-            ),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                ),
+            ])),
         )
         .unwrap();
         let y = ConfigurationData::from_platform(
             "yy".to_owned(),
-            ConfigurationDataData::new(
-                BTreeMap::from_iter([
-                    (
-                        ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
-                    ),
-                    (
-                        ConstraintKey(TargetLabel::testing_parse("foo//baz:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//baz:vy")),
-                    ),
-                    (
-                        ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                        ConstraintValue(TargetLabel::testing_parse("foo//qux:vy")),
-                    ),
-                ]),
-                BTreeMap::from_iter([]),
-            ),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
+                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//baz:c")),
+                    ConstraintValue(TargetLabel::testing_parse("foo//baz:vy")),
+                ),
+                (
+                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
+                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vy")),
+                ),
+            ])),
         )
         .unwrap();
         let diff = cfg_diff(&x, &y).unwrap_err();

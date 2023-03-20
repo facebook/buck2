@@ -20,11 +20,11 @@ use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::values::dict::AllocDict;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictOf;
 use starlark::values::dict::DictRef;
@@ -91,10 +91,7 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
         if !buckconfigs.is_empty() {
             return Err(ConfigurationInfoError::BuckConfigsNotAllowed.into());
         }
-        Ok(ConfigurationDataData {
-            constraints,
-            buckconfigs,
-        })
+        Ok(ConfigurationDataData { constraints })
     }
 }
 
@@ -119,14 +116,9 @@ impl<'v> ConfigurationInfo<'v> {
             assert!(prev.is_none());
         }
 
-        let mut values = SmallMap::new();
-        for (k, v) in &conf.buckconfigs {
-            let prev = values.insert_hashed(heap.alloc_str(k).get_hashed(), heap.alloc_str(v));
-            assert!(prev.is_none());
-        }
         ConfigurationInfoGen {
             constraints: heap.alloc(Dict::new(constraints)),
-            values: heap.alloc(Dict::new(coerce(values))),
+            values: heap.alloc(AllocDict::EMPTY),
         }
     }
 }

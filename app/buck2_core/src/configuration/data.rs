@@ -51,11 +51,6 @@ enum ConfigurationError {
     LabelIsTooLong(String),
     #[error("Invalid characters in configuration label: {0:?}")]
     InvalidCharactersInLabel(String),
-    #[error(
-        "Config values must be empty in `PlatformInfo` provider \
-        because we don't use them, we use global buckconfig to resolve selects"
-    )]
-    BuckConfigValuesMustBeEmpty,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -126,9 +121,6 @@ impl ConfigurationData {
         }) {
             return Err(ConfigurationError::InvalidCharactersInLabel(label).into());
         }
-        if !data.buckconfigs.is_empty() {
-            return Err(ConfigurationError::BuckConfigValuesMustBeEmpty.into());
-        }
         Ok(Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(label, data),
         )))
@@ -181,7 +173,6 @@ impl ConfigurationData {
                 "<testing>".to_owned(),
                 ConfigurationDataData {
                     constraints: BTreeMap::new(),
-                    buckconfigs: BTreeMap::new(),
                 },
             ),
         ))
@@ -329,11 +320,6 @@ impl ConfigurationPlatform {
 pub struct ConfigurationDataData {
     // contains the full specification of the platform configuration
     pub constraints: BTreeMap<ConstraintKey, ConstraintValue>,
-    // contains mappings of `section.key` to `value` for buckconfigs
-    // TODO(scottcao): Make this into a Vec<ConfigArgumentPair> for more structured data
-    // This can't be done right now because ConfigArgumentPair lives in buck2_common
-    // and buck2_core cannot depend on buck2_common.
-    pub buckconfigs: BTreeMap<String, String>,
 }
 
 /// We don't use derive(Hash) here because we build Buck 2 on two different versions of Rustc at
@@ -345,9 +331,6 @@ impl Hash for ConfigurationDataData {
         for elt in self.constraints.iter() {
             elt.hash(state);
         }
-        for elt in self.buckconfigs.iter() {
-            elt.hash(state);
-        }
     }
 }
 
@@ -355,18 +338,11 @@ impl ConfigurationDataData {
     pub fn empty() -> Self {
         Self {
             constraints: Default::default(),
-            buckconfigs: Default::default(),
         }
     }
 
-    pub fn new(
-        constraints: BTreeMap<ConstraintKey, ConstraintValue>,
-        buckconfigs: BTreeMap<String, String>,
-    ) -> Self {
-        Self {
-            constraints,
-            buckconfigs,
-        }
+    pub fn new(constraints: BTreeMap<ConstraintKey, ConstraintValue>) -> Self {
+        Self { constraints }
     }
 
     pub fn get_constraint_value(&self, key: &ConstraintKey) -> Option<&ConstraintValue> {
@@ -471,7 +447,6 @@ mod tests {
                         ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
                     ),
                 ]),
-                buckconfigs: BTreeMap::new(),
             },
         )
         .unwrap();
@@ -500,7 +475,6 @@ mod tests {
                         ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
                     ),
                 ]),
-                buckconfigs: BTreeMap::new(),
             },
         )
         .unwrap();

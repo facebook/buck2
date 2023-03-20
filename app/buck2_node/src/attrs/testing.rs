@@ -60,7 +60,6 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             "cfg_for//:testing_exec".to_owned(),
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
-                buckconfigs: BTreeMap::new(),
             },
         )
         .unwrap(),
