@@ -40,6 +40,9 @@ static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Ve
 ///
 /// Soft errors from Meta internal runs can be viewed
 /// [in logview](https://www.internalfb.com/logview/overview/buck2).
+///
+/// You'll get the error back as the Ok() value if it wasn't thrown, otherwise you get a Err() to
+/// propagate.
 #[macro_export]
 macro_rules! soft_error(
     ($category:expr, $err:expr) => { {
@@ -69,7 +72,7 @@ pub fn handle_soft_error(
     once: &std::sync::Once,
     loc: (&'static str, u32, u32),
     quiet: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<anyhow::Error> {
     once.call_once(|| {
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
@@ -87,7 +90,7 @@ pub fn handle_soft_error(
         }
     }
 
-    Ok(())
+    Ok(err)
 }
 
 #[allow(clippy::significant_drop_in_scrutinee)] // False positive.

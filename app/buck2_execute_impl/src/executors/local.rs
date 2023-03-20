@@ -717,9 +717,9 @@ async fn check_inputs(
         })
         .await;
 
-    match res.or_else(|err| quiet_soft_error!("missing_local_inputs", err)) {
-        Ok(()) => ControlFlow::Continue(manager),
-        Err(e) => ControlFlow::Break(manager.error("local_check_inputs", e)),
+    match res.map_err(|err| quiet_soft_error!("missing_local_inputs", err)) {
+        Ok(()) | Err(Ok(_)) => ControlFlow::Continue(manager),
+        Err(Err(err)) => ControlFlow::Break(manager.error("local_check_inputs", err)),
     }
 }
 
