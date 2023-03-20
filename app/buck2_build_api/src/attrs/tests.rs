@@ -15,6 +15,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::testing::CellResolverExt;
 use buck2_core::cells::CellResolver;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -304,7 +305,11 @@ fn test_label() -> anyhow::Result<()> {
 
     let configured = coerced.configure(&configuration_ctx())?;
     assert_eq!(
-        "[\"root//some:target (<testing>)\",\"cell1//named:target[foo] (<testing>)\"]",
+        format!(
+            "[\"root//some:target ({})\",\"cell1//named:target[foo] ({})\"]",
+            ConfigurationData::testing_new(),
+            ConfigurationData::testing_new()
+        ),
         configured.as_display_no_ctx().to_string()
     );
 
@@ -397,7 +402,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     ];
 
     assert_eq!(
-        expected_deps.map(|s| format!("{} (<testing>)", s)),
+        expected_deps.map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
         info.deps
             .iter()
             .map(ToString::to_string)
@@ -551,10 +556,17 @@ fn test_source_label() -> anyhow::Result<()> {
 
     let configured = coerced.configure(&configuration_ctx())?;
     assert_eq!(
-        concat!(
-            "[\"root//some:target (<testing>)\",",
-            "\"cell1//named:target[foo] (<testing>)\",",
-            "\"root//package/subdir/foo/bar.cpp\"]",
+        format!(
+            "[{},{},{}]",
+            format_args!(
+                "\"root//some:target ({})\"",
+                ConfigurationData::testing_new(),
+            ),
+            format_args!(
+                "\"cell1//named:target[foo] ({})\"",
+                ConfigurationData::testing_new()
+            ),
+            "\"root//package/subdir/foo/bar.cpp\"",
         ),
         configured
             .as_display(&AttrFmtContext {
@@ -736,8 +748,9 @@ fn test_arg() -> anyhow::Result<()> {
     let configured = coerced.configure(&configuration_ctx())?;
     assert_eq!(
         format!(
-            "\"$(exe root//some:exe ({})) --file=$(location root//some:location (<testing>))\"",
-            configuration_ctx().exec_cfg()
+            "\"$(exe root//some:exe ({})) --file=$(location root//some:location ({}))\"",
+            configuration_ctx().exec_cfg(),
+            ConfigurationData::testing_new(),
         ),
         configured.as_display_no_ctx().to_string()
     );
@@ -755,7 +768,10 @@ fn test_arg() -> anyhow::Result<()> {
 
     let expected_deps = vec!["root//some:location"];
     let expected_exec_deps = vec!["root//some:exe"];
-    let expected_configured_deps = vec!["root//some:location (<testing>)"];
+    let expected_configured_deps = vec![format!(
+        "root//some:location ({})",
+        ConfigurationData::testing_new()
+    )];
     let expected_configured_exec_deps = vec![format!(
         "root//some:exe ({})",
         configuration_ctx().exec_cfg()

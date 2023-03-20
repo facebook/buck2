@@ -218,6 +218,7 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::label::TargetLabel;
     use buck2_interpreter::selector::register_select;
     use buck2_node::attrs::attr_type::AttrType;
@@ -269,8 +270,9 @@ mod tests {
         let configured = coerced.configure(&configuration_ctx())?;
         assert_eq!(
             format!(
-                r#""$(exe root//:foo ({})) $(location root//:bar (<testing>))""#,
-                configuration_ctx().exec_cfg()
+                r#""$(exe root//:foo ({})) $(location root//:bar ({}))""#,
+                configuration_ctx().exec_cfg(),
+                ConfigurationData::testing_new(),
             ),
             configured.as_display_no_ctx().to_string(),
         );

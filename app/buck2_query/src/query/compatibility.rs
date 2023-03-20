@@ -155,8 +155,11 @@ mod tests {
                 .configure(ConfigurationData::testing_new()),
         ];
         assert_eq!(
-            "Skipped 1 incompatible targets:\n  glass//foo:bar (<testing>)\n",
-            &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
+            format!(
+                "Skipped 1 incompatible targets:\n  glass//foo:bar ({})\n",
+                ConfigurationData::testing_new()
+            ),
+            IncompatiblePlatformReason::skipping_message_for_multiple(&set),
         );
 
         let mut set = Vec::new();
@@ -170,16 +173,19 @@ mod tests {
             );
         }
         assert_eq!(
-            r"Skipped 20 incompatible targets:
-  plate//foo:bar0 (<testing>)
-  plate//foo:bar1 (<testing>)
-  plate//foo:bar10 (<testing>)
+            format!(
+                r"Skipped 20 incompatible targets:
+  plate//foo:bar0 ({c})
+  plate//foo:bar1 ({c})
+  plate//foo:bar10 ({c})
   ...
-  plate//foo:bar7 (<testing>)
-  plate//foo:bar8 (<testing>)
-  plate//foo:bar9 (<testing>)
+  plate//foo:bar7 ({c})
+  plate//foo:bar8 ({c})
+  plate//foo:bar9 ({c})
 ",
-            &IncompatiblePlatformReason::skipping_message_for_multiple(&set)
+                c = ConfigurationData::testing_new()
+            ),
+            IncompatiblePlatformReason::skipping_message_for_multiple(&set)
         );
     }
 }

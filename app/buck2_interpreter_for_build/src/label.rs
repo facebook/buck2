@@ -81,7 +81,7 @@ mod tests {
         }
 
         let mut tester = new_tester()?;
-        tester.run_starlark_test(indoc!(
+        tester.run_starlark_bzl_test(indoc!(
             r#"
             frozen_l_default = label("root//foo/bar:baz")
             frozen_l = label("root//foo/bar:baz[something]")
@@ -89,27 +89,27 @@ mod tests {
                 l_default = label("root//foo/bar:baz")
                 l = label("root//foo/bar:baz[something]")
 
-                assert_eq("root//foo/bar:baz (<testing>)", repr(frozen_l_default))
-                assert_eq("root//foo/bar:baz (<testing>)", str(frozen_l_default))
+                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", repr(frozen_l_default))
+                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", str(frozen_l_default))
                 assert_eq("foo/bar", frozen_l_default.package)
                 assert_eq("baz", frozen_l_default.name)
                 assert_eq(None, frozen_l_default.sub_target)
                 assert_eq("root", frozen_l_default.cell)
 
-                assert_eq("root//foo/bar:baz[something] (<testing>)", repr(frozen_l))
-                assert_eq("root//foo/bar:baz[something] (<testing>)", str(frozen_l))
+                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", repr(frozen_l))
+                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", str(frozen_l))
                 assert_eq("foo/bar", frozen_l.package)
                 assert_eq("baz", frozen_l.name)
                 assert_eq(["something"], frozen_l.sub_target)
 
-                assert_eq("root//foo/bar:baz (<testing>)", repr(l_default))
-                assert_eq("root//foo/bar:baz (<testing>)", str(l_default))
+                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", repr(l_default))
+                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", str(l_default))
                 assert_eq("foo/bar", l_default.package)
                 assert_eq("baz", l_default.name)
                 assert_eq(None, l_default.sub_target)
 
-                assert_eq("root//foo/bar:baz[something] (<testing>)", repr(l))
-                assert_eq("root//foo/bar:baz[something] (<testing>)", str(l))
+                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", repr(l))
+                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", str(l))
                 assert_eq("foo/bar", l.package)
                 assert_eq("baz", l.name)
                 assert_eq(["something"], l.sub_target)

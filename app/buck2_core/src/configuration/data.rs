@@ -176,12 +176,15 @@ impl ConfigurationData {
 
     /// Produces an "invalid" configuration for testing.
     pub fn testing_new() -> Self {
-        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
-            ConfigurationData::from_data(HashedConfigurationPlatform::new(
-                ConfigurationPlatform::Testing,
-            ))
-        });
-        CONFIG.dupe()
+        Self::from_data(HashedConfigurationPlatform::new(
+            ConfigurationPlatform::Bound(
+                "<testing>".to_owned(),
+                ConfigurationDataData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::new(),
+                },
+            ),
+        ))
     }
 
     fn from_data(data: HashedConfigurationPlatform) -> Self {
@@ -238,7 +241,6 @@ impl ConfigurationData {
             ConfigurationPlatform::UnspecifiedExec => {
                 Err(ConfigurationError::UnspecifiedExec.into())
             }
-            ConfigurationPlatform::Testing => Ok(ConfigurationDataData::empty_ref()),
             ConfigurationPlatform::Bound(_, data) => Ok(data),
         }
     }
@@ -300,9 +302,6 @@ enum ConfigurationPlatform {
     /// This is generally only the case for users that haven't yet adopted configurations.
     Unspecified,
     UnspecifiedExec,
-    /// The testing platform is just used as a convenience in tests where we don't want or need to construct a
-    /// fully specified configuration.
-    Testing,
 
     // Note: If new variants are added somewhere other than the end, it will change the hash of the other variants. This
     // will change the computed buck-out hash path for outputs using that configuration. The `Testing` configuration
@@ -317,7 +316,6 @@ impl ConfigurationPlatform {
     fn label(&self) -> &str {
         match self {
             ConfigurationPlatform::Bound(label, _) => label.as_str(),
-            ConfigurationPlatform::Testing => "<testing>",
             ConfigurationPlatform::Unbound => "<unbound>",
             ConfigurationPlatform::UnboundExec => "<unbound_exec>",
             ConfigurationPlatform::Unspecified => "<unspecified>",
@@ -359,14 +357,6 @@ impl ConfigurationDataData {
             constraints: Default::default(),
             buckconfigs: Default::default(),
         }
-    }
-
-    fn empty_ref() -> &'static ConfigurationDataData {
-        static EMPTY: ConfigurationDataData = ConfigurationDataData {
-            constraints: BTreeMap::new(),
-            buckconfigs: BTreeMap::new(),
-        };
-        &EMPTY
     }
 
     pub fn new(
@@ -458,7 +448,6 @@ impl HashedConfigurationPlatform {
             ConfigurationPlatform::Unbound
             | ConfigurationPlatform::Unspecified
             | ConfigurationPlatform::UnspecifiedExec
-            | ConfigurationPlatform::Testing
             | ConfigurationPlatform::UnboundExec => configuration_platform.label().to_owned(),
         };
         Self {

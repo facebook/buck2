@@ -176,13 +176,13 @@ mod tests {
             frozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])
             def test():
                 notfrozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])
-                expect = "<dependency root//foo:bar[baz] (<testing>)>"
+                expect = "<dependency root//foo:bar[baz] (<testing>#<HASH>)>"
 
-                assert_eq(expect, repr(notfrozen))
+                assert_eq_ignore_hash(expect, repr(notfrozen))
                 assert_eq({}, notfrozen[DefaultInfo].sub_targets)
                 assert_eq(["baz"], notfrozen.label.sub_target)
 
-                assert_eq(expect, repr(frozen))
+                assert_eq_ignore_hash(expect, repr(frozen))
                 assert_eq({}, frozen[DefaultInfo].sub_targets)
                 assert_eq(["baz"], frozen.label.sub_target)
             "#
