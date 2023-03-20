@@ -307,7 +307,10 @@ mod imp {
         fn collect_client_metadata() -> buck2_data::TypedMetadata {
             let mut ints = HashMap::new();
             ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
-            buck2_data::TypedMetadata { ints }
+            buck2_data::TypedMetadata {
+                ints,
+                strings: HashMap::new(),
+            }
         }
 
         fn handle_command_start(

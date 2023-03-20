@@ -1255,6 +1255,7 @@ message ResolvedTargetPatterns {
 
 message TypedMetadata {
   map<string, int64> ints = 1;
+  map<string, string> strings = 2;
 }
 
 message InvocationRecord {
