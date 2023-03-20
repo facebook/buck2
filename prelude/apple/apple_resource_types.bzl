@@ -12,6 +12,7 @@ AppleResourceDestination = enum(
     "executables",
     "plugins",
     "xpcservices",
+    "loginitems",
 )
 
 # Defines _where_ resources need to be placed in an `apple_bundle`
