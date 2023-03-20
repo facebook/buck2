@@ -72,7 +72,7 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
                     self.configuration.to_value().get_type().to_owned(),
                 )
             })?
-            .to_configuration_data();
+            .to_configuration_data()?;
         let cfg = ConfigurationData::from_platform(TargetLabel::to_string(&target), cfg)?;
         let executor_config =
             StarlarkCommandExecutorConfig::from_value(self.executor_config.to_value())

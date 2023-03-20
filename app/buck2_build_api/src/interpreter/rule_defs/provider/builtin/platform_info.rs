@@ -44,7 +44,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
                 .to_owned(),
             ConfigurationInfo::from_value(self.configuration.to_value())
                 .expect("type checked during construction")
-                .to_configuration_data(),
+                .to_configuration_data()?,
         )
     }
 }

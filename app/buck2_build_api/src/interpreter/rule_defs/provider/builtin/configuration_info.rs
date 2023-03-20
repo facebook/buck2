@@ -83,15 +83,18 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
         }
     }
 
-    pub fn to_configuration_data(&self) -> ConfigurationDataData {
+    pub fn to_configuration_data(&self) -> anyhow::Result<ConfigurationDataData> {
         let ConfigSettingData {
             constraints,
             buckconfigs,
         } = self.to_config_setting_data();
-        ConfigurationDataData {
+        if !buckconfigs.is_empty() {
+            return Err(ConfigurationInfoError::BuckConfigsNotAllowed.into());
+        }
+        Ok(ConfigurationDataData {
             constraints,
             buckconfigs,
-        }
+        })
     }
 }
 
@@ -132,6 +135,8 @@ impl<'v> ConfigurationInfo<'v> {
 enum ConfigurationInfoError {
     #[error("key `{0}` in constraints dict does not match constraint value `{1}`")]
     ConstraintsKeyValueMismatch(String, String),
+    #[error("`ConfigurationInfo` cannot have buckconfigs when it is used to create a platform")]
+    BuckConfigsNotAllowed,
 }
 
 #[starlark_module]
