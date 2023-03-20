@@ -17,6 +17,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hostname",
+        "fbsource//third-party/rust:is_proc_translated",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost",

@@ -49,6 +49,10 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("buck2_release_timestamp".to_owned(), ts.to_owned());
     }
 
+    if is_proc_translated::is_proc_translated() {
+        map.insert("rosetta".to_owned(), "1".to_owned());
+    }
+
     // Global trace ID
     map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
 
