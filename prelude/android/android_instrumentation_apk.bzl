@@ -21,17 +21,16 @@ def android_instrumentation_apk_impl(ctx: "context"):
 
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
-    # android_instrumentation_apk uses the same platforms as the APK-under-test
+    # android_instrumentation_apk should just use the same platforms and primary_platform as the APK-under-test
     unfiltered_deps_by_platform = get_deps_by_platform(ctx)
     for platform in apk_under_test_info.platforms:
         expect(
             platform in unfiltered_deps_by_platform,
             "Android instrumentation APK must have any platforms that are in the APK-under-test!",
         )
-    filtered_deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
-
-    # We use the deps that don't have _build_only_native_code = True
-    deps = unfiltered_deps_by_platform.values()[0]
+    deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
+    primary_platform = apk_under_test_info.primary_platform
+    deps = deps_by_platform[primary_platform]
 
     java_packaging_deps = [
         packaging_dep
@@ -68,7 +67,7 @@ def android_instrumentation_apk_impl(ctx: "context"):
     native_library_info = get_android_binary_native_library_info(
         ctx,
         android_packageable_info,
-        filtered_deps_by_platform,
+        deps_by_platform,
         prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs,
         shared_libraries_to_exclude = apk_under_test_info.shared_libraries,
     )
