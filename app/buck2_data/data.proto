@@ -1359,6 +1359,8 @@ message InvocationRecord {
   // Version number of watchman
   optional string watchman_version = 55;
   optional string command_name = 56;
+  // Any soft errors we hit during this invocation.
+  repeated string soft_error_categories = 57;
 }
 
 message CacheUploadStart {

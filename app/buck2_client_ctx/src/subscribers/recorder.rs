@@ -20,6 +20,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 mod imp {
     use std::cmp;
     use std::collections::HashMap;
+    use std::collections::HashSet;
     use std::future::Future;
     use std::path::Path;
     use std::sync::Arc;
@@ -101,6 +102,7 @@ mod imp {
         initial_sink_failure_count: Option<u64>,
         initial_sink_dropped_count: Option<u64>,
         sink_max_buffer_depth: u64,
+        soft_error_categories: HashSet<String>,
     }
 
     impl InvocationRecorder {
@@ -173,6 +175,7 @@ mod imp {
                 initial_sink_failure_count: None,
                 initial_sink_dropped_count: None,
                 sink_max_buffer_depth: 0,
+                soft_error_categories: HashSet::new(),
             }
         }
 
@@ -284,6 +287,9 @@ mod imp {
                 sink_failure_count,
                 sink_dropped_count,
                 sink_max_buffer_depth: Some(self.sink_max_buffer_depth),
+                soft_error_categories: std::mem::take(&mut self.soft_error_categories)
+                    .into_iter()
+                    .collect(),
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -613,6 +619,14 @@ mod imp {
             Ok(())
         }
 
+        fn handle_panic(&mut self, panic: &buck2_data::Panic) -> anyhow::Result<()> {
+            if let Some(soft_error_category) = panic.soft_error_category.as_ref() {
+                self.soft_error_categories
+                    .insert(soft_error_category.to_owned());
+            }
+            Ok(())
+        }
+
         async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
             // TODO(nga): query now once in `EventsCtx`.
             let now = SystemTime::now();
@@ -692,6 +706,7 @@ mod imp {
                         buck2_data::instant_event::Data::MaterializerStateInfo(
                             materializer_state,
                         ) => self.handle_materializer_state_info(materializer_state),
+                        buck2_data::instant_event::Data::Panic(panic) => self.handle_panic(panic),
                         _ => Ok(()),
                     }
                 }
