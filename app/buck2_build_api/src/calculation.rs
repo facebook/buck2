@@ -28,6 +28,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -412,8 +413,8 @@ fn apply_spec<T: PatternType>(
                         for target_info in res.targets().values() {
                             let key = T::from_parts(
                                 target_info.label().name().to_owned(),
-                                Default::default(),
-                            );
+                                ProvidersName::Default,
+                            )?;
                             label_to_node.insert(key, target_info.dupe());
                         }
                     }

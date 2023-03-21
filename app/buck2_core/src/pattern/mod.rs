@@ -63,6 +63,8 @@ enum TargetPatternParseError {
         "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here"
     )]
     PossibleMacroUsage,
+    #[error("Expecting target name, without providers")]
+    ExpectingTargetNameWithoutProviders,
 }
 
 /// The pattern type to be parsed from the command line target patterns.
@@ -72,11 +74,8 @@ enum TargetPatternParseError {
 pub trait PatternType: Sized + Clone + Display + Debug + PartialEq + Eq + Ord + Allocative {
     type ExtraParts: Default + Clone;
 
-    /// Split the given str into the part that should become the TargetName, and the ExtraParts.
-    fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)>;
-
     /// Construct this from a TargetName and the ExtraParts.
-    fn from_parts(target: TargetName, extra: Self::ExtraParts) -> Self;
+    fn from_parts(target: TargetName, providers: ProvidersName) -> anyhow::Result<Self>;
 
     /// Get target name
     fn target(&self) -> &TargetName;
@@ -91,12 +90,11 @@ pub trait PatternType: Sized + Clone + Display + Debug + PartialEq + Eq + Ord + 
 impl PatternType for TargetName {
     type ExtraParts = ();
 
-    fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)> {
-        Ok((s, ()))
-    }
-
-    fn from_parts(target: TargetName, _extra: Self::ExtraParts) -> Self {
-        target
+    fn from_parts(target: TargetName, providers: ProvidersName) -> anyhow::Result<Self> {
+        if providers != ProvidersName::Default {
+            return Err(TargetPatternParseError::ExpectingTargetNameWithoutProviders.into());
+        }
+        Ok(target)
     }
 
     fn target(&self) -> &TargetName {
@@ -142,48 +140,8 @@ impl ProvidersPattern {
 impl PatternType for ProvidersPattern {
     type ExtraParts = ProvidersName;
 
-    fn split(s: &str) -> anyhow::Result<(&str, Self::ExtraParts)> {
-        if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
-            let name = map_flavors(flavors, s)?;
-            Ok((t, name))
-        } else if let Some((t, p)) = split1_opt_ascii(s, AsciiChar::new('[')) {
-            let mut names = Vec::new();
-
-            let mut remaining = if let Some((p, r)) = split1_opt_ascii(p, AsciiChar::new(']')) {
-                names.push(ProviderName::new(p.to_owned())?);
-                r
-            } else {
-                return Err(anyhow::anyhow!(
-                    "target pattern with `[` must end with `]` to mark end of providers set label"
-                ));
-            };
-
-            while !remaining.is_empty() {
-                if let Some(("", r)) = split1_opt_ascii(remaining, AsciiChar::new('[')) {
-                    if let Some((p, r)) = split1_opt_ascii(r, AsciiChar::new(']')) {
-                        names.push(ProviderName::new(p.to_owned())?);
-                        remaining = r;
-                        continue;
-                    }
-                }
-                return Err(anyhow::anyhow!(
-                    "target pattern with `[` must end with `]` to mark end of providers set label"
-                ));
-            }
-
-            Ok((
-                t,
-                ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                    names.into_boxed_slice(),
-                ))),
-            ))
-        } else {
-            Ok((s, ProvidersName::Default))
-        }
-    }
-
-    fn from_parts(target: TargetName, providers: Self::ExtraParts) -> Self {
-        ProvidersPattern { target, providers }
+    fn from_parts(target: TargetName, providers: ProvidersName) -> anyhow::Result<Self> {
+        Ok(ProvidersPattern { target, providers })
     }
 
     fn target(&self) -> &TargetName {
@@ -192,6 +150,47 @@ impl PatternType for ProvidersPattern {
 
     fn extra_parts(&self) -> &Self::ExtraParts {
         &self.providers
+    }
+}
+
+/// Extract provider name from a target pattern.
+pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersName)> {
+    if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
+        let name = map_flavors(flavors, s)?;
+        Ok((t, name))
+    } else if let Some((t, p)) = split1_opt_ascii(s, AsciiChar::new('[')) {
+        let mut names = Vec::new();
+
+        let mut remaining = if let Some((p, r)) = split1_opt_ascii(p, AsciiChar::new(']')) {
+            names.push(ProviderName::new(p.to_owned())?);
+            r
+        } else {
+            return Err(anyhow::anyhow!(
+                "target pattern with `[` must end with `]` to mark end of providers set label"
+            ));
+        };
+
+        while !remaining.is_empty() {
+            if let Some(("", r)) = split1_opt_ascii(remaining, AsciiChar::new('[')) {
+                if let Some((p, r)) = split1_opt_ascii(r, AsciiChar::new(']')) {
+                    names.push(ProviderName::new(p.to_owned())?);
+                    remaining = r;
+                    continue;
+                }
+            }
+            return Err(anyhow::anyhow!(
+                "target pattern with `[` must end with `]` to mark end of providers set label"
+            ));
+        }
+
+        Ok((
+            t,
+            ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                names.into_boxed_slice(),
+            ))),
+        ))
+    } else {
+        Ok((s, ProvidersName::Default))
     }
 }
 
@@ -405,7 +404,7 @@ where
             } => {
                 // It would be a little cleaner for this to not allocate a TargetName but instead
                 // just split for us.
-                let (pattern, extra) = T::split(pattern)?;
+                let (pattern, extra) = split_providers_name(pattern)?;
                 let package = normalize_package(pattern, strip_package_trailing_slash)?;
 
                 let target = package
@@ -416,7 +415,7 @@ where
 
                 Ok(PatternData::TargetInPackage {
                     package,
-                    target: T::from_parts(target, extra),
+                    target: T::from_parts(target, extra)?,
                 })
             }
         }
@@ -512,8 +511,8 @@ where
         }
         .into(),
         Some((package, target)) => {
-            let (target, extra) = T::split(target)?;
-            let target = T::from_parts(TargetName::new(target)?, extra);
+            let (target, extra) = split_providers_name(target)?;
+            let target = T::from_parts(TargetName::new(target)?, extra)?;
             PatternData::TargetInPackage {
                 package: normalize_package(package, strip_package_trailing_slash)?,
                 target,
@@ -710,7 +709,7 @@ where
     // Assuming this might be an alias, try to parse it as the thing we are trying to parse here.
     // This lets us resolve `foo` in `foo[bar]` as an alias, for example. If this is invalid we'll
     // just skip alias resolution and let the error propagate in `parse_target_pattern`.
-    let (target, extra) = match T::split(package) {
+    let (target, extra) = match split_providers_name(package) {
         Ok(split) => split,
         Err(..) => return Ok(None),
     };
@@ -746,7 +745,7 @@ where
     // And finally, put the `T` we were looking for back together.
     let res = match res {
         ParsedPattern::Target(package, target) => {
-            ParsedPattern::Target(package, T::from_parts(target, extra))
+            ParsedPattern::Target(package, T::from_parts(target, extra)?)
         }
         _ => {
             return Err(ResolveTargetAliasError::AliasIsNotATarget {
