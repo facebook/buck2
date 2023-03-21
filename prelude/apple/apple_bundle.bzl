@@ -180,7 +180,9 @@ def generate_install_data(
         "info_plist": ctx.attrs.info_plist,
         "use_idb": "true",
         ## TODO(T110665037): read from .buckconfig
-        "xcode_developer_path": "/Applications/Xcode_13.4.0_fb.app/Contents/Developer",
+        # We require the user to have run `xcode-select` and `/var/db/xcode_select_link` to symlink
+        # to the selected Xcode. e.g: `/Applications/Xcode_14.2.app/Contents/Developer`
+        "xcode_developer_path": "/var/db/xcode_select_link",
     }
 
     if populate_rule_specific_attributes_func:
