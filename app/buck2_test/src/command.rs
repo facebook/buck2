@@ -35,11 +35,12 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -365,7 +366,7 @@ async fn test(
 
 async fn test_targets(
     ctx: &DiceComputations,
-    pattern: ResolvedPattern<ProvidersPattern>,
+    pattern: ResolvedPattern<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     external_runner_args: Vec<String>,
     label_filtering: Arc<TestLabelFiltering>,
@@ -505,7 +506,7 @@ async fn test_targets(
 enum TestDriverTask {
     InterpretTarget {
         package: PackageLabel,
-        spec: PackageSpec<ProvidersPattern>,
+        spec: PackageSpec<ProvidersPatternExtra>,
     },
     ConfigureTargets {
         labels: Vec<ProvidersLabel>,
@@ -547,7 +548,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     /// Add new patterns for the test driver to process.
-    fn push_pattern(&mut self, pattern: ResolvedPattern<ProvidersPattern>) {
+    fn push_pattern(&mut self, pattern: ResolvedPattern<ProvidersPatternExtra>) {
         for (package, spec) in pattern.specs.into_iter() {
             let fut = future::ready(anyhow::Ok(TestDriverTask::InterpretTarget {
                 package,
@@ -583,7 +584,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
     }
 
-    fn interpret_targets(&mut self, package: PackageLabel, spec: PackageSpec<ProvidersPattern>) {
+    fn interpret_targets(
+        &mut self,
+        package: PackageLabel,
+        spec: PackageSpec<ProvidersPatternExtra>,
+    ) {
         let state = self.state;
 
         self.work.push(
@@ -591,8 +596,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 let res = state.ctx.get_interpreter_results(package.dupe()).await?;
                 let SpecTargets { labels, skippable } = spec_to_targets(spec, res)?;
 
-                let labels =
-                    labels.into_map(|pattern| pattern.into_providers_label(package.dupe()));
+                let labels = labels.into_map(|(target_name, providers_pattern)| {
+                    providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
+                });
 
                 anyhow::Ok(TestDriverTask::ConfigureTargets { labels, skippable })
             }
@@ -669,13 +675,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 }
 
 struct SpecTargets {
-    labels: Vec<ProvidersPattern>,
+    labels: Vec<(TargetName, ProvidersPatternExtra)>,
     /// Indicates whether this should be skipped if incompatible.
     skippable: bool,
 }
 
 fn spec_to_targets(
-    spec: PackageSpec<ProvidersPattern>,
+    spec: PackageSpec<ProvidersPatternExtra>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<SpecTargets> {
     let available_targets = res.targets();
@@ -684,9 +690,13 @@ fn spec_to_targets(
         PackageSpec::All => {
             let labels = available_targets
                 .keys()
-                .map(|target| ProvidersPattern {
-                    target: target.to_owned(),
-                    providers: ProvidersName::Default,
+                .map(|target| {
+                    (
+                        target.to_owned(),
+                        ProvidersPatternExtra {
+                            providers: ProvidersName::Default,
+                        },
+                    )
                 })
                 .collect();
             Ok(SpecTargets {
@@ -695,8 +705,8 @@ fn spec_to_targets(
             })
         }
         PackageSpec::Targets(labels) => {
-            for ProvidersPattern { target, .. } in &labels {
-                res.resolve_target(target)?;
+            for (target_name, _) in &labels {
+                res.resolve_target(target_name)?;
             }
             Ok(SpecTargets {
                 labels,

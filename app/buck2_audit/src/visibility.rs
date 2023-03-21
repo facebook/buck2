@@ -15,7 +15,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_core::target::name::TargetName;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -135,7 +135,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, ctx| {
-                let parsed_patterns = parse_patterns_from_cli_args::<TargetName>(
+                let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),

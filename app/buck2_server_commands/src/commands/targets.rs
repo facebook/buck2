@@ -42,8 +42,8 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
@@ -556,7 +556,7 @@ async fn targets(
 
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
-    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetName>(
+    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
         &request.target_patterns,
         &cell_resolver,
         &dice.get_legacy_configs().await?,
@@ -684,13 +684,15 @@ impl ResolveAliasFormatter for LinesWriter {
 async fn targets_resolve_aliases(
     dice: DiceTransaction,
     request: &TargetsRequest,
-    parsed_target_patterns: Vec<ParsedPattern<TargetName>>,
+    parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
 ) -> anyhow::Result<TargetsResponse> {
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.
     let parsed_target_patterns = std::iter::zip(&request.target_patterns, parsed_target_patterns)
         .map(|(alias, pattern)| match pattern {
-            ParsedPattern::Target(package, target_name) => Ok((package, target_name)),
+            ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
+                Ok((package, target_name))
+            }
             _ => Err(anyhow::anyhow!(
                 "Invalid alias (does not expand to a single target): `{}`",
                 alias.value
@@ -785,7 +787,7 @@ async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
     dice: DiceTransaction,
     formatter: &dyn TargetFormatter,
-    parsed_patterns: Vec<ParsedPattern<TargetName>>,
+    parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     target_platform: Option<TargetLabel>,
     hash_options: TargetHashOptions,
     keep_going: bool,
@@ -882,7 +884,7 @@ async fn targets_streaming(
     dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
     outputter: &mut Outputter,
-    parsed_patterns: Vec<ParsedPattern<TargetName>>,
+    parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     keep_going: bool,
     cached: bool,
     imports: bool,
@@ -1011,8 +1013,8 @@ fn stream_packages<T: PatternType>(
 
     for pattern in patterns {
         match pattern {
-            ParsedPattern::Target(package, target) => {
-                spec.add_target(package.dupe(), &target);
+            ParsedPattern::Target(package, target_name, extra) => {
+                spec.add_target(package.dupe(), target_name, extra);
             }
             ParsedPattern::Package(package) => {
                 spec.add_package(package.dupe());
@@ -1030,7 +1032,7 @@ fn stream_packages<T: PatternType>(
 async fn load_targets(
     dice: &DiceComputations,
     package: PackageLabel,
-    spec: PackageSpec<TargetName>,
+    spec: PackageSpec<TargetPatternExtra>,
     cached: bool,
 ) -> anyhow::Result<(Arc<EvaluationResult>, Vec<TargetNode>)> {
     let result = if cached {
@@ -1041,9 +1043,9 @@ async fn load_targets(
     };
 
     let targets = match spec {
-        PackageSpec::Targets(targets) => {
-            targets.into_try_map(|target| anyhow::Ok(result.resolve_target(&target)?.dupe()))?
-        }
+        PackageSpec::Targets(targets) => targets.into_try_map(|(target, TargetPatternExtra)| {
+            anyhow::Ok(result.resolve_target(target.as_ref())?.dupe())
+        })?,
         PackageSpec::All => result.targets().values().duped().collect(),
     };
     Ok((result, targets))

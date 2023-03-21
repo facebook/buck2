@@ -127,7 +127,7 @@ mod tests {
     use buck2_common::result::SharedResult;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::pattern::ProvidersPattern;
+    use buck2_core::pattern::ProvidersPatternExtra;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
@@ -146,12 +146,12 @@ mod tests {
             eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<Dependency<'v>> {
             let c = BuildContext::from_context(eval)?;
-            let label = match ParsedPattern::<ProvidersPattern>::parse_precise(
+            let label = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
                 s,
             ) {
-                Ok(ParsedPattern::Target(package, pattern)) => pattern
-                    .into_providers_label(package)
+                Ok(ParsedPattern::Target(package, target_name, providers)) => providers
+                    .into_providers_label(package, target_name.as_ref())
                     .configure(ConfigurationData::testing_new()),
                 _ => {
                     eprintln!("Expected a target, not {}", s);

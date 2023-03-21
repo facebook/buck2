@@ -8,11 +8,11 @@
  */
 
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
@@ -63,7 +63,10 @@ pub trait AttrCoercionContext {
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
 
-    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetName>>;
+    fn coerce_target_pattern(
+        &self,
+        pattern: &str,
+    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>>;
 
     fn visit_query_function_literals(
         &self,

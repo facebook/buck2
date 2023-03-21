@@ -31,6 +31,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_core::target::name::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -322,8 +323,8 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
     for pattern in parsed_patterns {
         match pattern {
-            ParsedPattern::Target(package, target) => {
-                spec.add_target(package.dupe(), &target);
+            ParsedPattern::Target(package, target_name, extra) => {
+                spec.add_target(package.dupe(), target_name, extra);
                 load_package_futs.push(load_package(ctx, package.dupe()));
             }
             ParsedPattern::Package(package) => {
@@ -347,13 +348,18 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 }
 
 pub struct LoadedPatterns<T: PatternType> {
-    results: BTreeMap<PackageLabel, SharedResult<BTreeMap<T, TargetNode>>>,
+    results: BTreeMap<PackageLabel, SharedResult<BTreeMap<(TargetName, T), TargetNode>>>,
 }
 
 impl<T: PatternType> LoadedPatterns<T> {
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, &SharedResult<BTreeMap<T, TargetNode>>)> {
+    ) -> impl Iterator<
+        Item = (
+            PackageLabel,
+            &SharedResult<BTreeMap<(TargetName, T), TargetNode>>,
+        ),
+    > {
         self.results.iter().map(|(k, v)| (k.dupe(), v))
     }
 
@@ -361,7 +367,12 @@ impl<T: PatternType> LoadedPatterns<T> {
     #[allow(clippy::should_implement_trait)]
     pub fn into_iter(
         self,
-    ) -> impl Iterator<Item = (PackageLabel, SharedResult<BTreeMap<T, TargetNode>>)> {
+    ) -> impl Iterator<
+        Item = (
+            PackageLabel,
+            SharedResult<BTreeMap<(TargetName, T), TargetNode>>,
+        ),
+    > {
         self.results.into_iter()
     }
 
@@ -393,7 +404,7 @@ fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
     load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let mut all_targets: BTreeMap<_, SharedResult<BTreeMap<_, _>>> = BTreeMap::new();
+    let mut all_targets: BTreeMap<_, SharedResult<BTreeMap<(TargetName, T), _>>> = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
@@ -404,18 +415,18 @@ fn apply_spec<T: PatternType>(
                 let mut label_to_node = BTreeMap::new();
                 match pkg_spec {
                     PackageSpec::Targets(targets) => {
-                        for target in targets {
-                            let node = res.resolve_target(target.target())?;
-                            label_to_node.insert(target, node.dupe());
+                        for (target_name, extra) in targets {
+                            let node = res.resolve_target(target_name.as_ref())?;
+                            label_to_node.insert((target_name, extra), node.dupe());
                         }
                     }
                     PackageSpec::All => {
                         for target_info in res.targets().values() {
-                            let key = T::from_parts(
-                                target_info.label().name().to_owned(),
-                                ProvidersName::Default,
-                            )?;
-                            label_to_node.insert(key, target_info.dupe());
+                            let key = T::from_parts(ProvidersName::Default)?;
+                            label_to_node.insert(
+                                (target_info.label().name().to_owned(), key),
+                                target_info.dupe(),
+                            );
                         }
                     }
                 };

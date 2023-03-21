@@ -21,8 +21,8 @@ use buck2_build_api::calculation::load_patterns;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
-use buck2_core::target::name::TargetName;
+use buck2_core::pattern::ProvidersPatternExtra;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derive_more::Display;
@@ -313,7 +313,7 @@ impl CliArgType {
             CliArgType::List(inner) => inner.to_clap(clap.takes_value(true).multiple(true)),
             CliArgType::Option(inner) => inner.to_clap(clap.required(false)),
             CliArgType::TargetLabel => clap.takes_value(true).validator(|x| {
-                lex_target_pattern::<TargetName>(x, false)
+                lex_target_pattern::<TargetPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
                     .and_then(|parsed| {
                         parsed
@@ -323,7 +323,7 @@ impl CliArgType {
                     })
             }),
             CliArgType::SubTarget => clap.takes_value(true).validator(|x| {
-                lex_target_pattern::<ProvidersPattern>(x, false)
+                lex_target_pattern::<ProvidersPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
                     .and_then(|parsed| {
                         parsed
@@ -390,7 +390,7 @@ impl CliArgType {
                 CliArgType::TargetLabel => clap.value_of().map_or(Ok(None), |x| {
                     let r: anyhow::Result<_> = try {
                         CliArgValue::TargetLabel(
-                            ParsedPattern::<TargetName>::parse_relaxed(
+                            ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
                                 &ctx.cell_resolver,
                                 ctx.relative_dir.dupe(),
@@ -404,7 +404,7 @@ impl CliArgType {
                 CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
                     let r: anyhow::Result<_> = try {
                         CliArgValue::ProvidersLabel(
-                            ParsedPattern::<ProvidersPattern>::parse_relaxed(
+                            ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
                                 &ctx.cell_resolver,
                                 ctx.relative_dir.dupe(),
@@ -417,7 +417,7 @@ impl CliArgType {
                 })?,
                 CliArgType::TargetExpr => {
                     let x = clap.value_of().unwrap_or("");
-                    let pattern = ParsedPattern::<TargetName>::parse_relaxed(
+                    let pattern = ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                         &ctx.target_alias_resolver,
                         &ctx.cell_resolver,
                         ctx.relative_dir.dupe(),

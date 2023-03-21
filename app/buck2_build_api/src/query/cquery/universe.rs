@@ -15,7 +15,8 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::PatternType;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::name::TargetName;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -77,13 +78,13 @@ impl CqueryUniverse {
 
     pub(crate) fn get(
         &self,
-        resolved_pattern: &ResolvedPattern<TargetName>,
+        resolved_pattern: &ResolvedPattern<TargetPatternExtra>,
     ) -> TargetSet<ConfiguredTargetNode> {
         let mut targets = TargetSet::new();
         for (package, spec) in &resolved_pattern.specs {
             targets.extend(
                 self.get_from_package(package.dupe(), spec)
-                    .map(|(node, ())| node),
+                    .map(|(node, TargetPatternExtra)| node),
             );
         }
         targets
@@ -91,14 +92,14 @@ impl CqueryUniverse {
 
     pub fn get_provider_labels(
         &self,
-        resolved_pattern: &ResolvedPattern<ProvidersPattern>,
+        resolved_pattern: &ResolvedPattern<ProvidersPatternExtra>,
     ) -> Vec<ConfiguredProvidersLabel> {
         let mut targets = Vec::new();
         for (package, spec) in &resolved_pattern.specs {
             targets.extend(
                 self.get_from_package(package.dupe(), spec)
                     .map(|(node, providers)| {
-                        ConfiguredProvidersLabel::new(node.label().dupe(), providers)
+                        ConfiguredProvidersLabel::new(node.label().dupe(), providers.providers)
                     }),
             );
         }
@@ -109,26 +110,24 @@ impl CqueryUniverse {
         &'a self,
         package: PackageLabel,
         spec: &'a PackageSpec<P>,
-    ) -> impl Iterator<Item = (&'a ConfiguredTargetNode, P::ExtraParts)> + 'a {
+    ) -> impl Iterator<Item = (&'a ConfiguredTargetNode, P)> + 'a {
         self.targets
             .get(&package)
             .into_iter()
             .flat_map(move |package_universe| match spec {
-                PackageSpec::Targets(names) => Either::Left(names.iter().flat_map(|name| {
-                    package_universe
-                        .get(name.target())
-                        .into_iter()
-                        .flat_map(|nodes| {
-                            nodes
-                                .iter()
-                                .map(|node| (&node.0, name.extra_parts().clone()))
-                        })
-                })),
+                PackageSpec::Targets(names) => {
+                    Either::Left(names.iter().flat_map(|(name, extra)| {
+                        package_universe
+                            .get(name)
+                            .into_iter()
+                            .flat_map(|nodes| nodes.iter().map(|node| (&node.0, extra.clone())))
+                    }))
+                }
                 PackageSpec::All => Either::Right(
                     package_universe
                         .values()
                         .flatten()
-                        .map(|node| (&node.0, P::ExtraParts::default())),
+                        .map(|node| (&node.0, P::default())),
                 ),
             })
     }

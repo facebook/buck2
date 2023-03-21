@@ -18,11 +18,11 @@ use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -140,8 +140,10 @@ impl BuildAttrCoercionContext {
 
     fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
         // TODO(nmj): Make this take an import path / package
-        match self.parse_pattern::<ProvidersPattern>(value)? {
-            ParsedPattern::Target(package, pattern) => Ok(pattern.into_providers_label(package)),
+        match self.parse_pattern::<ProvidersPatternExtra>(value)? {
+            ParsedPattern::Target(package, target_name, providers) => {
+                Ok(providers.into_providers_label(package, target_name.as_ref()))
+            }
             _ => Err(BuildAttrCoercionContextError::RequiredLabel(value.to_owned()).into()),
         }
     }
@@ -251,7 +253,10 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         }
     }
 
-    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
+    fn coerce_target_pattern(
+        &self,
+        pattern: &str,
+    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
         self.parse_pattern(pattern)
     }
 

@@ -12,8 +12,8 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellInstance;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::values::Value;
@@ -45,7 +45,7 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
             default_target_platform.clone()
         } else if let Some(s) = self.unpack_str() {
             Some(
-                ParsedPattern::<TargetName>::parse_relaxed(
+                ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     target_alias_resolver,
                     cell.cell_alias_resolver(),
                     PackageLabel::new(cell.name(), CellRelativePath::empty()),

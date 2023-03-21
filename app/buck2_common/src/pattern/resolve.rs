@@ -13,6 +13,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
+use buck2_core::target::name::TargetName;
 use dupe::Dupe;
 use indexmap::IndexMap;
 
@@ -38,15 +39,15 @@ where
         self.specs.insert(package, PackageSpec::All);
     }
 
-    pub fn add_target(&mut self, package: PackageLabel, target: &T) {
+    pub fn add_target(&mut self, package: PackageLabel, target_name: TargetName, extra: T) {
         if let Some(s) = self.specs.get_mut(&package) {
             match s {
-                PackageSpec::Targets(ref mut t) => t.push(target.clone()),
+                PackageSpec::Targets(ref mut t) => t.push((target_name, extra)),
                 PackageSpec::All => {}
             }
         } else {
             self.specs
-                .insert(package, PackageSpec::Targets(vec![target.clone()]));
+                .insert(package, PackageSpec::Targets(vec![(target_name, extra)]));
         }
     }
 }
@@ -64,8 +65,8 @@ pub async fn resolve_target_patterns<
     let mut resolved = ResolvedPattern::new();
     for pattern in patterns {
         match pattern {
-            ParsedPattern::Target(package, target) => {
-                resolved.add_target(package.dupe(), target);
+            ParsedPattern::Target(package, target_name, extra) => {
+                resolved.add_target(package.dupe(), target_name.clone(), extra.clone());
             }
             ParsedPattern::Package(package) => {
                 resolved.add_package(package.dupe());
@@ -101,7 +102,8 @@ mod tests {
     use buck2_core::pattern::PackageSpec;
     use buck2_core::pattern::ParsedPattern;
     use buck2_core::pattern::PatternType;
-    use buck2_core::pattern::ProvidersPattern;
+    use buck2_core::pattern::ProvidersPatternExtra;
+    use buck2_core::pattern::TargetPatternExtra;
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProviderName;
     use buck2_core::provider::label::ProvidersName;
@@ -217,16 +219,26 @@ mod tests {
     #[tokio::test]
     async fn test_simple_specs_targets() -> anyhow::Result<()> {
         let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
-        tester.resolve::<TargetName>(&[]).await?.assert_eq(&[]);
         tester
-            .resolve::<TargetName>(&["//some:target", "//some:other_target", "child//a/package:"])
+            .resolve::<TargetPatternExtra>(&[])
+            .await?
+            .assert_eq(&[]);
+        tester
+            .resolve::<TargetPatternExtra>(&[
+                "//some:target",
+                "//some:other_target",
+                "child//a/package:",
+            ])
             .await?
             .assert_eq(&[
                 (
                     PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
-                        TargetName::unchecked_new("target"),
-                        TargetName::unchecked_new("other_target"),
+                        (TargetName::unchecked_new("target"), TargetPatternExtra),
+                        (
+                            TargetName::unchecked_new("other_target"),
+                            TargetPatternExtra,
+                        ),
                     ]),
                 ),
                 (
@@ -241,11 +253,11 @@ mod tests {
     async fn test_simple_specs_providers() -> anyhow::Result<()> {
         let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
         tester
-            .resolve::<ProvidersPattern>(&[])
+            .resolve::<ProvidersPatternExtra>(&[])
             .await?
             .assert_eq(&[]);
         tester
-            .resolve::<ProvidersPattern>(&[
+            .resolve::<ProvidersPatternExtra>(&[
                 "//some:target",
                 "//some:other_target[my-label]",
                 "child//a/package:",
@@ -255,19 +267,23 @@ mod tests {
                 (
                     PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
-                        ProvidersPattern {
-                            target: TargetName::unchecked_new("target"),
-                            providers: ProvidersName::Default,
-                        },
-                        ProvidersPattern {
-                            target: TargetName::unchecked_new("other_target"),
-                            providers: ProvidersName::NonDefault(Box::new(
-                                NonDefaultProvidersName::Named(Box::new([ProviderName::new(
-                                    "my-label".to_owned(),
-                                )
-                                .unwrap()])),
-                            )),
-                        },
+                        (
+                            TargetName::unchecked_new("target"),
+                            ProvidersPatternExtra {
+                                providers: ProvidersName::Default,
+                            },
+                        ),
+                        (
+                            TargetName::unchecked_new("other_target"),
+                            ProvidersPatternExtra {
+                                providers: ProvidersName::NonDefault(Box::new(
+                                    NonDefaultProvidersName::Named(Box::new([ProviderName::new(
+                                        "my-label".to_owned(),
+                                    )
+                                    .unwrap()])),
+                                )),
+                            },
+                        ),
                     ]),
                 ),
                 (
@@ -278,8 +294,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(PhantomData::< TargetName >; "parsing TargetPattern")]
-    #[test_case(PhantomData::< ProvidersPattern >; "parsing ProvidersPattern")]
+    #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
+    #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
     fn test_recursive_specs<T: PatternType>(_: PhantomData<T>) {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {

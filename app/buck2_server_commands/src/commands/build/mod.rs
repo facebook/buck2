@@ -36,7 +36,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -140,7 +140,7 @@ async fn build(
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;
 
-    let parsed_patterns: Vec<ParsedPattern<ProvidersPattern>> = parse_patterns_from_cli_args(
+    let parsed_patterns: Vec<ParsedPattern<ProvidersPatternExtra>> = parse_patterns_from_cli_args(
         &request.target_patterns,
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
@@ -152,7 +152,7 @@ async fn build(
         .get_materializer()
         .log_materializer_state(server_ctx.events());
 
-    let resolved_pattern: ResolvedPattern<ProvidersPattern> =
+    let resolved_pattern: ResolvedPattern<ProvidersPatternExtra> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
@@ -307,7 +307,7 @@ async fn build(
 
 async fn build_targets(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPattern>,
+    spec: ResolvedPattern<ProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
@@ -338,7 +338,7 @@ async fn build_targets(
 
 async fn build_targets_in_universe(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPattern>,
+    spec: ResolvedPattern<ProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
@@ -370,7 +370,7 @@ async fn build_targets_in_universe(
 
 async fn build_targets_with_global_target_platform(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPattern>,
+    spec: ResolvedPattern<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
@@ -432,7 +432,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 async fn build_targets_for_spec(
     ctx: &DiceComputations,
     package: PackageLabel,
-    spec: PackageSpec<ProvidersPattern>,
+    spec: PackageSpec<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
@@ -450,11 +450,11 @@ async fn build_targets_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for ProvidersPattern { target, .. } in &targets {
-                res.resolve_target(target)?;
+            for (target_name, _) in &targets {
+                res.resolve_target(target_name)?;
             }
-            targets.into_map(|pattern| TargetBuildSpec {
-                target: pattern.into_providers_label(package.dupe()),
+            targets.into_map(|(target_name, providers)| TargetBuildSpec {
+                target: providers.into_providers_label(package.dupe(), target_name.as_ref()),
                 global_target_platform: global_target_platform.dupe(),
                 skippable: false,
             })

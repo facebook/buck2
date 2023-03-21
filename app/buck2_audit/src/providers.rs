@@ -16,7 +16,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -106,7 +106,7 @@ impl AuditProvidersCommand {
         )
         .await?;
 
-        let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+        let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
             &self
                 .patterns
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
@@ -126,16 +126,20 @@ impl AuditProvidersCommand {
                     interpreter_results
                         .targets()
                         .keys()
-                        .map(|target| ProvidersPattern {
-                            target: target.to_owned(),
-                            providers: ProvidersName::Default,
+                        .map(|target| {
+                            (
+                                target.to_owned(),
+                                ProvidersPatternExtra {
+                                    providers: ProvidersName::Default,
+                                },
+                            )
                         })
                         .collect()
                 }
             };
 
-            for pattern in targets {
-                let label = pattern.into_providers_label(package.dupe());
+            for (target_name, providers) in targets {
+                let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
                 let providers_label = ctx
                     .get_configured_target(&label, target_platform.as_ref())
                     .await?;

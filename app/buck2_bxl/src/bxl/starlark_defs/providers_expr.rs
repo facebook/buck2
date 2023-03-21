@@ -11,7 +11,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -104,7 +104,7 @@ impl ProvidersExpr {
             #[allow(clippy::manual_map)] // `if else if` looks better here
             if let Some(s) = value.unpack_str() {
                 Some(
-                    ParsedPattern::<ProvidersPattern>::parse_relaxed(
+                    ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                         &ctx.target_alias_resolver,
                         ctx.cell.cell_alias_resolver(),
                         PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),

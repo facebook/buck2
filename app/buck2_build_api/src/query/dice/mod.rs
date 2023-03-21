@@ -36,10 +36,10 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -76,11 +76,14 @@ pub(crate) struct LiteralParser {
 
 impl LiteralParser {
     // We allow provider names and flavors in the value and it gets stripped out for the result as queries operate on the target graphs.
-    fn parse_target_pattern(&self, value: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
+    fn parse_target_pattern(
+        &self,
+        value: &str,
+    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
         let providers_pattern = self.parse_providers_pattern(value)?;
         let target_pattern = match providers_pattern {
-            ParsedPattern::Target(package, ProvidersPattern { target, .. }) => {
-                ParsedPattern::Target(package, target)
+            ParsedPattern::Target(package, target_name, ProvidersPatternExtra { .. }) => {
+                ParsedPattern::Target(package, target_name, TargetPatternExtra)
             }
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
             ParsedPattern::Recursive(path) => ParsedPattern::Recursive(path),
@@ -91,7 +94,7 @@ impl LiteralParser {
     pub(crate) fn parse_providers_pattern(
         &self,
         value: &str,
-    ) -> anyhow::Result<ParsedPattern<ProvidersPattern>> {
+    ) -> anyhow::Result<ParsedPattern<ProvidersPatternExtra>> {
         ParsedPattern::parse_relative(
             &self.target_alias_resolver,
             &self.cell_alias_resolver,
@@ -204,7 +207,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     async fn resolve_target_patterns(
         &self,
         patterns: &[&str],
-    ) -> anyhow::Result<ResolvedPattern<TargetName>> {
+    ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns = patterns.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let file_ops = self.ctx.file_ops();
         resolve_target_patterns(&self.cell_resolver, parsed_patterns.iter(), &file_ops).await

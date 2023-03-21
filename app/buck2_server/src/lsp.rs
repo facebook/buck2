@@ -29,7 +29,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
@@ -506,12 +506,12 @@ impl BuckLspContext {
             .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
         let cell = cell_resolver.get(current_package.cell_name())?;
-        match ParsedPattern::<ProvidersPattern>::parsed_opt_absolute(
+        match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
             cell.cell_alias_resolver(),
             Some(current_package),
             literal,
         ) {
-            Ok(ParsedPattern::Target(package, ProvidersPattern { target, .. })) => {
+            Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self
                     .with_dice_ctx(async move |dice_ctx| {
                         Ok(dice_ctx

@@ -10,9 +10,9 @@
 pub mod testing {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::pattern::ProvidersPattern;
+    use buck2_core::pattern::ProvidersPatternExtra;
+    use buck2_core::pattern::TargetPatternExtra;
     use buck2_core::target::label::TargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_interpreter::types::label::Label;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
     use starlark::environment::GlobalsBuilder;
@@ -33,11 +33,13 @@ pub mod testing {
     pub fn label_creator(builder: &mut GlobalsBuilder) {
         fn label<'v>(s: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Label> {
             let c = BuildContext::from_context(eval)?;
-            let target = match ParsedPattern::<ProvidersPattern>::parse_precise(
+            let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
                 s,
             )? {
-                ParsedPattern::Target(package, pattern) => pattern.into_providers_label(package),
+                ParsedPattern::Target(package, target_name, providers) => {
+                    providers.into_providers_label(package, target_name.as_ref())
+                }
                 _ => return Err(LabelCreatorError::ExpectedProvider(s.to_owned()).into()),
             };
             Ok(Label::new(
@@ -50,11 +52,11 @@ pub mod testing {
             eval: &mut Evaluator<'v, '_>,
         ) -> anyhow::Result<StarlarkTargetLabel> {
             let c = BuildContext::from_context(eval)?;
-            let target = match ParsedPattern::<TargetName>::parse_precise(
+            let target = match ParsedPattern::<TargetPatternExtra>::parse_precise(
                 c.cell_info().cell_alias_resolver(),
                 s,
             )? {
-                ParsedPattern::Target(package, target_name) => {
+                ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
                     TargetLabel::new(package, target_name.as_ref())
                 }
                 _ => return Err(LabelCreatorError::ExpectedTarget(s.to_owned()).into()),

@@ -16,8 +16,8 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -71,7 +71,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 )
                 .await?;
 
-                let parsed_patterns = parse_patterns_from_cli_args::<TargetName>(
+                let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
@@ -87,7 +87,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
                 for (package, spec) in resolved_pattern.specs {
                     match spec {
                         buck2_core::pattern::PackageSpec::Targets(targets) => {
-                            for target in targets {
+                            for (target, TargetPatternExtra) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 let configured_target = ctx
                                     .get_configured_target(&label, global_target_platform.as_ref())

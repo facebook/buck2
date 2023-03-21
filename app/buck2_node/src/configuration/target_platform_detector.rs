@@ -28,8 +28,8 @@ use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -65,24 +65,27 @@ impl TargetPlatformDetector {
             match value.split_once(':') {
                 Some(("target", value)) => match value.split_once("->") {
                     Some((matcher, target)) => {
-                        let matcher_package = match ParsedPattern::<TargetName>::parse_precise(
+                        let matcher_package =
+                            match ParsedPattern::<TargetPatternExtra>::parse_precise(
+                                cell_alias_resolver,
+                                matcher,
+                            )? {
+                                buck2_core::pattern::ParsedPattern::Recursive(root) => root,
+                                _ => {
+                                    return Err(
+                                        DetectorSpecParseError::TargetKindRequiresRecursivePattern(
+                                            matcher.to_owned(),
+                                        )
+                                        .into(),
+                                    );
+                                }
+                            };
+                        let target = ParsedPattern::<TargetPatternExtra>::parse_precise(
                             cell_alias_resolver,
-                            matcher,
-                        )? {
-                            buck2_core::pattern::ParsedPattern::Recursive(root) => root,
-                            _ => {
-                                return Err(
-                                    DetectorSpecParseError::TargetKindRequiresRecursivePattern(
-                                        matcher.to_owned(),
-                                    )
-                                    .into(),
-                                );
-                            }
-                        };
-                        let target =
-                            ParsedPattern::<TargetName>::parse_precise(cell_alias_resolver, target)
-                                .and_then(|x| x.as_target_label(target))
-                                .context("Error parsing target platform detector spec")?;
+                            target,
+                        )
+                        .and_then(|x| x.as_target_label(target))
+                        .context("Error parsing target platform detector spec")?;
                         detectors.push((matcher_package, target))
                     }
                     None => {

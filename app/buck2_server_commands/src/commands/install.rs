@@ -44,7 +44,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::name::TargetName;
@@ -187,7 +187,7 @@ async fn install(
     .await?;
 
     // Note <TargetName> does not return the providers
-    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &request.target_patterns,
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
@@ -205,24 +205,28 @@ async fn install(
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
         let ctx = &ctx;
-        let targets: anyhow::Result<Vec<ProvidersPattern>> = match spec {
+        let targets: anyhow::Result<Vec<(TargetName, ProvidersPatternExtra)>> = match spec {
             buck2_core::pattern::PackageSpec::Targets(targets) => Ok(targets),
             buck2_core::pattern::PackageSpec::All => {
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 let targets = interpreter_results
                     .targets()
                     .keys()
-                    .map(|target| ProvidersPattern {
-                        target: target.to_owned(),
-                        providers: ProvidersName::Default,
+                    .map(|target| {
+                        (
+                            target.to_owned(),
+                            ProvidersPatternExtra {
+                                providers: ProvidersName::Default,
+                            },
+                        )
                     })
                     .collect();
                 Ok(targets)
             }
         };
         let targets = targets?;
-        for pattern in targets {
-            let label = pattern.into_providers_label(package.dupe());
+        for (target_name, providers) in targets {
+            let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
                 .get_configured_target(&label, global_target_platform.dupe().as_ref())
                 .await?;

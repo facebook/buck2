@@ -64,9 +64,9 @@ pub mod testing {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::ParsedPattern;
+    use buck2_core::pattern::TargetPatternExtra;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::label::TargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_execute::artifact::fs::ExecutorFs;
     use buck2_execute::execute::request::OutputType;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
@@ -99,11 +99,11 @@ pub mod testing {
 
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
         let ctx = BuildContext::from_context(eval)?;
-        match ParsedPattern::<TargetName>::parse_precise(
+        match ParsedPattern::<TargetPatternExtra>::parse_precise(
             ctx.cell_info().cell_alias_resolver(),
             target,
         ) {
-            Ok(ParsedPattern::Target(package, target_name)) => {
+            Ok(ParsedPattern::Target(package, target_name, TargetPatternExtra)) => {
                 Ok(TargetLabel::new(package, target_name.as_ref())
                     .configure(ConfigurationData::testing_new()))
             }

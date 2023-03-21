@@ -29,12 +29,12 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternData;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_data::ToProtoMessage;
@@ -202,15 +202,19 @@ impl AnonTargetKey {
     /// just that it is syntactically valid.
     fn parse_target_label(x: &str) -> anyhow::Result<TargetLabel> {
         let err = || AnonTargetsError::NotTargetLabel(x.to_owned());
-        let lex = lex_target_pattern::<TargetName>(x, false).with_context(err)?;
+        let lex = lex_target_pattern::<TargetPatternExtra>(x, false).with_context(err)?;
         // TODO(nga): `CellName` contract requires it refers to declared cell name.
         //   This `unchecked_new` violates it.
         let cell =
             CellName::unchecked_new(lex.cell_alias.filter(|a| !a.is_empty()).unwrap_or("anon"))?;
         match lex.pattern.reject_ambiguity()? {
-            PatternData::TargetInPackage { package, target } => Ok(TargetLabel::new(
+            PatternData::TargetInPackage {
+                package,
+                target_name,
+                extra: TargetPatternExtra,
+            } => Ok(TargetLabel::new(
                 PackageLabel::new(cell, CellRelativePath::new(package)),
-                target.as_ref(),
+                target_name.as_ref(),
             )),
             _ => Err(err().into()),
         }
@@ -480,7 +484,10 @@ impl AttrCoercionContext for AnonAttrCtx {
         Err(AnonTargetsError::CantParseDuringCoerce(value.to_owned()).into())
     }
 
-    fn coerce_target_pattern(&self, pattern: &str) -> anyhow::Result<ParsedPattern<TargetName>> {
+    fn coerce_target_pattern(
+        &self,
+        pattern: &str,
+    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
         Err(AnonTargetsError::CantParseDuringCoerce(pattern.to_owned()).into())
     }
 

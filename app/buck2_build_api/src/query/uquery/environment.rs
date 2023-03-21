@@ -22,8 +22,8 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::compatibility::MaybeCompatible;
@@ -92,7 +92,7 @@ pub trait UqueryDelegate: Send + Sync {
     async fn resolve_target_patterns(
         &self,
         pattern: &[&str],
-    ) -> anyhow::Result<ResolvedPattern<TargetName>>;
+    ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>>;
 
     async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet>;
 

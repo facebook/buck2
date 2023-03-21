@@ -23,7 +23,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
-use buck2_core::target::name::TargetName;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -73,7 +73,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 )
                 .await?;
 
-                let label = parse_patterns_from_cli_args::<TargetName>(
+                let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &[buck2_data::TargetPattern {
                         value: self.pattern.clone(),
                     }],

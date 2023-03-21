@@ -260,8 +260,8 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                 .literal_parser()
                 .parse_providers_pattern(literal)?;
             match label {
-                ParsedPattern::Target(package, pattern) => {
-                    let label = pattern.into_providers_label(package);
+                ParsedPattern::Target(package, target_name, providers) => {
+                    let label = providers.into_providers_label(package, target_name.as_ref());
                     let configured_label = self
                         .base_delegate
                         .ctx()

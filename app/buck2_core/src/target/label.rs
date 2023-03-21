@@ -28,6 +28,7 @@ use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::package::PackageLabel;
 use crate::pattern::ParsedPattern;
+use crate::pattern::TargetPatternExtra;
 use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 
@@ -142,8 +143,9 @@ impl TargetLabel {
         label: &str,
         cell_alias_resolver: &CellAliasResolver,
     ) -> anyhow::Result<TargetLabel> {
-        let (pkg, name) = ParsedPattern::<TargetName>::parse_precise(cell_alias_resolver, label)?
-            .as_literal(label)?;
+        let (pkg, name, TargetPatternExtra) =
+            ParsedPattern::<TargetPatternExtra>::parse_precise(cell_alias_resolver, label)?
+                .as_literal(label)?;
         Ok(TargetLabel::new(pkg, name.as_ref()))
     }
 

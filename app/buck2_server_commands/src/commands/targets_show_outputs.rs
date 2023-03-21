@@ -23,7 +23,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPattern;
+use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -101,7 +101,7 @@ async fn targets_show_outputs(
     let target_platform =
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPattern>(
+    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
         &request.target_patterns,
         &cell_resolver,
         &ctx.get_legacy_configs().await?,
@@ -137,7 +137,7 @@ async fn targets_show_outputs(
 async fn retrieve_targets_artifacts_from_patterns(
     ctx: &DiceComputations,
     global_target_platform: &Option<TargetLabel>,
-    parsed_patterns: &[ParsedPattern<ProvidersPattern>],
+    parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern =
@@ -148,7 +148,7 @@ async fn retrieve_targets_artifacts_from_patterns(
 
 async fn retrieve_artifacts_for_targets(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPattern>,
+    spec: ResolvedPattern<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let futs: FuturesUnordered<_> = spec
@@ -177,7 +177,7 @@ async fn retrieve_artifacts_for_targets(
 async fn retrieve_artifacts_for_spec(
     ctx: &DiceComputations,
     package: PackageLabel,
-    spec: PackageSpec<ProvidersPattern>,
+    spec: PackageSpec<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
@@ -194,12 +194,12 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for ProvidersPattern { target, .. } in &targets {
-                res.resolve_target(target)?;
+            for (target_name, _) in &targets {
+                res.resolve_target(target_name)?;
             }
-            targets.into_map(|t| {
+            targets.into_map(|(target_name, providers)| {
                 (
-                    t.into_providers_label(package.dupe()),
+                    providers.into_providers_label(package.dupe(), target_name.as_ref()),
                     global_target_platform.dupe(),
                 )
             })

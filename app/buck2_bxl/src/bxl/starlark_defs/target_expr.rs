@@ -15,8 +15,8 @@ use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_core::truncate::truncate;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -205,21 +205,23 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         {
             Ok(Some(Self::Label(Cow::Borrowed(configured_target.label()))))
         } else if let Some(s) = value.unpack_str() {
-            match ParsedPattern::<TargetName>::parse_relaxed(
+            match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
                 PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
-                ParsedPattern::Target(pkg, name) => Ok(Some(Self::Label(Cow::Owned(
-                    ctx.async_ctx
-                        .0
-                        .get_configured_target(
-                            &TargetLabel::new(pkg, name.as_ref()),
-                            target_platform.as_ref(),
-                        )
-                        .await?,
-                )))),
+                ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                    Ok(Some(Self::Label(Cow::Owned(
+                        ctx.async_ctx
+                            .0
+                            .get_configured_target(
+                                &TargetLabel::new(pkg, name.as_ref()),
+                                target_platform.as_ref(),
+                            )
+                            .await?,
+                    ))))
+                }
                 pattern => {
                     let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
                     Ok(Some(Self::TargetSet(Cow::Owned(
@@ -330,15 +332,15 @@ impl<'v> TargetExpr<'v, TargetNode> {
         } else if let Some(label) = value.downcast_ref::<StarlarkTargetLabel>() {
             Ok(Some(Self::Label(Cow::Borrowed(label.label()))))
         } else if let Some(s) = value.unpack_str() {
-            match ParsedPattern::<TargetName>::parse_relaxed(
+            match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
                 PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
-                ParsedPattern::Target(pkg, name) => Ok(Some(Self::Label(Cow::Owned(
-                    TargetLabel::new(pkg, name.as_ref()),
-                )))),
+                ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(
+                    Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
+                ))),
                 pattern => {
                     let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
                     let mut target_set = TargetSet::new();
