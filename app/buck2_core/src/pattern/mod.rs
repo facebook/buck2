@@ -78,12 +78,6 @@ pub trait PatternType: Sized + Clone + Display + Debug + PartialEq + Eq + Ord + 
     /// Construct this from a TargetName and the ExtraParts.
     fn from_parts(target: TargetName, extra: Self::ExtraParts) -> Self;
 
-    /// Parse this from a str.
-    fn parse_from(s: &str) -> anyhow::Result<Self> {
-        let (target, extra) = Self::split(s)?;
-        Ok(Self::from_parts(TargetName::new(target)?, extra))
-    }
-
     /// Get target name
     fn target(&self) -> &TargetName;
 
@@ -517,11 +511,15 @@ where
             package: normalize_package(package, strip_package_trailing_slash)?,
         }
         .into(),
-        Some((package, target)) => PatternData::TargetInPackage {
-            package: normalize_package(package, strip_package_trailing_slash)?,
-            target: T::parse_from(target)?,
+        Some((package, target)) => {
+            let (target, extra) = T::split(target)?;
+            let target = T::from_parts(TargetName::new(target)?, extra);
+            PatternData::TargetInPackage {
+                package: normalize_package(package, strip_package_trailing_slash)?,
+                target,
+            }
+            .into()
         }
-        .into(),
         None => {
             if let Some(package) = strip_suffix_ascii(pattern, AsciiStr::new("/...")) {
                 PatternData::Recursive {
