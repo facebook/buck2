@@ -54,6 +54,15 @@ impl BoundConfigurationLabel {
         }) {
             return Err(BoundConfigurationLabelError::InvalidCharactersInLabel(label).into());
         }
+        if label
+            .chars()
+            .any(|c| c.is_ascii_whitespace() || c == '(' || c == ')')
+        {
+            soft_error!(
+                "space_parens_in_configuration_label",
+                BoundConfigurationLabelError::InvalidCharactersInLabel(label.clone()).into()
+            )?;
+        }
         if BuiltinPlatform::from_label(&label).is_some() {
             return Err(BoundConfigurationLabelError::Builtin(label).into());
         }
