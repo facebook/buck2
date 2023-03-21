@@ -43,4 +43,4 @@ def _compression_level_arg(compression_level: IpaCompressionLevel.type) -> str.t
     elif compression_level.value == "max":
         return "-9"
     else:
-        fail("Unknown .ipa compression level: " + compression_level)
+        fail("Unknown .ipa compression level: " + str(compression_level))
