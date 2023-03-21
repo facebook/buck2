@@ -47,7 +47,7 @@ registration_spec = RuleRegistrationSpec(
     impl = _impl,
     attrs = {
         "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
-        "cxx_toolchain": attrs.exec_dep(providers = [CxxToolchainInfo]),
+        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
     },
     is_toolchain_rule = True,
 )
