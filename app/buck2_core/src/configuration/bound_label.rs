@@ -9,6 +9,8 @@
 
 use allocative::Allocative;
 
+use crate::configuration::builtin::BuiltinPlatform;
+
 #[derive(Debug, thiserror::Error)]
 enum BoundConfigurationLabelError {
     #[error("Configuration label is empty")]
@@ -17,6 +19,8 @@ enum BoundConfigurationLabelError {
     LabelIsTooLong(String),
     #[error("Invalid characters in configuration label: {0:?}")]
     InvalidCharactersInLabel(String),
+    #[error("Configuration label must not be equal to builtin configuration label: {0}")]
+    Builtin(String),
 }
 
 /// Label of regular configuration.
@@ -49,6 +53,9 @@ impl BoundConfigurationLabel {
             !c.is_ascii() || c == '#' || c.is_ascii_control() || c == '\t'
         }) {
             return Err(BoundConfigurationLabelError::InvalidCharactersInLabel(label).into());
+        }
+        if BuiltinPlatform::from_label(&label).is_some() {
+            return Err(BoundConfigurationLabelError::Builtin(label).into());
         }
         Ok(BoundConfigurationLabel(label))
     }

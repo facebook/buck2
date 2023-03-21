@@ -54,4 +54,34 @@ impl BuiltinPlatform {
             BuiltinPlatform::UnspecifiedExec => "<unspecified_exec>",
         }
     }
+
+    pub(crate) fn from_label(label: &str) -> Option<BuiltinPlatform> {
+        match label {
+            "<unbound>" => Some(BuiltinPlatform::Unbound),
+            "<unbound_exec>" => Some(BuiltinPlatform::UnboundExec),
+            "<unspecified>" => Some(BuiltinPlatform::Unspecified),
+            "<unspecified_exec>" => Some(BuiltinPlatform::UnspecifiedExec),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::configuration::builtin::BuiltinPlatform;
+
+    #[test]
+    fn test_from_label() {
+        for platform in [
+            BuiltinPlatform::Unbound,
+            BuiltinPlatform::UnboundExec,
+            BuiltinPlatform::Unspecified,
+            BuiltinPlatform::UnspecifiedExec,
+        ] {
+            assert_eq!(
+                Some(platform),
+                BuiltinPlatform::from_label(platform.label())
+            );
+        }
+    }
 }
