@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
@@ -40,12 +41,6 @@ enum ConfigurationError {
         "Attempted to access the configuration data for the \"unspecified_exec\" platform. This platform is used when no execution platform was resolved for a target."
     )]
     UnspecifiedExec,
-    #[error("Configuration label is empty")]
-    LabelIsEmpty,
-    #[error("Configuration label is too long: {0:?}")]
-    LabelIsTooLong(String),
-    #[error("Invalid characters in configuration label: {0:?}")]
-    InvalidCharactersInLabel(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -100,22 +95,7 @@ static INTERNER: StaticInterner<HashedConfigurationPlatform> = StaticInterner::n
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
     pub fn from_platform(label: String, data: ConfigurationDataData) -> anyhow::Result<Self> {
-        if label.is_empty() {
-            return Err(ConfigurationError::LabelIsEmpty.into());
-        }
-        if label.len() > 1000 {
-            // Sanity check.
-            return Err(ConfigurationError::LabelIsTooLong(label).into());
-        }
-        if label.chars().any(|c| {
-            // TODO(nga): restrict more: label should be either:
-            // - a valid target name when a label is created by a `platform()` rule
-            // - something like a target name (but not a target label) when created by a transition
-            // For example we should prohibit strings like `////` or `[foo//bar]`.
-            !c.is_ascii() || c == '#' || c.is_ascii_control() || c == '\t'
-        }) {
-            return Err(ConfigurationError::InvalidCharactersInLabel(label).into());
-        }
+        let label = BoundConfigurationLabel::new(label)?;
         Ok(Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(label, data),
         )))
@@ -165,7 +145,7 @@ impl ConfigurationData {
     pub fn testing_new() -> Self {
         Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(
-                "<testing>".to_owned(),
+                BoundConfigurationLabel::new("<testing>".to_owned()).unwrap(),
                 ConfigurationDataData {
                     constraints: BTreeMap::new(),
                 },
@@ -214,7 +194,7 @@ impl ConfigurationData {
 
     pub fn label(&self) -> anyhow::Result<&str> {
         match &self.0.configuration_platform {
-            ConfigurationPlatform::Bound(label, _) => Ok(label.as_ref()),
+            ConfigurationPlatform::Bound(label, _) => Ok(label.as_str()),
             _ => Err(ConfigurationError::NotBound(self.to_string()).into()),
         }
     }
@@ -271,7 +251,7 @@ impl Serialize for ConfigurationData {
 #[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
-    Bound(String, ConfigurationDataData),
+    Bound(BoundConfigurationLabel, ConfigurationDataData),
     Builtin(BuiltinPlatform),
 }
 

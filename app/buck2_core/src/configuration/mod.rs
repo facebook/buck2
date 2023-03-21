@@ -18,6 +18,7 @@
 //! graphs with different build behaviours (split-transitions).
 //!
 
+pub(crate) mod bound_label;
 pub(crate) mod builtin;
 pub mod cfg_diff;
 pub mod config_setting;
