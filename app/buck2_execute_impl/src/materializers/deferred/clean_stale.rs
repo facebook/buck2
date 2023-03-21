@@ -265,12 +265,12 @@ fn find_stale_recursive(
             metadata,
         } = &tree_metadata.stage
         {
-            let size = if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) =
-                &metadata.0
-            {
-                file_metadata.digest.size()
-            } else {
-                get_size(path)?
+            let size = match &metadata.0 {
+                DirectoryEntry::Dir(dir) => dir.total_size,
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
+                    file_metadata.digest.size()
+                }
+                DirectoryEntry::Leaf(_) => 0,
             };
             if last_access_time < &keep_since_time && !active {
                 stats.stale_artifact_count += 1;

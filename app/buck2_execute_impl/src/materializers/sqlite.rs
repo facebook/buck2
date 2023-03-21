@@ -39,13 +39,14 @@ use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::materializers::deferred::ArtifactMetadata;
+use crate::materializers::deferred::DirectoryMetadata;
 
 /// Hand-maintained schema version for the materializer state sqlite db.
 /// PLEASE bump this version if you are making a breaking change to the
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 4;
+pub const DB_SCHEMA_VERSION: u64 = 5;
 
 const STATE_TABLE_NAME: &str = "materializer_state";
 
@@ -78,6 +79,7 @@ pub(crate) struct ArtifactMetadataSqliteEntry {
     pub entry_hash_kind: Option<u8>,
     pub file_is_executable: Option<bool>,
     pub symlink_target: Option<String>,
+    pub directory_size: Option<u64>,
 }
 
 impl ArtifactMetadataSqliteEntry {
@@ -88,6 +90,7 @@ impl ArtifactMetadataSqliteEntry {
         entry_hash_kind: Option<u8>,
         file_is_executable: Option<bool>,
         symlink_target: Option<String>,
+        directory_size: Option<u64>,
     ) -> Self {
         Self {
             artifact_type,
@@ -96,6 +99,7 @@ impl ArtifactMetadataSqliteEntry {
             entry_hash_kind,
             file_is_executable,
             symlink_target,
+            directory_size,
         }
     }
 }
@@ -117,9 +121,10 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             entry_hash_kind,
             file_is_executable,
             symlink_target,
+            directory_size,
         ) = match &metadata.0 {
-            DirectoryEntry::Dir(digest) => {
-                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(digest);
+            DirectoryEntry::Dir(meta) => {
+                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&meta.fingerprint);
                 (
                     "directory",
                     Some(entry_size),
@@ -127,6 +132,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                     Some(entry_hash_kind),
                     None,
                     None,
+                    Some(meta.total_size),
                 )
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
@@ -138,6 +144,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                     Some(entry_hash_kind),
                     Some(file_metadata.is_executable),
                     None,
+                    None,
                 )
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
@@ -147,6 +154,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 None,
                 None,
                 Some(symlink.target().as_str().to_owned()),
+                None,
             ),
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
                 "external_symlink",
@@ -155,6 +163,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 None,
                 None,
                 Some(external_symlink.target_str().to_owned()),
+                None,
             ),
         };
 
@@ -165,6 +174,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             entry_hash_kind,
             file_is_executable,
             symlink_target,
+            directory_size,
         }
     }
 }
@@ -210,13 +220,18 @@ fn convert_artifact_metadata(
     }
 
     let metadata = match sqlite_entry.artifact_type.as_str() {
-        "directory" => DirectoryEntry::Dir(digest(
-            sqlite_entry.entry_size,
-            sqlite_entry.entry_hash,
-            sqlite_entry.entry_hash_kind,
-            sqlite_entry.artifact_type.as_str(),
-            digest_config,
-        )?),
+        "directory" => DirectoryEntry::Dir(DirectoryMetadata {
+            fingerprint: digest(
+                sqlite_entry.entry_size,
+                sqlite_entry.entry_hash,
+                sqlite_entry.entry_hash_kind,
+                sqlite_entry.artifact_type.as_str(),
+                digest_config,
+            )?,
+            total_size: sqlite_entry
+                .directory_size
+                .context("Missing directory size")?,
+        }),
         "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: digest(
                 sqlite_entry.entry_size,
@@ -289,12 +304,13 @@ impl MaterializerStateSqliteTable {
             "CREATE TABLE {} (
                 path                    TEXT NOT NULL PRIMARY KEY,
                 artifact_type           TEXT CHECK(artifact_type IN ('directory','file','symlink','external_symlink')) NOT NULL,
-                entry_size              INTEGER NULL DEFAULT NULL,
+                digest_size             INTEGER NULL DEFAULT NULL,
                 entry_hash              BLOB NULL DEFAULT NULL,
                 entry_hash_kind         INTEGER NULL DEFAULT NULL,
                 file_is_executable      INTEGER NULL DEFAULT NULL,
                 symlink_target          TEXT NULL DEFAULT NULL,
-                last_access_time        INTEGER NOT NULL
+                last_access_time        INTEGER NOT NULL,
+                directory_size          INTEGER NULL DEFAULT NULL
             )",
             STATE_TABLE_NAME,
         );
@@ -315,7 +331,7 @@ impl MaterializerStateSqliteTable {
         let entry: ArtifactMetadataSqliteEntry = metadata.into();
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "INSERT INTO {} (path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                "INSERT INTO {} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 STATE_TABLE_NAME
             )
         });
@@ -332,6 +348,7 @@ impl MaterializerStateSqliteTable {
                     entry.entry_hash_kind,
                     entry.file_is_executable,
                     entry.symlink_target,
+                    entry.directory_size,
                     timestamp.timestamp(),
                 ],
             )
@@ -372,7 +389,7 @@ impl MaterializerStateSqliteTable {
     ) -> anyhow::Result<MaterializerState> {
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "SELECT path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time FROM {}",
+                "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time FROM {}",
                 STATE_TABLE_NAME,
             )
         });
@@ -392,8 +409,9 @@ impl MaterializerStateSqliteTable {
                             row.get(4)?,
                             row.get(5)?,
                             row.get(6)?,
+                            row.get(7)?,
                         ),
-                        row.get(7)?,
+                        row.get(8)?,
                     ))
                 },
             )?
@@ -402,10 +420,16 @@ impl MaterializerStateSqliteTable {
 
         result
             .into_try_map(
-                |(path, entry, last_access_time)| -> anyhow::Result<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))> {
+                |(path, entry, last_access_time)| -> anyhow::Result<(
+                    ProjectRelativePathBuf,
+                    (ArtifactMetadata, DateTime<Utc>),
+                )> {
                     let path = ProjectRelativePathBuf::unchecked_new(path);
                     let metadata = convert_artifact_metadata(entry, digest_config)?;
-                    let timestamp = Utc.timestamp_opt(last_access_time, 0).single().with_context(|| "invalid timestamp")?;
+                    let timestamp = Utc
+                        .timestamp_opt(last_access_time, 0)
+                        .single()
+                        .with_context(|| "invalid timestamp")?;
                     Ok((path, (metadata, timestamp)))
                 },
             )
@@ -641,7 +665,10 @@ mod tests {
 
         let digest =
             TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
-        let metadata = ArtifactMetadata(DirectoryEntry::Dir(digest));
+        let metadata = ArtifactMetadata(DirectoryEntry::Dir(DirectoryMetadata {
+            fingerprint: digest,
+            total_size: 32,
+        }));
         let entry = ArtifactMetadataSqliteEntry::from(&metadata);
         assert_eq!(
             metadata,
@@ -727,8 +754,13 @@ mod tests {
 
         table.create_table().unwrap();
 
-        let dir_fingerprint =
-            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
+        let dir_metadata = DirectoryMetadata {
+            fingerprint: TrackedFileDigest::from_content(
+                b"directory",
+                digest_config.cas_digest_config(),
+            ),
+            total_size: 32,
+        };
         let file = ActionDirectoryMember::File(FileMetadata {
             digest: TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config()),
             is_executable: false,
@@ -750,7 +782,7 @@ mod tests {
             (
                 ProjectRelativePath::unchecked_new("a").to_owned(),
                 (
-                    ArtifactMetadata(DirectoryEntry::Dir(dir_fingerprint)),
+                    ArtifactMetadata(DirectoryEntry::Dir(dir_metadata)),
                     now_seconds(),
                 ),
             ),
@@ -810,6 +842,19 @@ mod tests {
         )
     }
 
+    // Only implementing for tests, actual code should use `matches_entry` (and not check total_size)
+    impl PartialEq for DirectoryMetadata {
+        fn eq(&self, other: &DirectoryMetadata) -> bool {
+            self.fingerprint == other.fingerprint && self.total_size == other.total_size
+        }
+    }
+
+    impl PartialEq for ArtifactMetadata {
+        fn eq(&self, other: &ArtifactMetadata) -> bool {
+            self.0 == other.0
+        }
+    }
+
     #[test]
     fn test_initialize_sqlite_db() -> anyhow::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
@@ -826,9 +871,13 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
 
         let path = ProjectRelativePath::unchecked_new("foo").to_owned();
-        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(
-            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config()),
-        ));
+        let artifact_metadata = ArtifactMetadata(DirectoryEntry::Dir(DirectoryMetadata {
+            fingerprint: TrackedFileDigest::from_content(
+                b"directory",
+                digest_config.cas_digest_config(),
+            ),
+            total_size: 32,
+        }));
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();
 

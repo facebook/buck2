@@ -64,6 +64,7 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use chrono::DateTime;
 use chrono::Duration;
@@ -495,14 +496,38 @@ pub type ActionDirectoryFingerprint = TrackedFileDigest;
 /// artifacts to check matching artifact optimizations. For `ActionSharedDirectory`, we use its fingerprint,
 /// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
 /// as is because it already holds the metadata we need.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq)]
-pub struct ArtifactMetadata(pub ActionDirectoryEntry<ActionDirectoryFingerprint>);
+#[derive(Clone, Dupe, Debug)]
+pub struct ArtifactMetadata(pub ActionDirectoryEntry<DirectoryMetadata>);
 
-impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactMetadata {
-    fn from(entry: ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
-        let new_entry: ActionDirectoryEntry<ActionDirectoryFingerprint> = match entry {
-            DirectoryEntry::Dir(dir) => DirectoryEntry::Dir(dir.fingerprint().dupe()),
-            DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf),
+#[derive(Clone, Dupe, Debug, Display)]
+#[display(fmt = "DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
+pub struct DirectoryMetadata {
+    pub fingerprint: ActionDirectoryFingerprint,
+    /// Size on disk, if the artifact is a directory.
+    /// Storing separately from ArtifactMetadata to avoid calculating when
+    /// checking matching artifacts.
+    pub total_size: u64,
+}
+
+impl ArtifactMetadata {
+    fn matches_entry(&self, entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> bool {
+        match (&self.0, entry) {
+            (
+                DirectoryEntry::Dir(DirectoryMetadata { fingerprint, .. }),
+                DirectoryEntry::Dir(dir),
+            ) => fingerprint == dir.fingerprint(),
+            (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
+            _ => false,
+        }
+    }
+
+    fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
+        let new_entry = match entry {
+            DirectoryEntry::Dir(dir) => DirectoryEntry::Dir(DirectoryMetadata {
+                fingerprint: dir.fingerprint().dupe(),
+                total_size: entry.calc_output_count_and_bytes().bytes,
+            }),
+            DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf.dupe()),
         };
         Self(new_entry)
     }
@@ -1220,8 +1245,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        let metadata = ArtifactMetadata::from(value.entry().dupe());
-
+        let metadata = ArtifactMetadata::new(value.entry());
         on_materialization(
             self.sqlite_db.as_mut(),
             &self.log_buffer,
@@ -1261,11 +1285,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     last_access_time,
                     ..
                 } => {
-                    // For checking if artifact is already materialized, we just
-                    // need to check that the entry matches. If the deps are different
-                    // we can just update them but keep the artifact as materialized.
-                    let new_metadata: ArtifactMetadata = value.entry().dupe().into();
-
                     // NOTE: This is for testing performance when hitting mismatches with disk
                     // state. Unwrapping isn't ideal, but we can't report errors here.
                     static FORCE_DECLARE_MISMATCH: EnvHelper<bool> =
@@ -1276,7 +1295,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .copied()
                         .unwrap_or_default();
 
-                    if path_iter.next().is_none() && metadata == &new_metadata && !force_mismatch {
+                    if path_iter.next().is_none()
+                        && metadata.matches_entry(value.entry())
+                        && !force_mismatch
+                    {
                         // In this case, the entry declared matches the already materialized
                         // entry on disk, so just update the deps field but leave
                         // the artifact as materialized.
@@ -1375,10 +1397,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let is_match = match &data.stage {
             ArtifactMaterializationStage::Materialized { metadata, .. } => {
-                let new_metadata: ArtifactMetadata = value.entry().dupe().into();
-                let is_match = *metadata == new_metadata;
+                let is_match = value.entry();
                 tracing::trace!("materialized: found {}, is_match: {}", metadata.0, is_match);
-                is_match
+                metadata.matches_entry(is_match)
             }
             ArtifactMaterializationStage::Declared { entry, .. } => {
                 // NOTE: In theory, if something was declared here, we should probably be able to
@@ -1667,8 +1688,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             entry,
                             method: _method,
                         } => {
-                            let metadata = ArtifactMetadata::from(entry.dupe());
-
+                            let metadata = ArtifactMetadata::new(entry);
                             // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                             // future on this path.
                             on_materialization(

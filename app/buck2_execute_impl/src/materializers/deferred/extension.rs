@@ -102,17 +102,21 @@ impl ExtensionCommand<DefaultIoHandler> for Iterate {
                     ..
                 } => {
                     let size = match &metadata.0 {
+                        DirectoryEntry::Dir(meta) => meta.total_size,
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                            Some(file_metadata.digest.size())
+                            file_metadata.digest.size()
                         }
-                        _ => None,
+                        DirectoryEntry::Leaf(_) => 0,
                     };
                     // drop nano-seconds
                     let ts = Utc
                         .timestamp_opt(last_access_time.timestamp(), 0)
                         .single()
                         .unwrap();
-                    PathData::Materialized { ts, size }
+                    PathData::Materialized {
+                        ts,
+                        size: Some(size),
+                    }
                 }
             };
 
