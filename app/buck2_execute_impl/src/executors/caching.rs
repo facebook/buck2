@@ -46,6 +46,7 @@ use futures::future;
 use futures::future::FutureExt;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
+use remote_execution::REClientError;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
 use remote_execution::TDirectory2;
@@ -216,12 +217,17 @@ impl CachingExecutor {
                 }
                 .await;
 
-                let (success, error) = match &res {
-                    Ok(CacheUploadOutcome::Success) => (true, String::new()),
+                let (success, error, re_error_code) = match &res {
+                    Ok(CacheUploadOutcome::Success) => (true, String::new(), None),
                     Ok(CacheUploadOutcome::Rejected(reason)) => {
-                        (false, format!("Rejected: {}", reason))
+                        (false, format!("Rejected: {}", reason), None)
                     }
-                    Err(e) => (false, format!("{:#}", e)),
+                    Err(e) => (
+                        false,
+                        format!("{:#}", e),
+                        e.downcast_ref::<REClientError>()
+                            .map(|e| e.code.to_string()),
+                    ),
                 };
 
                 (
@@ -232,6 +238,7 @@ impl CachingExecutor {
                         action_digest: digest.to_string(),
                         success,
                         error,
+                        re_error_code,
                         file_digests,
                         tree_digests,
                         output_bytes: Some(output_bytes),
