@@ -94,13 +94,16 @@ struct TestOutcome {
 }
 
 impl TestOutcome {
-    pub(crate) fn exit_code(&self) -> anyhow::Result<i32> {
+    pub(crate) fn exit_code(&self) -> anyhow::Result<Option<i32>> {
         if !self.error_messages.is_empty() {
-            return Ok(1);
+            // Some tests failed to build. Send `None` back to
+            // the client to delegate the exit code generation.
+            return Ok(None);
         }
         self.executor_report
             .exit_code
             .context("Test executor did not provide an exit code")
+            .map(Some)
     }
 }
 
@@ -202,7 +205,7 @@ impl ServerCommandTemplate for TestServerCommand {
     type PartialResult = NoPartialResult;
 
     fn is_success(&self, response: &Self::Response) -> bool {
-        response.exit_code == 0
+        matches!(response.exit_code, Some(0))
     }
 
     fn end_event(&self, _response: &anyhow::Result<Self::Response>) -> Self::EndEvent {

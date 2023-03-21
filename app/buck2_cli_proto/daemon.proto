@@ -409,7 +409,7 @@ message CounterWithExamples {
 }
 
 message TestResponse {
-  int32 exit_code = 1;
+  optional int32 exit_code = 1;
   repeated string error_messages = 101;
   message TestStatuses {
     reserved 1 to 6;

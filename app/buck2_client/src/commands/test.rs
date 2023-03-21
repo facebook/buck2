@@ -238,7 +238,11 @@ impl StreamingCommand for TestCommand {
             console.print_warning("NO TESTS RAN")?;
         }
 
-        ExitResult::status_extended(response.exit_code)
+        if let Some(exit_code) = response.exit_code {
+            ExitResult::status_extended(exit_code)
+        } else {
+            ExitResult::failure()
+        }
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
