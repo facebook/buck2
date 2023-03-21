@@ -54,7 +54,7 @@ mod imp {
         isolation_dir: String,
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,
-        scribe: Arc<ThriftScribeSink>,
+        scribe: Option<Arc<ThriftScribeSink>>,
         build_count_manager: BuildCountManager,
         trace_id: TraceId,
         command_start: Option<buck2_data::CommandStart>,
@@ -108,7 +108,7 @@ mod imp {
     impl InvocationRecorder {
         pub fn new(
             async_cleanup_context: AsyncCleanupContext,
-            scribe: ThriftScribeSink,
+            scribe: Option<Arc<ThriftScribeSink>>,
             mut command_name: &'static str,
             sanitized_argv: Vec<String>,
             trace_id: TraceId,
@@ -127,7 +127,7 @@ mod imp {
                 isolation_dir,
                 start_time: Instant::now(),
                 async_cleanup_context,
-                scribe: Arc::new(scribe),
+                scribe,
                 build_count_manager,
                 trace_id,
                 command_start: None,
@@ -301,11 +301,16 @@ mod imp {
                 }
                 .into(),
             );
-            tracing::info!("Recording invocation to Scribe: {:?}", &event);
-            let scribe = self.scribe.dupe();
-            Some(async move {
-                scribe.send_now(event).await;
-            })
+            if let Some(sink) = &self.scribe {
+                tracing::info!("Recording invocation to Scribe: {:?}", &event);
+                let scribe = sink.dupe();
+                Some(async move {
+                    scribe.send_now(event).await;
+                })
+            } else {
+                tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
+                None
+            }
         }
 
         // Collects client-side state and data, suitable for telemetry.
@@ -777,24 +782,26 @@ pub fn try_get_invocation_recorder(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+    let mut scribe_sink = None;
     if ctx.replayer.is_none() {
         if let Some(sink) =
             new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1, Duration::from_millis(500), 5, None)?
         {
-            let recorder = imp::InvocationRecorder::new(
-                ctx.async_cleanup_context().dupe(),
-                sink,
-                command_name,
-                sanitized_argv,
-                ctx.trace_id.dupe(),
-                ctx.paths()?.isolation.as_str().to_owned(),
-                BuildCountManager::new(ctx.paths()?.build_count_dir()),
-                ctx.paths()?.project_root().root().to_buf(),
-            );
-            return Ok(Some(Box::new(recorder) as _));
+            scribe_sink = Some(std::sync::Arc::new(sink));
         }
     }
-    Ok(None)
+
+    let recorder = imp::InvocationRecorder::new(
+        ctx.async_cleanup_context().dupe(),
+        scribe_sink,
+        command_name,
+        sanitized_argv,
+        ctx.trace_id.dupe(),
+        ctx.paths()?.isolation.as_str().to_owned(),
+        BuildCountManager::new(ctx.paths()?.build_count_dir()),
+        ctx.paths()?.project_root().root().to_buf(),
+    );
+    Ok(Some(Box::new(recorder) as _))
 }
 
 // TODO: is_eden_dir() should probably be placed in buck2_common/src/eden/mod.rs as a public function,
