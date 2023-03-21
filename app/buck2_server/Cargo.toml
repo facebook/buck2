@@ -64,6 +64,9 @@ buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 host_sharing = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+psutil = { workspace = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 maplit = { workspace = true }

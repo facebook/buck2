@@ -397,6 +397,9 @@ message Snapshot {
   // Cumulative count of messages that were dropped (i.e. not even processed).
   optional uint64 sink_dropped = 108;
 
+  // Network statistics for "interesting" network interfaces.
+  map<string, NetworkInterfaceStats> network_interface_stats = 109;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
@@ -1572,3 +1575,8 @@ message CommandExecutionStats {
 // indicative of an irrecoverable error that the user is not responsible for.
 // Use sparingly.
 message InternalError {}
+
+message NetworkInterfaceStats {
+  uint64 tx_bytes = 1;
+  uint64 rx_bytes = 2;
+}

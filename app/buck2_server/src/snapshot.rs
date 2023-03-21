@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -21,6 +22,7 @@ use dice::Dice;
 use dupe::Dupe;
 
 use crate::jemalloc_stats::get_allocator_stats;
+use crate::net_io::SystemNetworkIoCollector;
 
 /// Stores state handles necessary to produce snapshots.
 #[derive(Clone, Dupe)]
@@ -31,6 +33,7 @@ pub struct SnapshotCollector {
     dice: Arc<Dice>,
     materializer: Arc<dyn Materializer>,
     event_sink: Option<Arc<dyn EventSink>>,
+    net_io_collector: SystemNetworkIoCollector,
 }
 
 impl SnapshotCollector {
@@ -49,6 +52,7 @@ impl SnapshotCollector {
             dice,
             materializer,
             event_sink,
+            net_io_collector: SystemNetworkIoCollector::new(),
         }
     }
 
@@ -70,6 +74,7 @@ impl SnapshotCollector {
         self.add_dice_metrics(&mut snapshot).await;
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
+        self.add_net_io_metrics(&mut snapshot);
         snapshot
     }
 
@@ -175,6 +180,27 @@ impl SnapshotCollector {
             snapshot.sink_failures = Some(metrics.failures);
             snapshot.sink_buffer_depth = Some(metrics.buffered);
             snapshot.sink_dropped = Some(metrics.dropped);
+        }
+    }
+
+    fn add_net_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        if let Ok(Some(mut net_io_counters_per_nic)) = self.net_io_collector.collect() {
+            net_io_counters_per_nic
+                .retain(|k, _| ["en", "eth"].iter().any(|prefix| k.starts_with(prefix)));
+            snapshot.network_interface_stats = net_io_counters_per_nic
+                .into_iter()
+                .map(|(nic, counters)| {
+                    (
+                        nic,
+                        buck2_data::NetworkInterfaceStats {
+                            tx_bytes: counters.bytes_sent,
+                            rx_bytes: counters.bytes_recv,
+                        },
+                    )
+                })
+                .collect();
+        } else {
+            snapshot.network_interface_stats = HashMap::new();
         }
     }
 }

@@ -24,6 +24,7 @@ mod host_info;
 mod jemalloc_stats;
 pub mod lsp;
 mod materialize;
+mod net_io;
 pub mod profile;
 mod snapshot;
 mod streaming_request_handler;

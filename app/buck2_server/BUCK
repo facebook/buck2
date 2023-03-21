@@ -6,6 +6,20 @@ oncall("buck2")
 rust_library(
     name = "buck2_server",
     srcs = glob(["src/**/*.rs"]),
+    os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:psutil",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:psutil",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:maplit",
