@@ -687,13 +687,15 @@ fn lines_for_command_details(
             )]));
         }
         Some(Command::RemoteCommand(remote_command)) => {
-            lines.push(Line::from_iter([Span::new_styled_lossy(
-                format!(
-                    "Reproduce locally: `frecli cas download-action {}`",
-                    remote_command.action_digest
-                )
-                .with(Color::DarkRed),
-            )]));
+            if !buck2_core::is_open_source() {
+                lines.push(Line::from_iter([Span::new_styled_lossy(
+                    format!(
+                        "Reproduce locally: `frecli cas download-action {}`",
+                        remote_command.action_digest
+                    )
+                    .with(Color::DarkRed),
+                )]));
+            }
         }
         Some(Command::OmittedLocalCommand(..)) | None => {
             // Nothing to show in this case.
