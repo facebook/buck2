@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
+use allocative::Allocative;
+use dupe::Dupe;
+
+#[derive(
+    Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+)]
+pub(crate) enum BuiltinPlatform {
+    /// The unbound platform is used when we don't yet have a platform bound. This is to support initialization
+    /// and is used when analyzing a platform target itself (since we clearly can't have a platform yet bound
+    /// at that point).
+    /// That leads to a slight oddity that the platform's deps are processed with an empty platform. And so,
+    /// the ConfigurationInfo it receives from a constraint that it itself sets, will indicate that the constraint
+    /// doesn't match.
+    Unbound,
+
+    /// In some cases, a build does not have a default platform. In this case, we will use the "unspecified"
+    /// platform. Any attempt to access the ConfigurationData for an "unspecified" platform will fail. This means
+    /// that any use of constraints or selects or any other "configuration" feature will fail.
+    ///
+    /// This is generally only the case for users that haven't yet adopted configurations.
+    Unspecified,
+    UnspecifiedExec,
+
+    /// The unbound_exec platform is used when we don't yet have an execution platform bound. This is used so that
+    /// we can get the exec deps of a "configured" attr, which we need to resolve the execution platform.
+    UnboundExec,
+}
+
+impl Display for BuiltinPlatform {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
+impl BuiltinPlatform {
+    pub(crate) fn label(&self) -> &str {
+        match self {
+            BuiltinPlatform::Unbound => "<unbound>",
+            BuiltinPlatform::UnboundExec => "<unbound_exec>",
+            BuiltinPlatform::Unspecified => "<unspecified>",
+            BuiltinPlatform::UnspecifiedExec => "<unspecified_exec>",
+        }
+    }
+}

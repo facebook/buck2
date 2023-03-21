@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 use crate::configuration::hash::ConfigurationHash;
@@ -28,17 +29,11 @@ use crate::configuration::hash::ConfigurationHash;
 #[derive(Debug, thiserror::Error)]
 enum ConfigurationError {
     #[error(
-        "Attempted to access the configuration data for the \"unbound\" platform. This platform should only be used when processing configuration rules (`platform()`, `config_setting()`, etc) and these do not support configuration features (like `select()`)."
+        "Attempted to access the configuration data for the {0} platform. \
+        This platform is used when the global default platform is unspecified \
+        and in that case configuration features (like `select()`) are unsupported."
     )]
-    Unbound,
-    #[error(
-        "Attempted to access the configuration data for the \"unbound_exec\" platform. This platform should only be used when processing configuration rules (`platform()`, `config_setting()`, etc) and these do not support configuration features (like `select()`)."
-    )]
-    UnboundExec,
-    #[error(
-        "Attempted to access the configuration data for the \"unspecified\" platform. This platform is used when the global default platform is unspecified and in that case configuration features (like `select()`) are unsupported."
-    )]
-    Unspecified,
+    Builtin(BuiltinPlatform),
     #[error("Platform is not bound: {0}")]
     NotBound(String),
     #[error(
@@ -129,7 +124,7 @@ impl ConfigurationData {
     pub fn unspecified() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
-                ConfigurationPlatform::Unspecified,
+                ConfigurationPlatform::Builtin(BuiltinPlatform::Unspecified),
             ))
         });
         CONFIG.dupe()
@@ -138,7 +133,7 @@ impl ConfigurationData {
     pub fn unspecified_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
-                ConfigurationPlatform::UnspecifiedExec,
+                ConfigurationPlatform::Builtin(BuiltinPlatform::UnspecifiedExec),
             ))
         });
         CONFIG.dupe()
@@ -149,7 +144,7 @@ impl ConfigurationData {
     pub fn unbound() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
-                ConfigurationPlatform::Unbound,
+                ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound),
             ))
         });
         CONFIG.dupe()
@@ -160,7 +155,7 @@ impl ConfigurationData {
     pub fn unbound_exec() -> Self {
         static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
-                ConfigurationPlatform::UnboundExec,
+                ConfigurationPlatform::Builtin(BuiltinPlatform::UnboundExec),
             ))
         });
         CONFIG.dupe()
@@ -226,11 +221,11 @@ impl ConfigurationData {
 
     pub fn data(&self) -> anyhow::Result<&ConfigurationDataData> {
         match &self.0.configuration_platform {
-            ConfigurationPlatform::Unbound => Err(ConfigurationError::Unbound.into()),
-            ConfigurationPlatform::UnboundExec => Err(ConfigurationError::UnboundExec.into()),
-            ConfigurationPlatform::Unspecified => Err(ConfigurationError::Unspecified.into()),
-            ConfigurationPlatform::UnspecifiedExec => {
+            ConfigurationPlatform::Builtin(BuiltinPlatform::UnspecifiedExec) => {
                 Err(ConfigurationError::UnspecifiedExec.into())
+            }
+            ConfigurationPlatform::Builtin(builtin) => {
+                Err(ConfigurationError::Builtin(*builtin).into())
             }
             ConfigurationPlatform::Bound(_, data) => Ok(data),
         }
@@ -238,8 +233,7 @@ impl ConfigurationData {
 
     pub fn is_unbound(&self) -> bool {
         match &self.0.configuration_platform {
-            ConfigurationPlatform::Unbound => true,
-            ConfigurationPlatform::UnboundExec => true,
+            ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound) => true,
             _ => false,
         }
     }
@@ -278,39 +272,14 @@ impl Serialize for ConfigurationData {
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
     Bound(String, ConfigurationDataData),
-    /// The unbound platform is used when we don't yet have a platform bound. This is to support initialization
-    /// and is used when analyzing a platform target itself (since we clearly can't have a platform yet bound
-    /// at that point).
-    /// That leads to a slight oddity that the platform's deps are processed with an empty platform. And so,
-    /// the ConfigurationInfo it receives from a constraint that it itself sets, will indicate that the constraint
-    /// doesn't match.
-    Unbound,
-
-    /// In some cases, a build does not have a default platform. In this case, we will use the "unspecified"
-    /// platform. Any attempt to access the ConfigurationData for an "unspecified" platform will fail. This means
-    /// that any use of constraints or selects or any other "configuration" feature will fail.
-    ///
-    /// This is generally only the case for users that haven't yet adopted configurations.
-    Unspecified,
-    UnspecifiedExec,
-
-    // Note: If new variants are added somewhere other than the end, it will change the hash of the other variants. This
-    // will change the computed buck-out hash path for outputs using that configuration. The `Testing` configuration
-    // is widely used in tests.
-    // TODO(cjhopman): Change this so that our paths are less sensitive to changes.
-    /// The unbound_exec platform is used when we don't yet have an execution platform bound. This is used so that
-    /// we can get the exec deps of a "configured" attr, which we need to resolve the execution platform.
-    UnboundExec,
+    Builtin(BuiltinPlatform),
 }
 
 impl ConfigurationPlatform {
     fn label(&self) -> &str {
         match self {
             ConfigurationPlatform::Bound(label, _) => label.as_str(),
-            ConfigurationPlatform::Unbound => "<unbound>",
-            ConfigurationPlatform::UnboundExec => "<unbound_exec>",
-            ConfigurationPlatform::Unspecified => "<unspecified>",
-            ConfigurationPlatform::UnspecifiedExec => "<unspecified_exec>",
+            ConfigurationPlatform::Builtin(builtin) => builtin.label(),
         }
     }
 }
@@ -406,10 +375,7 @@ impl HashedConfigurationPlatform {
             ConfigurationPlatform::Bound(label, _cfg) => {
                 format!("{:#}#{}", label, output_hash)
             }
-            ConfigurationPlatform::Unbound
-            | ConfigurationPlatform::Unspecified
-            | ConfigurationPlatform::UnspecifiedExec
-            | ConfigurationPlatform::UnboundExec => configuration_platform.label().to_owned(),
+            ConfigurationPlatform::Builtin(builtin) => builtin.label().to_owned(),
         };
         Self {
             configuration_platform,
