@@ -346,11 +346,11 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     Ok((spec, load_package_futs))
 }
 
-pub struct LoadedPatterns<T> {
+pub struct LoadedPatterns<T: PatternType> {
     results: BTreeMap<PackageLabel, SharedResult<BTreeMap<T, TargetNode>>>,
 }
 
-impl<T> LoadedPatterns<T> {
+impl<T: PatternType> LoadedPatterns<T> {
     pub fn iter(
         &self,
     ) -> impl Iterator<Item = (PackageLabel, &SharedResult<BTreeMap<T, TargetNode>>)> {
@@ -393,7 +393,7 @@ fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
     load_results: BTreeMap<PackageLabel, SharedResult<Arc<EvaluationResult>>>,
 ) -> anyhow::Result<LoadedPatterns<T>> {
-    let mut all_targets: BTreeMap<_, SharedResult<_>> = BTreeMap::new();
+    let mut all_targets: BTreeMap<_, SharedResult<BTreeMap<_, _>>> = BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,

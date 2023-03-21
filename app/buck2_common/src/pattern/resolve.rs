@@ -20,7 +20,7 @@ use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
 
 #[derive(Debug)]
-pub struct ResolvedPattern<T> {
+pub struct ResolvedPattern<T: PatternType> {
     pub specs: IndexMap<PackageLabel, PackageSpec<T>>,
 }
 
@@ -179,7 +179,7 @@ mod tests {
         }
     }
 
-    trait ResolvedTargetPatternTestExt<T> {
+    trait ResolvedTargetPatternTestExt<T: PatternType> {
         fn assert_eq(&self, expected: &[(PackageLabel, PackageSpec<T>)]);
     }
 

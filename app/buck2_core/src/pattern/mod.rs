@@ -367,14 +367,14 @@ impl<T: PatternType> Display for ParsedPattern<T> {
 }
 
 #[derive(Debug)]
-pub struct PatternParts<'a, T> {
+pub struct PatternParts<'a, T: PatternType> {
     /// Is there a `foo//` or `//` part.
     pub cell_alias: Option<&'a str>,
     pub pattern: PatternDataOrAmbiguous<'a, T>,
 }
 
 #[derive(Debug, derive_more::From)]
-pub enum PatternDataOrAmbiguous<'a, T> {
+pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
     /// We successfully extracted PatternData.
     PatternData(PatternData<'a, T>),
 
@@ -442,7 +442,7 @@ where
 
 /// The pattern data we extracted.
 #[derive(Debug)]
-pub enum PatternData<'a, T> {
+pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
     Recursive { package: &'a ForwardRelativePath },
 
@@ -456,7 +456,7 @@ pub enum PatternData<'a, T> {
     },
 }
 
-impl<'a, T> PatternData<'a, T> {
+impl<'a, T: PatternType> PatternData<'a, T> {
     pub fn package_path(&self) -> &'a ForwardRelativePath {
         match self {
             Self::Recursive { package } => package,
@@ -760,7 +760,7 @@ where
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum PackageSpec<T> {
+pub enum PackageSpec<T: PatternType> {
     /// Given targets in a package.
     Targets(Vec<T>),
     /// All targets in a package, without subpackages.
