@@ -44,7 +44,7 @@ impl StreamingCommand for AllocativeCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         _matches: &ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {

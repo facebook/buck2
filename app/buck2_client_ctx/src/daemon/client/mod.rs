@@ -40,6 +40,7 @@ use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
+use crate::subscribers::observer::ErrorCause;
 
 pub mod connect;
 pub mod kill;
@@ -80,6 +81,17 @@ impl BuckdClientConnector {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
+    }
+
+    pub fn collect_error_cause(&self) -> ErrorCause {
+        for s in &self.client.events_ctx.subscribers {
+            if let Some(observer) = s.as_error_observer() {
+                return observer.error_cause();
+                // TODO: handle the situation where multiple observers exist and their causes disagree
+            }
+        }
+
+        ErrorCause::Unknown
     }
 }
 

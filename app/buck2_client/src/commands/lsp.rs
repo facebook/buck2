@@ -43,7 +43,7 @@ impl StreamingCommand for LspCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {

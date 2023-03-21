@@ -26,7 +26,7 @@ impl StreamingCommand for SegfaultCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
     ) -> buck2_client_ctx::exit_result::ExitResult {

@@ -54,8 +54,8 @@ impl<R> Try for CommandOutcome<R> {
 }
 
 impl FromResidual<CommandFailure> for ExitResult {
-    fn from_residual(residual: CommandFailure) -> Self {
-        ExitResult::status(residual.0.unwrap_or(1))
+    fn from_residual(_residual: CommandFailure) -> Self {
+        ExitResult::UncategorizedError
     }
 }
 

@@ -22,6 +22,8 @@ use buck2_cli_proto::command_result;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
+use crate::subscribers::observer::ErrorCause;
+
 pub struct ExecArgs {
     prog: String,
     argv: Vec<String>,
@@ -44,6 +46,10 @@ pub struct ExecArgs {
 pub enum ExitResult {
     /// We finished successfully, return the specific exit code.
     Status(u8),
+    /// The command failed and it doesn't have a specific exit code yet. This may be updated by
+    /// `ErrorObserver::error_cause` if more accurate categorization is available after the
+    /// command ends. If no categorization succeeded, it will return exit code 1.
+    UncategorizedError,
     /// Instead of terminating normally, `exec` a new process with the given name and argv.
     Exec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
@@ -57,7 +63,7 @@ impl ExitResult {
     }
 
     pub fn failure() -> Self {
-        Self::Status(2)
+        Self::UncategorizedError
     }
 
     pub fn status(status: u8) -> Self {
@@ -142,6 +148,7 @@ impl Try for ExitResult {
     fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
         match self {
             Self::Status(v) => ControlFlow::Continue(v),
+            Self::UncategorizedError => ControlFlow::Continue(1),
             Self::Err(v) => ControlFlow::Break(v),
             // `Exec` doesn't lend itself to a reasonable implementation of Try; it doesn't easily decompose into a
             // residual or output, and changing the output type would break all call sites of ExitResult.
@@ -175,6 +182,7 @@ impl ExitResult {
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {
             Self::Status(v) => v,
+            Self::UncategorizedError => 1,
             Self::Exec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
@@ -231,6 +239,14 @@ impl ExitResult {
         }
 
         unsafe { libc::_exit(exit_code as libc::c_int) }
+    }
+}
+
+pub fn gen_error_exit_code(cause: ErrorCause) -> u8 {
+    match cause {
+        ErrorCause::Unknown => 2, // We treat unknown as infra error.
+        ErrorCause::Infra => 2,
+        ErrorCause::User => 3,
     }
 }
 

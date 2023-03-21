@@ -27,7 +27,7 @@ impl StreamingCommand for ServerCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         _matches: &ArgMatches,
         _ctx: ClientCommandContext,
     ) -> ExitResult {

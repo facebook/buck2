@@ -40,7 +40,7 @@ impl StreamingCommand for DiceDumpCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
     ) -> ExitResult {

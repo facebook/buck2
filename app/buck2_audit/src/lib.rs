@@ -146,7 +146,7 @@ impl StreamingCommand for AuditCommand {
     /// Audit subcommands are all implemented as a generic request to the buckd server that will deserialize the command object.
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {

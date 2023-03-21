@@ -44,6 +44,8 @@ mod imp {
 
     use crate::build_count::BuildCountManager;
     use crate::cleanup_ctx::AsyncCleanupContext;
+    use crate::subscribers::observer::ErrorCause;
+    use crate::subscribers::observer::ErrorObserver;
     use crate::subscribers::recorder::is_eden_dir;
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
@@ -746,6 +748,21 @@ mod imp {
         async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
             self.tags.push("console-interaction".to_owned());
             Ok(())
+        }
+
+        fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
+            Some(self)
+        }
+    }
+
+    impl ErrorObserver for InvocationRecorder {
+        fn error_cause(&self) -> ErrorCause {
+            if self.run_command_failure_count > 0 {
+                // Action fails likely because of user-defined commands in the action
+                return ErrorCause::User;
+            }
+
+            ErrorCause::Unknown
         }
     }
 

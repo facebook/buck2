@@ -18,6 +18,7 @@ use buck2_data::SpanStartEvent;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_events::BuckEvent;
 
+use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 
@@ -197,6 +198,10 @@ pub trait UnpackingEventSubscriber: Send {
 
     /// Allow the subscriber to do some sort of action once every render cycle.
     async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()>;
+
+    fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
+        None
+    }
 }
 
 #[async_trait]
@@ -237,5 +242,9 @@ impl<U: UnpackingEventSubscriber> EventSubscriber for UnpackingEventSubscriberAs
 
     async fn exit(&mut self) -> anyhow::Result<()> {
         self.0.exit().await
+    }
+
+    fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
+        self.0.as_error_observer()
     }
 }

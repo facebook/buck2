@@ -19,6 +19,7 @@ use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
 use crate::subscribers::get::get_console_with_root;
@@ -85,7 +86,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Run the command.
     async fn exec_impl(
         self,
-        buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
         ctx: ClientCommandContext,
     ) -> ExitResult;
@@ -128,7 +129,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     subscribers: default_subscribers(&self, &ctx)?,
                 };
 
-                let buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
+                let mut buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
                     (Some(replayer), _) => {
                         connect_options.replay(replayer.into_inner(), ctx.paths()?)?
                     }
@@ -145,7 +146,14 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     }
                 };
 
-                self.exec_impl(buckd, matches, ctx).await
+                let mut command_result = self.exec_impl(&mut buckd, matches, ctx).await;
+
+                if matches!(command_result, ExitResult::UncategorizedError) {
+                    command_result =
+                        ExitResult::status(gen_error_exit_code(buckd.collect_error_cause()));
+                }
+
+                command_result
             };
 
             // Race our work with a ctrl+c future. If we hit ctrl+c, then we'll drop the work

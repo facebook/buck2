@@ -34,7 +34,7 @@ impl StreamingCommand for HeapDumpCommand {
 
     async fn exec_impl(
         self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext,
     ) -> ExitResult {

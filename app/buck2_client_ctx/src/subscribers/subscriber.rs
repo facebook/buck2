@@ -15,6 +15,8 @@ use async_trait::async_trait;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 
+use crate::subscribers::observer::ErrorObserver;
+
 /// Information about tick timing.
 #[derive(Debug, Clone, Dupe)]
 pub struct Tick {
@@ -73,5 +75,9 @@ pub trait EventSubscriber: Send {
     /// No more events. Close files, flush buffers etc.
     async fn exit(&mut self) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
+        None
     }
 }

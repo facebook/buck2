@@ -70,7 +70,7 @@ impl StreamingCommand for UqueryCommand {
 
     async fn exec_impl(
         mut self,
-        mut buckd: BuckdClientConnector,
+        buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
