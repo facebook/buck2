@@ -65,6 +65,8 @@ enum TargetPatternParseError {
     PossibleMacroUsage,
     #[error("Expecting target name, without providers")]
     ExpectingTargetNameWithoutProviders,
+    #[error("Expecting target pattern, without providers, got: `{0}`")]
+    ExpectingTargetPatternWithoutProviders(String),
 }
 
 /// The pattern type to be parsed from the command line target patterns.
@@ -373,6 +375,19 @@ pub struct PatternParts<'a, T: PatternType> {
     pub pattern: PatternDataOrAmbiguous<'a, T>,
 }
 
+impl<'a> PatternParts<'a, ProvidersPattern> {
+    pub fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternParts<'a, T>> {
+        let PatternParts {
+            cell_alias,
+            pattern,
+        } = self;
+        Ok(PatternParts {
+            cell_alias,
+            pattern: pattern.extra_try_into()?,
+        })
+    }
+}
+
 #[derive(Debug, derive_more::From)]
 pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
     /// We successfully extracted PatternData.
@@ -387,6 +402,23 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
         /// (rather than throwing an error).
         strip_package_trailing_slash: bool,
     },
+}
+
+impl<'a> PatternDataOrAmbiguous<'a, ProvidersPattern> {
+    fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternDataOrAmbiguous<'a, T>> {
+        match self {
+            PatternDataOrAmbiguous::PatternData(d) => {
+                Ok(PatternDataOrAmbiguous::PatternData(d.extra_try_into()?))
+            }
+            PatternDataOrAmbiguous::Ambiguous {
+                pattern,
+                strip_package_trailing_slash,
+            } => Ok(PatternDataOrAmbiguous::Ambiguous {
+                pattern,
+                strip_package_trailing_slash,
+            }),
+        }
+    }
 }
 
 impl<'a, T> PatternDataOrAmbiguous<'a, T>
@@ -436,6 +468,21 @@ where
                 }
                 Err(TargetPatternParseError::UnexpectedFormat.into())
             }
+        }
+    }
+}
+
+impl<'a> PatternData<'a, ProvidersPattern> {
+    fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternData<'a, T>> {
+        match self {
+            PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
+            PatternData::AllTargetsInPackage { package } => {
+                Ok(PatternData::AllTargetsInPackage { package })
+            }
+            PatternData::TargetInPackage { package, target } => Ok(PatternData::TargetInPackage {
+                package,
+                target: T::from_parts(target.target, target.providers)?,
+            }),
         }
     }
 }
@@ -492,14 +539,10 @@ pub fn maybe_split_cell_alias_and_relative_path<'a>(
     })
 }
 
-// Lex the target pattern into the relevant pieces
-pub fn lex_target_pattern<'a, T>(
+fn lex_provider_pattern<'a>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<T>>
-where
-    T: PatternType,
-{
+) -> anyhow::Result<PatternParts<ProvidersPattern>> {
     let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
         None => (None, pattern),
@@ -511,8 +554,9 @@ where
         }
         .into(),
         Some((package, target)) => {
-            let (target, extra) = split_providers_name(target)?;
-            let target = T::from_parts(TargetName::new(target)?, extra)?;
+            let (target, providers) = split_providers_name(target)?;
+            let target = TargetName::new(target)?;
+            let target = ProvidersPattern { target, providers };
             PatternData::TargetInPackage {
                 package: normalize_package(package, strip_package_trailing_slash)?,
                 target,
@@ -544,6 +588,18 @@ where
     Ok(PatternParts {
         cell_alias,
         pattern,
+    })
+}
+
+// Lex the target pattern into the relevant pieces.
+pub fn lex_target_pattern<'a, T: PatternType>(
+    pattern: &'a str,
+    strip_package_trailing_slash: bool,
+) -> anyhow::Result<PatternParts<T>> {
+    let provider_pattern = lex_provider_pattern(pattern, strip_package_trailing_slash)?;
+    provider_pattern.extra_try_into().map_err(|_| {
+        // This can only fail when `PatternType = TargetName`, so the message is correct.
+        TargetPatternParseError::ExpectingTargetPatternWithoutProviders(pattern.to_owned()).into()
     })
 }
 
