@@ -108,14 +108,15 @@ impl StreamingCommand for CleanStaleCommand {
                 let keep_since_time: DateTime<Utc> = Utc::now()
                     .checked_sub_signed(duration)
                     .context("Duration underflow")?;
-
                 buck2_client_ctx::eprintln!(
                     "Cleaning artifacts more than {} old",
                     humantime::format_duration(
                         duration.to_std().context("Error converting duration")?
                     ),
                 )?;
-                keep_since_time
+                // Round up to next second since timestamp below is rounded down
+                // (this way clean --stale=0s immediately after a build deletes the result)
+                keep_since_time + chrono::Duration::seconds(1)
             }
             KeepSinceArg::Time(timestamp) => Utc
                 .timestamp_opt(timestamp, 0)
