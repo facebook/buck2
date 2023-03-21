@@ -306,7 +306,7 @@ def _cxx_private_preprocessor_info(
     file_prefix_args = []
     header_root = prepare_headers(ctx, header_map, "buck-private-headers")
     if header_root != None:
-        args.extend(["-I", header_root.include_path])
+        args.append(cmd_args(header_root.include_path, format = "-I{}"))
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
 
