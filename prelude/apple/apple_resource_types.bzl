@@ -7,12 +7,12 @@
 
 # Represents the values for the `destination` field of `apple_resource`
 AppleResourceDestination = enum(
-    "resources",
-    "frameworks",
     "executables",
-    "plugins",
-    "xpcservices",
+    "frameworks",
     "loginitems",
+    "plugins",
+    "resources",
+    "xpcservices",
 )
 
 # Defines _where_ resources need to be placed in an `apple_bundle`
