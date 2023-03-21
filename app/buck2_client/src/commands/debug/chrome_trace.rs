@@ -245,7 +245,7 @@ struct SimpleCounters<T> {
     /// Stores the current value of each timeseries.
     /// Set to None when we output a zero, so we can save a bit of filesize
     /// by omitting them from the JSON output.
-    counters: HashMap<&'static str, Option<T>>,
+    counters: HashMap<String, Option<T>>,
     start_value: T,
     trace_events: Vec<serde_json::Value>,
 }
@@ -286,15 +286,15 @@ where
     fn initialize_first_entry_if_needed(
         &mut self,
         timestamp: SystemTime,
-        key: &'static str,
+        key: &str,
     ) -> anyhow::Result<T> {
         // If counter is being bumped from zero, we need to output its zero count
         // immediately so the line graph won't interpolate from the last time it was zero.
-        let entry = *self.counters.entry(key).or_insert(None);
+        let entry = *self.counters.entry(key.to_owned()).or_insert(None);
         if entry.is_none() {
             // Add a zero output immediately before the counter changes from zero.
             self.next_flush = timestamp - Duration::from_micros(1);
-            self.counters.insert(key, Some(self.start_value));
+            self.counters.insert(key.to_owned(), Some(self.start_value));
             self.flush()?;
             self.next_flush = timestamp;
         } else if timestamp > self.next_flush {
@@ -304,28 +304,25 @@ where
         Ok(entry.unwrap_or(self.start_value))
     }
 
-    fn set(&mut self, timestamp: SystemTime, key: &'static str, amount: T) -> anyhow::Result<()> {
+    fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
-        self.counters.insert(key, Some(amount));
+        self.counters.insert(key.to_owned(), Some(amount));
         Ok(())
     }
 
-    fn bump(&mut self, timestamp: SystemTime, key: &'static str, amount: T) -> anyhow::Result<()> {
+    fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.initialize_first_entry_if_needed(timestamp, key);
-        self.counters.insert(key, Some(entry.unwrap() + amount));
+        self.counters
+            .insert(key.to_owned(), Some(entry.unwrap() + amount));
         Ok(())
     }
 
-    fn subtract(
-        &mut self,
-        timestamp: SystemTime,
-        key: &'static str,
-        amount: T,
-    ) -> anyhow::Result<()> {
+    fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.initialize_first_entry_if_needed(timestamp, key);
-        self.counters.insert(key, Some(entry.unwrap() - amount));
+        self.counters
+            .insert(key.to_owned(), Some(entry.unwrap() - amount));
         Ok(())
     }
 
@@ -371,7 +368,7 @@ struct TimestampAndAmount {
 
 struct AverageRateOfChangeCounters {
     counters: SimpleCounters<f32>,
-    previous_timestamp_and_amount_by_key: HashMap<&'static str, TimestampAndAmount>,
+    previous_timestamp_and_amount_by_key: HashMap<String, TimestampAndAmount>,
 }
 
 impl AverageRateOfChangeCounters {
@@ -383,10 +380,17 @@ impl AverageRateOfChangeCounters {
         }
     }
 
+    pub fn with_start_value(name: &'static str, start_value: f32) -> Self {
+        Self {
+            previous_timestamp_and_amount_by_key: HashMap::new(),
+            counters: SimpleCounters::<f32>::new(name, start_value),
+        }
+    }
+
     fn set_average_rate_of_change_per_ms(
         &mut self,
         timestamp: SystemTime,
-        key: &'static str,
+        key: &str,
         amount: u64,
     ) -> anyhow::Result<()> {
         // We only plot if there exists a previous item to compute the rate of change off of
@@ -402,9 +406,43 @@ impl AverageRateOfChangeCounters {
             )?;
         }
         self.previous_timestamp_and_amount_by_key
-            .insert(key, TimestampAndAmount { timestamp, amount });
+            .insert(key.to_owned(), TimestampAndAmount { timestamp, amount });
 
         Ok(())
+    }
+}
+
+/// Lazily init an average rate of change counter so that we base the delta
+/// computation based on the value of the *first* event value. Helpful to remove
+/// persistent offset values in timeseries data.
+struct LazyInitAverageRateOfChangeCounters {
+    name: &'static str,
+    rate_of_change_counters: Option<AverageRateOfChangeCounters>,
+}
+
+impl LazyInitAverageRateOfChangeCounters {
+    pub fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            rate_of_change_counters: None,
+        }
+    }
+
+    fn set_average_rate_of_change_per_ms(
+        &mut self,
+        timestamp: SystemTime,
+        key: &str,
+        amount: u64,
+    ) -> anyhow::Result<()> {
+        if let Some(counters) = &mut self.rate_of_change_counters {
+            counters.set_average_rate_of_change_per_ms(timestamp, key, amount)
+        } else {
+            let mut counters =
+                AverageRateOfChangeCounters::with_start_value(self.name, amount as f32);
+            counters.set_average_rate_of_change_per_ms(timestamp, key, amount)?;
+            self.rate_of_change_counters = Some(counters);
+            Ok(())
+        }
     }
 }
 
@@ -456,6 +494,7 @@ struct ChromeTraceWriter {
     snapshot_counters: SimpleCounters<u64>,
     max_rss_gigabytes_counter: SimpleCounters<f64>,
     rate_of_change_counters: AverageRateOfChangeCounters,
+    system_network_io_counters: LazyInitAverageRateOfChangeCounters,
 }
 
 impl ChromeTraceWriter {
@@ -474,6 +513,9 @@ impl ChromeTraceWriter {
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
             max_rss_gigabytes_counter: SimpleCounters::<f64>::new("max_rss", 0.0),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
+            system_network_io_counters: LazyInitAverageRateOfChangeCounters::new(
+                "system_network_io",
+            ),
         }
     }
 
@@ -514,6 +556,9 @@ impl ChromeTraceWriter {
         self.rate_of_change_counters
             .counters
             .flush_all_to(&mut self.trace_events)?;
+        if let Some(c) = &mut self.system_network_io_counters.rate_of_change_counters {
+            c.counters.flush_all_to(&mut self.trace_events)?;
+        }
 
         serde_json::to_writer(
             file,
@@ -672,6 +717,25 @@ impl ChromeTraceWriter {
                         "blocking_executor_io_queue_size",
                         _snapshot.blocking_executor_io_queue_size,
                     )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "blocking_executor_io_queue_size",
+                        _snapshot.blocking_executor_io_queue_size,
+                    )?;
+                    for (nic, stats) in &_snapshot.network_interface_stats {
+                        self.system_network_io_counters
+                            .set_average_rate_of_change_per_ms(
+                                event.timestamp(),
+                                &format!("{}_send_bytes", &nic),
+                                stats.tx_bytes,
+                            )?;
+                        self.system_network_io_counters
+                            .set_average_rate_of_change_per_ms(
+                                event.timestamp(),
+                                &format!("{}_receive_bytes", &nic),
+                                stats.rx_bytes,
+                            )?;
+                    }
                 }
             }
             buck2_data::buck_event::Data::Record(_) => {}
