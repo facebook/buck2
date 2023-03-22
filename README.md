@@ -62,6 +62,7 @@ Beyond the obvious (well-tested, easy to read) we prefer guidelines that are aut
 * We use the `derivative` library to derive the `PartialEq` and `Hash` traits when some fields should be ignored.
 * Prefer `use crate::foo::bar` over `use super::bar` or `use crate::foo::*`, apart from test modules which often have `use super::*` at the top.
 * Modules should either have submodules or types/functions/constants, but not both.
+* Prefer `anyhow::Error` for checking internal invariants that are maintained between multiple files, while `panic!`/`unreachable!` are reasonable if the invariant is file-local.
 
 ### Error messages
 
