@@ -302,9 +302,10 @@ def _compile_with_argsfile(
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
+    explicit_modules_enabled = uses_explicit_modules(ctx)
     ctx.actions.run(
         cmd,
-        env = get_explicit_modules_env_var(ctx.attrs.uses_explicit_modules),
+        env = get_explicit_modules_env_var(explicit_modules_enabled),
         category = name,
         prefer_local = prefer_local,
         allow_cache_upload = prefer_local,
