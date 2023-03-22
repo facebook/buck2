@@ -30,7 +30,7 @@ load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_test_impl(ctx: "context") -> ["provider"]:
+def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
     def get_apple_test_providers(deps_providers) -> ["provider"]:
         xctest_bundle = bundle_output(ctx)
 
