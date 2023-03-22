@@ -38,6 +38,7 @@ use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerDependencies;
+use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
 use buck2_server_commands::commands::install::install_command;
@@ -51,8 +52,6 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::server::server_starlark_command;
 use buck2_test::command::test_command;
-use dice::DetectCycles;
-use dice::WhichDice;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
@@ -267,8 +266,7 @@ impl DaemonCommand {
         fb: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        detect_cycles: Option<DetectCycles>,
-        which_dice: Option<WhichDice>,
+        server_init_ctx: BuckdServerInitPreferences,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -416,8 +414,7 @@ impl DaemonCommand {
                 log_reload_handle,
                 paths,
                 delegate,
-                detect_cycles,
-                which_dice,
+                server_init_ctx,
                 process_info,
                 gen_daemon_constraints()?,
                 listener,
@@ -501,8 +498,7 @@ impl DaemonCommand {
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        detect_cycles: Option<DetectCycles>,
-        which_dice: Option<WhichDice>,
+        server_init_ctx: BuckdServerInitPreferences,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -525,8 +521,7 @@ impl DaemonCommand {
             init,
             log_reload_handle,
             paths,
-            detect_cycles,
-            which_dice,
+            server_init_ctx,
             in_process,
             listener_created,
         )?;
@@ -601,6 +596,7 @@ mod tests {
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
+    use buck2_server::daemon::server::BuckdServerInitPreferences;
     use dupe::Dupe;
 
     use crate::commands::daemon::BuckdServerDependenciesImpl;
@@ -645,8 +641,10 @@ mod tests {
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
             Box::new(Delegate),
-            None,
-            None,
+            BuckdServerInitPreferences {
+                detect_cycles: None,
+                which_dice: None,
+            },
             process_info.clone(),
             gen_daemon_constraints().unwrap(),
             listener,

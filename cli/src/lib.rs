@@ -64,6 +64,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::trace::TraceId;
+use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
@@ -90,7 +91,7 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 
 pub use buck2_server_ctx::logging::TracingLogFile;
 
-#[derive(Debug, clap::Parser)]
+#[derive(Clone, Debug, clap::Parser)]
 pub(crate) struct CommonOptions {
     /// Instances of Buck2 share a daemon if and only if their isolation directory is identical.
     /// The isolation directory also influences the output paths provided by Buck2,
@@ -135,6 +136,15 @@ pub(crate) struct CommonOptions {
     #[clap(skip)] // @oss-enable
     // @oss-disable: #[clap(long)]
     help_wrapper: bool,
+}
+
+impl CommonOptions {
+    pub fn to_server_init_context(&self) -> BuckdServerInitPreferences {
+        BuckdServerInitPreferences {
+            detect_cycles: self.detect_cycles,
+            which_dice: self.which_dice,
+        }
+    }
 }
 
 #[derive(Debug, clap::Parser)]
@@ -267,6 +277,7 @@ impl CommandKind {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer, TraceId)>,
     ) -> ExitResult {
+        let init_ctx = common_opts.to_server_init_context();
         let roots = find_invocation_roots(working_dir.path());
         let paths = roots
             .map(|r| InvocationPaths {
@@ -279,15 +290,7 @@ impl CommandKind {
         // want to create threads.
         if let CommandKind::Daemon(cmd) = &self {
             return cmd
-                .exec(
-                    init,
-                    log_reload_handle,
-                    paths?,
-                    common_opts.detect_cycles,
-                    common_opts.which_dice,
-                    false,
-                    || {},
-                )
+                .exec(init, log_reload_handle, paths?, init_ctx, false, || {})
                 .into();
         }
 
@@ -326,8 +329,7 @@ impl CommandKind {
                             init,
                             <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
-                            common_opts.detect_cycles,
-                            common_opts.which_dice,
+                            init_ctx,
                             true,
                             move || drop(tx_clone.send(Ok(()))),
                         );

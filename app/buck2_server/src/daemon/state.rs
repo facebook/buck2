@@ -15,14 +15,12 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
-use async_trait::async_trait;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
@@ -55,7 +53,6 @@ use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceCleanup;
 use buck2_server_ctx::concurrency::NestedInvocation;
 use buck2_server_ctx::concurrency::ParallelInvocation;
-use dice::Dice;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::variants::VariantName;
@@ -69,6 +66,7 @@ use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
+use crate::daemon::server::BuckdServerInitPreferences;
 use crate::file_watcher::FileWatcher;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
@@ -81,8 +79,6 @@ pub struct DaemonState {
 
     /// This holds the main data shared across different commands.
     data: SharedResult<Arc<DaemonStateData>>,
-
-    dice_constructor: Box<dyn DaemonStateDiceConstructor>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -150,24 +146,14 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
     }
 }
 
-#[async_trait]
-pub trait DaemonStateDiceConstructor: Allocative + Send + Sync + 'static {
-    async fn construct_dice(
-        &self,
-        io: Arc<dyn IoProvider>,
-        digest_config: DigestConfig,
-        root_config: &LegacyBuckConfig,
-    ) -> anyhow::Result<Arc<Dice>>;
-}
-
 impl DaemonState {
     #[tracing::instrument(name = "daemon_listener", skip_all)]
     pub async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
-        dice_constructor: Box<dyn DaemonStateDiceConstructor>,
+        init_ctx: BuckdServerInitPreferences,
     ) -> Self {
-        let data = Self::init_data(fb, &paths, &*dice_constructor)
+        let data = Self::init_data(fb, &paths, init_ctx)
             .await
             .context("Error initializing DaemonStateData");
         if let Ok(data) = &data {
@@ -178,12 +164,7 @@ impl DaemonState {
 
         let data = data.shared_error();
 
-        DaemonState {
-            fb,
-            paths,
-            data,
-            dice_constructor,
-        }
+        DaemonState { fb, paths, data }
     }
 
     // Creates the initial DaemonStateData.
@@ -191,7 +172,7 @@ impl DaemonState {
     async fn init_data(
         fb: fbinit::FacebookInit,
         paths: &InvocationPaths,
-        dice_constructor: &dyn DaemonStateDiceConstructor,
+        init_ctx: BuckdServerInitPreferences,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
         let fs = paths.project_root().clone();
 
@@ -328,7 +309,7 @@ impl DaemonState {
         let forkserver =
             maybe_launch_forkserver(root_config, &paths.forkserver_state_dir()).await?;
 
-        let dice = dice_constructor
+        let dice = init_ctx
             .construct_dice(io.dupe(), digest_config, root_config)
             .await?;
 

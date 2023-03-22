@@ -81,7 +81,6 @@ use crate::ctx::ServerCommandContext;
 use crate::daemon::multi_event_stream::MultiEventStream;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
-use crate::daemon::state::DaemonStateDiceConstructor;
 use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
@@ -129,16 +128,13 @@ impl DaemonShutdown {
 }
 
 #[derive(Allocative)]
-struct DaemonStateDiceConstructorImpl {
-    /// Whether to detect cycles in Dice
-    detect_cycles: Option<DetectCycles>,
-    /// Whether to run legacy or modern dice
-    which_dice: Option<WhichDice>,
+pub struct BuckdServerInitPreferences {
+    pub detect_cycles: Option<DetectCycles>,
+    pub which_dice: Option<WhichDice>,
 }
 
-#[async_trait]
-impl DaemonStateDiceConstructor for DaemonStateDiceConstructorImpl {
-    async fn construct_dice(
+impl BuckdServerInitPreferences {
+    pub async fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
@@ -302,8 +298,7 @@ impl BuckdServer {
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
-        detect_cycles: Option<DetectCycles>,
-        which_dice: Option<WhichDice>,
+        init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
         daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: I,
@@ -318,17 +313,7 @@ impl BuckdServer {
         let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
-        let daemon_state = Arc::new(
-            DaemonState::new(
-                fb,
-                paths,
-                Box::new(DaemonStateDiceConstructorImpl {
-                    detect_cycles,
-                    which_dice,
-                }),
-            )
-            .await,
-        );
+        let daemon_state = Arc::new(DaemonState::new(fb, paths, init_ctx).await);
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
