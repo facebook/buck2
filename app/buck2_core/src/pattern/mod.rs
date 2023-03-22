@@ -398,6 +398,7 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
         /// Whether we should strip trailing slashes out of this pattern before doing inference
         /// (rather than throwing an error).
         strip_package_trailing_slash: bool,
+        extra: T,
     },
 }
 
@@ -410,9 +411,11 @@ impl<'a> PatternDataOrAmbiguous<'a, ProvidersPatternExtra> {
             PatternDataOrAmbiguous::Ambiguous {
                 pattern,
                 strip_package_trailing_slash,
+                extra,
             } => Ok(PatternDataOrAmbiguous::Ambiguous {
                 pattern,
                 strip_package_trailing_slash,
+                extra: T::from_parts(extra.providers)?,
             }),
         }
     }
@@ -430,10 +433,8 @@ where
             Self::Ambiguous {
                 pattern,
                 strip_package_trailing_slash,
+                extra,
             } => {
-                // It would be a little cleaner for this to not allocate a TargetName but instead
-                // just split for us.
-                let (pattern, extra) = split_providers_name(pattern)?;
                 let package = normalize_package(pattern, strip_package_trailing_slash)?;
 
                 let target = package
@@ -445,7 +446,7 @@ where
                 Ok(PatternData::TargetInPackage {
                     package,
                     target_name,
-                    extra: T::from_parts(extra)?,
+                    extra,
                 })
             }
         }
@@ -582,9 +583,11 @@ fn lex_provider_pattern<'a>(
                 }
                 .into()
             } else if !pattern.is_empty() {
+                let (pattern, providers) = split_providers_name(pattern)?;
                 PatternDataOrAmbiguous::Ambiguous {
                     pattern,
                     strip_package_trailing_slash,
+                    extra: ProvidersPatternExtra { providers },
                 }
             } else {
                 return Err(TargetPatternParseError::UnexpectedFormat.into());
@@ -767,17 +770,9 @@ where
     }
 
     // Unless the input is a standalone bit of ambiguous text then it cannot be an alias.
-    let package = match lex.pattern {
-        PatternDataOrAmbiguous::Ambiguous { pattern, .. } => pattern,
+    let (target, extra) = match &lex.pattern {
+        PatternDataOrAmbiguous::Ambiguous { pattern, extra, .. } => (*pattern, extra),
         _ => return Ok(None),
-    };
-
-    // Assuming this might be an alias, try to parse it as the thing we are trying to parse here.
-    // This lets us resolve `foo` in `foo[bar]` as an alias, for example. If this is invalid we'll
-    // just skip alias resolution and let the error propagate in `parse_target_pattern`.
-    let (target, extra) = match split_providers_name(package) {
-        Ok(split) => split,
-        Err(..) => return Ok(None),
     };
 
     // Check if this is an alias after all.
@@ -811,7 +806,7 @@ where
     // And finally, put the `T` we were looking for back together.
     let res = match res {
         ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
-            ParsedPattern::Target(package, target_name, T::from_parts(extra)?)
+            ParsedPattern::Target(package, target_name, extra.clone())
         }
         _ => {
             return Err(ResolveTargetAliasError::AliasIsNotATarget {
