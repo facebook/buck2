@@ -1008,6 +1008,13 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "vmnet": {"maccatalyst": (13, 0, 0), "macosx": (10, 10, 0)},
 }
 
+def _parse_version(version: str.type) -> (int.type, int.type, int.type):
+    result = [0, 0, 0]
+    components = [int(x) for x in version.split(".")]
+    for i in range(0, len(components)):
+        result[i] = components[i]
+    return (result[0], result[1], result[2])
+
 def get_framework_linker_args(ctx: "context", framework_names: [str.type]) -> [str.type]:
     if not has_apple_toolchain(ctx):
         return _get_unchecked_framework_linker_args(framework_names)
@@ -1017,13 +1024,7 @@ def get_framework_linker_args(ctx: "context", framework_names: [str.type]) -> [s
     if not deployment_target_str:
         return _get_unchecked_framework_linker_args(framework_names)
 
-    deployment_target = [0, 0, 0]
-    if deployment_target_str != None:
-        components = [int(x) for x in deployment_target_str.split(".")]
-        for i in range(0, len(components)):
-            deployment_target[i] = components[i]
-
-    deployment_target = tuple(deployment_target)
+    deployment_target = _parse_version(deployment_target_str)
 
     # Simulator and device platforms have the same framework versions
     sdk_name = get_apple_sdk_name(ctx)
