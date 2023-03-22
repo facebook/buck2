@@ -19,7 +19,6 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
@@ -74,13 +73,13 @@ impl AuditSubcommand for AuditDepFilesCommand {
                 .await?;
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
+                    &ctx,
                     &[buck2_data::TargetPattern {
                         value: self.pattern.clone(),
                     }],
-                    &cells,
-                    &ctx.get_legacy_configs().await?,
                     server_ctx.working_dir(),
-                )?
+                )
+                .await?
                 .into_iter()
                 .next()
                 .context("Parsing patterns returned nothing")?

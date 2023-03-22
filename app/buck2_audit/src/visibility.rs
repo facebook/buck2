@@ -11,8 +11,6 @@ use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::pattern::TargetPatternExtra;
@@ -136,13 +134,13 @@ impl AuditSubcommand for AuditVisibilityCommand {
         server_ctx
             .with_dice_ctx(async move |server_ctx, ctx| {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+                    &ctx,
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-                    &ctx.get_cell_resolver().await?,
-                    &ctx.get_legacy_configs().await?,
                     server_ctx.working_dir(),
-                )?;
+                )
+                .await?;
 
                 let parsed_target_patterns = load_patterns(&ctx, parsed_patterns).await?;
 

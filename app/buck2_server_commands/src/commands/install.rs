@@ -37,7 +37,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::file_ops::FileDigest;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
@@ -187,12 +186,9 @@ async fn install(
     .await?;
 
     // Note <TargetName> does not return the providers
-    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
-        &request.target_patterns,
-        &cell_resolver,
-        &ctx.get_legacy_configs().await?,
-        cwd,
-    )?;
+    let parsed_patterns =
+        parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)
+            .await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
     ctx.per_transaction_data()

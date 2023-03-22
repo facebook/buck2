@@ -21,7 +21,6 @@ use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
@@ -199,11 +198,11 @@ async fn generate_profile(
             .await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+        &ctx,
         slice::from_ref(pattern),
-        &cells,
-        &ctx.get_legacy_configs().await?,
         server_ctx.working_dir(),
-    )?;
+    )
+    .await?;
 
     let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 

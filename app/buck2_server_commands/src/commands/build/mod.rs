@@ -140,12 +140,8 @@ async fn build(
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;
 
-    let parsed_patterns: Vec<ParsedPattern<ProvidersPatternExtra>> = parse_patterns_from_cli_args(
-        &request.target_patterns,
-        &cell_resolver,
-        &ctx.get_legacy_configs().await?,
-        cwd,
-    )?;
+    let parsed_patterns: Vec<ParsedPattern<ProvidersPatternExtra>> =
+        parse_patterns_from_cli_args(&ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
     ctx.per_transaction_data()

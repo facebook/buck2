@@ -16,7 +16,6 @@ use buck2_build_api::query::analysis::environment::classpath;
 use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -63,13 +62,13 @@ impl AuditSubcommand for AuditClasspathCommand {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+                    &ctx,
                     &self
                         .patterns
                         .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-                    &cell_resolver,
-                    &ctx.get_legacy_configs().await?,
                     cwd,
-                )?;
+                )
+                .await?;
                 let loaded_patterns = load_patterns(&ctx, parsed_patterns).await?;
                 let target_platform =
                     target_platform_from_client_context(Some(&client_ctx), &cell_resolver, cwd)

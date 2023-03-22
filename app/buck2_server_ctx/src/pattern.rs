@@ -9,8 +9,9 @@
 
 use anyhow::Context;
 use buck2_cli_proto::ClientContext;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::FileOps;
-use buck2_common::legacy_configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
@@ -21,6 +22,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::label::TargetLabel;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -31,11 +33,10 @@ pub struct PatternParser {
 }
 
 impl PatternParser {
-    pub fn new(
-        cell_resolver: &CellResolver,
-        config: &LegacyBuckConfigs,
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(ctx: &DiceComputations, cwd: &ProjectRelativePath) -> anyhow::Result<Self> {
+        let cell_resolver = ctx.get_cell_resolver().await?;
+        let config = ctx.get_legacy_configs().await?;
+
         let cwd = cell_resolver.get_cell_path(&cwd)?;
         let cell_name = cwd.cell();
 
@@ -70,13 +71,12 @@ impl PatternParser {
 /// The format allowed here is more relaxed than in build files and elsewhere, so only use this
 /// with strings passed by the user on the CLI.
 /// See `ParsedPattern::parse_relaxed` for details.
-pub fn parse_patterns_from_cli_args<T: PatternType>(
+pub async fn parse_patterns_from_cli_args<T: PatternType>(
+    ctx: &DiceComputations,
     target_patterns: &[buck2_data::TargetPattern],
-    cell_resolver: &CellResolver,
-    configs: &LegacyBuckConfigs,
     cwd: &ProjectRelativePath,
 ) -> anyhow::Result<Vec<ParsedPattern<T>>> {
-    let parser = PatternParser::new(cell_resolver, configs, cwd)?;
+    let parser = PatternParser::new(ctx, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
 }

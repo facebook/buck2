@@ -17,7 +17,6 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
@@ -101,12 +100,9 @@ async fn targets_show_outputs(
     let target_platform =
         target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
 
-    let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
-        &request.target_patterns,
-        &cell_resolver,
-        &ctx.get_legacy_configs().await?,
-        cwd,
-    )?;
+    let parsed_patterns =
+        parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)
+            .await?;
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 

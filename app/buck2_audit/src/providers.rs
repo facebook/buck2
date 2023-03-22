@@ -15,7 +15,6 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -107,13 +106,13 @@ impl AuditProvidersCommand {
         .await?;
 
         let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
+            &ctx,
             &self
                 .patterns
                 .map(|pat| buck2_data::TargetPattern { value: pat.clone() }),
-            &cells,
-            &ctx.get_legacy_configs().await?,
             server_ctx.working_dir(),
-        )?;
+        )
+        .await?;
         let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
 
         let mut futs = FuturesOrdered::new();

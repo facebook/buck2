@@ -29,7 +29,6 @@ use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::ToSharedResultExt;
@@ -556,12 +555,9 @@ async fn targets(
 
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
-    let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-        &request.target_patterns,
-        &cell_resolver,
-        &dice.get_legacy_configs().await?,
-        cwd,
-    )?;
+    let parsed_target_patterns =
+        parse_patterns_from_cli_args::<TargetPatternExtra>(&dice, &request.target_patterns, cwd)
+            .await?;
 
     let mut outputter = Outputter::new(request)?;
 
