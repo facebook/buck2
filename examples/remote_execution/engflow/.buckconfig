@@ -1,0 +1,19 @@
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+# Adjust as needed.
+digest_algorithms = SHA256
+
+[buck2_re_client]
+# Adjust as needed
+# ENGFLOW_ENDPOINT: an address to EngFlow
+# ENGFLOW_CERTIFICATE: a .pem certificate
+engine_address = $ENGFLOW_ENDPOINT
+action_cache_address = $ENGFLOW_ENDPOINT
+cas_address = $ENGFLOW_ENDPOINT
+tls_client_cert = $ENGFLOW_CERTIFICATE
+
+[build]
+  execution_platforms = root//platforms:platforms
