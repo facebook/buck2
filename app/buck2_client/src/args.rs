@@ -19,6 +19,7 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -121,12 +122,14 @@ impl<'a> ArgCellPathResolver<'a> {
 
 pub struct ArgExpansionContext<'a> {
     arg_resolver: ArgCellPathResolver<'a>,
+    trace: Vec<AbsNormPathBuf>,
 }
 
 impl<'a> ArgExpansionContext<'a> {
     pub fn new(cwd: &'a WorkingDir) -> Self {
         Self {
             arg_resolver: ArgCellPathResolver::new(cwd),
+            trace: Vec::new(),
         }
     }
 
@@ -153,6 +156,14 @@ impl<'a> ArgExpansionContext<'a> {
         )?;
         Ok(())
     }
+
+    pub fn push_trace(&mut self, path: &AbsNormPath) {
+        self.trace.push(path.to_buf());
+    }
+
+    pub fn trace(self) -> Vec<AbsNormPathBuf> {
+        self.trace
+    }
 }
 
 #[derive(Clone)]
@@ -178,13 +189,9 @@ enum ArgFile {
 // TODO: It does _not_ support executable argfiles (e.g., Python)
 //       which are supported by Buck v1. See `BuckArgsMethods` in
 //       Buck v1 for reference.
-pub fn expand_argfiles(args: Vec<String>, cwd: &WorkingDir) -> anyhow::Result<Vec<String>> {
-    expand_argfiles_with_context(args, &ArgExpansionContext::new(cwd))
-}
-
-fn expand_argfiles_with_context(
+pub fn expand_argfiles_with_context(
     args: Vec<String>,
-    context: &ArgExpansionContext,
+    context: &mut ArgExpansionContext,
 ) -> anyhow::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
@@ -227,7 +234,7 @@ fn expand_argfiles_with_context(
 // it into a list of arguments.
 fn resolve_and_expand_argfile(
     path: &str,
-    context: &ArgExpansionContext,
+    context: &mut ArgExpansionContext,
 ) -> anyhow::Result<Vec<String>> {
     let flagfile = resolve_flagfile(path, context)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
@@ -299,7 +306,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
 }
 
 // Resolves a path argument to an absolute path, so that it can be read.
-fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result<ArgFile> {
+fn resolve_flagfile(path: &str, context: &mut ArgExpansionContext) -> anyhow::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
     }
@@ -342,6 +349,7 @@ fn resolve_flagfile(path: &str, context: &ArgExpansionContext) -> anyhow::Result
             }
         };
 
+    context.push_trace(&resolved_path);
     if path_part.ends_with(".py") {
         Ok(ArgFile::PythonExecutable(
             resolved_path,

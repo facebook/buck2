@@ -99,7 +99,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         CellName::testing_new("root") =>
         LegacyBuckConfig::parse_with_file_ops(
             root_path,
-            &TestConfigParserFileOps::new(&[
+            &mut TestConfigParserFileOps::new(&[
                 (
                     "/root",
                     indoc!(

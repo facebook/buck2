@@ -416,7 +416,7 @@ impl ConfigValue {
 }
 
 struct LegacyConfigParser<'a> {
-    file_ops: &'a dyn ConfigParserFileOps,
+    file_ops: &'a mut dyn ConfigParserFileOps,
     include_stack: Vec<ConfigFileLocation>,
     current_file: Option<Arc<ConfigFile>>,
     values: BTreeMap<String, SectionBuilder>,
@@ -434,7 +434,7 @@ static FILE_INCLUDE: Lazy<Regex> =
 
 pub trait ConfigParserFileOps {
     fn read_file_lines(
-        &self,
+        &mut self,
         path: &AbsNormPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>;
 
@@ -449,7 +449,7 @@ struct DefaultConfigParserFileOps {}
 
 impl ConfigParserFileOps for DefaultConfigParserFileOps {
     fn read_file_lines(
-        &self,
+        &mut self,
         path: &AbsNormPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>> {
         let f = std::fs::File::open(path).with_context(|| format!("Reading file `{:?}`", path))?;
@@ -463,7 +463,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 }
 
 impl<'a> LegacyConfigParser<'a> {
-    fn new(file_ops: &'a dyn ConfigParserFileOps) -> Self {
+    fn new(file_ops: &'a mut dyn ConfigParserFileOps) -> Self {
         LegacyConfigParser {
             values: BTreeMap::new(),
             include_stack: Vec::new(),
@@ -574,7 +574,8 @@ impl<'a> LegacyConfigParser<'a> {
         let parent = path
             .parent()
             .context("parent should give directory containing the config file")?;
-        self.parse_lines(parent, self.file_ops.read_file_lines(path)?, parse_includes)
+        let file_lines = self.file_ops.read_file_lines(path)?;
+        self.parse_lines(parent, file_lines, parse_includes)
     }
 
     fn strip_line_comment(line: &str) -> &str {
@@ -981,7 +982,7 @@ impl LegacyBuckConfig {
 
     pub fn parse_with_file_ops(
         path: &AbsNormPath,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
     ) -> anyhow::Result<Self> {
         // This function is only used internally for tests, so it's to skip cell resolution
@@ -1003,7 +1004,7 @@ impl LegacyBuckConfig {
     fn resolve_config_flag_arg(
         flag_arg: &str,
         cell_resolution: Option<&CellResolutionState>,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<ConfigArgumentPair> {
         let cell_path: Option<AbsNormPathBuf>;
         let raw_config: &str;
@@ -1028,7 +1029,7 @@ impl LegacyBuckConfig {
     fn resolve_config_file_arg(
         file_arg: &str,
         cell_resolution: Option<&CellResolutionState>,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<AbsNormPathBuf> {
         if let Some((cell_alias, cell_relative_path)) = file_arg.split_once("//") {
             let cell_resolution_state = cell_resolution.ok_or_else(|| {
@@ -1074,7 +1075,7 @@ impl LegacyBuckConfig {
     fn process_config_args(
         args: &[LegacyConfigCmdArg],
         cell_resolution: Option<&CellResolutionState>,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
         let resolved_args = args.map(|unprocessed_arg| match unprocessed_arg {
             LegacyConfigCmdArg::Flag(value) => {
@@ -1093,7 +1094,7 @@ impl LegacyBuckConfig {
 
     fn parse_with_file_ops_with_includes(
         main_config_files: &[MainConfigFile],
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
     ) -> anyhow::Result<Self> {
@@ -1284,13 +1285,13 @@ pub mod testing {
         path: &str,
         config_args: &[LegacyConfigCmdArg],
     ) -> anyhow::Result<LegacyBuckConfig> {
-        let file_ops = TestConfigParserFileOps::new(data)?;
+        let mut file_ops = TestConfigParserFileOps::new(data)?;
         #[cfg(not(windows))]
         let path = &AbsNormPathBuf::from(path.into())?;
         // Need to add some disk drive on Windows to make path absolute.
         #[cfg(windows)]
         let path = &AbsNormPathBuf::from(format!("C:{}", path))?;
-        LegacyBuckConfig::parse_with_file_ops(path, &file_ops, config_args)
+        LegacyBuckConfig::parse_with_file_ops(path, &mut file_ops, config_args)
     }
 
     pub struct TestConfigParserFileOps {
@@ -1318,7 +1319,7 @@ pub mod testing {
         }
 
         fn read_file_lines(
-            &self,
+            &mut self,
             path: &AbsNormPath,
         ) -> anyhow::Result<
             Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + 'static)>,

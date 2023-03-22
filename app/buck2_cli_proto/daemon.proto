@@ -92,6 +92,7 @@ message ClientContext {
     X86_64 = 2;
   }
   HostArchOverride host_arch = 13;
+  repeated string argfiles = 14;
 }
 
 message TargetsRequest {

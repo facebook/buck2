@@ -404,19 +404,19 @@ mod tests {
         let config1 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
+                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
-                    &file_ops,
+                    &mut file_ops,
                     &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
                 )?
             },
             CellName::testing_new("cell2")
             => {
-                let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\nx=y\n[sec2]\na=b")])?;
+                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\nx=y\n[sec2]\na=b")])?;
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
-                    &file_ops,
+                    &mut file_ops,
                     &[],
                 )?
             }
@@ -425,10 +425,10 @@ mod tests {
         let config2 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
+                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
-                    &file_ops,
+                    &mut file_ops,
                     &[LegacyConfigCmdArg::Flag("sec1.a=c".to_owned())],
                 )?
             },
@@ -437,10 +437,10 @@ mod tests {
         let config3 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=c\n[sec2]\nx=y")])?;
+                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=c\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
-                    &file_ops,
+                    &mut file_ops,
                     &[],
                 )?
             },
@@ -449,10 +449,10 @@ mod tests {
         let config4 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
-                let file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
+                let mut file_ops = TestConfigParserFileOps::new(&[("/test", "[sec1]\na=b\n[sec2]\nx=y")])?;
                 LegacyBuckConfig::parse_with_file_ops(
                     path,
-                    &file_ops,
+                    &mut file_ops,
                     &[LegacyConfigCmdArg::Flag("sec1.d=e".to_owned())],
                 )?
             },

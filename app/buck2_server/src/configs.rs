@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
+
 use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
@@ -14,6 +16,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::LegacyConfigCmdArg;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
@@ -48,7 +51,7 @@ pub fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     config_overrides: Iter,
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
-) -> anyhow::Result<(CellResolver, LegacyBuckConfigs)> {
+) -> anyhow::Result<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
     let config_values = get_legacy_config_args(config_overrides)?;
     // TODO: We do not need to reparse _all_ configs, instead we just need to
     // overlay any custom configs for the current build command on top of
@@ -56,5 +59,5 @@ pub fn parse_legacy_cells<'a, Iter: Iterator<Item = &'a ConfigOverride>>(
     // store the base configs + overlaid ones separately, so we can cheaply
     // recompose.
     let res = BuckConfigBasedCells::parse_with_config_args(fs, &config_values, cwd)?;
-    Ok((res.cell_resolver, res.configs_by_name))
+    Ok((res.cell_resolver, res.configs_by_name, res.config_paths))
 }

@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use anyhow::Context;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -50,6 +51,7 @@ use crate::legacy_configs::MainConfigFile;
 pub struct BuckConfigBasedCells {
     pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
+    pub config_paths: HashSet<AbsNormPathBuf>,
 }
 
 impl BuckConfigBasedCells {
@@ -57,13 +59,16 @@ impl BuckConfigBasedCells {
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
     pub fn parse_immediate_cell_mapping(project_fs: &ProjectRoot) -> anyhow::Result<CellResolver> {
-        Self::parse_immediate_cell_mapping_with_file_ops(project_fs, &DefaultConfigParserFileOps {})
+        Self::parse_immediate_cell_mapping_with_file_ops(
+            project_fs,
+            &mut DefaultConfigParserFileOps {},
+        )
     }
 
     /// Private function with semantics of `parse_immediate_cell_mapping` but usable for testing.
     pub(crate) fn parse_immediate_cell_mapping_with_file_ops(
         project_fs: &ProjectRoot,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<CellResolver> {
         let opts = BuckConfigParseOptions {
             follow_includes: false,
@@ -86,7 +91,7 @@ impl BuckConfigBasedCells {
     pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
-            &DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {},
             &[],
             ProjectRelativePath::empty(),
         )
@@ -97,12 +102,17 @@ impl BuckConfigBasedCells {
         config_args: &[LegacyConfigCmdArg],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        Self::parse_with_file_ops(project_fs, &DefaultConfigParserFileOps {}, config_args, cwd)
+        Self::parse_with_file_ops(
+            project_fs,
+            &mut DefaultConfigParserFileOps {},
+            config_args,
+            cwd,
+        )
     }
 
     pub fn parse_with_file_ops(
         project_fs: &ProjectRoot,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
@@ -115,11 +125,41 @@ impl BuckConfigBasedCells {
 
     fn parse_with_file_ops_and_options(
         project_fs: &ProjectRoot,
-        file_ops: &dyn ConfigParserFileOps,
+        file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[LegacyConfigCmdArg],
         cwd: &ProjectRelativePath,
         options: BuckConfigParseOptions,
     ) -> anyhow::Result<Self> {
+        // Tracing file ops to record config file accesses on command invocation.
+        struct TracingFileOps<'a> {
+            inner: &'a mut dyn ConfigParserFileOps,
+            trace: HashSet<AbsNormPathBuf>,
+        }
+
+        impl ConfigParserFileOps for TracingFileOps<'_> {
+            fn read_file_lines(
+                &mut self,
+                path: &AbsNormPath,
+            ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>>>>
+            {
+                self.trace.insert(path.to_buf());
+                self.inner.read_file_lines(path)
+            }
+
+            fn file_exists(&self, path: &AbsNormPath) -> bool {
+                self.inner.file_exists(path)
+            }
+
+            fn file_id(&self, path: &AbsNormPath) -> String {
+                self.inner.file_id(path)
+            }
+        }
+
+        let mut file_ops = TracingFileOps {
+            inner: file_ops,
+            trace: Default::default(),
+        };
+
         let mut buckconfigs = HashMap::new();
         let mut work = vec![CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
             "".to_owned(),
@@ -135,8 +175,11 @@ impl BuckConfigBasedCells {
             cwd: &project_fs.resolve(cwd),
         };
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args =
-            LegacyBuckConfig::process_config_args(config_args, Some(&cell_resolution), file_ops)?;
+        let processed_config_args = LegacyBuckConfig::process_config_args(
+            config_args,
+            Some(&cell_resolution),
+            &mut file_ops,
+        )?;
 
         static SKIP_EXTERNAL_CONFIG: EnvHelper<bool> =
             EnvHelper::<bool>::new("BUCK2_TEST_SKIP_EXTERNAL_CONFIG");
@@ -235,7 +278,7 @@ impl BuckConfigBasedCells {
 
             let config = LegacyBuckConfig::parse_with_file_ops_with_includes(
                 existing_configs.as_slice(),
-                file_ops,
+                &mut file_ops,
                 &processed_config_args,
                 options.follow_includes,
             )?;
@@ -304,6 +347,7 @@ impl BuckConfigBasedCells {
         Ok(Self {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
+            config_paths: file_ops.trace,
         })
     }
 
@@ -357,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -400,7 +444,7 @@ mod tests {
         let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
         )?;
@@ -446,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_multi_cell_with_config_file() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -502,7 +546,7 @@ mod tests {
         let file_arg = "C:/other/cli-conf".to_owned();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[LegacyConfigCmdArg::UnresolvedFile(file_arg)],
             ProjectRelativePath::empty(),
         )?;
@@ -521,7 +565,7 @@ mod tests {
 
     #[test]
     fn test_multi_cell_no_repositories_in_non_root_cell() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -546,7 +590,7 @@ mod tests {
         let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
         )?;
@@ -562,7 +606,7 @@ mod tests {
 
     #[test]
     fn test_multi_cell_with_cell_relative() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -608,7 +652,7 @@ mod tests {
         let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[
                 LegacyConfigCmdArg::UnresolvedFile("other//app-conf".to_owned()),
                 LegacyConfigCmdArg::UnresolvedFile("//global-conf".to_owned()),
@@ -627,7 +671,7 @@ mod tests {
 
     #[test]
     fn test_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -657,7 +701,7 @@ mod tests {
         let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
         )?;
@@ -678,7 +722,7 @@ mod tests {
 
     #[test]
     fn test_multi_cell_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
-        let file_ops = TestConfigParserFileOps::new(&[
+        let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 "/.buckconfig",
                 indoc!(
@@ -734,7 +778,7 @@ mod tests {
         let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
-            &file_ops,
+            &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
         )?;

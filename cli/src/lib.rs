@@ -26,7 +26,8 @@ use std::thread;
 
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
-use buck2_client::args::expand_argfiles;
+use buck2_client::args::expand_argfiles_with_context;
+use buck2_client::args::ArgExpansionContext;
 use buck2_client::commands::aquery::AqueryCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
@@ -59,6 +60,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -172,6 +174,7 @@ impl Opt {
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer, TraceId)>,
+        argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -185,6 +188,7 @@ impl Opt {
             init,
             log_reload_handle,
             replay,
+            argfiles_trace,
         )
     }
 }
@@ -196,8 +200,9 @@ pub fn exec(
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
     replay: Option<(ProcessContext, Replayer, TraceId)>,
 ) -> ExitResult {
-    let mut expanded_args =
-        expand_argfiles(args, &working_dir).context("Error expanding argsfiles")?;
+    let mut argfile_context = ArgExpansionContext::new(&working_dir);
+    let mut expanded_args = expand_argfiles_with_context(args, &mut argfile_context)
+        .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
     static BUCK2_ARG0: EnvHelper<String> = EnvHelper::new("BUCK2_ARG0");
@@ -222,7 +227,15 @@ pub fn exec(
         }
     }
 
-    opt.exec(working_dir, &matches, init, log_reload_handle, replay)
+    let argfiles_trace = argfile_context.trace();
+    opt.exec(
+        working_dir,
+        &matches,
+        init,
+        log_reload_handle,
+        replay,
+        argfiles_trace,
+    )
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -280,6 +293,7 @@ impl CommandKind {
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer, TraceId)>,
+        argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let init_ctx = common_opts.to_server_init_context();
         let roots = find_invocation_roots(working_dir.path());
@@ -377,6 +391,7 @@ impl CommandKind {
             working_dir,
             sanitized_argv: Vec::new(),
             trace_id,
+            argfiles_trace,
         };
 
         match self {

@@ -14,6 +14,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOve
 use buck2_cli_proto::ClientContext;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::trace::TraceId;
@@ -68,6 +69,7 @@ pub struct ClientCommandContext {
     pub command_name: String,
     pub sanitized_argv: Vec<String>,
     pub trace_id: TraceId,
+    pub argfiles_trace: Vec<AbsNormPathBuf>,
 }
 
 impl ClientCommandContext {
@@ -133,6 +135,11 @@ impl ClientCommandContext {
             disable_starlark_types: config_opts.disable_starlark_types,
             reuse_current_config: config_opts.reuse_current_config,
             sanitized_argv,
+            argfiles: self
+                .argfiles_trace
+                .iter()
+                .map(|path| path.to_string())
+                .collect(),
             ..self.empty_client_context()?
         })
     }
@@ -165,6 +172,7 @@ impl ClientCommandContext {
             reuse_current_config: false,
             daemon_uuid,
             sanitized_argv: Vec::new(),
+            argfiles: Vec::new(),
         })
     }
 

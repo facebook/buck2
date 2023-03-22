@@ -177,9 +177,10 @@ fn cells() -> CellsData {
     let BuckConfigBasedCells {
         cell_resolver,
         configs_by_name,
+        config_paths: _,
     } = BuckConfigBasedCells::parse_with_file_ops(
         &project_fs,
-        &TestConfigParserFileOps::new(&[(
+        &mut TestConfigParserFileOps::new(&[(
             "/.buckconfig",
             indoc!(
                 r#"

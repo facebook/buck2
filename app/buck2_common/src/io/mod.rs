@@ -111,6 +111,12 @@ impl TracingIoProvider {
         }
     }
 
+    pub fn add_all(&self, paths: impl Iterator<Item = ProjectRelativePathBuf>) {
+        for path in paths {
+            self.trace.insert(path);
+        }
+    }
+
     pub fn trace(&self) -> &DashSet<ProjectRelativePathBuf> {
         &self.trace
     }

@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -40,6 +42,7 @@ use buck2_common::dice::cycles::StackedDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::io::IoProvider;
+use buck2_common::io::TracingIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
@@ -50,6 +53,7 @@ use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::cells::CellResolver;
 use buck2_core::facebook_only;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -261,6 +265,22 @@ impl ServerCommandContext {
             events: base_context.events.dupe(),
         }));
 
+        // Add argfiles read by client into IO tracing state.
+        if let Some(tracing_provider) = base_context.io.as_any().downcast_ref::<TracingIoProvider>()
+        {
+            let project_configs = client_context.argfiles.iter().filter_map(|s| {
+                AbsNormPathBuf::new(s.into())
+                    .and_then(|path| {
+                        base_context
+                            .project_root
+                            .relativize(&path)
+                            .map(Cow::into_owned)
+                    })
+                    .ok()
+            });
+            tracing_provider.add_all(project_configs);
+        }
+
         let oncall = if client_context.oncall.is_empty() {
             None
         } else {
@@ -393,14 +413,15 @@ struct CellConfigLoader {
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<ConfigOverride>,
-    loaded_cell_configs: AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs)>>,
+    loaded_cell_configs:
+        AsyncOnceCell<SharedResult<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)>>,
 }
 
 impl CellConfigLoader {
     pub async fn cells_and_configs(
         &self,
         dice_ctx: &DiceComputations,
-    ) -> SharedResult<(CellResolver, LegacyBuckConfigs)> {
+    ) -> SharedResult<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>)> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
@@ -414,9 +435,10 @@ impl CellConfigLoader {
                                 truncate_container(self.config_overrides.iter().map(|e| &*e.config_override), 200),
                             );
                         }
-                        return Ok::<(CellResolver, LegacyBuckConfigs), anyhow::Error>((
+                        return Ok::<(CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>), anyhow::Error>((
                             dice_ctx.get_cell_resolver().await?,
                             dice_ctx.get_legacy_configs().await?,
+                            HashSet::new(),
                         )).shared_error();
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
@@ -453,7 +475,7 @@ struct DiceCommandDataProvider {
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(&self, ctx: &DiceComputations) -> anyhow::Result<UserComputationData> {
-        let (cell_resolver, legacy_configs) =
+        let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) =
             self.cell_configs_loader.cells_and_configs(ctx).await?;
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
@@ -571,7 +593,7 @@ struct DiceCommandUpdater {
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater {
     async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
-        let (cell_resolver, legacy_configs) = self
+        let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
             .cell_config_loader
             .cells_and_configs(&ctx.existing_state().await)
             .await?;
@@ -723,7 +745,28 @@ impl ServerCommandContextTrait for ServerCommandContext {
         let mut metadata = HashMap::new();
         // In the case of invalid configuration (e.g. something like buck2 build -c X), `dice_ctx_default` returns an
         // error. We won't be able to get configs to log in that case, but we shouldn't crash.
-        let (cells, configs) = self.cell_configs_loader.cells_and_configs(ctx).await?;
+        let (cells, configs, paths): (CellResolver, LegacyBuckConfigs, HashSet<AbsNormPathBuf>) =
+            self.cell_configs_loader.cells_and_configs(ctx).await?;
+
+        // Add legacy config paths to I/O tracing (if enabled).
+        if let Some(tracing_provider) = self
+            .base_context
+            .io
+            .as_any()
+            .downcast_ref::<TracingIoProvider>()
+        {
+            // Filter out anything that doesn't resolve to the project root; this filters out any config paths outside the repo
+            // (e.g. /etc/buckconfig).
+            let config_paths = paths.into_iter().filter_map(|path| {
+                self.base_context
+                    .project_root
+                    .relativize(&path)
+                    .map(Cow::into_owned)
+                    .ok()
+            });
+            tracing_provider.add_all(config_paths);
+        }
+
         let root_cell_config = configs.get(cells.root_cell());
         if let Ok(config) = root_cell_config {
             add_config(&mut metadata, config, "log", "repository", "repository");
