@@ -66,7 +66,7 @@ pub mod aquery;
 
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
-    working_dir: PackageLabel,
+    working_dir: CellPath,
     working_dir_abs: AbsNormPathBuf,
     project_root: ProjectRoot,
     cell_resolver: CellResolver,
@@ -98,7 +98,7 @@ impl LiteralParser {
         ParsedPattern::parse_relative(
             &self.target_alias_resolver,
             &self.cell_alias_resolver,
-            self.working_dir.dupe(),
+            self.working_dir.as_ref(),
             value,
         )
     }
@@ -144,9 +144,10 @@ impl<'c> DiceQueryDelegate<'c> {
         target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
-        let package = PackageLabel::from_cell_path(cell_path.as_ref());
-        let cell_name = package.as_cell_path().cell();
-        let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver().dupe();
+        let cell_alias_resolver = cell_resolver
+            .get(cell_path.cell())?
+            .cell_alias_resolver()
+            .dupe();
         let working_dir_abs = project_root.resolve(working_dir);
 
         Ok(Self {
@@ -155,7 +156,7 @@ impl<'c> DiceQueryDelegate<'c> {
             cell_resolver: cell_resolver.dupe(),
             literal_parser: Arc::new(LiteralParser {
                 working_dir_abs,
-                working_dir: package,
+                working_dir: cell_path,
                 project_root,
                 cell_resolver,
                 cell_alias_resolver,

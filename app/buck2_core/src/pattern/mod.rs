@@ -25,6 +25,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_path::CellPathRef;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAlias;
 use crate::cells::CellAliasResolver;
@@ -265,7 +266,7 @@ impl<T: PatternType> ParsedPattern<T> {
 
     pub fn parsed_opt_absolute(
         cell_resolver: &CellAliasResolver,
-        relative_dir: Option<PackageLabel>,
+        relative_dir: Option<CellPathRef>,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -293,7 +294,7 @@ impl<T: PatternType> ParsedPattern<T> {
     pub fn parse_relative(
         target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
-        relative_dir: PackageLabel,
+        relative_dir: CellPathRef,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -325,7 +326,7 @@ impl<T: PatternType> ParsedPattern<T> {
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
         cell_resolver: &CellAliasResolver,
-        relative_dir: PackageLabel,
+        relative_dir: CellPathRef,
         pattern: &str,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
@@ -628,10 +629,10 @@ fn normalize_package<'a>(
 }
 
 #[derive(Clone, Dupe)]
-struct TargetParsingOptions {
+struct TargetParsingOptions<'a> {
     /// The dir this pattern should be intepreted relative to.  This will be used to prepend to the
     /// package if `relative` is set, otherwise it'll only be used for targets such as `:foo`.
-    relative_dir: Option<PackageLabel>,
+    relative_dir: Option<CellPathRef<'a>>,
     /// Whether to interpret packages relatively.
     relative: bool,
     /// Whether to infer the target in a pattern such as `foo/bar` (to `foo/bar:bar`).
@@ -642,8 +643,8 @@ struct TargetParsingOptions {
     strip_package_trailing_slash: bool,
 }
 
-impl TargetParsingOptions {
-    fn precise() -> Self {
+impl<'a> TargetParsingOptions<'a> {
+    fn precise() -> TargetParsingOptions<'a> {
         TargetParsingOptions {
             relative_dir: None,
             relative: false,
@@ -714,24 +715,25 @@ where
             rel.join(package_path)
         }
         Some(rel)
-            if rel.as_cell_path().cell() == cell
-                && rel.as_cell_path().path().as_forward_relative_path() == package_path =>
+            if rel.cell() == cell && rel.path().as_forward_relative_path() == package_path =>
         {
-            // Reuse the `Package` object if parsed package is equal to the current package.
-            // `Package` reconstruction is relatively cheap, but not free.
-            rel.dupe()
+            rel.to_owned()
         }
-        _ => PackageLabel::new(cell, CellRelativePath::new(package_path)),
+        _ => CellPath::new(cell, CellRelativePath::new(package_path).to_owned()),
     };
 
     match pattern {
-        PatternData::Recursive { .. } => {
-            Ok(ParsedPattern::Recursive(path.as_cell_path().to_owned()))
-        }
-        PatternData::AllTargetsInPackage { .. } => Ok(ParsedPattern::Package(path)),
+        PatternData::Recursive { .. } => Ok(ParsedPattern::Recursive(path)),
+        PatternData::AllTargetsInPackage { .. } => Ok(ParsedPattern::Package(
+            PackageLabel::from_cell_path(path.as_ref()),
+        )),
         PatternData::TargetInPackage {
             target_name, extra, ..
-        } => Ok(ParsedPattern::Target(path, target_name, extra)),
+        } => Ok(ParsedPattern::Target(
+            PackageLabel::from_cell_path(path.as_ref()),
+            target_name,
+            extra,
+        )),
     }
 }
 
@@ -941,9 +943,9 @@ mod tests {
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package/path"),
+            CellRelativePath::unchecked_new("package/path").to_owned(),
         );
 
         assert_eq!(
@@ -981,21 +983,26 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(&NoAliases, &resolver(), package.dupe(), "...")
+            ParsedPattern::<T>::parse_relative(&NoAliases, &resolver(), package.as_ref(), "...")
                 .unwrap()
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
-            ParsedPattern::<T>::parse_relative(&NoAliases, &resolver(), package.dupe(), "foo/...")
-                .unwrap()
+            ParsedPattern::<T>::parse_relative(
+                &NoAliases,
+                &resolver(),
+                package.as_ref(),
+                "foo/..."
+            )
+            .unwrap()
         );
     }
 
     #[test]
     fn parse_relative_pattern() -> anyhow::Result<()> {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package/path"),
+            CellRelativePath::unchecked_new("package/path").to_owned(),
         );
 
         assert_eq!(
@@ -1004,23 +1011,23 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(&NoAliases, &resolver(), package, "foo:target")?
+            ParsedPattern::parse_relative(&NoAliases, &resolver(), package.as_ref(), "foo:target")?
         );
         Ok(())
     }
 
     #[test]
     fn test_relaxed() -> anyhow::Result<()> {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package"),
+            CellRelativePath::unchecked_new("package").to_owned(),
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relative(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "path"
             ),
             Err(e) => {
@@ -1036,20 +1043,20 @@ mod tests {
             ParsedPattern::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "//package/path"
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), package.dupe(), "path")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), package.as_ref(), "path")?
         );
         assert_eq!(
             mk_providers("root", "package/path", "path", Some(&["provider"])),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "path[provider]"
             )?
         );
@@ -1063,20 +1070,25 @@ mod tests {
             ParsedPattern::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "path/subpath[provider]"
             )?
         );
         assert_eq!(
             mk_target("root", "package/path/subpath", "subpath"),
-            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), package.dupe(), "path/subpath")?
+            ParsedPattern::parse_relaxed(
+                &NoAliases,
+                &resolver(),
+                package.as_ref(),
+                "path/subpath"
+            )?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "//package/path/"
             )?
         );
@@ -1085,7 +1097,7 @@ mod tests {
             ParsedPattern::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "//package/path/:target"
             )?
         );
@@ -1093,7 +1105,7 @@ mod tests {
         // Awkward but technically valid?
         assert_eq!(
             mk_target("root", "package", "foo"),
-            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), package.dupe(), "/:foo")?
+            ParsedPattern::parse_relaxed(&NoAliases, &resolver(), package.as_ref(), "/:foo")?
         );
 
         // There's no target here so this is invalid.
@@ -1101,7 +1113,7 @@ mod tests {
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
                 &resolver(),
-                package,
+                package.as_ref(),
                 "/"
             ),
             Err(e) => {
@@ -1117,28 +1129,28 @@ mod tests {
 
     #[test]
     fn test_parsed_opt_absolute() -> anyhow::Result<()> {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package/path"),
+            CellRelativePath::unchecked_new("package/path").to_owned(),
         );
 
         assert_eq!(
             mk_target("root", "other", "target"),
             ParsedPattern::parsed_opt_absolute(
                 &resolver(),
-                Some(package.dupe()),
+                Some(package.as_ref()),
                 "//other:target"
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
-            ParsedPattern::parsed_opt_absolute(&resolver(), Some(package.dupe()), ":target")?
+            ParsedPattern::parsed_opt_absolute(&resolver(), Some(package.as_ref()), ":target")?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
                 &resolver(),
-                Some(package.dupe()),
+                Some(package.as_ref()),
                 "foo/bar"
             ),
             Err(e) => {
@@ -1152,7 +1164,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
                 &resolver(),
-                Some(package.dupe()),
+                Some(package.as_ref()),
                 "foo/bar:bar"
             ),
             Err(e) => {
@@ -1168,9 +1180,9 @@ mod tests {
 
     #[test]
     fn test_aliases() -> anyhow::Result<()> {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package"),
+            CellRelativePath::unchecked_new("package").to_owned(),
         );
 
         let config = aliases(&[
@@ -1181,14 +1193,14 @@ mod tests {
 
         assert_eq!(
             mk_target("cell1", "foo/bar", "target"),
-            ParsedPattern::parse_relaxed(&config, &resolver(), package.dupe(), "foo")?
+            ParsedPattern::parse_relaxed(&config, &resolver(), package.as_ref(), "foo")?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
                 &resolver(),
-                package.dupe(),
+                package.as_ref(),
                 "invalid/alias"
             ),
             Err(e) => {
@@ -1203,7 +1215,7 @@ mod tests {
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
                 &resolver(),
-                package,
+                package.as_ref(),
                 "badalias"
             ),
             Err(e) => {
@@ -1253,16 +1265,16 @@ mod tests {
 
     #[test]
     fn parse_providers_pattern_with_alias() -> anyhow::Result<()> {
-        let package = PackageLabel::new(
+        let package = CellPath::new(
             resolver().resolve_self(),
-            CellRelativePath::unchecked_new("package"),
+            CellRelativePath::unchecked_new("package").to_owned(),
         );
 
         let config = aliases(&[("foo", "cell1//foo/bar:target")]);
 
         assert_eq!(
             mk_providers("cell1", "foo/bar", "target", Some(&["qux"])),
-            ParsedPattern::parse_relaxed(&config, &resolver(), package, "foo[qux]")?
+            ParsedPattern::parse_relaxed(&config, &resolver(), package.as_ref(), "foo[qux]")?
         );
 
         Ok(())

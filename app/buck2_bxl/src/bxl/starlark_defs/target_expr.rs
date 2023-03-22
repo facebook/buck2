@@ -12,8 +12,8 @@ use std::borrow::Cow;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::dice::get_compatible_targets;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
@@ -208,7 +208,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
-                PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
+                CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
                 ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
@@ -335,7 +335,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
-                PackageLabel::new(ctx.cell.name(), CellRelativePath::empty()),
+                CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
                 ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(

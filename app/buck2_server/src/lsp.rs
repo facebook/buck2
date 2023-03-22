@@ -21,13 +21,13 @@ use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
@@ -474,7 +474,7 @@ impl BuckLspContext {
 
     async fn parse_file_from_string(
         &self,
-        current_package: PackageLabel,
+        current_package: CellPathRef<'_>,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         match ForwardRelativePath::new(literal) {
@@ -482,8 +482,8 @@ impl BuckLspContext {
                 let cell_resolver = self
                     .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
                     .await?;
-                let relative_path = cell_resolver
-                    .resolve_path(current_package.join(package_relative).as_cell_path())?;
+                let relative_path =
+                    cell_resolver.resolve_path(current_package.join(package_relative).as_ref())?;
 
                 let path = self.fs.resolve(&relative_path);
                 let url = Url::from_file_path(path).unwrap().try_into()?;
@@ -499,13 +499,13 @@ impl BuckLspContext {
 
     async fn parse_target_from_string(
         &self,
-        current_package: PackageLabel,
+        current_package: CellPathRef<'_>,
         literal: &str,
     ) -> anyhow::Result<Option<StringLiteralResult>> {
         let cell_resolver = self
             .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
-        let cell = cell_resolver.get(current_package.cell_name())?;
+        let cell = cell_resolver.get(current_package.cell())?;
         match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
             cell.cell_alias_resolver(),
             Some(current_package),
@@ -629,8 +629,7 @@ impl LspContext for BuckLspContext {
                         current_file.clone(),
                     )),
                 }?;
-                let current_package =
-                    PackageLabel::from_cell_path(import_path.borrow().path().as_ref());
+                let current_package = import_path.path();
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
@@ -639,7 +638,7 @@ impl LspContext for BuckLspContext {
                 // anyhow::Error sort of obscures the root causes, so we just have
                 // to assume if it failed, it's fine, and we can maybe try the next thing.
                 if let Ok(Some(string_literal)) = self
-                    .parse_target_from_string(current_package.dupe(), literal)
+                    .parse_target_from_string(current_package, literal)
                     .await
                 {
                     Ok(Some(string_literal))

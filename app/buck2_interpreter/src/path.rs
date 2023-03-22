@@ -299,4 +299,11 @@ impl OwnedStarlarkModulePath {
             OwnedStarlarkModulePath::BxlFile(p) => StarlarkModulePath::BxlFile(p),
         }
     }
+
+    pub fn path(&self) -> CellPathRef<'_> {
+        match self {
+            OwnedStarlarkModulePath::LoadFile(p) => p.path().as_ref(),
+            OwnedStarlarkModulePath::BxlFile(p) => p.path().as_ref(),
+        }
+    }
 }
