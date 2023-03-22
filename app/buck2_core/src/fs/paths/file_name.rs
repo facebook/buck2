@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -214,7 +215,7 @@ impl ToOwned for FileName {
 }
 
 /// Owned version of [`FileName`].
-#[derive(Ord, PartialOrd, Eq, Display, Debug, Clone, Allocative)]
+#[derive(Ord, Eq, Display, Debug, Clone, Allocative)]
 pub struct FileNameBuf(CompactString);
 
 impl FileNameBuf {
@@ -254,6 +255,16 @@ where
     #[inline]
     fn eq(&self, other: &T) -> bool {
         self.0 == other.as_ref()
+    }
+}
+
+impl<T> PartialOrd<T> for FileNameBuf
+where
+    T: AsRef<str>,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &T) -> Option<Ordering> {
+        self.as_str().partial_cmp(other.as_ref())
     }
 }
 
