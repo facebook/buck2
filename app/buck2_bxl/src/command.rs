@@ -30,12 +30,14 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::BxlFilePath;
@@ -276,8 +278,16 @@ async fn ensure_artifacts(
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`")]
-struct BxlLabelError(String);
+enum BxlLabelError {
+    #[error(
+        "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"
+    )]
+    Format(String),
+    #[error(
+        "The bxl function path `{got}` should use the canonical name `{wanted}`. If your bxl changes aren't being detected, this is probably why"
+    )]
+    WrongCell { got: String, wanted: CellPath },
+}
 
 /// Parse the bxl function label out of cli pattern
 pub(crate) fn parse_bxl_label_from_cli(
@@ -296,7 +306,7 @@ pub(crate) fn parse_bxl_label_from_cli(
 
     let (bxl_path, bxl_fn) = bxl_label
         .rsplit_once(':')
-        .ok_or_else(|| BxlLabelError(bxl_label.to_owned()))?;
+        .ok_or_else(|| BxlLabelError::Format(bxl_label.to_owned()))?;
 
     const OPTS: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: true,
@@ -304,6 +314,19 @@ pub(crate) fn parse_bxl_label_from_cli(
     };
     let import_path =
         parse_import_with_config(cell_alias_resolver, &current_cell, bxl_path, &OPTS)?;
+
+    let project_path = cell_resolver.resolve_path(import_path.as_ref())?;
+    let reformed_path = cell_resolver.get_cell_path(&project_path)?;
+    if reformed_path.cell() != import_path.cell() {
+        soft_error!(
+            "bxl_label_wrong_cell",
+            BxlLabelError::WrongCell {
+                got: bxl_path.to_owned(),
+                wanted: reformed_path,
+            }
+            .into()
+        )?;
+    }
 
     Ok(BxlFunctionLabel {
         bxl_path: BxlFilePath::new(import_path)?,
