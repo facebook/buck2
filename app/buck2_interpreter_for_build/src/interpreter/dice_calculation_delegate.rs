@@ -307,12 +307,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         //     and not `package` on case-insensitive filesystems.
         //     We do case-sensitive comparison for `BUCK` files, so we do the same here.
         //   * we fail here if `PACKAGE` (but not `package`) exists, and it is not a file.
-        // * linear search is fine, we do not do a lot of such operations
-        if !dir
-            .included
-            .iter()
-            .any(|x| x.file_name == PackageFilePath::PACKAGE_FILE_NAME)
-        {
+        if !dir.contains(PackageFilePath::PACKAGE_FILE_NAME) {
             return Ok(None);
         }
         Ok(Some(

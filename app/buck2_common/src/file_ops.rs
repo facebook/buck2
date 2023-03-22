@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
 use derive_more::Display;
@@ -92,6 +93,13 @@ pub struct RawDirEntry {
 pub struct ReadDirOutput {
     pub included: Arc<[SimpleDirEntry]>,
     pub ignored: Arc<[RawDirEntry]>,
+}
+
+impl ReadDirOutput {
+    /// Is the file name in the directory listing. Ignores files that were explicitly ignored.
+    pub fn contains(&self, file_name: &FileName) -> bool {
+        self.included.iter().any(|x| x.file_name == file_name)
+    }
 }
 
 #[derive(Allocative)]
