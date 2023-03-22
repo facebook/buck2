@@ -121,6 +121,7 @@ pub struct SuperConsoleConfig {
     pub enable_detailed_re: bool,
     pub enable_io: bool,
     pub enable_commands: bool,
+    pub display_platform: bool,
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
@@ -134,6 +135,7 @@ impl Default for SuperConsoleConfig {
             enable_detailed_re: false,
             enable_io: false,
             enable_commands: false,
+            display_platform: false,
             two_lines: false,
             max_lines: 10,
         }
@@ -434,6 +436,11 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         } else if c == 'i' {
             self.toggle("I/O counters", 'i', |s| &mut s.state.config.enable_io)
                 .await?;
+        } else if c == 'p' {
+            self.toggle("Display target configurations", 'p', |s| {
+                &mut s.state.config.display_platform
+            })
+            .await?;
         } else if c == 'c' {
             self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
                 .await?;
@@ -449,6 +456,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 `2` = toggle two lines mode\n\
                 `r` = toggle detailed RE\n\
                 `i` = toggle I/O counters\n\
+                `p` = display target configurations\n\
                 `+` = show more lines\n\
                 `-` = show fewer lines\n\
                 `h` = show this help",
@@ -548,7 +556,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         };
 
         let mut lines = vec![];
-
+        let display_platform = self.state.config.display_platform;
         match action.error.as_ref() {
             Some(error) => {
                 let display::ActionErrorDisplay {
@@ -558,7 +566,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 } = display::display_action_error(
                     action,
                     error,
-                    TargetDisplayOptions::for_console(),
+                    TargetDisplayOptions::for_console(display_platform),
                 )?;
 
                 lines.push(Line::from_iter([Span::new_styled_lossy(
@@ -593,7 +601,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                             display::display_action_identity(
                                 action.key.as_ref(),
                                 action.name.as_ref(),
-                                TargetDisplayOptions::for_console(),
+                                TargetDisplayOptions::for_console(display_platform),
                             )?
                         ),
                     );

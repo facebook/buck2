@@ -52,7 +52,11 @@ impl TargetDisplayOptions {
         }
     }
 
-    pub fn for_console() -> Self {
+    pub fn for_console(with_configuration: bool) -> Self {
+        Self { with_configuration }
+    }
+
+    pub fn for_chrome_trace() -> Self {
         Self {
             with_configuration: false,
         }

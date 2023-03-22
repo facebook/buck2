@@ -92,6 +92,7 @@ impl TimedListBodyInner {
         root: &BuckEventSpanHandle,
         single_child: BuckEventSpanHandle,
         remaining_children: usize,
+        display_platform: bool,
     ) -> anyhow::Result<Row> {
         let time_speed = state.get::<TimeSpeed>()?;
         let info = root.info();
@@ -101,8 +102,14 @@ impl TimedListBodyInner {
             // always display the event and subaction
             let mut builder = format!(
                 "{} [{}",
-                display::display_event(&info.event, TargetDisplayOptions::for_console())?,
-                display::display_event(&child_info.event, TargetDisplayOptions::for_console())?
+                display::display_event(
+                    &info.event,
+                    TargetDisplayOptions::for_console(display_platform)
+                )?,
+                display::display_event(
+                    &child_info.event,
+                    TargetDisplayOptions::for_console(display_platform)
+                )?
             );
 
             let subaction_ratio =
@@ -138,7 +145,9 @@ impl TimedListBodyInner {
 
     fn draw_root(&self, root: &BuckEventSpanHandle, state: &State) -> anyhow::Result<Vec<Row>> {
         let time_speed = state.get::<TimeSpeed>()?;
-        let two_lines = state.get::<SuperConsoleConfig>()?.two_lines;
+        let config = state.get::<SuperConsoleConfig>()?;
+        let two_lines = config.two_lines;
+        let display_platform = config.display_platform;
         let info = root.info();
 
         let mut it = root.children();
@@ -149,10 +158,17 @@ impl TimedListBodyInner {
                 root,
                 first,
                 it.len(),
+                display_platform,
             )?]),
             first => {
                 let mut rows = Vec::new();
-                rows.push(Row::span(0, info, time_speed.speed(), &self.cutoffs)?);
+                rows.push(Row::span(
+                    0,
+                    info,
+                    time_speed.speed(),
+                    &self.cutoffs,
+                    display_platform,
+                )?);
 
                 for child in first.into_iter().chain(it) {
                     rows.push(Row::span(
@@ -160,6 +176,7 @@ impl TimedListBodyInner {
                         child.info(),
                         time_speed.speed(),
                         &self.cutoffs,
+                        display_platform,
                     )?);
                 }
                 Ok(rows)

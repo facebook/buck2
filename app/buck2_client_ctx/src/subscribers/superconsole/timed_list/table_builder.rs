@@ -94,8 +94,12 @@ impl Row {
         span: &BuckEventSpanInfo,
         time_speed: f64,
         cutoffs: &Cutoffs,
+        display_platform: bool,
     ) -> anyhow::Result<Row> {
-        let event = display::display_event(&span.event, TargetDisplayOptions::for_console())?;
+        let event = display::display_event(
+            &span.event,
+            TargetDisplayOptions::for_console(display_platform),
+        )?;
         let time = display::duration_as_secs_elapsed(span.start.elapsed(), time_speed);
         let age = span.start.elapsed();
         Row::text(padding, event, time, age, cutoffs)
