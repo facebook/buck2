@@ -353,6 +353,11 @@ impl Ty {
         Ty::Dict(Box::new((key, value)))
     }
 
+    /// Create a tuple of two elements
+    pub fn tuple2(a: Ty, b: Ty) -> Self {
+        Ty::Tuple(vec![a, b])
+    }
+
     /// Create a function type.
     pub fn function(params: Vec<Param>, result: Ty) -> Self {
         Self::Function(TyFunction {
