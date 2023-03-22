@@ -18,6 +18,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use dashmap::DashSet;
 
 use crate::cas_digest::CasDigestConfig;
 use crate::file_ops::RawDirEntry;
@@ -45,6 +46,8 @@ pub trait IoProvider: Allocative + Send + Sync {
     fn name(&self) -> &'static str;
 
     fn project_root(&self) -> &ProjectRoot;
+
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 pub async fn create_io_provider(
@@ -81,4 +84,63 @@ pub async fn create_io_provider(
         project_fs,
         cas_digest_config,
     )))
+}
+
+#[derive(Allocative)]
+pub struct TracingIoProvider {
+    io: Box<dyn IoProvider>,
+    trace: DashSet<ProjectRelativePathBuf>,
+}
+
+impl TracingIoProvider {
+    pub fn new(io: Box<dyn IoProvider>) -> Self {
+        Self {
+            io,
+            trace: DashSet::new(),
+        }
+    }
+
+    pub fn trace(&self) -> &DashSet<ProjectRelativePathBuf> {
+        &self.trace
+    }
+}
+
+#[async_trait::async_trait]
+impl IoProvider for TracingIoProvider {
+    async fn read_file_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
+        self.trace.insert(path.clone());
+        self.io.read_file_if_exists(path).await
+    }
+
+    async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+        self.trace.insert(path.clone());
+        self.io.read_dir(path).await
+    }
+
+    async fn read_path_metadata_if_exists(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        self.trace.insert(path.clone());
+        self.io.read_path_metadata_if_exists(path).await
+    }
+
+    async fn settle(&self) -> anyhow::Result<()> {
+        self.io.settle().await
+    }
+
+    fn name(&self) -> &'static str {
+        self.io.name()
+    }
+
+    fn project_root(&self) -> &ProjectRoot {
+        self.io.project_root()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

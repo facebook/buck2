@@ -8,11 +8,14 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::trace_io_request;
+use buck2_cli_proto::TraceIoRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -31,6 +34,8 @@ enum Subcommand {
     Enable,
     /// Turn off I/O tracing. Has no effect if tracing is already disabled.
     Disable,
+    /// Return whether I/O tracing is enabled.
+    Status,
 }
 
 #[async_trait]
@@ -39,10 +44,27 @@ impl StreamingCommand for TraceIoCommand {
 
     async fn exec_impl(
         self,
-        _buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        buckd: &mut BuckdClientConnector,
+        matches: &clap::ArgMatches,
+        mut ctx: ClientCommandContext,
     ) -> ExitResult {
+        if let Subcommand::Status = self.trace_io_action {
+            let context = ctx.client_context(self.common_opts(), matches, self.sanitized_argv())?;
+            let req = TraceIoRequest {
+                context: Some(context),
+                read_state: Some(trace_io_request::ReadIoTracingState { with_trace: false }),
+            };
+            let resp = buckd
+                .with_flushing()
+                .trace_io(
+                    req,
+                    ctx.stdin().console_interaction_stream(self.console_opts()),
+                    &mut NoPartialResultHandler,
+                )
+                .await??;
+            tracing::warn!("I/O tracing status: {}", resp.enabled);
+        }
+
         ExitResult::success()
     }
 

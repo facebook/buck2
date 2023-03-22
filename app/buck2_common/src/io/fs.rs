@@ -144,6 +144,10 @@ impl IoProvider for FsIoProvider {
     fn project_root(&self) -> &ProjectRoot {
         &self.fs
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 fn read_path_metadata<P: AsRef<AbsNormPath>>(

@@ -301,6 +301,10 @@ impl IoProvider for EdenIoProvider {
     fn project_root(&self) -> &ProjectRoot {
         self.fs.project_root()
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// We don't request sync on individual calls because we make a dedicated call for this before we

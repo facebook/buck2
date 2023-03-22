@@ -690,10 +690,18 @@ message SubscriptionResponseWrapper {
 message SubscriptionCommandResponse {}
 
 message TraceIoRequest {
+  message ReadIoTracingState {
+    bool with_trace = 1;
+  }
+
   ClientContext context = 1;
+  ReadIoTracingState read_state = 2;
 }
 
-message TraceIoResponse {}
+message TraceIoResponse {
+  bool enabled = 1;
+  repeated string trace = 2;
+}
 
 // Note: When adding new request or response types, some of the declarations in
 // src/lib.rs need to be updated to derive common things for buck's cli package.

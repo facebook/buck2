@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_common::io::TracingIoProvider;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -27,7 +28,6 @@ pub(crate) async fn trace_io_command(
     span_async(start_event, async move {
         let result = trace_io(&context.base_context, &req)
             .await
-            .map(|()| buck2_cli_proto::TraceIoResponse {})
             .context("Manipulating I/O tracing state");
         let end_event = command_end(metadata, &result, buck2_data::TraceIoCommandEnd {});
         (result, end_event)
@@ -36,8 +36,16 @@ pub(crate) async fn trace_io_command(
 }
 
 async fn trace_io(
-    _server_ctx: &BaseServerCommandContext,
+    server_ctx: &BaseServerCommandContext,
     _req: &buck2_cli_proto::TraceIoRequest,
-) -> anyhow::Result<()> {
-    Ok(())
+) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
+    let tracing_enabled = server_ctx
+        .io
+        .as_any()
+        .downcast_ref::<TracingIoProvider>()
+        .is_some();
+    Ok(buck2_cli_proto::TraceIoResponse {
+        enabled: tracing_enabled,
+        trace: Vec::new(),
+    })
 }
