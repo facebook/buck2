@@ -23,6 +23,7 @@ use std::time::SystemTime;
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::stdin::Stdin;
@@ -224,7 +225,7 @@ impl RageCommand {
             buck2_client_ctx::eprintln!("Collecting debug info...\n\n")?;
 
             // If there is a daemon, connect.
-            let buckd = BootstrapBuckdClient::connect(paths, true)
+            let buckd = BootstrapBuckdClient::connect(paths, BuckdConnectConstraints::ExistingOnly)
                 .await
                 .shared_error();
 

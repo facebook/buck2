@@ -17,8 +17,10 @@ use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
+use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::daemon_constraints::gen_daemon_constraints;
 use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
@@ -125,8 +127,12 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         ctx.with_runtime(async move |mut ctx| {
             let work = async {
                 let mut connect_options = BuckdConnectOptions {
-                    existing_only: T::existing_only(),
                     subscribers: default_subscribers(&self, &ctx)?,
+                    constraints: if T::existing_only() {
+                        BuckdConnectConstraints::ExistingOnly
+                    } else {
+                        BuckdConnectConstraints::Constraints(gen_daemon_constraints()?)
+                    },
                 };
 
                 let mut buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
@@ -140,7 +146,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
                         // Do not attempt to spawn a daemon if connect failed.
                         // Connect should not fail.
-                        connect_options.existing_only = true;
+                        connect_options.constraints = BuckdConnectConstraints::ExistingOnly;
 
                         ctx.connect_buckd(connect_options).await?
                     }

@@ -42,14 +42,13 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::ClientKind;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
-use crate::daemon_constraints::gen_daemon_constraints;
 use crate::events_ctx::EventsCtx;
 use crate::replayer::Replayer;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
 
-pub enum VersionCheckResult {
+pub enum ConstraintCheckResult {
     Match,
     Mismatch {
         expected: buck2_cli_proto::DaemonConstraints,
@@ -57,20 +56,38 @@ pub enum VersionCheckResult {
     },
 }
 
-impl VersionCheckResult {
-    fn from(
-        expected: buck2_cli_proto::DaemonConstraints,
-        actual: buck2_cli_proto::DaemonConstraints,
-    ) -> Self {
-        if expected == actual {
-            Self::Match
-        } else {
-            Self::Mismatch { expected, actual }
-        }
-    }
-
+impl ConstraintCheckResult {
     fn is_match(&self) -> bool {
         matches!(self, Self::Match)
+    }
+}
+
+pub enum BuckdConnectConstraints {
+    ExistingOnly,
+    Constraints(buck2_cli_proto::DaemonConstraints),
+}
+
+impl BuckdConnectConstraints {
+    pub fn existing_only(&self) -> bool {
+        matches!(self, Self::ExistingOnly)
+    }
+
+    pub fn satisfies(&self, expected: &Self) -> ConstraintCheckResult {
+        match (self, expected) {
+            (Self::ExistingOnly, _) | (_, Self::ExistingOnly) => ConstraintCheckResult::Match,
+            (Self::Constraints(actual), Self::Constraints(expected)) => {
+                if expected.version != actual.version
+                    || expected.user_version != actual.user_version
+                {
+                    ConstraintCheckResult::Mismatch {
+                        expected: expected.clone(),
+                        actual: actual.clone(),
+                    }
+                } else {
+                    ConstraintCheckResult::Match
+                }
+            }
+        }
     }
 }
 
@@ -298,13 +315,16 @@ pub struct BootstrapBuckdClient {
 }
 
 impl BootstrapBuckdClient {
-    pub async fn connect(paths: &InvocationPaths, existing_only: bool) -> anyhow::Result<Self> {
+    pub async fn connect(
+        paths: &InvocationPaths,
+        constraints: BuckdConnectConstraints,
+    ) -> anyhow::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
 
-        establish_connection(paths, existing_only)
+        establish_connection(paths, constraints)
             .await
             .with_context(|| daemon_connect_error(paths))
             .context(
@@ -341,16 +361,16 @@ impl BootstrapBuckdClient {
         }
     }
 
-    async fn kill_for_version_mismatch(&mut self) -> anyhow::Result<()> {
+    async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<()> {
         kill::kill(
             &mut self.client,
             &self.info,
-            "client expected different buck version",
+            "client expected different buckd constraints",
         )
         .await
     }
 
-    async fn check_version(&mut self) -> anyhow::Result<VersionCheckResult> {
+    async fn get_constraints(&mut self) -> anyhow::Result<BuckdConnectConstraints> {
         // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
         // otherwise we leave them alone.
         let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
@@ -369,38 +389,38 @@ impl BootstrapBuckdClient {
             }
         }?;
 
-        Ok(VersionCheckResult::from(
-            gen_daemon_constraints()?,
+        Ok(BuckdConnectConstraints::Constraints(
             status.daemon_constraints.unwrap_or_default(),
         ))
     }
 }
 
 /// The settings prior to connecting to the Buck daemon.
-/// By default, attempts to connect to a daemon with the same version as the client.
-/// If the daemon has a different version, it will kill it and restart it with the correct version.
+/// By default, attempts to connect to a daemon that can satisfy specified constraints.
+/// If the daemon does not match constraints (different version or does not enable I/O tracing),
+/// it will kill it and restart it with the correct constraints.
 /// This behavior can be overridden by calling the `existing_only` method.
-/// If the `existing_only` method is called, then any existing buck daemon (regardless of version) is accepted.
+/// If the `existing_only` method is called, then any existing buck daemon (regardless of constraint) is accepted.
 ///
 /// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
 pub struct BuckdConnectOptions {
-    pub existing_only: bool,
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
     /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+    pub constraints: BuckdConnectConstraints,
 }
 
 impl BuckdConnectOptions {
     pub fn existing_only_no_console() -> Self {
         Self {
-            existing_only: true,
+            constraints: BuckdConnectConstraints::ExistingOnly,
             subscribers: vec![Box::new(StdoutStderrForwarder)],
         }
     }
 
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
-        let client = BootstrapBuckdClient::connect(paths, self.existing_only).await?;
+        let client = BootstrapBuckdClient::connect(paths, self.constraints).await?;
         Ok(client.with_subscribers(self.subscribers))
     }
 
@@ -430,7 +450,7 @@ impl BuckdConnectOptions {
 
 async fn establish_connection(
     paths: &InvocationPaths,
-    existing_only: bool,
+    constraints: BuckdConnectConstraints,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
@@ -439,29 +459,28 @@ async fn establish_connection(
     deadline
         .down(
             "establishing connection to Buck daemon or start a daemon",
-            |timeout| establish_connection_inner(paths, existing_only, timeout),
+            |timeout| establish_connection_inner(paths, constraints, timeout),
         )
         .await
 }
 
 async fn establish_connection_inner(
     paths: &InvocationPaths,
-    existing_only: bool,
+    constraints: BuckdConnectConstraints,
     deadline: StartupDeadline,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     if let Some(client) = deadline
         .half()?
         .run("connecting to existing buck daemon", {
-            try_connect_existing_before_daemon_restart(paths, existing_only)
+            try_connect_existing_before_daemon_restart(paths, &constraints)
         })
         .await?
     {
         return Ok(client);
     }
 
-    // At this point, we've either failed to connect to buckd or buckd had the wrong version. At this point,
-    // we'll get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
-
+    // At this point, we've either failed to connect to buckd or buckd had the wrong constraints.
+    // Get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
     let lifecycle_lock = deadline
         .down("acquire lifecycle lock", |deadline| {
             BuckdLifecycle::lock_with_timeout(paths, deadline)
@@ -471,14 +490,19 @@ async fn establish_connection_inner(
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
     if let Ok(mut client) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
-        if existing_only || client.check_version().await?.is_match() {
-            // either the version matches or we don't care about the version, return the client.
+        if constraints.existing_only()
+            || client
+                .get_constraints()
+                .await?
+                .satisfies(&constraints)
+                .is_match()
+        {
             return Ok(client);
         }
         deadline
             .run(
                 "sending kill command to the Buck daemon",
-                client.kill_for_version_mismatch(),
+                client.kill_for_constraints_mismatch(),
             )
             .await?;
     }
@@ -503,14 +527,14 @@ async fn establish_connection_inner(
         )
         .await?;
 
-    if existing_only {
+    if constraints.existing_only() {
         return Ok(client);
     }
 
-    match client.check_version().await? {
-        VersionCheckResult::Match => Ok(client),
-        VersionCheckResult::Mismatch { expected, actual } => {
-            Err(BuckdConnectError::BuckDaemonVersionWrongAfterStart { expected, actual }.into())
+    match client.get_constraints().await?.satisfies(&constraints) {
+        ConstraintCheckResult::Match => Ok(client),
+        ConstraintCheckResult::Mismatch { expected, actual } => {
+            Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart { expected, actual }.into())
         }
     }
 }
@@ -524,17 +548,22 @@ async fn establish_connection_inner(
 /// * `Err` if we failed to connect and should abandon startup
 async fn try_connect_existing_before_daemon_restart(
     paths: &InvocationPaths,
-    existing_only: bool,
+    constraints: &BuckdConnectConstraints,
 ) -> anyhow::Result<Option<BootstrapBuckdClient>> {
     match try_connect_existing_impl(&paths.daemon_dir()?).await {
         Ok(mut client) => {
-            if existing_only || client.check_version().await?.is_match() {
-                // either the version matches or we don't care about the version, return the client.
+            if constraints.existing_only()
+                || client
+                    .get_constraints()
+                    .await?
+                    .satisfies(constraints)
+                    .is_match()
+            {
                 return Ok(Some(client));
             }
             // fallthrough to the more complicated startup case.
         }
-        Err(e) if existing_only => {
+        Err(e) if constraints.existing_only() => {
             return Err(e.context("No existing connection and not asked to start one"));
         }
         Err(_) => {
@@ -586,8 +615,10 @@ enum BuckdConnectError {
         stdout: String,
         stderr: String,
     },
-    #[error("during buck daemon startup, the started process had the wrong version.")]
-    BuckDaemonVersionWrongAfterStart {
+    #[error(
+        "during buck daemon startup, the started process did not match constraints.\nexpected: {expected:?}\nactual: {actual:?}"
+    )]
+    BuckDaemonConstraintWrongAfterStart {
         expected: buck2_cli_proto::DaemonConstraints,
         actual: buck2_cli_proto::DaemonConstraints,
     },
@@ -605,4 +636,24 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
         .unwrap_or_else(|_| "<none>".to_owned());
 
     BuckdConnectError::ConnectError { stderr }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::daemon_constraints::gen_daemon_constraints;
+
+    #[test]
+    fn test_constraints_equal_for_existing_only() {
+        let c1 = BuckdConnectConstraints::ExistingOnly;
+        let c2 = BuckdConnectConstraints::Constraints(gen_daemon_constraints().unwrap());
+        assert!(c1.satisfies(&c2).is_match());
+    }
+
+    #[test]
+    fn test_constraints_equal_for_same_constraints() {
+        let c1 = BuckdConnectConstraints::Constraints(gen_daemon_constraints().unwrap());
+        let c2 = BuckdConnectConstraints::Constraints(gen_daemon_constraints().unwrap());
+        assert!(c1.satisfies(&c2).is_match());
+    }
 }
