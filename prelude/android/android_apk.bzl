@@ -170,6 +170,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator()),
+                "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator()),
             },
         ),
     ]
