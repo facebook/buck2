@@ -303,10 +303,13 @@ def _compile_with_argsfile(
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
     explicit_modules_enabled = uses_explicit_modules(ctx)
+
+    # Make it easier to debug whether Swift actions get compiled with explicit modules or not
+    category = name + ("_with_explicit_mods" if explicit_modules_enabled else "")
     ctx.actions.run(
         cmd,
         env = get_explicit_modules_env_var(explicit_modules_enabled),
-        category = name,
+        category = category,
         prefer_local = prefer_local,
         allow_cache_upload = prefer_local,
     )
