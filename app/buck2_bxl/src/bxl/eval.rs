@@ -20,8 +20,8 @@ use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
+use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -76,17 +76,9 @@ pub async fn eval(
         .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
         .dupe();
 
-    let config = ctx
-        .get_legacy_config_for_cell(key.label().bxl_path.cell())
-        .await
-        .with_context(|| {
-            format!(
-                "No configuration for cell: `{}`",
-                key.label().bxl_path.cell()
-            )
-        })?;
-
-    let target_alias_resolver = config.target_alias_resolver();
+    let target_alias_resolver = ctx
+        .target_alias_resolver_for_cell(key.label().bxl_path.cell())
+        .await?;
 
     let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
     let artifact_fs = ctx.get_artifact_fs().await?;

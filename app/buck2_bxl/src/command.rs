@@ -28,8 +28,8 @@ use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedError;
+use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -174,10 +174,7 @@ pub(crate) async fn get_bxl_cli_args(
     // as defined the cell derived from the cwd.
     let cell = cell_resolver.get(cell_name)?.dupe();
 
-    // The same goes for target aliases.
-    let config = ctx.get_legacy_config_for_cell(cell_name).await?;
-
-    let target_alias_resolver = config.target_alias_resolver();
+    let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
