@@ -24,7 +24,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
-use gazebo::cmp::PartialEqAny;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::sync::Semaphore;
@@ -39,7 +38,7 @@ use crate::file_ops::RawSymlink;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::IoProvider;
 
-#[derive(PartialEq, Clone, Dupe, Allocative)]
+#[derive(Clone, Dupe, Allocative)]
 pub struct FsIoProvider {
     fs: ProjectRoot,
     cas_digest_config: CasDigestConfig,
@@ -140,10 +139,6 @@ impl IoProvider for FsIoProvider {
 
     fn name(&self) -> &'static str {
         "fs"
-    }
-
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::new(self)
     }
 
     fn project_root(&self) -> &ProjectRoot {

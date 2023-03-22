@@ -18,7 +18,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use gazebo::cmp::PartialEqAny;
 
 use crate::cas_digest::CasDigestConfig;
 use crate::file_ops::RawDirEntry;
@@ -45,15 +44,7 @@ pub trait IoProvider: Allocative + Send + Sync {
 
     fn name(&self) -> &'static str;
 
-    fn eq_token(&self) -> PartialEqAny<'_>;
-
     fn project_root(&self) -> &ProjectRoot;
-}
-
-impl PartialEq for dyn IoProvider {
-    fn eq(&self, other: &dyn IoProvider) -> bool {
-        self.eq_token() == other.eq_token()
-    }
 }
 
 pub async fn create_io_provider(

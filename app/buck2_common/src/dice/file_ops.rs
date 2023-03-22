@@ -24,6 +24,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::console_message;
+use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -94,25 +95,14 @@ pub mod keys {
 }
 
 async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn FileOps>> {
-    #[derive(Clone, Dupe, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Derivative, Allocative)]
+    #[derivative(PartialEq)]
     struct DiceFileOpsDelegate {
-        io: PartialEqWrapper<Arc<dyn IoProvider>>,
+        // Safe to ignore because `io` does not change during the lifetime of the daemon.
+        #[derivative(PartialEq = "ignore")]
+        io: Arc<dyn IoProvider>,
         cells: CellResolver,
         ignores: Arc<AllCellIgnores>,
-    }
-
-    // NOTE: We need this because derive(PartialEq) fails to compile otherwise on
-    // DiceFileOpsDelegate: move occurs because `*__self_1_0` has type `std::sync::Arc<dyn
-    // IoProvider>`, which does not implement the `Copy` trait.
-    #[derive(Clone, Dupe, PartialEq, Allocative)]
-    pub struct PartialEqWrapper<T>(T);
-
-    impl<T> std::ops::Deref for PartialEqWrapper<T> {
-        type Target = T;
-
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
     }
 
     impl DiceFileOpsDelegate {
@@ -262,7 +252,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
             let ignores = ctx.new_all_cell_ignores().await?;
 
             Ok(FileOpsValue(Arc::new(DiceFileOpsDelegate {
-                io: PartialEqWrapper(io),
+                io,
                 cells,
                 ignores,
             })))

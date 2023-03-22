@@ -19,7 +19,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
 use compact_str::CompactString;
-use derivative::Derivative;
 use dupe::Dupe;
 use edenfs::types::FileAttributes;
 use edenfs::types::ReaddirParams;
@@ -27,7 +26,6 @@ use edenfs::types::SourceControlType;
 use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
-use gazebo::cmp::PartialEqAny;
 use tokio::sync::Semaphore;
 
 use crate::cas_digest::CasDigestConfig;
@@ -39,10 +37,8 @@ use crate::file_ops::RawPathMetadata;
 use crate::io::fs::FsIoProvider;
 use crate::io::IoProvider;
 
-#[derive(Derivative, Allocative)]
-#[derivative(PartialEq)]
+#[derive(Allocative)]
 pub struct EdenIoProvider {
-    #[derivative(PartialEq = "ignore")]
     manager: EdenConnectionManager,
     fs: FsIoProvider,
 }
@@ -300,10 +296,6 @@ impl IoProvider for EdenIoProvider {
 
     fn name(&self) -> &'static str {
         "eden"
-    }
-
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::new(self)
     }
 
     fn project_root(&self) -> &ProjectRoot {
