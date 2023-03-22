@@ -55,6 +55,7 @@ pub async fn create_io_provider(
     project_fs: ProjectRoot,
     root_config: Option<&LegacyBuckConfig>,
     cas_digest_config: CasDigestConfig,
+    trace_io: bool,
 ) -> anyhow::Result<Arc<dyn IoProvider>> {
     #[cfg(any(fbcode_build, cargo_internal_build))]
     {
@@ -72,7 +73,11 @@ pub async fn create_io_provider(
             if let Some(eden) =
                 eden::EdenIoProvider::new(fb, &project_fs, cas_digest_config).await?
             {
-                return Ok(Arc::new(eden));
+                return if trace_io {
+                    Ok(Arc::new(TracingIoProvider::new(Box::new(eden))))
+                } else {
+                    Ok(Arc::new(eden))
+                };
             }
         }
     }
@@ -80,10 +85,16 @@ pub async fn create_io_provider(
     let _allow_unused = fb;
     let _allow_unused = root_config;
 
-    Ok(Arc::new(fs::FsIoProvider::new(
-        project_fs,
-        cas_digest_config,
-    )))
+    if trace_io {
+        Ok(Arc::new(TracingIoProvider::new(Box::new(
+            fs::FsIoProvider::new(project_fs, cas_digest_config),
+        ))))
+    } else {
+        Ok(Arc::new(fs::FsIoProvider::new(
+            project_fs,
+            cas_digest_config,
+        )))
+    }
 }
 
 #[derive(Allocative)]

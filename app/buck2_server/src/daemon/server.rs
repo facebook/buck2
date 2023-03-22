@@ -131,6 +131,7 @@ impl DaemonShutdown {
 pub struct BuckdServerInitPreferences {
     pub detect_cycles: Option<DetectCycles>,
     pub which_dice: Option<WhichDice>,
+    pub enable_trace_io: bool,
 }
 
 impl BuckdServerInitPreferences {

@@ -27,8 +27,15 @@ message DaemonProcessInfo {
 
 // Controls whether we will use a given daemon or not.
 message DaemonConstraints {
+  enum TraceIoState {
+    DISABLED = 0;
+    ENABLED = 1;
+    EXISTING = 2;
+  }
+
   string version = 1;
   optional string user_version = 2;
+  TraceIoState trace_io_state = 3;
 }
 
 message KillRequest {

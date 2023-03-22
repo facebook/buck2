@@ -264,6 +264,7 @@ impl DaemonState {
                 fs.dupe(),
                 legacy_configs.get(cells.root_cell()).ok(),
                 digest_config.cas_digest_config(),
+                init_ctx.enable_trace_io,
             ),
             (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
                 // Using `execute_io_inline` is just out of convenience.

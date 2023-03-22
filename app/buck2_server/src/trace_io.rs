@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_cli_proto::trace_io_request;
 use buck2_common::io::TracingIoProvider;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
@@ -26,26 +26,37 @@ pub(crate) async fn trace_io_command(
         data: Some(buck2_data::TraceIoCommandStart {}.into()),
     };
     span_async(start_event, async move {
-        let result = trace_io(&context.base_context, &req)
-            .await
-            .context("Manipulating I/O tracing state");
+        let resp = trace_io(&context.base_context, &req);
+        let result = Ok(resp);
         let end_event = command_end(metadata, &result, buck2_data::TraceIoCommandEnd {});
         (result, end_event)
     })
     .await
 }
 
-async fn trace_io(
+fn trace_io(
     server_ctx: &BaseServerCommandContext,
-    _req: &buck2_cli_proto::TraceIoRequest,
-) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
-    let tracing_enabled = server_ctx
-        .io
-        .as_any()
-        .downcast_ref::<TracingIoProvider>()
-        .is_some();
-    Ok(buck2_cli_proto::TraceIoResponse {
-        enabled: tracing_enabled,
-        trace: Vec::new(),
-    })
+    req: &buck2_cli_proto::TraceIoRequest,
+) -> buck2_cli_proto::TraceIoResponse {
+    if let Some(provider) = server_ctx.io.as_any().downcast_ref::<TracingIoProvider>() {
+        buck2_cli_proto::TraceIoResponse {
+            enabled: true,
+            trace: if let Some(trace_io_request::ReadIoTracingState { with_trace: true }) =
+                req.read_state
+            {
+                provider
+                    .trace()
+                    .iter()
+                    .map(|path| path.to_string())
+                    .collect()
+            } else {
+                Vec::new()
+            },
+        }
+    } else {
+        buck2_cli_proto::TraceIoResponse {
+            enabled: false,
+            trace: Vec::new(),
+        }
+    }
 }

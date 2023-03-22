@@ -409,6 +409,11 @@ impl DaemonCommand {
 
             drop(span_guard);
 
+            let desired_trace_io_state = if server_init_ctx.enable_trace_io {
+                buck2_cli_proto::daemon_constraints::TraceIoState::Enabled
+            } else {
+                buck2_cli_proto::daemon_constraints::TraceIoState::Disabled
+            };
             let buckd_server = BuckdServer::run(
                 fb,
                 log_reload_handle,
@@ -416,7 +421,7 @@ impl DaemonCommand {
                 delegate,
                 server_init_ctx,
                 process_info,
-                gen_daemon_constraints()?,
+                gen_daemon_constraints(desired_trace_io_state)?,
                 listener,
                 &BuckdServerDependenciesImpl,
             )
@@ -644,9 +649,11 @@ mod tests {
             BuckdServerInitPreferences {
                 detect_cycles: None,
                 which_dice: None,
+                enable_trace_io: false,
             },
             process_info.clone(),
-            gen_daemon_constraints().unwrap(),
+            gen_daemon_constraints(buck2_cli_proto::daemon_constraints::TraceIoState::Disabled)
+                .unwrap(),
             listener,
             &BuckdServerDependenciesImpl,
         ));

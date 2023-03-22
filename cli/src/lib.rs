@@ -110,6 +110,9 @@ pub(crate) struct CommonOptions {
     #[clap(env("WHICH_DICE_UNSTABLE"), long, hidden(true))]
     which_dice: Option<WhichDice>,
 
+    #[clap(env("ENABLE_TRACE_IO"), long, hidden(true))]
+    enable_trace_io: bool,
+
     /// How verbose buck should be while logging.
     /// Values:
     /// 0 = Quiet, errors only;
@@ -143,6 +146,7 @@ impl CommonOptions {
         BuckdServerInitPreferences {
             detect_cycles: self.detect_cycles,
             which_dice: self.which_dice,
+            enable_trace_io: self.enable_trace_io,
         }
     }
 }

@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::daemon_constraints::TraceIoState;
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::TraceIoRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -36,6 +37,8 @@ enum Subcommand {
     Disable,
     /// Return whether I/O tracing is enabled.
     Status,
+    /// Dumps the current I/O trace stored by the daemon.
+    Dump,
 }
 
 #[async_trait]
@@ -48,11 +51,13 @@ impl StreamingCommand for TraceIoCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        if let Subcommand::Status = self.trace_io_action {
+        if let Subcommand::Status | Subcommand::Dump = self.trace_io_action {
             let context = ctx.client_context(self.common_opts(), matches, self.sanitized_argv())?;
             let req = TraceIoRequest {
                 context: Some(context),
-                read_state: Some(trace_io_request::ReadIoTracingState { with_trace: false }),
+                read_state: Some(trace_io_request::ReadIoTracingState {
+                    with_trace: std::matches!(self.trace_io_action, Subcommand::Dump),
+                }),
             };
             let resp = buckd
                 .with_flushing()
@@ -63,9 +68,23 @@ impl StreamingCommand for TraceIoCommand {
                 )
                 .await??;
             tracing::warn!("I/O tracing status: {}", resp.enabled);
+            if let Subcommand::Dump = self.trace_io_action {
+                for path in &resp.trace {
+                    tracing::warn!("{:?}", path);
+                }
+            }
         }
 
         ExitResult::success()
+    }
+
+    /// Results in a daemon restart if tracing is not already enabled.
+    fn trace_io(&self) -> TraceIoState {
+        match self.trace_io_action {
+            Subcommand::Enable => TraceIoState::Enabled,
+            Subcommand::Disable => TraceIoState::Disabled,
+            _ => TraceIoState::Existing,
+        }
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
