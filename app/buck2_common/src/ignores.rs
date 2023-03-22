@@ -252,13 +252,13 @@ impl AllCellIgnores {
         Ok(self
             .ignores
             .get(&cell)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Should've had an ignore spec for `{}`. Had `{}`",
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Internal error: Should've had an ignore spec for `{}`. Had `{}`",
                     cell,
                     self.ignores.keys().join(", ")
                 )
-            })
+            })?
             .check(path))
     }
 }
