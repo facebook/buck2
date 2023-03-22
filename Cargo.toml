@@ -31,6 +31,7 @@ members = [
     "app/buck2_miniperf",
     "app/buck2_miniperf_proto",
     "app/buck2_node",
+    "app/buck2_offline_archive",
     "app/buck2_starlark",
     "app/buck2_test",
     "app/buck2_test_api",
@@ -282,6 +283,7 @@ buck2_interpreter_for_build_tests = { path = "app/buck2_interpreter_for_build_te
 buck2_miniperf = { path = "app/buck2_miniperf" }
 buck2_miniperf_proto = { path = "app/buck2_miniperf_proto" }
 buck2_node = { path = "app/buck2_node" }
+buck2_offline_archive = { path = "app/buck2_offline_archive" }
 buck2_execute = { path = "app/buck2_execute" }
 buck2_execute_impl = { path = "app/buck2_execute_impl" }
 buck2_server = { path = "app/buck2_server" }

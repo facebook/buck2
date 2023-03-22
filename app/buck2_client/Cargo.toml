@@ -56,6 +56,7 @@ buck2_cli_proto = { workspace = true }
 buck2_query_common = { workspace = true }
 buck2_util = { workspace = true }
 buck2_subscription_proto = { workspace = true }
+buck2_offline_archive = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

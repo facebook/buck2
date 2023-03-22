@@ -1,0 +1,8 @@
+[package]
+description = "Supporting code and utilities for manipulating offline build archives"
+edition = "2021"
+name = "buck2_offline_archive"
+version = "0.1.0"
+
+[dependencies]
+serde = { workspace = true }
