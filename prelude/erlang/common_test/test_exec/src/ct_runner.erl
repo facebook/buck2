@@ -30,6 +30,7 @@
 
 -export([
     start_test_node/5,
+    start_test_node/6,
     cookie/0,
     generate_arg_tuple/2,
     project_root/0
@@ -192,6 +193,17 @@ build_run_args(OutputDir, Providers, Suite, TestSpecFile) ->
     PortSettings :: port_settings()
 ) -> port().
 start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0) ->
+    start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0, false).
+
+-spec start_test_node(
+    Erl :: string(),
+    CodePath :: [file:filename_all()],
+    ConfigFiles :: [file:filename_all()],
+    OutputDir :: file:filename_all(),
+    PortSettings :: port_settings(),
+    ReplayIo :: boolean()
+) -> port().
+start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0, ReplayIo) ->
     % split of args from Erl which can contain emulator flags
     [_Executable | ExtraFlags] = string:split(ErlCmd, " ", all),
     % we ignore the executable we got, and use the erl command from the
@@ -221,11 +233,17 @@ start_test_node(ErlCmd, CodePath, ConfigFiles, OutputDir, PortSettings0) ->
         [args, env, cd]
     ),
 
+    DefaultOptions =
+        case ReplayIo of
+            true -> [stderr_to_stdout, exit_status, {line, 1024}];
+            false -> ?DEFAULT_LAUNCH_PORT_OPTIONS
+        end,
+    ?LOG_DEBUG("default options ~p", [DefaultOptions]),
     LaunchSettings = [
         {args, LaunchArgs},
         {env, LaunchEnv},
         {cd, LaunchCD}
-        | PortSettings1 ++ ?DEFAULT_LAUNCH_PORT_OPTIONS
+        | PortSettings1 ++ DefaultOptions
     ],
 
     %% start the node

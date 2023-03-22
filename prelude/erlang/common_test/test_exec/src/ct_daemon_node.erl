@@ -31,7 +31,9 @@
     options := [opt()]
 }.
 
--type opt() :: {multiply_timetraps, number() | infinity}.
+-type opt() ::
+    {multiply_timetraps, number() | infinity}
+    | {ct_hooks, [atom() | {atom(), [term()]}]}.
 
 -export_type([config/0]).
 
@@ -51,12 +53,14 @@ start() ->
 
 %% @doc start node for running tests in isolated way and keep state
 -spec start(config()) -> ok | {error, {crash_on_startup, integer()}}.
-start(#{
-    type := Type,
-    name := Node,
-    cookie := Cookie,
-    options := Options
-}) ->
+start(
+    _Config = #{
+        type := Type,
+        name := Node,
+        cookie := Cookie,
+        options := Options
+    }
+) ->
     RandomName = random_name(),
     ok = ensure_distribution(Type, RandomName, Cookie),
     %% get code paths from current node
@@ -65,6 +69,7 @@ start(#{
     OutputDir = gen_output_dir(RandomName),
     FullOptions = [{output_dir, OutputDir} | Options],
     Args = build_daemon_args(Type, Node, Cookie, FullOptions, OutputDir),
+    % Replay = maps:get(replay, Config, false),
     % We should forward emu flags here,
     % see T129435667
     Port = ct_runner:start_test_node(
@@ -72,15 +77,22 @@ start(#{
         CodePaths,
         ConfigFiles,
         OutputDir,
-        [{args, Args}, {cd, ct_runner:project_root()}]
+        [{args, Args}, {cd, ct_runner:project_root()}],
+        true
     ),
     %% wait for the ct_daemon gen_server to be started
     true = erlang:register(?MODULE, self()),
+    port_loop(Port, []).
+
+port_loop(Port, Acc) ->
     receive
+        {Port, {data, {eol, Line}}} ->
+            port_loop(Port, [Line | Acc]);
         ready ->
             true = erlang:unregister(?MODULE),
             ok = global:sync();
         {Port, {exit_status, N}} ->
+            ?LOG_DEBUG("Test Node Crashed on Startup: ~n~s~n", [lists:join("\n", lists:reverse(Acc))]),
             {error, {crash_on_startup, N}}
     end.
 
@@ -124,7 +136,10 @@ node_main([Parent, OutputDirAtom, InstrumentCTLogs]) ->
     %% setup logger and prepare IO
     ok = ct_daemon_logger:setup(OutputDir, InstrumentCTLogs),
 
-    {ok, {Pid, MonRef}} = ct_daemon_runner:start_monitor(Parent, OutputDir),
+    true = net_kernel:connect_node(Parent),
+
+    {ok, {RunnerPid, RunnerMonRef}} = ct_daemon_runner:start_monitor(Parent, OutputDir),
+    {ok, {HooksPid, HooksMonRef}} = ct_daemon_hooks:start_monitor(),
 
     true = erlang:monitor_node(Parent, true),
     {?MODULE, Parent} ! ready,
@@ -134,8 +149,11 @@ node_main([Parent, OutputDirAtom, InstrumentCTLogs]) ->
         {nodedown, _} ->
             ?LOG_INFO("parent node went down, terminating test node", []),
             ok;
-        {'DOWN', MonRef, process, Pid, _} ->
+        {'DOWN', RunnerMonRef, process, RunnerPid, _} ->
             ?LOG_INFO("ct_daemon_runner went down, terminating test node", []),
+            ok;
+        {'DOWN', HooksMonRef, process, HooksPid, _} ->
+            ?LOG_INFO("ct_daemon_hooks went down, terminating test node", []),
             ok
     end,
     test_logger:flush(),
@@ -205,16 +223,22 @@ get_config_files() ->
 
 -spec gen_output_dir(RandomName :: string()) -> file:filename().
 gen_output_dir(RandomName) ->
+    BaseDir =
+        case application:get_env(test_exec, ct_daemon_log_dir, undefined) of
+            undefined ->
+                ?LOG_BASE;
+            LogDir ->
+                LogDir
+        end,
     filename:join([
-        ct_runner:project_root(),
-        ?LOG_BASE,
+        BaseDir,
         "tests",
         RandomName
     ]).
 
 -spec random_name() -> io_lib:chars().
 random_name() ->
-    io_lib:format("~b-~s", [rand:uniform(100000), os:getpid()]).
+    io_lib:format("~b-~b~s", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]).
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->

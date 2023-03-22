@@ -132,6 +132,9 @@ run_test(Spec, PreviousSetup, OutputDir) ->
             {RunResult, #{setup_state => SetupState, config => AfterRunConfig}};
         {Skip = {skip, _, _}, SetupConfig, SetupState} ->
             {Skip, #{setup_state => SetupState, config => SetupConfig}};
+        {{fail, Where, ST}, SetupConfig, SetupState} ->
+            %% we map fail to error
+            {{error, {setup_failure, {Where, ST}}}, #{setup_state => SetupState, config => SetupConfig}};
         {{error, R}, SetupConfig, SetupState} ->
             {{error, {setup_failure, R}}, #{setup_state => SetupState, config => SetupConfig}}
     end.
@@ -158,7 +161,13 @@ do_fresh_setup(#ct_test{suite = Suite, groups = Groups}, OutputDir) ->
 
 do_setup_from(Suite, Config, SetupPath, EndStack, RemainingSetup) ->
     InitAndEnds = build_inits_and_ends(Suite, RemainingSetup, []),
-    do_init(InitAndEnds, Config, {SetupPath, EndStack}).
+    %% return from the last config on the init path if applicable
+    ConfigIn =
+        case EndStack of
+            [{_, LastConfig} | _] -> LastConfig;
+            _ -> Config
+        end,
+    do_init(InitAndEnds, ConfigIn, {SetupPath, EndStack}).
 
 do_init([], Config, SetupState) ->
     {ok, Config, SetupState};
@@ -167,7 +176,8 @@ do_init([{Id, Init, End} | Rest], ConfigIn, SetupState = {PathStack, EndsStack})
     case do_part_safe(Id, Init, ConfigIn, Timetrap) of
         Error = {error, _} -> {Error, ConfigIn, SetupState};
         Skip = {skip, _, _} -> {Skip, ConfigIn, SetupState};
-        {ok, ConfigOut} -> do_init(Rest, ConfigOut, {[Id | PathStack], [End, EndsStack]})
+        Fail = {fail, _, _} -> {Fail, ConfigIn, SetupState};
+        {ok, ConfigOut} -> do_init(Rest, ConfigOut, {[Id | PathStack], [{End, ConfigOut} | EndsStack]})
     end.
 
 get_common_prefix([L | RestL], [R | RestR], Acc) when L =:= R ->
@@ -177,7 +187,7 @@ get_common_prefix(RemainingSetup, _, Acc) ->
 
 do_teardown_until(Target, Setup, EndsStack, Config) when Target =:= Setup ->
     {Config, Target, EndsStack};
-do_teardown_until(Target, Path = [Id | RemainingSetup], [End | RemainingEndsStack], Config) ->
+do_teardown_until(Target, Path = [Id | RemainingSetup], [{End, Config} | RemainingEndsStack], _) ->
     Timetrap = path_timetrap(lists:reverse(Path)),
     NextConfig =
         case do_part_safe(Id, End, Config, Timetrap) of
@@ -194,36 +204,40 @@ build_inits_and_ends(Suite, [Suite | RemainingInit], []) ->
     build_inits_and_ends(
         Suite,
         RemainingInit,
-        [{Suite, fun Suite:init_per_suite/1, fun Suite:end_per_suite/1}]
+        [
+            {Suite, wrap_ct_hook(init_per_suite, [Suite], fun Suite:init_per_suite/1),
+                wrap_ct_hook(end_per_suite, [Suite], fun Suite:end_per_suite/1)}
+        ]
     );
 build_inits_and_ends(Suite, [Group | RemainingInit], Acc) ->
     build_inits_and_ends(
         Suite,
         RemainingInit,
         [
-            {Group, fun(Config) -> Suite:init_per_group(Group, Config) end, fun(Config) ->
-                Suite:end_per_group(Group, Config)
-            end}
+            {Group, wrap_ct_hook(init_per_group, [Suite, Group], fun Suite:init_per_group/2),
+                wrap_ct_hook(end_per_group, [Suite, Group], fun Suite:end_per_group/2)}
             | Acc
         ]
     ).
 
 do_run_test(SetupConfig, #ct_test{suite = Suite, groups = Groups, test_name = Test}) ->
     Timetrap = path_timetrap([Suite | Groups], Test),
+    Path = [Suite | Groups] ++ [Test],
     PartFun =
         fun(Config) ->
-            test_part(Config, Suite, Test)
+            test_part(Config, Suite, Test, Path)
         end,
     case do_part_safe(Test, PartFun, SetupConfig, Timetrap) of
         Error = {error, _} -> {Error, SetupConfig};
         {ok, Result} -> Result
     end.
 
-test_part(Config, Suite, Test) ->
+test_part(Config, Suite, Test, Path) ->
     InitResult =
-        case safe_call(fun Suite:init_per_testcase/2, [Test, Config]) of
+        case safe_call(wrap_ct_hook(init_per_testcase, Path, fun Suite:init_per_testcase/2), [Config]) of
             {error, not_exported} -> Config;
-            {skip, Reason} -> {error, {skip, init_per_testcase, Reason}};
+            {skipped, Reason} -> {error, {skip, init_per_testcase, Reason}};
+            {failed, InitErrReason} -> {error, {skip, init_per_testcase, InitErrReason}};
             {error, InitErrReason} -> {error, {skip, init_per_testcase, InitErrReason}};
             InitOutConfig -> InitOutConfig
         end,
@@ -234,7 +248,11 @@ test_part(Config, Suite, Test) ->
             InitConfig ->
                 Result = safe_call(fun Suite:Test/1, [InitConfig]),
                 AfterRunConfig = config_from_test_result(Result, InitConfig),
-                case safe_call(fun Suite:end_per_testcase/2, [Test, AfterRunConfig]) of
+                case
+                    safe_call(wrap_ct_hook(end_per_testcase, Path, fun Suite:end_per_testcase/2), [
+                        AfterRunConfig
+                    ])
+                of
                     {save_config, AfterEndConfig} -> {Result, AfterEndConfig};
                     E = {fail, _} -> {{error, {end_per_testcase, E}}, AfterRunConfig};
                     _ -> {Result, AfterRunConfig}
@@ -242,33 +260,24 @@ test_part(Config, Suite, Test) ->
         end,
     {status_from_test_result(TestResult, Test), FinalConfig}.
 
+wrap_ct_hook(Part, Path, Fun) ->
+    ct_daemon_hooks:wrap(Part, Path, Fun).
+
 %% @doc transform exceptions into error tuples
 safe_call(F, Args) ->
-    case maps:from_list(erlang:fun_info(F)) of
-        #{
-            type := external,
-            module := Module,
-            name := Function,
-            arity := Arity
-        } ->
-            case erlang:function_exported(Module, Function, Arity) of
-                true ->
-                    try erlang:apply(F, Args) of
-                        Res -> Res
-                    catch
-                        E:R:ST ->
-                            {error, {E, R, ST}}
-                    end;
-                false ->
-                    {error, not_exported}
-            end;
-        Info ->
-            {error, {safe_call_internal, Info}}
+    try erlang:apply(F, Args) of
+        Res -> Res
+    catch
+        E:R:ST ->
+            ct_daemon_hooks:format_ct_error(E, R, ST)
     end.
 
 -spec config_from_test_result(ct_test_result(), ct_suite:ct_config()) -> ct_suite:ct_config().
 config_from_test_result({skip_and_save, _Reason, Config}, _) -> Config;
 config_from_test_result({save_config, Config}, _) -> Config;
+config_from_test_result({fail, FailReason}, Config) -> [{tc_status, {failed, FailReason}} | Config];
+config_from_test_result({skip, FailReason}, Config) -> [{tc_status, {skipped, FailReason}} | Config];
+config_from_test_result({error, Error}, Config) -> [{tc_status, {failed, Error}} | Config];
 config_from_test_result(_, Config) -> Config.
 
 -spec status_from_test_result(ct_test_result(), atom()) -> test_status().
@@ -284,6 +293,8 @@ status_from_test_result({error, R}, Test) ->
     {error, {Test, R}};
 status_from_test_result({fail, R}, Test) ->
     {fail, {Test, R}};
+status_from_test_result({skip, R}, Test) ->
+    {skip, {Test, R}};
 status_from_test_result(_R, _) ->
     pass_result.
 
@@ -310,9 +321,12 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
                 end,
             {name, FunName} = erlang:fun_info(Fun, name),
             try Fun(Config) of
-                {skip, Reason} ->
+                {skipped, Reason} ->
                     ?LOG_DEBUG("got skip for ~p becasue of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
+                {failed, Reason} ->
+                    ?LOG_DEBUG("got fail for ~p becasue of: ~p", [Id, Reason]),
+                    ParentPid ! {RspRef, {fail, {FunName, Id}, Reason}};
                 {skip_and_save, Reason, _} ->
                     ?LOG_DEBUG("got skip for ~p becasue of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
@@ -335,6 +349,8 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
             {error, {Id, {sentinel_crash, Info}}};
         {ReqRef, Skip = {skip, _Where, _Reason}} ->
             Skip;
+        {ReqRef, Fail = {fail, _Where, _Reason}} ->
+            Fail;
         {ReqRef, {_, _, _} = ErrorTuple} ->
             flush_monitor_msg(ProcRef),
             {error, ErrorTuple};

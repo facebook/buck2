@@ -9,6 +9,7 @@
     {vsn, "1.0.0"},
     {env, [
         {test_env, "override_me"},
-        {test_runner, "override_me"}
+        {test_runner, "override_me"},
+        {ct_daemon_hooks, []}
     ]}
 ]}.

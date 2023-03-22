@@ -69,9 +69,10 @@ print_result(Name, {fail, {TestId, Reason}}) ->
     io:format("~ts failed:~n", [TestId]),
     io:format("~p~n", [Reason]).
 
-print_skip_location({init_per_suite, _Suite}) ->
-    "init_per_suite";
-print_skip_location({_, Group}) ->
-    io_lib:format("init_per_group of ~s", [Group]);
+print_skip_location({_, GroupOrSuite}) ->
+    case re:match(atom_to_list(GroupOrSuite), "SUITE$") of
+        nomatch -> io_lib:format("init_per_group of ~s", [GroupOrSuite]);
+        _ -> "init_per_suite"
+    end;
 print_skip_location(Other) ->
     Other.
