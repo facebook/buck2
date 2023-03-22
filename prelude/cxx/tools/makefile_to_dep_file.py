@@ -99,7 +99,3 @@ def makefile_to_depfile(args):
     if ret == 0:
         rewrite_dep_file(args[0], args[1])
     sys.exit(ret)
-
-
-if __name__ == "__main__":
-    makefile_to_depfile(sys.argv[1:])
