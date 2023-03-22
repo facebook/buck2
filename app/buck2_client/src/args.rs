@@ -259,6 +259,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
         }
         ArgFile::PythonExecutable(path, flag) => {
             let mut cmd = background_command("python3");
+            cmd.env("BUCK2_ARG_FILE", "1");
             cmd.arg(path.as_os_str());
             if let Some(flag) = flag.as_deref() {
                 cmd.args(["--flavors", flag]);
