@@ -69,21 +69,19 @@ struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
 struct PackageLabelDataRef<'a> {
-    cell: CellName,
-    path: &'a CellRelativePath,
+    path: CellPathRef<'a>,
 }
 
 impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
     fn from(package_data: PackageLabelDataRef<'a>) -> Self {
-        PackageLabelData(CellPath::new(package_data.cell, package_data.path.to_buf()))
+        PackageLabelData(package_data.path.to_owned())
     }
 }
 
 impl PackageLabelData {
     fn as_ref(&self) -> PackageLabelDataRef {
         PackageLabelDataRef {
-            cell: self.0.cell(),
-            path: self.0.path(),
+            path: self.0.as_ref(),
         }
     }
 }
@@ -106,12 +104,12 @@ static INTERNER: StaticInterner<PackageLabelData, FnvHasher> = StaticInterner::n
 impl PackageLabel {
     #[inline]
     pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
-        Self(INTERNER.intern(PackageLabelDataRef { cell, path }))
+        PackageLabel::from_cell_path(CellPathRef::new(cell, path))
     }
 
     #[inline]
     pub fn from_cell_path(path: CellPathRef) -> Self {
-        Self::new(path.cell(), path.path())
+        PackageLabel(INTERNER.intern(PackageLabelDataRef { path }))
     }
 
     #[inline]

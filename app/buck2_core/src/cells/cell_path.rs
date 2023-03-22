@@ -279,6 +279,11 @@ pub struct CellPathRef<'a> {
 
 impl<'a> CellPathRef<'a> {
     #[inline]
+    pub fn new(cell: CellName, path: &'a CellRelativePath) -> CellPathRef<'a> {
+        CellPathRef { cell, path }
+    }
+
+    #[inline]
     pub fn parent(&self) -> Option<CellPathRef<'a>> {
         Some(CellPathRef {
             cell: self.cell,
