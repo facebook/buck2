@@ -59,6 +59,11 @@ use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 /// A 'Package' as defined above.
+///
+/// This type does not assert it represents a valid package.
+/// However, we use it in context where we expect it to be a valid package
+/// (for example, attempt to gather package listing for a package fails
+/// if it is a directory, but does not have a build file).
 #[derive(
     Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
