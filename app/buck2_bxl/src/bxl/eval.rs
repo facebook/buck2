@@ -69,8 +69,6 @@ pub async fn eval(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
-
     let bxl_cell = cell_resolver
         .get(key.label().bxl_path.cell())
         .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
@@ -129,10 +127,7 @@ pub async fn eval(
                 let error_file =
                     RefCell::new(Box::new(project_fs.create_file(&error_file_path, false)?));
 
-                let mut eval = Evaluator::new(&env);
-
                 let print = EventDispatcherPrintHandler(dispatcher.clone());
-                eval.set_print_handler(&print);
 
                 let mut profiler_opt = profile_mode_or_instrumentation
                     .profile_mode()
@@ -147,51 +142,61 @@ pub async fn eval(
 
                 let global_target_platform = key.global_target_platform().clone();
 
-                let bxl_function_name = key.label().name.clone();
+                let (actions_finalizer, ensured_artifacts) = {
+                    let mut eval = Evaluator::new(&env);
+                    let bxl_function_name = key.label().name.clone();
+                    let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
+                    eval.set_print_handler(&print);
 
-                let bxl_ctx = BxlContext::new(
-                    eval.heap(),
-                    key,
-                    resolved_args,
-                    target_alias_resolver,
-                    project_fs,
-                    artifact_fs,
-                    bxl_cell,
-                    BxlSafeDiceComputations::new(&ctx, &cancellation),
-                    file,
-                    error_file,
-                    digest_config,
-                    global_target_platform,
-                );
-                let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
+                    let bxl_ctx = BxlContext::new(
+                        eval.heap(),
+                        key,
+                        resolved_args,
+                        target_alias_resolver,
+                        project_fs,
+                        artifact_fs,
+                        bxl_cell,
+                        BxlSafeDiceComputations::new(&ctx, &cancellation),
+                        file,
+                        error_file,
+                        digest_config,
+                        global_target_platform,
+                    );
+                    let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
-                let result = dispatcher.clone().span(
-                    BxlExecutionStart {
-                        name: bxl_function_name,
-                    },
-                    || {
-                        (
-                            eval_bxl(
-                                &mut eval,
-                                &frozen_callable,
-                                bxl_ctx.to_value(),
-                                &mut profiler,
-                            ),
-                            BxlExecutionEnd {},
-                        )
-                    },
-                )?;
+                    let result = dispatcher.clone().span(
+                        BxlExecutionStart {
+                            name: bxl_function_name,
+                        },
+                        || {
+                            (
+                                eval_bxl(
+                                    &mut eval,
+                                    frozen_callable,
+                                    bxl_ctx.to_value(),
+                                    &mut profiler,
+                                ),
+                                BxlExecutionEnd {},
+                            )
+                        },
+                    )?;
 
-                if !result.is_none() {
-                    return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
-                }
+                    if !result.is_none() {
+                        return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
+                    }
 
-                let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
+                    let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
 
-                let (frozen_module, bxl_result) = match actions {
-                    Some(registry) => {
+                    match actions {
+                        Some(registry) => (Some(registry.finalize(&env)), ensured_artifacts),
+                        None => (None, ensured_artifacts),
+                    }
+                };
+
+                let (frozen_module, bxl_result) = match actions_finalizer {
+                    Some(actions_finalizer) => {
                         // this bxl registered actions, so extract the deferreds from it
-                        let (frozen_module, deferred) = registry.finalize(&env)(env)?;
+                        let (frozen_module, deferred) = actions_finalizer(env)?;
 
                         let deferred_table = DeferredTable::new(deferred.take_result()?);
 
@@ -236,8 +241,8 @@ pub async fn eval(
 }
 
 fn eval_bxl<'a>(
-    eval: &'a mut Evaluator<'a, '_>,
-    frozen_callable: &'a FrozenBxlFunction,
+    eval: &mut Evaluator<'a, '_>,
+    frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
     ctx: Value<'a>,
     profiler: &mut StarlarkProfilerOrInstrumentation,
 ) -> anyhow::Result<Value<'a>> {

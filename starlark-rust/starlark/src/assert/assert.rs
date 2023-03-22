@@ -297,15 +297,14 @@ impl<'a> Assert<'a> {
         }
         let loader = ReturnFileLoader { modules: &modules };
         let ast = AstModule::parse(path, program.to_owned(), &self.dialect)?;
+        let gc_always = |_span: FileSpanRef, eval: &mut Evaluator| {
+            eval.trigger_gc();
+        };
         let mut eval = Evaluator::new(module);
         (self.setup_eval)(&mut eval);
         if let Some(print_handler) = self.print_handler {
             eval.set_print_handler(print_handler);
         }
-
-        let gc_always = |_span: FileSpanRef, eval: &mut Evaluator| {
-            eval.trigger_gc();
-        };
 
         match gc {
             GcStrategy::Never => eval.disable_gc(),

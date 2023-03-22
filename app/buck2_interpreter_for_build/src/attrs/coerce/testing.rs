@@ -89,8 +89,6 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         &Dialect::Extended,
     )
     .unwrap_or_else(|err| panic!("Failed parsing `{}`. Error: `{}`", content, err));
-    let mut eval = Evaluator::new(env);
-
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
         &LegacyBuckConfig::empty(),
@@ -112,8 +110,9 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         PerFileTypeContext::Bzl,
         false,
     );
-    eval.extra = Some(&build_ctx);
 
+    let mut eval = Evaluator::new(env);
+    eval.extra = Some(&build_ctx);
     eval.eval_module(ast, globals)
         .unwrap_or_else(|err| panic!("Failed interpreting `{}`. Error: `{}`", content, err))
 }

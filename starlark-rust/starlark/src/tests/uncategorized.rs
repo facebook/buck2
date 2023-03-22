@@ -619,34 +619,40 @@ fn test_module_visibility_preserved_by_evaluator() -> anyhow::Result<()> {
         Value::new_int(2),
     );
 
-    let mut eval = Evaluator::new(&import);
-    let ast = AstModule::parse("prelude.bzl", "c = 3".to_owned(), &Dialect::Standard).unwrap();
-    // This mutates the original module named `import`
-    let _: Value = eval.eval_module(ast, &globals)?;
+    {
+        let mut eval = Evaluator::new(&import);
+        let ast = AstModule::parse("prelude.bzl", "c = 3".to_owned(), &Dialect::Standard).unwrap();
+        // This mutates the original module named `import`
+        let _: Value = eval.eval_module(ast, &globals)?;
+    }
     let frozen_import = import.freeze()?;
 
     let m_uses_public = Module::new();
     m_uses_public.import_public_symbols(&frozen_import);
-    let mut eval = Evaluator::new(&m_uses_public);
-    let ast = AstModule::parse("code.bzl", "d = a".to_owned(), &Dialect::Standard).unwrap();
-    let _: Value = eval.eval_module(ast, &globals)?;
+    {
+        let mut eval = Evaluator::new(&m_uses_public);
+        let ast = AstModule::parse("code.bzl", "d = a".to_owned(), &Dialect::Standard).unwrap();
+        let _: Value = eval.eval_module(ast, &globals)?;
+    }
 
     let m_uses_private = Module::new();
     m_uses_private.import_public_symbols(&frozen_import);
-    let mut eval = Evaluator::new(&m_uses_private);
-    let ast = AstModule::parse("code.bzl", "d = b".to_owned(), &Dialect::Standard).unwrap();
-    let err = eval
-        .eval_module(ast, &globals)
-        .expect_err("Evaluation should have failed using a private symbol");
+    {
+        let mut eval = Evaluator::new(&m_uses_private);
+        let ast = AstModule::parse("code.bzl", "d = b".to_owned(), &Dialect::Standard).unwrap();
+        let err = eval
+            .eval_module(ast, &globals)
+            .expect_err("Evaluation should have failed using a private symbol");
 
-    let msg = err.to_string();
-    let expected_msg = "Variable `b` not found";
-    assert!(
-        msg.contains(expected_msg),
-        "Expected `{}` to be in error message `{}`",
-        expected_msg,
-        msg
-    );
+        let msg = err.to_string();
+        let expected_msg = "Variable `b` not found";
+        assert!(
+            msg.contains(expected_msg),
+            "Expected `{}` to be in error message `{}`",
+            expected_msg,
+            msg
+        );
+    }
 
     Ok(())
 }

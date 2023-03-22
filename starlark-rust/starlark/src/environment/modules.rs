@@ -541,25 +541,27 @@ mod tests {
     #[test]
     fn test_gen_heap_summary_profile() {
         let module = Module::new();
-        let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::HeapSummaryRetained)
-            .unwrap();
-        eval.eval_module(
-            AstModule::parse(
-                "x.star",
-                r"
+        {
+            let mut eval = Evaluator::new(&module);
+            eval.enable_profile(&ProfileMode::HeapSummaryRetained)
+                .unwrap();
+            eval.eval_module(
+                AstModule::parse(
+                    "x.star",
+                    r"
 def f(x):
     return list([x])
 
 x = f(1)
 "
-                .to_owned(),
-                &Dialect::Extended,
+                    .to_owned(),
+                    &Dialect::Extended,
+                )
+                .unwrap(),
+                &Globals::standard(),
             )
-            .unwrap(),
-            &Globals::standard(),
-        )
-        .unwrap();
+            .unwrap();
+        }
         let module = module.freeze().unwrap();
         let profile_info = module.aggregated_heap_profile_info().unwrap();
         let heap_summary = profile_info.gen_summary_csv();

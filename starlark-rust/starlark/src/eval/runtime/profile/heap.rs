@@ -146,33 +146,37 @@ f
         )?;
         let globals = Globals::standard();
         let module = Module::new();
+        let module2 = Module::new();
+        let module3 = Module::new();
+
         let mut eval = Evaluator::new(&module);
         eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
             .unwrap();
         let f = eval.eval_module(ast, &globals)?;
+
         // first check module profiling works
         HeapProfile::write_summarized_heap_profile(module.heap());
         HeapProfile::write_flame_heap_profile(module.heap());
 
         // second check function profiling works
-        let module = Module::new();
-        let mut eval = Evaluator::new(&module);
+        let mut eval = Evaluator::new(&module2);
         eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
             .unwrap();
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
-        HeapProfile::write_summarized_heap_profile(module.heap());
-        HeapProfile::write_flame_heap_profile(module.heap());
+
+        HeapProfile::write_summarized_heap_profile(module2.heap());
+        HeapProfile::write_flame_heap_profile(module2.heap());
 
         // finally, check a user can add values into the heap before/after
-        let module = Module::new();
-        let mut eval = Evaluator::new(&module);
-        module.heap().alloc("Thing that goes before");
+        let mut eval = Evaluator::new(&module3);
+        module3.heap().alloc("Thing that goes before");
         eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
             .unwrap();
         eval.eval_function(f, &[Value::new_int(100)], &[])?;
-        module.heap().alloc("Thing that goes after");
-        HeapProfile::write_summarized_heap_profile(module.heap());
-        HeapProfile::write_flame_heap_profile(module.heap());
+
+        module3.heap().alloc("Thing that goes after");
+        HeapProfile::write_summarized_heap_profile(module3.heap());
+        HeapProfile::write_flame_heap_profile(module3.heap());
 
         Ok(())
     }

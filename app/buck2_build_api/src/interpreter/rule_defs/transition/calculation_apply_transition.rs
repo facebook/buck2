@@ -126,8 +126,8 @@ async fn do_apply_transition(
         ));
         refs_refs.push(provider_collection_value);
     }
-    let mut eval = Evaluator::new(&module);
     let print = EventDispatcherPrintHandler(get_dispatcher());
+    let mut eval = Evaluator::new(&module);
     eval.set_print_handler(&print);
     let refs = module.heap().alloc(AllocStruct(refs));
     let attrs = match (&transition.attrs, attrs) {

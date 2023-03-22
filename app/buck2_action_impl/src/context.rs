@@ -876,9 +876,11 @@ mod tests {
         );
         let full_content = format!("{}\n{}", prelude, content);
 
-        let mut eval = Evaluator::new(&func_mod);
-        let ast = AstModule::parse("foo.bzl", full_content, &Dialect::Extended).unwrap();
-        eval.eval_module(ast, &globals).unwrap();
+        {
+            let mut eval = Evaluator::new(&func_mod);
+            let ast = AstModule::parse("foo.bzl", full_content, &Dialect::Extended).unwrap();
+            eval.eval_module(ast, &globals).unwrap();
+        };
         let frozen_func_mod = func_mod.freeze()?;
         let test_function = frozen_func_mod.get("test").unwrap();
 

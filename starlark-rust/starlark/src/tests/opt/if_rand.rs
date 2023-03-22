@@ -154,10 +154,12 @@ fn eval_program(program: &str) -> (bool, CountCalls) {
     let globals = globals.build();
 
     let counts = CountCalls::default();
-    let mut eval = Evaluator::new(&module);
-    eval.extra = Some(&counts);
-    let r = eval.eval_module(ast, &globals).unwrap();
-    let r = r.unpack_bool().unwrap();
+    let r = {
+        let mut eval = Evaluator::new(&module);
+        eval.extra = Some(&counts);
+        let r = eval.eval_module(ast, &globals).unwrap();
+        r.unpack_bool().unwrap()
+    };
     (r, counts)
 }
 

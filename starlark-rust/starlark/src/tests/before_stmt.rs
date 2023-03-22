@@ -28,11 +28,12 @@ use crate::syntax::Dialect;
 fn before_stmt() {
     let module = Module::new();
     let globals = Globals::new();
-    let mut evaluator = Evaluator::new(&module);
     let counter = Cell::new(0);
     let before_stmt = |_span: FileSpanRef, _eval: &mut Evaluator<'_, '_>| {
         counter.set(counter.get() + 1);
     };
+
+    let mut evaluator = Evaluator::new(&module);
     evaluator.before_stmt(&before_stmt);
 
     let program = "\

@@ -468,29 +468,28 @@ impl InterpreterForCell {
             extra_context,
             self.ignore_attrs_for_profiling,
         );
-        let mut eval = Evaluator::new(env);
         let print = EventDispatcherPrintHandler(get_dispatcher());
-        eval.set_print_handler(&print);
-        eval.set_loader(&file_loader);
-        eval.extra = Some(&extra);
-        profiler.initialize(&mut eval)?;
-        if self.verbose_gc {
-            eval.verbose_gc();
-        }
-        match eval.eval_module(ast, globals) {
-            Ok(_) => {
-                profiler
-                    .evaluation_complete(&mut eval)
-                    .context("Profiler finalization failed")?;
-
-                profiler
-                    .visit_frozen_module(None)
-                    .context("Profiler heap visitation failed")?;
-
-                Ok(extra.additional)
+        {
+            let mut eval = Evaluator::new(env);
+            eval.set_print_handler(&print);
+            eval.set_loader(&file_loader);
+            eval.extra = Some(&extra);
+            profiler.initialize(&mut eval)?;
+            if self.verbose_gc {
+                eval.verbose_gc();
             }
-            Err(p) => Err(p),
+
+            eval.eval_module(ast, globals)?;
+            profiler
+                .evaluation_complete(&mut eval)
+                .context("Profiler finalization failed")?;
+
+            profiler
+                .visit_frozen_module(None)
+                .context("Profiler heap visitation failed")?;
         }
+
+        Ok(extra.additional)
     }
 
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded

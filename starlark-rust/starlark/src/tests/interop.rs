@@ -194,12 +194,14 @@ fn test_load_symbols_extra() -> anyhow::Result<()> {
 
     let modu = Module::new();
     let globals = GlobalsBuilder::extended().with(module).build();
-    let mut eval = Evaluator::new(&modu);
-    modu.set_extra_value(eval.heap().alloc_complex_no_freeze(Extra::default()));
-    eval.eval_module(
-        AstModule::parse("a", "load_symbol('x', 6*7)".to_owned(), &Dialect::Extended)?,
-        &globals,
-    )?;
+    {
+        let mut eval = Evaluator::new(&modu);
+        modu.set_extra_value(eval.heap().alloc_complex_no_freeze(Extra::default()));
+        eval.eval_module(
+            AstModule::parse("a", "load_symbol('x', 6*7)".to_owned(), &Dialect::Extended)?,
+            &globals,
+        )?;
+    }
 
     let extra = modu.extra_value().unwrap().downcast_ref::<Extra>().unwrap();
     for (name, value) in extra.0.lock().unwrap().iter() {

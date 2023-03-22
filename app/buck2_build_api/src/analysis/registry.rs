@@ -296,7 +296,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn finalize(
         self,
         env: &'v Module,
-    ) -> impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> {
+    ) -> impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> + 'static {
         let AnalysisRegistry {
             mut deferred,
             dynamic,

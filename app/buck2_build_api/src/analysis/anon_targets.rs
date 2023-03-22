@@ -354,6 +354,8 @@ impl AnonTargetKey {
         );
 
         let rule_impl = get_rule_impl(dice, self.0.rule_type()).await?;
+        let env = Module::new();
+        let print = EventDispatcherPrintHandler(get_dispatcher());
 
         span_async(
             buck2_data::AnalysisStart {
@@ -361,54 +363,54 @@ impl AnonTargetKey {
                 rule: self.0.rule_type().to_string(),
             },
             async move {
-                let env = Module::new();
-                let mut eval = Evaluator::new(&env);
-                let print = EventDispatcherPrintHandler(get_dispatcher());
-                eval.set_print_handler(&print);
+                let analysis_registry = {
+                    let mut eval = Evaluator::new(&env);
+                    eval.set_print_handler(&print);
 
-                // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
-                let resolution_ctx = RuleAnalysisAttrResolutionContext {
-                    module: &env,
-                    dep_analysis_results,
-                    query_results: HashMap::new(),
-                };
+                    // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
+                    let resolution_ctx = RuleAnalysisAttrResolutionContext {
+                        module: &env,
+                        dep_analysis_results,
+                        query_results: HashMap::new(),
+                    };
 
-                let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
-                for (name, attr) in self.0.attrs().iter() {
-                    resolved_attrs.push((
-                        name,
-                        attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
+                    let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
+                    for (name, attr) in self.0.attrs().iter() {
+                        resolved_attrs.push((
+                            name,
+                            attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
+                        ));
+                    }
+                    let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
+
+                    let registry = AnalysisRegistry::new_from_owner(
+                        BaseDeferredKey::AnonTarget(self.0.dupe()),
+                        exec_resolution,
+                    );
+
+                    let ctx = env.heap().alloc_typed(AnalysisContext::new(
+                        eval.heap(),
+                        attributes,
+                        Some(
+                            eval.heap()
+                                .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                                    self.0.configured_label(),
+                                    ProvidersName::Default,
+                                ))),
+                        ),
+                        registry,
+                        dice.global_data().get_digest_config(),
                     ));
-                }
-                let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
-                let registry = AnalysisRegistry::new_from_owner(
-                    BaseDeferredKey::AnonTarget(self.0.dupe()),
-                    exec_resolution,
-                );
+                    let list_res = rule_impl.invoke(&mut eval, ctx)?;
+                    ctx.run_promises(dice, &mut eval).await?;
+                    let res_typed = ProviderCollection::try_from_value(list_res)?;
+                    let res = env.heap().alloc(res_typed);
+                    env.set("", res);
 
-                let ctx = env.heap().alloc_typed(AnalysisContext::new(
-                    eval.heap(),
-                    attributes,
-                    Some(
-                        eval.heap()
-                            .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                                self.0.configured_label(),
-                                ProvidersName::Default,
-                            ))),
-                    ),
-                    registry,
-                    dice.global_data().get_digest_config(),
-                ));
-
-                let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                ctx.run_promises(dice, &mut eval).await?;
-                let res_typed = ProviderCollection::try_from_value(list_res)?;
-                let res = env.heap().alloc(res_typed);
-                env.set("", res);
-
-                // Pull the ctx object back out, and steal ctx.action's state back
-                let analysis_registry = ctx.take_state();
+                    // Pull the ctx object back out, and steal ctx.action's state back
+                    ctx.take_state()
+                };
                 let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
 
                 let res = frozen_env.get("").unwrap();

@@ -160,6 +160,12 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) call_stack: CheapCallStack<'v>,
 }
 
+// Implementing this forces users to be more careful about lifetimes that the Evaluator captures such that we could
+// add captures of types that implement Drop without needing changes to client code.
+impl Drop for Evaluator<'_, '_> {
+    fn drop(&mut self) {}
+}
+
 unsafe impl<'v> Trace<'v> for Evaluator<'v, '_> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.module_env.trace(tracer);

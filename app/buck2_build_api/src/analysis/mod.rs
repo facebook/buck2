@@ -296,9 +296,7 @@ async fn run_analysis_with_env_underlying(
     profile_mode: &StarlarkProfileModeOrInstrumentation,
 ) -> anyhow::Result<AnalysisResult> {
     let env = Module::new();
-    let mut eval = Evaluator::new(&env);
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    eval.set_print_handler(&print);
 
     let resolution_ctx = RuleAnalysisAttrResolutionContext {
         module: &env,
@@ -321,19 +319,6 @@ async fn run_analysis_with_env_underlying(
         analysis_env.execution_platform.dupe(),
     );
     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
-    let ctx = env.heap().alloc_typed(AnalysisContext::new(
-        eval.heap(),
-        attributes,
-        Some(
-            eval.heap()
-                .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                    analysis_env.label,
-                    ProvidersName::Default,
-                ))),
-        ),
-        registry,
-        dice.global_data().get_digest_config(),
-    ));
 
     let mut profiler_opt = profile_mode
         .profile_mode()
@@ -346,22 +331,43 @@ async fn run_analysis_with_env_underlying(
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
-    profiler.initialize(&mut eval)?;
+    let analysis_registry = {
+        let mut eval = Evaluator::new(&env);
+        eval.set_print_handler(&print);
 
-    let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
+        let ctx = env.heap().alloc_typed(AnalysisContext::new(
+            eval.heap(),
+            attributes,
+            Some(
+                eval.heap()
+                    .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                        analysis_env.label,
+                        ProvidersName::Default,
+                    ))),
+            ),
+            registry,
+            dice.global_data().get_digest_config(),
+        ));
 
-    profiler
-        .evaluation_complete(&mut eval)
-        .context("Profiler finalization failed")?;
+        profiler.initialize(&mut eval)?;
 
-    ctx.run_promises(dice, &mut eval).await?;
-    // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
-    let res_typed = ProviderCollection::try_from_value(list_res)?;
-    let res = env.heap().alloc(res_typed);
-    env.set_extra_value(res);
+        let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
 
-    // Pull the ctx object back out, and steal ctx.action's state back
-    let analysis_registry = ctx.take_state();
+        profiler
+            .evaluation_complete(&mut eval)
+            .context("Profiler finalization failed")?;
+
+        ctx.run_promises(dice, &mut eval).await?;
+
+        // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
+        let res_typed = ProviderCollection::try_from_value(list_res)?;
+        let res = env.heap().alloc(res_typed);
+        env.set_extra_value(res);
+
+        // Pull the ctx object back out, and steal ctx.action's state back
+        ctx.take_state()
+    };
+
     let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
 
     profiler

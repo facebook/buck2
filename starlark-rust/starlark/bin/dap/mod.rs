@@ -109,7 +109,6 @@ impl Backend {
             let ast = AstModule::parse_file(&path, &dialect())?;
             let module = Module::new();
             let globals = globals();
-            let mut eval = Evaluator::new(&module);
             let fun = |span_loc: FileSpanRef, eval: &mut Evaluator| {
                 let stop = if disable_breakpoints.load(Ordering::SeqCst) > 0 {
                     false
@@ -138,6 +137,7 @@ impl Backend {
                     }
                 }
             };
+            let mut eval = Evaluator::new(&module);
             eval.before_stmt_for_dap(&fun);
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));

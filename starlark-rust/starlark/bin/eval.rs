@@ -100,10 +100,11 @@ impl Context {
         let globals = globals();
         let prelude = prelude.try_map(|x| {
             let env = Module::new();
-
-            let mut eval = Evaluator::new(&env);
-            let module = AstModule::parse_file(x, &dialect())?;
-            eval.eval_module(module, &globals)?;
+            {
+                let mut eval = Evaluator::new(&env);
+                let module = AstModule::parse_file(x, &dialect())?;
+                eval.eval_module(module, &globals)?;
+            }
             env.freeze()
         })?;
 
