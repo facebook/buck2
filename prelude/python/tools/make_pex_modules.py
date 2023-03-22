@@ -184,7 +184,9 @@ def add_path_mapping(
             out += " (from {})".format(origin)
         return out
 
-    link_path = os.path.relpath(src, new_dest.parent)
+    link_path = os.path.relpath(
+        os.path.realpath(src), os.path.realpath(new_dest.parent)
+    )
     if new_dest in path_mapping:
         prev, prev_origin = path_mapping[new_dest]
         if prev != link_path and not (
