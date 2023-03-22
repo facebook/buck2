@@ -88,6 +88,7 @@ use crate::materialize::materialize_command;
 use crate::snapshot;
 use crate::streaming_request_handler::StreamingRequestHandler;
 use crate::subscription::run_subscription_server_command;
+use crate::trace_io::trace_io_command;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -1310,6 +1311,21 @@ impl DaemonApi for BuckdServer {
         }
 
         Ok(Response::new(SetLogFilterResponse {}))
+    }
+
+    type TraceIoStream = ResponseStream;
+    async fn trace_io(
+        &self,
+        req: Request<TraceIoRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |context, _: PartialResultDispatcher<NoPartialResult>, req| {
+                trace_io_command(context, req)
+            },
+        )
+        .await
     }
 }
 

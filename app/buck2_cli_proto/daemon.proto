@@ -484,6 +484,7 @@ message CommandResult {
     AllocativeResponse allocative_response = 19;
     CleanStaleResponse clean_stale_response = 20;
     SubscriptionCommandResponse subscription_command_response = 21;
+    TraceIoResponse trace_io_response = 22;
     GenericResponse generic_response = 100;
   }
 }
@@ -688,6 +689,12 @@ message SubscriptionResponseWrapper {
 // SubscriptionResponseWrapper.
 message SubscriptionCommandResponse {}
 
+message TraceIoRequest {
+  ClientContext context = 1;
+}
+
+message TraceIoResponse {}
+
 // Note: When adding new request or response types, some of the declarations in
 // src/lib.rs need to be updated to derive common things for buck's cli package.
 service DaemonApi {
@@ -745,4 +752,7 @@ service DaemonApi {
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
+
+  // Interact with daemon I/O tracing.
+  rpc TraceIo(TraceIoRequest) returns (stream MultiCommandProgress);
 }

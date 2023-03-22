@@ -669,6 +669,7 @@ impl<'a> FlushingBuckdClient<'a> {
     wrap_method!(kill(reason: &str), ());
     wrap_method!(status(snapshot: bool), StatusResponse);
     wrap_method!(set_log_filter(log_filter: SetLogFilterRequest), ());
+    stream_method!(trace_io, TraceIoRequest, TraceIoResponse, NoPartialResult);
 }
 
 /// Create a stream that is sent over as a parameter via GRPC to the daemon.

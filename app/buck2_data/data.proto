@@ -478,6 +478,7 @@ message CommandStart {
     FileStatusCommandStart file_status = 34;
     StarlarkCommandStart starlark = 35;
     SubscriptionCommandStart subscribe = 36;
+    TraceIoCommandStart trace = 37;
   }
 }
 
@@ -581,6 +582,7 @@ message CommandEnd {
     FileStatusCommandEnd file_status = 34;
     StarlarkCommandEnd starlark = 35;
     SubscriptionCommandEnd subscribe = 36;
+    TraceIoCommandEnd trace = 37;
   }
 
   bool is_success = 2;
@@ -1580,3 +1582,7 @@ message NetworkInterfaceStats {
   uint64 tx_bytes = 1;
   uint64 rx_bytes = 2;
 }
+
+message TraceIoCommandStart {}
+
+message TraceIoCommandEnd {}

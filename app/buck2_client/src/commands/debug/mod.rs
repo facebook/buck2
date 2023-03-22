@@ -31,6 +31,7 @@ use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::log_perf::LogPerfCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
+use crate::commands::debug::trace_io::TraceIoCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
 use crate::commands::log::last_log::LastLogCommand;
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -51,6 +52,7 @@ mod materialize;
 pub mod replay;
 mod segfault;
 mod set_log_filter;
+mod trace_io;
 mod upload_re_logs;
 
 #[derive(Debug, clap::Parser)]
@@ -98,6 +100,8 @@ pub enum DebugCommand {
     SetLogFilter(SetLogFilterCommand),
     /// Make sense of log perf
     LogPerf(LogPerfCommand),
+    /// Interact with I/O tracing of the daemon.
+    TraceIo(TraceIoCommand),
 }
 
 /// `cli::exec` function.
@@ -131,6 +135,7 @@ impl DebugCommand {
             DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
             DebugCommand::FileStatus(cmd) => cmd.exec(matches, ctx),
             DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::TraceIo(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
