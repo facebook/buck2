@@ -96,7 +96,7 @@ async fn starlark_file(
 
             if is_buildfile {
                 files.push(OwnedStarlarkPath::BuildFile(BuildFilePath::new(
-                    PackageLabel::new(cell_path.cell(), cell_path.path().parent().unwrap()),
+                    PackageLabel::from_cell_path(cell_path.parent().unwrap()),
                     proj_path.file_name().unwrap().to_owned(),
                 )));
             } else if proj_path.as_str().ends_with(".bxl") {

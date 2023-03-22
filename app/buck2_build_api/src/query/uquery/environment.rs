@@ -521,7 +521,7 @@ async fn top_level_imports_by_build_file<'c>(
                 (
                     file.dupe(),
                     delegate
-                        .eval_build_file(PackageLabel::new(parent.cell(), parent.path()))
+                        .eval_build_file(PackageLabel::from_cell_path(parent))
                         .await,
                 )
             } else {

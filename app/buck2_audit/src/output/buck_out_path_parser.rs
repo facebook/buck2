@@ -203,7 +203,7 @@ fn get_target_label<'v>(
     path: CellPath,
 ) -> anyhow::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
-    let package = PackageLabel::new(path.cell(), path.path());
+    let package = PackageLabel::from_cell_path(path.as_ref());
     let target = TargetNameRef::new(target_name.as_str())?;
     let target_label = TargetLabel::new(package.dupe(), target);
     Ok(target_label)

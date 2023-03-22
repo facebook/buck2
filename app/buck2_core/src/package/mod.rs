@@ -136,10 +136,7 @@ impl PackageLabel {
         if path.is_empty() {
             self.dupe()
         } else {
-            PackageLabel::new(
-                self.as_cell_path().cell(),
-                &self.as_cell_path().path().join(path),
-            )
+            PackageLabel::from_cell_path(self.as_cell_path().join(path).as_ref())
         }
     }
 

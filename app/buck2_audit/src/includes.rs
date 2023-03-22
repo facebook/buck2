@@ -169,7 +169,7 @@ async fn load_and_collect_includes(
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
-    let package = PackageLabel::new(parent.cell(), parent.path());
+    let package = PackageLabel::from_cell_path(parent);
     let load_result = ctx.get_interpreter_results(package).await?;
 
     let buildfile_name = load_result.buildfile_path().filename();
