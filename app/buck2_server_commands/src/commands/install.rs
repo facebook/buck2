@@ -43,6 +43,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -186,9 +187,12 @@ async fn install(
     .await?;
 
     // Note <TargetName> does not return the providers
-    let parsed_patterns =
-        parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)
-            .await?;
+    let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
+        &ctx,
+        &request.target_patterns,
+        cwd,
+    )
+    .await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
     ctx.per_transaction_data()
@@ -197,6 +201,10 @@ async fn install(
 
     let resolved_pattern =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+
+    let resolved_pattern = resolved_pattern
+        .convert_pattern()
+        .context("Install with explicit configuration pattern is not supported yet")?;
 
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {

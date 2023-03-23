@@ -58,8 +58,8 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::truncate::truncate_container;
 use buck2_events::dispatch::EventDispatcher;
@@ -817,7 +817,10 @@ impl ServerCommandContextTrait for ServerCommandContext {
         Ok(metadata)
     }
 
-    fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPatternExtra>]) {
+    fn log_target_pattern(
+        &self,
+        providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
+    ) {
         let patterns = providers_patterns.map(|pat| buck2_data::TargetPattern {
             value: format!("{}", pat),
         });

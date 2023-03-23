@@ -34,6 +34,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -361,7 +362,7 @@ async fn test(
 
 async fn test_targets(
     ctx: &DiceComputations,
-    pattern: ResolvedPattern<ProvidersPatternExtra>,
+    pattern: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     external_runner_args: Vec<String>,
     label_filtering: Arc<TestLabelFiltering>,
@@ -397,78 +398,81 @@ async fn test_targets(
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
-    let test_run = ctx.temporary_spawn({
-        let test_status_sender = test_status_sender.clone();
-        move |ctx| {
-            // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
-            // if the liveliness guard indicates we should.
-            critical_section(move || async move {
-                // Spawn our server to listen to the test runner's requests for execution.
-                let orchestrator = BuckTestOrchestrator::new(
-                    ctx.dupe(),
-                    session.dupe(),
-                    liveliness_observer.dupe(),
-                    test_status_sender,
-                )
-                .await
-                .context("Failed to create a BuckTestOrchestrator")?;
+    let test_run =
+        ctx.temporary_spawn({
+            let test_status_sender = test_status_sender.clone();
+            move |ctx| {
+                // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
+                // if the liveliness guard indicates we should.
+                critical_section(move || async move {
+                    // Spawn our server to listen to the test runner's requests for execution.
+                    let orchestrator = BuckTestOrchestrator::new(
+                        ctx.dupe(),
+                        session.dupe(),
+                        liveliness_observer.dupe(),
+                        test_status_sender,
+                    )
+                    .await
+                    .context("Failed to create a BuckTestOrchestrator")?;
 
-                let server_handle = make_server(orchestrator, BuckTestDownwardApi);
+                    let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
-                let mut driver = TestDriver::new(TestDriverState {
-                    ctx: &ctx,
-                    label_filtering: &label_filtering,
-                    global_target_platform: &global_target_platform,
-                    session: &session,
-                    test_executor: &test_executor,
-                    cell_resolver: &cell_resolver,
-                    working_dir_cell,
-                });
+                    let mut driver = TestDriver::new(TestDriverState {
+                        ctx: &ctx,
+                        label_filtering: &label_filtering,
+                        global_target_platform: &global_target_platform,
+                        session: &session,
+                        test_executor: &test_executor,
+                        cell_resolver: &cell_resolver,
+                        working_dir_cell,
+                    });
 
-                driver.push_pattern(pattern);
+                    driver.push_pattern(pattern.convert_pattern().context(
+                        "Test with explicit configuration pattern is not supported yet",
+                    )?);
 
-                {
-                    let drive = driver.drive_to_completion();
-                    let alive = liveliness_observer.while_alive();
-                    futures::pin_mut!(drive);
-                    futures::pin_mut!(alive);
-                    match futures::future::select(drive, alive).await {
-                        futures::future::Either::Left(..) => {}
-                        futures::future::Either::Right(..) => {
-                            tracing::warn!("Test run was cancelled");
+                    {
+                        let drive = driver.drive_to_completion();
+                        let alive = liveliness_observer.while_alive();
+                        futures::pin_mut!(drive);
+                        futures::pin_mut!(alive);
+                        match futures::future::select(drive, alive).await {
+                            futures::future::Either::Left(..) => {}
+                            futures::future::Either::Right(..) => {
+                                tracing::warn!("Test run was cancelled");
+                            }
                         }
                     }
-                }
 
-                test_executor
-                    .end_of_test_requests()
-                    .await
-                    .context("Failed to notify test executor of end-of-tests")?;
+                    test_executor
+                        .end_of_test_requests()
+                        .await
+                        .context("Failed to notify test executor of end-of-tests")?;
 
-                // Wait for the tests to finish running.
+                    // Wait for the tests to finish running.
 
-                let test_statuses = test_status_receiver
-                    .try_fold(ExecutorReport::default(), |mut acc, result| {
-                        acc.ingest(&result);
-                        future::ready(Ok(acc))
-                    })
-                    .await
-                    .context("Did not receive all results from executor")?;
+                    let test_statuses = test_status_receiver
+                        .try_fold(ExecutorReport::default(), |mut acc, result| {
+                            acc.ingest(&result);
+                            future::ready(Ok(acc))
+                        })
+                        .await
+                        .context("Did not receive all results from executor")?;
 
-                // Shutdown our server. This is technically not *required* since dropping it would shut it
-                // down implicitly, but let's do it anyway so we can collect any errors.
+                    // Shutdown our server. This is technically not *required* since dropping it would shut it
+                    // down implicitly, but let's do it anyway so we can collect any errors.
 
-                server_handle
-                    .shutdown()
-                    .await
-                    .context("Failed to shutdown orchestrator")?;
+                    server_handle
+                        .shutdown()
+                        .await
+                        .context("Failed to shutdown orchestrator")?;
 
-                // And finally return our results;
+                    // And finally return our results;
 
-                anyhow::Ok((driver.build_errors, test_statuses))
-            })
-        }
-    });
+                    anyhow::Ok((driver.build_errors, test_statuses))
+                })
+            }
+        });
 
     let executor_output = executor_handle
         .await

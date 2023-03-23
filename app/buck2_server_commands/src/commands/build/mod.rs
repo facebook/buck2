@@ -34,6 +34,7 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::fs::fs_util;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::ProvidersPatternExtra;
@@ -140,7 +141,7 @@ async fn build(
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")
         .await?;
 
-    let parsed_patterns: Vec<ParsedPattern<ProvidersPatternExtra>> =
+    let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
         parse_patterns_from_cli_args(&ctx, &request.target_patterns, cwd).await?;
     server_ctx.log_target_pattern(&parsed_patterns);
 
@@ -148,7 +149,7 @@ async fn build(
         .get_materializer()
         .log_materializer_state(server_ctx.events());
 
-    let resolved_pattern: ResolvedPattern<ProvidersPatternExtra> =
+    let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
         resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
 
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
@@ -303,13 +304,16 @@ async fn build(
 
 async fn build_targets(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPatternExtra>,
+    spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
 ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
     match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
+            let spec = spec.convert_pattern().context(
+                "Cannot build with explicit configurations when universe is not specified",
+            )?;
             build_targets_with_global_target_platform(
                 ctx,
                 spec,
@@ -320,6 +324,9 @@ async fn build_targets(
             .await
         }
         TargetResolutionConfig::Universe(universe) => {
+            let spec = spec
+                .convert_pattern()
+                .context("Building with explicit configuration is not implemented yet")?;
             build_targets_in_universe(
                 ctx,
                 spec,

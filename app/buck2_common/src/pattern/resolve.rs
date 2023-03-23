@@ -10,15 +10,24 @@
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::display_precise_pattern;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::pattern::PatternType;
 use buck2_core::target::name::TargetName;
 use dupe::Dupe;
+use gazebo::prelude::VecExt;
 use indexmap::IndexMap;
 
 use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
+
+#[derive(Debug, thiserror::Error)]
+enum ResolvedPatternError {
+    #[error("Expecting {0} pattern, got `{1}`")]
+    InvalidPattern(&'static str, String),
+}
 
 #[derive(Debug)]
 pub struct ResolvedPattern<T: PatternType> {
@@ -49,6 +58,31 @@ where
             self.specs
                 .insert(package, PackageSpec::Targets(vec![(target_name, extra)]));
         }
+    }
+}
+
+impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
+    pub fn convert_pattern<U: PatternType>(self) -> anyhow::Result<ResolvedPattern<U>> {
+        let mut specs = IndexMap::with_capacity(self.specs.len());
+        for (package, spec) in self.specs {
+            let spec = match spec {
+                PackageSpec::Targets(targets) => {
+                    PackageSpec::Targets(targets.into_try_map(|(target_name, extra)| {
+                        let extra = U::from_configured_providers(extra.clone()).context(
+                            ResolvedPatternError::InvalidPattern(
+                                U::NAME,
+                                display_precise_pattern(&package, target_name.as_ref(), &extra)
+                                    .to_string(),
+                            ),
+                        )?;
+                        anyhow::Ok((target_name, extra))
+                    })?)
+                }
+                PackageSpec::All => PackageSpec::All,
+            };
+            specs.insert(package, spec);
+        }
+        Ok(ResolvedPattern { specs })
     }
 }
 

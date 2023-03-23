@@ -16,8 +16,8 @@ use buck2_common::result::SharedResult;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::pattern::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_data::CommandCriticalEnd;
 use buck2_data::CommandCriticalStart;
 use buck2_data::DiceCriticalSectionEnd;
@@ -57,7 +57,10 @@ pub trait ServerCommandContextTrait: Send + Sync + 'static {
         ctx: &DiceComputations,
     ) -> anyhow::Result<HashMap<String, String>>;
 
-    fn log_target_pattern(&self, providers_patterns: &[ParsedPattern<ProvidersPatternExtra>]);
+    fn log_target_pattern(
+        &self,
+        providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
+    );
 }
 
 pub struct PrivateStruct(());
