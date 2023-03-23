@@ -339,8 +339,7 @@ def generate_install_config(ctx: "context") -> "artifact":
 
 def get_install_config() -> {str.type: ""}:
     # TODO: read from toolchains
-    return {
-        "adb_executable": read_config("android", "adb", "/opt/android_sdk/platform-tools/adb"),
+    install_config = {
         "adb_restart_on_failure": read_config("adb", "adb_restart_on_failure", "true"),
         "agent_port_base": read_config("adb", "agent_port_base", "2828"),
         "always_use_java_agent": read_config("adb", "always_use_java_agent", "false"),
@@ -348,3 +347,9 @@ def get_install_config() -> {str.type: ""}:
         "multi_install_mode": read_config("adb", "multi_install_mode", "false"),
         "skip_install_metadata": read_config("adb", "skip_install_metadata", "false"),
     }
+
+    adb_executable = read_config("android", "adb", None)
+    if adb_executable:
+        install_config["adb_executable"] = adb_executable
+
+    return install_config
