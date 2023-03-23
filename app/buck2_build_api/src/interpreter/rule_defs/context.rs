@@ -9,6 +9,9 @@
 
 use std::cell::RefCell;
 use std::cell::RefMut;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use allocative::Allocative;
 use buck2_execute::digest_config::DigestConfig;
@@ -103,12 +106,24 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     }
 }
 
-#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize, Allocative)]
-#[display(fmt = "<ctx>")]
+#[derive(ProvidesStaticType, Debug, Trace, NoSerialize, Allocative)]
 pub struct AnalysisContext<'v> {
     attributes: Value<'v>, // A struct
     actions: ValueTyped<'v, AnalysisActions<'v>>,
     label: Option<ValueTyped<'v, Label>>,
+}
+
+impl<'v> Display for AnalysisContext<'v> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "<ctx")?;
+        if let Some(label) = &self.label {
+            write!(f, " label=\"{}\"", label)?;
+        }
+        write!(f, " attrs=...")?;
+        write!(f, " actions=...")?;
+        write!(f, ">")?;
+        Ok(())
+    }
 }
 
 /// Simple holder for documetnation from AnalysisContext
