@@ -9,6 +9,10 @@ buildscript = []
 env = { TARGET = "x86_64-unknown-linux-gnu" }
 buildscript = []
 
+[platform_fixup.'cfg(aarch64-apple-darwin)']
+env = { TARGET = "aarch64-apple-darwin" }
+buildscript = []
+
 [platform_fixup.'cfg(x86_64-apple-darwin)']
 env = { TARGET = "x86_64-apple-darwin" }
 buildscript = []
