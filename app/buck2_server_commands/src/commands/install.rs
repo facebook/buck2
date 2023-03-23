@@ -201,11 +201,11 @@ async fn install(
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
         let ctx = &ctx;
-        let targets: anyhow::Result<Vec<(TargetName, ProvidersPatternExtra)>> = match spec {
-            buck2_core::pattern::PackageSpec::Targets(targets) => Ok(targets),
+        let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
+            buck2_core::pattern::PackageSpec::Targets(targets) => targets,
             buck2_core::pattern::PackageSpec::All => {
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
-                let targets = interpreter_results
+                interpreter_results
                     .targets()
                     .keys()
                     .map(|target| {
@@ -216,11 +216,9 @@ async fn install(
                             },
                         )
                     })
-                    .collect();
-                Ok(targets)
+                    .collect()
             }
         };
-        let targets = targets?;
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
