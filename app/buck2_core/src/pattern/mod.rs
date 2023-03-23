@@ -372,15 +372,18 @@ pub struct PatternParts<'a, T: PatternType> {
     pub pattern: PatternDataOrAmbiguous<'a, T>,
 }
 
-impl<'a> PatternParts<'a, ProvidersPatternExtra> {
-    pub fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternParts<'a, T>> {
+impl<'a, T: PatternType> PatternParts<'a, T> {
+    fn try_map<U: PatternType, F: FnOnce(T) -> anyhow::Result<U>>(
+        self,
+        f: F,
+    ) -> anyhow::Result<PatternParts<'a, U>> {
         let PatternParts {
             cell_alias,
             pattern,
         } = self;
         Ok(PatternParts {
             cell_alias,
-            pattern: pattern.extra_try_into()?,
+            pattern: pattern.try_map(f)?,
         })
     }
 }
@@ -402,11 +405,14 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
     },
 }
 
-impl<'a> PatternDataOrAmbiguous<'a, ProvidersPatternExtra> {
-    fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternDataOrAmbiguous<'a, T>> {
+impl<'a, T: PatternType> PatternDataOrAmbiguous<'a, T> {
+    fn try_map<U: PatternType>(
+        self,
+        f: impl FnOnce(T) -> anyhow::Result<U>,
+    ) -> anyhow::Result<PatternDataOrAmbiguous<'a, U>> {
         match self {
             PatternDataOrAmbiguous::PatternData(d) => {
-                Ok(PatternDataOrAmbiguous::PatternData(d.extra_try_into()?))
+                Ok(PatternDataOrAmbiguous::PatternData(d.try_map(f)?))
             }
             PatternDataOrAmbiguous::Ambiguous {
                 pattern,
@@ -415,7 +421,7 @@ impl<'a> PatternDataOrAmbiguous<'a, ProvidersPatternExtra> {
             } => Ok(PatternDataOrAmbiguous::Ambiguous {
                 pattern,
                 strip_package_trailing_slash,
-                extra: T::from_parts(extra.providers)?,
+                extra: f(extra)?,
             }),
         }
     }
@@ -471,26 +477,6 @@ where
     }
 }
 
-impl<'a> PatternData<'a, ProvidersPatternExtra> {
-    fn extra_try_into<T: PatternType>(self) -> anyhow::Result<PatternData<'a, T>> {
-        match self {
-            PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
-            PatternData::AllTargetsInPackage { package } => {
-                Ok(PatternData::AllTargetsInPackage { package })
-            }
-            PatternData::TargetInPackage {
-                package,
-                target_name,
-                extra,
-            } => Ok(PatternData::TargetInPackage {
-                package,
-                target_name,
-                extra: T::from_parts(extra.providers)?,
-            }),
-        }
-    }
-}
-
 /// The pattern data we extracted.
 #[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
@@ -509,6 +495,27 @@ pub enum PatternData<'a, T: PatternType> {
 }
 
 impl<'a, T: PatternType> PatternData<'a, T> {
+    fn try_map<U: PatternType>(
+        self,
+        f: impl FnOnce(T) -> anyhow::Result<U>,
+    ) -> anyhow::Result<PatternData<'a, U>> {
+        match self {
+            PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
+            PatternData::AllTargetsInPackage { package } => {
+                Ok(PatternData::AllTargetsInPackage { package })
+            }
+            PatternData::TargetInPackage {
+                package,
+                target_name,
+                extra,
+            } => Ok(PatternData::TargetInPackage {
+                package,
+                target_name,
+                extra: f(extra)?,
+            }),
+        }
+    }
+
     pub fn package_path(&self) -> &'a ForwardRelativePath {
         match self {
             Self::Recursive { package } => package,
@@ -607,10 +614,13 @@ pub fn lex_target_pattern<'a, T: PatternType>(
     strip_package_trailing_slash: bool,
 ) -> anyhow::Result<PatternParts<T>> {
     let provider_pattern = lex_provider_pattern(pattern, strip_package_trailing_slash)?;
-    provider_pattern.extra_try_into().map_err(|_| {
-        // This can only fail when `PatternType = TargetName`, so the message is correct.
-        TargetPatternParseError::ExpectingTargetPatternWithoutProviders(pattern.to_owned()).into()
-    })
+    provider_pattern
+        .try_map(|ProvidersPatternExtra { providers }| T::from_parts(providers))
+        .map_err(|_| {
+            // This can only fail when `PatternType = TargetName`, so the message is correct.
+            TargetPatternParseError::ExpectingTargetPatternWithoutProviders(pattern.to_owned())
+                .into()
+        })
 }
 
 fn normalize_package<'a>(
