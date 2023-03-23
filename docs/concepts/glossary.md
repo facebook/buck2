@@ -51,9 +51,7 @@ Configurations allow a single target to exist in multiple variants in the config
 
 #### Configured graph
 
-:::note
-🚧   THIS SECTION IS UNDER CONSTRUCTION
-:::
+A graph of [targets](#target) after [configurations](#configuration) are applied. Can be queried via `buck2 cquery`.
 
 #### Daemon
 
