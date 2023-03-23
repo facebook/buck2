@@ -494,10 +494,8 @@ def convert_python_library_to_executable(
         executable_info, _, _ = cxx_executable(ctx, impl_params)
         extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
 
-        native_libs = executable_info.shared_libs
-
         # Add sub-targets for libs.
-        for name, lib in native_libs.items():
+        for name, lib in executable_info.shared_libs.items():
             extra[name] = [DefaultInfo(default_output = lib.output)]
 
         for name, group in executable_info.auto_link_groups.items():
@@ -511,6 +509,14 @@ def convert_python_library_to_executable(
             )
             for name, link in extension_info.unembeddable_extensions.items()
         }
+
+        # Put native libraries into the runtime location, as we need to unpack
+        # potentially all of them before startup.
+        native_libs = {
+            paths.join("runtime", "lib", name): lib
+            for name, lib in executable_info.shared_libs.items()
+        }
+        preload_names = [paths.join("runtime", "lib", n) for n in preload_names]
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
         artifacts = dict(extension_info.artifacts)
