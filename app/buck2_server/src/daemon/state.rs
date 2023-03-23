@@ -532,8 +532,12 @@ impl DaemonState {
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
 
-        // Sync any FS changes and invalidate DICE state if necessary.
-        data.io.settle().await?;
+        // Sync any FS changes and invalidate DICE state if necessary.  Get the Eden
+        // version of the underlying system in parallel if available.
+        let (_, eden_version) =
+            futures::future::try_join(data.io.settle(), data.io.eden_version()).await?;
+
+        dispatcher.instant_event(buck2_data::IoProviderInfo { eden_version });
 
         Ok(BaseServerCommandContext {
             _fb: self.fb,

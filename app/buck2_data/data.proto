@@ -179,6 +179,8 @@ message InstantEvent {
     ConsolePreferences console_preferences = 21;
 
     InternalError internal_error = 22;
+
+    IoProviderInfo io_provider_info = 23;
   }
 
   reserved 12; // Log
@@ -1369,6 +1371,8 @@ message InvocationRecord {
   optional string command_name = 56;
   // Any soft errors we hit during this invocation.
   repeated string soft_error_categories = 57;
+  // Version number of EdenFS if mount is EdenFS
+  optional string eden_version = 58;
 }
 
 message CacheUploadStart {
@@ -1512,6 +1516,10 @@ message ErrorReport {
 message MaterializerStateInfo {
   // Number of entries loaded from sqlite
   uint64 num_entries_from_sqlite = 1;
+}
+
+message IoProviderInfo {
+  optional string eden_version = 1;
 }
 
 message NoopEvent {}

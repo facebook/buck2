@@ -141,6 +141,10 @@ impl IoProvider for FsIoProvider {
         "fs"
     }
 
+    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
+        Ok(None)
+    }
+
     fn project_root(&self) -> &ProjectRoot {
         &self.fs
     }

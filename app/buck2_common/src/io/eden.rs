@@ -298,6 +298,10 @@ impl IoProvider for EdenIoProvider {
         "eden"
     }
 
+    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
+        self.manager.get_eden_version().await
+    }
+
     fn project_root(&self) -> &ProjectRoot {
         self.fs.project_root()
     }

@@ -82,6 +82,7 @@ mod imp {
         invocation_root_path: AbsNormPathBuf,
         filesystem: Option<String>,
         watchman_version: Option<String>,
+        eden_version: Option<String>,
         test_info: Option<String>,
         eligible_for_full_hybrid: bool,
         max_event_client_delay: Option<Duration>,
@@ -155,6 +156,7 @@ mod imp {
                 invocation_root_path,
                 filesystem: None,
                 watchman_version: None,
+                eden_version: None,
                 test_info: None,
                 eligible_for_full_hybrid: false,
                 max_event_client_delay: None,
@@ -249,6 +251,7 @@ mod imp {
                 resolved_target_patterns: self.resolved_target_patterns.take(),
                 filesystem: self.filesystem.take().unwrap_or_default(),
                 watchman_version: self.watchman_version.take(),
+                eden_version: self.eden_version.take(),
                 test_info: self.test_info.take(),
                 eligible_for_full_hybrid: Some(self.eligible_for_full_hybrid),
                 max_event_client_delay_ms: self
@@ -564,6 +567,14 @@ mod imp {
             Ok(())
         }
 
+        fn handle_io_provider_info(
+            &mut self,
+            io_provider_info: &buck2_data::IoProviderInfo,
+        ) -> anyhow::Result<()> {
+            self.eden_version = io_provider_info.eden_version.to_owned();
+            Ok(())
+        }
+
         fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
             Ok(())
@@ -710,6 +721,9 @@ mod imp {
                             self.handle_snapshot(result, event)
                         }
                         buck2_data::instant_event::Data::TagEvent(tag) => self.handle_tag(tag),
+                        buck2_data::instant_event::Data::IoProviderInfo(io_provider_info) => {
+                            self.handle_io_provider_info(io_provider_info)
+                        }
                         buck2_data::instant_event::Data::TargetPatterns(tag) => {
                             self.handle_resolved_target_patterns(tag)
                         }

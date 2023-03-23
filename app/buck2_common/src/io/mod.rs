@@ -45,6 +45,9 @@ pub trait IoProvider: Allocative + Send + Sync {
 
     fn name(&self) -> &'static str;
 
+    /// Returns the Eden version of the underlying system of the IoProvider, if available.
+    async fn eden_version(&self) -> anyhow::Result<Option<String>>;
+
     fn project_root(&self) -> &ProjectRoot;
 
     fn as_any(&self) -> &dyn std::any::Any;
@@ -151,6 +154,10 @@ impl IoProvider for TracingIoProvider {
 
     fn name(&self) -> &'static str {
         self.io.name()
+    }
+
+    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
+        self.io.eden_version().await
     }
 
     fn project_root(&self) -> &ProjectRoot {
