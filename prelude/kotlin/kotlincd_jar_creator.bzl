@@ -89,6 +89,7 @@ def create_jar_artifact_kotlincd(
             extraClassPaths = bootclasspath_entries,
             standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
             annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
+            compilationTracerPlugin = kotlin_toolchain.compilation_tracer_plugin,
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
             kosabiPluginOptions = struct(
                 kosabi_stubs_gen_plugin = kotlin_toolchain.kosabi_stubs_gen_plugin,
@@ -99,6 +100,7 @@ def create_jar_artifact_kotlincd(
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = "1.8",
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
+            shouldUseCompilationTracer = kotlin_toolchain.should_use_compilation_tracer,
             shouldUseJvmAbiGen = should_use_jvm_abi_gen,
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,

@@ -11,6 +11,7 @@ KotlinToolchainInfo = provider(
     "Kotlin toolchain info",
     fields = [
         "annotation_processing_jar",
+        "compilation_tracer_plugin",
         "compile_kotlin",
         "dep_files",
         "kapt_base64_encoder",
@@ -22,5 +23,6 @@ KotlinToolchainInfo = provider(
         "kosabi_stubs_gen_plugin",
         "kosabi_applicability_plugin",
         "kosabi_jvm_abi_gen_plugin",
+        "should_use_compilation_tracer",
     ],
 )
