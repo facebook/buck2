@@ -19,25 +19,25 @@ use crate::impls::core::graph::history::CellHistory;
 use crate::Key;
 use crate::ProjectionKey;
 
-/// Type erased value associated for each Key in Dice. The 'DiceValue' only holds valid values
+/// Type erased value associated for each Key in Dice. The 'DiceValidValue' only holds valid values
 /// and never anything that is transient, or whose dependencies are transient.
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct DiceValue(std::sync::Arc<dyn DiceValueDyn>);
+pub(crate) struct DiceValidValue(std::sync::Arc<dyn DiceValueDyn>);
 
-impl Debug for DiceValue {
+impl Debug for DiceValidValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DiceValue").finish_non_exhaustive()
     }
 }
 
 #[allow(unused)]
-impl DiceValue {
+impl DiceValidValue {
     pub(crate) fn downcast_ref<V: Any>(&self) -> Option<&V> {
         self.0.downcast_ref()
     }
 
     /// Dynamic version of `Key::equality`.
-    pub(crate) fn equality(&self, other: &DiceValue) -> bool {
+    pub(crate) fn equality(&self, other: &DiceValidValue) -> bool {
         self.0.equality(&*other.0)
     }
 }
@@ -63,7 +63,7 @@ impl MaybeValidDiceValue {
         Self { value, validity }
     }
 
-    pub(crate) fn valid(value: DiceValue) -> Self {
+    pub(crate) fn valid(value: DiceValidValue) -> Self {
         Self {
             value: value.0,
             validity: DiceValidity::Valid,
@@ -80,13 +80,13 @@ impl MaybeValidDiceValue {
 
     /// Dynamic version of `Key::equality`.
     #[allow(unused)]
-    pub(crate) fn equality(&self, other: &DiceValue) -> bool {
+    pub(crate) fn equality(&self, other: &DiceValidValue) -> bool {
         self.value.equality(&*other.0)
     }
 
-    pub(crate) fn into_valid_value(self) -> Result<DiceValue, MaybeValidDiceValue> {
+    pub(crate) fn into_valid_value(self) -> Result<DiceValidValue, MaybeValidDiceValue> {
         match self.validity {
-            DiceValidity::Valid => Ok(DiceValue(self.value)),
+            DiceValidity::Valid => Ok(DiceValidValue(self.value)),
             DiceValidity::Transient => Err(self),
         }
     }
@@ -210,11 +210,11 @@ where
 mod testing {
     use std::sync::Arc;
 
-    use crate::impls::value::DiceValue;
+    use crate::impls::value::DiceValidValue;
     use crate::impls::value::DiceValueDyn;
     use crate::impls::value::MaybeValidDiceValue;
 
-    impl DiceValue {
+    impl DiceValidValue {
         pub(crate) fn testing_new<V: DiceValueDyn>(value: V) -> Self {
             Self(std::sync::Arc::new(value))
         }

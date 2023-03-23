@@ -19,7 +19,7 @@ use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValidValue;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 
@@ -83,7 +83,7 @@ impl CoreState {
         &mut self,
         key: VersionedGraphKey,
         storage: StorageType,
-        value: DiceValue,
+        value: DiceValidValue,
         deps: Arc<Vec<DiceKey>>,
     ) -> DiceComputedValue {
         self.graph.update(key, value, deps, storage).0

@@ -16,7 +16,7 @@ use triomphe::Arc;
 
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValidValue;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 
@@ -36,7 +36,7 @@ impl VersionedGraphKey {
 #[derive(Debug)]
 pub(crate) struct VersionedGraphResultMismatch {
     /// Last known value for the key.
-    pub(crate) entry: DiceValue,
+    pub(crate) entry: DiceValidValue,
     /// Versions at which the value for given key is valid.
     pub(crate) verified_versions: VersionRanges,
     pub(crate) deps_to_validate: Arc<Vec<DiceKey>>,

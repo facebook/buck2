@@ -30,7 +30,7 @@ use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionRanges;
 
@@ -54,7 +54,7 @@ impl Key for K {
 async fn simple_immediately_ready_task() -> anyhow::Result<()> {
     let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
         handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::empty()),
         )));
 
@@ -73,7 +73,7 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -94,7 +94,7 @@ async fn simple_task() -> anyhow::Result<()> {
         lock.lock().await;
 
         handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(2))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
             Arc::new(CellHistory::empty()),
         )));
 
@@ -130,7 +130,7 @@ async fn simple_task() -> anyhow::Result<()> {
     let v = promise.await;
     assert!(
         v?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     assert!(!task.is_pending());
@@ -143,7 +143,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
         // wait for the lock too
         handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(2))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
             Arc::new(CellHistory::empty()),
         )));
 
@@ -171,23 +171,23 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
     assert!(
         v1?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v2?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v3?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v4?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v5?.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     Ok(())
@@ -206,11 +206,11 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
     assert!(
         task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(2))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
             Arc::new(CellHistory::empty())
         )))?
         .value()
-        .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
@@ -221,7 +221,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -233,7 +233,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -296,25 +296,25 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
 
     assert!(
         task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::empty())
         )))?
         .value()
-        .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
     let (v1, v2, v3) = futures::future::join3(fut1, fut2, fut3).await;
     assert!(
         v1??.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
     assert!(
         v2??.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
     assert!(
         v3??.value()
-            .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
     Ok(())
@@ -332,7 +332,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
             let _g = lock.lock().await;
             // wait for the lock too
             handle.finished(Ok(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(2))),
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty()),
             )));
 
@@ -344,11 +344,11 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     assert!(
         task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::empty())
         )))?
         .value()
-        .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
     drop(g);
@@ -361,7 +361,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -373,7 +373,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(1)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -391,7 +391,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         async move |handle| {
             // wait for the lock too
             handle.finished(Ok(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(2))),
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty()),
             )));
 
@@ -408,11 +408,11 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     // actually completes with `2` from the spawn
     assert!(
         task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValue::testing_new(DiceKeyValue::<K>::new(1))),
+            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::empty())
         )))?
         .value()
-        .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
@@ -423,7 +423,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),
@@ -435,7 +435,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         Poll::Ready(v) => {
             assert!(
                 v?.value()
-                    .equality(&DiceValue::testing_new(DiceKeyValue::<K>::new(2)))
+                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
             )
         }
         Poll::Pending => panic!("Promise should be ready immediately"),

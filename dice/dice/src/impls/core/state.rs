@@ -22,7 +22,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValue;
+use crate::impls::value::DiceValidValue;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 
@@ -58,7 +58,7 @@ pub(crate) enum StateRequest {
         /// The storage selection for the key,
         storage: StorageType,
         /// The newly computed value
-        value: DiceValue,
+        value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
         deps: Arc<Vec<DiceKey>>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the

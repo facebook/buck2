@@ -29,8 +29,8 @@ use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceKeyValue;
+use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
-use crate::impls::value::DiceValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 use crate::DiceModern;
@@ -227,7 +227,7 @@ pub(crate) enum ChangeType {
     /// Just invalidate the key
     Invalidate,
     /// Update the key to the given value
-    UpdateValue(DiceValue, StorageType),
+    UpdateValue(DiceValidValue, StorageType),
     #[cfg(test)]
     /// testing only, set as recheck but not required to rerun
     TestingSoftDirty,
