@@ -503,7 +503,7 @@ async fn establish_connection(
 ) -> anyhow::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
-    let timeout = buckd_startup_timeout()? * 3;
+    let timeout = buckd_startup_timeout()? * 9;
     let deadline = StartupDeadline::duration_from_now(timeout)?;
     deadline
         .down(
