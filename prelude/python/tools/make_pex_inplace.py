@@ -131,26 +131,14 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     # Because this can be invoked from other directories, find the relative path
     # from this .par to the modules dir, and use that.
     relative_modules_dir = os.path.relpath(args.modules_dir, args.output.parent)
-
-    # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
-    #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
-    #                 OSX just sort of ignores it and tries to run your thing with
-    #                 the current shell. So, we hack in /usr/bin/env in the front
-    #                 for now, and let it do the lifting. OSX: Bringing you the best
-    #                 of 1980s BSD in 2021...
-    #                 Also, make sure we add PYTHON_INTERPRETER_FLAGS back. We had to
-    #                 exclude it for now, because linux doesn't like multiple args
-    #                 after /usr/bin/env
-
     ld_preload = "None"
     if args.preload_libraries:
         ld_preload = repr(":".join(p.name for p in args.preload_libraries))
 
-    new_data = data.replace("<PYTHON>", "/usr/bin/env " + str(args.python))
-    new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
-    # new_data = new_data.replace(
-    #    "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
-    # )
+    new_data = data.replace("<PYTHON>", str(args.python))
+    new_data = new_data.replace(
+        "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
+    )
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
     new_data = new_data.replace("<MAIN_MODULE>", args.entry_point)
 
