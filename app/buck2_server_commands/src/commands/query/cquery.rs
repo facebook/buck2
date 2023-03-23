@@ -134,6 +134,12 @@ async fn cquery(
 
     let evaluator = &evaluator;
 
+    // TODO(nga): this should support configured target patterns
+    //   similarly to what we do for `build` command.
+    //   Something like this should work:
+    //   ```
+    //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
+    //   ```
     let query_result = evaluator
         .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
         .await?;
