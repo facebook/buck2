@@ -205,6 +205,8 @@ async def main() -> int:
             "HOME",
             "TMPDIR",
             # Required on Windows
+            "LOCALAPPDATA",
+            "PROGRAMDATA",
             "TEMP",
             # TODO(andirauter): Required by RE. Remove them when no longer required T119466023
             "EXECUTION_ID",
