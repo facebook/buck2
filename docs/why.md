@@ -1,4 +1,7 @@
-# Why Buck2
+---
+id: why
+title: Why Buck2
+---
 
 Buck2 is a build system from Meta. This page answers the questions: [why does Buck2 exist](#why-does-buck2-exist), [what's different about Buck2](#whats-different-about-buck2), and [why use Buck2](#why-use-buck2).
 
@@ -26,11 +29,11 @@ Buck2 has many minor differences from Buck1, but there are a number that give ne
 * **Buck2 is remote execution first** - local execution is considered a special case of remote execution, in contrast to Buck1 where it was added after. That means that things such as directory hashes can be pre-computed ready to send to remote execution, giving efficiency benefits.
 * **All Buck2 rules are written in Starlark** - whereas, in Buck1, they were written in Java as part of the binary, which makes iteration on rules much faster.
 * **The Buck2 binary is entirely language agnostic** - as a consequence of having all the rules external to the binary, the most important and complex rule (such as in C++), don't have access to magic internal features. As a result, features have been made available to all rules, including:
-    * [Dep files](rule_authors/dep_files.md) - the ability to declare that a subset of the files weren't actually used, and thus not be sensitive to changes within them.
-    * [Incremental actions](rule_authors/incremental_actions.md) - the ability to have the action short-circuit some subset of the work if run again.
+  * [Dep files](rule_authors/dep_files.md) - the ability to declare that a subset of the files weren't actually used, and thus not be sensitive to changes within them.
+  * [Incremental actions](rule_authors/incremental_actions.md) - the ability to have the action short-circuit some subset of the work if run again.
 * **Buck2 uses a dynamic (aka monadic) graph as its underlying computation engine** - while most dependencies are specified statically, there are two particular features that expose dynamic power to rule authors:
-    * [Dynamic dependencies](rule_authors/dynamic_dependencies.md)  - enable rules to build a file then look at its contents before specifying the dependencies and steps in future actions. Common uses are languages where the dependency structure within a project must follow imports (Haskell, OCaml) and distributed ThinLTO (where the best optimization plan is generated from
-    * [Anonymous targets](rule_authors/anon_targets.md) - enable rules to create a graph that has more sharing than the original user graph. As a result, two unrelated binaries can compile shared code only once, despite the shared code not knowing about this commonality. This feature is useful for rules like Swift feature resolution.
+  * [Dynamic dependencies](rule_authors/dynamic_dependencies.md)  - enable rules to build a file then look at its contents before specifying the dependencies and steps in future actions. Common uses are languages where the dependency structure within a project must follow imports (Haskell, OCaml) and distributed ThinLTO (where the best optimization plan is generated from
+  * [Anonymous targets](rule_authors/anon_targets.md) - enable rules to create a graph that has more sharing than the original user graph. As a result, two unrelated binaries can compile shared code only once, despite the shared code not knowing about this commonality. This feature is useful for rules like Swift feature resolution.
 * **[Transitive-sets](rule_authors/transitive_sets.md)** - similar in purpose to Bazel's [depset](https://bazel.build/rules/lib/depset). But, instead of being just a memory optimization, are also wired into the dependency graph, providing a reduction in the size of the dependency graph.
 * **Buck2 is not phased** - there are no target graph/action graph phases, just a series of dependencies in a single graph that result in whatever the user requested. That means that Buck2 can sometimes parallelise different phases and track changes very precisely.
 * **Buck2 can integrate with the virtual filesystem [Eden](https://github.com/facebook/sapling)** - this provides good performance, even when the file system is backed by source control fetches. However, Eden is not required, and a normal file system will also work well.

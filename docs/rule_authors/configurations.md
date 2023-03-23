@@ -1,4 +1,7 @@
-# Configurations
+---
+id: configurations
+title: Configurations
+---
 
 This doc focuses mostly on how configurations and related features are implemented. For
 the user docs (which are also quite helpful for understanding this), see ????? (for now

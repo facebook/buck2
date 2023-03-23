@@ -1,4 +1,7 @@
-# Rule APIs
+---
+id: rule_api
+title: Rule APIs
+---
 
 When implementing a rule, you are given a value of type `context` and are expected to produce providers. This document lays out the types reachable from that.
 
