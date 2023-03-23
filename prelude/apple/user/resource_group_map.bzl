@@ -8,6 +8,7 @@
 load("@prelude//:attributes.bzl", "Traversal")
 load(
     "@prelude//apple:resource_groups.bzl",
+    "ResourceGraph",
     "ResourceGroupInfo",
     "create_resource_graph",
     "get_resource_graph_node_map_func",
@@ -16,6 +17,7 @@ load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
     "parse_groups_definitions",
+    "update_group",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -36,7 +38,24 @@ def _impl(ctx: "context") -> ["provider"]:
         exported_deps = [],
     )
     resource_graph_node_map = get_resource_graph_node_map_func(resource_graph)()
-    mappings = compute_mappings(groups = resource_groups, graph_map = resource_graph_node_map)
+    mappings = compute_mappings(
+        groups = [
+            update_group(
+                group = group,
+                # User provided mappings may contain entries that don't support
+                # ResourceGraph, which `create_resource_graph` removes above.
+                # So make sure we remove them from the mappings too, otherwise
+                # `compute_mappings` crashes on the inconsistency.
+                mappings = [
+                    mapping
+                    for mapping in group.mappings
+                    if mapping.root == None or ResourceGraph in mapping.root.node
+                ],
+            )
+            for group in resource_groups
+        ],
+        graph_map = resource_graph_node_map,
+    )
     return [
         DefaultInfo(),
         ResourceGroupInfo(groups = resource_groups, groups_hash = hash(str(resource_groups)), mappings = mappings),

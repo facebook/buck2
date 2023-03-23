@@ -19,6 +19,10 @@ load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
+load(
+    "@prelude//utils:utils.bzl",
+    "value_or",
+)
 
 # Types of group traversal
 Traversal = enum(
@@ -85,6 +89,17 @@ Group = record(
     mappings = [GroupMapping.type],
     attrs = GroupAttrs.type,
 )
+
+def update_group(
+        group: Group.type,
+        name: [None, str.type] = None,
+        mappings: [None, [GroupMapping.type]] = None,
+        attrs: [None, GroupAttrs.type] = None):
+    return Group(
+        name = value_or(name, group.name),
+        mappings = value_or(mappings, group.mappings),
+        attrs = value_or(attrs, group.attrs),
+    )
 
 def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d: d) -> [Group.type]:
     groups = []
