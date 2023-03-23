@@ -15,6 +15,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
+use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
@@ -30,7 +31,6 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use dupe::Dupe;
 use tracing::warn;
 
-use crate::query::cquery::universe::CqueryUniverse;
 use crate::query::uquery::environment::allbuildfiles;
 use crate::query::uquery::environment::rbuildfiles;
 use crate::query::uquery::environment::QueryLiterals;

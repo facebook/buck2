@@ -18,14 +18,15 @@ use buck2_core::pattern::PatternType;
 use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::name::TargetName;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexed;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
 use itertools::Itertools;
+
+use crate::nodes::configured::ConfiguredTargetNode;
+use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
 
 /// Subset of targets `cquery` command works with.
 ///
@@ -36,7 +37,7 @@ pub struct CqueryUniverse {
 }
 
 impl CqueryUniverse {
-    pub(crate) fn new(
+    pub fn new(
         targets: BTreeMap<
             PackageLabel,
             BTreeMap<TargetName, BTreeSet<LabelIndexed<ConfiguredTargetNode>>>,
@@ -45,7 +46,7 @@ impl CqueryUniverse {
         CqueryUniverse { targets }
     }
 
-    pub(crate) async fn build(
+    pub async fn build(
         universe: &TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<CqueryUniverse> {
         let mut targets: BTreeMap<
@@ -75,7 +76,7 @@ impl CqueryUniverse {
         Ok(CqueryUniverse::new(targets))
     }
 
-    pub(crate) fn get(
+    pub fn get(
         &self,
         resolved_pattern: &ResolvedPattern<TargetPatternExtra>,
     ) -> TargetSet<ConfiguredTargetNode> {
@@ -136,7 +137,7 @@ impl CqueryUniverse {
             })
     }
 
-    pub(crate) fn owners(&self, path: &CellPath) -> Vec<ConfiguredTargetNode> {
+    pub fn owners(&self, path: &CellPath) -> Vec<ConfiguredTargetNode> {
         let mut nodes = Vec::new();
 
         // We lookup in all ancestors because we still have package boundary violations.
