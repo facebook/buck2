@@ -98,13 +98,6 @@ impl LegacyBuckConfigs {
         self.data.iter().map(|(name, config)| (*name, config))
     }
 
-    pub fn target_alias_resolver(
-        &self,
-        cell_name: CellName,
-    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
-        Ok(self.get(cell_name)?.target_alias_resolver())
-    }
-
     pub(crate) fn compare(&self, other: &Self) -> bool {
         let x = &self.data;
         let y = &other.data;
