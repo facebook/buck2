@@ -55,7 +55,14 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
     [require.resolve('docusaurus-lunr-search'), {
       excludeRoutes: [
       ]
-    }]
+    }],
+    [
+      '@docusaurus/plugin-google-gtag',
+      {
+        trackingID: 'G-GEGGHE39PE',
+        anonymizeIP: true,
+      },
+    ],
   ],
 
   themeConfig:
