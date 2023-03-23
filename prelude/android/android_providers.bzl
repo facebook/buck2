@@ -101,8 +101,8 @@ PrebuiltNativeLibraryDir = record(
     is_asset = bool.type,
 )
 
-def _artifacts(value: "artifact"):
-    return value
+def _artifacts(value: "ManifestInfo"):
+    return value.manifest
 
 AndroidBuildConfigInfoTSet = transitive_set()
 AndroidDepsTSet = transitive_set()
@@ -113,6 +113,11 @@ ResourceInfoTSet = transitive_set()
 DepsInfo = record(
     name = "target_label",
     deps = ["target_label"],
+)
+
+ManifestInfo = record(
+    target_label = "target_label",
+    manifest = "artifact",
 )
 
 AndroidPackageableInfo = provider(
@@ -226,7 +231,10 @@ def merge_android_packageable_info(
     manifests = _get_transitive_set(
         actions,
         filter(None, [dep.manifests for dep in android_packageable_deps]),
-        manifest,
+        ManifestInfo(
+            target_label = label.raw_target(),
+            manifest = manifest,
+        ) if manifest else None,
         ManifestTSet,
     )
 
