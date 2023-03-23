@@ -185,6 +185,7 @@ def all_targets_in_root_module(_module: str.type) -> str.type:
     return ROOT_MODULE
 
 APKModuleGraphInfo = record(
+    module_list = [str.type],
     target_to_module_mapping_function = "function",
     module_to_canary_class_name_function = "function",
     module_to_module_deps_function = "function",
@@ -200,6 +201,7 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo.type:
         return []
 
     return APKModuleGraphInfo(
+        module_list = [ROOT_MODULE],
         target_to_module_mapping_function = all_targets_in_root_module,
         module_to_canary_class_name_function = root_module_canary_class_name,
         module_to_module_deps_function = root_module_deps,
@@ -242,6 +244,7 @@ def get_apk_module_graph_info(
         return module_to_module_deps_map.get(voltron_module)
 
     return APKModuleGraphInfo(
+        module_list = module_to_canary_class_name_map.keys(),
         target_to_module_mapping_function = target_to_module_mapping_function,
         module_to_canary_class_name_function = module_to_canary_class_name_function,
         module_to_module_deps_function = module_to_module_deps_function,
