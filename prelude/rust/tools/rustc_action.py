@@ -256,6 +256,11 @@ async def main() -> int:
         rustc_args.append(
             "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
         )
+        rustc_args.append(
+            "--remap-path-prefix={}={}".format(
+                os.path.realpath(os.getcwd()), args.remap_cwd_prefix
+            )
+        )
 
     with tempfile.NamedTemporaryFile(
         mode="wb",
