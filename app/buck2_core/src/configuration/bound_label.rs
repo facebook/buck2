@@ -35,7 +35,7 @@ enum BoundConfigurationLabelError {
     PartialOrd,
     Allocative
 )]
-pub(crate) struct BoundConfigurationLabel(String);
+pub struct BoundConfigurationLabel(String);
 
 impl BoundConfigurationLabel {
     pub(crate) fn new(label: String) -> anyhow::Result<BoundConfigurationLabel> {

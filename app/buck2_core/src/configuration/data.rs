@@ -141,6 +141,15 @@ impl ConfigurationData {
         CONFIG.dupe()
     }
 
+    pub fn builtin(builtin: BuiltinPlatform) -> Self {
+        match builtin {
+            BuiltinPlatform::Unspecified => Self::unspecified(),
+            BuiltinPlatform::UnspecifiedExec => Self::unspecified_exec(),
+            BuiltinPlatform::Unbound => Self::unbound(),
+            BuiltinPlatform::UnboundExec => Self::unbound_exec(),
+        }
+    }
+
     /// Produces an "invalid" configuration for testing.
     pub fn testing_new() -> Self {
         Self::from_data(HashedConfigurationPlatform::new(
@@ -215,6 +224,13 @@ impl ConfigurationData {
         match &self.0.configuration_platform {
             ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound) => true,
             _ => false,
+        }
+    }
+
+    pub fn bound(&self) -> Option<&BoundConfigurationLabel> {
+        match &self.0.configuration_platform {
+            ConfigurationPlatform::Bound(label, _) => Some(label),
+            _ => None,
         }
     }
 

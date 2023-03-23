@@ -32,6 +32,7 @@ use crate::cells::CellAlias;
 use crate::cells::CellAliasResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
+use crate::configuration::data::ConfigurationData;
 use crate::configuration::hash::ConfigurationHash;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
@@ -96,6 +97,13 @@ pub trait PatternType:
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
     ) -> anyhow::Result<Self>;
+
+    /// This pattern matches the configuration.
+    ///
+    /// Ignore providers.
+    fn matches_cfg(&self, cfg: &ConfigurationData) -> bool;
+
+    fn into_providers(self) -> ProvidersName;
 }
 
 pub fn display_precise_pattern<'a, T: PatternType>(
@@ -151,6 +159,14 @@ impl PatternType for TargetPatternExtra {
         }
         Ok(TargetPatternExtra)
     }
+
+    fn matches_cfg(&self, _cfg: &ConfigurationData) -> bool {
+        true
+    }
+
+    fn into_providers(self) -> ProvidersName {
+        ProvidersName::Default
+    }
 }
 
 /// Pattern that matches an inner providers label that refers to a specific
@@ -198,10 +214,18 @@ impl PatternType for ProvidersPatternExtra {
         }
         Ok(ProvidersPatternExtra { providers })
     }
+
+    fn matches_cfg(&self, _cfg: &ConfigurationData) -> bool {
+        true
+    }
+
+    fn into_providers(self) -> ProvidersName {
+        self.providers
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub(crate) enum ConfiguredProvidersPatternExtraConfiguration {
+pub enum ConfiguredProvidersPatternExtraConfiguration {
     Builtin(BuiltinPlatform),
     Bound(
         BoundConfigurationLabel,
@@ -231,7 +255,7 @@ impl Display for ConfiguredProvidersPatternExtraConfiguration {
 pub struct ConfiguredProvidersPatternExtra {
     pub providers: ProvidersName,
     /// Configuration part of pattern `foo//bar:baz[Provider] (cfg#ab01)`.
-    pub(crate) cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+    pub cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
 }
 
 impl Display for ConfiguredProvidersPatternExtra {
@@ -249,6 +273,28 @@ impl PatternType for ConfiguredProvidersPatternExtra {
 
     fn from_configured_providers(extra: ConfiguredProvidersPatternExtra) -> anyhow::Result<Self> {
         Ok(extra)
+    }
+
+    fn matches_cfg(&self, cfg: &ConfigurationData) -> bool {
+        match &self.cfg {
+            None => true,
+            Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(builtin)) => {
+                cfg == &ConfigurationData::builtin(*builtin)
+            }
+            Some(ConfiguredProvidersPatternExtraConfiguration::Bound(label, hash)) => {
+                match cfg.bound() {
+                    None => false,
+                    Some(cfg_label) => {
+                        label == cfg_label
+                            && (hash.is_none() || hash.as_ref() == Some(cfg.output_hash()))
+                    }
+                }
+            }
+        }
+    }
+
+    fn into_providers(self) -> ProvidersName {
+        self.providers
     }
 }
 
@@ -1051,6 +1097,7 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
+    use crate::configuration::data::ConfigurationDataData;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
@@ -1705,5 +1752,77 @@ mod tests {
         assert!(pattern.matches(&target_in_different_cell));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_configured_providers_matches_cfg() {
+        // Possible configurations.
+        let unbound = ConfigurationData::unbound();
+        let unspecified = ConfigurationData::unspecified();
+        let foo =
+            ConfigurationData::from_platform("<foo>".to_owned(), ConfigurationDataData::empty())
+                .unwrap();
+        let bar =
+            ConfigurationData::from_platform("<bar>".to_owned(), ConfigurationDataData::empty())
+                .unwrap();
+
+        // Possible matchers.
+        let catch_all = ConfiguredProvidersPatternExtra {
+            providers: ProvidersName::Default,
+            cfg: None,
+        };
+        let catch_unbound = ConfiguredProvidersPatternExtra {
+            providers: ProvidersName::Default,
+            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(
+                BuiltinPlatform::Unbound,
+            )),
+        };
+        let catch_foo_any = ConfiguredProvidersPatternExtra {
+            providers: ProvidersName::Default,
+            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
+                None,
+            )),
+        };
+        let catch_foo_with_hash = ConfiguredProvidersPatternExtra {
+            providers: ProvidersName::Default,
+            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
+                Some(foo.output_hash().clone()),
+            )),
+        };
+        let catch_foo_wrong_hash = ConfiguredProvidersPatternExtra {
+            providers: ProvidersName::Default,
+            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
+                Some(ConfigurationHash::new(17)),
+            )),
+        };
+
+        // Now the tests.
+        assert!(catch_all.matches_cfg(&unbound));
+        assert!(catch_all.matches_cfg(&unspecified));
+        assert!(catch_all.matches_cfg(&foo));
+        assert!(catch_all.matches_cfg(&bar));
+
+        assert!(catch_unbound.matches_cfg(&unbound));
+        assert!(!catch_unbound.matches_cfg(&unspecified));
+        assert!(!catch_unbound.matches_cfg(&foo));
+        assert!(!catch_unbound.matches_cfg(&bar));
+
+        assert!(!catch_foo_any.matches_cfg(&unbound));
+        assert!(!catch_foo_any.matches_cfg(&unspecified));
+        assert!(catch_foo_any.matches_cfg(&foo));
+        assert!(!catch_foo_any.matches_cfg(&bar));
+
+        assert!(!catch_foo_with_hash.matches_cfg(&unbound));
+        assert!(!catch_foo_with_hash.matches_cfg(&unspecified));
+        assert!(catch_foo_with_hash.matches_cfg(&foo));
+        assert!(!catch_foo_with_hash.matches_cfg(&bar));
+
+        assert!(!catch_foo_wrong_hash.matches_cfg(&unbound));
+        assert!(!catch_foo_wrong_hash.matches_cfg(&unspecified));
+        assert!(!catch_foo_wrong_hash.matches_cfg(&foo));
+        assert!(!catch_foo_wrong_hash.matches_cfg(&bar));
     }
 }

@@ -15,7 +15,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::PatternType;
-use buck2_core::pattern::ProvidersPatternExtra;
 use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::name::TargetName;
@@ -90,16 +89,16 @@ impl CqueryUniverse {
         targets
     }
 
-    pub fn get_provider_labels(
+    pub fn get_provider_labels<P: PatternType>(
         &self,
-        resolved_pattern: &ResolvedPattern<ProvidersPatternExtra>,
+        resolved_pattern: &ResolvedPattern<P>,
     ) -> Vec<ConfiguredProvidersLabel> {
         let mut targets = Vec::new();
         for (package, spec) in &resolved_pattern.specs {
             targets.extend(
                 self.get_from_package(package.dupe(), spec)
-                    .map(|(node, providers)| {
-                        ConfiguredProvidersLabel::new(node.label().dupe(), providers.providers)
+                    .map(|(node, extra)| {
+                        ConfiguredProvidersLabel::new(node.label().dupe(), extra.into_providers())
                     }),
             );
         }
@@ -117,10 +116,15 @@ impl CqueryUniverse {
             .flat_map(move |package_universe| match spec {
                 PackageSpec::Targets(names) => {
                     Either::Left(names.iter().flat_map(|(name, extra)| {
-                        package_universe
-                            .get(name)
-                            .into_iter()
-                            .flat_map(|nodes| nodes.iter().map(|node| (&node.0, extra.clone())))
+                        package_universe.get(name).into_iter().flat_map(|nodes| {
+                            nodes.iter().filter_map(|node| {
+                                if extra.matches_cfg(node.0.label().cfg()) {
+                                    Some((&node.0, extra.clone()))
+                                } else {
+                                    None
+                                }
+                            })
+                        })
                     }))
                 }
                 PackageSpec::All => Either::Right(

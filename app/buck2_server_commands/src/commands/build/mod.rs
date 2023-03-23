@@ -324,9 +324,6 @@ async fn build_targets(
             .await
         }
         TargetResolutionConfig::Universe(universe) => {
-            let spec = spec
-                .convert_pattern()
-                .context("Building with explicit configuration is not implemented yet")?;
             build_targets_in_universe(
                 ctx,
                 spec,
@@ -341,7 +338,7 @@ async fn build_targets(
 
 async fn build_targets_in_universe(
     ctx: &DiceComputations,
-    spec: ResolvedPattern<ProvidersPatternExtra>,
+    spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,

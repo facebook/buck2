@@ -17,7 +17,7 @@ use dupe::Dupe;
 #[derive(
     Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
-pub(crate) enum BuiltinPlatform {
+pub enum BuiltinPlatform {
     /// The unbound platform is used when we don't yet have a platform bound. This is to support initialization
     /// and is used when analyzing a platform target itself (since we clearly can't have a platform yet bound
     /// at that point).
