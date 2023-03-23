@@ -50,6 +50,7 @@ const manualSidebar = [
         ],
       },
       isInternal() ? 'knowledge_sharing' : [],
+      'bootstrapping',
     ],
   },
   {

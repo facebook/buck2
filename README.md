@@ -2,13 +2,22 @@
 
 **WARNING:** This project is not yet polished. We are continuing to develop it in the open, but don't expect it to be suitable for most people until Mar/Apr/May 2023 (at which point we'll properly announce it). If you try and use it, you will probably have a bad time. If you are willing to work closely with us, please give it a go and [let us know](https://github.com/facebook/buck2/issues) what is blocking you.
 
-This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build). To understand why it might be interesting, see [this explainer](docs/why.md). For the moment, we only test it on Linux, and don't recommend running benchmarks as features like the disk cache are not entirely implemented in the open source build.
+This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build). To understand why it might be interesting, see [this explainer](https://buck2.build/docs/why/). For the moment, we only test it on Linux.
 
 ## Getting started
 
-### Building Buck2
+To clone, build, and install `buck2`:
+```sh
+git clone https://github.com/facebook/buck2.git
+cd buck2/
+cargo install --path=cli
+```
 
-To build Buck2 type `cargo build --bin=buck2 --release` from this directory and copy the resulting binary (probably `target/release/buck2`) to your `$PATH`. Typing `buck2 --help` should now work.
+To build and install the latest `buck2` executable:
+```sh
+rustup install nightly
+cargo +nightly install --git https://github.com/facebook/buck2.git cli
+```
 
 Build uses prebuilt `protoc` binary from
 [protoc-bin-vendored](https://crates.io/crates/protoc-bin-vendored) crate.
@@ -16,39 +25,11 @@ If these binaries to do not work on your machine (for example, when building for
 path to `protoc` binary and protobuf include path can be specified via
 `BUCK2_BUILD_PROTOC` and `BUCK2_BUILD_PROTOC_INCLUDE` environment variables.
 
-### Building sample targets
-
-__FIXME(marwhal): This section needs to be made to work__
-
-If you `cd examples/prelude` and type `buck2 build ...` that will build a number of targets in a variety of languages. Doing so requires that `python3` and `clang` are both on your `$PATH`.
-
-### Bootstrapping Buck2
-
-To build Buck2 using Buck2:
-
-* Install [`reindeer`](https://github.com/facebookincubator/reindeer), which is used to make Buck targets for Rust libraries.
-* Run `reindeer --third-party-dir shim/third-party/rust vendor`
-* Run `reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK`
-* Run `buck2 build :buck2`
-
-Note that the resulting binary will be compiled without optimisations or [jemalloc](https://github.com/jemalloc/jemalloc), so we recommend using the Cargo-produced binary in further development.
-
-### Making your own project
-
-A Buck2 project requires:
-
-* A `.buckconfig` file in the root which has a `[repositories]` section listing out interesting cells. We recommend copying from `examples/prelude` to ensure it contains the necessary fields.
-* A `prelude` directory, which should be produced with `git submodule add https://github.com/facebook/buck2-prelude.git prelude`
-* A `toolchains` directory, which specifies where to find the relevant toolchains. We recommend copying from `examples/prelude` to start, but you may wish to use alternative toolchains.
-* Some `BUILD` files that specify the targets specific to your project.
+To build a project with `buck2`, go to the [getting started guide](https://buck2.build/docs/getting_started/).
 
 ## Terminology conventions
 
-* A _target_, e.g. `fbcode//buck2:buck2`, is something a user defines that is an instance of a _rule_, which can be built.
-* A _rule_, e.g. `cxx_library`, is an implementation of how something is built.
-* _Loading_ a `TARGETS`/`BUCK` file involves evaluating the Starlark and doing attribute coercion/resolution. It can be done with `buck2 cquery fbcode//buck2:buck2` or `buck2 cquery 'deps(fbcode//buck2:buck2)'` to do it recursively.
-* _Analysing_ a _target_ involves running the associated _rule_ to produce the _providers_. It can be done with `buck2 audit providers fbcode//buck2:buck2`.
-* _Building_ a _target_ involves demanding the _artifacts_ from a _provider_ (e.g. `DefaultInfo`). It can be done with `buck2 build fbcode//buck2:buck2`.
+Frequently used terms and their definitions can be found in the [glossary page](https://buck2.build/docs/concepts/glossary/).
 
 ## Coding conventions
 

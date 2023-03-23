@@ -153,6 +153,14 @@ To run the main C++ target, run:
 buck2 run //:main
 ```
 
+In summary, a `buck2` project requires:
+1. A `.buckconfig` file in the root which has a `[repositories]` section listing out [cells](https://buck2.build/docs/concepts/glossary/#cell)
+2. A `prelude` directory, which contains a collection of [rules](https://buck2.build/docs/concepts/glossary/#rule) of your choice. `buck2 init` will pull in the [buck2-prelude](https://github.com/facebook/buck2-prelude.git) as a git submodule by default
+3. If using the [buck2-prelude](https://github.com/facebook/buck2-prelude.git), a `toolchains` directory that declares relevant toolchains. We provide some basic toolchains in [prelude/toolchains](https://github.com/facebook/buck2/tree/main/prelude/toolchains)
+4. `BUCK` files that specifiy targets for your project
+
+`buck2 init` will generate all of these with reasonable default values.
+
 ## Learning More
 
 You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebookincubator/buck2/tree/main/examples) folder.  Look out for more tutorials in the future.
