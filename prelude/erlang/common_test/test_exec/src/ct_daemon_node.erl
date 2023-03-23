@@ -78,7 +78,7 @@ start(
         ConfigFiles,
         OutputDir,
         [{args, Args}, {cd, ct_runner:project_root()}],
-        true
+        false
     ),
     %% wait for the ct_daemon gen_server to be started
     true = erlang:register(?MODULE, self()),
