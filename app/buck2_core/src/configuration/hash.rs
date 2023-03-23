@@ -9,11 +9,18 @@
 
 use allocative::Allocative;
 
+#[derive(Debug, thiserror::Error)]
+enum ConfigurationHashError {
+    #[error("Configuration hash must be 16 hex digits, got: `{0}`")]
+    Invalid(String),
+}
+
 /// Hash of a configuration, serialized as a hex string.
 ///
 /// Configuration hash is computed by hashing all configuration data,
 /// and it distinguishes configurations with different short names.
 #[derive(
+    Clone,
     Debug,
     Eq,
     PartialEq,
@@ -28,6 +35,18 @@ pub struct ConfigurationHash(pub(crate) String);
 impl ConfigurationHash {
     pub(crate) fn new(value: u64) -> ConfigurationHash {
         ConfigurationHash(format!("{:0>16x}", value))
+    }
+
+    pub(crate) fn from_str(value: &str) -> anyhow::Result<ConfigurationHash> {
+        if value.len() != 16 {
+            return Err(ConfigurationHashError::Invalid(value.to_owned()).into());
+        }
+        for c in value.chars() {
+            if !c.is_ascii_hexdigit() {
+                return Err(ConfigurationHashError::Invalid(value.to_owned()).into());
+            }
+        }
+        Ok(ConfigurationHash(value.to_owned()))
     }
 
     #[inline]

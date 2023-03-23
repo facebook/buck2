@@ -17,6 +17,7 @@ pub mod parse_package;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Formatter;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -29,6 +30,9 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAlias;
 use crate::cells::CellAliasResolver;
+use crate::configuration::bound_label::BoundConfigurationLabel;
+use crate::configuration::builtin::BuiltinPlatform;
+use crate::configuration::hash::ConfigurationHash;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 use crate::pattern::ascii_pattern::split1_opt_ascii;
@@ -65,10 +69,16 @@ enum TargetPatternParseError {
         "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here"
     )]
     PossibleMacroUsage,
-    #[error("Expecting target name, without providers")]
+    #[error("Expecting target pattern, without providers")]
     ExpectingTargetNameWithoutProviders,
-    #[error("Expecting target pattern, without providers, got: `{0}`")]
-    ExpectingTargetPatternWithoutProviders(String),
+    #[error("Expecting target pattern, without configuration")]
+    ExpectingTargetPatternWithoutConfiguration,
+    #[error("Expecting provider pattern, without configuration")]
+    ExpectingProviderPatternWithoutConfiguration,
+    #[error("Expecting {0} pattern, got: `{1}`")]
+    ExpectingPatternOfType(&'static str, String),
+    #[error("Configuration part of the pattern must be enclosed in `()`")]
+    ConfigurationPartMustBeEnclosedInParentheses,
 }
 
 /// The pattern type to be parsed from the command line target patterns.
@@ -78,8 +88,14 @@ enum TargetPatternParseError {
 pub trait PatternType:
     Sized + Clone + Default + Display + Debug + PartialEq + Eq + Ord + Allocative
 {
-    /// Construct this from a TargetName and the ExtraParts.
-    fn from_parts(providers: ProvidersName) -> anyhow::Result<Self>;
+    const NAME: &'static str;
+
+    /// Construct this from a configured providers pattern.
+    /// Return error if configured providers pattern extra contains parts
+    /// that are not allowed for this pattern type.
+    fn from_configured_providers(
+        providers: ConfiguredProvidersPatternExtra,
+    ) -> anyhow::Result<Self>;
 }
 
 /// Pattern that matches an explicit target without any inner providers label.
@@ -102,9 +118,17 @@ pub trait PatternType:
 pub struct TargetPatternExtra;
 
 impl PatternType for TargetPatternExtra {
-    fn from_parts(providers: ProvidersName) -> anyhow::Result<Self> {
+    const NAME: &'static str = "target";
+
+    fn from_configured_providers(
+        providers: ConfiguredProvidersPatternExtra,
+    ) -> anyhow::Result<Self> {
+        let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
         if providers != ProvidersName::Default {
             return Err(TargetPatternParseError::ExpectingTargetNameWithoutProviders.into());
+        }
+        if cfg.is_some() {
+            return Err(TargetPatternParseError::ExpectingTargetPatternWithoutConfiguration.into());
         }
         Ok(TargetPatternExtra)
     }
@@ -142,8 +166,70 @@ impl ProvidersPatternExtra {
 }
 
 impl PatternType for ProvidersPatternExtra {
-    fn from_parts(providers: ProvidersName) -> anyhow::Result<Self> {
+    const NAME: &'static str = "providers";
+
+    fn from_configured_providers(
+        providers: ConfiguredProvidersPatternExtra,
+    ) -> anyhow::Result<Self> {
+        let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
+        if cfg.is_some() {
+            return Err(
+                TargetPatternParseError::ExpectingProviderPatternWithoutConfiguration.into(),
+            );
+        }
         Ok(ProvidersPatternExtra { providers })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+pub(crate) enum ConfiguredProvidersPatternExtraConfiguration {
+    Builtin(BuiltinPlatform),
+    Bound(
+        BoundConfigurationLabel,
+        /// None means match any configuration with given label.
+        Option<ConfigurationHash>,
+    ),
+}
+
+impl Display for ConfiguredProvidersPatternExtraConfiguration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfiguredProvidersPatternExtraConfiguration::Builtin(builtin) => {
+                write!(f, "{}", builtin)
+            }
+            ConfiguredProvidersPatternExtraConfiguration::Bound(label, hash) => {
+                write!(f, "{}", label)?;
+                if let Some(hash) = hash {
+                    write!(f, "#{}", hash)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+pub struct ConfiguredProvidersPatternExtra {
+    pub providers: ProvidersName,
+    /// Configuration part of pattern `foo//bar:baz[Provider] (cfg#ab01)`.
+    pub(crate) cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+}
+
+impl Display for ConfiguredProvidersPatternExtra {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.providers)?;
+        if let Some(cfg) = &self.cfg {
+            write!(f, " ({})", cfg)?;
+        }
+        Ok(())
+    }
+}
+
+impl PatternType for ConfiguredProvidersPatternExtra {
+    const NAME: &'static str = "configured providers";
+
+    fn from_configured_providers(extra: ConfiguredProvidersPatternExtra) -> anyhow::Result<Self> {
+        Ok(extra)
     }
 }
 
@@ -237,6 +323,19 @@ impl ParsedPattern<ProvidersPatternExtra> {
 }
 
 impl<T: PatternType> ParsedPattern<T> {
+    pub fn try_map<U: PatternType>(
+        self,
+        f: impl FnOnce(T) -> anyhow::Result<U>,
+    ) -> anyhow::Result<ParsedPattern<U>> {
+        match self {
+            ParsedPattern::Target(package, target_name, val) => {
+                Ok(ParsedPattern::Target(package, target_name, f(val)?))
+            }
+            ParsedPattern::Package(package) => Ok(ParsedPattern::Package(package)),
+            ParsedPattern::Recursive(cell_path) => Ok(ParsedPattern::Recursive(cell_path)),
+        }
+    }
+
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
     pub fn as_literal(self, original: &str) -> anyhow::Result<(PackageLabel, TargetName, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.
@@ -608,18 +707,95 @@ fn lex_provider_pattern<'a>(
     })
 }
 
+fn lex_configured_provider_extra(
+    pattern: &str,
+) -> anyhow::Result<ConfiguredProvidersPatternExtraConfiguration> {
+    let pattern = pattern
+        .strip_prefix('(')
+        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
+    let pattern = pattern
+        .strip_suffix(')')
+        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
+    match pattern.split_once('#') {
+        Some((cfg, hash)) => {
+            let cfg = BoundConfigurationLabel::new(cfg.to_owned())?;
+            let hash = ConfigurationHash::from_str(hash)?;
+            Ok(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                cfg,
+                Some(hash),
+            ))
+        }
+        None => {
+            if let Some(builtin) = BuiltinPlatform::from_label(pattern) {
+                Ok(ConfiguredProvidersPatternExtraConfiguration::Builtin(
+                    builtin,
+                ))
+            } else {
+                Ok(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new(pattern.to_owned())?,
+                    None,
+                ))
+            }
+        }
+    }
+}
+
+/// Split target pattern and configuration preserving parentheses for better diagnostics.
+fn split_cfg(s: &str) -> Option<(&str, &str)> {
+    // Fast path.
+    if !s.contains(' ') {
+        return None;
+    }
+
+    let mut braces: u32 = 0;
+    for (i, c) in s.char_indices() {
+        match c {
+            '(' => braces += 1,
+            ')' => match braces.checked_sub(1) {
+                Some(b) => braces = b,
+                None => {
+                    // Pattern is invalid, let parser fail elsewhere.
+                    return None;
+                }
+            },
+            ' ' if braces == 0 => return Some((&s[..i], &s[i + 1..])),
+            _ => {}
+        }
+    }
+    None
+}
+
+pub fn lex_configured_providers_pattern<'a>(
+    pattern: &'a str,
+    strip_package_trailing_slash: bool,
+) -> anyhow::Result<PatternParts<ConfiguredProvidersPatternExtra>> {
+    let (provider_pattern, cfg) = match split_cfg(pattern) {
+        Some((providers, cfg)) => {
+            let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
+            let cfg = lex_configured_provider_extra(cfg)?;
+            (provider_pattern, Some(cfg))
+        }
+        None => (
+            lex_provider_pattern(pattern, strip_package_trailing_slash)?,
+            None,
+        ),
+    };
+    provider_pattern.try_map(|ProvidersPatternExtra { providers }| {
+        Ok(ConfiguredProvidersPatternExtra { providers, cfg })
+    })
+}
+
 // Lex the target pattern into the relevant pieces.
 pub fn lex_target_pattern<'a, T: PatternType>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
 ) -> anyhow::Result<PatternParts<T>> {
-    let provider_pattern = lex_provider_pattern(pattern, strip_package_trailing_slash)?;
+    let provider_pattern = lex_configured_providers_pattern(pattern, strip_package_trailing_slash)?;
     provider_pattern
-        .try_map(|ProvidersPatternExtra { providers }| T::from_parts(providers))
-        .map_err(|_| {
+        .try_map(|extra| T::from_configured_providers(extra))
+        .with_context(|| {
             // This can only fail when `PatternType = TargetName`, so the message is correct.
-            TargetPatternParseError::ExpectingTargetPatternWithoutProviders(pattern.to_owned())
-                .into()
+            TargetPatternParseError::ExpectingPatternOfType(T::NAME, pattern.to_owned())
         })
 }
 
@@ -894,6 +1070,20 @@ mod tests {
         )
     }
 
+    fn mk_configured_providers(
+        cell: &str,
+        path: &str,
+        target: &str,
+        providers: Option<&[&str]>,
+        cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+    ) -> ParsedPattern<ConfiguredProvidersPatternExtra> {
+        mk_providers(cell, path, target, providers)
+            .try_map(|ProvidersPatternExtra { providers }| {
+                Ok(ConfiguredProvidersPatternExtra { providers, cfg })
+            })
+            .unwrap()
+    }
+
     fn fails<R>(x: anyhow::Result<R>, msgs: &[&str]) {
         match x {
             Err(e) => {
@@ -947,6 +1137,7 @@ mod tests {
 
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
+    #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
         let package = CellPath::new(
             resolver().resolve_self(),
@@ -1285,8 +1476,59 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_parse_configured_providers_pattern() -> anyhow::Result<()> {
+        assert_eq!(
+            mk_configured_providers("root", "package/path", "target", None, None),
+            ParsedPattern::parse_precise(&resolver(), "//package/path:target")?
+        );
+        assert_eq!(
+            mk_configured_providers(
+                "root",
+                "package/path",
+                "target",
+                None,
+                Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(
+                    BuiltinPlatform::Unspecified
+                ))
+            ),
+            ParsedPattern::parse_precise(&resolver(), "//package/path:target (<unspecified>)")?
+        );
+        assert_eq!(
+            mk_configured_providers(
+                "root",
+                "package/path",
+                "target",
+                Some(&["P"]),
+                Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
+                    None
+                ))
+            ),
+            ParsedPattern::parse_precise(&resolver(), "//package/path:target[P] (<foo>)")?
+        );
+        assert_eq!(
+            mk_configured_providers(
+                "root",
+                "package/path",
+                "target",
+                Some(&["P"]),
+                Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
+                    Some(ConfigurationHash::from_str("0123456789abcdef").unwrap()),
+                ))
+            ),
+            ParsedPattern::parse_precise(
+                &resolver(),
+                "//package/path:target[P] (<foo>#0123456789abcdef)"
+            )?
+        );
+        Ok(())
+    }
+
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
+    #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_pattern_failure<T: PatternType>(_: PhantomData<T>) {
         fails(ParsedPattern::<T>::parse_precise(&resolver(), ""), &[]);
         fails(

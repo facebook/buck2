@@ -25,6 +25,7 @@ enum BoundConfigurationLabelError {
 
 /// Label of regular configuration.
 #[derive(
+    Clone,
     derive_more::Display,
     Debug,
     Eq,
