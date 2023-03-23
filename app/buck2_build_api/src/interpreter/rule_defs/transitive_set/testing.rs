@@ -12,9 +12,7 @@ use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_core::target::name::TargetName;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -44,9 +42,8 @@ pub fn tset_factory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//path"),
-            TargetName::unchecked_new("target"),
+        let target = ConfiguredTargetLabel::testing_parse(
+            "cell//path:target",
             ConfigurationData::testing_new(),
         );
         let deferred_id = DeferredId::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));

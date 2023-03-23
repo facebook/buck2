@@ -243,9 +243,7 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_execute::artifact_value::ArtifactValue;
 
     use super::*;
@@ -255,11 +253,8 @@ mod tests {
     use crate::deferred::types::DeferredId;
 
     fn artifact(name: &str) -> (Artifact, ArtifactValue) {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact = BuildArtifact::testing_new(
             target.dupe(),

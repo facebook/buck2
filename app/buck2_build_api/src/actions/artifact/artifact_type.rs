@@ -538,7 +538,6 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
 
@@ -556,11 +555,8 @@ mod tests {
 
     #[test]
     fn artifact_binding() -> anyhow::Result<()> {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
             BuckOutPath::new(
                 BaseDeferredKeyDyn::TargetLabel(target.dupe()),
@@ -636,11 +632,8 @@ mod tests {
         let project_root = ProjectRootTemp::new().unwrap();
         let project_fs = project_root.path();
 
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact1 = BuildArtifact::testing_new(
             target.dupe(),
@@ -706,11 +699,8 @@ mod tests {
 
     #[test]
     fn test_eq_hash() -> anyhow::Result<()> {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact = BuildArtifact::testing_new(
             target.dupe(),
@@ -742,11 +732,8 @@ mod tests {
 
     #[test]
     fn test_short_path() -> anyhow::Result<()> {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact = BuildArtifact::testing_new(
             target.dupe(),

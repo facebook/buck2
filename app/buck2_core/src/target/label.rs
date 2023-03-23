@@ -29,7 +29,6 @@ use crate::configuration::pair::ConfigurationNoExec;
 use crate::package::PackageLabel;
 use crate::pattern::ParsedPattern;
 use crate::pattern::TargetPatternExtra;
-use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
 
 #[derive(Eq, PartialEq, Allocative)]
@@ -218,15 +217,8 @@ impl ConfiguredTargetLabel {
         self.cfg_pair.exec_cfg()
     }
 
-    pub fn testing_new(
-        pkg: PackageLabel,
-        label: TargetName,
-        cfg: ConfigurationData,
-    ) -> ConfiguredTargetLabel {
-        ConfiguredTargetLabel {
-            target: TargetLabel::new(pkg, label.as_ref()),
-            cfg_pair: Configuration::new(cfg, None),
-        }
+    pub fn testing_parse(label: &str, cfg: ConfigurationData) -> ConfiguredTargetLabel {
+        TargetLabel::testing_parse(label).configure(cfg)
     }
 }
 

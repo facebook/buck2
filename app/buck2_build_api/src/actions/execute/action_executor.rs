@@ -533,8 +533,8 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
+    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::name::TargetNameRef;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::artifact_value::ArtifactValue;
@@ -727,11 +727,8 @@ mod tests {
                 PackageRelativePathBuf::unchecked_new("source".into()),
             ))
         ))];
-        let label = ConfiguredTargetLabel::testing_new(
-            pkg,
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let label = TargetLabel::new(pkg, TargetNameRef::unchecked_new("foo"))
+            .configure(ConfigurationData::testing_new());
         let outputs = indexset![BuildArtifact::testing_new(
             label.dupe(),
             ForwardRelativePathBuf::unchecked_new("output".into()),

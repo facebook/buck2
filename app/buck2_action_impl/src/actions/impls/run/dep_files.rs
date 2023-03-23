@@ -782,20 +782,15 @@ mod test {
     use buck2_build_api::deferred::types::DeferredId;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
     use maplit::hashmap;
 
     use super::*;
 
     #[test]
     fn test_declares_same_dep_files() {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact1 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),

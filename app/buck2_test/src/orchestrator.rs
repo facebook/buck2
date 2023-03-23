@@ -970,8 +970,6 @@ mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::PackageLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
@@ -1024,11 +1022,8 @@ mod tests {
     async fn orchestrator_results() -> anyhow::Result<()> {
         let (orchestrator, channel) = make().await?;
 
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_new("cell", "pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let target = ConfiguredProvidersLabel::new(target, Default::default());
         let target = orchestrator.session.register(target);

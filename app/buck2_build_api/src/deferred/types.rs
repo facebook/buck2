@@ -984,9 +984,7 @@ mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_execute::digest_config::DigestConfig;
     use dupe::Dupe;
     use indexmap::indexset;
@@ -1086,9 +1084,8 @@ mod tests {
     }
 
     fn dummy_base() -> BaseDeferredKey {
-        BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ))
     }
@@ -1143,9 +1140,8 @@ mod tests {
 
     #[test]
     fn mapping_async_data() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe()));
@@ -1194,11 +1190,8 @@ mod tests {
 
     #[test]
     fn register_nested_deferred() -> anyhow::Result<()> {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
-            ConfigurationData::testing_new(),
-        );
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let id = DeferredId {
             id: 1,
             trivial: false,
@@ -1279,9 +1272,8 @@ mod tests {
 
     #[test]
     fn reserving_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
@@ -1329,9 +1321,8 @@ mod tests {
 
     #[test]
     fn reserving_deferred_unbound() {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));
@@ -1344,9 +1335,8 @@ mod tests {
 
     #[test]
     fn trivial_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut registry = DeferredRegistry::new(BaseKey::Base(base));

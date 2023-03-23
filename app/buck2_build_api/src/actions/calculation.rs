@@ -435,8 +435,8 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
-    use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
+    use buck2_core::target::label::TargetLabel;
+    use buck2_core::target::name::TargetNameRef;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::artifact_value::ArtifactValue;
@@ -495,11 +495,11 @@ mod tests {
         package_path: &str,
         target_name: &str,
     ) -> BuildArtifact {
-        let configured_target_label = ConfiguredTargetLabel::testing_new(
+        let configured_target_label = TargetLabel::new(
             PackageLabel::testing_new(package_cell, package_path),
-            TargetName::unchecked_new(target_name),
-            ConfigurationData::testing_new(),
-        );
+            TargetNameRef::unchecked_new(target_name),
+        )
+        .configure(ConfigurationData::testing_new());
         let forward_relative_path_buf = ForwardRelativePathBuf::unchecked_new("bar.out".into());
         let deferred_id = DeferredId::testing_new(0);
         BuildArtifact::testing_new(

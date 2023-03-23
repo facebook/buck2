@@ -264,9 +264,7 @@ mod tests {
     use buck2_core::configuration::pair::ConfigurationNoExec;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::ConfiguredTargetLabel;
-    use buck2_core::target::name::TargetName;
     use buck2_execute::execute::request::OutputType;
     use buck2_node::configuration::execution::ExecutionPlatform;
     use buck2_node::configuration::execution::ExecutionPlatformResolution;
@@ -289,9 +287,8 @@ mod tests {
 
     #[test]
     fn declaring_artifacts() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut actions =
@@ -325,9 +322,8 @@ mod tests {
 
     #[test]
     fn claiming_conflicting_path() -> anyhow::Result<()> {
-        let target = ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("my_target"),
+        let target = ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:my_target",
             ConfigurationData::testing_new(),
         );
         let mut actions = ActionsRegistry::new(
@@ -391,9 +387,8 @@ mod tests {
 
     #[test]
     fn register_actions() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
@@ -434,9 +429,8 @@ mod tests {
 
     #[test]
     fn finalizing_actions() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
@@ -524,9 +518,8 @@ mod tests {
     fn category_identifier_test(
         action_names: &[(&'static str, Option<&'static str>)],
     ) -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            TargetName::unchecked_new("foo"),
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
         let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
