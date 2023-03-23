@@ -93,7 +93,9 @@ pub struct RawDirEntry {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
 pub struct ReadDirOutput {
+    /// Sorted.
     pub included: Arc<[SimpleDirEntry]>,
+    /// Sorted.
     pub ignored: Arc<[RawDirEntry]>,
 }
 
@@ -343,6 +345,7 @@ impl dyn FileOps + '_ {
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
     }
 
+    /// Return the list of file outputs, sorted.
     pub async fn read_dir(&self, path: CellPathRef<'_>) -> anyhow::Result<Arc<[SimpleDirEntry]>> {
         Ok(self.read_dir_with_ignores(path).await?.included)
     }

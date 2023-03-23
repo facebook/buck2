@@ -172,6 +172,7 @@ pub struct StarlarkReadDirSet {
     /// Cell path to the directory/files.
     pub cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
+    /// Sorted.
     pub included: Arc<[SimpleDirEntry]>,
     /// Only return directories when iterating or printing.
     pub dirs_only: bool,
