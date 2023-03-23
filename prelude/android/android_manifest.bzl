@@ -44,7 +44,7 @@ def generate_android_manifest(
     elif type(manifests) == "transitive_set":
         manifests = manifests.project_as_args("artifacts", ordering = "bfs")
 
-    library_manifest_paths_file = ctx.actions.write("library_manifest_paths_file", manifests)
+    library_manifest_paths_file = ctx.actions.write("{}/library_manifest_paths_file".format(module_name), manifests)
 
     generate_manifest_cmd.add(["--library-manifests-list", library_manifest_paths_file])
     generate_manifest_cmd.hidden(manifests)
@@ -52,12 +52,12 @@ def generate_android_manifest(
     placeholder_entries_args = cmd_args()
     for key, val in placeholder_entries.items():
         placeholder_entries_args.add(cmd_args(key, val, delimiter = " "))
-    placeholder_entries_file = ctx.actions.write("placeholder_entries_file", placeholder_entries_args)
+    placeholder_entries_file = ctx.actions.write("{}/placeholder_entries_file".format(module_name), placeholder_entries_args)
 
     generate_manifest_cmd.add(["--placeholder-entries-list", placeholder_entries_file])
 
-    output = ctx.actions.declare_output("AndroidManifest.xml")
-    merge_report = ctx.actions.declare_output("merge-report.txt")
+    output = ctx.actions.declare_output("{}/AndroidManifest.xml".format(module_name))
+    merge_report = ctx.actions.declare_output("{}/merge-report.txt".format(module_name))
     generate_manifest_cmd.add([
         "--output",
         output.as_output(),
@@ -65,7 +65,7 @@ def generate_android_manifest(
         merge_report.as_output(),
     ])
 
-    ctx.actions.run(generate_manifest_cmd, category = "generate_manifest")
+    ctx.actions.run(generate_manifest_cmd, category = "generate_manifest", identifier = module_name)
 
     return (output, merge_report)
 
