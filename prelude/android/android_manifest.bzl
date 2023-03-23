@@ -7,15 +7,14 @@
 
 load("@prelude//android:android_providers.bzl", "AndroidManifestInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
-
-ROOT_APKMODULE_NAME = "dex"
+load("@prelude//android:voltron.bzl", "ROOT_MODULE")
 
 def android_manifest_impl(ctx: "context") -> ["provider"]:
     output, merge_report = generate_android_manifest(
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_manifest[RunInfo],
         ctx.attrs.skeleton,
-        ROOT_APKMODULE_NAME,
+        ROOT_MODULE,
         _get_manifests_from_deps(ctx),
         {},
     )

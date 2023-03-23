@@ -13,6 +13,7 @@ load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "A
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
+load("@prelude//android:voltron.bzl", "ROOT_MODULE")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -435,7 +436,7 @@ def _get_manifest(
             ctx,
             android_toolchain.generate_manifest[RunInfo],
             manifest_skeleton,
-            "dex",  # ROOT_APKMODULE_NAME,
+            ROOT_MODULE,
             android_packageable_info.manifests,
             manifest_entries.get("placeholders", {}),
         )
