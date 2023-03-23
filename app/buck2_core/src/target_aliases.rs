@@ -10,5 +10,5 @@
 /// When calling a command like `buck2 build dramatic`,
 /// this trait is used to resolve the string `dramatic` to a fully qualified target name.
 pub trait TargetAliasResolver {
-    fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>>;
+    fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>>;
 }

@@ -901,7 +901,7 @@ mod tests {
     struct NoAliases;
 
     impl TargetAliasResolver for NoAliases {
-        fn get<'r, 'a: 'r, 'b: 'r>(&'a self, _name: &'b str) -> anyhow::Result<Option<&'r str>> {
+        fn get<'a>(&'a self, _name: &str) -> anyhow::Result<Option<&'a str>> {
             Ok(None)
         }
     }
@@ -910,7 +910,7 @@ mod tests {
         struct Aliases(Vec<(String, String)>);
 
         impl TargetAliasResolver for Aliases {
-            fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>> {
+            fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>> {
                 Ok(self
                     .0
                     .iter()

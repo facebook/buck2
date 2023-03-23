@@ -58,7 +58,7 @@ impl PartialEq for BuckConfigTargetAliasResolver {
 }
 
 impl TargetAliasResolver for BuckConfigTargetAliasResolver {
-    fn get<'r, 'a: 'r, 'b: 'r>(&'a self, name: &'b str) -> anyhow::Result<Option<&'r str>> {
+    fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>> {
         match self.resolve_alias(name) {
             Ok(a) => Ok(Some(a)),
             Err(AliasResolutionError::MissingAliasSection | AliasResolutionError::NotAnAlias) => {
@@ -79,20 +79,16 @@ impl BuckConfigTargetAliasResolver {
 
     /// Resolves an alias in the `[alias]` section. Aliases can refer to other aliases. Any
     /// string containing ":" is considered to be the end of the alias resolution.
-    fn resolve_alias<'r, 'a: 'r, 'b: 'r>(
-        &'a self,
-        alias_in: &'b str,
-    ) -> Result<&'r str, AliasResolutionError> {
-        // The rebinding is necessary to give `alias` a different lifetime.
-        let mut alias = alias_in;
-
+    fn resolve_alias<'a>(&'a self, alias: &str) -> Result<&'a str, AliasResolutionError> {
         if alias.contains(':') {
             return Err(AliasResolutionError::NotAnAlias);
         }
 
+        let mut alias = alias;
+
         let section = self.config.get_section("alias");
         let mut stack = IndexSet::<&str>::new();
-        while !alias.contains(':') {
+        loop {
             if stack.contains(alias) {
                 return Err(AliasResolutionError::AliasCycle(
                     stack.into_iter().map(|s| s.to_owned()).collect(),
@@ -100,7 +96,7 @@ impl BuckConfigTargetAliasResolver {
                 ));
             }
 
-            alias = match &section {
+            let new_alias = match &section {
                 Some(section) => match section.get(alias) {
                     Some(v) => {
                         stack.insert(alias);
@@ -121,9 +117,12 @@ impl BuckConfigTargetAliasResolver {
                 },
                 None => return Err(AliasResolutionError::MissingAliasSection),
             };
-        }
 
-        Ok(alias)
+            if new_alias.contains(':') {
+                return Ok(new_alias);
+            }
+            alias = new_alias;
+        }
     }
 }
 
