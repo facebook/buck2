@@ -14,7 +14,11 @@ Examples of rules requiring dynamic dependencies include:
 * Erlang header files, where only a subset of the available headers are accessed, which can be determined by reading the source file.
 * Erlang BEAM files, where some subset of BEAM files must be compiled in a given order, as they provide features like compiler plugins, but most can be compiled in parallel.
 
-A full list of worked out use cases is available in the [Dynamic Dependencies](https://docs.google.com/document/d/1K8RgvDMvdDFsLWAu0cehauJstHZaFe-7NeaAqWe4-L4/edit) Google document.
+<FbInternalOnly>
+
+The original design document with discussion is available [here](https://docs.google.com/document/d/1K8RgvDMvdDFsLWAu0cehauJstHZaFe-7NeaAqWe4-L4/edit).
+
+</FbInternalOnly>
 
 ## Implementation
 
