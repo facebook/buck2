@@ -86,7 +86,7 @@ enum TargetPatternParseError {
 /// This is either 'TargetLabel', 'ConfiguredTargetLabel', or
 /// 'ConfiguredProvidersLabel'
 pub trait PatternType:
-    Sized + Clone + Default + Display + Debug + PartialEq + Eq + Ord + Allocative
+    Sized + Clone + Default + Display + Debug + PartialEq + Eq + Ord + Allocative + 'static
 {
     const NAME: &'static str;
 
@@ -96,6 +96,25 @@ pub trait PatternType:
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
     ) -> anyhow::Result<Self>;
+}
+
+pub fn display_precise_pattern<'a, T: PatternType>(
+    package: &'a PackageLabel,
+    target_name: &'a TargetNameRef,
+    extra: &'a T,
+) -> impl Display + 'a {
+    #[derive(derive_more::Display)]
+    #[display(fmt = "{}:{}{}", package, target_name, extra)]
+    struct Impl<'a, T: PatternType> {
+        package: &'a PackageLabel,
+        target_name: &'a TargetNameRef,
+        extra: &'a T,
+    }
+    Impl {
+        package,
+        target_name,
+        extra,
+    }
 }
 
 /// Pattern that matches an explicit target without any inner providers label.
@@ -452,7 +471,11 @@ impl<T: PatternType> Display for ParsedPattern<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParsedPattern::Target(package, target_name, pattern) => {
-                write!(f, "{}:{}{}", package.as_cell_path(), target_name, pattern)
+                write!(
+                    f,
+                    "{}",
+                    display_precise_pattern(package, target_name.as_ref(), pattern)
+                )
             }
             ParsedPattern::Package(package) => {
                 write!(f, "{}:", package.as_cell_path())
