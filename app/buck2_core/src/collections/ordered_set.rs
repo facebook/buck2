@@ -129,6 +129,11 @@ impl<T> OrderedSet<T> {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+
+    #[inline]
     pub fn sort(&mut self)
     where
         T: Ord,

@@ -121,6 +121,11 @@ impl<K, V> OrderedMap<K, V> {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+
+    #[inline]
     pub fn entry(&mut self, k: K) -> small_map::Entry<'_, K, V>
     where
         K: Hash + Eq,

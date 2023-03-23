@@ -114,6 +114,11 @@ impl<K, V> UnorderedMap<K, V> {
             .map(|(_, v)| v)
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
     /// This function is private.
     #[inline]
     fn iter(&self) -> impl Iterator<Item = (&K, &V)> {

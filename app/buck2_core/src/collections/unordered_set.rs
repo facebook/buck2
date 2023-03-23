@@ -42,6 +42,11 @@ impl<T> UnorderedSet<T> {
         self.map.insert(k, ()).is_none()
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
