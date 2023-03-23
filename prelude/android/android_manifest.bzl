@@ -30,7 +30,7 @@ def generate_android_manifest(
         generate_manifest: RunInfo.type,
         manifest_skeleton: "artifact",
         module_name: str.type,
-        manifests_tset: ["ManifestTSet", None],
+        manifests: ["ManifestTSet", ["artifact"], None],
         placeholder_entries: "dict") -> ("artifact", "artifact"):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
@@ -40,7 +40,11 @@ def generate_android_manifest(
         module_name,
     ])
 
-    manifests = manifests_tset.project_as_args("artifacts", ordering = "bfs") if manifests_tset else []
+    if not manifests:
+        manifests = []
+    elif type(manifests) == "transitive_set":
+        manifests = manifests.project_as_args("artifacts", ordering = "bfs")
+
     library_manifest_paths_file = ctx.actions.write("library_manifest_paths_file", manifests)
 
     generate_manifest_cmd.add(["--library-manifests-list", library_manifest_paths_file])
