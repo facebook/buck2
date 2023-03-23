@@ -11,10 +11,10 @@ use anyhow::Context;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::FileOps;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
+use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellInstance;
 use buck2_core::cells::CellResolver;
@@ -35,7 +35,6 @@ pub struct PatternParser {
 impl PatternParser {
     pub async fn new(ctx: &DiceComputations, cwd: &ProjectRelativePath) -> anyhow::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await?;
-        let config = ctx.get_legacy_configs().await?;
 
         let cwd = cell_resolver.get_cell_path(&cwd)?;
         let cell_name = cwd.cell();
@@ -47,7 +46,7 @@ impl PatternParser {
             .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
             .dupe();
 
-        let target_alias_resolver = config.get(cell_name)?.target_alias_resolver();
+        let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
         Ok(Self {
             cell,
