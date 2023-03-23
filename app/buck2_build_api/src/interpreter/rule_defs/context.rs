@@ -108,7 +108,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 
 #[derive(ProvidesStaticType, Debug, Trace, NoSerialize, Allocative)]
 pub struct AnalysisContext<'v> {
-    attributes: Value<'v>, // A struct
+    attrs: Value<'v>, // A struct
     actions: ValueTyped<'v, AnalysisActions<'v>>,
     label: Option<ValueTyped<'v, Label>>,
 }
@@ -138,19 +138,19 @@ impl<'v> AnalysisContext<'v> {
     /// The context that is provided to users' UDR implementation functions. Comprised of things like attribute values, actions, etc
     pub fn new(
         heap: &'v Heap,
-        attributes: Value<'v>,
+        attrs: Value<'v>,
         label: Option<ValueTyped<'v, Label>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
         // Check the types match what the user expects.
-        assert!(StructRef::from_value(attributes).is_some());
+        assert!(StructRef::from_value(attrs).is_some());
 
         Self {
-            attributes,
+            attrs,
             actions: heap.alloc_typed(AnalysisActions {
                 state: RefCell::new(Some(registry)),
-                attributes,
+                attributes: attrs,
                 digest_config,
             }),
             label,
@@ -241,7 +241,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
 fn register_context(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
-        Ok(this.0.attributes)
+        Ok(this.0.attrs)
     }
 
     #[starlark(attribute)]
