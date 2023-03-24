@@ -27,8 +27,8 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
-use buck2_core::pattern::TargetPatternExtra;
 use buck2_core::target::label::TargetLabel;
 use thiserror::Error;
 

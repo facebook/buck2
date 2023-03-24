@@ -9,9 +9,9 @@
 
 pub mod testing {
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
+    use buck2_core::pattern::pattern_type::TargetPatternExtra;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::pattern::ProvidersPatternExtra;
-    use buck2_core::pattern::TargetPatternExtra;
     use buck2_core::target::label::TargetLabel;
     use buck2_interpreter::types::label::Label;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;

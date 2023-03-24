@@ -30,8 +30,8 @@ use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::package::PackageLabel;
 use crate::pattern::lex_target_pattern;
+use crate::pattern::pattern_type::TargetPatternExtra;
 use crate::pattern::ParsedPattern;
-use crate::pattern::TargetPatternExtra;
 use crate::target::name::TargetNameRef;
 
 #[derive(Eq, PartialEq, Allocative)]

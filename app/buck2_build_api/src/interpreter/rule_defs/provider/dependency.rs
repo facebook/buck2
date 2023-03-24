@@ -126,8 +126,8 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
 mod tests {
     use buck2_common::result::SharedResult;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::pattern::ProvidersPatternExtra;
     use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;

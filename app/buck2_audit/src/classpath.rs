@@ -16,7 +16,7 @@ use buck2_build_api::query::analysis::environment::classpath;
 use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::pattern::TargetPatternExtra;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

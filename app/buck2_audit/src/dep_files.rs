@@ -22,7 +22,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
-use buck2_core::pattern::TargetPatternExtra;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

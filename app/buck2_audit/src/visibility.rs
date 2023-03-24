@@ -13,7 +13,7 @@ use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::ClientContext;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_core::pattern::TargetPatternExtra;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;

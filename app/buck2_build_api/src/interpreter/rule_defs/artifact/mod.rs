@@ -63,8 +63,8 @@ pub mod testing {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
+    use buck2_core::pattern::pattern_type::TargetPatternExtra;
     use buck2_core::pattern::ParsedPattern;
-    use buck2_core::pattern::TargetPatternExtra;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::artifact::fs::ExecutorFs;
