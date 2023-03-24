@@ -16,8 +16,8 @@ load(
 load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
+    "create_group",
     "parse_groups_definitions",
-    "update_group",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -40,7 +40,7 @@ def _impl(ctx: "context") -> ["provider"]:
     resource_graph_node_map = get_resource_graph_node_map_func(resource_graph)()
     mappings = compute_mappings(
         groups = [
-            update_group(
+            create_group(
                 group = group,
                 # User provided mappings may contain entries that don't support
                 # ResourceGraph, which `create_resource_graph` removes above.

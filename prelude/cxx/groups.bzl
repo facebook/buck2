@@ -90,7 +90,8 @@ Group = record(
     attrs = GroupAttrs.type,
 )
 
-def update_group(
+# Creates a group from an existing group, overwriting any properties provided
+def create_group(
         group: Group.type,
         name: [None, str.type] = None,
         mappings: [None, [GroupMapping.type]] = None,
