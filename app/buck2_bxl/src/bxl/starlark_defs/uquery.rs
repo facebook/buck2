@@ -15,10 +15,13 @@ use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
+use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -26,6 +29,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -176,6 +180,47 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                 )
                 .map(StarlarkTargetSet::from)
         })
+    }
+
+    /// The deps query for finding the transitive closure of dependencies.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_deps(ctx):
+    ///     result = ctx.uquery().deps("root//bin:the_binary", 1)
+    ///     ctx.output.print(result)
+    /// ```
+    fn deps<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        universe: Value<'v>,
+        #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                let filter = filter
+                    .into_option()
+                    .try_map(buck2_query_parser::parse_expr)?;
+
+                this.functions
+                    .deps(
+                        &this.env,
+                        &DefaultQueryFunctionsModule::new(),
+                        &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
+                        depth.into_option(),
+                        filter
+                            .as_ref()
+                            .map(|span| CapturedExpr { expr: span })
+                            .as_ref(),
+                    )
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
     }
 
     /// The rdeps query for finding the transitive closure of reverse dependencies.
