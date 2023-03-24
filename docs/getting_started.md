@@ -22,16 +22,16 @@ With Buck2 installed, you can build projects with `buck2`!
 
 ## Compiling your first project
 
-This section covers the building of a ['hello_world' example project](https://github.com/facebookincubator/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebookincubator/buck2/tree/main/examples/prelude), which contains Rust, C++, Python, and OCaml targets.
+This section covers the building of a ['hello_world' example project](https://github.com/facebook/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/prelude), which contains Rust, C++, Python, and OCaml targets.
 
 First, clone the buck2 repository and cd into the 'hello_world' project:
 
 ```bash
-git clone https://github.com/facebookincubator/buck2.git
+git clone https://github.com/facebook/buck2.git
 cd examples/hello_world
 ```
 
- `buck2 init` is all the setup you need to start building. This will pull [buck2-prelude](https://github.com/facebookincubator/buck2-prelude) into your project:
+ `buck2 init` is all the setup you need to start building. This will pull [buck2-prelude](https://github.com/facebook/buck2-prelude) into your project:
 
 ```sh
 buck2 init
@@ -167,7 +167,7 @@ In summary, a `buck2` project requires:
 
 ## Learning More
 
-You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebookincubator/buck2/tree/main/examples) folder.  Look out for more tutorials in the future.
+You should now be ready to explore Buck2 for use in your own projects. You can explore the [examples](https://github.com/facebook/buck2/tree/main/examples) folder.  Look out for more tutorials in the future.
 
 <FbInternalOnly>
 
