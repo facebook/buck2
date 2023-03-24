@@ -125,6 +125,32 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// The inputs query for finding input files.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_inputs(ctx):
+    ///     result = ctx.uquery().inputs("root//bin:the_binary")
+    ///     ctx.output.print(result)
+    /// ```
+    fn inputs<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkFileSet> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions.inputs(
+                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+            })
+            .map(StarlarkFileSet::from)
+    }
+
     /// The filter query for filtering targets by name.
     ///
     /// Sample usage:
