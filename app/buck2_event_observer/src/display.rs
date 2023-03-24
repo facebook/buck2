@@ -30,7 +30,6 @@ use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
 use dupe::Dupe;
-use itertools::Itertools;
 use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;
 use superconsole::Line;
@@ -112,10 +111,9 @@ pub fn display_analysis_target(
 pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
-        args,
     } = ctl
     {
-        Ok(format!("{}:{}({})", bxl_path, name, args.iter().join(",")))
+        Ok(format!("{}:{}", bxl_path, name))
     } else {
         Err(ParseEventError::MissingBxlFunctionLabel.into())
     }

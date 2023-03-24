@@ -14,7 +14,6 @@ rust_library(
         "fbsource//third-party/rust:clap-3",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
-        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:thiserror",

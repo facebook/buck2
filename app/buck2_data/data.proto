@@ -1171,8 +1171,8 @@ message AnonTarget {
 
 // A bxl function key, which is a bxl function and its args
 message BxlFunctionKey {
+  reserved 2;
   BxlFunctionLabel label = 1;
-  repeated string args = 2;
 }
 
 // A bxl function label, which is its defining file and the function name

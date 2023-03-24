@@ -166,11 +166,6 @@ impl ToProtoMessage for BxlKey {
     fn as_proto(&self) -> Self::Message {
         buck2_data::BxlFunctionKey {
             label: Some(self.label().as_proto()),
-            args: self
-                .cli_args()
-                .iter()
-                .map(|(k, v)| format!("--{} {}", k, v))
-                .collect(),
         }
     }
 }
