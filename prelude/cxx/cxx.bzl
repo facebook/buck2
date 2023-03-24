@@ -10,6 +10,10 @@ load(
     "merge_android_packageable_info",
 )
 load(
+    "@prelude//cxx:link_groups.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
 )
@@ -53,7 +57,7 @@ load(
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
     ":compile.bzl",
-    "CxxSrcWithFlags",
+    "CxxSrcWithFlags",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
@@ -93,7 +97,6 @@ load(
 )
 load(
     ":link_groups.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
     "LinkGroupLibSpec",
     "get_link_group_info",
 )
