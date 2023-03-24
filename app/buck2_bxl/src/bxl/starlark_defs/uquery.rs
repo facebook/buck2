@@ -125,6 +125,35 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// The testsof query for lising the tests of the specified targets.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _testsof_impl(ctx):
+    ///     result = ctx.uquery().testsof("//:foo_lib")
+    ///     ctx.output.print(result)
+    /// ```
+    fn testsof<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions
+                    .testsof(
+                        &this.env,
+                        &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
+                    )
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// Find the build file(s) that defines a target or a target set.
     ///
     /// Sample usage:
