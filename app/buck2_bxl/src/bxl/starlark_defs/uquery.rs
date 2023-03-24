@@ -231,6 +231,35 @@ fn register_uquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
+    /// The attrregexfilter query for rule attribute filtering with regex.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attrregexfilter(ctx):
+    ///     filtered = ctx.uquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
+    ///     ctx.output.print(filtered)
+    /// ```
+    fn attrregexfilter<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        attribute: &str,
+        value: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx.async_ctx.via(|| async {
+            this.functions
+                .attrregexfilter(
+                    attribute,
+                    value,
+                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+                .map(StarlarkTargetSet::from)
+        })
+    }
+
     /// Evaluates some general query string
     ///
     /// Sample usage:
