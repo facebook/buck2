@@ -22,7 +22,7 @@ use buck2_core::fs::fs_util;
 
 /// Buck2 Init
 ///
-/// This command is intented to be part-tutorial part-convenience
+/// This command is intended to be part-tutorial part-convenience
 /// for generating buck2 projects. Given a path and optional name
 /// (in the case that the folder name is not desirable).
 #[derive(Debug, clap::Parser)]
