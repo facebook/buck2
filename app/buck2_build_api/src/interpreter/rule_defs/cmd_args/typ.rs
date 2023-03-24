@@ -507,8 +507,13 @@ fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>>
     }
 }
 
+/// The `cmd_args` type is created by `cmd_args()` and is consumed by `ctx.actions.run`.
+/// The type is a mutable collection of strings and `artifact` values.
+/// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a ``cmd_args` value.
+/// All these methods operate mutably on `cmd` and return that value too.
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
+    /// A list of arguments to be added to the command line, as per `cmd_args`
     fn add<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -517,6 +522,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
+    /// Things to add to the command line which do not show up but are added as dependencies
     fn hidden<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -525,6 +531,9 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
+    /// Conceptually the opposite of `hidden()`. It causes none of the arguments of the command line to be added as dependencies.
+    /// Use this if you need the path to an artifact but not the artifact itself.
+    /// Note: if you do find yourself needing any of the inputs referenced by this command, you will hit build errors due to missing dependencies.
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
         Ok(this)
@@ -545,11 +554,13 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
+    /// Adds a prefix to the end of every artifact
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
     }
 
+    /// Adds a suffix to the front of every artifact
     fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_suffix = Some(suffix);
         Ok(this)
@@ -570,6 +581,8 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
+    /// Replaces all parts matching pattern regular expression in each argument with replacement string.
+    /// Several replacements can be added by multiple replace_regex calls.
     fn replace_regex<'v>(
         this: Value<'v>,
         pattern: StringValue<'v>,
@@ -587,6 +600,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
+    /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other
     fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLine<'v>> {
         Ok(StarlarkCommandLineGen(RefCell::new(cmd_args(this).clone())))
     }
