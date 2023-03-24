@@ -33,7 +33,7 @@ enum ConfigurationHashError {
 pub struct ConfigurationHash(pub(crate) String);
 
 impl ConfigurationHash {
-    pub(crate) fn new(value: u64) -> ConfigurationHash {
+    pub fn new(value: u64) -> ConfigurationHash {
         ConfigurationHash(format!("{:0>16x}", value))
     }
 

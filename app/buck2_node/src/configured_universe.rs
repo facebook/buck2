@@ -164,3 +164,109 @@ impl CqueryUniverse {
         nodes
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::pattern::resolve::ResolvedPattern;
+    use buck2_core::configuration::bound_label::BoundConfigurationLabel;
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::configuration::hash::ConfigurationHash;
+    use buck2_core::package::PackageLabel;
+    use buck2_core::pattern::ConfiguredProvidersPatternExtra;
+    use buck2_core::pattern::ConfiguredProvidersPatternExtraConfiguration;
+    use buck2_core::pattern::PackageSpec;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
+    use buck2_core::provider::label::NonDefaultProvidersName;
+    use buck2_core::provider::label::ProviderName;
+    use buck2_core::provider::label::ProvidersName;
+    use buck2_core::target::label::ConfiguredTargetLabel;
+    use buck2_core::target::name::TargetName;
+    use buck2_query::__derive_refs::indexmap::IndexMap;
+    use buck2_query::query::syntax::simple::eval::set::TargetSet;
+    use dupe::Dupe;
+
+    use crate::configured_universe::CqueryUniverse;
+    use crate::nodes::configured::ConfiguredTargetNode;
+
+    #[tokio::test]
+    async fn test_get_from_package_by_configured_provider_pattern() {
+        fn providers_name() -> ProvidersName {
+            ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(Box::new([
+                ProviderName::new("P".to_owned()).unwrap(),
+            ]))))
+        }
+
+        fn resolved_pattern(
+            cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+        ) -> ResolvedPattern<ConfiguredProvidersPatternExtra> {
+            ResolvedPattern {
+                specs: IndexMap::from_iter([(
+                    PackageLabel::testing_parse("foo//bar"),
+                    PackageSpec::Targets(Vec::from_iter([(
+                        TargetName::unchecked_new("baz"),
+                        ConfiguredProvidersPatternExtra {
+                            providers: providers_name(),
+                            cfg,
+                        },
+                    )])),
+                )]),
+            }
+        }
+
+        let target_label =
+            ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
+        let universe =
+            CqueryUniverse::build(&TargetSet::from_iter([ConfiguredTargetNode::testing_new(
+                target_label.dupe(),
+                "idris_library",
+            )]))
+            .await
+            .unwrap();
+        let provider_label = ConfiguredProvidersLabel::new(target_label, providers_name());
+
+        // Any configuration.
+        assert_eq!(
+            Vec::from_iter([provider_label.clone()]),
+            universe.get_provider_labels(&resolved_pattern(None))
+        );
+        // Configuration label.
+        assert_eq!(
+            Vec::from_iter([provider_label.clone()]),
+            universe.get_provider_labels(&resolved_pattern(Some(
+                ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new(
+                        ConfigurationData::testing_new().label().unwrap().to_owned()
+                    )
+                    .unwrap(),
+                    None,
+                )
+            )))
+        );
+        // Configuration label with hash.
+        assert_eq!(
+            Vec::from_iter([provider_label]),
+            universe.get_provider_labels(&resolved_pattern(Some(
+                ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new(
+                        ConfigurationData::testing_new().label().unwrap().to_owned()
+                    )
+                    .unwrap(),
+                    Some(ConfigurationData::testing_new().output_hash().clone()),
+                )
+            )))
+        );
+        // Configuration label with wrong hash.
+        assert_eq!(
+            Vec::<ConfiguredProvidersLabel>::new(),
+            universe.get_provider_labels(&resolved_pattern(Some(
+                ConfiguredProvidersPatternExtraConfiguration::Bound(
+                    BoundConfigurationLabel::new(
+                        ConfigurationData::testing_new().label().unwrap().to_owned()
+                    )
+                    .unwrap(),
+                    Some(ConfigurationHash::new(17)),
+                )
+            )))
+        );
+    }
+}

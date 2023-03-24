@@ -35,6 +35,7 @@ buck2_util = { workspace = true }
 
 [dev-dependencies]
 maplit = { workspace = true }
+tokio = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

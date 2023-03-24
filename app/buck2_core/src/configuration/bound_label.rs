@@ -38,7 +38,7 @@ enum BoundConfigurationLabelError {
 pub struct BoundConfigurationLabel(String);
 
 impl BoundConfigurationLabel {
-    pub(crate) fn new(label: String) -> anyhow::Result<BoundConfigurationLabel> {
+    pub fn new(label: String) -> anyhow::Result<BoundConfigurationLabel> {
         if label.is_empty() {
             return Err(BoundConfigurationLabelError::LabelIsEmpty.into());
         }
