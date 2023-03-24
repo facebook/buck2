@@ -87,7 +87,7 @@ impl PatternType for TargetPatternExtra {
         if providers != ProvidersName::Default {
             return Err(PatternTypeError::ExpectingTargetNameWithoutProviders.into());
         }
-        if cfg.is_some() {
+        if !cfg.is_any() {
             return Err(PatternTypeError::ExpectingTargetPatternWithoutConfiguration.into());
         }
         Ok(TargetPatternExtra)
@@ -140,7 +140,7 @@ impl PatternType for ProvidersPatternExtra {
         providers: ConfiguredProvidersPatternExtra,
     ) -> anyhow::Result<Self> {
         let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
-        if cfg.is_some() {
+        if !cfg.is_any() {
             return Err(PatternTypeError::ExpectingProviderPatternWithoutConfiguration.into());
         }
         Ok(ProvidersPatternExtra { providers })
@@ -155,9 +155,14 @@ impl PatternType for ProvidersPatternExtra {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-pub enum ConfiguredProvidersPatternExtraConfiguration {
+#[derive(Default, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+pub enum ConfigurationPredicate {
+    /// Matches any configuration.
+    #[default]
+    Any,
+    /// Matches builtin platform.
     Builtin(BuiltinPlatform),
+    /// Matches user defined configuration.
     Bound(
         BoundConfigurationLabel,
         /// None means match any configuration with given label.
@@ -165,20 +170,52 @@ pub enum ConfiguredProvidersPatternExtraConfiguration {
     ),
 }
 
-impl Display for ConfiguredProvidersPatternExtraConfiguration {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl ConfigurationPredicate {
+    fn is_any(&self) -> bool {
+        matches!(self, ConfigurationPredicate::Any)
+    }
+
+    fn matches_cfg(&self, cfg: &ConfigurationData) -> bool {
         match self {
-            ConfiguredProvidersPatternExtraConfiguration::Builtin(builtin) => {
-                write!(f, "{}", builtin)
+            ConfigurationPredicate::Any => true,
+            ConfigurationPredicate::Builtin(builtin) => {
+                cfg == &ConfigurationData::builtin(*builtin)
             }
-            ConfiguredProvidersPatternExtraConfiguration::Bound(label, hash) => {
-                write!(f, "{}", label)?;
-                if let Some(hash) = hash {
-                    write!(f, "#{}", hash)?;
+            ConfigurationPredicate::Bound(label, hash) => match cfg.bound() {
+                None => false,
+                Some(cfg_label) => {
+                    label == cfg_label
+                        && (hash.is_none() || hash.as_ref() == Some(cfg.output_hash()))
                 }
-                Ok(())
+            },
+        }
+    }
+}
+
+impl ConfigurationPredicate {
+    fn display_suffix(&self) -> impl Display + '_ {
+        struct Impl<'a>(&'a ConfigurationPredicate);
+
+        impl Display for Impl<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                match self.0 {
+                    ConfigurationPredicate::Any => Ok(()),
+                    ConfigurationPredicate::Builtin(builtin) => {
+                        write!(f, " ({})", builtin)
+                    }
+                    ConfigurationPredicate::Bound(label, hash) => {
+                        write!(f, " ({}", label)?;
+                        if let Some(hash) = hash {
+                            write!(f, "#{}", hash)?;
+                        }
+                        write!(f, ")")?;
+                        Ok(())
+                    }
+                }
             }
         }
+
+        Impl(self)
     }
 }
 
@@ -186,16 +223,12 @@ impl Display for ConfiguredProvidersPatternExtraConfiguration {
 pub struct ConfiguredProvidersPatternExtra {
     pub providers: ProvidersName,
     /// Configuration part of pattern `foo//bar:baz[Provider] (cfg#ab01)`.
-    pub cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+    pub cfg: ConfigurationPredicate,
 }
 
 impl Display for ConfiguredProvidersPatternExtra {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.providers)?;
-        if let Some(cfg) = &self.cfg {
-            write!(f, " ({})", cfg)?;
-        }
-        Ok(())
+        write!(f, "{}{}", self.providers, self.cfg.display_suffix())
     }
 }
 
@@ -207,21 +240,7 @@ impl PatternType for ConfiguredProvidersPatternExtra {
     }
 
     fn matches_cfg(&self, cfg: &ConfigurationData) -> bool {
-        match &self.cfg {
-            None => true,
-            Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(builtin)) => {
-                cfg == &ConfigurationData::builtin(*builtin)
-            }
-            Some(ConfiguredProvidersPatternExtraConfiguration::Bound(label, hash)) => {
-                match cfg.bound() {
-                    None => false,
-                    Some(cfg_label) => {
-                        label == cfg_label
-                            && (hash.is_none() || hash.as_ref() == Some(cfg.output_hash()))
-                    }
-                }
-            }
-        }
+        self.cfg.matches_cfg(cfg)
     }
 
     fn into_providers(self) -> ProvidersName {
@@ -236,8 +255,8 @@ mod tests {
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
     use crate::configuration::hash::ConfigurationHash;
+    use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
-    use crate::pattern::pattern_type::ConfiguredProvidersPatternExtraConfiguration;
     use crate::pattern::pattern_type::PatternType;
     use crate::provider::label::ProvidersName;
 
@@ -256,34 +275,32 @@ mod tests {
         // Possible matchers.
         let catch_all = ConfiguredProvidersPatternExtra {
             providers: ProvidersName::Default,
-            cfg: None,
+            cfg: ConfigurationPredicate::Any,
         };
         let catch_unbound = ConfiguredProvidersPatternExtra {
             providers: ProvidersName::Default,
-            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(
-                BuiltinPlatform::Unbound,
-            )),
+            cfg: ConfigurationPredicate::Builtin(BuiltinPlatform::Unbound),
         };
         let catch_foo_any = ConfiguredProvidersPatternExtra {
             providers: ProvidersName::Default,
-            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+            cfg: ConfigurationPredicate::Bound(
                 BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
                 None,
-            )),
+            ),
         };
         let catch_foo_with_hash = ConfiguredProvidersPatternExtra {
             providers: ProvidersName::Default,
-            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+            cfg: ConfigurationPredicate::Bound(
                 BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
                 Some(foo.output_hash().clone()),
-            )),
+            ),
         };
         let catch_foo_wrong_hash = ConfiguredProvidersPatternExtra {
             providers: ProvidersName::Default,
-            cfg: Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+            cfg: ConfigurationPredicate::Bound(
                 BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
                 Some(ConfigurationHash::new(17)),
-            )),
+            ),
         };
 
         // Now the tests.

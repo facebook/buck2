@@ -23,8 +23,8 @@ use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pattern_type::ConfigurationPredicate;
 use pattern_type::ConfiguredProvidersPatternExtra;
-use pattern_type::ConfiguredProvidersPatternExtraConfiguration;
 use pattern_type::PatternType;
 use pattern_type::ProvidersPatternExtra;
 use pattern_type::TargetPatternExtra;
@@ -577,9 +577,7 @@ fn lex_provider_pattern<'a>(
     })
 }
 
-fn lex_configured_provider_extra(
-    pattern: &str,
-) -> anyhow::Result<ConfiguredProvidersPatternExtraConfiguration> {
+fn lex_configuration_predicate(pattern: &str) -> anyhow::Result<ConfigurationPredicate> {
     let pattern = pattern
         .strip_prefix('(')
         .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
@@ -590,18 +588,13 @@ fn lex_configured_provider_extra(
         Some((cfg, hash)) => {
             let cfg = BoundConfigurationLabel::new(cfg.to_owned())?;
             let hash = ConfigurationHash::from_str(hash)?;
-            Ok(ConfiguredProvidersPatternExtraConfiguration::Bound(
-                cfg,
-                Some(hash),
-            ))
+            Ok(ConfigurationPredicate::Bound(cfg, Some(hash)))
         }
         None => {
             if let Some(builtin) = BuiltinPlatform::from_label(pattern) {
-                Ok(ConfiguredProvidersPatternExtraConfiguration::Builtin(
-                    builtin,
-                ))
+                Ok(ConfigurationPredicate::Builtin(builtin))
             } else {
-                Ok(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                Ok(ConfigurationPredicate::Bound(
                     BoundConfigurationLabel::new(pattern.to_owned())?,
                     None,
                 ))
@@ -642,12 +635,12 @@ pub fn lex_configured_providers_pattern<'a>(
     let (provider_pattern, cfg) = match split_cfg(pattern) {
         Some((providers, cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
-            let cfg = lex_configured_provider_extra(cfg)?;
-            (provider_pattern, Some(cfg))
+            let cfg = lex_configuration_predicate(cfg)?;
+            (provider_pattern, cfg)
         }
         None => (
             lex_provider_pattern(pattern, strip_package_trailing_slash)?,
-            None,
+            ConfigurationPredicate::Any,
         ),
     };
     provider_pattern.try_map(|ProvidersPatternExtra { providers }| {
@@ -946,7 +939,7 @@ mod tests {
         path: &str,
         target: &str,
         providers: Option<&[&str]>,
-        cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+        cfg: ConfigurationPredicate,
     ) -> ParsedPattern<ConfiguredProvidersPatternExtra> {
         mk_providers(cell, path, target, providers)
             .try_map(|ProvidersPatternExtra { providers }| {
@@ -1350,7 +1343,13 @@ mod tests {
     #[test]
     fn test_parse_configured_providers_pattern() -> anyhow::Result<()> {
         assert_eq!(
-            mk_configured_providers("root", "package/path", "target", None, None),
+            mk_configured_providers(
+                "root",
+                "package/path",
+                "target",
+                None,
+                ConfigurationPredicate::Any
+            ),
             ParsedPattern::parse_precise(&resolver(), "//package/path:target")?
         );
         assert_eq!(
@@ -1359,9 +1358,7 @@ mod tests {
                 "package/path",
                 "target",
                 None,
-                Some(ConfiguredProvidersPatternExtraConfiguration::Builtin(
-                    BuiltinPlatform::Unspecified
-                ))
+                ConfigurationPredicate::Builtin(BuiltinPlatform::Unspecified)
             ),
             ParsedPattern::parse_precise(&resolver(), "//package/path:target (<unspecified>)")?
         );
@@ -1371,10 +1368,10 @@ mod tests {
                 "package/path",
                 "target",
                 Some(&["P"]),
-                Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                ConfigurationPredicate::Bound(
                     BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
                     None
-                ))
+                ),
             ),
             ParsedPattern::parse_precise(&resolver(), "//package/path:target[P] (<foo>)")?
         );
@@ -1384,10 +1381,10 @@ mod tests {
                 "package/path",
                 "target",
                 Some(&["P"]),
-                Some(ConfiguredProvidersPatternExtraConfiguration::Bound(
+                ConfigurationPredicate::Bound(
                     BoundConfigurationLabel::new("<foo>".to_owned()).unwrap(),
                     Some(ConfigurationHash::from_str("0123456789abcdef").unwrap()),
-                ))
+                ),
             ),
             ParsedPattern::parse_precise(
                 &resolver(),

@@ -172,8 +172,8 @@ mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::hash::ConfigurationHash;
     use buck2_core::package::PackageLabel;
+    use buck2_core::pattern::pattern_type::ConfigurationPredicate;
     use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
-    use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtraConfiguration;
     use buck2_core::pattern::PackageSpec;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::NonDefaultProvidersName;
@@ -197,7 +197,7 @@ mod tests {
         }
 
         fn resolved_pattern(
-            cfg: Option<ConfiguredProvidersPatternExtraConfiguration>,
+            cfg: ConfigurationPredicate,
         ) -> ResolvedPattern<ConfiguredProvidersPatternExtra> {
             ResolvedPattern {
                 specs: IndexMap::from_iter([(
@@ -227,45 +227,39 @@ mod tests {
         // Any configuration.
         assert_eq!(
             Vec::from_iter([provider_label.clone()]),
-            universe.get_provider_labels(&resolved_pattern(None))
+            universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Any))
         );
         // Configuration label.
         assert_eq!(
             Vec::from_iter([provider_label.clone()]),
-            universe.get_provider_labels(&resolved_pattern(Some(
-                ConfiguredProvidersPatternExtraConfiguration::Bound(
-                    BoundConfigurationLabel::new(
-                        ConfigurationData::testing_new().label().unwrap().to_owned()
-                    )
-                    .unwrap(),
-                    None,
+            universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Bound(
+                BoundConfigurationLabel::new(
+                    ConfigurationData::testing_new().label().unwrap().to_owned()
                 )
+                .unwrap(),
+                None,
             )))
         );
         // Configuration label with hash.
         assert_eq!(
             Vec::from_iter([provider_label]),
-            universe.get_provider_labels(&resolved_pattern(Some(
-                ConfiguredProvidersPatternExtraConfiguration::Bound(
-                    BoundConfigurationLabel::new(
-                        ConfigurationData::testing_new().label().unwrap().to_owned()
-                    )
-                    .unwrap(),
-                    Some(ConfigurationData::testing_new().output_hash().clone()),
+            universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Bound(
+                BoundConfigurationLabel::new(
+                    ConfigurationData::testing_new().label().unwrap().to_owned()
                 )
+                .unwrap(),
+                Some(ConfigurationData::testing_new().output_hash().clone()),
             )))
         );
         // Configuration label with wrong hash.
         assert_eq!(
             Vec::<ConfiguredProvidersLabel>::new(),
-            universe.get_provider_labels(&resolved_pattern(Some(
-                ConfiguredProvidersPatternExtraConfiguration::Bound(
-                    BoundConfigurationLabel::new(
-                        ConfigurationData::testing_new().label().unwrap().to_owned()
-                    )
-                    .unwrap(),
-                    Some(ConfigurationHash::new(17)),
+            universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Bound(
+                BoundConfigurationLabel::new(
+                    ConfigurationData::testing_new().label().unwrap().to_owned()
                 )
+                .unwrap(),
+                Some(ConfigurationHash::new(17)),
             )))
         );
     }
