@@ -470,14 +470,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if cxx_use_bolt(ctx):
         sub_targets["prebolt"] = [DefaultInfo(default_output = binary.prebolt_output)]
 
-    (linker_map, binary_for_linker_map) = _linker_map(
+    linker_map_data = _linker_map(
         ctx,
         binary,
         [LinkArgs(flags = extra_args)] + links,
         prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
         link_weight = linker_info.link_weight,
     )
-    sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map, other_outputs = [binary_for_linker_map])]
+    sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map_data.map, other_outputs = [linker_map_data.binary])]
 
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_output = binary.linker_argsfile,
@@ -498,6 +498,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         shared_libs = shared_libs,
         auto_link_groups = auto_link_groups,
     ), comp_db_info, xcode_data_info
+
+_LinkerMapData = record(
+    map = field("artifact"),
+    binary = field("artifact"),
+)
 
 _CxxLinkExecutableResult = record(
     # The resulting executable
@@ -553,7 +558,7 @@ def _linker_map(
         binary: LinkedObject.type,
         links: [LinkArgs.type],
         prefer_local: bool.type,
-        link_weight: int.type) -> ("artifact", "artifact"):
+        link_weight: int.type) -> _LinkerMapData.type:
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
     linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
@@ -569,9 +574,9 @@ def _linker_map(
         identifier = identifier,
         generate_dwp = False,
     )
-    return (
-        linker_map,
-        binary_for_linker_map,
+    return _LinkerMapData(
+        map = linker_map,
+        binary = binary_for_linker_map,
     )
 
 def get_cxx_executable_product_name(ctx: "context") -> str.type:
