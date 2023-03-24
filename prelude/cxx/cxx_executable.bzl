@@ -377,7 +377,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         dep_links,
     ] + impl_params.extra_link_args
 
-    link_result = _link_into_executable(
+    binary, runtime_files, shared_libs_symlink_tree, extra_args = _link_into_executable(
         ctx,
         links,
         # If shlib lib tree generation is enabled, pass in the shared libs (which
@@ -394,10 +394,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         force_full_hybrid_if_capable = impl_params.force_full_hybrid_if_capable,
         category_suffix = impl_params.exe_category_suffix,
     )
-    binary = link_result.exe
-    runtime_files = link_result.runtime_files
-    shared_libs_symlink_tree = link_result.shared_libs_symlink_tree
-    extra_args = link_result.extra_args
 
     # Define the xcode data sub target
     xcode_data_default_info, xcode_data_info = generate_xcode_data(
@@ -499,17 +495,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         auto_link_groups = auto_link_groups,
     ), comp_db_info, xcode_data_info
 
-_CxxLinkExecutableResult = record(
-    # The resulting executable
-    exe = LinkedObject.type,
-    # List of files/directories that should be present for executable to be run successfully
-    runtime_files = ["_arglike"],
-    # Optional shared libs symlink tree symlinked_dir action
-    shared_libs_symlink_tree = ["artifact", None],
-    # Extra linking args (for the shared_libs)
-    extra_args = [""],
-)
-
+# Returns a tuple of:
+# - the resulting executable
+# - list of files/directories that should be present for executable to be run successfully
+# - optional shared libs symlink tree symlinked_dir action
+# - extra linking args (for the shared_libs)
 def _link_into_executable(
         ctx: "context",
         links: [LinkArgs.type],
@@ -523,7 +513,7 @@ def _link_into_executable(
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
-        category_suffix: [str.type, None] = None) -> _CxxLinkExecutableResult.type:
+        category_suffix: [str.type, None] = None) -> (LinkedObject.type, ["_arglike"], ["artifact", None], [""]):
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
         ctx.actions,
@@ -546,7 +536,7 @@ def _link_into_executable(
         link_postprocessor = link_postprocessor,
         force_full_hybrid_if_capable = force_full_hybrid_if_capable,
     )
-    return _CxxLinkExecutableResult(exe = exe, runtime_files = runtime_files, shared_libs_symlink_tree = shared_libs_symlink_tree, extra_args = extra_args)
+    return (exe, runtime_files, shared_libs_symlink_tree, extra_args)
 
 def _linker_map(
         ctx: "context",
