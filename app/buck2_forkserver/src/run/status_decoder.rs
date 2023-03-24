@@ -111,14 +111,27 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 {
                     use std::os::unix::process::ExitStatusExt;
                     let exit_code = default_decode_exit_code(ExitStatus::from_raw(v));
+                    let execution_stats =
+                        status
+                            .counters
+                            .map(|counters| buck2_data::CommandExecutionStats {
+                                cpu_instructions_user: Some(
+                                    counters.user_instructions.adjusted_count(),
+                                ),
+                                cpu_instructions_kernel: Some(
+                                    counters.kernel_instructions.adjusted_count(),
+                                ),
+                            });
+
+                    if let Err(e) = execution_stats.as_ref() {
+                        // TODO @torozco: report this in the event log? Might be verbose for little
+                        // value.
+                        tracing::debug!("Miniperf stats not availble: {}", e);
+                    }
+
                     Ok(DecodedStatus::Status {
                         exit_code,
-                        execution_stats: Some(buck2_data::CommandExecutionStats {
-                            cpu_instructions_user: Some(status.user_instructions.adjusted_count()),
-                            cpu_instructions_kernel: Some(
-                                status.kernel_instructions.adjusted_count(),
-                            ),
-                        }),
+                        execution_stats: execution_stats.ok(),
                     })
                 }
 

@@ -13,6 +13,7 @@ use std::process::Command;
 
 use anyhow::Context as _;
 use buck2_miniperf_proto::MiniperfCounter;
+use buck2_miniperf_proto::MiniperfCounters;
 use buck2_miniperf_proto::MiniperfOutput;
 use perf_event::events::Hardware;
 use perf_event::Builder;
@@ -64,16 +65,18 @@ pub fn main() -> anyhow::Result<()> {
 
     let output = MiniperfOutput {
         raw_exit_code: status.map(|s| s.into_raw()).map_err(|e| e.to_string()),
-        user_instructions: MiniperfCounter {
-            count: user_value.count,
-            time_enabled: user_value.time_enabled,
-            time_running: user_value.time_running,
-        },
-        kernel_instructions: MiniperfCounter {
-            count: kernel_value.count,
-            time_enabled: kernel_value.time_enabled,
-            time_running: kernel_value.time_running,
-        },
+        counters: Ok(MiniperfCounters {
+            user_instructions: MiniperfCounter {
+                count: user_value.count,
+                time_enabled: user_value.time_enabled,
+                time_running: user_value.time_running,
+            },
+            kernel_instructions: MiniperfCounter {
+                count: kernel_value.count,
+                time_enabled: kernel_value.time_enabled,
+                time_running: kernel_value.time_running,
+            },
+        }),
     };
 
     // Stack allocate in the happy path.

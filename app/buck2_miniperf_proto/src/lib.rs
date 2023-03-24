@@ -14,7 +14,11 @@ use dupe::Dupe;
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct MiniperfOutput {
     pub raw_exit_code: Result<i32, String>,
+    pub counters: Result<MiniperfCounters, String>,
+}
 
+#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Dupe)]
+pub struct MiniperfCounters {
     /// Total instructions executed.
     pub user_instructions: MiniperfCounter,
     pub kernel_instructions: MiniperfCounter,
@@ -22,7 +26,7 @@ pub struct MiniperfOutput {
 
 impl MiniperfOutput {
     // This is the size we expect this record to take if the command worked out fine.
-    pub const EXPECTED_SIZE: usize = 56;
+    pub const EXPECTED_SIZE: usize = 60;
 }
 
 /// The fields here come straight out of `perf_event_open`. The count is
@@ -84,8 +88,10 @@ mod test {
         };
         let output = MiniperfOutput {
             raw_exit_code: Ok(i32::MAX),
-            user_instructions: max_counter,
-            kernel_instructions: max_counter,
+            counters: Ok(MiniperfCounters {
+                user_instructions: max_counter,
+                kernel_instructions: max_counter,
+            }),
         };
 
         assert_eq!(

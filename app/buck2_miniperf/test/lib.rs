@@ -33,8 +33,22 @@ fn test_miniperf() -> anyhow::Result<()> {
     let out = bincode::deserialize::<MiniperfOutput>(&out).context("Failed to deserialize")?;
 
     // Check that we're within 5%
-    assert!(out.user_instructions.adjusted_count() > 2850000000);
-    assert!(out.user_instructions.adjusted_count() < 3150000000);
+    assert!(
+        out.counters
+            .as_ref()
+            .unwrap()
+            .user_instructions
+            .adjusted_count()
+            > 2850000000
+    );
+    assert!(
+        out.counters
+            .as_ref()
+            .unwrap()
+            .user_instructions
+            .adjusted_count()
+            < 3150000000
+    );
 
     Ok(())
 }
