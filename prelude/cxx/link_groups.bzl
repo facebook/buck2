@@ -8,14 +8,14 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_groups.bzl",
-    "LinkGroupLib",  # @unused Used as a type
+    "LinkGroupLib",
     "LinkGroupLibInfo",
 )
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
-    "LinkInfo",  # @unused Used as a type
-    "LinkInfos",  # @unused Used as a type
+    "LinkInfo",
+    "LinkInfos",
     "LinkStyle",
     "Linkage",
     "LinkedObject",  # @unused Used as a type
