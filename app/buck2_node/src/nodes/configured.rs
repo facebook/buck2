@@ -18,6 +18,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::unordered_map::UnorderedMap;
@@ -64,6 +65,7 @@ use crate::nodes::unconfigured::RuleKind;
 use crate::nodes::unconfigured::TargetNode;
 use crate::provider_id_set::ProviderIdSet;
 use crate::rule_type::RuleType;
+use crate::rule_type::StarlarkRuleType;
 
 /// ConfiguredTargetNode contains the information for a target in a particular configuration.
 ///
@@ -194,16 +196,18 @@ struct ConfiguredNodeAttr {
 
 impl ConfiguredTargetNode {
     /// Creates a minimal ConfiguredTargetNode. Some operations may unexpectedly fail.
-    pub fn testing_new(
-        name: ConfiguredTargetLabel,
-        rule_type: RuleType,
-        attrs: Vec<(&str, crate::attrs::attr::Attribute, CoercedAttr)>,
-        execution_platform_resolution: ExecutionPlatformResolution,
-    ) -> Self {
+    pub fn testing_new(name: ConfiguredTargetLabel, rule_type: &str) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
+
+        let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
+            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
+            name: rule_type.to_owned(),
+        }));
+        let execution_platform_resolution = ExecutionPlatformResolution::new(None, Vec::new());
+
         Self::new(
             name.dupe(),
-            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs),
+            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, Vec::new()),
             ResolvedConfiguration::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
                 UnorderedMap::new(),

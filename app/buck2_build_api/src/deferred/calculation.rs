@@ -387,17 +387,13 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
-    use buck2_core::bzl::ImportPath;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::target::label::TargetLabel;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
-    use buck2_node::configuration::execution::ExecutionPlatformResolution;
     use buck2_node::nodes::configured::ConfiguredTargetNode;
-    use buck2_node::rule_type::RuleType;
-    use buck2_node::rule_type::StarlarkRuleType;
     use buck2_query::query::compatibility::MaybeCompatible;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -483,15 +479,7 @@ mod tests {
             .mock_and_return(
                 configured_node_key,
                 Ok(MaybeCompatible::Compatible(
-                    ConfiguredTargetNode::testing_new(
-                        target.dupe(),
-                        RuleType::Starlark(Arc::new(StarlarkRuleType {
-                            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
-                            name: "foo_lib".to_owned(),
-                        })),
-                        Vec::new(),
-                        ExecutionPlatformResolution::new(None, Vec::new()),
-                    ),
+                    ConfiguredTargetNode::testing_new(target.dupe(), "foo_lib"),
                 )),
             );
 
@@ -583,15 +571,7 @@ mod tests {
             .mock_and_return(
                 configured_node_key,
                 Ok(MaybeCompatible::Compatible(
-                    ConfiguredTargetNode::testing_new(
-                        target.dupe(),
-                        RuleType::Starlark(Arc::new(StarlarkRuleType {
-                            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
-                            name: "foo_lib".to_owned(),
-                        })),
-                        Vec::new(),
-                        ExecutionPlatformResolution::new(None, Vec::new()),
-                    ),
+                    ConfiguredTargetNode::testing_new(target.dupe(), "foo_lib"),
                 )),
             );
 
