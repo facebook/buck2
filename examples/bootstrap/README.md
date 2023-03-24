@@ -6,7 +6,7 @@ This project provides an example of what it might look like to configure a boots
 
 1. Build or install `buck2` with Cargo
 2. This project assumes Rust, Clang, and Python to be present. See `toolchains/BUCK` for how we pull those in from the system.
-3. Run `buck2 init`
+3. Run `buck2 init --git`
 4. Run commands: e.g. `buck2 run :hello_world`, `buck2 build //...`
 
 ## Project setup

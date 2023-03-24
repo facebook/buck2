@@ -31,8 +31,13 @@ git clone https://github.com/facebookincubator/buck2.git
 cd buck2/examples/hello_world
 ```
 
- `buck2 init` is all the setup you need to start building. This will pull [buck2-prelude](https://github.com/facebook/buck2-prelude) into your project:
+ `buck2 init --git` is all the setup you need to start building. This will use git submodule to pull [buck2-prelude](https://github.com/facebook/buck2-prelude) into your project:
 
+```sh
+buck2 init --git
+```
+
+To use another version control system, run `buck2 init` and manually download [buck2-prelude](https://github.com/facebookincubator/buck2-prelude) into `prelude` at root.
 ```sh
 buck2 init
 ```
@@ -85,10 +90,10 @@ mkdir hello_world
 cd hello_world
 ```
 
-Next, run `buck2 init` to initialize the project. This command will set up your project with `git` and pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) as a submodule. Additionally, it will generate multiple files with default values.
+Next, run `buck2 init --git` to initialize the project. This command will set up your project with `git` and pull in [buck2-prelude](https://github.com/facebook/buck2-prelude) as a submodule. Additionally, it will generate multiple files with default values.
 
 ```sh
-buck2 init
+buck2 init --git
 ```
 
 Next, add the source code `main.cpp` ,
@@ -163,7 +168,7 @@ In summary, a `buck2` project requires:
 3. If using the [buck2-prelude](https://github.com/facebook/buck2-prelude.git), a `toolchains` directory that declares relevant toolchains. We provide some basic toolchains in [prelude/toolchains](https://github.com/facebook/buck2/tree/main/prelude/toolchains)
 4. `BUCK` files that specifiy targets for your project
 
-`buck2 init` will generate all of these with reasonable default values.
+`buck2 init --git` will generate all of these with reasonable default values.
 
 ## Learning More
 

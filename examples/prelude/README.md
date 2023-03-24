@@ -7,7 +7,7 @@ cargo install --path=cli --root=/tmp
 export BUCK2="/tmp/bin/buck2"
 ```
 
-## Run `buck2 init`
+## Run `buck2 init --git`
 
 Run `buck2 init` to initialize the prelude directory.
 

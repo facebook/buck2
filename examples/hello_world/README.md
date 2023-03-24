@@ -12,7 +12,7 @@ target_platform_detector_spec = target:root//...->prelude//platforms:default
 
 ## Setup
 
-Run `buck2 init`.
+Run `buck2 init --git`.
 
 ## Sample commands
 
