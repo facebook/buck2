@@ -556,7 +556,6 @@ def _linker_map(
         link_weight = link_weight,
         identifier = identifier,
         generate_dwp = False,
-        executable_link = True,
     )
     return (
         linker_map,
