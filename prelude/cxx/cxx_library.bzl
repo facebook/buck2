@@ -765,7 +765,7 @@ def _form_library_outputs(
                 if impl_params.extra_link_input_has_external_debug_info:
                     external_debug_info.extend(impl_params.extra_link_input)
 
-                soname, shlib, info = _shared_library(
+                result = _shared_library(
                     ctx,
                     impl_params,
                     compiled_srcs.pic_objects,
@@ -774,13 +774,15 @@ def _form_library_outputs(
                     gnu_use_link_groups,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                 )
+                shlib = result.shlib
+                info = result.info
                 output = _CxxLibraryOutput(
                     default = shlib.output,
                     object_files = compiled_srcs.pic_objects,
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
                 )
-                solibs[soname] = shlib
+                solibs[result.soname] = shlib
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
@@ -974,6 +976,15 @@ def _static_library(
         ),
     )
 
+_CxxSharedLibraryResult = record(
+    # Shared library name (e.g. SONAME)
+    soname = str.type,
+    # Linking result, `LinkedObject` wrapping the shared library
+    shlib = LinkedObject.type,
+    # `LinkInfo` used to link against the shared library.
+    info = LinkInfo.type,
+)
+
 def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
@@ -981,15 +992,10 @@ def _shared_library(
         external_debug_info: ["_arglike"],
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool.type,
-        link_ordering: [LinkOrdering.type, None] = None) -> (str.type, LinkedObject.type, LinkInfo.type):
+        link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
     """
     Generate a shared library and the associated native link info used by
     dependents to link against it.
-
-    Returns a 3-tuple of
-      1) shared library name (e.g. SONAME),
-      2) the `LinkedObject` wrapping the shared library, and
-      3) the `LinkInfo` used to link against the shared library.
     """
 
     soname = _soname(ctx, impl_params)
@@ -1074,10 +1080,10 @@ def _shared_library(
     if shlib.import_library:
         exported_shlib = shlib.import_library
 
-    return (
-        soname,
-        shlib,
-        LinkInfo(
+    return _CxxSharedLibraryResult(
+        soname = soname,
+        shlib = shlib,
+        info = LinkInfo(
             name = soname,
             linkables = [SharedLibLinkable(
                 lib = exported_shlib,
