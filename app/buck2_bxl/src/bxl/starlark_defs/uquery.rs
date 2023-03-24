@@ -37,6 +37,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use super::file_set::StarlarkFileSet;
+use super::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
@@ -123,6 +125,33 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// Find the build file(s) that defines a target or a target set.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _buildfile_impl(ctx):
+    ///     owner = ctx.uquery().owner(["bin/TARGET", "bin/kind"])
+    ///     result = ctx.uquery().buildfile(owner)
+    ///     ctx.output.print(result)
+    /// ```
+    fn buildfile<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkFileSet> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                let targets = &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                    .await?
+                    .get(&this.env)
+                    .await?;
+
+                Ok(this.functions.buildfile(targets))
+            })
+            .map(StarlarkFileSet::from)
+    }
+
     /// The owner query for finding targets that own specified files.
     ///
     /// Sample usage:
