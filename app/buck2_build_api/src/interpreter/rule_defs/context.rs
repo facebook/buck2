@@ -237,13 +237,16 @@ impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
     }
 }
 
+/// The starting type, usually bound as `ctx`
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
+    /// Returns the attributes of the target as a Starlark struct with a field for each attribute, which varies per rule
     #[starlark(attribute)]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.attrs)
     }
 
+    /// Returns `actions` allowing you to define actions
     #[starlark(attribute)]
     fn actions<'v>(
         this: RefAnalysisContext,
@@ -251,6 +254,7 @@ fn register_context(builder: &mut MethodsBuilder) {
         Ok(this.0.actions)
     }
 
+    /// Returns a `label` representing the target
     #[starlark(attribute)]
     fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.label.map_or(Value::new_none(), |v| v.to_value()))
