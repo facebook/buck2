@@ -161,6 +161,10 @@ fn main() -> io::Result<()> {
             "RemoteCommand.queue_time",
             "#[serde(rename = \"queue_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
+        .field_attribute(
+            "concurrent_command_blocking_duration",
+            "#[serde(rename = \"concurrent_command_blocking_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")

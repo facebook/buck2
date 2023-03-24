@@ -106,6 +106,7 @@ mod imp {
         initial_sink_dropped_count: Option<u64>,
         sink_max_buffer_depth: u64,
         soft_error_categories: HashSet<String>,
+        concurrent_command_blocking_duration: Option<prost_types::Duration>,
     }
 
     impl InvocationRecorder {
@@ -180,6 +181,7 @@ mod imp {
                 initial_sink_dropped_count: None,
                 sink_max_buffer_depth: 0,
                 soft_error_categories: HashSet::new(),
+                concurrent_command_blocking_duration: None,
             }
         }
 
@@ -295,6 +297,9 @@ mod imp {
                 soft_error_categories: std::mem::take(&mut self.soft_error_categories)
                     .into_iter()
                     .collect(),
+                concurrent_command_blocking_duration: self
+                    .concurrent_command_blocking_duration
+                    .take(),
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -648,6 +653,23 @@ mod imp {
             Ok(())
         }
 
+        fn handle_dice_block_concurrent_command_end(
+            &mut self,
+            _command: &buck2_data::DiceBlockConcurrentCommandEnd,
+            event: &BuckEvent,
+        ) -> anyhow::Result<()> {
+            let block_concurrent_command = match event.data() {
+                buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "handle_dice_block_concurrent_command_end was passed a DiceBlockConcurrentCommandEnd not contained in a SpanEndEvent"
+                    ));
+                }
+            };
+            self.concurrent_command_blocking_duration = block_concurrent_command.duration;
+            Ok(())
+        }
+
         async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
             // TODO(nga): query now once in `EventsCtx`.
             let now = SystemTime::now();
@@ -703,6 +725,12 @@ mod imp {
                         buck2_data::span_end_event::Data::Materialization(materialization) => {
                             self.handle_materialization_end(materialization, event)
                         }
+                        buck2_data::span_end_event::Data::DiceBlockConcurrentCommand(
+                            block_concurrent_command,
+                        ) => self.handle_dice_block_concurrent_command_end(
+                            block_concurrent_command,
+                            event,
+                        ),
                         _ => Ok(()),
                     }
                 }

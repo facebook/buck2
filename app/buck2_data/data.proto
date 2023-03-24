@@ -1373,6 +1373,8 @@ message InvocationRecord {
   repeated string soft_error_categories = 57;
   // Version number of EdenFS if mount is EdenFS
   optional string eden_version = 58;
+  // Duration of when the concurrent command is blocking
+  google.protobuf.Duration concurrent_command_blocking_duration = 59;
 }
 
 message CacheUploadStart {
