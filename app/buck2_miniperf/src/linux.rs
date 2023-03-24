@@ -8,6 +8,7 @@
  */
 
 use std::env;
+use std::io;
 use std::os::unix::process::ExitStatusExt;
 use std::process::Command;
 
@@ -18,6 +19,81 @@ use buck2_miniperf_proto::MiniperfOutput;
 use perf_event::events::Hardware;
 use perf_event::Builder;
 use smallvec::SmallVec;
+
+struct Counters {
+    user_counter: perf_event::Counter,
+    kernel_counter: perf_event::Counter,
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Error at {}: {}", stage, error)]
+struct CounterError {
+    stage: &'static str,
+    error: io::Error,
+}
+
+impl Counters {
+    fn open() -> Result<Self, CounterError> {
+        // NOTE: Kernel is not enabled here: we want to report only userspace cycles.
+        let user_counter = Builder::new()
+            .kind(Hardware::INSTRUCTIONS)
+            .inherit(true)
+            .enable_on_exec()
+            .build()
+            .map_err(|error| CounterError {
+                stage: "open user",
+                error,
+            })?;
+
+        let kernel_counter = Builder::new()
+            .kind(Hardware::INSTRUCTIONS)
+            .include_kernel()
+            .exclude_user()
+            .inherit(true)
+            .enable_on_exec()
+            .build()
+            .map_err(|error| CounterError {
+                stage: "open user",
+                error,
+            })?;
+
+        Ok(Self {
+            user_counter,
+            kernel_counter,
+        })
+    }
+
+    fn collect(mut self) -> Result<MiniperfCounters, CounterError> {
+        let user_value = self
+            .user_counter
+            .read_count_and_time()
+            .map_err(|error| CounterError {
+                stage: "collect user",
+                error,
+            })?;
+
+        let kernel_value =
+            self.kernel_counter
+                .read_count_and_time()
+                .map_err(|error| CounterError {
+                    stage: "collect user",
+                    error,
+                })?;
+
+        Ok(MiniperfCounters {
+            user_instructions: MiniperfCounter {
+                count: user_value.count,
+                time_enabled: user_value.time_enabled,
+                time_running: user_value.time_running,
+            },
+            kernel_instructions: MiniperfCounter {
+                count: kernel_value.count,
+                time_enabled: kernel_value.time_enabled,
+                time_running: kernel_value.time_running,
+            },
+        })
+    }
+}
 
 /// First argument is an output path to write output data into. The rest is the command to execute.
 pub fn main() -> anyhow::Result<()> {
@@ -33,20 +109,7 @@ pub fn main() -> anyhow::Result<()> {
     // (`Command`) does not expose that.
     let out = args.next().context("No output path")?;
 
-    // NOTE: Kernel is not enabled here: we want to report only userspace cycles.
-    let mut user_counter = Builder::new()
-        .kind(Hardware::INSTRUCTIONS)
-        .inherit(true)
-        .enable_on_exec()
-        .build()?;
-
-    let mut kernel_counter = Builder::new()
-        .kind(Hardware::INSTRUCTIONS)
-        .include_kernel()
-        .exclude_user()
-        .inherit(true)
-        .enable_on_exec()
-        .build()?;
+    let counters = Counters::open();
 
     let status = args.next().context("No process to run").and_then(|bin| {
         Command::new(bin)
@@ -55,28 +118,11 @@ pub fn main() -> anyhow::Result<()> {
             .map_err(anyhow::Error::from)
     });
 
-    let user_value = user_counter
-        .read_count_and_time()
-        .context("Error reading user_counter")?;
-
-    let kernel_value = kernel_counter
-        .read_count_and_time()
-        .context("Error reading kernel_counter")?;
+    let counters = counters.and_then(|c| c.collect());
 
     let output = MiniperfOutput {
         raw_exit_code: status.map(|s| s.into_raw()).map_err(|e| e.to_string()),
-        counters: Ok(MiniperfCounters {
-            user_instructions: MiniperfCounter {
-                count: user_value.count,
-                time_enabled: user_value.time_enabled,
-                time_running: user_value.time_running,
-            },
-            kernel_instructions: MiniperfCounter {
-                count: kernel_value.count,
-                time_enabled: kernel_value.time_enabled,
-                time_running: kernel_value.time_running,
-            },
-        }),
+        counters: counters.map_err(|e| e.to_string()),
     };
 
     // Stack allocate in the happy path.
