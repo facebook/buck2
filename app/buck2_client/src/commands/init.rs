@@ -47,6 +47,10 @@ pub struct InitCommand {
     /// Initialize the project even if the git repo at \[PATH\] has uncommitted changes.
     #[clap(long)]
     allow_dirty: bool,
+
+    // Use git to initialize the project and pull in buck2-prelude as a submodule
+    #[clap(long)]
+    git: bool,
 }
 
 impl InitCommand {
@@ -73,6 +77,7 @@ fn exec_impl(
     let path = cmd.path.resolve(&ctx.working_dir);
     fs_util::create_dir_all(&path)?;
     let absolute = fs_util::canonicalize(&path)?;
+    let git = cmd.git;
 
     if absolute.is_file() {
         return Err(anyhow::anyhow!(
@@ -81,34 +86,36 @@ fn exec_impl(
         ));
     }
 
-    let status = match Command::new("git")
-        .args(["status", "--porcelain"])
-        .current_dir(&absolute)
-        .output()
-    {
-        Err(e) if e.kind().eq(&ErrorKind::NotFound) => {
-            console.print_error(
-                "Warning: no git found on path, can't check for dirty repo. Proceeding anyway.",
-            )?;
-            None
+    if git {
+        let status = match Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(&absolute)
+            .output()
+        {
+            Err(e) if e.kind().eq(&ErrorKind::NotFound) => {
+                console.print_error(
+                    "Warning: no git found on path, can't check for dirty repo. Proceeding anyway.",
+                )?;
+                None
+            }
+            r => Some(r.context("Couldn't detect dirty status of folder.")?),
+        };
+
+        let changes = status.filter(|o| o.status.success()).map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .lines()
+                .any(|l| !l.starts_with("??"))
+        });
+
+        if let (Some(true), false) = (changes, cmd.allow_dirty) {
+            return Err(anyhow::anyhow!(
+                "Refusing to initialize in a dirty repo. Stash your changes or use `--allow-dirty` to override."
+            ));
         }
-        r => Some(r.context("Couldn't detect dirty status of folder.")?),
-    };
-
-    let changes = status.filter(|o| o.status.success()).map(|o| {
-        String::from_utf8_lossy(&o.stdout)
-            .trim()
-            .lines()
-            .any(|l| !l.starts_with("??"))
-    });
-
-    if let (Some(true), false) = (changes, cmd.allow_dirty) {
-        return Err(anyhow::anyhow!(
-            "Refusing to initialize in a dirty repo. Stash your changes or use `--allow-dirty` to override."
-        ));
     }
 
-    set_up_project(&absolute, !cmd.no_prelude)
+    set_up_project(&absolute, git, !cmd.no_prelude)
 }
 
 fn initialize_buckconfig(path: &Path, prelude: bool) -> anyhow::Result<()> {
@@ -177,17 +184,8 @@ fn initialize_root_buck(path: &Path, prelude: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn set_up_project(path: &Path, prelude: bool) -> anyhow::Result<()> {
-    if !Command::new("git")
-        .arg("init")
-        .current_dir(path)
-        .status()?
-        .success()
-    {
-        return Err(anyhow::anyhow!("Failure when running `git init`."));
-    };
-
-    if prelude {
+fn set_up_prelude(path: &Path, git: bool) -> anyhow::Result<()> {
+    if git {
         if !Command::new("git")
             .args([
                 "submodule",
@@ -203,6 +201,29 @@ fn set_up_project(path: &Path, prelude: bool) -> anyhow::Result<()> {
                 "Unable to clone the prelude. Is the folder in use?"
             ));
         }
+    } else {
+        println!(
+            "* Download https://github.com/facebookincubator/buck2-prelude.git into `prelude/` with a VCS of your choice."
+        );
+        println!("* If you wish to use git submodule, run the command again with --git",);
+    }
+    Ok(())
+}
+
+fn set_up_project(path: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
+    if git {
+        if !Command::new("git")
+            .arg("init")
+            .current_dir(path)
+            .status()?
+            .success()
+        {
+            return Err(anyhow::anyhow!("Failure when running `git init`."));
+        };
+    }
+
+    if prelude {
+        set_up_prelude(path, git)?;
     }
 
     // If the project already contains a .buckconfig, leave it alone
@@ -230,6 +251,22 @@ mod tests {
 
     use crate::commands::init::initialize_buckconfig;
     use crate::commands::init::initialize_root_buck;
+    use crate::commands::init::set_up_project;
+
+    #[test]
+    fn test_set_up_project_with_prelude_no_git() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let tempdir_path = tempdir.path();
+        fs_util::create_dir_all(tempdir_path)?;
+
+        // no git, with prelude
+        set_up_project(tempdir_path, false, true)?;
+        assert!(tempdir_path.join(".buckconfig").exists());
+        assert!(tempdir_path.join("toolchains").exists());
+        assert!(tempdir_path.join("toolchains/BUCK").exists());
+        assert!(tempdir_path.join("BUCK").exists());
+        Ok(())
+    }
 
     #[test]
     fn test_buckconfig_generation_with_prelude() -> anyhow::Result<()> {
