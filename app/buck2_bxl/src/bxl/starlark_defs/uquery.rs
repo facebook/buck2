@@ -151,6 +151,33 @@ fn register_uquery(builder: &mut MethodsBuilder) {
             .map(StarlarkFileSet::from)
     }
 
+    /// The kind query for filtering targets by rule type.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_kind(ctx):
+    ///     kind = ctx.uquery().kind(".*1", "bin/kind/...")
+    ///     ctx.output.print(kind)
+    /// ```
+    fn kind<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        regex: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx.async_ctx.via(|| async {
+            this.functions
+                .kind(
+                    regex,
+                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+                .map(StarlarkTargetSet::from)
+        })
+    }
+
     /// The filter query for filtering targets by name.
     ///
     /// Sample usage:
