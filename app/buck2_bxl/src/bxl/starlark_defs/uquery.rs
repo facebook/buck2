@@ -125,6 +125,34 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// The filter query for filtering targets by name.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_filter(ctx):
+    ///     result = ctx.uquery().filter(".*the_binary", "root//...")
+    ///     ctx.output.print(result)
+    /// ```
+    fn filter<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        regex: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions.filter_target_set(
+                    regex,
+                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// The testsof query for lising the tests of the specified targets.
     ///
     /// Sample usage:
