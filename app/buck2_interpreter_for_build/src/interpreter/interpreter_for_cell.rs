@@ -22,7 +22,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
-use buck2_core::soft_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
@@ -400,10 +399,7 @@ impl InterpreterForCell {
         content: String,
     ) -> anyhow::Result<ParseResult> {
         if content.contains('\t') {
-            soft_error!(
-                "tabs_in_starlark",
-                StarlarkParseError::Tabs(OwnedStarlarkPath::new(import)).into()
-            )?;
+            return Err(StarlarkParseError::Tabs(OwnedStarlarkPath::new(import)).into());
         }
 
         let project_relative_path = self
