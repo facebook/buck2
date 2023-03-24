@@ -220,6 +220,7 @@ def _cxx_python_extension_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
         "suffix_all": attrs.bool(default = True),
+        "support_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
         "_omnibus_environment": omnibus_environment_attr(),
