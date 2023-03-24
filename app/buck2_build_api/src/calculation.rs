@@ -74,7 +74,7 @@ enum BuildErrors {
     MissingPackage(PackageLabel),
 }
 
-pub trait ConfigurableTarget: Send + Sync {
+pub trait ConfigurableTargetLabel: Send + Sync {
     type Configured;
 
     fn target(&self) -> &TargetLabel;
@@ -88,7 +88,7 @@ pub trait ConfigurableTarget: Send + Sync {
     ) -> Self::Configured;
 }
 
-impl ConfigurableTarget for TargetLabel {
+impl ConfigurableTargetLabel for TargetLabel {
     type Configured = ConfiguredTargetLabel;
 
     fn target(&self) -> &TargetLabel {
@@ -108,7 +108,7 @@ impl ConfigurableTarget for TargetLabel {
     }
 }
 
-impl ConfigurableTarget for ProvidersLabel {
+impl ConfigurableTargetLabel for ProvidersLabel {
     type Configured = ConfiguredProvidersLabel;
 
     fn target(&self) -> &TargetLabel {
@@ -148,13 +148,13 @@ pub trait Calculation<'c> {
     /// unconfigured (or "lightly"-configured) thing and the Configuration will be determined as
     /// a mix of the global Configuration, the target's `default_target_platform` and
     /// (potentially) self-transitions on that node.
-    async fn get_configured_target<T: ConfigurableTarget>(
+    async fn get_configured_target<T: ConfigurableTargetLabel>(
         &self,
         target: &T,
         global_target_platform: Option<&TargetLabel>,
     ) -> anyhow::Result<T::Configured>;
 
-    async fn get_default_configured_target<T: ConfigurableTarget>(
+    async fn get_default_configured_target<T: ConfigurableTargetLabel>(
         &self,
         target: &T,
     ) -> anyhow::Result<T::Configured>;
@@ -209,7 +209,7 @@ impl<'c> Calculation<'c> for DiceComputations {
         ))
     }
 
-    async fn get_configured_target<T: ConfigurableTarget>(
+    async fn get_configured_target<T: ConfigurableTargetLabel>(
         &self,
         target: &T,
         global_target_platform: Option<&TargetLabel>,
@@ -246,7 +246,7 @@ impl<'c> Calculation<'c> for DiceComputations {
         }
     }
 
-    async fn get_default_configured_target<T: ConfigurableTarget>(
+    async fn get_default_configured_target<T: ConfigurableTargetLabel>(
         &self,
         target: &T,
     ) -> anyhow::Result<T::Configured> {
