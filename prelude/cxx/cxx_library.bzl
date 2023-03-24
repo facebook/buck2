@@ -384,10 +384,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                     # add them to the list of default providers
                     actual_link_style_providers += link_style_providers
 
-                    # In addition, ensure any subtargets for the active link style
-                    # can be accessed as a default subtarget
-                    for link_style_sub_target_name, link_style_sub_target_providers in link_style_sub_targets.items():
-                        sub_targets[link_style_sub_target_name] = link_style_sub_target_providers
+                    if impl_params.generate_sub_targets.link_style_outputs:
+                        # In addition, ensure any subtargets for the active link style
+                        # can be accessed as a default subtarget
+                        for link_style_sub_target_name, link_style_sub_target_providers in link_style_sub_targets.items():
+                            sub_targets[link_style_sub_target_name] = link_style_sub_target_providers
 
         if impl_params.generate_providers.link_style_outputs:
             providers += actual_link_style_providers
