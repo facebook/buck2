@@ -27,8 +27,8 @@ This section covers the building of a ['hello_world' example project](https://gi
 First, clone the buck2 repository and cd into the 'hello_world' project:
 
 ```bash
-git clone https://github.com/facebook/buck2.git
-cd examples/hello_world
+git clone https://github.com/facebookincubator/buck2.git
+cd buck2/examples/hello_world
 ```
 
  `buck2 init` is all the setup you need to start building. This will pull [buck2-prelude](https://github.com/facebook/buck2-prelude) into your project:
