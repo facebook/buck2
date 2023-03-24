@@ -8,7 +8,7 @@ The first time that a Buck2 command is run, Buck2 starts a daemon process for th
 
 By default, there is 1 daemon per [project](./glossary.md#project) root, you can run multiple daemons in the same project by specifying an [isolation dir](./glossary.md#isolation-dir).
 
-While it runs, the Buck daemon process monitors the project's file system for changes. The Buck daemon excludes from monitoring any subtrees of the project file system that are specified in the [`[project].ignore`](https://buck.build/files-and-dirs/buckconfig.html#project.ignore) setting of `.buckconfig`.
+While it runs, the Buck daemon process monitors the project's file system for changes. The Buck daemon excludes from monitoring any subtrees of the project file system that are specified in the [`[project].ignore`](../legacy/files-and-directories/dot-buckconfig.md#ignore) setting of `.buckconfig`.
 
 ## Killing or disabling the Buck daemon
 
