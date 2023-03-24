@@ -13,7 +13,7 @@ load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "A
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
-load("@prelude//android:voltron.bzl", "ROOT_MODULE")
+load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "is_root_module")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -24,6 +24,7 @@ def get_android_binary_resources_info(
         java_packaging_deps: ["JavaPackagingDep"],
         use_proto_format: bool.type,
         referenced_resources_lists: ["artifact"],
+        apk_module_graph_file: ["artifact", None] = None,
         manifest_entries: dict.type = {},
         resource_infos_to_exclude: [set_type, None] = None,
         generate_strings_and_ids_separately: [bool.type, None] = True,
@@ -42,6 +43,7 @@ def get_android_binary_resources_info(
     )
 
     android_manifest = _get_manifest(ctx, android_packageable_info, manifest_entries)
+    module_manifests = _get_module_manifests(ctx, android_packageable_info, manifest_entries, apk_module_graph_file)
 
     aapt2_link_info = get_aapt2_link(
         ctx,
@@ -171,6 +173,7 @@ def get_android_binary_resources_info(
     return AndroidBinaryResourcesInfo(
         exopackage_info = exopackage_info,
         manifest = android_manifest,
+        module_manifests = module_manifests,
         packaged_string_assets = packaged_string_assets,
         primary_resources_apk = primary_resources_apk,
         proguard_config_file = aapt2_link_info.proguard_config_file,
@@ -457,6 +460,60 @@ def _get_manifest(
         return android_manifest_with_replaced_application_id
     else:
         return android_manifest
+
+def _get_module_manifests(
+        ctx: "context",
+        android_packageable_info: "AndroidPackageableInfo",
+        manifest_entries: dict.type,
+        apk_module_graph_file: ["artifact", None]) -> ["artifact"]:
+    if not apk_module_graph_file:
+        return []
+
+    if not ctx.attrs.module_manifest_skeleton:
+        return []
+
+    if type(ctx.attrs.module_manifest_skeleton) == "dependency":
+        module_manifest_skeleton = ctx.attrs.module_manifest_skeleton[DefaultInfo].default_outputs[0]
+    else:
+        module_manifest_skeleton = ctx.attrs.module_manifest_skeleton
+
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
+
+    module_manifests_dir = ctx.actions.declare_output("module_manifests_dir", dir = True)
+    android_manifests = list(android_packageable_info.manifests.traverse()) if android_packageable_info.manifests else []
+
+    def get_manifests_modular(ctx: "context", artifacts, outputs):
+        apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
+        get_module_from_target = apk_module_graph_info.target_to_module_mapping_function
+        module_to_manifests = {}
+        for android_manifest in android_manifests:
+            module_name = get_module_from_target(str(android_manifest.target_label))
+            if not is_root_module(module_name):
+                module_to_manifests.setdefault(module_name, []).append(android_manifest.manifest)
+
+        merged_module_manifests = {}
+        for module_name in apk_module_graph_info.module_list:
+            merged_module_manifest, _ = generate_android_manifest(
+                ctx,
+                android_toolchain.generate_manifest[RunInfo],
+                module_manifest_skeleton,
+                module_name,
+                module_to_manifests.get(module_name, []),
+                manifest_entries.get("placeholders", {}),
+            )
+
+            merged_module_manifests["assets/{}/AndroidManifest.xml".format(module_name)] = merged_module_manifest
+
+        ctx.actions.symlinked_dir(outputs[module_manifests_dir], merged_module_manifests)
+
+    ctx.actions.dynamic_output(
+        dynamic = [apk_module_graph_file],
+        inputs = [],
+        outputs = [module_manifests_dir],
+        f = get_manifests_modular,
+    )
+
+    return [module_manifests_dir]
 
 # Returns the "primary resources APK" (i.e. the resource that are packaged into the primary APK),
 # and optionally an "exopackaged assets APK" and the hash for that APK.

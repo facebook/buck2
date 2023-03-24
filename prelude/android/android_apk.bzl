@@ -32,6 +32,8 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     primary_platform = cpu_filters[0]
     deps = deps_by_platform[primary_platform]
 
+    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
+
     no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]
 
@@ -50,6 +52,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         deps,
         android_packageable_info,
         java_packaging_deps,
+        apk_module_graph_file = target_to_module_mapping_file,
         use_proto_format = False,
         referenced_resources_lists = referenced_resources_lists,
         manifest_entries = ctx.attrs.manifest_entries,
@@ -64,7 +67,6 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         for r_dot_java in resources_info.r_dot_javas
     ]
 
-    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
@@ -205,7 +207,7 @@ def build_apk(
     if compress_resources_dot_arsc:
         apk_builder_args.add("--compress-resources-dot-arsc")
 
-    asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs
+    asset_directories = native_library_info.native_lib_assets + dex_files_info.secondary_dex_dirs + resources_info.module_manifests
     asset_directories_file = actions.write("asset_directories.txt", asset_directories)
     apk_builder_args.hidden(asset_directories)
     native_library_directories = actions.write("native_library_directories", native_library_info.native_libs_for_primary_apk)

@@ -28,6 +28,8 @@ AndroidBinaryResourcesInfo = record(
     exopackage_info = ["ExopackageResourcesInfo", None],
     # manifest to be used by the APK
     manifest = "artifact",
+    # per-module manifests (packaged as assets)
+    module_manifests = ["artifact"],
     # zip containing any strings packaged as assets
     packaged_string_assets = ["artifact", None],
     # "APK" containing resources to be used by the Android binary
