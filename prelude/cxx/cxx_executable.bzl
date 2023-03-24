@@ -91,7 +91,6 @@ load(
 )
 load(
     ":link.bzl",
-    "CxxLinkResultType",
     "cxx_link",
 )
 load(
@@ -525,7 +524,6 @@ def _link_into_executable(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
         output,
-        CxxLinkResultType("executable"),
         prefer_local = prefer_local,
         link_weight = link_weight,
         enable_distributed_thinlto = enable_distributed_thinlto,
@@ -533,6 +531,7 @@ def _link_into_executable(
         link_ordering = link_ordering,
         strip = strip,
         strip_args_factory = strip_args_factory,
+        executable_link = True,
         link_postprocessor = link_postprocessor,
         force_full_hybrid_if_capable = force_full_hybrid_if_capable,
     )
@@ -551,13 +550,13 @@ def _linker_map(
         ctx,
         links,
         binary_for_linker_map,
-        CxxLinkResultType("executable"),
         category_suffix = "linker_map",
         linker_map = linker_map,
         prefer_local = prefer_local,
         link_weight = link_weight,
         identifier = identifier,
         generate_dwp = False,
+        executable_link = True,
     )
     return (
         linker_map,

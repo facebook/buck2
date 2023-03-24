@@ -43,18 +43,12 @@ load(
     "get_shared_library_name_linker_flags",
 )
 
-CxxLinkResultType = enum(
-    "executable",
-    "shared_library",
-)
-
 # Actually perform a link into the supplied output.
 def cxx_link(
         ctx: "context",
         links: [LinkArgs.type],
         # The destination for the link output.
         output: "artifact",
-        result_type: CxxLinkResultType.type,
         linker_map: ["artifact", None] = None,
         prefer_local: bool.type = False,
         local_only: bool.type = False,
@@ -66,10 +60,12 @@ def cxx_link(
         # An identifier that will uniquely name this link action in the context of a category. Useful for
         # differentiating multiple link actions in the same rule.
         identifier: [str.type, None] = None,
+        is_shared: bool.type = False,
         strip: bool.type = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
         generate_dwp: bool.type = True,
+        executable_link = False,
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
         import_library: ["artifact", None] = None) -> LinkedObject.type:
@@ -77,7 +73,6 @@ def cxx_link(
     linker_info = cxx_toolchain_info.linker_info
 
     should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
-    is_result_executable = result_type.value == "executable"
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
@@ -89,7 +84,7 @@ def cxx_link(
             category_suffix,
             identifier,
             should_generate_dwp,
-            is_result_executable,
+            executable_link,
         )
     if linker_map != None:
         links += [linker_map_args(ctx, linker_map.as_output())]
@@ -98,7 +93,7 @@ def cxx_link(
         links,
         suffix = identifier,
         dwo_dir_name = output.short_path + ".dwo.d",
-        is_shared = result_type.value == "shared_library",
+        is_shared = is_shared,
         link_ordering = value_or(
             link_ordering,
             # Fallback to toolchain default.
@@ -170,7 +165,7 @@ def cxx_link(
     if link_postprocessor:
         output = postprocess(ctx, output, link_postprocessor)
 
-    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
@@ -254,7 +249,6 @@ def cxx_link_shared_library(
         ctx,
         [LinkArgs(flags = extra_args)] + links,
         output,
-        CxxLinkResultType("shared_library"),
         prefer_local = _link_libraries_locally(ctx, prefer_local_value),
         local_only = value_or(local_only, False),
         link_weight = link_weight,
@@ -262,6 +256,7 @@ def cxx_link_shared_library(
         category_suffix = category_suffix,
         link_ordering = link_ordering,
         identifier = identifier,
+        is_shared = True,
         strip = strip,
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
