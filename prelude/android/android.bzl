@@ -193,6 +193,7 @@ extra_attributes = {
     },
     "apk_genrule": genrule_attributes() | {
         "type": attrs.string(default = "apk"),
+        "_android_toolchain": android_toolchain(),
     },
     "gen_aidl": {
         "import_paths": attrs.list(attrs.arg(), default = []),
