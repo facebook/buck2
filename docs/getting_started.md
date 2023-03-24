@@ -43,6 +43,10 @@ To build the entire project, run:
 buck2 build //...
 ```
 
+Note that this uses a [simple C++ toolchain](https://github.com/facebook/buck2/blob/main/prelude/toolchains/cxx.bzl) that requires a recent version of `clang` to be installed on your system. This can be installed with any package manager (ex. `apt install clang`, `brew install llvm`, `choco install llvm`).
+After installing any external tools or changing your `PATH`, run `buck2 kill` before running a build.
+
+
 To list all targets available in the project, run:
 
 ```sh
