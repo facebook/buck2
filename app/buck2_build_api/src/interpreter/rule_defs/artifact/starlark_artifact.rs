@@ -308,6 +308,9 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 
+    /// Create an artifact that lives at path relative from this artifact.
+    /// For example, if artifact foo is a directory containing a file bar, then foo.project("bar") yields the file bar.
+    /// It is possible for projected artifacts to hide the prefix in order to have the short name of the resulting artifact only contain the projected path, by passing hide_prefix = True to project().
     fn project<'v>(
         this: &'v StarlarkArtifact,
         #[starlark(require = pos)] path: &str,
