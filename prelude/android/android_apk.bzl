@@ -166,7 +166,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
             shared_libraries = set([shared_lib.label.raw_target() for shared_lib in native_library_info.apk_under_test_shared_libraries]),
         ),
         DefaultInfo(default_output = output_apk, other_outputs = _get_exopackage_outputs(exopackage_info), sub_targets = sub_targets),
-        _get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
+        get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info),
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator()),
@@ -231,24 +231,30 @@ def build_apk(
 
     return output_apk
 
-def _get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifact", exopackage_info: ExopackageInfo.type) -> InstallInfo.type:
+def get_install_info(ctx: "context", output_apk: "artifact", manifest: "artifact", exopackage_info: [ExopackageInfo.type, None]) -> InstallInfo.type:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,
         "options": generate_install_config(ctx),
     }
 
-    secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
+    if exopackage_info:
+        secondary_dex_exopackage_info = exopackage_info.secondary_dex_info
+        native_library_exopackage_info = exopackage_info.native_library_info
+        resources_info = exopackage_info.resources_info
+    else:
+        secondary_dex_exopackage_info = None
+        native_library_exopackage_info = None
+        resources_info = None
+
     if secondary_dex_exopackage_info:
         files["secondary_dex_exopackage_info_directory"] = secondary_dex_exopackage_info.directory
         files["secondary_dex_exopackage_info_metadata"] = secondary_dex_exopackage_info.metadata
 
-    native_library_exopackage_info = exopackage_info.native_library_info
     if native_library_exopackage_info:
         files["native_library_exopackage_info_directory"] = native_library_exopackage_info.directory
         files["native_library_exopackage_info_metadata"] = native_library_exopackage_info.metadata
 
-    resources_info = exopackage_info.resources_info
     if resources_info:
         if resources_info.assets:
             files["resources_exopackage_assets"] = resources_info.assets
