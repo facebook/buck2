@@ -14,6 +14,7 @@ use buck2_build_api::query::dice::DiceQueryDelegate;
 use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use derivative::Derivative;
 use derive_more::Display;
@@ -37,7 +38,9 @@ use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[derive(
     ProvidesStaticType,
@@ -120,6 +123,28 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// The owner query for finding targets that own specified files.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _owner_impl(ctx):
+    ///     owner = ctx.uquery().owner("bin/TARGETS.fixture")
+    ///     ctx.output.print(owner)
+    /// ```
+    fn owner<'v>(
+        this: &StarlarkUQueryCtx,
+        files: FileSetExpr,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions
+                    .owner(&this.env, (files.get(&this.env).await?).as_ref())
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// Evaluates some general query string
     ///
     /// Sample usage:
