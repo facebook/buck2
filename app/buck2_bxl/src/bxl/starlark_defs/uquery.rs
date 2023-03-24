@@ -178,6 +178,42 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The rdeps query for finding the transitive closure of reverse dependencies.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rdeps(ctx):
+    ///     result = ctx.uquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
+    ///     ctx.output.print(result)
+    /// ```
+    fn rdeps<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        universe: Value<'v>,
+        from: Value<'v>,
+        depth: Option<i32>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx
+            .async_ctx
+            .via(|| async {
+                this.functions
+                    .rdeps(
+                        &this.env,
+                        &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
+                        &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, eval)
+                            .await?
+                            .get(&this.env)
+                            .await?,
+                        depth,
+                    )
+                    .await
+            })
+            .map(StarlarkTargetSet::from)
+    }
+
     /// The filter query for filtering targets by name.
     ///
     /// Sample usage:
