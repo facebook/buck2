@@ -29,6 +29,8 @@ enum ResolvedPatternError {
     InvalidPattern(&'static str, String),
 }
 
+/// Pattern where `foo/...` is expanded to matching packages.
+/// Targets are not validated yet, and `:` is not yet expanded.
 #[derive(Debug)]
 pub struct ResolvedPattern<T: PatternType> {
     pub specs: IndexMap<PackageLabel, PackageSpec<T>>,
