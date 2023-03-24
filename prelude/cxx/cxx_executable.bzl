@@ -510,7 +510,7 @@ def _link_into_executable(
         link_weight: int.type,
         binary_extension: str.type,
         prefer_local: bool.type = False,
-        enable_distributed_thinlto = False,
+        enable_distributed_thinlto: bool.type = False,
         strip: bool.type = False,
         link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
