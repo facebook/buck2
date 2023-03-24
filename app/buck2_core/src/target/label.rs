@@ -22,11 +22,14 @@ use serde::Serializer;
 use starlark_map::StarlarkHashValue;
 use triomphe::ThinArc;
 
+use crate::cells::name::CellName;
+use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::package::PackageLabel;
+use crate::pattern::lex_target_pattern;
 use crate::pattern::ParsedPattern;
 use crate::pattern::TargetPatternExtra;
 use crate::target::name::TargetNameRef;
@@ -150,11 +153,23 @@ impl TargetLabel {
 
     /// Simple and incorrect target label parser which can be used in tests.
     pub fn testing_parse(target_label: &str) -> TargetLabel {
-        let (cell, cell_rel) = target_label.split_once("//").expect("no //");
-        let (path, name) = cell_rel.split_once(':').expect("no :");
-        let pkg = PackageLabel::testing_new(cell, path);
-        let name = TargetNameRef::new(name).unwrap();
-        TargetLabel::new(pkg, name)
+        let parts = lex_target_pattern(target_label, false).expect("failed to parse");
+        let cell_name = CellName::testing_new(parts.cell_alias.expect("must have cell name"));
+
+        let pattern_data = parts
+            .pattern
+            .reject_ambiguity()
+            .expect("target label must be unambiguous");
+        let (target_name, TargetPatternExtra) =
+            pattern_data.target().expect("target label must be precise");
+
+        TargetLabel::new(
+            PackageLabel::new(
+                cell_name,
+                CellRelativePath::new(pattern_data.package_path()),
+            ),
+            target_name,
+        )
     }
 }
 
