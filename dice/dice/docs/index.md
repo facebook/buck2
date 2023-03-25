@@ -11,7 +11,7 @@ DICE is currently still experimental and largely being rewritten.
 
 ## Features
 - [Incrementality](incrementality.md) - Incrementality behaviour of DICE
-- Parallelism // TODO
+- [Parallelism](parallelism.md) - Parallelism and Behaviour of Computations
 - [Cancellations](cancellations.md) - Cancelling of a currently running computation
 - Transient Errors // TODO
 - Cycle Detection // TODO
