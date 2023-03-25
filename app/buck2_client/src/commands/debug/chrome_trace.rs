@@ -28,7 +28,6 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
-use buck2_event_observer::unpack_event::VisitorError;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 use futures::TryStreamExt;
@@ -599,11 +598,9 @@ impl ChromeTraceWriter {
 
     fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
         match event.data() {
-            buck2_data::buck_event::Data::SpanStart(ref start) => match start
-                .data
-                .as_ref()
-                .ok_or_else(|| VisitorError::MissingField((**event).clone()))?
-            {
+            buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
+                data: Some(start_data),
+            }) => match start_data {
                 buck2_data::span_start_event::Data::Command(_command) => {
                     self.open_named_span(
                         event,
@@ -688,12 +685,13 @@ impl ChromeTraceWriter {
                 }
                 _ => {}
             },
+            // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
+            // which added a variant which is not available in version used when compiling this program.
+            buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent { data: None }) => {}
             buck2_data::buck_event::Data::SpanEnd(ref end) => self.handle_event_end(end, event)?,
-            buck2_data::buck_event::Data::Instant(ref instant) => {
-                let instant_data = instant
-                    .data
-                    .as_ref()
-                    .ok_or_else(|| VisitorError::MissingField((**event).clone()))?;
+            buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                data: Some(ref instant_data),
+            }) => {
                 if let buck2_data::instant_event::Data::Snapshot(_snapshot) = instant_data {
                     self.max_rss_gigabytes_counter.set(
                         event.timestamp(),
@@ -738,6 +736,9 @@ impl ChromeTraceWriter {
                     }
                 }
             }
+            // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
+            // which added a variant which is not available in version used when compiling this program.
+            buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent { data: None }) => {}
             buck2_data::buck_event::Data::Record(_) => {}
         };
         Ok(())
