@@ -10,7 +10,7 @@ All computations are executed in parallel on DICE via tokio executors. Duplicate
 DICE is currently still experimental and largely being rewritten.
 
 ## Features
-- Incrementality // TODO
+- [Incrementality](incrementality.md) - Incrementality behaviour of DICE
 - Parallelism // TODO
 - [Cancellations](cancellations.md) - Cancelling of a currently running computation
 - Transient Errors // TODO
