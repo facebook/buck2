@@ -377,7 +377,7 @@ impl Component for TimedList {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::time::SystemTime;
+    use std::time::UNIX_EPOCH;
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
@@ -398,11 +398,10 @@ mod tests {
     #[test]
     fn test_normal() -> anyhow::Result<()> {
         let tick = Tick::now();
-        let now = SystemTime::now();
 
         let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
         let label = Arc::new(BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             None,
@@ -414,7 +413,7 @@ mod tests {
         ));
 
         let module = Arc::new(BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             None,
@@ -429,13 +428,17 @@ mod tests {
         state
             .start_at(
                 &label,
-                tick.start_time.checked_sub(Duration::from_secs(3)).unwrap(),
+                tick.start_time
+                    .checked_sub(Duration::from_millis(2950))
+                    .unwrap(),
             )
             .unwrap();
         state
             .start_at(
                 &module,
-                tick.start_time.checked_sub(Duration::from_secs(1)).unwrap(),
+                tick.start_time
+                    .checked_sub(Duration::from_millis(950))
+                    .unwrap(),
             )
             .unwrap();
 
@@ -483,10 +486,9 @@ mod tests {
     #[test]
     fn test_remaining() -> anyhow::Result<()> {
         let tick = Tick::now();
-        let now = SystemTime::now();
 
         let e1 = BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             None,
@@ -498,7 +500,7 @@ mod tests {
         );
 
         let e2 = BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             None,
@@ -510,7 +512,7 @@ mod tests {
         );
 
         let e3 = BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             None,
@@ -527,7 +529,9 @@ mod tests {
             state
                 .start_at(
                     &Arc::new(e.clone()),
-                    tick.start_time.checked_sub(Duration::from_secs(1)).unwrap(),
+                    tick.start_time
+                        .checked_sub(Duration::from_millis(950))
+                        .unwrap(),
                 )
                 .unwrap();
         }
@@ -577,14 +581,13 @@ mod tests {
     #[test]
     fn test_children() -> anyhow::Result<()> {
         let tick = Tick::now();
-        let now = SystemTime::now();
 
         let parent = SpanId::new();
 
         let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
 
         let action = Arc::new(BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(parent),
             None,
@@ -620,7 +623,7 @@ mod tests {
         ));
 
         let prepare = Arc::new(BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             Some(parent),
@@ -640,14 +643,16 @@ mod tests {
             .start_at(
                 &action,
                 tick.start_time
-                    .checked_sub(Duration::from_secs(10))
+                    .checked_sub(Duration::from_millis(9950))
                     .unwrap(),
             )
             .unwrap();
         state
             .start_at(
                 &prepare,
-                tick.start_time.checked_sub(Duration::from_secs(5)).unwrap(),
+                tick.start_time
+                    .checked_sub(Duration::from_millis(4950))
+                    .unwrap(),
             )
             .unwrap();
 
@@ -698,7 +703,7 @@ mod tests {
         // concurrently but this is a test!
 
         let re_download = Arc::new(BuckEvent::new(
-            now,
+            UNIX_EPOCH,
             TraceId::new(),
             Some(SpanId::new()),
             Some(parent),
@@ -721,7 +726,9 @@ mod tests {
         state
             .start_at(
                 &re_download,
-                tick.start_time.checked_sub(Duration::from_secs(2)).unwrap(),
+                tick.start_time
+                    .checked_sub(Duration::from_millis(1950))
+                    .unwrap(),
             )
             .unwrap();
 
