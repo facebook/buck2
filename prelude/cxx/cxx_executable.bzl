@@ -555,7 +555,8 @@ def _linker_map(
         prefer_local = prefer_local,
         link_weight = link_weight,
         identifier = identifier,
-        generate_dwp = False,
+        allow_bolt_optimization_and_dwp_generation = False,
+        executable_link = True,
     )
     return (
         linker_map,

@@ -64,7 +64,7 @@ def cxx_link(
         strip: bool.type = False,
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
-        generate_dwp: bool.type = True,
+        allow_bolt_optimization_and_dwp_generation: bool.type = True,
         executable_link = False,
         link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
@@ -72,7 +72,7 @@ def cxx_link(
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = generate_dwp and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
+    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
@@ -165,7 +165,7 @@ def cxx_link(
     if link_postprocessor:
         output = postprocess(ctx, output, link_postprocessor)
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
+    final_output = output if not (allow_bolt_optimization_and_dwp_generation and executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
         # TODO(T110378144): Once we track split dwarf from compiles, we should
