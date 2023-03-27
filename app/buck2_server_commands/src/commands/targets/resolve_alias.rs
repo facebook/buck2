@@ -27,7 +27,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 
-use crate::commands::targets::JsonWriter;
+use crate::commands::targets::fmt::JsonWriter;
 use crate::json::quote_json_string;
 
 trait ResolveAliasFormatter {

@@ -36,11 +36,11 @@ use futures::StreamExt;
 use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
 
+use crate::commands::targets::fmt::Stats;
+use crate::commands::targets::fmt::TargetFormatter;
+use crate::commands::targets::fmt::TargetInfo;
 use crate::commands::targets::mk_error;
 use crate::commands::targets::Outputter;
-use crate::commands::targets::Stats;
-use crate::commands::targets::TargetFormatter;
-use crate::commands::targets::TargetInfo;
 use crate::target_hash::TargetHashes;
 
 pub(crate) async fn targets_streaming(
