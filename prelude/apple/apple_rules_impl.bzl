@@ -25,6 +25,7 @@ load(
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME",
     "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
+    "APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
@@ -136,6 +137,7 @@ extra_attributes = {
         "_omnibus_environment": omnibus_environment_attr(),
         "_profile_bundling_enabled": attrs.bool(default = False),
         APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but

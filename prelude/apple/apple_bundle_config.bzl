@@ -17,4 +17,5 @@ def apple_bundle_config() -> {str.type: ""}:
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
         "_incremental_bundling_enabled": _maybe_get_bool("incremental_bundling_enabled", True),
         "_profile_bundling_enabled": _maybe_get_bool("profile_bundling_enabled", False),
+        "_use_entitlements_when_adhoc_code_signing": _maybe_get_bool("use_entitlements_when_adhoc_code_signing", None),
     }
