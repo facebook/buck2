@@ -108,6 +108,7 @@ mod imp {
         soft_error_categories: HashSet<String>,
         concurrent_command_blocking_duration: Option<prost_types::Duration>,
         metadata: HashMap<String, String>,
+        analysis_count: u64,
     }
 
     impl InvocationRecorder {
@@ -184,6 +185,7 @@ mod imp {
                 soft_error_categories: HashSet::new(),
                 concurrent_command_blocking_duration: None,
                 metadata: buck2_events::metadata::collect(),
+                analysis_count: 0,
             }
         }
 
@@ -305,6 +307,7 @@ mod imp {
                 concurrent_command_blocking_duration: self
                     .concurrent_command_blocking_duration
                     .take(),
+                analysis_count: Some(self.analysis_count),
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -738,6 +741,10 @@ mod imp {
                         }
                         buck2_data::span_end_event::Data::Materialization(materialization) => {
                             self.handle_materialization_end(materialization, event)
+                        }
+                        buck2_data::span_end_event::Data::Analysis(..) => {
+                            self.analysis_count += 1;
+                            Ok(())
                         }
                         buck2_data::span_end_event::Data::DiceBlockConcurrentCommand(
                             block_concurrent_command,

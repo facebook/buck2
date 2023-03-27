@@ -1375,6 +1375,8 @@ message InvocationRecord {
   optional string eden_version = 58;
   // Duration of when the concurrent command is blocking
   google.protobuf.Duration concurrent_command_blocking_duration = 59;
+  // How many analyses were executed
+  optional uint64 analysis_count = 60;
 }
 
 message CacheUploadStart {
