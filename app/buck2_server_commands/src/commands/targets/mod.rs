@@ -7,16 +7,16 @@
  * of this source tree.
  */
 
+mod streaming;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
-use std::mem;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -29,8 +29,6 @@ use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::pattern::package_roots::find_package_roots_stream;
-use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -38,9 +36,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
-use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -52,7 +48,6 @@ use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -60,31 +55,28 @@ use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
-use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use futures::Stream;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
-use starlark_map::small_set::SmallSet;
 
+use crate::commands::targets::streaming::targets_streaming;
 use crate::json::quote_json_string;
 use crate::target_hash::BuckTargetHash;
 use crate::target_hash::TargetHashes;
 use crate::target_hash::TargetHashesFileMode;
 
-struct TargetInfo<'a> {
+pub(crate) struct TargetInfo<'a> {
     node: &'a TargetNode,
     target_hash: Option<BuckTargetHash>,
 }
 
 #[allow(unused_variables)]
-trait TargetFormatter: Send + Sync {
+pub(crate) trait TargetFormatter: Send + Sync {
     fn begin(&self, buffer: &mut String) {}
     fn end(&self, stats: &Stats, buffer: &mut String) {}
     /// Called between each target/imports/package_error
@@ -312,7 +304,7 @@ impl TargetFormatter for JsonFormat {
 }
 
 #[derive(Debug, Default)]
-struct Stats {
+pub(crate) struct Stats {
     errors: u64,
     success: u64,
     targets: u64,
@@ -409,7 +401,7 @@ impl TargetHashOptions {
     }
 }
 
-enum Outputter {
+pub(crate) enum Outputter {
     Stdout,
     File(BufWriter<File>),
 }
@@ -872,177 +864,4 @@ async fn targets_batch(
             serialized_targets_output: buffer,
         })
     }
-}
-
-async fn targets_streaming(
-    server_ctx: &dyn ServerCommandContextTrait,
-    stdout: &mut impl Write,
-    dice: DiceTransaction,
-    formatter: Arc<dyn TargetFormatter>,
-    outputter: &mut Outputter,
-    parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-    keep_going: bool,
-    cached: bool,
-    imports: bool,
-    fast_hash: Option<bool>, // None = no hashing
-) -> anyhow::Result<TargetsResponse> {
-    #[derive(Default)]
-    struct Res {
-        stats: Stats,           // Stats to merge in
-        stderr: Option<String>, // Print to stderr (and break)
-        stdout: String,         // Print to stdout
-    }
-
-    let imported = Arc::new(Mutex::new(SmallSet::new()));
-
-    let mut packages = stream_packages(&dice, parsed_patterns)
-        .map(|x| {
-            let formatter = formatter.dupe();
-            let imported = imported.dupe();
-
-            dice.temporary_spawn(move |dice| async move {
-                let mut res = Res::default();
-                let (package, spec) = x?;
-                match load_targets(&dice, package.dupe(), spec, cached).await {
-                    Ok((eval_result, targets)) => {
-                        res.stats.success += 1;
-                        if imports {
-                            let eval_imports = eval_result.imports();
-                            formatter.imports(
-                                &eval_result.buildfile_path().path(),
-                                eval_imports,
-                                Some(package.dupe()),
-                                &mut res.stdout,
-                            );
-                            imported
-                                .lock()
-                                .unwrap()
-                                .extend(eval_imports.iter().cloned());
-                        }
-                        for (i, node) in targets.iter().enumerate() {
-                            res.stats.targets += 1;
-                            if imports || i != 0 {
-                                formatter.separator(&mut res.stdout);
-                            }
-                            formatter.target(
-                                package.dupe(),
-                                TargetInfo {
-                                    node,
-                                    target_hash: fast_hash.map(|fast| {
-                                        TargetHashes::compute_immediate_one(node, fast)
-                                    }),
-                                },
-                                &mut res.stdout,
-                            )
-                        }
-                    }
-                    Err(e) => {
-                        res.stats.errors += 1;
-                        formatter.package_error(package.dupe(), &e, &mut res.stdout);
-                        if !keep_going {
-                            res.stderr = Some(format!("Error parsing {}\n{:?}", package, e));
-                        }
-                    }
-                }
-                anyhow::Ok(res)
-            })
-        })
-        // Use unlimited parallelism - tokio will restrict us anyway
-        .buffer_unordered(1000000);
-
-    let mut buffer = String::new();
-    formatter.begin(&mut buffer);
-    let mut stats = Stats::default();
-    let mut needs_separator = false;
-    while let Some(res) = packages.next().await {
-        let res = res?;
-        stats.merge(&res.stats);
-        if let Some(stderr) = res.stderr {
-            writeln!(server_ctx.stderr()?, "{}", stderr)?;
-            return Err(mk_error(stats.errors));
-        }
-        if !res.stdout.is_empty() {
-            if needs_separator {
-                formatter.separator(&mut buffer);
-            }
-            needs_separator = true;
-            outputter.write2(stdout, &buffer, &res.stdout)?;
-            buffer.clear();
-        }
-    }
-
-    // Recursively chase down all imported paths
-    let mut todo = mem::take(&mut *imported.lock().unwrap());
-    let mut seen_imported = HashSet::new();
-    while let Some(path) = todo.pop() {
-        if seen_imported.insert(path.path().clone()) {
-            // If these lead to an error, that's surpsing (we had a working module with it loaded)
-            // so we should always propagate the error here (even with keep_going)
-            if needs_separator {
-                formatter.separator(&mut buffer);
-            }
-            needs_separator = true;
-            // No need to parallelise these this step because it will already be on the DICE graph
-            let loaded = dice.get_loaded_module_from_import_path(&path).await?;
-            let imports = loaded.imports().cloned().collect::<Vec<_>>();
-            formatter.imports(path.path(), &imports, None, &mut buffer);
-            todo.extend(imports);
-            outputter.write1(stdout, &buffer)?;
-            buffer.clear();
-        }
-    }
-
-    formatter.end(&stats, &mut buffer);
-    Ok(TargetsResponse {
-        error_count: stats.errors,
-        serialized_targets_output: buffer,
-    })
-}
-
-/// Given the patterns, separate into those which have an explicit package, and those which are recursive
-fn stream_packages<T: PatternType>(
-    dice: &DiceComputations,
-    patterns: Vec<ParsedPattern<T>>,
-) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> {
-    let mut spec = ResolvedPattern::<T>::new();
-    let mut recursive_paths = Vec::new();
-
-    for pattern in patterns {
-        match pattern {
-            ParsedPattern::Target(package, target_name, extra) => {
-                spec.add_target(package.dupe(), target_name, extra);
-            }
-            ParsedPattern::Package(package) => {
-                spec.add_package(package.dupe());
-            }
-            ParsedPattern::Recursive(package) => {
-                recursive_paths.push(package);
-            }
-        }
-    }
-
-    futures::stream::iter(spec.specs.into_iter().map(Ok))
-        .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All))))
-}
-
-async fn load_targets(
-    dice: &DiceComputations,
-    package: PackageLabel,
-    spec: PackageSpec<TargetPatternExtra>,
-    cached: bool,
-) -> anyhow::Result<(Arc<EvaluationResult>, Vec<TargetNode>)> {
-    let result = if cached {
-        dice.get_interpreter_results(package.dupe()).await?
-    } else {
-        dice.get_interpreter_results_uncached(package.dupe())
-            .await?
-    };
-
-    let targets = match spec {
-        PackageSpec::Targets(targets) => targets.into_try_map(|(target, TargetPatternExtra)| {
-            anyhow::Ok(result.resolve_target(target.as_ref())?.dupe())
-        })?,
-        PackageSpec::All => result.targets().values().duped().collect(),
-    };
-    Ok((result, targets))
 }
