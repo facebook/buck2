@@ -7,10 +7,9 @@
  * of this source tree.
  */
 
+mod resolve_alias;
 mod streaming;
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::BufWriter;
@@ -29,7 +28,6 @@ use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::result::ToSharedResultExt;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -39,7 +37,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
 use buck2_node::nodes::attributes::INPUTS;
@@ -58,12 +55,11 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::stream::FuturesUnordered;
-use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use regex::RegexSet;
 
+use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
 use crate::json::quote_json_string;
 use crate::target_hash::BuckTargetHash;
@@ -603,166 +599,6 @@ async fn targets(
     };
     outputter.flush()?;
     Ok(response)
-}
-
-trait ResolveAliasFormatter {
-    /// Before writing anything.
-    fn begin(&self, buffer: &mut String);
-
-    /// After writing everything.
-    fn end(&self, buffer: &mut String);
-
-    /// Between items
-    fn separator(&self, buffer: &mut String);
-
-    /// Emit an alias
-    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String);
-}
-
-impl ResolveAliasFormatter for JsonWriter {
-    fn begin(&self, buffer: &mut String) {
-        self.begin(buffer);
-    }
-
-    fn end(&self, buffer: &mut String) {
-        self.end(buffer);
-    }
-
-    fn separator(&self, buffer: &mut String) {
-        self.separator(buffer);
-    }
-
-    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String) {
-        let mut first = true;
-        self.entry_start(buffer);
-        self.entry_item(buffer, &mut first, "alias", &quote_json_string(alias));
-        // Using a format consistent wit hthe output of `buck2 targets`
-        self.entry_item(
-            buffer,
-            &mut first,
-            PACKAGE,
-            &quote_json_string(&label.pkg().to_string()),
-        );
-        self.entry_item(
-            buffer,
-            &mut first,
-            "name",
-            &quote_json_string(label.name().as_str()),
-        );
-        self.entry_end(buffer, first);
-    }
-}
-
-struct LinesWriter;
-
-impl ResolveAliasFormatter for LinesWriter {
-    fn begin(&self, _buffer: &mut String) {}
-
-    fn end(&self, _buffer: &mut String) {}
-
-    fn separator(&self, buffer: &mut String) {
-        buffer.push('\n');
-    }
-
-    fn emit(&self, _alias: &str, label: &TargetLabel, buffer: &mut String) {
-        write!(buffer, "{}", label).unwrap();
-    }
-}
-
-async fn targets_resolve_aliases(
-    dice: DiceTransaction,
-    request: &TargetsRequest,
-    parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-) -> anyhow::Result<TargetsResponse> {
-    // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
-    // print them out. This expects the aliases to resolve to individual targets.
-    let parsed_target_patterns = std::iter::zip(&request.target_patterns, parsed_target_patterns)
-        .map(|(alias, pattern)| match pattern {
-            ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
-                Ok((package, target_name))
-            }
-            _ => Err(anyhow::anyhow!(
-                "Invalid alias (does not expand to a single target): `{}`",
-                alias.value
-            )),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let packages = parsed_target_patterns
-        .iter()
-        .map(|(package, _name)| package.dupe())
-        .collect::<HashSet<_>>();
-
-    let packages = packages
-        .into_iter()
-        .map(|package| {
-            let dice = &dice;
-            async move {
-                (
-                    package.dupe(),
-                    dice.get_interpreter_results(package.dupe())
-                        .await
-                        .shared_error(),
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<HashMap<_, _>>()
-        .await;
-
-    let mut buffer = String::new();
-
-    let json_writer;
-
-    let formatter = if request.json || request.json_lines {
-        json_writer = JsonWriter {
-            json_lines: request.json_lines,
-        };
-        &json_writer as &dyn ResolveAliasFormatter
-    } else {
-        &LinesWriter as &dyn ResolveAliasFormatter
-    };
-
-    let mut needs_separator = false;
-
-    formatter.begin(&mut buffer);
-
-    for (alias, (package, target_name)) in
-        std::iter::zip(&request.target_patterns, &parsed_target_patterns)
-    {
-        // NOTE: We don't technically need the node to get the label, but we need the node to
-        // validate it exists.
-        let node = packages
-            .get(package)
-            .with_context(|| format!("Package does not exist: `{}`", package))
-            .and_then(|package_data| {
-                package_data
-                    .as_ref()
-                    .map_err(|e| e.dupe())
-                    .with_context(|| format!("Package cannot be evaluated: `{}`", package))?
-                    .resolve_target(target_name)
-                    .with_context(|| {
-                        format!(
-                            "Target does not exist in package `{}`: `{}`",
-                            package, target_name,
-                        )
-                    })
-            })
-            .with_context(|| format!("Invalid alias: `{}`", alias.value))?;
-
-        if needs_separator {
-            formatter.separator(&mut buffer);
-        }
-        needs_separator = true;
-        formatter.emit(&alias.value, node.label(), &mut buffer);
-    }
-
-    formatter.end(&mut buffer);
-
-    Ok(TargetsResponse {
-        error_count: 0,
-        serialized_targets_output: buffer,
-    })
 }
 
 fn mk_error(errors: u64) -> anyhow::Error {
