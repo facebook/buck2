@@ -183,7 +183,7 @@ mod imp {
                 sink_max_buffer_depth: 0,
                 soft_error_categories: HashSet::new(),
                 concurrent_command_blocking_duration: None,
-                metadata: HashMap::new(),
+                metadata: buck2_events::metadata::collect(),
             }
         }
 
