@@ -44,6 +44,7 @@ buck2 init
 
 To build the entire project, run:
 
+Note: _Requires clang to be in the path_
 ```sh
 buck2 build //...
 ```
