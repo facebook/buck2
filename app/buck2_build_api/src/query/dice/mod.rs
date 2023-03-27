@@ -38,6 +38,8 @@ use buck2_core::pattern::maybe_split_cell_alias_and_relative_path;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
@@ -64,6 +66,12 @@ use crate::query::uquery::environment::UqueryDelegate;
 
 pub mod aquery;
 
+#[derive(Debug, thiserror::Error)]
+enum LiteralParserError {
+    #[error("Expected a target pattern without providers, got: `{0}`")]
+    ExpectingTargetPatternWithoutProviders(String),
+}
+
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
     working_dir: CellPath,
@@ -82,7 +90,19 @@ impl LiteralParser {
     ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
         let providers_pattern = self.parse_providers_pattern(value)?;
         let target_pattern = match providers_pattern {
-            ParsedPattern::Target(package, target_name, ProvidersPatternExtra { .. }) => {
+            ParsedPattern::Target(package, target_name, ProvidersPatternExtra { providers }) => {
+                if providers != ProvidersName::Default {
+                    // After converting this to hard error, replace this function body
+                    // with direct call to `ParsedPattern::parse_relative`,
+                    // as `parse_providers_pattern` does.
+                    soft_error!(
+                        "expecting_target_pattern_without_providers",
+                        LiteralParserError::ExpectingTargetPatternWithoutProviders(
+                            value.to_owned()
+                        )
+                        .into()
+                    )?;
+                }
                 ParsedPattern::Target(package, target_name, TargetPatternExtra)
             }
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
