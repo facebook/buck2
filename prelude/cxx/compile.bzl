@@ -208,7 +208,8 @@ def create_compile_cmds(
             base_compile_cmd = _get_compile_base(compiler_info)
 
             headers_dep_files = None
-            if _supports_dep_files(ext) and toolchain.use_dep_files:
+            dep_file_file_type_hint = _dep_file_type(ext)
+            if dep_file_file_type_hint != None and toolchain.use_dep_files:
                 mk_dep_files_flags = get_headers_dep_files_flags_factory(compiler_info.compiler_type)
                 if mk_dep_files_flags:
                     headers_dep_files = _HeadersDepFiles(
@@ -395,15 +396,27 @@ def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
 
     return cmd
 
-def _supports_dep_files(ext: CxxExtension.type) -> bool.type:
+def _dep_file_type(ext: CxxExtension.type) -> [str.type, None]:
     # Raw assembly doesn't make sense to capture dep files for.
     if ext.value in (".s", ".S", ".asm"):
-        return False
+        return None
     elif ext.value == ".hip":
         # TODO (T118797886): HipCompilerInfo doesn't have dep files processor.
         # Should it?
-        return False
-    return True
+        return None
+
+    # Return the file type aswell
+    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
+        return "cpp"
+    elif ext.value in (".c", ".m"):
+        return "c"
+    elif ext.value == ".cu":
+        return "cuda"
+    elif ext.value in (".asmpp"):
+        return "asm"
+    else:
+        # This should be unreachable as long as we handle all enum values
+        fail("Unknown C++ extension: " + ext.value)
 
 def _add_compiler_info_flags(compiler_info: "_compiler_info", ext: CxxExtension.type, cmd: "cmd_args"):
     cmd.add(compiler_info.preprocessor_flags or [])
