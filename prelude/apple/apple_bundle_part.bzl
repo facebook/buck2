@@ -172,8 +172,20 @@ def _entitlements_file(ctx: "context") -> ["artifact", None]:
 
     return ctx.attrs._codesign_entitlements
 
+def _should_include_entitlements(ctx: "context", codesign_type: CodeSignType.type) -> bool.type:
+    if codesign_type.value == "distribution":
+        return True
+
+    if codesign_type.value == "adhoc":
+        # The config-based override value takes priority over target value
+        if ctx.attrs._use_entitlements_when_adhoc_code_signing != None:
+            return ctx.attrs._use_entitlements_when_adhoc_code_signing
+        return ctx.attrs.use_entitlements_when_adhoc_code_signing
+
+    return False
+
 def _get_entitlements_codesign_args(ctx: "context", codesign_type: CodeSignType.type) -> ["_arglike"]:
-    include_entitlements = codesign_type.value == "distribution" or (codesign_type.value == "adhoc" and ctx.attrs._use_entitlements_when_adhoc_code_signing)
+    include_entitlements = _should_include_entitlements(ctx, codesign_type)
     maybe_entitlements = _entitlements_file(ctx) if include_entitlements else None
     entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []
     return entitlements_args
