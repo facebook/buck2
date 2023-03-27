@@ -64,7 +64,7 @@ export default function Home() {
   return (
     <Layout
       title="Buck2 build system website"
-      description="Description will go into a meta tag in <head />">
+      description="Buck2 is an open-source large-scale build system from Meta. The successor to Buck.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />
