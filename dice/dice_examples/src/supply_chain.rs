@@ -331,7 +331,7 @@ pub struct LookupCompany(pub Arc<String>);
 impl InjectedKey for LookupCompany {
     type Value = Arc<Company>;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }
@@ -342,7 +342,7 @@ pub struct LookupResource(pub Resource);
 impl InjectedKey for LookupResource {
     type Value = Arc<Vec<LookupCompany>>;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }

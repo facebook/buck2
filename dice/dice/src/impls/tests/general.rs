@@ -38,7 +38,7 @@ struct Foo(i32);
 impl InjectedKey for Foo {
     type Value = i32;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }

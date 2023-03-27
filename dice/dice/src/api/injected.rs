@@ -33,7 +33,7 @@ pub trait InjectedKey:
 {
     type Value: Allocative + Dupe + Send + Sync + 'static;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool;
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool;
 }
 
 #[async_trait]
@@ -52,7 +52,7 @@ where
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        Self::compare(x, y)
+        Self::equality(x, y)
     }
 
     fn storage_type() -> StorageType {

@@ -31,7 +31,7 @@ struct DisableStarlarkTypesKey;
 impl InjectedKey for DisableStarlarkTypesKey {
     type Value = bool;
 
-    fn compare(x: &bool, y: &bool) -> bool {
+    fn equality(x: &bool, y: &bool) -> bool {
         x == y
     }
 }

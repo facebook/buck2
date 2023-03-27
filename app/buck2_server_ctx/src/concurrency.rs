@@ -795,7 +795,7 @@ mod tests {
     impl InjectedKey for K {
         type Value = ();
 
-        fn compare(_x: &Self::Value, _y: &Self::Value) -> bool {
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
         }
     }

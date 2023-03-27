@@ -1461,7 +1461,7 @@ mod tests {
     impl InjectedKey for Persistent {
         type Value = i32;
 
-        fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
         }
     }

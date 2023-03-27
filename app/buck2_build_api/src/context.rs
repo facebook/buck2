@@ -42,7 +42,7 @@ struct BuildDataKey;
 impl InjectedKey for BuildDataKey {
     type Value = Arc<BuildData>;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }

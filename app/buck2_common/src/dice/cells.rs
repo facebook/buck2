@@ -38,7 +38,7 @@ struct CellResolverKey;
 impl InjectedKey for CellResolverKey {
     type Value = Option<CellResolver>;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         match (x, y) {
             (Some(x), Some(y)) => x == y,
             (None, None) => true,

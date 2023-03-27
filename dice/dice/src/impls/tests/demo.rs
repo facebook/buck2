@@ -42,7 +42,7 @@ struct EncodingConfig();
 impl InjectedKey for EncodingConfig {
     type Value = Encoding;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }

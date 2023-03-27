@@ -157,7 +157,7 @@ struct LegacyBuckConfigKey;
 impl InjectedKey for LegacyBuckConfigKey {
     type Value = Option<LegacyBuckConfigs>;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         match (x, y) {
             (Some(x), Some(y)) => x.compare(y),
             (None, None) => true,
@@ -461,18 +461,18 @@ mod tests {
         let config5: Option<LegacyBuckConfigs> = None;
         let config6: Option<LegacyBuckConfigs> = None;
 
-        assert_eq!(LegacyBuckConfigKey::compare(&config1, &config1), true);
-        assert_eq!(LegacyBuckConfigKey::compare(&config2, &config2), true);
-        assert_eq!(LegacyBuckConfigKey::compare(&config3, &config3), true);
-        assert_eq!(LegacyBuckConfigKey::compare(&config4, &config4), true);
-        assert_eq!(LegacyBuckConfigKey::compare(&config1, &config2), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config1, &config3), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config1, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config2, &config3), true);
-        assert_eq!(LegacyBuckConfigKey::compare(&config2, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config3, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config5, &config1), false);
-        assert_eq!(LegacyBuckConfigKey::compare(&config5, &config6), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config1), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config2), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config3, &config3), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config4, &config4), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config2), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config3), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config4), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config3), true);
+        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config4), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config3, &config4), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config5, &config1), false);
+        assert_eq!(LegacyBuckConfigKey::equality(&config5, &config6), true);
 
         Ok(())
     }

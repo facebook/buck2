@@ -268,7 +268,7 @@ pub struct StarlarkProfilerInstrumentationOverrideKey;
 impl InjectedKey for StarlarkProfilerInstrumentationOverrideKey {
     type Value = StarlarkProfilerConfiguration;
 
-    fn compare(x: &Self::Value, y: &Self::Value) -> bool {
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
 }
