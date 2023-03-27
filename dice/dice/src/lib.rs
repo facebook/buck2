@@ -218,8 +218,8 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
-pub use fnv::FnvHashMap as HashMap;
-pub use fnv::FnvHashSet as HashSet;
+pub(crate) use fnv::FnvHashMap as HashMap;
+pub(crate) use fnv::FnvHashSet as HashSet;
 use futures::future::Future;
 use futures::FutureExt;
 use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
