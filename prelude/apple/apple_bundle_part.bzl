@@ -65,10 +65,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
             provisioning_profiles_args = ["--profiles-dir"] + provisioning_profiles.default_outputs
             codesign_args.extend(provisioning_profiles_args)
 
-            # TODO(T116604880): use `apple.use_entitlements_when_adhoc_code_signing` buckconfig value
-            maybe_entitlements = _entitlements_file(ctx)
-            entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []
-            codesign_args.extend(entitlements_args)
+            codesign_args += _get_entitlements_codesign_args(ctx)
 
             identities_command = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign_identities_command
             identities_command_args = ["--codesign-identities-command", cmd_args(identities_command)] if identities_command else []
@@ -174,3 +171,9 @@ def _entitlements_file(ctx: "context") -> ["artifact", None]:
         return binary_entitlement_info.entitlements_file
 
     return ctx.attrs._codesign_entitlements
+
+def _get_entitlements_codesign_args(ctx: "context") -> ["_arglike"]:
+    # TODO(T116604880): use `apple.use_entitlements_when_adhoc_code_signing` buckconfig value
+    maybe_entitlements = _entitlements_file(ctx)
+    entitlements_args = ["--entitlements", maybe_entitlements] if maybe_entitlements else []
+    return entitlements_args
