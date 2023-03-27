@@ -8,24 +8,26 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-
-#[derive(Debug, thiserror::Error)]
-#[error(
-    "`buck2 killall` command should have been handled by buck2 launcher, \
-    this code is practically unreachable"
-)]
-struct KillallCommandError;
+use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Kill all buck2 processes on the machine")]
 pub struct KillallCommand {}
 
 impl KillallCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
-    ) -> anyhow::Result<()> {
-        Err(KillallCommandError.into())
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+        let _log_on_drop =
+            try_get_invocation_recorder(&ctx, "killall", std::env::args().collect())?;
+
+        let ok = buck2_killall::killall(|s| {
+            let _ignored = buck2_client_ctx::eprintln!("{}", s);
+        });
+
+        if ok {
+            ExitResult::success()
+        } else {
+            ExitResult::failure()
+        }
     }
 }
