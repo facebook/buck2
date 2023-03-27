@@ -107,6 +107,7 @@ mod imp {
         sink_max_buffer_depth: u64,
         soft_error_categories: HashSet<String>,
         concurrent_command_blocking_duration: Option<prost_types::Duration>,
+        metadata: HashMap<String, String>,
     }
 
     impl InvocationRecorder {
@@ -182,6 +183,7 @@ mod imp {
                 sink_max_buffer_depth: 0,
                 soft_error_categories: HashSet::new(),
                 concurrent_command_blocking_duration: None,
+                metadata: HashMap::new(),
             }
         }
 
@@ -226,6 +228,9 @@ mod imp {
                 );
             }
 
+            let mut metadata = Self::default_metadata();
+            metadata.strings.extend(std::mem::take(&mut self.metadata));
+
             let record = buck2_data::InvocationRecord {
                 command_name: Some(self.command_name.to_owned()),
                 command_start: self.command_start.take(),
@@ -238,7 +243,7 @@ mod imp {
                 re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
                 cli_args: self.cli_args.clone(),
                 critical_path_duration: self.critical_path_duration.and_then(|x| x.try_into().ok()),
-                metadata: Some(Self::default_metadata()),
+                metadata: Some(metadata),
                 tags: self.tags.drain(..).collect(),
                 run_local_count: self.run_local_count,
                 run_remote_count: self.run_remote_count,
@@ -339,7 +344,9 @@ mod imp {
             command: &buck2_data::CommandStart,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            self.command_start = Some(command.clone());
+            let mut command = command.clone();
+            self.metadata.extend(std::mem::take(&mut command.metadata));
+            self.command_start = Some(command);
             self.time_to_command_start = Some(self.start_time.elapsed());
             Ok(())
         }
@@ -349,6 +356,9 @@ mod imp {
             command: &buck2_data::CommandEnd,
             event: &BuckEvent,
         ) -> anyhow::Result<()> {
+            let mut command = command.clone();
+            self.metadata.extend(std::mem::take(&mut command.metadata));
+
             // Awkwardly unpacks the SpanEnd event so we can read its duration.
             let command_end = match event.data() {
                 buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
@@ -359,7 +369,6 @@ mod imp {
                 }
             };
             self.command_duration = command_end.duration;
-            self.command_end = Some(command.clone());
             self.min_build_count_since_rebase =
                 match command.data.as_ref().context("Missing command data")? {
                     buck2_data::command_end::Data::Build(cmd) => {
@@ -374,6 +383,7 @@ mod imp {
                     // other events don't have target patterns
                     _ => 0,
                 };
+            self.command_end = Some(command);
             let root = Path::to_owned(self.invocation_root_path.as_ref());
             if is_eden_dir(root).unwrap_or(false) {
                 self.filesystem = Some("eden".to_owned());
@@ -387,7 +397,9 @@ mod imp {
             command: &buck2_data::CommandCriticalStart,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            self.command_critical_start = Some(command.clone());
+            let mut command = command.clone();
+            self.metadata.extend(std::mem::take(&mut command.metadata));
+            self.command_critical_start = Some(command);
             self.time_to_command_critical_section = Some(self.start_time.elapsed());
             Ok(())
         }
@@ -396,7 +408,9 @@ mod imp {
             command: &buck2_data::CommandCriticalEnd,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            self.command_critical_end = Some(command.clone());
+            let mut command = command.clone();
+            self.metadata.extend(std::mem::take(&mut command.metadata));
+            self.command_critical_end = Some(command);
             Ok(())
         }
 
