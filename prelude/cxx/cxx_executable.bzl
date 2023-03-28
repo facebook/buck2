@@ -527,7 +527,6 @@ def _link_into_executable(
     links = [LinkArgs(flags = extra_args)] + links
 
     shared_link_and_linker_map_args = {
-        "enable_distributed_thinlto": enable_distributed_thinlto,
         "force_full_hybrid_if_capable": force_full_hybrid_if_capable,
         "link_ordering": link_ordering,
         "link_weight": link_weight,
@@ -539,6 +538,7 @@ def _link_into_executable(
         links,
         output,
         CxxLinkResultType("executable"),
+        enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
         strip = strip,
         strip_args_factory = strip_args_factory,
