@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use crate::types::OptionalVertexId;
 use crate::types::VertexData;
 use crate::types::VertexId;
 
@@ -125,10 +126,78 @@ impl Graph {
 
         topo_order
     }
+
+    /// Given a DAG and a *reverse topological* ordering thereof, return the predecessor for each
+    /// node after aggregating by runtime.
+    fn find_longest_paths(
+        &self,
+        reverse_topo_order: impl IntoIterator<Item = VertexId>,
+        runtimes: &VertexData<u64>,
+    ) -> (VertexData<PathCost>, VertexData<OptionalVertexId>) {
+        let mut predecessor = self.allocate_vertex_data(OptionalVertexId::none());
+
+        // The runtime for this vertex
+        let mut costs = self.allocate_vertex_data(PathCost::default());
+
+        for idx in reverse_topo_order {
+            let mut max: Option<(PathCost, VertexId)> = None;
+
+            // Visit my dependencies.
+            for from in self.iter_edges(idx) {
+                let from_cost = &costs[from];
+
+                let replace = match max {
+                    Some((max_cost, _)) => max_cost < *from_cost,
+                    _ => true,
+                };
+
+                if replace {
+                    max = Some((*from_cost, from));
+                }
+            }
+
+            let me = PathCost {
+                runtime: runtimes[idx],
+                len: 1,
+            };
+
+            match max {
+                Some((cost, vertex)) => {
+                    costs[idx] = cost + me;
+                    predecessor[idx] = vertex.into();
+                }
+                None => {
+                    costs[idx] = me;
+                    predecessor[idx] = OptionalVertexId::none();
+                }
+            }
+        }
+
+        (costs, predecessor)
+    }
+}
+
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    derive_more::Add,
+    derive_more::Sub,
+    Debug
+)]
+struct PathCost {
+    runtime: u64,
+    len: u32,
 }
 
 #[cfg(test)]
 mod test {
+    use starlark_map::small_map::SmallMap;
+
     use super::*;
     use crate::builder::GraphBuilder;
 
@@ -137,20 +206,23 @@ mod test {
     const K2: &str = "key2";
     const K3: &str = "key3";
 
-    fn test_graph() -> (Graph, VertexData<&'static str>) {
+    fn test_graph() -> (
+        Graph,
+        SmallMap<&'static str, VertexId>,
+        VertexData<&'static str>,
+    ) {
         let mut builder = GraphBuilder::new();
         builder.push(K3, std::iter::empty(), K3).unwrap();
         builder.push(K2, vec![K3].into_iter(), K2).unwrap();
         builder.push(K1, std::iter::empty(), K1).unwrap();
         builder.push(K0, vec![K1, K2].into_iter(), K0).unwrap();
 
-        let (graph, _keys, data) = builder.finish();
-        (graph, data)
+        builder.finish()
     }
 
     #[test]
     fn test_iter() {
-        let (graph, data) = test_graph();
+        let (graph, _keys, data) = test_graph();
         let edges = graph
             .iter_all_edges()
             .map(|(l, r)| (data[l], data[r]))
@@ -161,7 +233,7 @@ mod test {
 
     #[test]
     fn test_reverse() {
-        let (graph, data) = test_graph();
+        let (graph, _keys, data) = test_graph();
         let rev_graph = graph.reversed();
         let rev_edges = rev_graph
             .iter_all_edges()
@@ -173,12 +245,69 @@ mod test {
 
     #[test]
     fn test_topo_sort() {
-        let (graph, data) = test_graph();
+        let (graph, _keys, data) = test_graph();
         let topo = graph
             .topo_sort()
             .into_iter()
             .map(|k| data[k])
             .collect::<Vec<_>>();
         assert_eq!(topo, vec![K0, K1, K2, K3]);
+    }
+
+    #[test]
+    fn test_longest_paths() {
+        let (graph, keys, data) = test_graph();
+
+        // Get the vertex ids
+        let v0 = *keys.get(K0).unwrap();
+        let v1 = *keys.get(K1).unwrap();
+        let v2 = *keys.get(K2).unwrap();
+        let v3 = *keys.get(K3).unwrap();
+
+        let mut runtimes = graph.allocate_vertex_data(0);
+        runtimes[v0] = 5;
+        runtimes[v1] = 15;
+        runtimes[v2] = 10;
+        runtimes[v3] = 20;
+
+        let topo = graph.topo_sort();
+        let (costs, predecessor) = graph.find_longest_paths(topo.iter().rev().copied(), &runtimes);
+
+        assert_eq!(
+            costs[v3],
+            PathCost {
+                len: 1,
+                runtime: 20
+            }
+        );
+
+        assert_eq!(
+            costs[v2],
+            PathCost {
+                len: 2,
+                runtime: 30
+            }
+        );
+
+        assert_eq!(
+            costs[v1],
+            PathCost {
+                len: 1,
+                runtime: 15
+            }
+        );
+
+        assert_eq!(
+            costs[v0],
+            PathCost {
+                len: 3,
+                runtime: 35
+            }
+        );
+
+        assert_eq!(predecessor[v0].into_option(), Some(v2));
+        assert_eq!(predecessor[v1].into_option(), None);
+        assert_eq!(predecessor[v2].into_option(), Some(v3));
+        assert_eq!(predecessor[v3].into_option(), None);
     }
 }
