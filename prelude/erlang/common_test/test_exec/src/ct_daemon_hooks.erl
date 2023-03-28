@@ -195,10 +195,10 @@ wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
                             catch
                                 Class:Reason:Stacktrace ->
                                     Error = format_ct_error(Class, Reason, Stacktrace),
-                                    {[{tc_status, {failed, Error}}], Error}
+                                    {[{tc_status, {failed, Error}} | ConfigArg], Error}
                             end,
                         Args = PathArg ++ [PostConfig, Return],
-                        call_if_exists_with_fallback_store_state(Hook, post(Part), Args, Return)
+                        call_if_exists_with_fallback_store_state(Hook, post(Part), Args, PostConfig)
                 end
             end
         end,

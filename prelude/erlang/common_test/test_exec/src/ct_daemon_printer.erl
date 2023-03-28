@@ -33,33 +33,14 @@ print_summary(Total, Passed, FailedOrSkipped) ->
     ok | fail.
 print_result(Name, pass_result) ->
     io:format("~ts ~ts~n", [?CHECK_MARK, Name]);
-print_result(Name, {error, {TestId, {ErrType, Reason}}}) ->
-    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("~ts failed with ~p:~n", [TestId, ErrType]),
-    Output = ct_error_printer:format_error(ErrType, Reason, true),
-    io:format("~ts~n", [Output]),
-    fail;
-print_result(Name, {error, {TestId, {Class, Reason, StackTrace}}}) ->
-    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("~ts failed:~n", [TestId]),
-    io:format("~s~n", [erl_error:format_exception(Class, Reason, StackTrace)]),
-    fail;
-print_result(Name, {error, {TestId, UnstructuredReason}}) ->
-    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("~ts failed:~n", [TestId]),
-    io:format("~p~n", [UnstructuredReason]),
-    fail;
-print_result(Name, {error, {Error, Reason, Stacktrace}}) ->
-    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
-    io:format("~nrun failed:~n", []),
-    io:format("~ts~n", [erl_error:format_exception(Error, Reason, Stacktrace)]),
-    fail;
-print_result(Name, {skip, Where, {Error, Reason, Stacktrace}}) ->
-    io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
-    io:format("skipped at ~s because of ~n~ts~n", [
-        print_skip_location(Where), erl_error:format_exception(Error, Reason, Stacktrace)
-    ]),
-    skip;
+print_result(Name, {error, {_TestId, {thrown, {Reason, Stacktrace}}}}) ->
+    print_error(Name, throw, Reason, Stacktrace);
+print_result(Name, {error, {_TestId, {Reason, Stacktrace}}}) ->
+    print_error(Name, error, Reason, Stacktrace);
+print_result(Name, {skip, Where, {error, {Reason, Stacktrace}}}) ->
+    print_skip_error(Name, Where, error, Reason, Stacktrace);
+print_result(Name, {skip, Where, {error, {thrown, Reason, Stacktrace}}}) ->
+    print_skip_error(Name, Where, throw, Reason, Stacktrace);
 print_result(Name, {skip, Where, Reason}) ->
     io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
     io:format("skipped at ~s because of ~p~n", [print_skip_location(Where), Reason]),
@@ -67,7 +48,27 @@ print_result(Name, {skip, Where, Reason}) ->
 print_result(Name, {fail, {TestId, Reason}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("~ts failed:~n", [TestId]),
-    io:format("~p~n", [Reason]).
+    io:format("~p~n", [Reason]),
+    fail;
+print_result(Name, Unstructured) ->
+    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
+    io:format("unable to format failure reason, please report.~n"),
+    io:format("~p~n", [Unstructured]),
+    fail.
+
+print_error(Name, Type, Reason, Stacktrace) ->
+    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
+    io:format("failed with ~p:~n", [Type]),
+    Output = ct_error_printer:format_error(Type, {Reason, chop_stack(Stacktrace)}, true),
+    io:format("~ts~n", [Output]),
+    fail.
+
+print_skip_error(Name, Where, Type, Reason, Stacktrace) ->
+    io:format("~ts ~ts~n", [?SKIP_MARK, Name]),
+    io:format("skipped at ~s because of~n", [print_skip_location(Where)]),
+    Output = ct_error_printer:format_error(Type, {Reason, chop_stack(Stacktrace)}, true),
+    io:format("~ts~n", [Output]),
+    skip.
 
 print_skip_location({_, GroupOrSuite}) ->
     case re:match(atom_to_list(GroupOrSuite), "SUITE$") of
@@ -76,3 +77,8 @@ print_skip_location({_, GroupOrSuite}) ->
     end;
 print_skip_location(Other) ->
     Other.
+
+chop_stack(Stacktrace) ->
+    lists:takewhile(
+        fun({Module, _, _, _}) -> not lists:member(Module, [ct_daemon_core, ct_daemon_hooks]) end, Stacktrace
+    ).
