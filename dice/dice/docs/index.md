@@ -17,6 +17,7 @@ DICE is currently still experimental and largely being rewritten.
 - Cycle Detection // TODO
 
 ## Using DICE
+- [Basic API](api.md) - How to use DICE
 - [Writing Computations](writing_computations.md) - How to write computations that are incremental
 
 ## Benchmarking DICE
