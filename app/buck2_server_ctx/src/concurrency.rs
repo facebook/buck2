@@ -25,6 +25,7 @@ use buck2_core::soft_error;
 use buck2_core::truncate::truncate;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
+use buck2_data::DiceConcurrentCommands;
 use buck2_data::DiceEqualityCheck;
 use buck2_data::DiceSynchronizeSectionEnd;
 use buck2_data::DiceSynchronizeSectionStart;
@@ -539,6 +540,10 @@ impl ConcurrencyHandler {
 
                     if let Some(active) = active {
                         let is_same_state = transaction.equivalent(&active.version);
+
+                        event_dispatcher.instant_event(DiceConcurrentCommands {
+                            total_concurrent_commands: data.active_commands.len() as u32,
+                        });
 
                         // If we have a different state, attempt to transition to cleanup. This will
                         // succeed only if the current state is not in use.

@@ -181,6 +181,9 @@ message InstantEvent {
     InternalError internal_error = 22;
 
     IoProviderInfo io_provider_info = 23;
+
+    // Total number of concurrent commands in an active dice.
+    DiceConcurrentCommands dice_concurrent_commands = 24;
   }
 
   reserved 12; // Log
@@ -1524,6 +1527,10 @@ message MaterializerStateInfo {
 
 message IoProviderInfo {
   optional string eden_version = 1;
+}
+
+message DiceConcurrentCommands {
+  uint32 total_concurrent_commands = 1;
 }
 
 message NoopEvent {}
