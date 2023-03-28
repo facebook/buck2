@@ -33,6 +33,22 @@ fn test_empty() {
 }
 
 #[test]
+fn test_assign_op() {
+    assert_eq!(assert::parse("x = 1\n"), "x = 1\n");
+    assert_eq!(assert::parse("x += 1\n"), "x += 1\n");
+    assert_eq!(assert::parse("x -= 1\n"), "x -= 1\n");
+    assert_eq!(assert::parse("x *= 1\n"), "x *= 1\n");
+    assert_eq!(assert::parse("x /= 1\n"), "x /= 1\n");
+    assert_eq!(assert::parse("x //= 1\n"), "x //= 1\n");
+    assert_eq!(assert::parse("x %= 1\n"), "x %= 1\n");
+    assert_eq!(assert::parse("x &= 1\n"), "x &= 1\n");
+    assert_eq!(assert::parse("x |= 1\n"), "x |= 1\n");
+    assert_eq!(assert::parse("x ^= 1\n"), "x ^= 1\n");
+    assert_eq!(assert::parse("x <<= 1\n"), "x <<= 1\n");
+    assert_eq!(assert::parse("x >>= 1\n"), "x >>= 1\n");
+}
+
+#[test]
 fn test_top_level_comment() {
     assert_eq!(assert::parse("# Test"), "");
 }
