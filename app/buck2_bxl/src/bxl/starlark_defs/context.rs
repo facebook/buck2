@@ -460,7 +460,8 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 
     /// Runs a build on the given `labels`, accepting an optional `target_platform` which is the
-    /// target platform configuration used to resolve configurations.
+    /// target platform configuration used to resolve configurations. Note that when `build()` is called,
+    /// the artifacts are materialized without needing to additionally call `ensure()` on them.
     ///
     /// The given `labels` is a providers expression, which is either:
     ///     - a single string that is a `target pattern`.
@@ -470,6 +471,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///
     /// This returns a dict keyed by sub target labels of [`StarlarkBuildResult`] if the
     /// given `labels` is list-like
+    ///
     fn build<'v>(
         this: &'v BxlContext<'v>,
         spec: Value<'v>,
