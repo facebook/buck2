@@ -11,6 +11,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use buck2_build_api::nodes::hacks::value_to_json;
+use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
@@ -323,31 +324,32 @@ impl TargetFormatter for TargetNameFormat {
 
 pub(crate) fn create_formatter(
     request: &TargetsRequest,
+    other: &targets_request::Other,
 ) -> anyhow::Result<Arc<dyn TargetFormatter>> {
-    let is_json = request.json || request.json_lines || !request.output_attributes.is_empty();
+    let is_json = request.json || request.json_lines || !other.output_attributes.is_empty();
     if is_json {
         Ok(Arc::new(JsonFormat {
-            attributes: if request.output_attributes.is_empty() {
+            attributes: if other.output_attributes.is_empty() {
                 None
             } else {
-                Some(RegexSet::new(&request.output_attributes)?)
+                Some(RegexSet::new(&other.output_attributes)?)
             },
-            attr_inspect_opts: if request.include_default_attributes {
+            attr_inspect_opts: if other.include_default_attributes {
                 AttrInspectOptions::All
             } else {
                 AttrInspectOptions::DefinedOnly
             },
-            target_call_stacks: request.target_call_stacks,
+            target_call_stacks: other.target_call_stacks,
             writer: JsonWriter {
                 json_lines: request.json_lines,
             },
         }))
-    } else if request.stats {
+    } else if other.stats {
         Ok(Arc::new(StatsFormat))
     } else {
         Ok(Arc::new(TargetNameFormat {
-            target_call_stacks: request.target_call_stacks,
-            target_hash_graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+            target_call_stacks: other.target_call_stacks,
+            target_hash_graph_type: TargetHashGraphType::from_i32(other.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
         }))
     }

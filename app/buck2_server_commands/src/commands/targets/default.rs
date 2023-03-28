@@ -16,9 +16,9 @@ use std::path::Path;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
+use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -49,7 +49,7 @@ pub(crate) struct TargetHashOptions {
 
 impl TargetHashOptions {
     pub(crate) fn new(
-        request: &TargetsRequest,
+        request: &targets_request::Other,
         cell_resolver: &CellResolver,
         fs: &ProjectRoot,
     ) -> anyhow::Result<Self> {

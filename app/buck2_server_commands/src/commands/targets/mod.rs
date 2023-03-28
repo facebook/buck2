@@ -18,6 +18,7 @@ use std::io::Write;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
@@ -36,6 +37,12 @@ use crate::commands::targets::default::TargetHashOptions;
 use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
+
+#[derive(Debug, thiserror::Error)]
+enum TargetsCommandError {
+    #[error("Missing field in proto request (internal error)")]
+    MissingField,
+}
 
 pub(crate) enum Outputter {
     Stdout,
@@ -159,50 +166,60 @@ async fn targets(
 
     let mut outputter = Outputter::new(request)?;
 
-    let response = if request.unstable_resolve_aliases {
-        targets_resolve_aliases(dice, request, parsed_target_patterns).await?
-    } else if request.streaming {
-        let formatter = create_formatter(request)?;
-        let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
-            .expect("buck cli should send valid target hash graph type")
-        {
-            TargetHashGraphType::None => None,
-            _ => Some(request.target_hash_use_fast_hash),
-        };
+    let response = match &request.targets {
+        Some(targets_request::Targets::ResolveAlias(_)) => {
+            targets_resolve_aliases(dice, request, parsed_target_patterns).await?
+        }
+        Some(targets_request::Targets::Other(other)) => {
+            if other.streaming {
+                let formatter = create_formatter(request, other)?;
+                let hashing = match TargetHashGraphType::from_i32(other.target_hash_graph_type)
+                    .expect("buck cli should send valid target hash graph type")
+                {
+                    TargetHashGraphType::None => None,
+                    _ => Some(other.target_hash_use_fast_hash),
+                };
 
-        let res = targets_streaming(
-            server_ctx,
-            stdout,
-            dice,
-            formatter,
-            &mut outputter,
-            parsed_target_patterns,
-            request.keep_going,
-            request.cached,
-            request.imports,
-            hashing,
-        )
-        .await;
-        // Make sure we always flush the outputter, even on failure, as we may have partially written to it
-        outputter.flush()?;
-        res?
-    } else {
-        let formatter = create_formatter(request)?;
-        let target_platform =
-            target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
+                let res = targets_streaming(
+                    server_ctx,
+                    stdout,
+                    dice,
+                    formatter,
+                    &mut outputter,
+                    parsed_target_patterns,
+                    other.keep_going,
+                    other.cached,
+                    other.imports,
+                    hashing,
+                )
+                .await;
+                // Make sure we always flush the outputter, even on failure, as we may have partially written to it
+                outputter.flush()?;
+                res?
+            } else {
+                let formatter = create_formatter(request, other)?;
+                let target_platform = target_platform_from_client_context(
+                    request.context.as_ref(),
+                    &cell_resolver,
+                    cwd,
+                )
                 .await?;
-        let fs = server_ctx.project_root();
-        targets_batch(
-            server_ctx,
-            dice,
-            &*formatter,
-            parsed_target_patterns,
-            target_platform,
-            TargetHashOptions::new(request, &cell_resolver, fs)?,
-            request.keep_going,
-        )
-        .await?
+                let fs = server_ctx.project_root();
+                targets_batch(
+                    server_ctx,
+                    dice,
+                    &*formatter,
+                    parsed_target_patterns,
+                    target_platform,
+                    TargetHashOptions::new(other, &cell_resolver, fs)?,
+                    other.keep_going,
+                )
+                .await?
+            }
+        }
+        None => return Err(TargetsCommandError::MissingField.into()),
     };
+
     let response = TargetsResponse {
         error_count: response.error_count,
         serialized_targets_output: outputter.write_to_file(response.serialized_targets_output)?,

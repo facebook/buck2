@@ -113,7 +113,14 @@ impl HasRecordTargetCallStacks for UqueryRequest {
 
 impl HasRecordTargetCallStacks for TargetsRequest {
     fn record_target_call_stacks(&self) -> bool {
-        self.target_call_stacks
+        match &self.targets {
+            Some(targets_request::Targets::Other(other)) => other.target_call_stacks,
+            Some(targets_request::Targets::ResolveAlias(_)) => false,
+            None => {
+                // Unreachable.
+                false
+            }
+        }
     }
 }
 

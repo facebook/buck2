@@ -236,28 +236,35 @@ impl StreamingCommand for TargetsCommand {
             }),
             json: self.json,
             json_lines: self.json_lines,
-            stats: self.stats,
-            output_attributes,
-            target_hash_file_mode: match self.target_hash_file_mode {
-                TargetHashFileMode::PathsOnly => {
-                    targets_request::TargetHashFileMode::PathsOnly as i32
-                }
-                TargetHashFileMode::PathsAndContents => {
-                    targets_request::TargetHashFileMode::PathsAndContents as i32
-                }
-                TargetHashFileMode::None => targets_request::TargetHashFileMode::NoFiles as i32,
-            },
-            target_hash_modified_paths,
-            target_hash_use_fast_hash,
-            unstable_resolve_aliases: self.resolve_alias,
-            target_call_stacks: self.target_call_stacks,
-            target_hash_graph_type,
-            include_default_attributes: self.include_defaults,
-            target_hash_recursive: self.target_hash_recursive,
-            keep_going: self.keep_going,
-            streaming: self.streaming,
-            cached: !self.no_cache,
-            imports: self.imports,
+            targets: Some(if self.resolve_alias {
+                targets_request::Targets::ResolveAlias(targets_request::ResolveAlias {})
+            } else {
+                targets_request::Targets::Other(targets_request::Other {
+                    stats: self.stats,
+                    output_attributes,
+                    target_hash_file_mode: match self.target_hash_file_mode {
+                        TargetHashFileMode::PathsOnly => {
+                            targets_request::TargetHashFileMode::PathsOnly as i32
+                        }
+                        TargetHashFileMode::PathsAndContents => {
+                            targets_request::TargetHashFileMode::PathsAndContents as i32
+                        }
+                        TargetHashFileMode::None => {
+                            targets_request::TargetHashFileMode::NoFiles as i32
+                        }
+                    },
+                    target_hash_modified_paths,
+                    target_hash_use_fast_hash,
+                    target_call_stacks: self.target_call_stacks,
+                    target_hash_graph_type,
+                    include_default_attributes: self.include_defaults,
+                    target_hash_recursive: self.target_hash_recursive,
+                    keep_going: self.keep_going,
+                    streaming: self.streaming,
+                    cached: !self.no_cache,
+                    imports: self.imports,
+                })
+            }),
             output: self
                 .output
                 .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
