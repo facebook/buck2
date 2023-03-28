@@ -15,7 +15,8 @@ def main():
     Determines which dep file processor to use according to compiler type found in the first arg
     """
     compiler_type = sys.argv[1]  # noqa
-    makefile_to_dep_file.makefile_to_depfile(sys.argv[2:])
+    file_type = sys.argv[2]  # noqa
+    makefile_to_dep_file.makefile_to_depfile(sys.argv[3:])
 
 
 if __name__ == "__main__":
