@@ -48,6 +48,11 @@ CxxLinkResultType = enum(
     "shared_library",
 )
 
+CxxLinkerMapData = record(
+    map = field("artifact"),
+    binary = field("artifact"),
+)
+
 # Actually perform a link into the supplied output.
 def cxx_link(
         ctx: "context",

@@ -92,6 +92,7 @@ load(
 load(
     ":link.bzl",
     "CxxLinkResultType",
+    "CxxLinkerMapData",
     "cxx_link",
 )
 load(
@@ -492,11 +493,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         auto_link_groups = auto_link_groups,
     ), comp_db_info, xcode_data_info
 
-_LinkerMapData = record(
-    map = field("artifact"),
-    binary = field("artifact"),
-)
-
 _CxxLinkExecutableResult = record(
     # The resulting executable
     exe = LinkedObject.type,
@@ -504,7 +500,7 @@ _CxxLinkExecutableResult = record(
     runtime_files = ["_arglike"],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = ["artifact", None],
-    linker_map_data = _LinkerMapData.type,
+    linker_map_data = CxxLinkerMapData.type,
 )
 
 def _link_into_executable(
@@ -568,7 +564,7 @@ def _linker_map(
         ctx: "context",
         links: [LinkArgs.type],
         binary: LinkedObject.type,
-        **kwargs) -> _LinkerMapData.type:
+        **kwargs) -> CxxLinkerMapData.type:
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
     linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
@@ -583,7 +579,7 @@ def _linker_map(
         allow_bolt_optimization_and_dwp_generation = False,
         **kwargs
     )
-    return _LinkerMapData(
+    return CxxLinkerMapData(
         map = linker_map,
         binary = binary_for_linker_map,
     )
