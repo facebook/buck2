@@ -278,44 +278,6 @@ struct ObjectRenderer<'a> {
     object: &'a Object,
 }
 
-impl<'a> ObjectRenderer<'a> {
-    fn gather_members_info(&self, flavor: MarkdownFlavor) -> (Vec<TableRow>, Vec<String>) {
-        self.object
-            .members
-            .iter()
-            .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-            .map(|(name, member)| {
-                let (summary, typ) = match member {
-                    Member::Property(p) => (&p.docs, TypeRenderer::Type(&p.typ)),
-                    Member::Function(f) => (
-                        &f.docs,
-                        TypeRenderer::Function {
-                            function_name: None,
-                            show_param_details: true,
-                            max_args_before_multiline: Some(0),
-                            f,
-                        },
-                    ),
-                };
-                let row = TableRow(vec![
-                    Box::new(name.clone()),
-                    Box::new(DocStringRenderer(DSOpts::Summary, summary)),
-                    Box::new(CodeBlock {
-                        language: Some("python".to_owned()),
-                        contents: Box::new(typ),
-                    }),
-                ]);
-                let details = MemberDetails {
-                    name: name.clone(),
-                    member,
-                }
-                .render_markdown(flavor);
-                (row, details)
-            })
-            .unzip()
-    }
-}
-
 impl<'a> RenderMarkdown for ObjectRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
@@ -323,46 +285,43 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                 // If this is a native, top level object, render it with a larger
                 // header. Sub objects will be listed along side members, so use
                 // smaller headers there.
-                let title = match self.id.location.is_none() {
+                let mut title = match self.id.location.is_none() {
                     true => format!("# {}", self.id.name),
                     false => format!("## {}", self.id.name),
                 };
-                let summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
+                let mut summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
                     .render_markdown_opt(flavor)
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
-                let members_header = TableHeader(&["Member", "Description", "Type"]);
 
-                let (members_rows, member_details): (Vec<TableRow>, Vec<String>) =
-                    self.gather_members_info(flavor);
+                let member_details: Vec<String> = self
+                    .object
+                    .members
+                    .iter()
+                    .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
+                    .map(|(name, member)| {
+                        MemberDetails {
+                            name: name.clone(),
+                            member,
+                        }
+                        .render_markdown(flavor)
+                    })
+                    .collect();
+                let members_details = member_details.join("\n\n---\n\n");
 
-                let members_details = member_details.join("\n\n---\n");
-
-                // Only display the summary and members details for prelude.bzl, as the generated table is currently unusable.
                 // Manually insert a summary as well, as nothing is pulled in from the bzl file
                 // TODO: remove this conditional when we fix up the prelude docs.
-                let page_body = if self.id.name == "native" {
-                    let summary = "\n\nThis document contains a list of rules and their signatures provided by our prelude.";
-                    format!(
-                        "{summary}\n\n{members_details}",
-                        summary = summary,
-                        members_details = members_details
-                    )
-                } else {
-                    let members_table =
-                        Table(Some("starlark_members_table"), members_header, members_rows)
-                            .render_markdown(flavor);
-
-                    format!(
-                        "{title}{summary}\n\n### Members\n\n{members_table}\n\n\n{members_details}",
-                        title = title,
-                        summary = summary,
-                        members_table = members_table,
-                        members_details = members_details
-                    )
+                if self.id.name == "native" {
+                    title = "".to_owned();
+                    summary = "\n\nThis document contains a list of rules and their signatures provided by our prelude.".to_owned();
                 };
 
-                Some(page_body)
+                Some(format!(
+                    "{title}{summary}\n\n{members_details}",
+                    title = title,
+                    summary = summary,
+                    members_details = members_details
+                ))
             }
             MarkdownFlavor::LspSummary => None,
         }
@@ -1000,41 +959,6 @@ mod test {
             },
         };
 
-        let member_table = render(&Table(
-            Some("starlark_members_table"),
-            TableHeader(&["Member", "Description", "Type"]),
-            vec![
-                TableRow(vec![
-                    Box::new("f1".to_owned()),
-                    Box::new(render_ds_summary(&ds)),
-                    Box::new(CodeBlock {
-                        language: Some("python".to_owned()),
-                        contents: Box::new(TypeRenderer::Function {
-                            show_param_details: true,
-                            max_args_before_multiline: Some(0),
-                            function_name: None,
-                            f: &f1,
-                        }),
-                    }),
-                ]),
-                TableRow(vec![
-                    Box::new("p1".to_owned()),
-                    Box::new(render_ds_summary(&ds)),
-                    Box::new(CodeBlock {
-                        language: Some("python".to_owned()),
-                        contents: Box::new(TypeRenderer::Type(&p1.typ)),
-                    }),
-                ]),
-                TableRow(vec![
-                    Box::new("p2".to_owned()),
-                    Box::new(render_ds_summary(&ds)),
-                    Box::new(CodeBlock {
-                        language: Some("python".to_owned()),
-                        contents: Box::new(TypeRenderer::Type(&p2.typ)),
-                    }),
-                ]),
-            ],
-        ));
         let p1_details = render(&PropertyDetailsRenderer {
             name: "p1".to_owned(),
             p: &p1,
@@ -1049,23 +973,20 @@ mod test {
         });
 
         let expected_without_docs_root = format!(
-            "# foo1\n\n### Members\n\n{member_table}\n\n\n{f1}\n\n---\n{p1}\n\n---\n{p2}",
-            member_table = member_table,
+            "# foo1\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
         );
         let expected_without_docs_non_root = format!(
-            "## foo2\n\n### Members\n\n{member_table}\n\n\n{f1}\n\n---\n{p1}\n\n---\n{p2}",
-            member_table = member_table,
+            "## foo2\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
         );
         let expected_with_docs_root = format!(
-            "# foo3\n\n{ds}\n\n### Members\n\n{member_table}\n\n\n{f1}\n\n---\n{p1}\n\n---\n{p2}",
+            "# foo3\n\n{ds}\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             ds = render_ds_combined(&ds),
-            member_table = member_table,
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
