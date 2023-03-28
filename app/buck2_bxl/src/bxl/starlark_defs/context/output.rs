@@ -157,7 +157,8 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     /// Accepts an optional separator that defaults to " ".
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`.
+    /// and `pprint`. Note that `ctx.output.print()` is intended for simple outputs. For more complex
+    /// outputs, the recommendation would be to write them to a file.
     ///
     /// Sample usage:
     /// ```text
