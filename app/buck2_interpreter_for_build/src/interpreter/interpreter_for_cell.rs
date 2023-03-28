@@ -398,6 +398,10 @@ impl InterpreterForCell {
         import: StarlarkPath,
         content: String,
     ) -> anyhow::Result<ParseResult> {
+        // Indentation with tabs is prohibited by starlark spec and configured starlark dialect.
+        // This check also prohibits tabs even where spaces are not significant,
+        // for example inside parentheses in function call arguments,
+        // which restricts what the spec allows.
         if content.contains('\t') {
             return Err(StarlarkParseError::Tabs(OwnedStarlarkPath::new(import)).into());
         }

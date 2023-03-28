@@ -28,8 +28,7 @@ impl StarlarkFileType {
             enable_load: true,
             enable_keyword_only_arguments: false,
             enable_types: DialectTypes::Disable,
-            // FIXME: Would like to make this false
-            enable_tabs: true,
+            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
         };
@@ -53,8 +52,7 @@ impl StarlarkFileType {
             } else {
                 DialectTypes::Enable
             },
-            // FIXME: Would like to make this false
-            enable_tabs: true,
+            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: true,
         };
