@@ -15,7 +15,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_events::BuckEvent;
-use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
 use tokio::process::Child;
@@ -24,11 +23,6 @@ use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::should_upload_log;
 use crate::subscribers::subscriber::EventSubscriber;
 
-#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
-enum LogMode {
-    Json,
-    Protobuf,
-}
 pub(crate) struct ReLog {
     re_session_id: Option<String>,
     isolation_dir: FileNameBuf,
