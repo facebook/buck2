@@ -518,8 +518,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set(self.events.dupe());
 
         let cycle_detector = if root_config
-            .parse::<RolloutPercentage>("build", "lazy_cycle_detector")?
-            .map_or(false, |v| v.roll())
+            .parse::<bool>("build", "lazy_cycle_detector")?
+            .unwrap_or(true)
         {
             Some(create_cycle_detector())
         } else {
