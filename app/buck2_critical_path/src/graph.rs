@@ -40,6 +40,51 @@ impl Graph {
         self.iter_vertices()
             .flat_map(|i| self.iter_edges(i).map(move |j| (i, j)))
     }
+
+    /// Allocate a VertexData with space for each fo the vertices in this graph.
+    fn allocate_vertex_data<T>(&self, default: T) -> VertexData<T>
+    where
+        T: Clone,
+    {
+        VertexData::new(vec![default; self.vertices.len()])
+    }
+
+    /// Reverse this Graph. The VertexIds are unchanged (they still represent the same vertices so
+    /// they can be used to index into VertexData).
+    pub fn reversed(&self) -> Self {
+        let mut reverse_vertices = self.allocate_vertex_data(GraphVertex {
+            edges_idx: 0,
+            edges_count: 0,
+        });
+
+        // We could compute that count ahead of time while reading, probably not worth it.
+        for edge in &self.edges {
+            reverse_vertices[*edge].edges_count += 1;
+        }
+
+        let mut idx = 0;
+        for vertex in reverse_vertices.values_mut() {
+            vertex.edges_idx = idx;
+            idx += vertex.edges_count;
+        }
+        assert_eq!(idx as usize, self.edges.len());
+
+        let mut vertex_edge_offset = self.allocate_vertex_data(0usize);
+        let mut reverse_edges = vec![VertexId::default(); self.edges.len()];
+
+        for from in self.iter_vertices() {
+            for to in self.iter_edges(from) {
+                let offset = &mut vertex_edge_offset[to];
+                reverse_edges[reverse_vertices[to].edges_idx as usize + *offset] = from;
+                *offset += 1;
+            }
+        }
+
+        Self {
+            vertices: reverse_vertices,
+            edges: reverse_edges,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -66,6 +111,14 @@ mod test {
             .map(|(l, r)| (data[l], data[r]))
             .collect::<Vec<_>>();
 
-        assert_eq!(vec![(k2, k3), (k0, k1), (k0, k2),], edges,);
+        assert_eq!(vec![(k2, k3), (k0, k1), (k0, k2),], edges);
+
+        let rev_graph = graph.reversed();
+        let rev_edges = rev_graph
+            .iter_all_edges()
+            .map(|(l, r)| (data[l], data[r]))
+            .collect::<Vec<_>>();
+
+        assert_eq!(vec![(k3, k2), (k2, k0), (k1, k0)], rev_edges);
     }
 }
