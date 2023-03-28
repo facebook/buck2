@@ -397,7 +397,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     binary = link_result.exe
     runtime_files = link_result.runtime_files
     shared_libs_symlink_tree = link_result.shared_libs_symlink_tree
-    extra_args = link_result.extra_args
+    linker_map_data = link_result.linker_map_data
 
     # Define the xcode data sub target
     xcode_data_default_info, xcode_data_info = generate_xcode_data(
@@ -470,13 +470,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if cxx_use_bolt(ctx):
         sub_targets["prebolt"] = [DefaultInfo(default_output = binary.prebolt_output)]
 
-    linker_map_data = _linker_map(
-        ctx,
-        binary,
-        [LinkArgs(flags = extra_args)] + links,
-        prefer_local = link_cxx_binary_locally(ctx, toolchain_info),
-        link_weight = linker_info.link_weight,
-    )
     sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map_data.map, other_outputs = [linker_map_data.binary])]
 
     sub_targets["linker.argsfile"] = [DefaultInfo(
@@ -511,8 +504,7 @@ _CxxLinkExecutableResult = record(
     runtime_files = ["_arglike"],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = ["artifact", None],
-    # Extra linking args (for the shared_libs)
-    extra_args = [""],
+    linker_map_data = _LinkerMapData.type,
 )
 
 def _link_into_executable(
@@ -536,29 +528,47 @@ def _link_into_executable(
         output,
         shared_libs,
     )
+    links = [LinkArgs(flags = extra_args)] + links
+
+    shared_link_and_linker_map_args = {
+        "enable_distributed_thinlto": enable_distributed_thinlto,
+        "force_full_hybrid_if_capable": force_full_hybrid_if_capable,
+        "link_ordering": link_ordering,
+        "link_weight": link_weight,
+        "prefer_local": prefer_local,
+    }
+
     exe = cxx_link(
         ctx,
-        [LinkArgs(flags = extra_args)] + links,
+        links,
         output,
         CxxLinkResultType("executable"),
-        prefer_local = prefer_local,
-        link_weight = link_weight,
-        enable_distributed_thinlto = enable_distributed_thinlto,
         category_suffix = category_suffix,
-        link_ordering = link_ordering,
         strip = strip,
         strip_args_factory = strip_args_factory,
         link_postprocessor = link_postprocessor,
-        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
+        **shared_link_and_linker_map_args
     )
-    return _CxxLinkExecutableResult(exe = exe, runtime_files = runtime_files, shared_libs_symlink_tree = shared_libs_symlink_tree, extra_args = extra_args)
+
+    linker_map_data = _linker_map(
+        ctx,
+        links,
+        exe,
+        **shared_link_and_linker_map_args
+    )
+
+    return _CxxLinkExecutableResult(
+        exe = exe,
+        runtime_files = runtime_files,
+        shared_libs_symlink_tree = shared_libs_symlink_tree,
+        linker_map_data = linker_map_data,
+    )
 
 def _linker_map(
         ctx: "context",
-        binary: LinkedObject.type,
         links: [LinkArgs.type],
-        prefer_local: bool.type,
-        link_weight: int.type) -> _LinkerMapData.type:
+        binary: LinkedObject.type,
+        **kwargs) -> _LinkerMapData.type:
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
     linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
@@ -569,10 +579,9 @@ def _linker_map(
         CxxLinkResultType("executable"),
         category_suffix = "linker_map",
         linker_map = linker_map,
-        prefer_local = prefer_local,
-        link_weight = link_weight,
         identifier = identifier,
         allow_bolt_optimization_and_dwp_generation = False,
+        **kwargs
     )
     return _LinkerMapData(
         map = linker_map,
