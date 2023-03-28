@@ -14,6 +14,7 @@ DICE is currently still experimental and largely being rewritten.
 - [Parallelism](parallelism.md) - Parallelism and Behaviour of Computations
 - [Cancellations](cancellations.md) - Cancelling of a currently running computation
 - [Transient Errors](transients.md) - Transient Error Handling
+- [Projections](projections.md) - Projection Computations
 - Cycle Detection // TODO
 
 ## Using DICE
