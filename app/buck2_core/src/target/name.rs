@@ -121,9 +121,17 @@ impl Deref for TargetName {
 pub(crate) enum LabelValidationError {
     #[error("Label `{0}` has special character `{1}`, which is discouraged")]
     LabelHasSpecialCharacter(String, String),
+    #[error("Target name must not be equal to `...`")]
+    DotDotDot,
 }
 
 pub(crate) fn emit_label_validation_errors(name: &str) -> anyhow::Result<()> {
+    if name == "..." {
+        soft_error!(
+            "label_is_dot_dot_dot",
+            LabelValidationError::DotDotDot.into()
+        )?;
+    }
     if name.contains(',') {
         quiet_soft_error!(
             "label_has_comma",
