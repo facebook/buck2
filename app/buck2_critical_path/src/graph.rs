@@ -97,7 +97,6 @@ impl Graph {
 
         let mut topo_order = vec![VertexId::new(0); self.vertices.len()];
         let mut visited = self.allocate_vertex_data(false); // Did we push its children
-        let mut finished = self.allocate_vertex_data(false); // Did we add it to the order
         let mut current_topo_order_index = self.vertices.len().saturating_sub(1);
 
         let mut queue = Vec::new();
@@ -204,8 +203,6 @@ pub struct PathCost {
 
 #[cfg(test)]
 mod test {
-    use starlark_map::small_map::SmallMap;
-
     use super::*;
     use crate::builder::GraphBuilder;
     use crate::test_utils::make_dag;
@@ -287,7 +284,7 @@ mod test {
 
     #[test]
     fn test_longest_paths() {
-        let (graph, keys, data) = test_graph();
+        let (graph, keys, _data) = test_graph();
 
         // Get the vertex ids
         let v0 = keys.get(&K0).unwrap();

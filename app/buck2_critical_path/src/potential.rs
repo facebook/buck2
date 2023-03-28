@@ -241,7 +241,6 @@ mod test {
     use std::time::Instant;
 
     use super::*;
-    use crate::graph::GraphVertex;
     use crate::test_utils::make_dag;
     use crate::test_utils::seeded_rng;
     use crate::test_utils::TestDag;

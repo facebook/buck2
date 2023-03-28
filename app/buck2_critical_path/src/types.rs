@@ -41,6 +41,7 @@ where
         Self(v, PhantomData)
     }
 
+    #[cfg(test)]
     pub(crate) fn into_inner(self) -> u32 {
         self.0
     }

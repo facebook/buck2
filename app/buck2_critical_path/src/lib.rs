@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-// TODO (torozco): sort out public API and remove this.
-#![allow(unused)]
-
 mod builder;
 mod graph;
 mod potential;

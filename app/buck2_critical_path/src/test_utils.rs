@@ -69,7 +69,7 @@ impl TestDag {
     pub fn shuffled(&self, rng: &mut impl Rng) -> (Self, VertexData<VertexId>) {
         let len = self.graph.vertices.len();
 
-        let mut mapping = {
+        let mapping = {
             let mut mapping = Vec::with_capacity(len);
             mapping.extend(self.graph.iter_vertices());
             mapping.shuffle(rng);

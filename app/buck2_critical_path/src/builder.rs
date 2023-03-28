@@ -122,7 +122,7 @@ mod test {
         builder
             .push("bar", std::iter::empty(), "bar value")
             .unwrap();
-        let (graph, keys, data) = builder.finish();
+        let (_graph, keys, data) = builder.finish();
         let foo_idx = keys.get(&"foo").unwrap();
         let bar_idx = keys.get(&"bar").unwrap();
 
