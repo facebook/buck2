@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
+
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
 def get_flags_for_reproducible_build(compiler_type: str.type) -> [str.type]:
@@ -40,11 +42,21 @@ def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
 
     return flags
 
-def cc_dep_files(output: "_arglike") -> cmd_args.type:
-    return cmd_args(["-MD", "-MF", output])
+# These functions return two values: wrapper_args and compiler_args
+# wrapper_args -> the arguments used by the dep_file_processor to determine how to process the dep files
+# compiler_args -> args passed to the compiler when generating dependencies
 
-def windows_cc_dep_files(_output: "_arglike") -> cmd_args.type:
-    return cmd_args(["/showIncludes"])
+def cc_dep_files(actions: "actions", filename_base: str.type) -> (cmd_args.type, cmd_args.type):
+    intermediary_dep_file = actions.declare_output(
+        paths.join("__dep_files_intermediaries__", filename_base),
+    ).as_output()
+
+    return (cmd_args(intermediary_dep_file), cmd_args(["-MD", "-MF", intermediary_dep_file]))
+
+def windows_cc_dep_files(
+        _actions: "actions",
+        _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
+    return (cmd_args(), cmd_args(["/showIncludes"]))
 
 def get_headers_dep_files_flags_factory(compiler_type: str.type) -> ["function", None]:
     if compiler_type in ["clang", "gcc", "clang_windows"]:

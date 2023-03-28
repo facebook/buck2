@@ -309,15 +309,13 @@ def compile_cxx(
 
         headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
         if headers_dep_files:
-            intermediary_dep_file = ctx.actions.declare_output(
-                paths.join("__dep_files_intermediaries__", filename_base),
-            ).as_output()
             dep_file = ctx.actions.declare_output(
                 paths.join("__dep_files__", filename_base),
             ).as_output()
 
-            dep_file_flags = headers_dep_files.mk_flags(intermediary_dep_file)
-            cmd.add(dep_file_flags)
+            dep_file_flags = headers_dep_files.mk_flags(ctx.actions, filename_base)
+            processor_flags, compiler_flags = dep_file_flags
+            cmd.add(compiler_flags)
 
             # API: First argument is the dep file source path, second is the
             # dep file destination path, other arguments are the actual compile
@@ -325,7 +323,7 @@ def compile_cxx(
             cmd = cmd_args([
                 headers_dep_files.processor,
                 headers_dep_files.compiler_type,
-                intermediary_dep_file,
+                processor_flags,
                 headers_dep_files.tag.tag_artifacts(dep_file),
                 cmd,
             ])
