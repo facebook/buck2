@@ -26,7 +26,6 @@ use derive_more::From;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -92,16 +91,14 @@ struct CriticalPathNode<TKey: Eq, TValue> {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display)]
-enum NodeKey {
+pub enum NodeKey {
     ActionKey(ActionKey),
     TransitiveSetProjection(TransitiveSetProjectionKey),
 }
 
-pub struct BuildSignalReceiver {
+pub struct BuildSignalReceiver<T> {
     receiver: UnboundedReceiverStream<BuildSignal>,
-    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Arc<RegisteredAction>>>,
-    num_nodes: u64,
-    num_edges: u64,
+    backend: T,
 }
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
@@ -130,17 +127,18 @@ fn extract_critical_path<TKey: Hash + Eq, TValue>(
     path
 }
 
-impl BuildSignalReceiver {
-    fn new(receiver: UnboundedReceiver<BuildSignal>) -> Self {
+impl<T> BuildSignalReceiver<T>
+where
+    T: BuildListenerBackend,
+{
+    fn new(receiver: UnboundedReceiver<BuildSignal>, backend: T) -> Self {
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
-            predecessors: HashMap::new(),
-            num_nodes: 0,
-            num_edges: 0,
+            backend,
         }
     }
 
-    pub async fn run_and_log(&mut self) -> anyhow::Result<()> {
+    pub async fn run_and_log(mut self) -> anyhow::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::ActionExecution(execution) => self.process_action(execution)?,
@@ -154,25 +152,17 @@ impl BuildSignalReceiver {
             }
         }
 
+        let BuildInfo {
+            critical_path,
+            num_nodes,
+            num_edges,
+        } = self.backend.finish()?;
+
         instant_event(BuildGraphExecutionInfo {
-            critical_path: self.extract_critical_path().into_try_map(
-                |(name, duration, action)| {
-                    anyhow::Ok(CriticalPathEntry {
-                        action_name: name,
-                        action_key: Some(action.key().as_proto()),
-                        duration: Some(duration.try_into()?),
-                        action_name_fields: Some(buck2_data::ActionName {
-                            category: action.category().to_string(),
-                            identifier: action
-                                .identifier()
-                                .map_or_else(|| "".to_owned(), |i| i.to_owned()),
-                        }),
-                    })
-                },
-            )?,
+            critical_path,
             metadata: metadata::collect(),
-            num_nodes: self.num_nodes,
-            num_edges: self.num_edges,
+            num_nodes,
+            num_edges,
         });
         Ok(())
     }
@@ -190,7 +180,7 @@ impl BuildSignalReceiver {
             }
         });
 
-        self.process_node(
+        self.backend.process_node(
             NodeKey::ActionKey(execution.action.key().dupe()),
             Some(execution.action.dupe()),
             execution.duration,
@@ -204,7 +194,7 @@ impl BuildSignalReceiver {
         &mut self,
         redirection: ActionRedirectionSignal,
     ) -> anyhow::Result<()> {
-        self.process_node(
+        self.backend.process_node(
             NodeKey::ActionKey(redirection.key),
             None,
             Duration::from_secs(0), // Those nodes don't carry a duration.
@@ -224,7 +214,7 @@ impl BuildSignalReceiver {
             .into_iter()
             .map(NodeKey::TransitiveSetProjection);
 
-        self.process_node(
+        self.backend.process_node(
             NodeKey::TransitiveSetProjection(set.key),
             None,
             Duration::from_secs(0), // Those nodes don't carry a duration.
@@ -233,7 +223,43 @@ impl BuildSignalReceiver {
 
         Ok(())
     }
+}
 
+pub trait BuildListenerBackend {
+    fn process_node(
+        &mut self,
+        key: NodeKey,
+        value: Option<Arc<RegisteredAction>>,
+        duration: Duration,
+        dep_keys: impl Iterator<Item = NodeKey>,
+    );
+
+    fn finish(self) -> anyhow::Result<BuildInfo>;
+}
+
+pub struct BuildInfo {
+    critical_path: Vec<CriticalPathEntry>,
+    num_nodes: u64,
+    num_edges: u64,
+}
+
+struct DefaultBackend {
+    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Arc<RegisteredAction>>>,
+    num_nodes: u64,
+    num_edges: u64,
+}
+
+impl DefaultBackend {
+    fn new() -> Self {
+        Self {
+            predecessors: HashMap::new(),
+            num_nodes: 0,
+            num_edges: 0,
+        }
+    }
+}
+
+impl BuildListenerBackend for DefaultBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
@@ -267,8 +293,8 @@ impl BuildSignalReceiver {
         self.predecessors.insert(key, node.dupe());
     }
 
-    pub fn extract_critical_path(&self) -> Vec<(String, Duration, &Arc<RegisteredAction>)> {
-        extract_critical_path(&self.predecessors)
+    fn finish(self) -> anyhow::Result<BuildInfo> {
+        let critical_path = extract_critical_path(&self.predecessors)
             .into_iter()
             .filter_map(|(_key, maybe_action, duration)| {
                 let action = maybe_action.as_ref()?;
@@ -285,7 +311,26 @@ impl BuildSignalReceiver {
                 );
                 Some((name, duration, action))
             })
-            .collect()
+            .map(|(name, duration, action)| {
+                anyhow::Ok(CriticalPathEntry {
+                    action_name: name,
+                    action_key: Some(action.key().as_proto()),
+                    duration: Some(duration.try_into()?),
+                    action_name_fields: Some(buck2_data::ActionName {
+                        category: action.category().to_string(),
+                        identifier: action
+                            .identifier()
+                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
+                    }),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(BuildInfo {
+            critical_path,
+            num_nodes: self.num_nodes,
+            num_edges: self.num_edges,
+        })
     }
 }
 
@@ -309,13 +354,16 @@ impl HasBuildSignals for UserComputationData {
     }
 }
 
-fn create_matched_pair() -> (BuildSignalSender, BuildSignalReceiver) {
+fn create_matched_pair() -> (
+    BuildSignalSender,
+    BuildSignalReceiver<impl BuildListenerBackend>,
+) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     (
         BuildSignalSender {
             sender: Arc::new(sender),
         },
-        BuildSignalReceiver::new(receiver),
+        BuildSignalReceiver::new(receiver, DefaultBackend::new()),
     )
 }
 
@@ -335,7 +383,7 @@ where
     F: FnOnce(BuildSignalSender) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    let (sender, mut receiver) = create_matched_pair();
+    let (sender, receiver) = create_matched_pair();
     let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
         receiver.run_and_log().await
     }));
