@@ -160,12 +160,7 @@ impl PerComputeCtx {
             .compute_projection(
                 dice_key,
                 self.data.dice.state_handle.dupe(),
-                SyncEvaluator::new(
-                    self.data.per_live_version_ctx.dupe(),
-                    self.data.user_data.dupe(),
-                    self.data.dice.dupe(),
-                    base,
-                ),
+                SyncEvaluator::new(self.data.user_data.dupe(), self.data.dice.dupe(), base),
                 DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(|r| {

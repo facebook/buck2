@@ -123,7 +123,6 @@ impl AsyncEvaluator {
 /// Evaluates Keys
 #[derive(Clone, Dupe)]
 pub(crate) struct SyncEvaluator {
-    per_live_version_ctx: SharedLiveTransactionCtx,
     user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
     base: MaybeValidDiceValue,
@@ -131,13 +130,11 @@ pub(crate) struct SyncEvaluator {
 
 impl SyncEvaluator {
     pub(crate) fn new(
-        per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
         base: MaybeValidDiceValue,
     ) -> Self {
         Self {
-            per_live_version_ctx,
             user_data,
             dice,
             base,
