@@ -100,7 +100,7 @@ pub(crate) struct Pointer<'p> {
     pointer: RawPointer,
     // Make sure we are invariant in all the types/lifetimes.
     // See https://stackoverflow.com/questions/62659221/why-does-a-program-compile-despite-an-apparent-lifetime-mismatch
-    phantom: PhantomDataInvariant<&'p AValueHeader>,
+    _phantom: PhantomDataInvariant<&'p AValueHeader>,
 }
 
 // Similar to `Pointer` but allows widening lifetime, which is valid operation for frozen pointers.
@@ -157,7 +157,10 @@ impl<'p> Pointer<'p> {
     fn new(pointer: usize) -> Self {
         let phantom = PhantomDataInvariant::new();
         let pointer = unsafe { RawPointer::new_unchecked(pointer) };
-        Self { pointer, phantom }
+        Self {
+            pointer,
+            _phantom: phantom,
+        }
     }
 
     #[inline]
@@ -241,7 +244,7 @@ impl<'p> Pointer<'p> {
     pub unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2> {
         Pointer {
             pointer: self.pointer,
-            phantom: PhantomDataInvariant::new(),
+            _phantom: PhantomDataInvariant::new(),
         }
     }
 
@@ -297,7 +300,7 @@ impl<'p> FrozenPointer<'p> {
     pub(crate) fn to_pointer(self) -> Pointer<'p> {
         Pointer {
             pointer: self.pointer,
-            phantom: PhantomDataInvariant::new(),
+            _phantom: PhantomDataInvariant::new(),
         }
     }
 
