@@ -95,7 +95,7 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
 
 #[async_trait]
 impl StreamingCommand for CleanStaleCommand {
-    const COMMAND_NAME: &'static str = "clean";
+    const COMMAND_NAME: &'static str = "clean-stale";
 
     async fn exec_impl(
         self,
