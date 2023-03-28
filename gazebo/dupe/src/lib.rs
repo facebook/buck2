@@ -142,13 +142,13 @@ mod tests {
         struct Faz;
 
         let x = Foo {};
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
 
         let x = FooT { foo: 1 };
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
 
         let x = Faz;
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
     }
 
     #[test]
@@ -171,7 +171,7 @@ mod tests {
         let x = FooT {
             foo: Arc::new(NoClone()),
         };
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
     }
 
     #[test]
@@ -195,13 +195,17 @@ mod tests {
         }
 
         let x = Qux::Bar(Foo(), Bar(8, true, Foo2));
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
         let x = Qux::Baz {
             foo: Foo(),
             bar: Bar(7, false, Foo2),
             baz: Baz { foo: 9 },
         };
-        assert_eq!(x, x.dupe());
+        assert_eq!(x, Dupe::dupe(&x));
+        let x = Qux::Foo();
+        assert_eq!(x, Dupe::dupe(&x));
+        let x = Qux::Foo2;
+        assert_eq!(x, Dupe::dupe(&x));
     }
 
     #[test]
