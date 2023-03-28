@@ -159,9 +159,13 @@ def _get_shared_link_style_sub_targets_and_providers(
         _executable: "artifact",
         _external_debug_info: ["_arglike"],
         dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
-    if link_style != LinkStyle("shared") or dwp == None:
+    if link_style != LinkStyle("shared"):
         return ({}, [])
-    return ({"dwp": [DefaultInfo(default_output = dwp)]}, [])
+    sub_targets = {}
+    providers = []
+    if dwp != None:
+        sub_targets["dwp"] = [DefaultInfo(default_output = dwp)]
+    return (sub_targets, providers)
 
 def cxx_library_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs.can_be_asset and ctx.attrs.used_by_wrap_script:
