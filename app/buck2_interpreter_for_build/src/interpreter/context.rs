@@ -19,11 +19,6 @@ use dupe::Dupe;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 
-#[derive(Clone, Dupe)]
-struct BuildContext {
-    interpreter_configuror: Arc<BuildInterpreterConfiguror>,
-}
-
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{:?}", self)]
 struct BuildContextKey();
