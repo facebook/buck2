@@ -19,8 +19,8 @@ pub struct GraphVertex {
 
 #[derive(Clone)]
 pub struct Graph {
-    pub vertices: VertexData<GraphVertex>,
-    pub edges: Vec<VertexId>,
+    pub(crate) vertices: VertexData<GraphVertex>,
+    pub(crate) edges: Vec<VertexId>,
 }
 
 impl Graph {
@@ -174,6 +174,14 @@ impl Graph {
         }
 
         (costs, predecessor)
+    }
+
+    pub fn vertices_count(&self) -> usize {
+        self.vertices.len()
+    }
+
+    pub fn edges_count(&self) -> usize {
+        self.edges.len()
     }
 }
 

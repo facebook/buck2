@@ -37,11 +37,11 @@ impl<Kind> AbstractVertexId<Kind>
 where
     Kind: VertexKind,
 {
-    pub fn new(v: u32) -> Self {
+    pub(crate) fn new(v: u32) -> Self {
         Self(v, PhantomData)
     }
 
-    pub fn into_inner(self) -> u32 {
+    pub(crate) fn into_inner(self) -> u32 {
         self.0
     }
 }
@@ -128,7 +128,7 @@ impl<T, Kind> AbstractVertexData<T, Kind>
 where
     Kind: VertexKind,
 {
-    pub fn new(v: Vec<T>) -> Self {
+    pub(crate) fn new(v: Vec<T>) -> Self {
         Self(v, PhantomData)
     }
 
@@ -187,7 +187,7 @@ where
     Kind: VertexKind,
     K: Hash + Eq,
 {
-    pub fn new(v: SmallMap<K, VertexId>) -> Self {
+    pub(crate) fn new(v: SmallMap<K, VertexId>) -> Self {
         Self(v, PhantomData)
     }
 
@@ -210,11 +210,11 @@ pub type OptionalCriticalPathIndex = AbstractOptionalVertexId<CriticalPathIndexK
 pub type CriticalPathVertexData<T> = AbstractVertexData<T, CriticalPathIndexKind>;
 
 impl CriticalPathIndex {
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self::new(0)
     }
 
-    pub fn successor(self) -> Self {
+    pub(crate) fn successor(self) -> Self {
         Self::new(self.0 + 1)
     }
 }

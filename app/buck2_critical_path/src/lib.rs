@@ -17,3 +17,13 @@ mod types;
 
 #[cfg(test)]
 mod test_utils;
+
+pub use builder::GraphBuilder;
+pub use graph::Graph;
+pub use potential::compute_critical_path_potentials;
+pub use types::CriticalPathIndex;
+pub use types::CriticalPathVertexData;
+pub use types::OptionalVertexId;
+pub use types::VertexData;
+pub use types::VertexId;
+pub use types::VertexKeys;
