@@ -63,3 +63,85 @@ pub fn make_dag(nodes: usize, rng: &mut impl Rng) -> TestDag {
         },
     }
 }
+
+impl TestDag {
+    /// Returns this graph, but shuffled, and a mapping of old to new.
+    pub fn shuffled(&self, rng: &mut impl Rng) -> (Self, VertexData<VertexId>) {
+        let len = self.graph.vertices.len();
+
+        let mut mapping = {
+            let mut mapping = Vec::with_capacity(len);
+            mapping.extend(self.graph.iter_vertices());
+            mapping.shuffle(rng);
+            VertexData::new(mapping)
+        };
+
+        let mut vertices = VertexData::new(vec![
+            GraphVertex {
+                edges_idx: 0,
+                edges_count: 0,
+            };
+            len
+        ]);
+        let mut edges = vec![VertexId::new(0); self.graph.edges.len()];
+        let mut keys = VertexData::new(vec![String::default(); len]);
+        let mut runtimes = VertexData::new(vec![u64::default(); len]);
+
+        for idx in self.graph.iter_vertices() {
+            let new = mapping[idx];
+
+            let edges_idx = edges.len() as _;
+            let mut edges_count = 0;
+
+            for e in self.graph.iter_edges(idx) {
+                edges.push(mapping[e]);
+                edges_count += 1;
+            }
+
+            vertices[new] = GraphVertex {
+                edges_idx,
+                edges_count,
+            };
+
+            keys[new] = self.keys[idx].clone();
+            runtimes[new] = self.runtimes[idx];
+        }
+
+        (
+            Self {
+                graph: Graph { vertices, edges },
+                keys,
+                runtimes,
+            },
+            mapping,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shuffle() {
+        let mut rng = seeded_rng();
+        let dag = make_dag(100, &mut rng);
+        let (shuffled, map) = dag.shuffled(&mut rng);
+
+        let mut edges_before = dag
+            .graph
+            .iter_all_edges()
+            .map(|(a, b)| (map[a].into_inner(), map[b].into_inner()))
+            .collect::<Vec<_>>();
+        edges_before.sort();
+
+        let mut edges_after = shuffled
+            .graph
+            .iter_all_edges()
+            .map(|(a, b)| (a.into_inner(), b.into_inner()))
+            .collect::<Vec<_>>();
+        edges_after.sort();
+
+        assert_eq!(edges_before, edges_after);
+    }
+}
