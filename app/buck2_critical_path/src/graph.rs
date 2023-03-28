@@ -200,6 +200,8 @@ mod test {
 
     use super::*;
     use crate::builder::GraphBuilder;
+    use crate::test_utils::make_dag;
+    use crate::test_utils::seeded_rng;
 
     const K0: &str = "key0";
     const K1: &str = "key1";
@@ -252,6 +254,30 @@ mod test {
             .map(|k| data[k])
             .collect::<Vec<_>>();
         assert_eq!(topo, vec![K0, K1, K2, K3]);
+    }
+
+    #[test]
+    fn test_topo_sort_empty() {
+        let (graph, _, _) = GraphBuilder::<(), ()>::new().finish();
+        assert_eq!(graph.topo_sort(), vec![]);
+    }
+
+    #[test]
+    fn test_topo_sort_large() {
+        let mut rng = seeded_rng();
+        let graph = make_dag(10000, &mut rng).shuffled(&mut rng).0.graph;
+        let topo_order = graph.topo_sort();
+        let ranks = {
+            let mut ranks = VertexData::new(vec![0; graph.vertices.len()]);
+            for (rank, idx) in topo_order.iter().enumerate() {
+                ranks[*idx] = rank;
+            }
+            ranks
+        };
+
+        for (i, j) in graph.iter_all_edges() {
+            assert!(ranks[i] < ranks[j]);
+        }
     }
 
     #[test]
