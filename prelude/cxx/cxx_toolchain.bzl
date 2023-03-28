@@ -52,6 +52,7 @@ def cxx_toolchain_impl(ctx):
         compiler_type = ctx.attrs.cuda_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
+        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     ) if ctx.attrs.cuda_compiler else None
     hip_info = HipCompilerInfo(
         compiler = ctx.attrs.hip_compiler[RunInfo],
