@@ -9,11 +9,20 @@
 
 //! Server-side implementation of `buck2 targets --resolve-alias` command.
 
+#[derive(Debug, thiserror::Error)]
+enum ResolveAliasError {
+    #[error("`output_format` not set (internal error)")]
+    OutputFormatNotSet,
+    #[error("`--stat` format is not supported by `--resolve-alias`")]
+    StatFormatNotSupported,
+}
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
 
 use anyhow::Context;
+use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::result::ToSharedResultExt;
@@ -137,15 +146,23 @@ pub(crate) async fn targets_resolve_aliases(
 
     let mut buffer = String::new();
 
+    let output_format = OutputFormat::from_i32(request.output_format)
+        .context("Invalid value of `output_format` (internal error)")?;
+
     let json_writer;
 
-    let formatter = if request.json || request.json_lines {
-        json_writer = JsonWriter {
-            json_lines: request.json_lines,
-        };
-        &json_writer as &dyn ResolveAliasFormatter
-    } else {
-        &LinesWriter as &dyn ResolveAliasFormatter
+    let formatter = match output_format {
+        OutputFormat::Unknown => return Err(ResolveAliasError::OutputFormatNotSet.into()),
+        OutputFormat::Text => &LinesWriter as &dyn ResolveAliasFormatter,
+        OutputFormat::Json => {
+            json_writer = JsonWriter { json_lines: false };
+            &json_writer as &dyn ResolveAliasFormatter
+        }
+        OutputFormat::JsonLines => {
+            json_writer = JsonWriter { json_lines: true };
+            &json_writer as &dyn ResolveAliasFormatter
+        }
+        OutputFormat::Stats => return Err(ResolveAliasError::StatFormatNotSupported.into()),
     };
 
     let mut needs_separator = false;

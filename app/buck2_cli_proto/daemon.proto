@@ -96,7 +96,7 @@ message ClientContext {
 }
 
 message TargetsRequest {
-  reserved 4 to 16, 4242000;
+  reserved 3 to 16, 18, 4242000;
 
   enum TargetHashFileMode {
     PATHS_ONLY = 0;
@@ -110,10 +110,19 @@ message TargetsRequest {
     CONFIGURED = 2;
   }
 
+  enum OutputFormat {
+    UNKNOWN = 0;
+    TEXT = 1;
+    JSON = 2;
+    JSON_LINES = 3;
+    STATS = 4;
+  }
+
   message ResolveAlias {}
 
   message Other {
-    bool stats = 4;
+    reserved 4;
+
     repeated string output_attributes = 5;
 
     TargetHashGraphType target_hash_graph_type = 6;
@@ -134,9 +143,8 @@ message TargetsRequest {
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
 
-  bool json = 3;
   optional string output = 17;
-  bool json_lines = 18;
+  OutputFormat output_format = 19;
 
   oneof targets {
     ResolveAlias resolve_alias = 20;

@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_cli_proto::targets_request;
+use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -25,6 +26,13 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_query_common::query_args::CommonAttributeArgs;
 use dupe::Dupe;
 use gazebo::prelude::*;
+
+#[derive(thiserror::Error, Debug)]
+enum TargetsError {
+    /// Clap should report it, but if we missed something, this is a fallback.
+    #[error("Flags are mutually exclusive")]
+    IncompatibleArguments,
+}
 
 // Use non-camel case so the possible values match buck1's
 #[allow(non_camel_case_types)]
@@ -176,6 +184,31 @@ pub struct TargetsCommand {
     output: Option<PathArg>,
 }
 
+impl TargetsCommand {
+    fn output_format(&self) -> anyhow::Result<OutputFormat> {
+        if self.json {
+            if self.json_lines || self.stats {
+                return Err(TargetsError::IncompatibleArguments.into());
+            }
+            Ok(OutputFormat::Json)
+        } else if self.json_lines {
+            if self.json || self.stats {
+                return Err(TargetsError::IncompatibleArguments.into());
+            }
+            Ok(OutputFormat::JsonLines)
+        } else if !self.attributes.get()?.is_empty() {
+            Ok(OutputFormat::Json)
+        } else if self.stats {
+            if self.json || self.json_lines {
+                return Err(TargetsError::IncompatibleArguments.into());
+            }
+            Ok(OutputFormat::Stats)
+        } else {
+            Ok(OutputFormat::Text)
+        }
+    }
+}
+
 #[async_trait]
 impl StreamingCommand for TargetsCommand {
     const COMMAND_NAME: &'static str = "targets";
@@ -203,12 +236,6 @@ impl StreamingCommand for TargetsCommand {
             TargetHashFunction::Strong => false,
         };
 
-        #[derive(thiserror::Error, Debug)]
-        enum TargetsError {
-            #[error("Flags are mutually exclusive (internal error)")]
-            IncompatibleArguments,
-        }
-
         let output_attributes = self.attributes.get()?;
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
@@ -222,6 +249,8 @@ impl StreamingCommand for TargetsCommand {
                 (false, false) => targets_request::TargetHashGraphType::None as i32,
             };
 
+        let output_format = self.output_format()?;
+
         let context =
             Some(ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?);
 
@@ -234,13 +263,11 @@ impl StreamingCommand for TargetsCommand {
             target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                 value: pat.to_owned(),
             }),
-            json: self.json,
-            json_lines: self.json_lines,
+            output_format: output_format as i32,
             targets: Some(if self.resolve_alias {
                 targets_request::Targets::ResolveAlias(targets_request::ResolveAlias {})
             } else {
                 targets_request::Targets::Other(targets_request::Other {
-                    stats: self.stats,
                     output_attributes,
                     target_hash_file_mode: match self.target_hash_file_mode {
                         TargetHashFileMode::PathsOnly => {
