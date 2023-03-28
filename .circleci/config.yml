@@ -14,6 +14,12 @@ commands:
             cargo --version
             rustup --version
 
+  install_reindeer:
+    description: Install Reindeer
+    steps:
+      - run:
+          command: cargo install --git https://github.com/facebookincubator/reindeer.git
+
   print_ocaml_config:
     description: OCaml Configuration Info
     steps:
@@ -34,6 +40,7 @@ commands:
           command: |
             opam init --disable-sandboxing -y
             opam install menhir ppxlib -y
+      - install_reindeer
       - print_versions
       - print_ocaml_config
 
@@ -49,11 +56,12 @@ commands:
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
             brew unlink python@3.9
             brew install cmake coreutils opam llvm
-      - run:
-          name: Init opam
-          command: |
-            opam init --disable-sandboxing -y
-            opam install menhir ppxlib -y
+      # - run:
+      #     name: Init opam
+      #     command: |
+      #       opam init --disable-sandboxing -y
+      #       opam install menhir ppxlib -y
+      - install_reindeer
       - print_versions
       - print_ocaml_config
 
@@ -66,6 +74,7 @@ commands:
             choco install rustup.install
             write-output "[net]`ngit-fetch-with-cli = true" | out-file -append -encoding utf8 $Env:USERPROFILE/.cargo/config
             type $Env:USERPROFILE/.cargo/config
+      - install_reindeer
       - print_versions
 
 version: 2.1
@@ -149,14 +158,22 @@ jobs:
             mkdir /tmp/artifacts
             # the large resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
             cargo build -j 6 --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
+      # - run:
+      #     name: Setup and build example/prelude directory
+      #     command: |
+      #       export PATH=/usr/local/opt/llvm/bin:"$PATH"
+      #       cd examples/prelude
+      #       /tmp/artifacts/buck2 init --git
+      #       source ./setup.sh
+      #       /tmp/artifacts/buck2 build //... -v 2
       - run:
-          name: Setup and build example/prelude directory
+          name: Bootstrap buck2
           command: |
-            export PATH=/usr/local/opt/llvm/bin:"$PATH"
-            cd examples/prelude
-            /tmp/artifacts/buck2 init --git
-            source ./setup.sh
-            /tmp/artifacts/buck2 build //... -v 2
+            rustup install nightly
+            cargo +nightly install --git https://github.com/facebook/buck2.git cli
+            reindeer --third-party-dir shim/third-party/rust vendor
+            reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK
+            /tmp/artifacts/buck2 build //:buck2
       - when:
           condition:
             *is_main_branch
@@ -220,3 +237,4 @@ workflows:
       - macos-build-example-and-upload-binary
       - windows-build-and-test
       - windows-build-example-and-upload-binary
+
