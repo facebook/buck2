@@ -186,8 +186,13 @@ fn copy_file<'v>(
     Ok(value)
 }
 
+/// Actions take inputs and produce outputs.
+/// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
 #[starlark_module]
 fn register_context_actions(builder: &mut MethodsBuilder) {
+    /// Returns an `artifact` with the name filename, which when asked for its name, will return filename (which may include a directory portion)
+    ///
+    /// * `prefix` (optional): provides a silent part of the filename, which can be used to disambiguate but whose presence will not be visible to anyone using the `artifact`. By default, outputs are considered files; pass `dir = True` to indicate it is a directory
     fn declare_output<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] prefix: &str,
@@ -222,6 +227,13 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         ))
     }
 
+    /// Returns an `artifact` whose contents are content written as a JSON value
+    ///
+    /// * `filename`: can be a string, or an existing artifact created with `declare_output`
+    /// * `content`:  must be composed of the basic json types (Boolean, number, string, list/tuple, dictionary) plus artifacts and command lines
+    ///     * An artifact will be written as a string containing the path
+    ///     * A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string
+    /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -252,6 +264,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
     }
 
+    /// Returns an `artifact` whose contents are content
+    ///
+    /// * `is_executable` (optional): indicates whether the resulting file should be marked with executable permissions
+    /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file)
+    ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
     fn write<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -414,6 +431,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
     }
 
+    /// Copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
+    /// The copy works for files or directories.
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: Value<'v>,
@@ -431,6 +450,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )
     }
 
+    /// Creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
+    /// The symlink works for files or directories.
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: Value<'v>,
@@ -473,6 +494,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )
     }
 
+    /// Returns an `artifact` that is a directory containing symlinks.
+    /// The srcs must be a dictionary of path (as string, relative to the result directory) to bound `artifact`, which will be laid out in the directory.
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -482,6 +505,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         create_dir_tree(eval, this, output, srcs, false)
     }
 
+    /// Returns an `artifact` which is a directory containing copied files.
+    /// The srcs must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -491,6 +516,16 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         create_dir_tree(eval, this, output, srcs, true)
     }
 
+    /// Runs a command
+    ///
+    /// * `arguments`: must be of type `cmd_args`, or a type convertible to such (such as a list of strings and artifacts) and must contain at least one `.as_output()` artifact
+    /// * `category`: category and identifier - when used together, identify the action in Buck2's event stream, and must be unique for a given target
+    /// * `weight`: used to note how heavy the command is and will typically be set to a higher value to indicate that less such commands should be run in parallel (if running locally)
+    /// * `no_outputs_cleanup`: if this flag is set then Buck2 won't clean the outputs of a previous build that might be present on a disk; in which case, command from arguments should be responsible for the cleanup (that is useful, for example, when an action is supporting incremental mode and its outputs are based on result from a previous build)
+    /// * `metadata_env_var` and `meadata_path` should be used together: both set or both unset
+    ///     * `metadata_path`: defines a path relative to the result directory for a file with action metadata, which will be created right before the command will be run.
+    ///     * Metadata contains the path relative to the Buck2 project root and hash digest for every action input (this excludes symlinks as they could be resolved by a user script if needed). The resolved path relative to the Buck2 project for the metadata file will be passed to command from arguments, via the environment variable, with its name set by `metadata_env_var`
+    ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in an incremental manner (for details, see [Incremental Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: Value<'v>,
@@ -662,6 +697,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
+    /// Downloads a URL to an output (filename as string or output artifact).
+    /// The file at the URL must have the given sha1 or the command will fail.
+    /// The optional parameter is_executable indicates whether the resulting file should be marked with executable permissions.
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -702,6 +740,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(value)
     }
 
+    /// Downloads a CAS artifact to an output
+    ///
+    /// * `digest`: must look like `SHA1:SIZE`
+    /// * `use_case`: your RE use case
+    /// * `expires_after_timestamp`: must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build will break once the digest expires, so make sure the expiry is long enough (preferably, in years).
+    /// * `is_executable` (optional): indicates the resulting file should be marked with executable permissions
     fn cas_artifact<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: Value<'v>,
@@ -752,6 +796,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(output_value.into_declared_artifact(Default::default()))
     }
 
+    /// Creates a new transitive set (for details, see https://buck2.build/docs/rule_authors/transitive_sets/).
     fn tset<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] definition: Value<'v>,
