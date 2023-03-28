@@ -16,9 +16,8 @@ DICE is currently still experimental and largely being rewritten.
 - [Transient Errors](transients.md) - Transient Error Handling
 - Cycle Detection // TODO
 
-## Writing a Computation
-// TODO
-
+## Using DICE
+- [Writing Computations](writing_computations.md) - How to write computations that are incremental
 
 ## Benchmarking DICE
 // TODO
