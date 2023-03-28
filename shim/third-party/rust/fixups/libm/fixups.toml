@@ -1,0 +1,3 @@
+# #[no_std] cannot be built with shared linkage
+preferred_linkage = "static"
+buildscript = []
