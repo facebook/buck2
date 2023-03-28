@@ -60,6 +60,9 @@ _USE_CACHE_MODE = False # @oss-enable
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> {str.type: "attribute"}:
     attributes = {
+        "metadata_env_var": attrs.option(attrs.string(), default = None),
+        "metadata_path": attrs.option(attrs.string(), default = None),
+        "no_outputs_cleanup": attrs.bool(default = False),
         "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
     }
 
@@ -280,6 +283,13 @@ def process_genrule(
     else:
         script_args = ["/bin/bash", "-e", sh_script]
 
+    # Only set metadata arguments when they are non-null
+    metadata_args = {}
+    if ctx.attrs.metadata_env_var:
+        metadata_args["metadata_env_var"] = ctx.attrs.metadata_env_var
+    if ctx.attrs.metadata_path:
+        metadata_args["metadata_path"] = ctx.attrs.metadata_path
+
     category = "genrule"
     if ctx.attrs.type != None:
         # As of 09/2021, all genrule types were legal snake case if their dashes and periods were replaced with underscores.
@@ -291,6 +301,8 @@ def process_genrule(
         allow_cache_upload = cacheable,
         category = category,
         identifier = identifier,
+        no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,
+        **metadata_args
     )
 
     providers = [DefaultInfo(
