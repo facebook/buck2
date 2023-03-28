@@ -52,7 +52,7 @@ where
     pub fn push(
         &mut self,
         key: K,
-        deps: impl ExactSizeIterator<Item = K>,
+        deps: impl Iterator<Item = K>,
         data: D,
     ) -> Result<(), PushError> {
         let idx: u32 = self
@@ -74,19 +74,24 @@ where
 
         self.data.push(data);
 
-        self.vertices.push(GraphVertex {
-            edges_idx: self
-                .edges
-                .len()
-                .try_into()
-                .map_err(|_| PushError::Overflow)?,
-            edges_count: deps.len().try_into().map_err(|_| PushError::Overflow)?,
-        });
+        let edges_idx = self
+            .edges
+            .len()
+            .try_into()
+            .map_err(|_| PushError::Overflow)?;
+
+        let mut edges_count = 0;
 
         for dep in deps {
             let dep_idx = self.keys.get(&dep).ok_or(PushError::MissingDep)?;
             self.edges.push(*dep_idx);
+            edges_count += 1;
         }
+
+        self.vertices.push(GraphVertex {
+            edges_idx,
+            edges_count,
+        });
 
         Ok(())
     }
