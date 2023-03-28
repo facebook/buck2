@@ -16,6 +16,7 @@ use crate::graph::Graph;
 use crate::graph::GraphVertex;
 use crate::types::VertexData;
 use crate::types::VertexId;
+use crate::types::VertexKeys;
 
 #[derive(Error, Debug)]
 pub enum PushError {
@@ -96,15 +97,38 @@ where
         Ok(())
     }
 
-    pub fn finish(self) -> (Graph, SmallMap<K, VertexId>, VertexData<D>) {
+    pub fn finish(self) -> (Graph, VertexKeys<K>, VertexData<D>) {
         (
             Graph {
                 edges: self.edges,
                 vertices: VertexData::new(self.vertices),
             },
-            // TODO: Wrap this in a SmallMapVertexData so VertexId can be used to index into it.
-            self.keys,
+            VertexKeys::new(self.keys),
             VertexData::new(self.data),
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_finish() {
+        let mut builder = GraphBuilder::new();
+        builder
+            .push("foo", std::iter::empty(), "foo value")
+            .unwrap();
+        builder
+            .push("bar", std::iter::empty(), "bar value")
+            .unwrap();
+        let (graph, keys, data) = builder.finish();
+        let foo_idx = keys.get(&"foo").unwrap();
+        let bar_idx = keys.get(&"bar").unwrap();
+
+        assert_eq!(keys[foo_idx], "foo");
+        assert_eq!(keys[bar_idx], "bar");
+        assert_eq!(data[foo_idx], "foo value");
+        assert_eq!(data[bar_idx], "bar value");
     }
 }

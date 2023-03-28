@@ -202,17 +202,14 @@ mod test {
     use crate::builder::GraphBuilder;
     use crate::test_utils::make_dag;
     use crate::test_utils::seeded_rng;
+    use crate::types::VertexKeys;
 
     const K0: &str = "key0";
     const K1: &str = "key1";
     const K2: &str = "key2";
     const K3: &str = "key3";
 
-    fn test_graph() -> (
-        Graph,
-        SmallMap<&'static str, VertexId>,
-        VertexData<&'static str>,
-    ) {
+    fn test_graph() -> (Graph, VertexKeys<&'static str>, VertexData<&'static str>) {
         let mut builder = GraphBuilder::new();
         builder.push(K3, std::iter::empty(), K3).unwrap();
         builder.push(K2, vec![K3].into_iter(), K2).unwrap();
@@ -285,10 +282,10 @@ mod test {
         let (graph, keys, data) = test_graph();
 
         // Get the vertex ids
-        let v0 = *keys.get(K0).unwrap();
-        let v1 = *keys.get(K1).unwrap();
-        let v2 = *keys.get(K2).unwrap();
-        let v3 = *keys.get(K3).unwrap();
+        let v0 = keys.get(&K0).unwrap();
+        let v1 = keys.get(&K1).unwrap();
+        let v2 = keys.get(&K2).unwrap();
+        let v3 = keys.get(&K3).unwrap();
 
         let mut weights = graph.allocate_vertex_data(0);
         weights[v0] = 5;

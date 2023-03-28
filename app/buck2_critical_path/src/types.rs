@@ -8,11 +8,13 @@
  */
 
 use std::fmt;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Index;
 use std::ops::IndexMut;
 
 use derive_more::Display;
+use starlark_map::small_map::SmallMap;
 
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct GraphVertexKind;
@@ -61,6 +63,18 @@ where
 {
     fn index_mut(&mut self, index: AbstractVertexId<Kind>) -> &mut Self::Output {
         &mut self.0[index.0 as usize]
+    }
+}
+
+impl<K, Kind> Index<AbstractVertexId<Kind>> for AbstractKeys<K, Kind>
+where
+    Kind: VertexKind,
+{
+    type Output = K;
+
+    fn index(&self, index: AbstractVertexId<Kind>) -> &Self::Output {
+        // NOTE: Unwrap is par for the course in [] access.
+        self.0.get_index(index.0 as usize).unwrap().0
     }
 }
 
@@ -163,9 +177,33 @@ where
     }
 }
 
+/// The keys for a graph built using GraphBuilder. This can be accessed using both VertexId
+/// (because the IDs are assigned in order), or K.
+#[derive(Clone)]
+pub struct AbstractKeys<K, Kind: VertexKind>(SmallMap<K, VertexId>, PhantomData<Kind>);
+
+impl<K, Kind> AbstractKeys<K, Kind>
+where
+    Kind: VertexKind,
+    K: Hash + Eq,
+{
+    pub fn new(v: SmallMap<K, VertexId>) -> Self {
+        Self(v, PhantomData)
+    }
+
+    pub fn get(&self, k: &K) -> Option<VertexId> {
+        self.0.get(k).copied()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
 pub type VertexId = AbstractVertexId<GraphVertexKind>;
 pub type OptionalVertexId = AbstractOptionalVertexId<GraphVertexKind>;
 pub type VertexData<T> = AbstractVertexData<T, GraphVertexKind>;
+pub type VertexKeys<T> = AbstractKeys<T, GraphVertexKind>;
 
 pub type CriticalPathIndex = AbstractVertexId<CriticalPathIndexKind>;
 pub type OptionalCriticalPathIndex = AbstractOptionalVertexId<CriticalPathIndexKind>;
