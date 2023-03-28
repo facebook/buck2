@@ -29,6 +29,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
 sync_wrapper = { workspace = true }
+tar = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

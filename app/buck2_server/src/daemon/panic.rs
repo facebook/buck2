@@ -24,6 +24,8 @@ use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_events::trace::TraceId;
 use once_cell::sync::OnceCell;
 
+use crate::daemon::dice_dump::tar_dice_dump;
+
 pub trait DaemonStatePanicDiceDump: Send + Sync + 'static {
     fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()>;
 }
@@ -87,15 +89,24 @@ fn maybe_dice_dump(
     if is_dice_panic {
         let dice_dump_folder = get_panic_dump_dir().join(format!("dice-dump-{}", panic_id));
         eprintln!(
-            "Buck2 panicked and DICE may be responsible. Please be patient as we try to dump DICE graph to `{:?}`",
+            "Buck2 panicked and DICE may be responsible. Please be patient as we try to dump DICE graph to `{:?}` and create an archive file",
             dice_dump_folder
         );
-        if let Err(e) = daemon_state.dice_dump(&dice_dump_folder, DiceDumpFormat::Bincode) {
+        if let Err(e) = daemon_state.dice_dump(&dice_dump_folder, DiceDumpFormat::Tsv) {
             eprintln!("Failed to dump DICE graph: {:#}", e);
         } else {
+            if let Err(e) = tar_dice_dump(&dice_dump_folder) {
+                eprintln!(
+                    "Failed to create an archive file of DICE dump. You can try manually creating it using `tar -zcf {}.tar.gz {}`. Error: {:#}",
+                    dice_dump_folder.display(),
+                    dice_dump_folder.display(),
+                    e
+                );
+            }
+
             let maybe_report_msg = if cfg!(fbcode_build) {
                 format!(
-                    "Please upload the report via `jf upload {}` and then report to https://fb.workplace.com/groups/buck2users. ",
+                    "Please upload the report via `jf upload {}.tar.gz` and then report to https://fb.workplace.com/groups/buck2users. ",
                     dice_dump_folder.display()
                 )
             } else {
