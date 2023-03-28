@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod default;
 mod fmt;
 mod resolve_alias;
 mod streaming;
@@ -14,26 +15,14 @@ mod streaming;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
-use std::path::Path;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::calculation::load_patterns;
-use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
-use buck2_build_api::nodes::lookup::TargetNodeLookup;
-use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::pattern::ParsedPattern;
-use buck2_core::target::label::TargetLabel;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
@@ -41,58 +30,12 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
-use dupe::Dupe;
-use dupe::OptionDupedExt;
 
-use crate::commands::targets::fmt::crate_formatter;
-use crate::commands::targets::fmt::Stats;
-use crate::commands::targets::fmt::TargetFormatter;
-use crate::commands::targets::fmt::TargetInfo;
+use crate::commands::targets::default::targets_batch;
+use crate::commands::targets::default::TargetHashOptions;
+use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
-use crate::target_hash::TargetHashes;
-use crate::target_hash::TargetHashesFileMode;
-
-struct TargetHashOptions {
-    file_mode: TargetHashesFileMode,
-    fast_hash: bool,
-    graph_type: TargetHashGraphType,
-    recursive: bool,
-}
-
-impl TargetHashOptions {
-    fn new(
-        request: &TargetsRequest,
-        cell_resolver: &CellResolver,
-        fs: &ProjectRoot,
-    ) -> anyhow::Result<Self> {
-        let file_mode = TargetHashFileMode::from_i32(request.target_hash_file_mode)
-            .expect("buck cli should send valid target hash file mode");
-        let file_mode = match file_mode {
-            TargetHashFileMode::PathsOnly => {
-                let modified_paths = request
-                    .target_hash_modified_paths
-                    .iter()
-                    .map(|path| {
-                        let path = AbsPath::new(Path::new(&path))?;
-                        cell_resolver.get_cell_path_from_abs_path(path, fs)
-                    })
-                    .collect::<anyhow::Result<_>>()?;
-                TargetHashesFileMode::PathsOnly(modified_paths)
-            }
-            TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
-            TargetHashFileMode::NoFiles => TargetHashesFileMode::None,
-        };
-
-        Ok(Self {
-            file_mode,
-            fast_hash: request.target_hash_use_fast_hash,
-            graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
-                .expect("buck cli should send valid target hash graph type"),
-            recursive: request.target_hash_recursive,
-        })
-    }
-}
 
 pub(crate) enum Outputter {
     Stdout,
@@ -219,7 +162,7 @@ async fn targets(
     let response = if request.unstable_resolve_aliases {
         targets_resolve_aliases(dice, request, parsed_target_patterns).await?
     } else if request.streaming {
-        let formatter = crate_formatter(request)?;
+        let formatter = create_formatter(request)?;
         let hashing = match TargetHashGraphType::from_i32(request.target_hash_graph_type)
             .expect("buck cli should send valid target hash graph type")
         {
@@ -244,7 +187,7 @@ async fn targets(
         outputter.flush()?;
         res?
     } else {
-        let formatter = crate_formatter(request)?;
+        let formatter = create_formatter(request)?;
         let target_platform =
             target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd)
                 .await?;
@@ -272,99 +215,4 @@ fn mk_error(errors: u64) -> anyhow::Error {
     // Simpler error so that we don't print long errors twice (when exiting buck2)
     let package_str = if errors == 1 { "package" } else { "packages" };
     anyhow::anyhow!("Failed to parse {} {}", errors, package_str)
-}
-
-async fn targets_batch(
-    server_ctx: &dyn ServerCommandContextTrait,
-    dice: DiceTransaction,
-    formatter: &dyn TargetFormatter,
-    parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-    target_platform: Option<TargetLabel>,
-    hash_options: TargetHashOptions,
-    keep_going: bool,
-) -> anyhow::Result<TargetsResponse> {
-    let results = load_patterns(&dice, parsed_patterns).await?;
-
-    let target_hashes = match hash_options.graph_type {
-        TargetHashGraphType::Configured => Some(
-            TargetHashes::compute::<ConfiguredTargetNode, _>(
-                dice.dupe(),
-                ConfiguredTargetNodeLookup(&dice),
-                results.iter_loaded_targets_by_package().collect(),
-                target_platform,
-                hash_options.file_mode,
-                hash_options.fast_hash,
-                hash_options.recursive,
-            )
-            .await?,
-        ),
-        TargetHashGraphType::Unconfigured => Some(
-            TargetHashes::compute::<TargetNode, _>(
-                dice.dupe(),
-                TargetNodeLookup(&dice),
-                results.iter_loaded_targets_by_package().collect(),
-                target_platform,
-                hash_options.file_mode,
-                hash_options.fast_hash,
-                hash_options.recursive,
-            )
-            .await?,
-        ),
-        _ => None,
-    };
-
-    let mut buffer = String::new();
-    formatter.begin(&mut buffer);
-    let mut stats = Stats::default();
-    let mut needs_separator = false;
-    for (package, result) in results.iter() {
-        match result {
-            Ok(res) => {
-                stats.success += 1;
-                for (_, node) in res.iter() {
-                    stats.targets += 1;
-                    let target_hash = target_hashes
-                        .as_ref()
-                        .and_then(|hashes| hashes.get(node.label()))
-                        .duped()
-                        .transpose()?;
-                    if needs_separator {
-                        formatter.separator(&mut buffer);
-                    }
-                    needs_separator = true;
-                    formatter.target(
-                        package.dupe(),
-                        TargetInfo { node, target_hash },
-                        &mut buffer,
-                    )
-                }
-            }
-            Err(e) => {
-                stats.errors += 1;
-                if keep_going {
-                    if needs_separator {
-                        formatter.separator(&mut buffer);
-                    }
-                    needs_separator = true;
-                    formatter.package_error(package.dupe(), e.inner(), &mut buffer);
-                } else {
-                    writeln!(
-                        server_ctx.stderr()?,
-                        "Error parsing {}\n{:?}",
-                        package,
-                        e.inner()
-                    )?;
-                }
-            }
-        }
-    }
-    formatter.end(&stats, &mut buffer);
-    if !keep_going && stats.errors != 0 {
-        Err(mk_error(stats.errors))
-    } else {
-        Ok(TargetsResponse {
-            error_count: stats.errors,
-            serialized_targets_output: buffer,
-        })
-    }
 }

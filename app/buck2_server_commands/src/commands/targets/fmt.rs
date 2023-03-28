@@ -321,7 +321,7 @@ impl TargetFormatter for TargetNameFormat {
     }
 }
 
-pub(crate) fn crate_formatter(
+pub(crate) fn create_formatter(
     request: &TargetsRequest,
 ) -> anyhow::Result<Arc<dyn TargetFormatter>> {
     let is_json = request.json || request.json_lines || !request.output_attributes.is_empty();
