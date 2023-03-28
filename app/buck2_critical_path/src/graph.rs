@@ -85,6 +85,46 @@ impl Graph {
             edges: reverse_edges,
         }
     }
+
+    /// Obtain a topological ordering of this graph. The graph must be a DAG (but that's the only
+    /// thing that GraphBuilder can construct).
+    pub fn topo_sort(&self) -> Vec<VertexId> {
+        enum Work {
+            Push(VertexId),
+            Pop(VertexId),
+        }
+
+        let mut topo_order = vec![VertexId::new(0); self.vertices.len()];
+        let mut visited = self.allocate_vertex_data(false); // Did we push its children
+        let mut finished = self.allocate_vertex_data(false); // Did we add it to the order
+        let mut current_topo_order_index = self.vertices.len().saturating_sub(1);
+
+        let mut queue = Vec::new();
+
+        for i in self.iter_vertices() {
+            queue.push(Work::Push(i));
+
+            while let Some(j) = queue.pop() {
+                match j {
+                    Work::Push(j) => {
+                        if visited[j] {
+                            continue;
+                        }
+
+                        queue.push(Work::Pop(j));
+                        queue.extend(self.iter_edges(j).map(Work::Push));
+                    }
+                    Work::Pop(j) => {
+                        visited[j] = true;
+                        topo_order[current_topo_order_index] = j;
+                        current_topo_order_index = current_topo_order_index.saturating_sub(1);
+                    }
+                }
+            }
+        }
+
+        topo_order
+    }
 }
 
 #[cfg(test)]
@@ -120,5 +160,12 @@ mod test {
             .collect::<Vec<_>>();
 
         assert_eq!(vec![(k3, k2), (k2, k0), (k1, k0)], rev_edges);
+
+        let topo = graph
+            .topo_sort()
+            .into_iter()
+            .map(|k| data[k])
+            .collect::<Vec<_>>();
+        assert_eq!(topo, vec![k0, k1, k2, k3]);
     }
 }
