@@ -407,7 +407,7 @@ impl Display for AssignOp {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             AssignOp::Add => f.write_str(" += "),
-            AssignOp::Subtract => f.write_str(" += "),
+            AssignOp::Subtract => f.write_str(" -= "),
             AssignOp::Multiply => f.write_str(" *= "),
             AssignOp::Divide => f.write_str(" /= "),
             AssignOp::FloorDivide => f.write_str(" //= "),
