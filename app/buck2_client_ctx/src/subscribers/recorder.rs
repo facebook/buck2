@@ -109,6 +109,7 @@ mod imp {
         concurrent_command_blocking_duration: Option<prost_types::Duration>,
         metadata: HashMap<String, String>,
         analysis_count: u64,
+        total_concurrent_commands: Option<u32>,
     }
 
     impl InvocationRecorder {
@@ -186,6 +187,7 @@ mod imp {
                 concurrent_command_blocking_duration: None,
                 metadata: buck2_events::metadata::collect(),
                 analysis_count: 0,
+                total_concurrent_commands: None,
             }
         }
 
@@ -308,6 +310,7 @@ mod imp {
                     .concurrent_command_blocking_duration
                     .take(),
                 analysis_count: Some(self.analysis_count),
+                total_concurrent_commands: self.total_concurrent_commands,
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -597,6 +600,15 @@ mod imp {
             Ok(())
         }
 
+        fn handle_dice_concurrent_commands(
+            &mut self,
+            dice_concurrent_commands: &buck2_data::DiceConcurrentCommands,
+        ) -> anyhow::Result<()> {
+            self.total_concurrent_commands =
+                Some(dice_concurrent_commands.total_concurrent_commands);
+            Ok(())
+        }
+
         fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
             Ok(())
@@ -782,6 +794,9 @@ mod imp {
                         buck2_data::instant_event::Data::StructuredError(err) => {
                             self.handle_structured_error(err)
                         }
+                        buck2_data::instant_event::Data::DiceConcurrentCommands(
+                            dice_concurrent_commands,
+                        ) => self.handle_dice_concurrent_commands(dice_concurrent_commands),
                         _ => Ok(()),
                     }
                 }

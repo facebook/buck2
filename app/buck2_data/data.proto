@@ -1380,6 +1380,8 @@ message InvocationRecord {
   google.protobuf.Duration concurrent_command_blocking_duration = 59;
   // How many analyses were executed
   optional uint64 analysis_count = 60;
+  // Total concurrent commands.
+  optional uint32 total_concurrent_commands = 61;
 }
 
 message CacheUploadStart {
