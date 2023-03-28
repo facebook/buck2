@@ -5,3 +5,8 @@ edition = "2021"
 description = "Critical path calculations for Buck2"
 license = "MIT OR Apache-2.0"
 authors = ["Meta"]
+
+[dependencies]
+starlark_map = { workspace = true }
+thiserror = { workspace = true }
+derive_more = { workspace = true }

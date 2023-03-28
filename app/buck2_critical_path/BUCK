@@ -6,4 +6,9 @@ oncall("buck2")
 rust_library(
     name = "buck2_critical_path",
     srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
+    ],
 )

@@ -6,3 +6,10 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
+
+// TODO (torozco): sort out public API and remove this.
+#![allow(unused)]
+
+mod builder;
+mod graph;
+mod types;
