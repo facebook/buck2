@@ -12,4 +12,5 @@
 
 mod builder;
 mod graph;
+mod potential;
 mod types;

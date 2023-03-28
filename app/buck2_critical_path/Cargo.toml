@@ -10,3 +10,8 @@ authors = ["Meta"]
 starlark_map = { workspace = true }
 thiserror = { workspace = true }
 derive_more = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rand_distr = { workspace = true }

@@ -43,7 +43,7 @@ impl Graph {
     }
 
     /// Allocate a VertexData with space for each fo the vertices in this graph.
-    fn allocate_vertex_data<T>(&self, default: T) -> VertexData<T>
+    pub fn allocate_vertex_data<T>(&self, default: T) -> VertexData<T>
     where
         T: Clone,
     {
@@ -129,7 +129,7 @@ impl Graph {
 
     /// Given a DAG and a *reverse topological* ordering thereof, return the predecessor for each
     /// node after aggregating by runtime.
-    fn find_longest_paths(
+    pub fn find_longest_paths(
         &self,
         reverse_topo_order: impl IntoIterator<Item = VertexId>,
         runtimes: &VertexData<u64>,
@@ -189,9 +189,9 @@ impl Graph {
     derive_more::Sub,
     Debug
 )]
-struct PathCost {
-    runtime: u64,
-    len: u32,
+pub struct PathCost {
+    pub runtime: u64,
+    pub len: u32,
 }
 
 #[cfg(test)]

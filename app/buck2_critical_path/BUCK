@@ -6,6 +6,11 @@ oncall("buck2")
 rust_library(
     name = "buck2_critical_path",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:rand_chacha",
+        "fbsource//third-party/rust:rand_distr",
+    ],
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:thiserror",

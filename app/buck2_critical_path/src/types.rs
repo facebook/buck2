@@ -17,9 +17,13 @@ use derive_more::Display;
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct GraphVertexKind;
 
+#[derive(Copy, Clone, Default, Ord, PartialOrd, PartialEq, Eq, Debug)]
+pub struct CriticalPathIndexKind;
+
 pub trait VertexKind: Copy + Clone + Default {}
 
 impl VertexKind for GraphVertexKind {}
+impl VertexKind for CriticalPathIndexKind {}
 
 /// The ID of a Vertex. This can be used to index into AbstractVertexData. Those IDs are given a
 /// kind so we don't confuse indices in a critical path with vertex indices in a graph.
@@ -131,6 +135,10 @@ where
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
 }
 
 impl<Kind> fmt::Debug for AbstractVertexId<Kind>
@@ -154,3 +162,17 @@ where
 pub type VertexId = AbstractVertexId<GraphVertexKind>;
 pub type OptionalVertexId = AbstractOptionalVertexId<GraphVertexKind>;
 pub type VertexData<T> = AbstractVertexData<T, GraphVertexKind>;
+
+pub type CriticalPathIndex = AbstractVertexId<CriticalPathIndexKind>;
+pub type OptionalCriticalPathIndex = AbstractOptionalVertexId<CriticalPathIndexKind>;
+pub type CriticalPathVertexData<T> = AbstractVertexData<T, CriticalPathIndexKind>;
+
+impl CriticalPathIndex {
+    pub fn zero() -> Self {
+        Self::new(0)
+    }
+
+    pub fn successor(self) -> Self {
+        Self::new(self.0 + 1)
+    }
+}
