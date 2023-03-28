@@ -132,40 +132,53 @@ mod test {
     use super::*;
     use crate::builder::GraphBuilder;
 
-    #[test]
-    fn test_graph() {
-        let k0 = "key0";
-        let k1 = "key1";
-        let k2 = "key2";
-        let k3 = "key3";
+    const K0: &str = "key0";
+    const K1: &str = "key1";
+    const K2: &str = "key2";
+    const K3: &str = "key3";
 
+    fn test_graph() -> (Graph, VertexData<&'static str>) {
         let mut builder = GraphBuilder::new();
-        builder.push(k3, std::iter::empty(), k3).unwrap();
-        builder.push(k2, vec![k3].into_iter(), k2).unwrap();
-        builder.push(k1, std::iter::empty(), k1).unwrap();
-        builder.push(k0, vec![k1, k2].into_iter(), k0).unwrap();
+        builder.push(K3, std::iter::empty(), K3).unwrap();
+        builder.push(K2, vec![K3].into_iter(), K2).unwrap();
+        builder.push(K1, std::iter::empty(), K1).unwrap();
+        builder.push(K0, vec![K1, K2].into_iter(), K0).unwrap();
 
-        let (graph, keys, data) = builder.finish();
+        let (graph, _keys, data) = builder.finish();
+        (graph, data)
+    }
+
+    #[test]
+    fn test_iter() {
+        let (graph, data) = test_graph();
         let edges = graph
             .iter_all_edges()
             .map(|(l, r)| (data[l], data[r]))
             .collect::<Vec<_>>();
 
-        assert_eq!(vec![(k2, k3), (k0, k1), (k0, k2),], edges);
+        assert_eq!(vec![(K2, K3), (K0, K1), (K0, K2)], edges);
+    }
 
+    #[test]
+    fn test_reverse() {
+        let (graph, data) = test_graph();
         let rev_graph = graph.reversed();
         let rev_edges = rev_graph
             .iter_all_edges()
             .map(|(l, r)| (data[l], data[r]))
             .collect::<Vec<_>>();
 
-        assert_eq!(vec![(k3, k2), (k2, k0), (k1, k0)], rev_edges);
+        assert_eq!(vec![(K3, K2), (K2, K0), (K1, K0)], rev_edges);
+    }
 
+    #[test]
+    fn test_topo_sort() {
+        let (graph, data) = test_graph();
         let topo = graph
             .topo_sort()
             .into_iter()
             .map(|k| data[k])
             .collect::<Vec<_>>();
-        assert_eq!(topo, vec![k0, k1, k2, k3]);
+        assert_eq!(topo, vec![K0, K1, K2, K3]);
     }
 }
