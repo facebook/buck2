@@ -14,7 +14,6 @@
 
 -module(test_artifact_directory).
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 -include_lib("kernel/include/logger.hrl").
 

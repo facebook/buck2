@@ -11,7 +11,6 @@
 %% starts the epmd daemon, and the ct_runner, that will launch the test.
 %% If one of them stops it entails termination of the whole tree.
 -module(test_exec_sup).
--typing(eqwalizer).
 
 -behavior(supervisor).
 

@@ -11,7 +11,6 @@
 %% each suite execution.
 
 -module(epmd_manager).
--typing(eqwalizer).
 
 -include_lib("common/include/buck_ct_records.hrl").
 

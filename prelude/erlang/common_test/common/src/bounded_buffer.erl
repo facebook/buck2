@@ -14,7 +14,6 @@
 -module(bounded_buffer).
 
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 %% Public API
 -export([new/1, put/2, get_elements/1]).

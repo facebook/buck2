@@ -7,7 +7,6 @@
 
 -module(test_logger).
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 -export([set_up_logger/2, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
 

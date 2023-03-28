@@ -12,7 +12,6 @@
 
 -module(buck_ct_provider).
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 -include("buck_ct_records.hrl").
 

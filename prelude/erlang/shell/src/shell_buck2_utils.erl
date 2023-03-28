@@ -14,8 +14,6 @@
 
 -module(shell_buck2_utils).
 
--typing([eqwalizer]).
-
 %% Public API
 -export([
     project_root/0,

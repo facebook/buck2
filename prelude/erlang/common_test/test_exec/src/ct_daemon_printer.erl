@@ -12,7 +12,6 @@
 %%% % @format
 
 -module(ct_daemon_printer).
--typing(eqwalizer).
 
 %% Public API
 -export([print_result/2, print_summary/3]).

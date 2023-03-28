@@ -19,7 +19,6 @@
 
 -module(artifact_annotations).
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 -type generic_blob() :: #{generic_blob := #{}}.
 -type generic_text_log() :: #{generic_text_log := #{}}.

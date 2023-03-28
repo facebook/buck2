@@ -11,7 +11,6 @@
 %% the test as part of a separate sub-process along
 %% with the epmd daemon.
 -module(test_exec).
--typing(eqwalizer).
 
 -behavior(application).
 

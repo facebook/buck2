@@ -13,7 +13,6 @@
 %%% % @format
 
 -module(ct_daemon_node).
--typing(eqwalizer).
 
 -include_lib("kernel/include/logger.hrl").
 

@@ -12,7 +12,6 @@
 %%% % @format
 
 -module(ct_daemon).
--typing(eqwalizer).
 
 -export([
     start/0, start/1,

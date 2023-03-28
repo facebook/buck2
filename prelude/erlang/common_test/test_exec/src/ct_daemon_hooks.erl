@@ -13,7 +13,6 @@
 
 -module(ct_daemon_hooks).
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 -behaviour(gen_server).
 

@@ -17,7 +17,6 @@
 -module(execution_logs).
 
 -compile(warn_missing_spec).
--typing([eqwalizer]).
 
 %% Public API
 -export([create_dir_summary/1]).

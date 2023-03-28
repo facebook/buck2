@@ -19,7 +19,6 @@
 %%% % @format
 
 -module(io_buffer).
--typing([eqwalizer]).
 
 -record(state, {buffer, process, group_leader, capture, pass_through, max_elements, max_length}).
 

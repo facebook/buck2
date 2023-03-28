@@ -11,7 +11,6 @@
 %% Notably allows us to call post/pre method on the node if needed, e.g for coverage.
 
 -module(ct_executor).
--typing(eqwalizer).
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
