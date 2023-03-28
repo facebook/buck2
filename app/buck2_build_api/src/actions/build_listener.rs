@@ -29,6 +29,7 @@ use dupe::OptionDupedExt;
 use itertools::Itertools;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
@@ -354,17 +355,18 @@ impl HasBuildSignals for UserComputationData {
     }
 }
 
-fn create_matched_pair() -> (
-    BuildSignalSender,
-    BuildSignalReceiver<impl BuildListenerBackend>,
-) {
+fn start_listener(events: EventDispatcher) -> (BuildSignalSender, JoinHandle<anyhow::Result<()>>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    (
-        BuildSignalSender {
-            sender: Arc::new(sender),
-        },
-        BuildSignalReceiver::new(receiver, DefaultBackend::new()),
-    )
+    let sender = BuildSignalSender {
+        sender: Arc::new(sender),
+    };
+
+    let listener = BuildSignalReceiver::new(receiver, DefaultBackend::new());
+    let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
+        listener.run_and_log().await
+    }));
+
+    (sender, receiver_task_handle)
 }
 
 /// Creates a Build Listener signal pair and invokes the given asynchronous function with the send-end of the signal
@@ -383,13 +385,10 @@ where
     F: FnOnce(BuildSignalSender) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    let (sender, receiver) = create_matched_pair();
-    let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
-        receiver.run_and_log().await
-    }));
+    let (sender, handle) = start_listener(events);
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);
-    receiver_task_handle.await??;
+    handle.await??;
     result
 }
 
