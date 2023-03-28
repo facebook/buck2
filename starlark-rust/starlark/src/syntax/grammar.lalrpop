@@ -155,6 +155,7 @@ AssignOp: Option<AssignOp> = {
     "+=" => Some(AssignOp::Add),
     "-=" => Some(AssignOp::Subtract),
     "*=" => Some(AssignOp::Multiply),
+    "/=" => Some(AssignOp::Divide),
     "//=" => Some(AssignOp::FloorDivide),
     "%=" => Some(AssignOp::Percent),
     "&=" => Some(AssignOp::BitAnd),
