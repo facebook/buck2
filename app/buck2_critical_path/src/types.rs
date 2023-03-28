@@ -38,6 +38,10 @@ where
     pub fn new(v: u32) -> Self {
         Self(v, PhantomData)
     }
+
+    pub fn into_inner(self) -> u32 {
+        self.0
+    }
 }
 
 impl<T, Kind> Index<AbstractVertexId<Kind>> for AbstractVertexData<T, Kind>

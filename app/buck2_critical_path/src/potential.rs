@@ -240,57 +240,11 @@ pub fn compute_critical_path_potentials(
 mod test {
     use std::time::Instant;
 
-    use rand::prelude::*;
-    use rand_chacha::ChaCha8Rng;
-    use rand_distr::Normal;
-
     use super::*;
     use crate::graph::GraphVertex;
-
-    #[derive(Clone)]
-    struct TestDag {
-        graph: Graph,
-        keys: VertexData<String>,
-        runtimes: VertexData<u64>,
-    }
-
-    fn make_dag(nodes: usize) -> TestDag {
-        let mut rng = ChaCha8Rng::seed_from_u64(123);
-        let degree_distribution = Normal::<f64>::new(2.0, 5.0).unwrap();
-
-        let mut keys = Vec::new();
-        let mut runtimes = Vec::new();
-        let mut vertices = Vec::new();
-        let mut edges = Vec::new();
-
-        for i in 0..nodes {
-            let candidate_count = nodes - 1 - i;
-            let edges_count = degree_distribution.sample(&mut rng).round() as usize;
-            let edges_count = edges_count.min(candidate_count);
-
-            keys.push(format!("k{}", i));
-            runtimes.push(rng.gen_range(0..10_000));
-            vertices.push(GraphVertex {
-                edges_idx: edges.len().try_into().unwrap(),
-                edges_count: edges_count.try_into().unwrap(),
-            });
-
-            // Those are relative to i + 1.
-            for j in rand::seq::index::sample(&mut rng, candidate_count, edges_count) {
-                let j = i + 1 + j;
-                edges.push(VertexId::new(j.try_into().unwrap())); // i depends on j
-            }
-        }
-
-        TestDag {
-            keys: VertexData::new(keys),
-            runtimes: VertexData::new(runtimes),
-            graph: Graph {
-                vertices: VertexData::new(vertices),
-                edges,
-            },
-        }
-    }
+    use crate::test_utils::make_dag;
+    use crate::test_utils::seeded_rng;
+    use crate::test_utils::TestDag;
 
     fn naive_critical_path_cost(dag: &TestDag, replacement: Option<(VertexId, u64)>) -> PathCost {
         // By construction, TestDag guarantees `vertices` is a topological order, so we iterate in
@@ -355,38 +309,42 @@ mod test {
         eprintln!("slow: {} us", slow.as_micros());
     }
 
+    pub fn test_dag(nodes: usize) -> TestDag {
+        make_dag(nodes, &mut seeded_rng())
+    }
+
     #[test]
     fn test_trivial() {
-        do_test(&make_dag(2));
+        do_test(&test_dag(2));
     }
 
     #[test]
     fn test_mini() {
-        do_test(&make_dag(4));
+        do_test(&test_dag(4));
     }
 
     #[test]
     fn test_medium() {
-        do_test(&make_dag(100))
+        do_test(&test_dag(100))
     }
 
     #[test]
     fn test_large() {
-        do_test(&make_dag(1000))
+        do_test(&test_dag(1000))
     }
 
     #[test]
     fn test_xlarge() {
-        do_test(&make_dag(10_000))
+        do_test(&test_dag(10_000))
     }
 
     #[test]
     fn test_xxlarge() {
-        do_test(&make_dag(100_000))
+        do_test(&test_dag(100_000))
     }
 
     #[test]
     fn test_xxxlarge() {
-        do_test(&make_dag(1_000_000))
+        do_test(&test_dag(1_000_000))
     }
 }

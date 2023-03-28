@@ -14,3 +14,6 @@ mod builder;
 mod graph;
 mod potential;
 mod types;
+
+#[cfg(test)]
+mod test_utils;
