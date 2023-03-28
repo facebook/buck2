@@ -9,7 +9,6 @@ load(":apple_package_config.bzl", "apple_package_config")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
-    "APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME",
     "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
 )
 
@@ -19,7 +18,7 @@ _APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = {
 }
 
 _APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = {
-    APPLE_LINK_BINARIES_LOCALLY_OVERRIDE_ATTR_NAME: ("apple", "link_binaries_locally_override"),
+    "link_locally_override": ("apple", "link_binaries_locally_override"),
 }
 
 def apple_macro_layer_set_bool_override_attrs_from_config(attrib_map: {str.type: (str.type, str.type)}) -> {str.type: "selector"}:
