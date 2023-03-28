@@ -20,7 +20,7 @@ use crate::types::VertexId;
 pub struct TestDag {
     pub graph: Graph,
     pub keys: VertexData<String>,
-    pub runtimes: VertexData<u64>,
+    pub weights: VertexData<u64>,
 }
 
 pub fn seeded_rng() -> ChaCha8Rng {
@@ -31,7 +31,7 @@ pub fn make_dag(nodes: usize, rng: &mut impl Rng) -> TestDag {
     let degree_distribution = Normal::<f64>::new(2.0, 5.0).unwrap();
 
     let mut keys = Vec::new();
-    let mut runtimes = Vec::new();
+    let mut weights = Vec::new();
     let mut vertices = Vec::new();
     let mut edges = Vec::new();
 
@@ -41,7 +41,7 @@ pub fn make_dag(nodes: usize, rng: &mut impl Rng) -> TestDag {
         let edges_count = edges_count.min(candidate_count);
 
         keys.push(format!("k{}", i));
-        runtimes.push(rng.gen_range(0..10_000));
+        weights.push(rng.gen_range(0..10_000));
         vertices.push(GraphVertex {
             edges_idx: edges.len().try_into().unwrap(),
             edges_count: edges_count.try_into().unwrap(),
@@ -56,7 +56,7 @@ pub fn make_dag(nodes: usize, rng: &mut impl Rng) -> TestDag {
 
     TestDag {
         keys: VertexData::new(keys),
-        runtimes: VertexData::new(runtimes),
+        weights: VertexData::new(weights),
         graph: Graph {
             vertices: VertexData::new(vertices),
             edges,
@@ -85,7 +85,7 @@ impl TestDag {
         ]);
         let mut edges = vec![VertexId::new(0); self.graph.edges.len()];
         let mut keys = VertexData::new(vec![String::default(); len]);
-        let mut runtimes = VertexData::new(vec![u64::default(); len]);
+        let mut weights = VertexData::new(vec![u64::default(); len]);
 
         for idx in self.graph.iter_vertices() {
             let new = mapping[idx];
@@ -104,14 +104,14 @@ impl TestDag {
             };
 
             keys[new] = self.keys[idx].clone();
-            runtimes[new] = self.runtimes[idx];
+            weights[new] = self.weights[idx];
         }
 
         (
             Self {
                 graph: Graph { vertices, edges },
                 keys,
-                runtimes,
+                weights,
             },
             mapping,
         )

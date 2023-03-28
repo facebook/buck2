@@ -132,7 +132,7 @@ impl Graph {
     pub fn find_longest_paths(
         &self,
         reverse_topo_order: impl IntoIterator<Item = VertexId>,
-        runtimes: &VertexData<u64>,
+        weights: &VertexData<u64>,
     ) -> (VertexData<PathCost>, VertexData<OptionalVertexId>) {
         let mut predecessor = self.allocate_vertex_data(OptionalVertexId::none());
 
@@ -157,7 +157,7 @@ impl Graph {
             }
 
             let me = PathCost {
-                runtime: runtimes[idx],
+                runtime: weights[idx],
                 len: 1,
             };
 
@@ -290,14 +290,14 @@ mod test {
         let v2 = *keys.get(K2).unwrap();
         let v3 = *keys.get(K3).unwrap();
 
-        let mut runtimes = graph.allocate_vertex_data(0);
-        runtimes[v0] = 5;
-        runtimes[v1] = 15;
-        runtimes[v2] = 10;
-        runtimes[v3] = 20;
+        let mut weights = graph.allocate_vertex_data(0);
+        weights[v0] = 5;
+        weights[v1] = 15;
+        weights[v2] = 10;
+        weights[v3] = 20;
 
         let topo = graph.topo_sort();
-        let (costs, predecessor) = graph.find_longest_paths(topo.iter().rev().copied(), &runtimes);
+        let (costs, predecessor) = graph.find_longest_paths(topo.iter().rev().copied(), &weights);
 
         assert_eq!(
             costs[v3],

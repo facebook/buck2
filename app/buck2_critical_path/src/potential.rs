@@ -19,7 +19,7 @@ use crate::types::VertexId;
 
 pub fn compute_critical_path_potentials(
     deps: &Graph,
-    runtimes: &VertexData<u64>,
+    weights: &VertexData<u64>,
 ) -> (Vec<VertexId>, PathCost, Vec<PathCost>) {
     let rdeps = deps.reversed();
 
@@ -27,11 +27,11 @@ pub fn compute_critical_path_potentials(
     // could maybe skip this, though in practice it's quick enough that it really does not matter.
     let topo_order = deps.topo_sort();
 
-    let (cost_to_sink, successors) = rdeps.find_longest_paths(topo_order.iter().copied(), runtimes);
+    let (cost_to_sink, successors) = rdeps.find_longest_paths(topo_order.iter().copied(), weights);
     drop(successors); // We don't need this.
 
     let (cost_from_source, predecessors) =
-        deps.find_longest_paths(topo_order.iter().rev().copied(), runtimes);
+        deps.find_longest_paths(topo_order.iter().rev().copied(), weights);
 
     // Look up the critical path. Find the node with the highest cost from a source, then iterate
     // over predecessors to reconstruct the critical path.
@@ -119,7 +119,7 @@ pub fn compute_critical_path_potentials(
     for idx in deps.iter_vertices() {
         vertices_cost[idx] = cost_from_source[idx] + cost_to_sink[idx]
             - PathCost {
-                runtime: runtimes[idx],
+                runtime: weights[idx],
                 len: 1,
             };
     }
@@ -187,7 +187,7 @@ pub fn compute_critical_path_potentials(
     for (idx, vertex) in critical_path.iter() {
         let cost_without_v = critical_path_cost
             - PathCost {
-                runtime: runtimes[*vertex],
+                runtime: weights[*vertex],
                 len: 0,
             };
         updated_critical_path_cost[idx] = cost_without_v;
@@ -269,7 +269,7 @@ mod test {
 
             let v_runtime = match replacement {
                 Some((replacement, runtime)) if replacement == idx => runtime,
-                _ => dag.runtimes[idx],
+                _ => dag.weights[idx],
             };
 
             let cost = PathCost {
@@ -289,7 +289,7 @@ mod test {
 
         let fast = Instant::now();
         let (critical_path, critical_path_cost, replacement_costs) =
-            compute_critical_path_potentials(&dag.graph, &dag.runtimes);
+            compute_critical_path_potentials(&dag.graph, &dag.weights);
         let fast = fast.elapsed();
 
         let naive = naive_critical_path_cost(dag, None);
