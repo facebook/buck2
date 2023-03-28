@@ -1,0 +1,7 @@
+[package]
+name = "buck2_critical_path"
+version = "0.1.0"
+edition = "2021"
+description = "Critical path calculations for Buck2"
+license = "MIT OR Apache-2.0"
+authors = ["Meta"]

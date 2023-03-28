@@ -57,6 +57,7 @@ members = [
     "app/buck2_build_api",
     "app/buck2_build_api_derive",
     "app/buck2_subscription_proto",
+    "app/buck2_critical_path",
     "cli",
     "dice/dice",
     "dice/dice_examples",
@@ -294,6 +295,7 @@ buck2_util = { path = "app/buck2_util" }
 buck2_re_configuration = { path = "app/buck2_re_configuration" }
 buck2_subscription_proto = { path = "app/buck2_subscription_proto" }
 buck2_killall = { path = "app/buck2_killall" }
+buck2_critical_path = { path = "app/buck2_critical_path" }
 
 [profile.release]
 incremental = true
