@@ -47,7 +47,7 @@ enum TargetNameError {
     )]
     FoundProvidersLabel(String),
     #[error("Target name `{0}` has special character `{1}`, which is discouraged")]
-    LabelHasSpecialCharacter(String, String),
+    LabelHasSpecialCharacter(String, char),
     #[error("Target name must not be equal to `...`")]
     DotDotDot,
 }
@@ -88,13 +88,13 @@ impl TargetName {
         if name.contains(',') {
             quiet_soft_error!(
                 "label_has_comma",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ",".to_owned()).into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into()
             )?;
         }
         if name.contains('$') {
             quiet_soft_error!(
                 "label_has_dollar_sign",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), "$".to_owned()).into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into()
             )?;
         }
 
