@@ -217,10 +217,14 @@ def _get_shared_link_style_sub_targets_and_providers(
         external_debug_info = external_debug_info,
         action_identifier = executable.short_path,
     )
-    return ({
+    subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
         DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info)],
-    }, [AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info)] + min_version_providers)
+    }
+    providers = [
+        AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
+    ] + min_version_providers
+    return (subtargets, providers)
 
 def _get_transitive_swiftmodule_paths(swift_providers: ["provider"]) -> "cmd_args":
     cmd = cmd_args()
