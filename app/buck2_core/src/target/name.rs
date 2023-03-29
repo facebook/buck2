@@ -13,7 +13,6 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
-use thiserror::Error;
 
 use crate::ascii_char_set::AsciiCharSet;
 
@@ -47,6 +46,10 @@ enum TargetNameError {
         _0
     )]
     FoundProvidersLabel(String),
+    #[error("Target name `{0}` has special character `{1}`, which is discouraged")]
+    LabelHasSpecialCharacter(String, String),
+    #[error("Target name must not be equal to `...`")]
+    DotDotDot,
 }
 
 impl TargetName {
@@ -80,23 +83,18 @@ impl TargetName {
         }
 
         if name == "..." {
-            soft_error!(
-                "label_is_dot_dot_dot",
-                LabelValidationError::DotDotDot.into()
-            )?;
+            soft_error!("label_is_dot_dot_dot", TargetNameError::DotDotDot.into())?;
         }
         if name.contains(',') {
             quiet_soft_error!(
                 "label_has_comma",
-                LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), ",".to_owned())
-                    .into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ",".to_owned()).into()
             )?;
         }
         if name.contains('$') {
             quiet_soft_error!(
                 "label_has_dollar_sign",
-                LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), "$".to_owned())
-                    .into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), "$".to_owned()).into()
             )?;
         }
 
@@ -145,14 +143,6 @@ impl Deref for TargetName {
     fn deref(&self) -> &TargetNameRef {
         self.as_ref()
     }
-}
-
-#[derive(Error, Debug)]
-pub(crate) enum LabelValidationError {
-    #[error("Target name `{0}` has special character `{1}`, which is discouraged")]
-    LabelHasSpecialCharacter(String, String),
-    #[error("Target name must not be equal to `...`")]
-    DotDotDot,
 }
 
 #[derive(Debug, derive_more::Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
