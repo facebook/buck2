@@ -284,8 +284,8 @@ def _compile_with_argsfile(
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
         toolchain: "SwiftToolchainInfo") -> "CxxAdditionalArgsfileParams":
-    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_args, allow_args = True)
+    shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
+    argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_cmd, allow_args = True)
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
@@ -298,7 +298,7 @@ def _compile_with_argsfile(
     prefer_local = not uses_explicit_modules(ctx)
 
     # Argsfile should also depend on all artifacts in it, otherwise they won't be materialised.
-    cmd.hidden([shell_quoted_args])
+    cmd.hidden([shared_flags])
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
     # so that CI builds populate caches used by developer machines.
