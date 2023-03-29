@@ -213,7 +213,12 @@ fn get_callers_for_kill() -> Vec<String> {
     let mut process_tree = Vec::new();
 
     let mut pid = Some(Pid::from_u32(std::process::id()));
+    // FIXME: This while loop of going up the process tree occasionally gets stuck on Windows. Limit to 20 levels.
+    let max_process_count = 20;
     while let Some(p) = pid {
+        if process_tree.len() > max_process_count {
+            break;
+        }
         pid = push_process(p, &mut system, &mut process_tree);
     }
 
