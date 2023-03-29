@@ -54,6 +54,37 @@ def get_swift_pcm_anon_targets(
     ]
     return [(_swift_pcm_compilation, d) for d in deps]
 
+def _compile_with_argsfile(
+        ctx: "context",
+        category: str.type,
+        module_name: str.type,
+        args: "cmd_args",
+        additional_cmd: "cmd_args"):
+    shell_quoted_cmd = cmd_args(args, quote = "shell")
+    argfile, _ = ctx.actions.write(module_name + ".pcm.argsfile", shell_quoted_cmd, allow_args = True)
+
+    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    cmd = cmd_args(swift_toolchain.compiler)
+    cmd.add(cmd_args(["@", argfile], delimiter = ""))
+
+    # Action should also depend on all artifacts from the argsfile, otherwise they won't be materialised.
+    cmd.hidden([args])
+
+    cmd.add(additional_cmd)
+
+    # T142915880 There is an issue with hard links,
+    # when we compile pcms remotely on linux machines.
+    local_only = True
+
+    ctx.actions.run(
+        cmd,
+        env = get_explicit_modules_env_var(True),
+        category = category,
+        identifier = module_name,
+        local_only = local_only,
+        allow_cache_upload = local_only,
+    )
+
 def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
     def k(compiled_pcm_deps_providers) -> ["provider"]:
         uncompiled_pcm_info = ctx.attrs.dep[SwiftPCMUncompiledInfo]
@@ -81,7 +112,7 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
             ]
 
         module_name = ctx.attrs.pcm_name
-        cmd, pcm_output = _get_base_pcm_flags(
+        cmd, additional_cmd, pcm_output = _get_base_pcm_flags(
             ctx,
             module_name,
             uncompiled_pcm_info,
@@ -102,17 +133,12 @@ def _swift_pcm_compilation_impl(ctx: "context") -> ["promise", ["provider"]]:
         if uncompiled_pcm_info.propagated_preprocessor_args_cmd:
             cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
 
-        # T142915880 There is an issue with hard links,
-        # when we compile pcms remotely on linux machines.
-        local_only = True
-
-        ctx.actions.run(
+        _compile_with_argsfile(
+            ctx,
+            "swift_pcm_compile",
+            module_name,
             cmd,
-            env = get_explicit_modules_env_var(True),
-            category = "swift_pcm_compile",
-            identifier = module_name,
-            local_only = local_only,
-            allow_cache_upload = local_only,
+            additional_cmd,
         )
 
         compiled_pcm = SwiftPCMCompiledInfo(
@@ -192,7 +218,7 @@ def compile_underlying_pcm(
     # ones that should be transitively exported through public headers
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, compiled_pcm_deps_providers)
 
-    cmd, pcm_output = _get_base_pcm_flags(
+    cmd, additional_cmd, pcm_output = _get_base_pcm_flags(
         ctx,
         module_name,
         uncompiled_pcm_info,
@@ -208,17 +234,12 @@ def compile_underlying_pcm(
         cmd_args([cmd_args(modulemap_path).parent(), "exported_symlink_tree"], delimiter = "/"),
     ])
 
-    # T142915880 There is an issue with hard links,
-    # when we compile pcms remotely on linux machines.
-    local_only = True
-
-    ctx.actions.run(
+    _compile_with_argsfile(
+        ctx,
+        "swift_underlying_pcm_compile",
+        module_name,
         cmd,
-        env = get_explicit_modules_env_var(True),
-        category = "swift_underlying_pcm_compile",
-        identifier = module_name,
-        local_only = local_only,
-        allow_cache_upload = local_only,
+        additional_cmd,
     )
 
     return SwiftPCMCompiledInfo(
@@ -233,10 +254,10 @@ def _get_base_pcm_flags(
         uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
         sdk_deps_tset: "SDKDepTSet",
         pcm_deps_tset: "PcmDepTSet",
-        swift_cxx_args: [str.type]) -> ("cmd_args", "artifact"):
+        swift_cxx_args: [str.type]) -> ("cmd_args", "cmd_args", "artifact"):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
-    cmd = cmd_args(swift_toolchain.compiler)
+    cmd = cmd_args()
     cmd.add(get_shared_pcm_compilation_args(get_versioned_target_triple(ctx), module_name))
     cmd.add(["-sdk", swift_toolchain.sdk_path])
     cmd.add(swift_toolchain.compiler_flags)
@@ -252,7 +273,9 @@ def _get_base_pcm_flags(
 
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
     pcm_output = ctx.actions.declare_output(module_name + ".pcm")
-    cmd.add([
+
+    additional_cmd = cmd_args(swift_cxx_args)
+    additional_cmd.add([
         "-o",
         pcm_output.as_output(),
         modulemap_path,
@@ -267,9 +290,7 @@ def _get_base_pcm_flags(
         cmd_args(modulemap_path).parent(),
     ])
 
-    cmd.add(swift_cxx_args)
-
     # Modular deps like `-Swift.h` have to be materialized.
     cmd.hidden(uncompiled_pcm_info.exported_preprocessor.modular_args)
 
-    return (cmd, pcm_output)
+    return (cmd, additional_cmd, pcm_output)
