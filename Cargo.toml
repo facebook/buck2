@@ -198,7 +198,7 @@ sync_wrapper = "0.1.0"
 sys-info = "0.9.1"
 sysinfo = "0.26.8"
 take_mut = "0.2.2"
-tar = { package = "tar", version = "0.4.38" }
+tar = "0.4.38"
 tempfile = "3.1.0"
 termimad = "0.20.1"
 termios = "0.3"
