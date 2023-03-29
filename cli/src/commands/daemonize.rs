@@ -211,26 +211,9 @@ struct Error {
 enum ErrorKind {
     Fork(Errno),
     DetachSession(Errno),
-    GroupNotFound,
-    GroupContainsNul,
-    SetGroup(Errno),
-    UserNotFound,
-    UserContainsNul,
-    SetUser(Errno),
-    ChangeDirectory(Errno),
-    PathContainsNul,
-    OpenPidfile(Errno),
-    GetPidfileFlags(Errno),
-    SetPidfileFlags(Errno),
-    LockPidfile(Errno),
-    ChownPidfile(Errno),
     OpenDevnull(Errno),
     RedirectStreams(Errno),
     CloseDevnull(Errno),
-    TruncatePidfile(Errno),
-    WritePid(Errno),
-    WritePidUnspecifiedError,
-    Chroot(Errno),
 }
 
 impl ErrorKind {
@@ -238,28 +221,9 @@ impl ErrorKind {
         match self {
             ErrorKind::Fork(_) => "unable to fork",
             ErrorKind::DetachSession(_) => "unable to create new session",
-            ErrorKind::GroupNotFound => "unable to resolve group name to group id",
-            ErrorKind::GroupContainsNul => "group option contains NUL",
-            ErrorKind::SetGroup(_) => "unable to set group",
-            ErrorKind::UserNotFound => "unable to resolve user name to user id",
-            ErrorKind::UserContainsNul => "user option contains NUL",
-            ErrorKind::SetUser(_) => "unable to set user",
-            ErrorKind::ChangeDirectory(_) => "unable to change directory",
-            ErrorKind::PathContainsNul => "pid_file option contains NUL",
-            ErrorKind::OpenPidfile(_) => "unable to open pid file",
-            ErrorKind::GetPidfileFlags(_) => "unable get pid file flags",
-            ErrorKind::SetPidfileFlags(_) => "unable set pid file flags",
-            ErrorKind::LockPidfile(_) => "unable to lock pid file",
-            ErrorKind::ChownPidfile(_) => "unable to chown pid file",
             ErrorKind::OpenDevnull(_) => "unable to open /dev/null",
             ErrorKind::RedirectStreams(_) => "unable to redirect standard streams to /dev/null",
             ErrorKind::CloseDevnull(_) => "unable to close /dev/null",
-            ErrorKind::TruncatePidfile(_) => "unable to truncate pid file",
-            ErrorKind::WritePid(_) => "unable to write self pid to pid file",
-            ErrorKind::WritePidUnspecifiedError => {
-                "unable to write self pid to pid file due to unknown reason"
-            }
-            ErrorKind::Chroot(_) => "unable to chroot into directory",
         }
     }
 
@@ -267,26 +231,9 @@ impl ErrorKind {
         match self {
             ErrorKind::Fork(errno) => Some(*errno),
             ErrorKind::DetachSession(errno) => Some(*errno),
-            ErrorKind::GroupNotFound => None,
-            ErrorKind::GroupContainsNul => None,
-            ErrorKind::SetGroup(errno) => Some(*errno),
-            ErrorKind::UserNotFound => None,
-            ErrorKind::UserContainsNul => None,
-            ErrorKind::SetUser(errno) => Some(*errno),
-            ErrorKind::ChangeDirectory(errno) => Some(*errno),
-            ErrorKind::PathContainsNul => None,
-            ErrorKind::OpenPidfile(errno) => Some(*errno),
-            ErrorKind::GetPidfileFlags(errno) => Some(*errno),
-            ErrorKind::SetPidfileFlags(errno) => Some(*errno),
-            ErrorKind::LockPidfile(errno) => Some(*errno),
-            ErrorKind::ChownPidfile(errno) => Some(*errno),
             ErrorKind::OpenDevnull(errno) => Some(*errno),
             ErrorKind::RedirectStreams(errno) => Some(*errno),
             ErrorKind::CloseDevnull(errno) => Some(*errno),
-            ErrorKind::TruncatePidfile(errno) => Some(*errno),
-            ErrorKind::WritePid(errno) => Some(*errno),
-            ErrorKind::WritePidUnspecifiedError => None,
-            ErrorKind::Chroot(errno) => Some(*errno),
         }
     }
 }
