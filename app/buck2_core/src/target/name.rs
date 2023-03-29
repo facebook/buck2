@@ -136,15 +136,13 @@ pub(crate) fn emit_label_validation_errors(name: &str) -> anyhow::Result<()> {
         quiet_soft_error!(
             "label_has_comma",
             LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), ",".to_owned()).into()
-        )
-        .unwrap();
+        )?;
     }
     if name.contains('$') {
         quiet_soft_error!(
             "label_has_dollar_sign",
             LabelValidationError::LabelHasSpecialCharacter(name.to_owned(), "$".to_owned()).into()
-        )
-        .unwrap();
+        )?;
     }
     Ok(())
 }
