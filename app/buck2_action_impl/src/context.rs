@@ -35,6 +35,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -127,6 +128,10 @@ enum RunActionError {
         "missing `metadata_env_var` parameter which is required when `metadata_path` parameter is present"
     )]
     MetadataEnvVarMissing,
+    #[error(
+        "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or ouputs?"
+    )]
+    ArtifactVisitRecursionLimitExceeded,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -549,6 +554,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
             tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact>>,
+            depth: u64,
         }
 
         impl RunCommandArtifactVisitor {
@@ -556,6 +562,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 Self {
                     inner: SimpleCommandLineArtifactVisitor::new(),
                     tagged_outputs: HashMap::new(),
+                    depth: 0,
                 }
             }
         }
@@ -577,6 +584,21 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
                 }
 
                 self.inner.visit_output(artifact, tag);
+            }
+
+            fn push_frame(&mut self) -> anyhow::Result<()> {
+                self.depth += 1;
+                if self.depth > 1000 {
+                    soft_error!(
+                        "run_action_recursion_limit_exceeded",
+                        RunActionError::ArtifactVisitRecursionLimitExceeded.into()
+                    )?;
+                }
+                Ok(())
+            }
+
+            fn pop_frame(&mut self) {
+                self.depth = self.depth.saturating_sub(1);
             }
         }
 
@@ -618,6 +640,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let RunCommandArtifactVisitor {
             inner: artifacts,
             tagged_outputs,
+            depth: _,
         } = artifact_visitor;
 
         let mut dep_files_configuration = RunActionDepFiles::new();

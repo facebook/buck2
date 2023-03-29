@@ -35,6 +35,13 @@ pub trait CommandLineArtifactVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
 
     fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>);
+
+    /// Those two functions can be used to keep track of recursion when visiting artifacts.
+    fn push_frame(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn pop_frame(&mut self) {}
 }
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.

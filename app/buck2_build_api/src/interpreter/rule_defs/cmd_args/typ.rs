@@ -318,11 +318,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v,
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
         if !self.ignore_artifacts() {
-            for item in &self.items {
+            for item in self.items.iter().chain(self.hidden.iter()) {
+                visitor.push_frame()?;
                 item.visit_artifacts(visitor)?;
-            }
-            for item in &self.hidden {
-                item.visit_artifacts(visitor)?;
+                visitor.pop_frame();
             }
         }
         Ok(())
