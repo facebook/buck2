@@ -197,7 +197,7 @@ wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
                                     {[{tc_status, {failed, Error}} | ConfigArg], Error}
                             end,
                         Args = PathArg ++ [PostConfig, Return],
-                        call_if_exists_with_fallback_store_state(Hook, post(Part), Args, PostConfig)
+                        call_if_exists_with_fallback_store_state(Hook, post(Part), Args, Return)
                 end
             end
         end,
