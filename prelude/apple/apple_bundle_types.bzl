@@ -29,3 +29,7 @@ AppleMinDeploymentVersionInfo = provider(fields = [
 AppleBundleResourceInfo = provider(fields = [
     "resource_output",  # AppleBundleResourcePartListOutput.type
 ])
+
+AppleBundleLinkerMapInfo = provider(fields = [
+    "linker_maps",  # ["artifact"]
+])

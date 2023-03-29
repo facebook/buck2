@@ -15,7 +15,7 @@ load("@prelude//utils:utils.bzl", "expect", "flatten")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleResourceInfo")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -117,6 +117,9 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     sub_targets = {}
 
+    linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
+    sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
+
     debuggable_deps = _get_debuggable_deps(ctx)
 
     dsym_artifacts = flatten([info.dsyms for info in debuggable_deps])
@@ -155,6 +158,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
             },
         ),
         RunInfo(args = run_cmd),
+        linker_map_info,
         xcode_data_info,
     ]
 
@@ -169,6 +173,21 @@ def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.ty
 
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
+
+def _linker_maps_data(ctx: "context") -> ("artifact", AppleBundleLinkerMapInfo.type):
+    deps_with_binary = ctx.attrs.deps + ([ctx.attrs.binary] if ctx.attrs.binary != None else [])
+    deps_linker_map_infos = filter(
+        None,
+        [dep.get(AppleBundleLinkerMapInfo) for dep in deps_with_binary],
+    )
+    deps_linker_maps = flatten([info.linker_maps for info in deps_linker_map_infos])
+    all_maps = {map.basename: map for map in deps_linker_maps}
+    directory = ctx.actions.copied_dir(
+        "LinkMap",
+        all_maps,
+    )
+    provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
+    return (directory, provider)
 
 def generate_install_data(
         ctx: "context",

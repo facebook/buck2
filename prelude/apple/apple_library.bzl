@@ -26,7 +26,7 @@ load(
     "CPreprocessor",
 )
 load("@prelude//linking:link_info.bzl", "LinkStyle")
-load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
+load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_link_postprocessor.bzl", "get_apple_link_postprocessor")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -204,7 +204,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         executable: "artifact",
         external_debug_info: ["_arglike"],
         _dwp: ["artifact", None],
-        _linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
+        linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 
@@ -224,6 +224,9 @@ def _get_shared_link_style_sub_targets_and_providers(
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
     ] + min_version_providers
+    if linker_map != None:
+        subtargets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
+        providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
 def _get_transitive_swiftmodule_paths(swift_providers: ["provider"]) -> "cmd_args":

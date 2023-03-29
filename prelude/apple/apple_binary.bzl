@@ -18,7 +18,7 @@ load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
 )
-load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
+load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -76,6 +76,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
         cxx_output.xcode_data,
+        AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]),
     ] + [resource_graph] + min_version_providers
 
 def _entitlements_link_flags(ctx: "context") -> [""]:
