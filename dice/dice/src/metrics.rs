@@ -11,6 +11,7 @@
 #[derive(Debug)]
 pub struct Metrics {
     pub key_count: usize,
+    /// note that for modern dice, this includes finished tasks
     pub currently_running_key_count: usize,
     pub active_transaction_count: u32,
 }
