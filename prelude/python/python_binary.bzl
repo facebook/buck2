@@ -491,7 +491,7 @@ def convert_python_library_to_executable(
             ),
         )
 
-        executable_info, _, _ = cxx_executable(ctx, impl_params)
+        executable_info = cxx_executable(ctx, impl_params)
         extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
 
         # Add sub-targets for libs.

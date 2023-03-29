@@ -24,6 +24,7 @@ load(
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfo",
     "generate_xcode_data",
 )
 load(
@@ -113,7 +114,7 @@ load(
     "cxx_private_preprocessor_info",
 )
 
-_CxxExecutableOutput = record(
+CxxExecutableOutput = record(
     binary = "artifact",
     dwp = field(["artifact", None]),
     # Files that will likely need to be included as .hidden() arguments
@@ -127,10 +128,11 @@ _CxxExecutableOutput = record(
     shared_libs = {str.type: LinkedObject.type},
     # All link group links that were generated in the executable.
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
+    compilation_db = CxxCompilationDbInfo.type,
+    xcode_data = XcodeDataInfo.type,
 )
 
-# returns a tuple of the runnable binary as an artifact, a list of its runtime files as artifacts and a sub targets map, and the CxxCompilationDbInfo provider
-def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> (_CxxExecutableOutput.type, CxxCompilationDbInfo.type, "XcodeDataInfo"):
+def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
@@ -482,7 +484,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             default_output = binary.index_argsfile,
         )]
 
-    return _CxxExecutableOutput(
+    return CxxExecutableOutput(
         binary = binary.output,
         dwp = binary.dwp,
         runtime_files = runtime_files,
@@ -491,7 +493,9 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         external_debug_info = binary.external_debug_info,
         shared_libs = shared_libs,
         auto_link_groups = auto_link_groups,
-    ), comp_db_info, xcode_data_info
+        compilation_db = comp_db_info,
+        xcode_data = xcode_data_info,
+    )
 
 _CxxLinkExecutableResult = record(
     # The resulting executable

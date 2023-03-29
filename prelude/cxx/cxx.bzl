@@ -239,7 +239,7 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
     )
-    output, comp_db_info, xcode_data_info = cxx_executable(ctx, params)
+    output = cxx_executable(ctx, params)
 
     return [
         DefaultInfo(
@@ -248,8 +248,8 @@ def cxx_binary_impl(ctx: "context") -> ["provider"]:
             sub_targets = output.sub_targets,
         ),
         RunInfo(args = cmd_args(output.binary).hidden(output.runtime_files)),
-        comp_db_info,
-        xcode_data_info,
+        output.compilation_db,
+        output.xcode_data,
     ]
 
 def _prebuilt_item(
@@ -588,7 +588,7 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
     )
-    output, comp_db_info, xcode_data_info = cxx_executable(ctx, params, is_cxx_test = True)
+    output = cxx_executable(ctx, params, is_cxx_test = True)
 
     command = [cmd_args(output.binary).hidden(output.runtime_files)] + ctx.attrs.args
 
@@ -614,8 +614,8 @@ def cxx_test_impl(ctx: "context") -> ["provider"]:
         ),
     ) + [
         DefaultInfo(default_output = output.binary, other_outputs = output.runtime_files, sub_targets = output.sub_targets),
-        comp_db_info,
-        xcode_data_info,
+        output.compilation_db,
+        output.xcode_data,
     ]
 
 def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams.type, CxxRuleProviderParams.type):

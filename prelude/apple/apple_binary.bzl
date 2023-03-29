@@ -48,7 +48,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
     )
-    (cxx_output, _comp_db_info, xcode_data_info) = cxx_executable(ctx, constructor_params)
+    cxx_output = cxx_executable(ctx, constructor_params)
 
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
@@ -75,7 +75,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
         AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
-        xcode_data_info,
+        cxx_output.xcode_data,
     ] + [resource_graph] + min_version_providers
 
 def _entitlements_link_flags(ctx: "context") -> [""]:
