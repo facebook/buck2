@@ -153,9 +153,6 @@ message TargetsRequest {
 }
 
 message TargetsResponse {
-  // TODO(nmj): Send back proper structured data so that
-  //            the target printing logic lives in the cli,
-  //            not in the daemon
   string serialized_targets_output = 100;
   uint64 error_count = 101;
 }
