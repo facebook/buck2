@@ -165,7 +165,7 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             pyinit_symbol = "PyInit_{}_{}".format(module_name, suffix)
 
         if base_module != "":
-            lines = ["# auto generated stub\n"]
+            lines = ["# auto generated stub for {}\n".format(ctx.label.raw_target())]
             stub_name = module_name + ".empty_stub"
             extension_artifacts.update(qualify_srcs(ctx.label, ctx.attrs.base_module, {stub_name: ctx.actions.write(stub_name, lines)}))
 
