@@ -35,7 +35,7 @@ use crate::ascii_char_set::AsciiCharSet;
 pub struct TargetName(ThinArcStr);
 
 #[derive(thiserror::Error, Debug)]
-enum InvalidTarget {
+enum TargetNameError {
     #[error(
         "Invalid target name `{}`. Target names are non-empty strings and can only contain alpha numeric characters, and symbols \
         `,`, `.`, `=`, `-`, `/`, `~`, `@`, `!`, `+`, `$`, and `_`. No other characters are allowed.",
@@ -64,10 +64,10 @@ impl TargetName {
     fn bad_name_error(name: &str) -> anyhow::Error {
         if let Some((_, p)) = name.split_once('[') {
             if p.contains(']') {
-                return InvalidTarget::FoundProvidersLabel(name.to_owned()).into();
+                return TargetNameError::FoundProvidersLabel(name.to_owned()).into();
             }
         }
-        InvalidTarget::InvalidName(name.to_owned()).into()
+        TargetNameError::InvalidName(name.to_owned()).into()
     }
 
     fn verify(name: &str) -> anyhow::Result<()> {
