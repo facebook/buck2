@@ -14,6 +14,10 @@ load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exporte
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
+    "@prelude//cxx:link.bzl",
+    "CxxLinkerMapData",  # @unused Used as a type
+)
+load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
@@ -199,7 +203,8 @@ def _get_shared_link_style_sub_targets_and_providers(
         ctx: "context",
         executable: "artifact",
         external_debug_info: ["_arglike"],
-        _dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
+        _dwp: ["artifact", None],
+        _linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
 

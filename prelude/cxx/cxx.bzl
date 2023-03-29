@@ -89,6 +89,7 @@ load(
 )
 load(
     ":link.bzl",
+    "CxxLinkerMapData",  # @unused Used as a type
     _cxx_link_into_shared_library = "cxx_link_into_shared_library",
 )
 load(
@@ -158,13 +159,16 @@ def _get_shared_link_style_sub_targets_and_providers(
         _ctx: "context",
         _executable: "artifact",
         _external_debug_info: ["_arglike"],
-        dwp: ["artifact", None]) -> ({str.type: ["provider"]}, ["provider"]):
+        dwp: ["artifact", None],
+        linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
     sub_targets = {}
     providers = []
     if dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = dwp)]
+    if linker_map != None:
+        sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: "context") -> ["provider"]:
@@ -397,7 +401,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shlink_args.extend(exported_linker_flags)
                         shlink_args.extend(non_exported_linker_flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
-                        shared_lib = cxx_link_into_shared_library(
+                        shared_lib, _ = cxx_link_into_shared_library(
                             ctx,
                             soname,
                             [

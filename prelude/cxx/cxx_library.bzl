@@ -114,6 +114,7 @@ load(
 )
 load(
     ":link.bzl",
+    "CxxLinkerMapData",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
 )
@@ -170,6 +171,7 @@ _CxxLibraryOutput = record(
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
     dwp = field(["artifact", None], None),
+    linker_map = field([CxxLinkerMapData.type, None], None),
 )
 
 # The outputs of either archiving or linking the outputs of the library
@@ -385,6 +387,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 output.default,
                 output.external_debug_info,
                 output.dwp,
+                output.linker_map,
             )
 
             if impl_params.generate_sub_targets.link_style_outputs:
@@ -801,6 +804,7 @@ def _form_library_outputs(
                     object_files = compiled_srcs.pic_objects,
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
+                    linker_map = result.linker_map_data,
                 )
                 solibs[result.soname] = shlib
 
@@ -1003,6 +1007,7 @@ _CxxSharedLibraryResult = record(
     shlib = LinkedObject.type,
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
+    linker_map_data = CxxLinkerMapData.type,
 )
 
 def _shared_library(
@@ -1044,7 +1049,7 @@ def _shared_library(
         ),
         external_debug_info = external_debug_info,
     )
-    shlib = cxx_link_into_shared_library(
+    shlib, linker_map_data = cxx_link_into_shared_library(
         ctx,
         soname,
         [LinkArgs(infos = [link_info]), dep_infos],
@@ -1109,6 +1114,7 @@ def _shared_library(
                 lib = exported_shlib,
             )],
         ),
+        linker_map_data = linker_map_data,
     )
 
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:

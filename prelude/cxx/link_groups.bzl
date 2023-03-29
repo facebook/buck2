@@ -573,7 +573,7 @@ def _create_link_group(
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
     # link the rule
-    return cxx_link_shared_library(
+    result, _ = cxx_link_shared_library(
         ctx,
         ctx.actions.declare_output(paths.join("__link_groups__", spec.name)),
         name = spec.name if spec.is_shared_lib else None,
@@ -583,6 +583,7 @@ def _create_link_group(
         prefer_local = prefer_local,
         enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
     )
+    return result
 
 def _stub_library(ctx: "context", name: str.type, extra_ldflags: [""] = []) -> LinkInfos.type:
     output = ctx.actions.declare_output(name + ".stub")
