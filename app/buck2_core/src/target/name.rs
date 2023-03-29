@@ -61,16 +61,27 @@ impl TargetName {
         Self(ThinArcStr::from(name))
     }
 
-    fn verify(name: &str) -> anyhow::Result<bool> {
+    fn bad_name_error(name: &str) -> anyhow::Error {
+        if let Some((_, p)) = name.split_once('[') {
+            if p.contains(']') {
+                return InvalidTarget::FoundProvidersLabel(name.to_owned()).into();
+            }
+        }
+        InvalidTarget::InvalidName(name.to_owned()).into()
+    }
+
+    fn verify(name: &str) -> anyhow::Result<()> {
         const VALID_CHARS: &str =
             r"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_,.=-\/~@!+$";
         const SET: AsciiCharSet = AsciiCharSet::new(VALID_CHARS);
 
-        let result = !name.is_empty() && name.as_bytes().iter().all(|&b| SET.contains(b));
+        if name.is_empty() || !name.as_bytes().iter().all(|&b| SET.contains(b)) {
+            return Err(Self::bad_name_error(name));
+        }
 
         emit_label_validation_errors(name)?;
 
-        Ok(result)
+        Ok(())
     }
 
     // Generic `as_ref` confuses typechecker because of overloads.
@@ -153,18 +164,8 @@ pub struct TargetNameRef(str);
 
 impl TargetNameRef {
     pub fn new(name: &str) -> anyhow::Result<&TargetNameRef> {
-        if TargetName::verify(name)? {
-            Ok(TargetNameRef::unchecked_new(name))
-        } else {
-            if let Some((_, p)) = name.split_once('[') {
-                if p.contains(']') {
-                    return Err(anyhow::anyhow!(InvalidTarget::FoundProvidersLabel(
-                        name.to_owned()
-                    )));
-                }
-            }
-            Err(anyhow::anyhow!(InvalidTarget::InvalidName(name.to_owned())))
-        }
+        TargetName::verify(name)?;
+        Ok(TargetNameRef::unchecked_new(name))
     }
 
     #[inline]
