@@ -463,7 +463,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                     };
                     match max_args_per_line {
                         Some(i) if *i < f.params.len() => {
-                            let chunked_params = params.join(",\n  ");
+                            let chunked_params = params.join(",\n    ");
                             Some(format!(
                                 "{}(\n    {}\n) -> {}",
                                 prefix, chunked_params, ret_type
