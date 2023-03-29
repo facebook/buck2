@@ -130,6 +130,7 @@ def cxx_toolchain_impl(ctx):
         strip_flags_info = strip_flags_info,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
+        clang_trace = value_or(ctx.attrs.clang_trace, False),
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -143,6 +144,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "assembler_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "bolt_enabled": attrs.bool(default = False),
         "c_compiler": dep_type(providers = [RunInfo]),
+        "clang_trace": attrs.option(attrs.bool(), default = None),
         "cuda_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),

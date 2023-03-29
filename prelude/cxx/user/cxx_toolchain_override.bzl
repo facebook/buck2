@@ -132,6 +132,7 @@ def _cxx_toolchain_override(ctx):
         mk_hmap = _pick_bin(ctx.attrs.mk_hmap, base_toolchain.mk_hmap),
         dist_lto_tools_info = base_toolchain.dist_lto_tools_info,
         use_dep_files = base_toolchain.use_dep_files,
+        clang_trace = base_toolchain.clang_trace,
         conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),

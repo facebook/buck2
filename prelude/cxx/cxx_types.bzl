@@ -45,6 +45,7 @@ load(
 CxxRuleSubTargetParams = record(
     argsfiles = field(bool.type, True),
     compilation_database = field(bool.type, True),
+    clang_traces = field(bool.type, True),
     headers = field(bool.type, True),
     link_group_map = field(bool.type, True),
     link_style_outputs = field(bool.type, True),

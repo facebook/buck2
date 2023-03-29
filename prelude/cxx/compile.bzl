@@ -143,6 +143,7 @@ CxxCompileOutput = record(
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
     external_debug_info = field(["artifact", None], None),
+    clang_trace = field(["artifact", None], None),
 )
 
 def create_compile_cmds(
@@ -336,6 +337,15 @@ def compile_cxx(
 
         if pic:
             identifier += " (pic)"
+
+        clang_trace = None
+        if toolchain.clang_trace and compiler_type == "clang":
+            args.add(["-ftime-trace"])
+            clang_trace = ctx.actions.declare_output(
+                paths.join("__objects__", "{}.json".format(filename_base)),
+            )
+            cmd.hidden(clang_trace.as_output())
+
         ctx.actions.run(cmd, category = "cxx_compile", identifier = identifier, dep_files = action_dep_files)
 
         # If we're building with split debugging, where the debug info is in the
@@ -350,6 +360,7 @@ def compile_cxx(
         objects.append(CxxCompileOutput(
             object = object,
             object_has_external_debug_info = object_has_external_debug_info,
+            clang_trace = clang_trace,
         ))
 
     return objects

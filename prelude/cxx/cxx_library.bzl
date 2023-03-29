@@ -189,6 +189,8 @@ _CxxCompiledSourcesOutput = record(
     compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
+    # json file with trace information about clang compilation
+    clang_traces = field([["artifact"], None]),
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
     # the `.dwo` when using `-gsplit-dwarf=split`).
@@ -198,6 +200,8 @@ _CxxCompiledSourcesOutput = record(
     pic_objects = field([["artifact"], None]),
     pic_objects_have_external_debug_info = field(bool.type, False),
     pic_external_debug_info = field([["artifact"], None]),
+    # json file with trace information about clang compilation
+    pic_clang_traces = field([["artifact"], None]),
     # Non-PIC object files stripped of debug information
     stripped_objects = field([["artifact"], None]),
     # PIC object files stripped of debug information
@@ -291,6 +295,17 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     if impl_params.generate_sub_targets.argsfiles:
         sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.source_commands.argsfiles_info]
+
+    if impl_params.generate_sub_targets.clang_traces:
+        if compiled_srcs.clang_traces:
+            sub_targets["clang-trace"] = [DefaultInfo(
+                default_outputs = compiled_srcs.clang_traces,
+            )]
+
+        if compiled_srcs.pic_clang_traces:
+            sub_targets["pic-clang-trace"] = [DefaultInfo(
+                default_outputs = compiled_srcs.pic_clang_traces,
+            )]
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -664,10 +679,12 @@ def cxx_compile_srcs(
     objects_have_external_debug_info = False
     external_debug_info = None
     stripped_objects = []
+    clang_traces = []
     pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
     pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
+    pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
     if preferred_linkage != Linkage("shared"):
         cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
@@ -675,6 +692,7 @@ def cxx_compile_srcs(
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
         external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
         stripped_objects = _strip_objects(ctx, objects)
+        clang_traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
 
     # Add in additional objects, after setting up stripped objects.
     pic_objects += impl_params.extra_link_input
@@ -688,9 +706,11 @@ def cxx_compile_srcs(
         objects = objects,
         objects_have_external_debug_info = objects_have_external_debug_info,
         external_debug_info = external_debug_info,
+        clang_traces = clang_traces,
         pic_objects = pic_objects,
         pic_objects_have_external_debug_info = pic_objects_have_external_debug_info,
         pic_external_debug_info = pic_external_debug_info,
+        pic_clang_traces = pic_clang_traces,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,
     )
