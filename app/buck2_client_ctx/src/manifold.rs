@@ -129,7 +129,7 @@ impl<'a> Upload<'a> {
         let bucket_path = &format!("flat/{}", self.filename);
 
         match manifold_cli_path {
-            None => curl_upload_command(bucket, bucket_path),
+            None => curl_write_command(bucket, bucket_path),
             Some(cli_path) => Ok(Some(cli_upload_command(
                 cli_path,
                 &format!("{}/{}", bucket.name, bucket_path),
@@ -261,7 +261,7 @@ where
     Ok(())
 }
 
-fn curl_upload_command(
+fn curl_write_command(
     bucket: BucketInfo,
     manifold_bucket_path: &str,
 ) -> anyhow::Result<Option<Command>> {
