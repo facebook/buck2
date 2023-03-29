@@ -236,7 +236,7 @@ impl DiceLegacy {
         let dice_map = self.map.read();
         Metrics {
             key_count: dice_map.key_count(),
-            currently_running_key_count: dice_map.currently_running_key_count(),
+            currently_active_key_count: dice_map.currently_running_key_count(),
             active_transaction_count: self
                 .active_transaction_count
                 .load(std::sync::atomic::Ordering::SeqCst),

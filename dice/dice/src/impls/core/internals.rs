@@ -106,7 +106,7 @@ impl CoreState {
 
         Metrics {
             key_count: self.graph.last_n.len(),
-            currently_running_key_count,
+            currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
     }

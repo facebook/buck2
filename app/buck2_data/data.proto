@@ -387,7 +387,8 @@ message Snapshot {
   optional uint64 malloc_bytes_allocated = 9;
 
   uint64 dice_key_count = 101;
-  uint64 dice_currently_running_key_count = 102;
+  // the number of keys actively present in the per transaction cache
+  uint64 dice_currently_active_key_count = 102;
   uint32 dice_active_transaction_count = 103;
 
   uint64 deferred_materializer_queue_size = 104;
