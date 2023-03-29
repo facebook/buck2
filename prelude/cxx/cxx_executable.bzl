@@ -567,7 +567,7 @@ def _linker_map(
         **kwargs) -> CxxLinkerMapData.type:
     identifier = binary.output.short_path + ".linker-map-binary"
     binary_for_linker_map = ctx.actions.declare_output(identifier)
-    linker_map = ctx.actions.declare_output(binary.output.short_path + ".linker-map")
+    linker_map = ctx.actions.declare_output(binary.output.short_path + "-LinkMap.txt")
     cxx_link(
         ctx,
         links,
