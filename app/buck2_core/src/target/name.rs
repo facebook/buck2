@@ -119,7 +119,7 @@ impl Deref for TargetName {
 
 #[derive(Error, Debug)]
 pub(crate) enum LabelValidationError {
-    #[error("Label `{0}` has special character `{1}`, which is discouraged")]
+    #[error("Target name `{0}` has special character `{1}`, which is discouraged")]
     LabelHasSpecialCharacter(String, String),
     #[error("Target name must not be equal to `...`")]
     DotDotDot,
