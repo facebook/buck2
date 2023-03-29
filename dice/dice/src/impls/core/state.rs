@@ -46,13 +46,11 @@ pub(crate) enum StateRequest {
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },
     /// Lookup the state of a key
-    #[allow(unused)]
     LookupKey {
         key: VersionedGraphKey,
         resp: Sender<VersionedGraphResult>,
     },
     /// Report that a value has been computed
-    #[allow(unused)]
     UpdateComputed {
         key: VersionedGraphKey,
         /// The storage selection for the key,
