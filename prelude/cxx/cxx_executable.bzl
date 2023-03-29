@@ -130,6 +130,7 @@ CxxExecutableOutput = record(
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
+    linker_map_data = CxxLinkerMapData.type,
 )
 
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
@@ -495,6 +496,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         auto_link_groups = auto_link_groups,
         compilation_db = comp_db_info,
         xcode_data = xcode_data_info,
+        linker_map_data = linker_map_data,
     )
 
 _CxxLinkExecutableResult = record(
