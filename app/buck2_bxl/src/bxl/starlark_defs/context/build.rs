@@ -9,11 +9,9 @@
 
 //!
 //! Implements the ability for bxl to build targets
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_build_api::build::build_configured_label;
-use buck2_build_api::build::MaterializationContext;
+use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -143,10 +141,7 @@ pub(crate) fn build<'v>(
     let build_spec = ProvidersExpr::unpack(spec, target_platform, ctx, eval)?;
 
     let build_result = ctx.async_ctx.via_dice(async move |dice| {
-        let materialization_ctx = MaterializationContext::Materialize {
-            map: Arc::new(Default::default()),
-            force: false,
-        };
+        let materialization_context = ConvertMaterializationContext::from(ctx.materializations);
 
         Ok(futures::future::join_all(build_spec.labels().map(|target| {
             async {
@@ -154,7 +149,7 @@ pub(crate) fn build<'v>(
                     target.clone(),
                     build_configured_label(
                         dice,
-                        &materialization_ctx,
+                        &materialization_context,
                         target,
                         &ProvidersToBuild {
                             default: true,

@@ -28,6 +28,7 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredRegistry;
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
+    use buck2_cli_proto::build_request::Materializations;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
@@ -78,6 +79,7 @@ mod tests {
             },
             Arc::new(OrderedMap::new()),
             None,
+            Materializations::Skip,
         );
 
         let mut deferred =

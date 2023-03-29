@@ -148,6 +148,8 @@ pub async fn eval(
                     let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
                     eval.set_print_handler(&print);
 
+                    let materializations = *key.materializations();
+
                     let bxl_ctx = BxlContext::new(
                         eval.heap(),
                         key,
@@ -161,6 +163,7 @@ pub async fn eval(
                         error_file,
                         digest_config,
                         global_target_platform,
+                        materializations,
                     );
                     let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 

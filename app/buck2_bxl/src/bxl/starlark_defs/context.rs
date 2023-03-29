@@ -22,6 +22,7 @@ use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::query::dice::DiceQueryDelegate;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
@@ -114,6 +115,7 @@ pub struct BxlContext<'v> {
     pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
     pub(crate) error_stream: ValueTyped<'v, OutputStream<'v>>,
     pub(crate) global_target_platform: Option<TargetLabel>,
+    pub(crate) materializations: Materializations,
 }
 
 impl<'v> BxlContext<'v> {
@@ -130,6 +132,7 @@ impl<'v> BxlContext<'v> {
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
+        materializations: Materializations,
     ) -> Self {
         Self {
             current_bxl,
@@ -155,6 +158,7 @@ impl<'v> BxlContext<'v> {
                 async_ctx,
             )),
             global_target_platform,
+            materializations,
         }
     }
 

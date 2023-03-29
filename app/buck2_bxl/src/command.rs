@@ -134,17 +134,23 @@ async fn bxl(
             }
         };
 
-    let bxl_key = BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
-
-    let ctx = &ctx;
-    let result = ctx.eval_bxl(bxl_key).await?;
-
     let final_artifact_materializations =
         Materializations::from_i32(request.final_artifact_materializations)
             .with_context(|| "Invalid final_artifact_materializations")
             .unwrap();
+
+    let bxl_key = BxlKey::new(
+        bxl_label.clone(),
+        bxl_args,
+        global_target_platform,
+        final_artifact_materializations,
+    );
+
     let materialization_context =
         ConvertMaterializationContext::from(final_artifact_materializations);
+
+    let ctx = &ctx;
+    let result = ctx.eval_bxl(bxl_key).await?;
 
     let build_result = ensure_artifacts(ctx, &materialization_context, &result).await;
     copy_output(stdout, ctx, result.get_output_loc()).await?;
