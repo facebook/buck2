@@ -49,7 +49,8 @@ use os_str_bytes::OsStrBytes;
 use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
 
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, derive_more::Display)]
+#[display(fmt = "{:032x}", _0)]
 pub struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {
@@ -498,5 +499,22 @@ impl TargetHashes {
             hasher.write(&digest);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::target_hash::BuckTargetHash;
+
+    #[test]
+    fn test_hash_display() {
+        assert_eq!(
+            "00000000000000000000000000000000",
+            BuckTargetHash(0).to_string()
+        );
+        assert_eq!(
+            "ffffffffffffffffffffffffffffffff",
+            BuckTargetHash(u128::MAX).to_string()
+        );
     }
 }

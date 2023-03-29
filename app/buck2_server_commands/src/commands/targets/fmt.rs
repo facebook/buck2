@@ -187,9 +187,9 @@ impl TargetFormatter for JsonFormat {
             )
         });
 
-        if let Some(BuckTargetHash(hash)) = target_info.target_hash {
+        if let Some(hash) = target_info.target_hash {
             print_attr(self, buffer, &mut first, TARGET_HASH, || {
-                format!("\"{hash:032x}\"")
+                format!("\"{hash}\"")
             });
         }
         print_attr(self, buffer, &mut first, PACKAGE, || {
@@ -306,9 +306,9 @@ impl TargetFormatter for TargetNameFormat {
     fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
-                Some(BuckTargetHash(hash)) => writeln!(
+                Some(hash) => writeln!(
                     buffer,
-                    "{package}:{name} {hash:032x}",
+                    "{package}:{name} {hash}",
                     name = target_info.node.label().name(),
                 )
                 .unwrap(),

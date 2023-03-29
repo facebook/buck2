@@ -11,6 +11,7 @@ async-trait = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true }
 derivative = { workspace = true }
+derive_more = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }
 itertools = { workspace = true }
