@@ -118,6 +118,10 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         profile_output = ctx.actions.declare_output("bundling_profile.txt").as_output()
         command.add("--profile-output", profile_output)
 
+    if ctx.attrs._bundling_log_file_enabled:
+        bundling_log_output = ctx.actions.declare_output("bundling_log.txt").as_output()
+        command.add("--log-file", bundling_log_output)
+
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,

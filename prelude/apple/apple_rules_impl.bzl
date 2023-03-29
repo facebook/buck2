@@ -131,6 +131,7 @@ extra_attributes = {
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_bundling_log_file_enabled": attrs.bool(default = False),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
         "_incremental_bundling_enabled": attrs.bool(default = False),

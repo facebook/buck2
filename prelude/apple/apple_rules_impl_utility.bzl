@@ -39,6 +39,7 @@ def apple_bundle_extra_attrs():
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_bundling_log_file_enabled": attrs.bool(default = False),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
