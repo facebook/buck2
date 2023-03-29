@@ -12,6 +12,7 @@
 
 use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::introspection::graph::LegacyIntrospectable;
 use crate::Dice;
 use crate::DiceImplementation;
 
@@ -35,8 +36,8 @@ impl Dice {
 
 impl DiceLegacy {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
-        GraphIntrospectable {
-            introspectables: self.map.read().engines().to_vec(),
+        GraphIntrospectable::Legacy {
+            introspectables: LegacyIntrospectable(self.map.read().engines().to_vec()),
         }
     }
 }

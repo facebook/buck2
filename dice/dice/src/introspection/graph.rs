@@ -16,8 +16,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use derivative::Derivative;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
+use itertools::Either;
 use serde::de::Error;
 use serde::de::Unexpected;
 use serde::de::Visitor;
@@ -32,8 +34,27 @@ use crate::legacy::incremental::ErasedEngine;
 use crate::HashMap;
 use crate::HashSet;
 
-pub struct GraphIntrospectable {
-    pub(crate) introspectables: Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>,
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub enum GraphIntrospectable {
+    Legacy {
+        #[derivative(Debug = "ignore")]
+        introspectables: LegacyIntrospectable,
+    },
+    Modern {},
+}
+
+pub struct LegacyIntrospectable(pub(crate) Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>);
+
+impl GraphIntrospectable {
+    pub(crate) fn introspectables(&self) -> impl Iterator<Item = &dyn EngineForIntrospection> {
+        match self {
+            GraphIntrospectable::Legacy { introspectables } => {
+                Either::Left(introspectables.0.iter().map(|e| e.introspect()))
+            }
+            GraphIntrospectable::Modern { .. } => Either::Right(std::iter::empty()),
+        }
+    }
 }
 
 impl Serialize for GraphIntrospectable {
