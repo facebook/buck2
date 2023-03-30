@@ -71,7 +71,6 @@ pub struct TargetsCommand {
     config_opts: CommonBuildConfigurationOptions,
 
     #[clap(flatten)]
-    #[allow(unused)]
     console_opts: CommonConsoleOptions,
 
     #[clap(flatten)]
