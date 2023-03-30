@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::configuration::bound_id::BoundConfigurationId;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::constraints::ConstraintKey;
@@ -45,16 +46,16 @@ enum ConfigurationError {
 
 #[derive(Debug, thiserror::Error)]
 enum ConfigurationLookupError {
-    #[error(
-        "Got invalid configuration string `{0}`, expected something like `cell//package/path:target-<hash>`"
-    )]
-    InvalidFormat(String),
     #[error("
-    Could not find configuration `{0}` (with hash `{1}`). Configuration lookup by string requires
+    Could not find configuration `{0}`. Configuration lookup by string requires
     that buck has already loaded the configuration through some other mechanism. You can run `buck2 cquery <some_target>`
     with a target that uses the configuration (somewhere in its graph) to make buck aware of the configuration first.
     ")]
-    ConfigNotFound(String, String),
+    ConfigNotFound(BoundConfigurationId),
+    #[error(
+        "Found configuration `{0}` by hash, but label mismatched from what is requested: `{1}`"
+    )]
+    ConfigFoundByHashLabelMismatch(ConfigurationData, BoundConfigurationId),
 }
 
 /// The inner PlatformConfigurationData is interned as the same configuration could be formed through
@@ -181,16 +182,20 @@ impl ConfigurationData {
     /// This can only find configurations that have otherwise already been encountered by
     /// the current daemon process.
     pub fn lookup_from_string(cfg: &str) -> anyhow::Result<Self> {
-        match cfg.rsplit_once('#') {
-            Some((_, hash)) => match INTERNER.get(ConfigurationHashRef(hash)) {
-                Some(cfg) => Ok(Self(cfg)),
-                None => Err(ConfigurationLookupError::ConfigNotFound(
-                    cfg.to_owned(),
-                    hash.to_owned(),
-                )
-                .into()),
-            },
-            None => Err(ConfigurationLookupError::InvalidFormat(cfg.to_owned()).into()),
+        let cfg = BoundConfigurationId::parse(cfg)?;
+        match INTERNER.get(ConfigurationHashRef(cfg.hash.as_str())) {
+            Some(found_cfg) => {
+                let found_cfg = ConfigurationData(found_cfg);
+                if found_cfg.bound_id().as_ref() != Some(&cfg) {
+                    Err(
+                        ConfigurationLookupError::ConfigFoundByHashLabelMismatch(found_cfg, cfg)
+                            .into(),
+                    )
+                } else {
+                    Ok(found_cfg)
+                }
+            }
+            None => Err(ConfigurationLookupError::ConfigNotFound(cfg).into()),
         }
     }
 
@@ -232,6 +237,13 @@ impl ConfigurationData {
             ConfigurationPlatform::Bound(label, _) => Some(label),
             _ => None,
         }
+    }
+
+    pub fn bound_id(&self) -> Option<BoundConfigurationId> {
+        Some(BoundConfigurationId {
+            label: self.bound()?.clone(),
+            hash: self.output_hash().clone(),
+        })
     }
 
     pub fn is_bound(&self) -> bool {
