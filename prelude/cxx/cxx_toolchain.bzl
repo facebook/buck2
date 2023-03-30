@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:attributes.bzl", "attributes")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS")
@@ -131,6 +131,8 @@ def cxx_toolchain_impl(ctx):
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
         clang_trace = value_or(ctx.attrs.clang_trace, False),
+        cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
+        cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -145,7 +147,9 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "bolt_enabled": attrs.bool(default = False),
         "c_compiler": dep_type(providers = [RunInfo]),
         "clang_trace": attrs.option(attrs.bool(), default = None),
+        "cpp_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "cuda_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "cuda_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),

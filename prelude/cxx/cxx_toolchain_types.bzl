@@ -70,6 +70,18 @@ StripFlagsInfo = provider(fields = [
     "strip_all_flags",  # [["str"], None]
 ])
 
+DepTrackingMode = enum(
+    # MAKEFILE corresponds to `gcc -MD -MF depfile ...` on *nix
+    "makefile",
+    # SHOW_INCLUDES corresponds to `cl.exe /showIncludes ...` on windows
+    "show_includes",
+    # SHOW_HEADERS corresponds to `clang/gcc -H ...` on *nix
+    "show_headers",
+    # Some compilers - like ml64 - do not produce information about included files
+    "none",
+)
+
+
 # TODO(T110378147): There's a bunch of info encoded in random places in buck
 # derived from information in these toolchains but hardcoded (for example,
 # which file extensions are preprocessable/compilable). We should figure out
@@ -128,6 +140,8 @@ CxxToolchainInfo = provider(fields = [
     "dist_lto_tools_info",
     "use_dep_files",
     "clang_trace",
+    "cpp_dep_tracking_mode",
+    "cuda_dep_tracking_mode",
     "strip_flags_info",
     "split_debug_mode",
     "bolt_enabled",
@@ -165,6 +179,8 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = False,
         use_dep_files = False,
         clang_trace = False,
+        cpp_dep_tracking_mode = DepTrackingMode("none"),
+        cuda_dep_tracking_mode = DepTrackingMode("none"),
         strip_flags_info = None,
         dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
         split_debug_mode = SplitDebugMode("none"),
@@ -199,6 +215,8 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = use_distributed_thinlto,
         use_dep_files = use_dep_files,
         clang_trace = clang_trace,
+        cpp_dep_tracking_mode = cpp_dep_tracking_mode,
+        cuda_dep_tracking_mode = cuda_dep_tracking_mode,
         strip_flags_info = strip_flags_info,
         split_debug_mode = split_debug_mode,
         bolt_enabled = bolt_enabled,
