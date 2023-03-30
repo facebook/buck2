@@ -148,6 +148,12 @@ def cxx_merge_cpreprocessors(ctx: "context", own: [CPreprocessor.type], xs: [CPr
         set = ctx.actions.tset(CPreprocessorTSet, **kwargs),
     )
 
+def _format_include_arg(flag: str.type, path: "cmd_args", compiler_type: str.type) -> ["cmd_args"]:
+    if compiler_type == "windows":
+        return [cmd_args(path, format = flag + "{}")]
+    else:
+        return [cmd_args(flag), path]
+
 def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLayout.type, extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
     """
     This rule's preprocessor info which is both applied to the compilation of
@@ -174,6 +180,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
     system_include_dirs = []
 
     style = cxx_attr_exported_header_style(ctx)
+    compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
 
     # If headers-as-raw-headers is enabled, convert exported headers to raw
     # headers, with the appropriate include directories.
@@ -208,7 +215,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
     # Propagate the exported header tree.
     if header_root != None:
         inc_flag = _header_style_flag(style)
-        args.extend([inc_flag, header_root.include_path])
+        args.extend(_format_include_arg(inc_flag, header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
 
