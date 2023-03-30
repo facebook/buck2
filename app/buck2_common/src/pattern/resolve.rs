@@ -89,13 +89,9 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
 }
 
 /// Resolves a list of [ParsedPattern] to a [ResolvedPattern].
-pub async fn resolve_target_patterns<
-    'a,
-    P: 'a + PatternType,
-    T: Iterator<Item = &'a ParsedPattern<P>>,
->(
+pub async fn resolve_target_patterns<P: PatternType>(
     cell_resolver: &CellResolver,
-    patterns: T,
+    patterns: &[ParsedPattern<P>],
     file_ops: &dyn FileOps,
 ) -> anyhow::Result<ResolvedPattern<P>> {
     let mut resolved = ResolvedPattern::new();
@@ -213,7 +209,7 @@ mod tests {
             let patterns: Vec<_> =
                 patterns.map(|p| ParsedPattern::<T>::parse_precise(aliases, p).unwrap());
 
-            resolve_target_patterns(&self.resolver, patterns.iter(), &*self.file_ops).await
+            resolve_target_patterns(&self.resolver, &patterns, &*self.file_ops).await
         }
     }
 

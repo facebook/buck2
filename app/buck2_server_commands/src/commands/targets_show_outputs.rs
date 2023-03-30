@@ -17,6 +17,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
@@ -33,7 +34,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -137,7 +137,7 @@ async fn retrieve_targets_artifacts_from_patterns(
     cell_resolver: &CellResolver,
 ) -> anyhow::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern =
-        resolve_patterns(parsed_patterns, cell_resolver, &ctx.file_ops()).await?;
+        resolve_target_patterns(cell_resolver, parsed_patterns, &ctx.file_ops()).await?;
 
     retrieve_artifacts_for_targets(ctx, resolved_pattern, global_target_platform.to_owned()).await
 }

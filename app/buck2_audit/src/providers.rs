@@ -15,6 +15,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
@@ -22,7 +23,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -113,7 +113,8 @@ impl AuditProvidersCommand {
             server_ctx.working_dir(),
         )
         .await?;
-        let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
+        let resolved_pattern =
+            resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
 
         let mut futs = FuturesOrdered::new();
         for (package, spec) in resolved_pattern.specs {

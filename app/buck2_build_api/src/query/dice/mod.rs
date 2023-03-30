@@ -231,7 +231,7 @@ impl<'c> UqueryDelegate for DiceQueryDelegate<'c> {
     ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns = patterns.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let file_ops = self.ctx.file_ops();
-        resolve_target_patterns(&self.cell_resolver, parsed_patterns.iter(), &file_ops).await
+        resolve_target_patterns(&self.cell_resolver, &parsed_patterns, &file_ops).await
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.

@@ -26,6 +26,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
+use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -50,7 +51,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -268,7 +268,7 @@ async fn test(
         .log_materializer_state(server_ctx.events());
 
     let resolved_pattern =
-        resolve_patterns(&parsed_patterns, &cell_resolver, &ctx.file_ops()).await?;
+        resolve_target_patterns(&cell_resolver, &parsed_patterns, &ctx.file_ops()).await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,

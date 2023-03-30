@@ -10,9 +10,6 @@
 use anyhow::Context;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::file_ops::FileOps;
-use buck2_common::pattern::resolve::resolve_target_patterns;
-use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
@@ -78,14 +75,6 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     let parser = PatternParser::new(ctx, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value.value))
-}
-
-pub async fn resolve_patterns<T: PatternType>(
-    patterns: &[ParsedPattern<T>],
-    cell_resolver: &CellResolver,
-    file_ops: &dyn FileOps,
-) -> anyhow::Result<ResolvedPattern<T>> {
-    resolve_target_patterns(cell_resolver, patterns.iter(), file_ops).await
 }
 
 /// Extract target configuration (platform) label from [`ClientContext`].

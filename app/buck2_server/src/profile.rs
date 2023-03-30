@@ -21,6 +21,7 @@ use buck2_cli_proto::target_profile::Action;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
+use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -37,7 +38,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
-use buck2_server_ctx::pattern::resolve_patterns;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -204,7 +204,8 @@ async fn generate_profile(
     )
     .await?;
 
-    let resolved_pattern = resolve_patterns(&parsed_patterns, &cells, &ctx.file_ops()).await?;
+    let resolved_pattern =
+        resolve_target_patterns(&cells, &parsed_patterns, &ctx.file_ops()).await?;
 
     let (package, spec) =
         one(resolved_pattern.specs).context("Did not find exactly one pattern")?;
