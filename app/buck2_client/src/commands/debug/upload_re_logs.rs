@@ -47,6 +47,7 @@ impl UploadReLogsCommand {
         let bucket_path = &format!("{}.log.zst", self.session_id);
 
         manifold::Upload::new(manifold::Bucket::ReLogs, bucket_path)
+            .with_default_ttl()
             .from_async_read(reader)?
             .spawn()
             .await?;
