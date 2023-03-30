@@ -36,8 +36,8 @@ transitive_maven_jar = repository_rule(
             "artifacts" : attr.string_list(default = [], mandatory = True),
             "quiet" : attr.bool(default = False, mandatory = False),
             "_timeout" : attr.int(default = MAX_TIMEOUT),
-			"_generate_workspace_tool" : attr.label(executable = True, allow_files = True, cfg = "host", default = Label("//transitive_maven_jar:generate_workspace_deploy.jar"))
-			#TODO(petros): add support for private repositories.
+            "_generate_workspace_tool" : attr.label(executable = True, allow_files = True, cfg = "host", default = Label("//transitive_maven_jar:generate_workspace_deploy.jar"))
+            #TODO(petros): add support for private repositories.
         },
         local = False,
 )

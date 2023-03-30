@@ -24,7 +24,7 @@ def bazel_groovy_test(name=None, test_class=None, size="small", deps=[], srcs=[]
     native.java_test(
         name = name,
         test_class = test_class,
-	size = size,
+        size = size,
         runtime_deps = deps + [
             "@org_codehaus_groovy_groovy_all//jar",
             "@org_hamcrest_hamcrest_all//jar",
@@ -33,8 +33,8 @@ def bazel_groovy_test(name=None, test_class=None, size="small", deps=[], srcs=[]
 
 def jenkins_library_test(deps=[], data=[], **kwargs):
     bazel_groovy_test(
-	deps=deps+[
-      "//jenkins/lib/tests/build/bazel/ci/utils",
-      "//jenkins/lib/src/build/bazel/ci:lib"],
-	data=data+["//jenkins/lib:lib-files"],
+        deps=deps+[
+            "//jenkins/lib/tests/build/bazel/ci/utils",
+            "//jenkins/lib/src/build/bazel/ci:lib"],
+        data=data+["//jenkins/lib:lib-files"],
         **kwargs)

@@ -91,7 +91,7 @@ impl Dialect {
         enable_load: true,
         enable_keyword_only_arguments: false,
         enable_types: DialectTypes::Disable,
-        enable_tabs: true,
+        enable_tabs: false,
         enable_load_reexport: true, // But they plan to change it
         enable_top_level_stmt: false,
     };
@@ -103,7 +103,7 @@ impl Dialect {
         enable_load: true,
         enable_keyword_only_arguments: true,
         enable_types: DialectTypes::Enable,
-        enable_tabs: true,
+        enable_tabs: false,
         enable_load_reexport: true,
         enable_top_level_stmt: true,
     };

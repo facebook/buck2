@@ -91,7 +91,10 @@ fn test_tabs_fail() {
 fn test_tabs_pass() {
     assert::pass("def f():\n '\t'");
     let mut a = Assert::new();
-    a.dialect(&Dialect::Standard);
+    a.dialect(&Dialect {
+        enable_tabs: true,
+        ..Dialect::Standard
+    });
     a.pass("def f():\n\tpass");
     a.pass("def f():\n x\t=3");
 }
