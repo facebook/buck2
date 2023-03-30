@@ -52,9 +52,6 @@ pub struct RunCommand {
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[clap(name = "TARGET", help = "Target to build and run")]
-    target: String,
-
     #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
 
@@ -78,17 +75,20 @@ pub struct RunCommand {
     )]
     chdir: Option<String>,
 
-    #[clap(
-        name = "TARGET_ARGS",
-        help = "Additional arguments passed to the target when running it"
-    )]
-    extra_run_args: Vec<String>,
-
     /// Instead of running the command, print out the command
     /// formatted for shell interpolation, use as: $(buck2 run --emit-shell ...)
     #[cfg(unix)]
     #[clap(long, group = "exec_options")]
     emit_shell: bool,
+
+    #[clap(name = "TARGET", help = "Target to build and run")]
+    target: String,
+
+    #[clap(
+        name = "TARGET_ARGS",
+        help = "Additional arguments passed to the target when running it"
+    )]
+    extra_run_args: Vec<String>,
 }
 
 #[async_trait]

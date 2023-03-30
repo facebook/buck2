@@ -36,15 +36,15 @@ pub struct InstallCommand {
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[clap(name = "TARGET", help = "Target to build and install")]
-    patterns: Vec<String>,
-
     #[clap(
         long,
         name = "installer-debug",
         help = "Prints installer output to stderr. It might break superconsole"
     )]
     installer_debug: bool,
+
+    #[clap(name = "TARGET", help = "Target to build and install")]
+    patterns: Vec<String>,
 
     #[clap(
         name = "INSTALL_ARGS",

@@ -64,9 +64,6 @@ pub struct TestCommand {
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
-    patterns: Vec<String>,
-
     #[clap(
         long = "exclude",
         multiple_values = true,
@@ -111,13 +108,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[allow(unused)] // for v1 compat
     xml: Option<String>,
 
-    #[clap(
-        name = "TEST_EXECUTOR_ARGS",
-        help = "Additional arguments passed to the test executor",
-        raw = true
-    )]
-    test_executor_args: Vec<String>,
-
     /// Will allow tests that are compatible with RE (setup to run from the repo root and
     /// use relative paths) to run from RE.
     #[clap(long, group = "re_options", alias = "unstable-allow-tests-on-re")]
@@ -127,6 +117,16 @@ If include patterns are present, regardless of whether exclude patterns are pres
     /// relative paths). Those required settings just get overridden.
     #[clap(long, group = "re_options", alias = "unstable-force-tests-on-re")]
     unstable_allow_all_tests_on_re: bool,
+
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
+    patterns: Vec<String>,
+
+    #[clap(
+        name = "TEST_EXECUTOR_ARGS",
+        help = "Additional arguments passed to the test executor",
+        raw = true
+    )]
+    test_executor_args: Vec<String>,
 }
 
 #[async_trait]

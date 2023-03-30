@@ -141,10 +141,6 @@ pub struct TargetsCommand {
     #[clap(long)]
     include_defaults: bool,
 
-    /// Patterns to interpret
-    #[clap(name = "TARGET_PATTERNS")]
-    patterns: Vec<String>,
-
     /// Print the path to the output for each of the rules relative to the cell
     #[clap(long)]
     show_output: bool,
@@ -182,6 +178,10 @@ pub struct TargetsCommand {
     /// File will be created if it does not exist, and overwritten if it does.
     #[clap(long, short = 'o', value_name = "PATH")]
     output: Option<PathArg>,
+
+    /// Patterns to interpret
+    #[clap(name = "TARGET_PATTERNS")]
+    patterns: Vec<String>,
 }
 
 impl TargetsCommand {

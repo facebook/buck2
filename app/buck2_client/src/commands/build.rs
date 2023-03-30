@@ -78,9 +78,6 @@ pub struct BuildCommand {
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
-    patterns: Vec<String>,
-
     #[clap(
         long,
         use_delimiter = true,
@@ -185,6 +182,9 @@ pub struct BuildCommand {
         help = "Copy the output of the built target to this path (`-` to stdout)"
     )]
     output_path: Option<OutPath>,
+
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
+    patterns: Vec<String>,
 }
 
 impl BuildCommand {
