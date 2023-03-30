@@ -402,6 +402,7 @@ async fn upload_daemon_stderr(
         .into();
     let filename = format!("{}.stderr", manifold_id);
     manifold::Upload::new(manifold::Bucket::RageDumps, &filename)
+        .with_default_ttl()
         .from_stdio(upload_log_file)?
         .spawn()
         .await?;
@@ -412,6 +413,7 @@ async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow:
     let filename = format!("{}-event_log{}", manifold_id, path.extension());
     let bucket = manifold::Bucket::RageDumps;
     manifold::Upload::new(bucket, &filename)
+        .with_default_ttl()
         .from_file(path.path())?
         .spawn()
         .await?;

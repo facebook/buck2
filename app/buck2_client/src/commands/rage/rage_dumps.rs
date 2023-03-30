@@ -105,6 +105,7 @@ async fn upload_to_manifold(dump_folder: &Path, manifold_filename: &str) -> anyh
             .spawn()?;
 
         manifold::Upload::new(manifold::Bucket::RageDumps, manifold_filename)
+            .with_default_ttl()
             .from_stdio(tar.stdout.unwrap().into())?
             .spawn()
             .await?;

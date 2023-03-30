@@ -59,6 +59,7 @@ pub async fn upload_materializer_state(
     let manifold_bucket = manifold::Bucket::RageDumps;
     let manifold_filename = format!("{}_materializer_state", manifold_id);
     manifold::Upload::new(manifold_bucket, &manifold_filename)
+        .with_default_ttl()
         .from_async_read(&mut Cursor::new(&capture.buf))?
         .spawn()
         .await
