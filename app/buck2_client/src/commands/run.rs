@@ -77,7 +77,6 @@ pub struct RunCommand {
 
     /// Instead of running the command, print out the command
     /// formatted for shell interpolation, use as: $(buck2 run --emit-shell ...)
-    #[cfg(unix)]
     #[clap(long, group = "exec_options")]
     emit_shell: bool,
 
@@ -185,11 +184,12 @@ impl StreamingCommand for RunCommand {
             return ExitResult::success();
         }
 
-        #[cfg(unix)]
-        {
-            if self.emit_shell {
+        if self.emit_shell {
+            if cfg!(unix) {
                 buck2_client_ctx::println!("{}", shlex::join(run_args.iter().map(|a| a.as_str())))?;
                 return ExitResult::success();
+            } else {
+                return ExitResult::Err(RunCommandError::EmitShellNotSupportedOnWindows.into());
             }
         }
 
@@ -231,4 +231,6 @@ struct CommandArgsFile {
 pub enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),
+    #[error("`--emit-shell` is not supported on Windows")]
+    EmitShellNotSupportedOnWindows,
 }
