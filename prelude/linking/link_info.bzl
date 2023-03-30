@@ -476,7 +476,7 @@ def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [Exte
     if args.tset != None:
         (tset, stripped) = args.tset
         if stripped:
-            return []
+            return None
 
         # We're basically traversing the link tset to build a new tset of
         # all the included debug info tsets, which the caller will traverse
