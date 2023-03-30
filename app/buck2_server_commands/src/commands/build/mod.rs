@@ -137,7 +137,7 @@ async fn build(
 
     let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")

@@ -77,7 +77,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 let loaded_patterns = load_patterns(&ctx, target_patterns).await?;
                 let target_platform = target_platform_from_client_context(
-                    Some(&client_ctx),
+                    &client_ctx,
                     server_ctx,
                     &ctx,
                 )

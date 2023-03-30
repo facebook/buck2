@@ -69,8 +69,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                 .await?;
                 let loaded_patterns = load_patterns(&ctx, parsed_patterns).await?;
                 let target_platform =
-                    target_platform_from_client_context(Some(&client_ctx), server_ctx, &ctx)
-                        .await?;
+                    target_platform_from_client_context(&client_ctx, server_ctx, &ctx).await?;
                 // Incompatible targets are skipped because this is an audit command
                 let targets = get_compatible_targets(
                     &ctx,

@@ -241,7 +241,7 @@ impl AuditSubcommand for AuditOutputCommand {
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
 
                 let global_target_platform = target_platform_from_client_context(
-                    Some(&client_ctx),
+                    &client_ctx,
                     server_ctx,
                     &dice_ctx,
                 )

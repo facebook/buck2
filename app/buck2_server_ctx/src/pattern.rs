@@ -82,7 +82,7 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
 
 /// Extract target configuration (platform) label from [`ClientContext`].
 pub async fn target_platform_from_client_context(
-    client_ctx: Option<&ClientContext>,
+    client_ctx: &ClientContext,
     server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: &DiceTransaction,
 ) -> anyhow::Result<Option<TargetLabel>> {
@@ -95,25 +95,20 @@ pub async fn target_platform_from_client_context(
 }
 
 async fn target_platform_from_client_context_impl(
-    client_context: Option<&ClientContext>,
+    client_context: &ClientContext,
     cell_resolver: &CellResolver,
     working_dir: &ProjectRelativePath,
 ) -> anyhow::Result<Option<TargetLabel>> {
     let cwd = cell_resolver.get_cell_path(working_dir)?;
     let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();
 
-    Ok(match client_context {
-        Some(client_context) => {
-            let target_platform = &client_context.target_platform;
-            if !target_platform.is_empty() {
-                Some(
-                    ParsedPattern::parse_precise(cell_alias_resolver, target_platform)?
-                        .as_target_label(target_platform)?,
-                )
-            } else {
-                None
-            }
-        }
-        None => None,
-    })
+    let target_platform = &client_context.target_platform;
+    if !target_platform.is_empty() {
+        Ok(Some(
+            ParsedPattern::parse_precise(cell_alias_resolver, target_platform)?
+                .as_target_label(target_platform)?,
+        ))
+    } else {
+        Ok(None)
+    }
 }

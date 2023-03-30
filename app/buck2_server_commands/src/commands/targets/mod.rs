@@ -201,8 +201,7 @@ async fn targets(
                 let formatter = create_formatter(request, other)?;
                 let client_ctx = request.client_context()?;
                 let target_platform =
-                    target_platform_from_client_context(Some(client_ctx), server_ctx, &dice)
-                        .await?;
+                    target_platform_from_client_context(client_ctx, server_ctx, &dice).await?;
                 let fs = server_ctx.project_root();
                 targets_batch(
                     server_ctx,

@@ -103,7 +103,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
                         let client_ctx = self.req.client_context()?;
                         let global_target_platform =
-                            target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx)
+                            target_platform_from_client_context(client_ctx, server_ctx, &ctx)
                                 .await?;
 
                         let bxl_key = BxlKey::new(

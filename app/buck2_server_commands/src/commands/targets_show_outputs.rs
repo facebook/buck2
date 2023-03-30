@@ -99,8 +99,7 @@ async fn targets_show_outputs(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let client_ctx = request.client_context()?;
-    let target_platform =
-        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
+    let target_platform = target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
     let parsed_patterns =
         parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)

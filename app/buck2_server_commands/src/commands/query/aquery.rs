@@ -90,7 +90,7 @@ async fn aquery(
         .as_ref()
         .context("No client context (internal error)")?;
     let global_target_platform =
-        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
+        target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
     let evaluator =
         get_aquery_evaluator(&ctx, server_ctx.working_dir(), global_target_platform).await?;
