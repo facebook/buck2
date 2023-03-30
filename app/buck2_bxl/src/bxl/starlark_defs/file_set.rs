@@ -135,6 +135,13 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
             .ok_or_else(|| anyhow::anyhow!(ValueError::IndexOutOfBound(i)))
             .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
     }
+
+    fn length(&self) -> anyhow::Result<i32> {
+        match i32::try_from(self.0.len()) {
+            Ok(l) => Ok(l),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 impl From<FileSet> for StarlarkFileSet {

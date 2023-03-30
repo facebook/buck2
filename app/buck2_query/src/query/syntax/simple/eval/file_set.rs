@@ -89,4 +89,8 @@ impl FileSet {
             None => None,
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.files.len()
+    }
 }
