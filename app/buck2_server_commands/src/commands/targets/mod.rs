@@ -200,8 +200,8 @@ async fn targets(
                 let formatter = create_formatter(request, other)?;
                 let target_platform = target_platform_from_client_context(
                     request.context.as_ref(),
-                    &cell_resolver,
-                    cwd,
+                    server_ctx,
+                    &dice,
                 )
                 .await?;
                 let fs = server_ctx.project_root();

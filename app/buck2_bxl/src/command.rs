@@ -120,7 +120,7 @@ async fn bxl(
     let project_root = server_ctx.project_root().to_string();
 
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
 
     let bxl_args =
         match get_bxl_cli_args(cwd, &ctx, &bxl_label, &request.bxl_args, &cell_resolver).await? {

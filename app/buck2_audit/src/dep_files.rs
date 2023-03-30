@@ -18,7 +18,6 @@ use buck2_action_impl::actions::impls::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
@@ -63,14 +62,9 @@ impl AuditSubcommand for AuditDepFilesCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(async move |server_ctx, ctx| {
-                let cells = ctx.get_cell_resolver().await?;
-
-                let target_platform = target_platform_from_client_context(
-                    Some(&client_ctx),
-                    &cells,
-                    server_ctx.working_dir(),
-                )
-                .await?;
+                let target_platform =
+                    target_platform_from_client_context(Some(&client_ctx), server_ctx, &ctx)
+                        .await?;
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &ctx,

@@ -20,8 +20,11 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::*;
+
+use crate::ctx::ServerCommandContextTrait;
 
 pub struct PatternParser {
     cell: CellInstance,
@@ -79,6 +82,19 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
 
 /// Extract target configuration (platform) label from [`ClientContext`].
 pub async fn target_platform_from_client_context(
+    client_ctx: Option<&ClientContext>,
+    server_ctx: &dyn ServerCommandContextTrait,
+    dice_ctx: &DiceTransaction,
+) -> anyhow::Result<Option<TargetLabel>> {
+    target_platform_from_client_context_impl(
+        client_ctx,
+        &dice_ctx.get_cell_resolver().await?,
+        server_ctx.working_dir(),
+    )
+    .await
+}
+
+async fn target_platform_from_client_context_impl(
     client_context: Option<&ClientContext>,
     cell_resolver: &CellResolver,
     working_dir: &ProjectRelativePath,

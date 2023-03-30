@@ -236,7 +236,7 @@ async fn test(
     let working_dir_cell = cell_resolver.find(cwd)?;
 
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.

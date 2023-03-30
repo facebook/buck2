@@ -102,8 +102,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
                         let global_target_platform = target_platform_from_client_context(
                             self.req.context.as_ref(),
-                            &cell_resolver,
-                            cwd,
+                            server_ctx,
+                            &ctx,
                         )
                         .await?;
 

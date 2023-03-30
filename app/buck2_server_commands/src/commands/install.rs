@@ -179,12 +179,8 @@ async fn install(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let global_target_platform = target_platform_from_client_context(
-        request.context.as_ref(),
-        &cell_resolver,
-        server_ctx.working_dir(),
-    )
-    .await?;
+    let global_target_platform =
+        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(

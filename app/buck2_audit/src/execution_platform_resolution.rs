@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -49,8 +48,6 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
     ) -> anyhow::Result<()> {
         server_ctx.with_dice_ctx(
             async move |server_ctx, ctx| {
-                let cell_resolver = ctx.get_cell_resolver().await?;
-
                 let pattern_parser = PatternParser::new(
                     &ctx,
                     server_ctx.working_dir(),
@@ -81,8 +78,8 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 let loaded_patterns = load_patterns(&ctx, target_patterns).await?;
                 let target_platform = target_platform_from_client_context(
                     Some(&client_ctx),
-                    &cell_resolver,
-                    server_ctx.working_dir(),
+                    server_ctx,
+                    &ctx,
                 )
                 .await?;
 

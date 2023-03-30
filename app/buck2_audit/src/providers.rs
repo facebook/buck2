@@ -98,12 +98,8 @@ impl AuditProvidersCommand {
         ctx: DiceTransaction,
     ) -> anyhow::Result<()> {
         let cells = ctx.get_cell_resolver().await?;
-        let target_platform = target_platform_from_client_context(
-            Some(&client_ctx),
-            &cells,
-            server_ctx.working_dir(),
-        )
-        .await?;
+        let target_platform =
+            target_platform_from_client_context(Some(&client_ctx), server_ctx, &ctx).await?;
 
         let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
             &ctx,

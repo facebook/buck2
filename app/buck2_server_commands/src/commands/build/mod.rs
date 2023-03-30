@@ -135,7 +135,7 @@ async fn build(
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), &cell_resolver, cwd).await?;
+        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
 
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")

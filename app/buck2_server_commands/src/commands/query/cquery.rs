@@ -112,12 +112,8 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
-    let global_target_platform = target_platform_from_client_context(
-        context.as_ref(),
-        &cell_resolver,
-        server_ctx.working_dir(),
-    )
-    .await?;
+    let global_target_platform =
+        target_platform_from_client_context(context.as_ref(), server_ctx, &ctx).await?;
 
     let owner_behavior = match correct_owner {
         true => CqueryOwnerBehavior::Correct,

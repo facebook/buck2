@@ -15,7 +15,6 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::analysis::environment::classpath;
 use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_cli_proto::ClientContext;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -60,7 +59,6 @@ impl AuditSubcommand for AuditClasspathCommand {
         server_ctx
             .with_dice_ctx(async move |server_ctx, ctx| {
                 let cwd = server_ctx.working_dir();
-                let cell_resolver = ctx.get_cell_resolver().await?;
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &ctx,
                     &self
@@ -71,7 +69,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                 .await?;
                 let loaded_patterns = load_patterns(&ctx, parsed_patterns).await?;
                 let target_platform =
-                    target_platform_from_client_context(Some(&client_ctx), &cell_resolver, cwd)
+                    target_platform_from_client_context(Some(&client_ctx), server_ctx, &ctx)
                         .await?;
                 // Incompatible targets are skipped because this is an audit command
                 let targets = get_compatible_targets(

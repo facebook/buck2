@@ -242,8 +242,8 @@ impl AuditSubcommand for AuditOutputCommand {
 
                 let global_target_platform = target_platform_from_client_context(
                     Some(&client_ctx),
-                    &cell_resolver,
-                    working_dir,
+                    server_ctx,
+                    &dice_ctx,
                 )
                 .await?;
 
