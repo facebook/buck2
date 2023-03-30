@@ -64,7 +64,6 @@ use futures::StreamExt;
 use futures::TryFutureExt;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
-use starlark::environment::GlobalsBuilder;
 use tokio::sync::oneshot;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
@@ -233,7 +232,6 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
-    fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder);
 }
 
 #[derive(Clone)]
@@ -437,8 +435,6 @@ impl BuckdServer {
             snapshot::SnapshotCollector::pre_initialization_snapshot(data.start_time),
         ));
 
-        let configure_bxl_file_globals = self.0.callbacks.configure_bxl_file_globals();
-
         let resp = streaming(
             req,
             events,
@@ -456,7 +452,6 @@ impl BuckdServer {
                             req.build_options(),
                             daemon_state.paths.buck_out_dir(),
                             req.record_target_call_stacks(),
-                            configure_bxl_file_globals,
                         )?;
 
                         func(context, PartialResultDispatcher::new(dispatch.dupe()), req).await

@@ -20,7 +20,6 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_audit::server::server_audit_command;
-use buck2_bxl::bxl::starlark_defs::configure_bxl_file_globals;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
 use buck2_cli_proto::DaemonProcessInfo;
@@ -59,7 +58,6 @@ use futures::select;
 use futures::FutureExt;
 use futures::StreamExt;
 use rand::Rng;
-use starlark::environment::GlobalsBuilder;
 use thiserror::Error;
 use tokio::runtime::Builder;
 
@@ -217,9 +215,6 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
         docs_command(ctx, partial_result_dispatcher, req).await
-    }
-    fn configure_bxl_file_globals(&self) -> fn(&mut GlobalsBuilder) {
-        configure_bxl_file_globals
     }
 }
 

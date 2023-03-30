@@ -82,6 +82,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
+use buck2_interpreter_for_build::interpreter::configuror::CONFIGURE_BXL_FILE_GLOBALS;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
@@ -101,7 +102,6 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use starlark::environment::GlobalsBuilder;
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -204,8 +204,6 @@ pub struct ServerCommandContext {
     /// dropped.
     heartbeat_guard_handle: Option<HeartbeatGuard>,
 
-    configure_bxl_file_globals: fn(&mut GlobalsBuilder),
-
     /// Daemon uuid passed in from the client side to detect nested invocation.
     pub(crate) daemon_uuid_from_client: Option<String>,
 
@@ -222,7 +220,6 @@ impl ServerCommandContext {
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
         record_target_call_stacks: bool,
-        configure_bxl_file_globals: fn(&mut GlobalsBuilder),
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -313,7 +310,6 @@ impl ServerCommandContext {
             record_target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
-            configure_bxl_file_globals,
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
         })
@@ -396,7 +392,6 @@ impl ServerCommandContext {
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .dupe(),
-            configure_bxl_file_globals: self.configure_bxl_file_globals,
             disable_starlark_types: self.disable_starlark_types,
             record_target_call_stacks: self.record_target_call_stacks,
         })
@@ -585,7 +580,6 @@ struct DiceCommandUpdater {
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
-    configure_bxl_file_globals: fn(&mut GlobalsBuilder),
     disable_starlark_types: bool,
     record_target_call_stacks: bool,
 }
@@ -610,7 +604,7 @@ impl DiceUpdater for DiceCommandUpdater {
             configure_build_file_globals,
             configure_package_file_globals,
             configure_extension_file_globals,
-            self.configure_bxl_file_globals,
+            *CONFIGURE_BXL_FILE_GLOBALS.get()?,
             None,
         );
 

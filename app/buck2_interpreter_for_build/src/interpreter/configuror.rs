@@ -21,6 +21,7 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::path::StarlarkModulePath;
+use buck2_util::late_binding::LateBinding;
 use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
@@ -69,6 +70,10 @@ impl PartialEq for AdditionalGlobalsFn {
         Arc::ptr_eq(&self.0, &other.0)
     }
 }
+
+/// Default version used in the `buck2` binary.
+pub static CONFIGURE_BXL_FILE_GLOBALS: LateBinding<fn(&mut GlobalsBuilder)> =
+    LateBinding::new("CONFIGURE_BXL_FILE_GLOBALS");
 
 #[derive(Clone, Debug, PartialEq, Allocative)]
 pub struct BuildInterpreterConfiguror {
