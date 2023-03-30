@@ -14,6 +14,7 @@ load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
+load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_code_signing_types.bzl", "CodeSignType")
 load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "apple_library_impl")
@@ -54,6 +55,8 @@ implemented_rules = {
     "xcode_prebuild_script": xcode_prebuild_script_impl,
 }
 
+_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
+
 extra_attributes = {
     "apple_asset_catalog": {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -70,7 +73,7 @@ extra_attributes = {
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),
-        "_apple_toolchain": get_apple_toolchain_attr(),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
@@ -87,7 +90,7 @@ extra_attributes = {
         "stripped": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
         "use_archive": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": get_apple_toolchain_attr(),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
@@ -97,6 +100,8 @@ extra_attributes = {
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_package": {
+        "bundle": attrs.dep(providers = [AppleBundleInfo]),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
     },
     "apple_resource": {
@@ -126,7 +131,7 @@ extra_attributes = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
-        "_apple_toolchain": get_apple_toolchain_attr(),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
@@ -188,7 +193,7 @@ extra_attributes = {
     "prebuilt_apple_framework": {
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
-        "_apple_toolchain": get_apple_toolchain_attr(),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_omnibus_environment": omnibus_environment_attr(),
     },
     "scene_kit_assets": {
