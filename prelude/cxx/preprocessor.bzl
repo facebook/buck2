@@ -270,7 +270,7 @@ def _cxx_private_preprocessor_info(
     This rule's preprocessor info which is only applied to the compilation of
     its source, and not propagated to dependents.
     """
-
+    compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
     headers = cxx_attr_headers(ctx, headers_layout)
 
     # `apple_*` rules allow headers to be included via only a basename if those
@@ -313,7 +313,7 @@ def _cxx_private_preprocessor_info(
     file_prefix_args = []
     header_root = prepare_headers(ctx, header_map, "buck-private-headers")
     if header_root != None:
-        args.extend(["-I", header_root.include_path])
+        args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
 
