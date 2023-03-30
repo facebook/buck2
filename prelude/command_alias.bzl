@@ -52,7 +52,13 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
 
         trampoline_args.add('exec "${ARGS[@]}"')
 
-        trampoline = _relativize_path(ctx, trampoline_args, exec_is_windows)
+        trampoline = _relativize_path(
+            ctx,
+            trampoline_args,
+            "sh",
+            "$BUCK_COMMAND_ALIAS_ABSOLUTE",
+            exec_is_windows,
+        )
 
         run_info_args.add(trampoline)
         run_info_args.hidden([trampoline_args])
@@ -104,7 +110,13 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool.type):
         cmd.add("%*")
         trampoline_args.add(cmd)
 
-        trampoline = _relativize_path(ctx, trampoline_args, exec_is_windows)
+        trampoline = _relativize_path(
+            ctx,
+            trampoline_args,
+            "bat",
+            "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
+            exec_is_windows,
+        )
         run_info_args.add(trampoline)
         run_info_args.hidden([trampoline_args])
     else:
@@ -121,20 +133,29 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool.type):
         RunInfo(args = run_info_args),
     ]
 
-def _relativize_path(ctx, trampoline_args: "cmd_args", exec_is_windows: bool.type) -> "artifact":
+def _relativize_path(
+        ctx,
+        trampoline_args: "cmd_args",
+        extension: str.type,
+        var: str.type,
+        exec_is_windows: bool.type) -> "artifact":
     # Depending on where this action is done, we need to either run sed or a custom Windows sed-equivalent script
     # TODO(marwhal): Bias the exec platform to be the same as target platform to simplify the relativization logic
     if exec_is_windows:
-        return _relativize_path_windows(ctx, trampoline_args)
+        return _relativize_path_windows(ctx, extension, var, trampoline_args)
     else:
-        return _relativize_path_unix(ctx, trampoline_args)
+        return _relativize_path_unix(ctx, extension, var, trampoline_args)
 
-def _relativize_path_unix(ctx, trampoline_args: "cmd_args") -> "artifact":
+def _relativize_path_unix(
+        ctx,
+        extension: str.type,
+        var: str.type,
+        trampoline_args: "cmd_args") -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
 
-    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.sh.pre", trampoline_args, allow_args = True)
+    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.{}.pre".format(extension), trampoline_args, allow_args = True)
 
     # FIXME (T111687922): Avert your eyes... We want to add
     # $BUCK_COMMAND_ALIAS_ABSOLUTE a prefix on all the args we include, but
@@ -143,11 +164,11 @@ def _relativize_path_unix(ctx, trampoline_args: "cmd_args") -> "artifact":
     # as well, which will render it inoperable. To fix this, we emit
     # __BUCK_COMMAND_ALIAS_ABSOLUTE__ instead, and then we use sed to work
     # around our own quoting to produce the thing we want.
-    trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.{}".format(extension))
     ctx.actions.run([
         "sh",
         "-c",
-        "sed \"s|__BUCK_COMMAND_ALIAS_ABSOLUTE__|\\$BUCK_COMMAND_ALIAS_ABSOLUTE|g\" < \"$1\" > \"$2\" && chmod +x $2",
+        "sed 's|__BUCK_COMMAND_ALIAS_ABSOLUTE__|{}|g' < \"$1\" > \"$2\" && chmod +x $2".format(var),
         "--",
         trampoline_tmp,
         trampoline.as_output(),
@@ -155,15 +176,19 @@ def _relativize_path_unix(ctx, trampoline_args: "cmd_args") -> "artifact":
 
     return trampoline
 
-def _relativize_path_windows(ctx, trampoline_args: "cmd_args") -> "artifact":
+def _relativize_path_windows(
+        ctx,
+        extension: str.type,
+        var: str.type,
+        trampoline_args: "cmd_args") -> "artifact":
     # FIXME(ndmitchell): more straightforward relativization with better API
     non_materialized_reference = ctx.actions.write("dummy", "")
     trampoline_args.relative_to(non_materialized_reference, parent = 1).absolute_prefix("__BUCK_COMMAND_ALIAS_ABSOLUTE__/")
 
-    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.bat.pre", trampoline_args, allow_args = True)
+    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.{}.pre".format(extension), trampoline_args, allow_args = True)
 
     # TODO: We might need to put some care around quoting as mentioned in the sh based implementation above
-    trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.{}".format(extension))
 
     # Replace __BUCK_COMMAND_ALIAS_ABSOLUTE__ with the BUCK_COMMAND_ALIAS_ABSOLUTE environment variable set above
     # so that the all paths are fully specified
@@ -171,7 +196,7 @@ def _relativize_path_windows(ctx, trampoline_args: "cmd_args") -> "artifact":
         [
             _get_run_info_from_exe(ctx.attrs._find_and_replace_bat),
             "__BUCK_COMMAND_ALIAS_ABSOLUTE__",
-            "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
+            var,
             trampoline_tmp,
             trampoline.as_output(),
         ],
