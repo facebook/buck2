@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:debug.bzl", "ExternalDebugInfoTSet")
 load(
     "@prelude//cxx:linker.bzl",
     "get_link_whole_args",
@@ -109,7 +110,7 @@ LinkInfo = record(
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
-    external_debug_info = field(["_arglike"], []),
+    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -248,7 +249,7 @@ LinkedObject = record(
     dwp = field(["artifact", None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files).
-    external_debug_info = field(["_arglike"], []),
+    external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(["artifact", None], None),
@@ -297,28 +298,18 @@ def _link_info_has_stripped_filelist(children: [bool.type], infos: ["LinkInfos",
             return True
     return any(children)
 
-def _link_info_has_external_debug_info(children: [bool.type], infos: ["LinkInfos", None]) -> bool.type:
-    if infos and infos.default.external_debug_info:
-        return True
-    return any(children)
-
-def _link_info_external_debug_info(infos: "LinkInfos"):
-    return infos.default.external_debug_info
-
 # TransitiveSet of LinkInfos.
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
         "default_filelist": _link_info_default_filelist,
         "default_shared": _link_info_default_shared_link_args,
-        "external_debug_info": _link_info_external_debug_info,
         "stripped": _link_info_stripped_args,
         "stripped_filelist": _link_info_stripped_filelist,
         "stripped_shared": _link_info_stripped_shared_link_args,
     },
     reductions = {
         "has_default_filelist": _link_info_has_default_filelist,
-        "has_external_debug_info": _link_info_has_external_debug_info,
         "has_stripped_filelist": _link_info_has_stripped_filelist,
     },
 )
@@ -481,20 +472,36 @@ def unpack_link_args_filelist(args: LinkArgs.type) -> ["_arglike", None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_external_debug_info(args: LinkArgs.type) -> ["_arglike"]:
+def unpack_external_debug_info(actions: "actions", args: LinkArgs.type) -> [ExternalDebugInfoTSet.type, None]:
     if args.tset != None:
         (tset, stripped) = args.tset
         if stripped:
             return []
-        if not tset.reduce("has_external_debug_info"):
-            return []
-        return [tset.project_as_args("external_debug_info")]
+
+        # We're basically traversing the link tset to build a new tset of
+        # all the included debug info tsets, which the caller will traverse
+        # of project.  Is it worth it to buildup a `external_debug_info_tset`
+        # in `LinkArgs` (for each link style) as we go to optimize for this
+        # case instead?
+        children = [
+            li.default.external_debug_info
+            for li in tset.traverse()
+            if li.default.external_debug_info != None
+        ]
+
+        if not children:
+            return None
+
+        return actions.tset(ExternalDebugInfoTSet, children = children)
 
     if args.infos != None:
-        return flatten([info.external_debug_info for info in args.infos])
+        children = [info.external_debug_info for info in args.infos if info.external_debug_info != None]
+        if not children:
+            return None
+        return actions.tset(ExternalDebugInfoTSet, children = children)
 
     if args.flags != None:
-        return []
+        return None
 
     fail("Unpacked invalid empty link args")
 

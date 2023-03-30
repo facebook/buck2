@@ -12,6 +12,11 @@ load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load(
+    "@prelude//cxx:debug.bzl",
+    "ExternalDebugInfoTSet",  # @unused Used as a type
+    "project_external_debug_info",
+)
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
     "@prelude//cxx:link.bzl",
@@ -167,7 +172,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to
             # follow.
-            external_debug_info = [_get_transitive_swiftmodule_paths(swift_providers)],
+            external_debug_info = _get_external_debug_info(swift_providers),
             subtargets = {
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
@@ -202,7 +207,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
-        external_debug_info: ["_arglike"],
+        external_debug_info: ["transitive_set", None],
         _dwp: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
@@ -211,15 +216,19 @@ def _get_shared_link_style_sub_targets_and_providers(
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
 
+    external_debug_info_args = project_external_debug_info(
+        actions = ctx.actions,
+        infos = [external_debug_info],
+    )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = executable,
-        external_debug_info = external_debug_info,
+        external_debug_info = external_debug_info_args,
         action_identifier = executable.short_path,
     )
     subtargets = {
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
-        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info)],
+        DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info_args)],
     }
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
@@ -229,12 +238,13 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_transitive_swiftmodule_paths(swift_providers: ["provider"]) -> "cmd_args":
-    cmd = cmd_args()
+def _get_external_debug_info(swift_providers: ["provider"]) -> [ExternalDebugInfoTSet.type]:
+    tsets = []
     for p in swift_providers:
-        if hasattr(p, "transitive_swiftmodule_paths"):
-            cmd.add(p.transitive_swiftmodule_paths.project_as_args("hidden"))
-    return cmd
+        if hasattr(p, "external_debug_info"):
+            if p.external_debug_info != None:
+                tsets.append(p.external_debug_info)
+    return tsets
 
 def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_args":
     cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))

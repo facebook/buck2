@@ -21,3 +21,46 @@ SplitDebugMode = enum(
     # case.
     #"split",
 )
+
+def _artifacts(a: ["artifact"]) -> ["artifact"]:
+    return a
+
+ExternalDebugInfoTSet = transitive_set(args_projections = {
+    "external_debug_info": _artifacts,
+})
+
+def maybe_external_debug_info(
+        actions: "actions",
+        artifacts: ["artifact"] = [],
+        children: [[ExternalDebugInfoTSet.type, None]] = []) -> [ExternalDebugInfoTSet.type, None]:
+    # As a convenience for our callers, filter our `None` children.
+    children = [c for c in children if c != None]
+
+    # If there's no children or artifacts, return `None`.
+    if not artifacts and not children:
+        return None
+
+    # We only build a `ExternalDebugInfoTSet` if there's something to package.
+    kwargs = {}
+    if artifacts:
+        kwargs["value"] = artifacts
+    if children:
+        kwargs["children"] = children
+    return actions.tset(ExternalDebugInfoTSet, **kwargs)
+
+def project_external_debug_info(
+        actions: "actions",
+        infos: [[ExternalDebugInfoTSet.type, None]] = []) -> ["transitive_set_args_projection"]:
+    """
+    Helper to project a list of optional tsets.
+    """
+
+    info = maybe_external_debug_info(
+        actions = actions,
+        children = infos,
+    )
+
+    if info == None:
+        return []
+
+    return [info.project_as_args("external_debug_info")]

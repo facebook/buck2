@@ -91,6 +91,11 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
+    ":debug.bzl",
+    "ExternalDebugInfoTSet",
+    "maybe_external_debug_info",
+)
+load(
     ":link.bzl",
     "CxxLinkResultType",
     "CxxLinkerMapData",
@@ -124,7 +129,7 @@ CxxExecutableOutput = record(
     # The LinkArgs used to create the final executable in 'binary'.
     link_args = [LinkArgs.type],
     # External components needed to debug the executable.
-    external_debug_info = ["_arglike"],
+    external_debug_info = [ExternalDebugInfoTSet.type, None],
     shared_libs = {str.type: LinkedObject.type},
     # All link group links that were generated in the executable.
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
@@ -372,9 +377,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                     linker_type = linker_info.type,
                     link_whole = True,
                 )],
-                external_debug_info = (
-                    [out.object for out in cxx_outs if out.object_has_external_debug_info] +
-                    [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                external_debug_info = maybe_external_debug_info(
+                    actions = ctx.actions,
+                    artifacts = [out.object for out in cxx_outs if out.object_has_external_debug_info],
+                    children = [out.external_debug_info for out in cxx_outs],
                 ),
             ),
         ]),

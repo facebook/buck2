@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode", "project_external_debug_info")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//linking:link_info.bzl",
@@ -178,8 +178,12 @@ def executable_shared_lib_arguments(
 
     # Add external debug paths to runtime files, so that they're
     # materialized when the binary is built.
-    for shlib in shared_libs.values():
-        runtime_files.extend(shlib.external_debug_info)
+    runtime_files.extend(
+        project_external_debug_info(
+            actions = actions,
+            infos = [shlib.external_debug_info for shlib in shared_libs.values()],
+        ),
+    )
 
     linker_type = cxx_toolchain.linker_info.type
 

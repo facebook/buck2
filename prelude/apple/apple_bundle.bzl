@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -126,8 +127,18 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     if dsym_artifacts:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
-    external_debug_info = flatten([info.external_debug_info for info in debuggable_deps])
-    sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
+    external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        children = [info.external_debug_info for info in debuggable_deps],
+    )
+    sub_targets[DEBUGINFO_SUBTARGET] = [
+        DefaultInfo(
+            other_outputs = project_external_debug_info(
+                actions = ctx.actions,
+                infos = [external_debug_info],
+            ),
+        ),
+    ]
 
     bundle = bundle_output(ctx)
 

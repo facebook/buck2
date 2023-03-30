@@ -14,6 +14,11 @@ load(
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 load("@prelude//cxx:cxx_types.bzl", "CxxAdditionalArgsfileParams")
+load(
+    "@prelude//cxx:debug.bzl",
+    "ExternalDebugInfoTSet",  # @unused Used as a type
+    "maybe_external_debug_info",
+)
 load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:preprocessor.bzl",
@@ -51,6 +56,7 @@ SwiftDependencyInfo = provider(fields = [
     "exported_headers",  # ExportedHeadersTSet of {"module_name": [exported_headers]}
     "exported_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes only paths through exported_deps, used for compilation
     "transitive_swiftmodule_paths",  # SwiftmodulePathsTSet of artifact that includes all transitive paths, used for linking
+    "external_debug_info",
 ])
 
 SwiftCompilationOutput = record(
@@ -516,6 +522,13 @@ def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePath
         if SwiftDependencyInfo in d
     ]
 
+def _get_external_debug_info_tsets(deps: ["dependency"]) -> [ExternalDebugInfoTSet.type]:
+    return [
+        d[SwiftDependencyInfo].external_debug_info
+        for d in deps
+        if SwiftDependencyInfo in d and d[SwiftDependencyInfo].external_debug_info != None
+    ]
+
 def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> "ExportedHeadersTSet":
     return ctx.actions.tset(
         ExportedHeadersTSet,
@@ -565,10 +578,17 @@ def get_swift_dependency_info(
         exported_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_swift_paths_tsets(exported_deps))
         transitive_swiftmodules = ctx.actions.tset(SwiftmodulePathsTSet, children = _get_transitive_swift_paths_tsets(all_deps))
 
+    external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        artifacts = [output_module] if output_module != None else [],
+        children = _get_external_debug_info_tsets(all_deps),
+    )
+
     return SwiftDependencyInfo(
         exported_headers = _get_exported_headers_tset(ctx, exported_headers),
         exported_swiftmodule_paths = exported_swiftmodules,
         transitive_swiftmodule_paths = transitive_swiftmodules,
+        external_debug_info = external_debug_info,
     )
 
 def _header_basename(header: ["artifact", "string"]) -> "string":

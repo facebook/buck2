@@ -83,7 +83,7 @@ CxxAdditionalArgsfileParams = record(
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
     argsfiles = field([CxxAdditionalArgsfileParams.type], []),
-    external_debug_info = field(["_arglike"], []),
+    external_debug_info = field(["transitive_set"], []),
     subtargets = field(dict.type, {}),  # [str.type: ["provider"]]
 )
 

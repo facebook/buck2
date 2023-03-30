@@ -10,6 +10,7 @@ load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
+load("@prelude//cxx:debug.bzl", "project_external_debug_info")
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
@@ -50,15 +51,18 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     )
     cxx_output = cxx_executable(ctx, constructor_params)
 
+    external_debug_info = project_external_debug_info(
+        actions = ctx.actions,
+        infos = [cxx_output.external_debug_info],
+    )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = cxx_output.binary,
-        external_debug_info = cxx_output.external_debug_info,
+        external_debug_info = [external_debug_info] if external_debug_info != None else [],
         action_identifier = cxx_output.binary.short_path,
     )
     cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
-
-    cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = cxx_output.external_debug_info)]
+    cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
 
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []

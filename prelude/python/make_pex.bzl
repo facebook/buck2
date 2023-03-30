@@ -11,12 +11,12 @@ execution
 """
 
 load("@prelude//:local_only.bzl", "package_python_locally")
+load("@prelude//cxx:debug.bzl", "project_external_debug_info")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:utils.bzl", "flatten")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
 load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
@@ -396,7 +396,10 @@ def _pex_modules_common_args(
             resource_artifacts +
             native_libraries +
             dwp +
-            flatten([lib.external_debug_info for lib in shared_libraries.values()]))
+            project_external_debug_info(
+                ctx.actions,
+                infos = [lib.external_debug_info for lib in shared_libraries.values()],
+            ))
     return (cmd, deps)
 
 def _pex_modules_args(

@@ -13,7 +13,7 @@ DEBUGINFO_SUBTARGET = "debuginfo"
 
 AppleDebuggableInfo = provider(fields = [
     "dsyms",  # ["artifact"]
-    "external_debug_info",  # ["_arglike"]
+    "external_debug_info",  # "transitive_set"
 ])
 
 # TODO(T110672942): Things which are still unsupported:

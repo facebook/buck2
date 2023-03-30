@@ -113,6 +113,11 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(
+    ":debug.bzl",
+    "ExternalDebugInfoTSet",  # @unused Used as a type
+    "maybe_external_debug_info",
+)
+load(
     ":link.bzl",
     "CxxLinkerMapData",
     "cxx_link_into_shared_library",
@@ -165,7 +170,7 @@ _CxxLibraryOutput = record(
     # also present in object_files.
     other = field(["artifact"], []),
     # Additional debug info which is not included in the library output.
-    external_debug_info = field(["_arglike"], []),
+    external_debug_info = field(["transitive_set", None], None),
     # A shared shared library may have an associated dwp file with
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
@@ -495,10 +500,13 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                         linker_type = linker_type,
                         link_whole = True,
                     )],
-                    external_debug_info = (
-                        compiled_srcs.pic_external_debug_info +
-                        (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else []) +
-                        impl_params.additional.external_debug_info
+                    external_debug_info = maybe_external_debug_info(
+                        actions = ctx.actions,
+                        artifacts = (
+                            compiled_srcs.pic_external_debug_info +
+                            (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])
+                        ),
+                        children = impl_params.additional.external_debug_info,
                     ),
                 ),
                 stripped = LinkInfo(
@@ -756,9 +764,10 @@ def _form_library_outputs(
                     impl_params,
                     compiled_srcs.pic_objects if pic else compiled_srcs.objects,
                     objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
-                    external_debug_info = (
-                        (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info) +
-                        impl_params.additional.external_debug_info
+                    external_debug_info = maybe_external_debug_info(
+                        ctx.actions,
+                        artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
+                        children = impl_params.additional.external_debug_info,
                     ),
                     pic = pic,
                     stripped = False,
@@ -782,11 +791,16 @@ def _form_library_outputs(
             # We still generate a shared library with no source objects because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object
             if compiled_srcs.pic_objects or impl_params.build_empty_so:
-                external_debug_info = compiled_srcs.pic_external_debug_info + impl_params.additional.external_debug_info
+                external_debug_artifacts = compiled_srcs.pic_external_debug_info
                 if compiled_srcs.pic_objects_have_external_debug_info:
-                    external_debug_info.extend(compiled_srcs.pic_objects)
+                    external_debug_artifacts.extend(compiled_srcs.pic_objects)
                 if impl_params.extra_link_input_has_external_debug_info:
-                    external_debug_info.extend(impl_params.extra_link_input)
+                    external_debug_artifacts.extend(impl_params.extra_link_input)
+                external_debug_info = maybe_external_debug_info(
+                    actions = ctx.actions,
+                    artifacts = external_debug_artifacts,
+                    children = impl_params.additional.external_debug_info,
+                )
 
                 result = _shared_library(
                     ctx,
@@ -932,7 +946,7 @@ def _static_library(
         stripped: bool.type,
         extra_linkables: ["FrameworksLinkable"],
         objects_have_external_debug_info: bool.type = False,
-        external_debug_info: ["_arglike"] = []) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        external_debug_info: [ExternalDebugInfoTSet.type, None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -969,16 +983,20 @@ def _static_library(
     else:
         post_flags.extend(linker_info.static_dep_runtime_ld_flags or [])
 
-    all_external_debug_info = []
-    all_external_debug_info.extend(external_debug_info)
-
     # On darwin, the linked output references the archive that contains the
     # object files instead of the originating objects.
+    object_external_debug_info = []
     if linker_type == "darwin":
-        all_external_debug_info.append(archive.artifact)
-        all_external_debug_info.extend(archive.external_objects)
+        object_external_debug_info.append(archive.artifact)
+        object_external_debug_info.extend(archive.external_objects)
     elif objects_have_external_debug_info:
-        all_external_debug_info.extend(objects)
+        object_external_debug_info.extend(objects)
+
+    all_external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        artifacts = object_external_debug_info,
+        children = [external_debug_info],
+    )
 
     return (
         _CxxLibraryOutput(
@@ -1014,7 +1032,7 @@ def _shared_library(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         objects: ["artifact"],
-        external_debug_info: ["_arglike"],
+        external_debug_info: [ExternalDebugInfoTSet.type, None],
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool.type,
         link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:

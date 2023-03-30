@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:debug.bzl", "project_external_debug_info")
+
 # Manifests are files containing information how to map sources into a package.
 # The files are JSON lists with an entry per source, where each source is 3-tuple
 # of relative destination path, artifact path, and a short description of the
@@ -13,7 +15,7 @@ ManifestInfo = record(
     # The actual manifest file (in the form of a JSON file).
     manifest = field("artifact"),
     # All artifacts that are referenced in the manifest.
-    artifacts = field(["artifact"]),
+    artifacts = field([["artifact", "transitive_set_args_projection"]]),
 )
 
 def _write_manifest(
@@ -82,7 +84,11 @@ def create_manifest_for_extensions(
     # Include external debug paths, even though they're not explicitly listed
     # in the manifest, as python packaging may also consume debug paths which
     # were referenced in native code.
-    for (lib, _) in extensions.values():
-        manifest.artifacts.extend(lib.external_debug_info)
+    manifest.artifacts.extend(
+        project_external_debug_info(
+            ctx.actions,
+            infos = [lib.external_debug_info for lib, _ in extensions.values()],
+        ),
+    )
 
     return manifest

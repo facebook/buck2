@@ -10,7 +10,7 @@ load(
     "bolt",
     "cxx_use_bolt",
 )
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode", "maybe_external_debug_info")
 load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
@@ -111,19 +111,26 @@ def cxx_link(
         ),
     )
 
-    external_debug_info = []
+    external_debug_artifacts = []
+    external_debug_infos = []
+
+    # When using LTO+split-dwarf, the link step will generate externally
+    # referenced debug info.
+    if dwo_dir != None:
+        external_debug_artifacts.append(dwo_dir)
 
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
     # need to be available for debugging).
     if not (strip or getattr(ctx.attrs, "prefer_stripped_objects", False)):
         for link in links:
-            external_debug_info.extend(unpack_external_debug_info(link))
+            external_debug_infos.append(unpack_external_debug_info(ctx.actions, link))
 
-    # When using LTO+split-dwarf, the link step will generate externally
-    # referenced debug info.
-    if dwo_dir != None:
-        external_debug_info.append(dwo_dir)
+    external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        artifacts = external_debug_artifacts,
+        children = external_debug_infos,
+    )
 
     if linker_info.type == "windows":
         shell_quoted_args = cmd_args(link_args)
@@ -184,7 +191,8 @@ def cxx_link(
         dwp_inputs = cmd_args()
         for link in links:
             dwp_inputs.add(unpack_link_args(link))
-        dwp_inputs.add(external_debug_info)
+        if external_debug_info != None:
+            dwp_inputs.add(external_debug_info.project_as_args("external_debug_info"))
 
         dwp_artifact = dwp(
             ctx,
