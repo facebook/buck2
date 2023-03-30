@@ -12,6 +12,8 @@ use std::io;
 use std::io::ErrorKind;
 use std::process::Stdio;
 use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -86,6 +88,7 @@ pub struct Upload<'a> {
     bucket: Bucket,
     filename: &'a str,
     timeout_s: Option<u64>,
+    ttl_s: Option<u64>,
 }
 
 impl<'a> Upload<'a> {
@@ -94,10 +97,15 @@ impl<'a> Upload<'a> {
             bucket,
             filename,
             timeout_s: None,
+            ttl_s: None,
         }
     }
     pub fn with_timeout(mut self, timeout_s: u64) -> Self {
         self.timeout_s = Some(timeout_s);
+        self
+    }
+    pub fn with_default_ttl(mut self) -> Self {
+        self.ttl_s = Some(164 * 86_400); // 164 days, equals scuba buck2_builds retention
         self
     }
     pub fn from_file(self, filepath: &'a AbsPath) -> Result<FileUploader<'a>, UploadError> {
@@ -129,11 +137,12 @@ impl<'a> Upload<'a> {
         let bucket_path = &format!("flat/{}", self.filename);
 
         match manifold_cli_path {
-            None => curl_write_command(bucket, bucket_path),
+            None => curl_write_command(bucket, bucket_path, self.ttl_s),
             Some(cli_path) => Ok(Some(cli_upload_command(
                 cli_path,
                 &format!("{}/{}", bucket.name, bucket_path),
                 bucket.key,
+                self.ttl_s,
             ))),
         }?
         .ok_or(UploadError::CommandNotFound)
@@ -264,6 +273,7 @@ where
 fn curl_write_command(
     bucket: BucketInfo,
     manifold_bucket_path: &str,
+    ttl_s: Option<u64>,
 ) -> anyhow::Result<Option<Command>> {
     if cfg!(windows) {
         // We do not have `curl` on Windows.
@@ -296,6 +306,16 @@ fn curl_write_command(
         "PUT",
         "-H",
         "X-Manifold-Obj-Predicate:NoPredicate", // Do not check existance
+    ]);
+    if let Some(ttl_s) = ttl_s {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        upload.arg("-H");
+        upload.arg(format!(
+            "X-Manifold-Obj-ExpiresAt:{}",
+            now.as_secs() + ttl_s
+        ));
+    }
+    upload.args([
         "--data-binary",
         "@-", // stdin
         &url,
@@ -309,6 +329,7 @@ fn cli_upload_command(
     cli_path: OsString,
     manifold_bucket_path: &String,
     bucket_key: &str,
+    ttl_s: Option<u64>,
 ) -> Command {
     let mut upload = buck2_util::process::async_background_command(cli_path);
 
@@ -333,6 +354,9 @@ fn cli_upload_command(
         manifold_bucket_path,
         "--ignoreExisting",
     ]);
+    if let Some(ttl_s) = ttl_s {
+        upload.args(["--ttl", &ttl_s.to_string()]);
+    }
     upload
 }
 
