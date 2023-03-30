@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::artifact_type::Artifact;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::targets_show_outputs_response::TargetPaths;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsShowOutputsResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -97,8 +98,9 @@ async fn targets_show_outputs(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
+    let client_ctx = request.client_context()?;
     let target_platform =
-        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     let parsed_patterns =
         parse_patterns_from_cli_args::<ProvidersPatternExtra>(&ctx, &request.target_patterns, cwd)

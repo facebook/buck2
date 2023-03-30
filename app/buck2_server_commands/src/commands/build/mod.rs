@@ -27,6 +27,7 @@ use buck2_cli_proto::build_request::build_providers::Action as BuildProviderActi
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BuildRequest;
+use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -134,8 +135,9 @@ async fn build(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
+    let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(cell_resolver.root_cell(), "buck2", "create_unhashed_links")

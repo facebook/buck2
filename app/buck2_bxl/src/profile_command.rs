@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -100,12 +101,10 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             }
                         };
 
-                        let global_target_platform = target_platform_from_client_context(
-                            self.req.context.as_ref(),
-                            server_ctx,
-                            &ctx,
-                        )
-                        .await?;
+                        let client_ctx = self.req.client_context()?;
+                        let global_target_platform =
+                            target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx)
+                                .await?;
 
                         let bxl_key = BxlKey::new(
                             bxl_label.clone(),

@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
@@ -179,8 +180,9 @@ async fn install(
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
+    let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(

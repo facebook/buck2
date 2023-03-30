@@ -9,6 +9,7 @@
 
 use std::io::Write;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
 use buck2_cli_proto::AqueryRequest;
@@ -85,8 +86,11 @@ async fn aquery(
         ..
     } = request;
 
+    let client_ctx = context
+        .as_ref()
+        .context("No client context (internal error)")?;
     let global_target_platform =
-        target_platform_from_client_context(context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     let evaluator =
         get_aquery_evaluator(&ctx, server_ctx.working_dir(), global_target_platform).await?;

@@ -9,6 +9,7 @@
 
 use std::io::Write;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -112,8 +113,11 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
+    let client_ctx = context
+        .as_ref()
+        .context("No client context (internal error)")?;
     let global_target_platform =
-        target_platform_from_client_context(context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     let owner_behavior = match correct_owner {
         true => CqueryOwnerBehavior::Correct,

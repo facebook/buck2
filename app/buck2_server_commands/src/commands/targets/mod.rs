@@ -20,6 +20,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -198,12 +199,10 @@ async fn targets(
                 res?
             } else {
                 let formatter = create_formatter(request, other)?;
-                let target_platform = target_platform_from_client_context(
-                    request.context.as_ref(),
-                    server_ctx,
-                    &dice,
-                )
-                .await?;
+                let client_ctx = request.client_context()?;
+                let target_platform =
+                    target_platform_from_client_context(Some(client_ctx), server_ctx, &dice)
+                        .await?;
                 let fs = server_ctx.project_root();
                 targets_batch(
                     server_ctx,

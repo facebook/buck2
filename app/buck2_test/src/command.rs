@@ -19,6 +19,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -235,8 +236,9 @@ async fn test(
     let cell_resolver = ctx.get_cell_resolver().await?;
     let working_dir_cell = cell_resolver.find(cwd)?;
 
+    let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.

@@ -26,6 +26,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
+use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedError;
@@ -119,8 +120,9 @@ async fn bxl(
     let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
     let project_root = server_ctx.project_root().to_string();
 
+    let client_ctx = request.client_context()?;
     let global_target_platform =
-        target_platform_from_client_context(request.context.as_ref(), server_ctx, &ctx).await?;
+        target_platform_from_client_context(Some(client_ctx), server_ctx, &ctx).await?;
 
     let bxl_args =
         match get_bxl_cli_args(cwd, &ctx, &bxl_label, &request.bxl_args, &cell_resolver).await? {
