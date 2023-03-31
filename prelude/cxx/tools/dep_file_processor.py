@@ -12,11 +12,23 @@ import makefile_to_dep_file
 
 def main():
     """
-    Determines which dep file processor to use according to compiler type. Arguments expected are, in order:
-    dep_tracking_mode -> show_includes | makefile | show_headers | none
-    intermediary_dep_file -> None | path as this is only needed when using clang for c++ files
-    dep_file -> expected output path
-    cmd_args -> args to be executed in order to get dependencies
+    Determines which dep file processor to use according to compiler type.
+
+    First argument is
+    dep_tracking_mode which is one of these values [ makefile | show_includes | show_headers | none].
+
+    For each mode we expect different arguments:
+
+    makefile -> intermediary_dep_file, dep_file, cmd_args
+    show_includes -> input_file, dep_file, cmd_args
+    show_headers -> input_file, dep_file, cmd_args
+
+    Where:
+
+    input_file -> Path to file we're generating the dep file for
+    intermediary_dep_file -> File where compiler output is generated to
+    dep_file -> Expected output path
+    cmd_args -> Args to be executed in order to get dependencies
     """
     dep_tracking_mode = sys.argv[1]  # noqa
     makefile_to_dep_file.makefile_to_depfile(sys.argv[2:])

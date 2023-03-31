@@ -324,8 +324,7 @@ def compile_cxx(
                 paths.join("__dep_files__", filename_base),
             ).as_output()
 
-            dep_file_flags = headers_dep_files.mk_flags(ctx.actions, filename_base)
-            processor_flags, compiler_flags = dep_file_flags
+            processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
             cmd.add(compiler_flags)
 
             # API: First argument is the dep file source path, second is the

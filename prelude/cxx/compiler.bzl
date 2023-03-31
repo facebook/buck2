@@ -47,7 +47,7 @@ def get_flags_for_colorful_output(compiler_type: str.type) -> [str.type]:
 # wrapper_args -> the arguments used by the dep_file_processor to determine how to process the dep files
 # compiler_args -> args passed to the compiler when generating dependencies
 
-def cc_dep_files(actions: "actions", filename_base: str.type) -> (cmd_args.type, cmd_args.type):
+def cc_dep_files(actions: "actions", filename_base: str.type, _input_file: "artifact") -> (cmd_args.type, cmd_args.type):
     intermediary_dep_file = actions.declare_output(
         paths.join("__dep_files_intermediaries__", filename_base),
     ).as_output()
@@ -56,13 +56,15 @@ def cc_dep_files(actions: "actions", filename_base: str.type) -> (cmd_args.type,
 
 def tree_style_cc_dep_files(
         _actions: "actions",
-        _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
-    return (cmd_args(), cmd_args(["-H"]))
+        _filename_base: str.type,
+        input_file: "artifact") -> (cmd_args.type, cmd_args.type):
+    return (cmd_args(input_file), cmd_args(["-H"]))
 
 def windows_cc_dep_files(
         _actions: "actions",
-        _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
-    return (cmd_args(), cmd_args(["/showIncludes"]))
+        _filename_base: str.type,
+        input_file: "artifact") -> (cmd_args.type, cmd_args.type):
+    return (cmd_args(input_file), cmd_args(["/showIncludes"]))
 
 def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type) -> ["function", None]:
     if dep_tracking_mode.value == "makefile":
