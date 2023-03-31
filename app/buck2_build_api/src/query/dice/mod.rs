@@ -57,7 +57,7 @@ use indexmap::indexset;
 
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
-use crate::configure_targets;
+use crate::configure_targets::load_compatible_patterns;
 use crate::query::cquery::environment::CqueryDelegate;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
@@ -314,11 +314,9 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
         literals: &[&str],
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        let loaded_patterns = load_patterns(self.ctx, parsed_patterns).await?;
-
-        configure_targets::get_compatible_targets(
+        load_compatible_patterns(
             self.ctx,
-            loaded_patterns.iter_loaded_targets_by_package(),
+            parsed_patterns,
             self.global_target_platform.dupe(),
         )
         .await

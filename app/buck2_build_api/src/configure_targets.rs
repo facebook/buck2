@@ -8,6 +8,8 @@
  */
 
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
@@ -21,6 +23,7 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark_map::small_set::SmallSet;
 
+use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
 
 // Returns a tuple of compatible and incompatible targets.
@@ -84,4 +87,18 @@ pub async fn get_compatible_targets(
     }
 
     Ok(compatible_targets)
+}
+
+pub async fn load_compatible_patterns(
+    ctx: &DiceComputations,
+    parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
+    global_target_platform: Option<TargetLabel>,
+) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    let loaded_patterns = load_patterns(ctx, parsed_patterns).await?;
+    get_compatible_targets(
+        ctx,
+        loaded_patterns.iter_loaded_targets_by_package(),
+        global_target_platform,
+    )
+    .await
 }

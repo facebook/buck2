@@ -11,7 +11,7 @@ use std::borrow::Cow;
 
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::configure_targets::get_compatible_targets;
+use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -223,15 +223,13 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     ))))
                 }
                 pattern => {
-                    let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
-                    Ok(Some(Self::TargetSet(Cow::Owned(
-                        get_compatible_targets(
-                            ctx.async_ctx.0,
-                            loaded_patterns.iter_loaded_targets_by_package(),
-                            target_platform.dupe(),
-                        )
-                        .await?,
-                    ))))
+                    let loaded_patterns = load_compatible_patterns(
+                        ctx.async_ctx.0,
+                        vec![pattern],
+                        target_platform.dupe(),
+                    )
+                    .await?;
+                    Ok(Some(Self::TargetSet(Cow::Owned(loaded_patterns))))
                 }
             }
         } else {
