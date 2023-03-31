@@ -43,11 +43,12 @@ pub enum QueryEnvironmentError {
 }
 
 impl QueryEnvironmentError {
-    pub fn missing_target<T: NodeLabel, S: AsRef<str>, Iter: Iterator<Item = S>>(
+    pub fn missing_target<T: NodeLabel, S: AsRef<str>, Iter: IntoIterator<Item = S>>(
         target: &T,
         package_targets: Iter,
     ) -> Self {
         let existing = package_targets
+            .into_iter()
             .map(|e| format!("`{}`", e.as_ref()))
             .collect();
         Self::MissingTargetError(target.to_string(), existing)

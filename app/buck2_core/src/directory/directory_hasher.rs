@@ -29,7 +29,7 @@ pub trait DirectoryDigest:
 pub trait DirectoryHasher<L, H> {
     fn hash_entries<'a, D, I>(&self, entries: I) -> H
     where
-        I: Iterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
         D: FingerprintedDirectory<L, H> + 'a,
         L: 'a,
         Self: Sized;

@@ -335,7 +335,7 @@ fn split_compatible_incompatible(
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &DiceComputations,
-    loaded_targets: impl Iterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+    loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut by_package_futs: Vec<_> = Vec::new();

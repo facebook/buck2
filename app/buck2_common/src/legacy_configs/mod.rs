@@ -597,10 +597,10 @@ impl<'a> LegacyConfigParser<'a> {
         parse_includes: bool,
     ) -> anyhow::Result<()>
     where
-        T: Iterator<Item = Result<String, E>>,
+        T: IntoIterator<Item = Result<String, E>>,
         E: std::error::Error + Send + Sync + 'static,
     {
-        let lines: Vec<String> = lines.collect::<Result<Vec<_>, _>>()?;
+        let lines: Vec<String> = lines.into_iter().collect::<Result<Vec<_>, _>>()?;
 
         let lines = lines
             .into_iter()

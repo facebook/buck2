@@ -371,7 +371,7 @@ pub trait ConfigurationCalculation {
         target: &TargetLabel,
     ) -> anyhow::Result<ConfigurationData>;
 
-    async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
+    async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
         &self,
         target_cfg: &ConfigurationData,
         target_node_cell: CellName,
@@ -499,7 +499,7 @@ impl ConfigurationCalculation for DiceComputations {
         Ok(ConfigurationData::unspecified())
     }
 
-    async fn get_resolved_configuration<'a, T: Iterator<Item = &'a TargetLabel> + Send>(
+    async fn get_resolved_configuration<'a, T: IntoIterator<Item = &'a TargetLabel> + Send>(
         &self,
         target_cfg: &ConfigurationData,
         target_cell: CellName,
@@ -532,7 +532,8 @@ impl ConfigurationCalculation for DiceComputations {
             }
         }
 
-        let configuration_deps: Vec<TargetLabel> = configuration_deps.map(|t| t.dupe()).collect();
+        let configuration_deps: Vec<TargetLabel> =
+            configuration_deps.into_iter().map(|t| t.dupe()).collect();
         self.compute(&ResolvedConfigurationKey {
             target_cfg: target_cfg.dupe(),
             target_cell,

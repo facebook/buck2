@@ -38,7 +38,7 @@ impl DirectoryDigest for TestDigest {}
 impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
     where
-        I: Iterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a NopEntry>)>,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a NopEntry>)>,
         D: FingerprintedDirectory<NopEntry, TestDigest> + 'a,
     {
         let mut hasher = DefaultHasher::new();

@@ -114,13 +114,13 @@ pub struct DiceAqueryDelegate<'c> {
 // than `(TransitiveSetKey, ProjectionIndex)`. We already have that information when constructing it and the
 // artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
-async fn convert_inputs<'a, Iter: Iterator<Item = &'a ArtifactGroup>>(
+async fn convert_inputs<'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     ctx: &DiceComputations,
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
-        inputs.filter_map(|input| match input {
+        inputs.into_iter().filter_map(|input| match input {
             ArtifactGroup::Artifact(a) => a.action_key().map(Either::Left),
             ArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
         }),

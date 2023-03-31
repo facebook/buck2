@@ -95,7 +95,7 @@ pub struct ReDirectorySerializer {
 impl ReDirectorySerializer {
     fn create_re_directory<'a, D, I>(entries: I) -> RE::Directory
     where
-        I: Iterator<
+        I: IntoIterator<
             Item = (
                 &'a FileName,
                 DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
@@ -156,7 +156,7 @@ impl ReDirectorySerializer {
 
     pub fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
     where
-        I: Iterator<
+        I: IntoIterator<
             Item = (
                 &'a FileName,
                 DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
@@ -177,7 +177,7 @@ fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
 impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
     where
-        I: Iterator<
+        I: IntoIterator<
             Item = (
                 &'a FileName,
                 DirectoryEntry<&'a D, &'a ActionDirectoryMember>,

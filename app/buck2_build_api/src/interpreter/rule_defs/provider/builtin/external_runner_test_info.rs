@@ -339,7 +339,7 @@ fn unpack_opt_executor<'v>(
 
 fn check_all<I, T>(it: I) -> anyhow::Result<()>
 where
-    I: Iterator<Item = anyhow::Result<T>>,
+    I: IntoIterator<Item = anyhow::Result<T>>,
 {
     for e in it {
         e?;
@@ -349,9 +349,9 @@ where
 
 fn unwrap_all<I, T>(it: I) -> impl Iterator<Item = T>
 where
-    I: Iterator<Item = anyhow::Result<T>>,
+    I: IntoIterator<Item = anyhow::Result<T>>,
 {
-    it.map(|e| e.unwrap())
+    it.into_iter().map(|e| e.unwrap())
 }
 
 fn validate_external_runner_test_info<'v, V>(
