@@ -220,6 +220,40 @@ impl ConfigurationPredicate {
 }
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+pub struct ConfiguredTargetPatternExtra {
+    /// Configuration part of pattern `foo//bar:baz (cfg#ab01)`.
+    pub cfg: ConfigurationPredicate,
+}
+
+impl Display for ConfiguredTargetPatternExtra {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.cfg.display_suffix())
+    }
+}
+
+impl PatternType for ConfiguredTargetPatternExtra {
+    const NAME: &'static str = "configured target";
+
+    fn from_configured_providers(
+        providers: ConfiguredProvidersPatternExtra,
+    ) -> anyhow::Result<Self> {
+        let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
+        if providers != ProvidersName::Default {
+            return Err(PatternTypeError::ExpectingTargetNameWithoutProviders.into());
+        }
+        Ok(ConfiguredTargetPatternExtra { cfg })
+    }
+
+    fn matches_cfg(&self, cfg: &ConfigurationData) -> bool {
+        self.cfg.matches_cfg(cfg)
+    }
+
+    fn into_providers(self) -> ProvidersName {
+        ProvidersName::Default
+    }
+}
+
+#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub struct ConfiguredProvidersPatternExtra {
     pub providers: ProvidersName,
     /// Configuration part of pattern `foo//bar:baz[Provider] (cfg#ab01)`.

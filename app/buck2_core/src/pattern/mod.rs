@@ -892,6 +892,7 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
+    use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
@@ -1001,6 +1002,7 @@ mod tests {
 
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
+    #[test_case(PhantomData::< ConfiguredTargetPatternExtra >; "parsing ConfiguredTargetPatternExtra")]
     #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
         let package = CellPath::new(
@@ -1396,6 +1398,7 @@ mod tests {
 
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
     #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
+    #[test_case(PhantomData::< ConfiguredTargetPatternExtra >; "parsing ConfiguredTargetPatternExtra")]
     #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_pattern_failure<T: PatternType>(_: PhantomData<T>) {
         fails(ParsedPattern::<T>::parse_precise(&resolver(), ""), &[]);
