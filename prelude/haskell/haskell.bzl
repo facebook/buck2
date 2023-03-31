@@ -436,7 +436,11 @@ def _compile(
     hidden_args = [compile_args]
     compile_cmd.add(cmd_args(argsfile, format = "@{}").hidden(hidden_args))
 
-    ctx.actions.run(compile_cmd, category = "haskell_compile_" + link_style.value)
+    ctx.actions.run(
+        compile_cmd,
+        category = "haskell_compile_" + link_style.value,
+        no_outputs_cleanup = True,
+    )
 
     producing_indices = "-fwrite-ide-info" in ctx.attrs.compiler_flags
 
