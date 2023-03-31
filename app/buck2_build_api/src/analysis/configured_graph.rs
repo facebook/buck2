@@ -20,10 +20,11 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
+use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
-use crate::calculation::Calculation;
+use crate::deferred::calculation::DeferredCalculation;
 use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;

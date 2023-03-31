@@ -13,6 +13,7 @@ use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;

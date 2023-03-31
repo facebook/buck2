@@ -59,6 +59,7 @@ use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
 use crate::calculation::MissingTargetBehavior;
 use crate::configure_targets::load_compatible_patterns;
+use crate::nodes::calculation::NodeCalculation;
 use crate::query::cquery::environment::CqueryDelegate;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;

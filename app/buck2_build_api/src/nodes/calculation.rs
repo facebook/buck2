@@ -77,7 +77,7 @@ enum NodeCalculationError {
 }
 
 #[async_trait]
-pub(crate) trait NodeCalculation {
+pub trait NodeCalculation {
     /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
     /// results for the the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.

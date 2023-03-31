@@ -34,11 +34,9 @@ use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -56,19 +54,11 @@ use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::calculation as action_calculation;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::key::ActionKey;
-use crate::analysis::calculation as analysis_calculation;
-use crate::artifact_groups::calculation as artifact_group_calculation;
-use crate::artifact_groups::ArtifactGroup;
-use crate::artifact_groups::ArtifactGroupValues;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::context::HasBuildContextData;
-use crate::deferred::calculation as deferred_calculation;
-use crate::deferred::types::DeferredData;
-use crate::deferred::types::DeferredValueReady;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::nodes::calculation as node_calculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
+use crate::nodes::calculation::NodeCalculation;
 
 #[derive(Debug, Error)]
 enum BuildErrors {
@@ -161,41 +151,11 @@ pub trait Calculation<'c> {
         target: &T,
     ) -> anyhow::Result<T::Configured>;
 
-    /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
-    /// results for the the label's package, and so this is just a utility for accessing that, it
-    /// isn't separately cached.
-    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode>;
-
-    /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
-    async fn get_configured_target_node(
-        &self,
-        target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
-
-    /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
-    /// returned by the target's rule implementation function.
-    async fn get_providers(
-        &self,
-        target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
-
     /// Builds a specific 'Action' given the 'Action' itself
     async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
 
     /// Builds and materializes the given 'BuildArtifact'
     async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
-
-    /// Makes an 'Artifact' available to be accessed
-    async fn ensure_artifact_group(
-        &self,
-        input: &ArtifactGroup,
-    ) -> anyhow::Result<ArtifactGroupValues>;
-
-    /// Computes and returns the evaluated value of an 'DeferredData'
-    async fn compute_deferred_data<T: Send + Sync + 'static>(
-        &self,
-        data: &DeferredData<T>,
-    ) -> anyhow::Result<DeferredValueReady<T>>;
 }
 
 #[async_trait]
@@ -255,47 +215,12 @@ impl<'c> Calculation<'c> for DiceComputations {
         self.get_configured_target(target, None).await
     }
 
-    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
-        node_calculation::NodeCalculation::get_target_node(self, target).await
-    }
-
-    async fn get_configured_target_node(
-        &self,
-        target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        node_calculation::NodeCalculation::get_configured_target_node(self, target).await
-    }
-
-    async fn get_providers(
-        &self,
-        target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
-        analysis_calculation::RuleAnalysisCalculation::get_providers(self, target).await
-    }
-
     async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
         action_calculation::ActionCalculation::build_action(self, action_key).await
     }
 
     async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
         action_calculation::ActionCalculation::build_artifact(self, artifact).await
-    }
-
-    /// makes the 'Artifact' available to be accessed
-    async fn ensure_artifact_group(
-        &self,
-        input: &ArtifactGroup,
-    ) -> anyhow::Result<ArtifactGroupValues> {
-        // TODO consider if we need to cache this
-        artifact_group_calculation::ArtifactGroupCalculation::ensure_artifact_group(self, input)
-            .await
-    }
-
-    async fn compute_deferred_data<T: Send + Sync + 'static>(
-        &self,
-        data: &DeferredData<T>,
-    ) -> anyhow::Result<DeferredValueReady<T>> {
-        deferred_calculation::DeferredCalculation::compute_deferred_data(self, data).await
     }
 }
 

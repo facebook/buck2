@@ -19,8 +19,8 @@ mod tests {
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::bxl::types::BxlKey;
-    use buck2_build_api::calculation::Calculation;
     use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_build_api::deferred::calculation::DeferredCalculation;
     use buck2_build_api::deferred::types::BaseKey;
     use buck2_build_api::deferred::types::Deferred;
     use buck2_build_api::deferred::types::DeferredCtx;

@@ -11,7 +11,7 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_build_api::calculation::Calculation;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::query::cquery::environment::CqueryOwnerBehavior;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;

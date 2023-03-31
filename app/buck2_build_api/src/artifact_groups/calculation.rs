@@ -60,7 +60,7 @@ use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
 #[async_trait]
-pub(crate) trait ArtifactGroupCalculation {
+pub trait ArtifactGroupCalculation {
     /// Makes an 'Artifact' available to be accessed
     async fn ensure_artifact_group(
         &self,
@@ -75,6 +75,7 @@ impl ArtifactGroupCalculation for DiceComputations {
         &self,
         input: &ArtifactGroup,
     ) -> anyhow::Result<ArtifactGroupValues> {
+        // TODO consider if we need to cache this
         ensure_artifact_group_staged(self, input)
             .await?
             .to_group_values(input)

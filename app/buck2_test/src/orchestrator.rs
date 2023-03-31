@@ -16,6 +16,8 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
@@ -28,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;

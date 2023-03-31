@@ -19,5 +19,5 @@
 //! 'Deferred', which is the actual work to be ran when execution of the deferred is needed.
 
 pub mod base_deferred_key;
-pub(crate) mod calculation;
+pub mod calculation;
 pub mod types;

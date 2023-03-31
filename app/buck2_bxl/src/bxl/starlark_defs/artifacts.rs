@@ -17,7 +17,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -375,7 +375,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     ///     actions = ctx.bxl_actions.action_factory()
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
-    ///     
+    ///
     ///     ensured_with_abs_path = ensured.abs_path() # create a new EnsuredArtifact with absolute path to reuse
     ///     print(ensured_with_abs_path) # should return something like <ensured artifact ... >
     ///     ctx.output.print(ensured_with_abs_path) # should return the absolute path of the artifact
@@ -414,7 +414,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     ///     actions = ctx.bxl_actions.action_factory()
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
-    ///     
+    ///
     ///     ensured_with_rel_path = ensured.rel_path() # create a new EnsuredArtifact with relative path to reuse
     ///     print(ensured_with_rel_path) # should return something like <ensured artifact ... >
     ///     ctx.output.print(ensured_with_rel_path) # should return the relative path of the artifact
@@ -461,7 +461,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     ///     # some target with RunInfo outputs
     ///     result = ctx.analysis("root//bin/kind:target_with_outputs")
     ///     ensured = ctx.output.ensure_multiple(result.providers()[RunInfo]) # currently defaults to creating an EnsuredArtifactGroup with a relative path
-    ///     
+    ///
     ///     ensured_with_abs_path = ensured.abs_path() # create a new EnsuredArtifactGroup with absolute path to reuse
     ///     print(ensured_with_abs_path) # should return something like <ensured group ... >
     ///     ctx.output.print(ensured_with_abs_path) # should return the absolute path of the artifact
@@ -492,7 +492,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     ///     # some target with RunInfo outputs
     ///     result = ctx.analysis("root//bin/kind:target_with_outputs")
     ///     ensured = ctx.output.ensure_multiple(result.providers()[RunInfo]) # currently defaults to creating an EnsuredArtifactGroup with a relative path
-    ///     
+    ///
     ///     ensured_with_rel_path = ensured.rel_path() # create a new EnsuredArtifact with relative path to reuse
     ///     print(ensured_with_rel_path) # should return something like <ensured group ... >
     ///     ctx.output.print(ensured_with_rel_path) # should return the relative path of the artifact

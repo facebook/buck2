@@ -26,6 +26,7 @@ use starlark_map::small_set::SmallSet;
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
 use crate::calculation::MissingTargetBehavior;
+use crate::nodes::calculation::NodeCalculation;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(

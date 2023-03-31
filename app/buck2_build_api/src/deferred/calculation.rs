@@ -38,6 +38,7 @@ use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
+use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BxlCalculation;
 use crate::bxl::result::BxlResult;
@@ -55,9 +56,10 @@ use crate::deferred::types::DeferredValueAny;
 use crate::deferred::types::DeferredValueAnyReady;
 use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
+use crate::nodes::calculation::NodeCalculation;
 
 #[async_trait]
-pub(crate) trait DeferredCalculation {
+pub trait DeferredCalculation {
     /// Computes and returns the evaluated value of an 'DeferredData'
     async fn compute_deferred_data<T: Send + Sync + 'static>(
         &self,
@@ -197,7 +199,7 @@ async fn compute_deferred(
                 DeferredInput::ConfiguredTarget(target) => target_node_futs.push(async move {
                     Ok((
                         target.dupe(),
-                        crate::calculation::Calculation::get_configured_target_node(ctx, target)
+                        ctx.get_configured_target_node(target)
                             .await?
                             .require_compatible()?,
                     ))
@@ -218,16 +220,13 @@ async fn compute_deferred(
                         Ok((
                             artifact.dupe(),
                             // TODO(bobyf) import artifact calculation
-                            crate::calculation::Calculation::ensure_artifact_group(
-                                ctx,
-                                &ArtifactGroup::Artifact(artifact),
-                            )
-                            .await?
-                            .iter()
-                            .into_singleton()
-                            .context("Expected Artifact to yield a single value")?
-                            .1
-                            .dupe(),
+                            ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact))
+                                .await?
+                                .iter()
+                                .into_singleton()
+                                .context("Expected Artifact to yield a single value")?
+                                .1
+                                .dupe(),
                         ))
                     })
                 }
@@ -247,11 +246,8 @@ async fn compute_deferred(
                 async move {
                     futures::future::try_join_all(materialized_artifacts.iter().map(
                         |artifact| async {
-                            crate::calculation::Calculation::ensure_artifact_group(
-                                ctx,
-                                &ArtifactGroup::Artifact(artifact.dupe()),
-                            )
-                            .await
+                            ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
+                                .await
                         },
                     ))
                     .await?;

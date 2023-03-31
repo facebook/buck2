@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
