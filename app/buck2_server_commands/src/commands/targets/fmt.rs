@@ -143,7 +143,7 @@ impl TargetFormatter for JsonFormat {
         self.writer.separator(buffer)
     }
 
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
+    fn target(&self, _package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
         self.writer.entry_start(buffer);
         let mut first = true;
 
@@ -193,7 +193,7 @@ impl TargetFormatter for JsonFormat {
             });
         }
         print_attr(self, buffer, &mut first, PACKAGE, || {
-            format!("\"{}\"", package)
+            format!("\"{}\"", target_info.node.label().pkg())
         });
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
