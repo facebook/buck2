@@ -10,6 +10,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::iter;
 
 use allocative::Allocative;
 use derive_more::Display;
@@ -112,6 +113,23 @@ impl Display for ProvidersName {
                 write!(f, "#{}", s)
             }
         }
+    }
+}
+
+impl ProvidersName {
+    pub fn push(&self, name: ProviderName) -> Self {
+        let items = match self {
+            ProvidersName::Default => vec![name],
+            ProvidersName::NonDefault(x) => match &**x {
+                NonDefaultProvidersName::Named(xs) => {
+                    xs.iter().cloned().chain(iter::once(name)).collect()
+                }
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => return self.clone(),
+            },
+        };
+        ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+            items.into_boxed_slice(),
+        )))
     }
 }
 

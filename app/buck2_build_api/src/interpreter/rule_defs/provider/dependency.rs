@@ -12,6 +12,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProviderName;
 use buck2_interpreter::types::label::Label;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -25,8 +26,15 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use thiserror::Error;
 
 use crate::interpreter::rule_defs::provider::ProviderCollection;
+
+#[derive(Debug, Error)]
+enum DependencyError {
+    #[error("Unknown subtarget, could not find `{0}`")]
+    UnknownSubtarget(String),
+}
 
 /// Wraps a dependency's `ProvidersLabel` and the result of analysis together for users' rule implementation functions
 ///
@@ -115,6 +123,27 @@ fn dependency_functions(builder: &mut MethodsBuilder) {
             .values()
             .copied()
             .collect())
+    }
+
+    /// Obtain the dependency representing a subtarget. In most cases you will want to use
+    /// `x[DefaultInfo].sub_targets["foo"]` to get the _providers_ of the subtarget, but if you
+    /// need a real `"dependency"` type (e.g. for use with `ctx.action.anon_target`) then use
+    /// this method.
+    fn sub_target<'v>(
+        this: &Dependency<'v>,
+        #[starlark(require = pos)] subtarget: &str,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Dependency<'v>> {
+        let di = this.provider_collection()?.default_info();
+        let providers = di
+            .get_sub_target_providers(subtarget)
+            .ok_or_else(|| DependencyError::UnknownSubtarget(subtarget.to_owned()))?;
+        let lbl = Label::from_value(this.label).unwrap().inner();
+        let lbl = ConfiguredProvidersLabel::new(
+            lbl.target().clone(),
+            lbl.name().push(ProviderName::new(subtarget.to_owned())?),
+        );
+        Ok(Dependency::new(heap, lbl, providers.to_value()))
     }
 
     fn get<'v>(this: &Dependency<'v>, index: Value<'v>) -> anyhow::Result<Value<'v>> {

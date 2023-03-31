@@ -322,6 +322,18 @@ impl<'v> Freeze for ProviderCollection<'v> {
     }
 }
 
+impl<'v> ProviderCollection<'v> {
+    pub fn default_info(&self) -> FrozenRef<'static, FrozenDefaultInfo> {
+        self.providers
+            .get(DefaultInfoCallable::provider_id())
+            .expect("DefaultInfo should always be set")
+            .unpack_frozen()
+            .expect("Provider collections are always frozen")
+            .downcast_frozen_ref::<FrozenDefaultInfo>()
+            .expect("DefaultInfo should be of the right type")
+    }
+}
+
 impl FrozenProviderCollection {
     pub fn default_info(&self) -> FrozenRef<'static, FrozenDefaultInfo> {
         self.get_provider(DefaultInfoCallable::provider_id_t())
