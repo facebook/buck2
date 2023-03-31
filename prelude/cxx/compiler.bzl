@@ -54,6 +54,11 @@ def cc_dep_files(actions: "actions", filename_base: str.type) -> (cmd_args.type,
 
     return (cmd_args(intermediary_dep_file), cmd_args(["-MD", "-MF", intermediary_dep_file]))
 
+def tree_style_cc_dep_files(
+        _actions: "actions",
+        _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
+    return (cmd_args(), cmd_args(["-H"]))
+
 def windows_cc_dep_files(
         _actions: "actions",
         _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
@@ -65,6 +70,9 @@ def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type)
 
     if dep_tracking_mode.value == "show_includes":
         return windows_cc_dep_files
+
+    if dep_tracking_mode.value == "show_headers":
+        return tree_style_cc_dep_files
 
     return None
 
