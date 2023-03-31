@@ -58,7 +58,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
         executable = cxx_output.binary,
-        external_debug_info = [external_debug_info] if external_debug_info != None else [],
+        external_debug_info = external_debug_info,
         action_identifier = cxx_output.binary.short_path,
     )
     cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
