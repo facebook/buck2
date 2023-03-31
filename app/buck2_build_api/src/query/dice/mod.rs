@@ -42,12 +42,10 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_events::dispatch::console_message;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::compatibility::IncompatiblePlatformReason;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
@@ -56,10 +54,10 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
-use starlark::collections::SmallSet;
 
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
+use crate::configure_targets;
 use crate::query::cquery::environment::CqueryDelegate;
 use crate::query::uquery::environment::QueryLiterals;
 use crate::query::uquery::environment::UqueryDelegate;
@@ -309,69 +307,6 @@ impl<'c> CqueryDelegate for DiceQueryDelegate<'c> {
     }
 }
 
-// Returns a tuple of compatible and incompatible targets.
-fn split_compatible_incompatible(
-    targets: impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
-) -> anyhow::Result<(
-    TargetSet<ConfiguredTargetNode>,
-    SmallSet<ConfiguredTargetLabel>,
-)> {
-    let mut target_set = TargetSet::new();
-    let mut incompatible_targets = SmallSet::new();
-
-    for res in targets {
-        match res? {
-            MaybeCompatible::Incompatible(reason) => {
-                incompatible_targets.insert(reason.target.dupe());
-            }
-            MaybeCompatible::Compatible(target) => {
-                target_set.insert(target);
-            }
-        }
-    }
-    Ok((target_set, incompatible_targets))
-}
-
-/// Converts target nodes to a set of compatible configured target nodes.
-pub async fn get_compatible_targets(
-    ctx: &DiceComputations,
-    loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
-    global_target_platform: Option<TargetLabel>,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-    let mut by_package_futs: Vec<_> = Vec::new();
-    for (_package, result) in loaded_targets {
-        let targets = result?;
-        let global_target_platform = global_target_platform.dupe();
-
-        by_package_futs.push(ctx.temporary_spawn(|ctx| async move {
-            let ctx = &ctx;
-            let global_target_platform = global_target_platform.as_ref();
-            let target_futs: Vec<_> = targets.map(|target| async move {
-                let target = ctx
-                    .get_configured_target(target.label(), global_target_platform)
-                    .await?;
-                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-            });
-            futures::future::join_all(target_futs).await
-        }));
-    }
-
-    let (compatible_targets, incompatible_targets) = split_compatible_incompatible(
-        futures::future::join_all(by_package_futs)
-            .await
-            .into_iter()
-            .flatten(),
-    )?;
-
-    if !incompatible_targets.is_empty() {
-        console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-            incompatible_targets.iter(),
-        ));
-    }
-
-    Ok(compatible_targets)
-}
-
 #[async_trait]
 impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
     async fn eval_literals(
@@ -381,7 +316,7 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns = load_patterns(self.ctx, parsed_patterns).await?;
 
-        get_compatible_targets(
+        configure_targets::get_compatible_targets(
             self.ctx,
             loaded_patterns.iter_loaded_targets_by_package(),
             self.global_target_platform.dupe(),
