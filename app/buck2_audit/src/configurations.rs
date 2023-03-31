@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
+use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -55,7 +56,8 @@ impl AuditSubcommand for AuditConfigurationsCommand {
             }
         } else {
             for cfg in &self.configs {
-                let cfg = ConfigurationData::lookup_from_string(cfg)?;
+                let cfg = BoundConfigurationId::parse(cfg)?;
+                let cfg = ConfigurationData::lookup_bound(cfg)?;
                 print_cfg(&mut stdout, &cfg)?;
             }
         }

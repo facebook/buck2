@@ -181,8 +181,7 @@ impl ConfigurationData {
     ///
     /// This can only find configurations that have otherwise already been encountered by
     /// the current daemon process.
-    pub fn lookup_from_string(cfg: &str) -> anyhow::Result<Self> {
-        let cfg = BoundConfigurationId::parse(cfg)?;
+    pub fn lookup_bound(cfg: BoundConfigurationId) -> anyhow::Result<Self> {
         match INTERNER.get(ConfigurationHashRef(cfg.hash.as_str())) {
             Some(found_cfg) => {
                 let found_cfg = ConfigurationData(found_cfg);
@@ -397,6 +396,7 @@ impl HashedConfigurationPlatform {
 mod tests {
     use std::collections::BTreeMap;
 
+    use crate::configuration::bound_id::BoundConfigurationId;
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
@@ -458,9 +458,10 @@ mod tests {
             configuration.to_string()
         );
 
-        let looked_up =
-            ConfigurationData::lookup_from_string("cfg_for//:testing_exec#fd698fb05d52efbc")
-                .unwrap();
+        let looked_up = ConfigurationData::lookup_bound(
+            BoundConfigurationId::parse("cfg_for//:testing_exec#fd698fb05d52efbc").unwrap(),
+        )
+        .unwrap();
         assert_eq!(configuration, looked_up);
     }
 }

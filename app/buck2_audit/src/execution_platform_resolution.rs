@@ -14,6 +14,7 @@ use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
+use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -65,7 +66,8 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                                 ));
                             }
                         };
-                        let cfg = ConfigurationData::lookup_from_string(cfg_str)?;
+                        let cfg = BoundConfigurationId::parse(cfg_str)?;
+                        let cfg = ConfigurationData::lookup_bound(cfg)?;
                         let target = pattern_parser
                             .parse_pattern::<TargetPatternExtra>(target)?
                             .as_target_label(target)?;
