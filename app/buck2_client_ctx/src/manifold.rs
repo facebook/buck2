@@ -242,7 +242,7 @@ impl<'a> FileUploader<'a> {
     }
 }
 
-async fn wait_for_command<F>(
+pub async fn wait_for_command<F>(
     timeout_s: Option<u64>,
     child: Child,
     error: F,
@@ -270,7 +270,7 @@ where
     Ok(())
 }
 
-fn curl_write_command(
+pub fn curl_write_command(
     bucket: BucketInfo,
     manifold_bucket_path: &str,
     ttl_s: Option<u64>,
@@ -316,6 +316,45 @@ fn curl_write_command(
         ));
     }
     upload.args([
+        "--data-binary",
+        "@-", // stdin
+        &url,
+        "-E",
+    ]);
+    upload.arg(cert);
+    Ok(Some(upload))
+}
+
+pub fn curl_append_command(
+    bucket: BucketInfo,
+    manifold_bucket_path: &str,
+    offset: u64,
+    cert: &OsString,
+) -> anyhow::Result<Option<Command>> {
+    if cfg!(windows) {
+        // We do not have `curl` on Windows.
+        return Ok(None);
+    }
+    let manifold_url = match log_upload_url() {
+        None => return Ok(None),
+        Some(x) => x,
+    };
+    let url = format!(
+        "{}/v0/append/{}?bucketName={}&apiKey={}&timeoutMsec=20000&writeOffset={}",
+        manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
+    );
+    tracing::debug!(
+        "Appending to event log to `{}` using certificate `{}`",
+        url,
+        cert.to_string_lossy(),
+    );
+    let mut upload = buck2_util::process::async_background_command("curl");
+    upload.args([
+        "--silent",
+        "--show-error",
+        "--fail",
+        "-X",
+        "POST",
         "--data-binary",
         "@-", // stdin
         &url,
