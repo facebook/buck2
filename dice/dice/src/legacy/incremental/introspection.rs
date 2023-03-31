@@ -161,7 +161,7 @@ where
         Box::new(self.versioned_cache.iter().map(move |e| {
             let k = AnyKey::new(e.key().clone());
             SerializedGraphNodesForKey {
-                id: map_id(AnyKey::new(e.key().clone())),
+                id: map_id(k.clone()),
                 key: k.to_string(),
                 type_name: k.short_type_name().to_owned(),
                 nodes: e

@@ -215,11 +215,13 @@ pub(crate) trait KeyForIntrospection: Display + 'static {
     fn type_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
+
+    fn box_clone(&self) -> Box<AnyKey>;
 }
 
 impl<K> KeyForIntrospection for K
 where
-    K: Display + Hash + Eq + 'static,
+    K: Clone + Display + Hash + Eq + 'static,
 {
     fn get_key_equality(&self) -> PartialEqAny {
         PartialEqAny::new(self)
@@ -227,6 +229,10 @@ where
 
     fn hash(&self, mut state: &mut dyn Hasher) {
         K::hash(self, &mut state)
+    }
+
+    fn box_clone(&self) -> Box<AnyKey> {
+        Box::new(AnyKey::new(self.clone()))
     }
 }
 
@@ -264,6 +270,14 @@ impl AnyKey {
 
     pub fn short_type_name(&self) -> &'static str {
         short_type_name(self.type_name())
+    }
+}
+
+impl Clone for AnyKey {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.box_clone(),
+        }
     }
 }
 
