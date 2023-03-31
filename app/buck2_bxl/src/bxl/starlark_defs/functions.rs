@@ -22,6 +22,7 @@ use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
@@ -108,6 +109,19 @@ pub fn register_target_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(len(targets))
     /// ```
     fn target_set() -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        Ok(StarlarkTargetSet::from(TargetSet::new()))
+    }
+
+    /// Creates an empty target set for unconfigured nodes.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_utarget_set(ctx):
+    ///     targets = utarget_set()
+    ///     ctx.output.print(type(targets))
+    ///     ctx.output.print(len(targets))
+    /// ```
+    fn utarget_set() -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet::from(TargetSet::new()))
     }
 }
