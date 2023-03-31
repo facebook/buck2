@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
@@ -58,11 +59,11 @@ def windows_cc_dep_files(
         _filename_base: str.type) -> (cmd_args.type, cmd_args.type):
     return (cmd_args(), cmd_args(["/showIncludes"]))
 
-def get_headers_dep_files_flags_factory(compiler_type: str.type) -> ["function", None]:
-    if compiler_type in ["clang", "gcc", "clang_windows"]:
+def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode.type) -> ["function", None]:
+    if dep_tracking_mode.value == "makefile":
         return cc_dep_files
 
-    if compiler_type in ["windows", "clang_cl"]:
+    if dep_tracking_mode.value == "show_includes":
         return windows_cc_dep_files
 
     return None

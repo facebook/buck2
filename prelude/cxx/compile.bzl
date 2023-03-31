@@ -21,6 +21,7 @@ load(
     "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 load(":debug.bzl", "SplitDebugMode")
 load(
     ":headers.bzl",
@@ -54,6 +55,14 @@ CxxExtension = enum(
     ".hpp",
 )
 
+# File types for dep files
+DepFileType = enum(
+    "cpp",
+    "c",
+    "cuda",
+    "asm",
+)
+
 # Information on argsfiles created for Cxx compilation.
 _CxxCompileArgsfile = record(
     # The generated argsfile
@@ -78,10 +87,8 @@ _HeadersDepFiles = record(
     # get it to emit the dep file. This will receive the output dep file as an
     # input.
     mk_flags = field("function"),
-    # Compiler type to determine which dep file processor to use.
-    compiler_type = field(str.type),
-    # File type to determine which dep file processor to use.
-    file_type = field(str.type),
+    # Dependency tracking mode to know how to generate dep file
+    dep_tracking_mode = field(DepTrackingMode.type),
 )
 
 # Information about how to compile a source file of particular extension.
@@ -213,14 +220,14 @@ def create_compile_cmds(
             headers_dep_files = None
             dep_file_file_type_hint = _dep_file_type(ext)
             if dep_file_file_type_hint != None and toolchain.use_dep_files:
-                mk_dep_files_flags = get_headers_dep_files_flags_factory(compiler_info.compiler_type)
+                tracking_mode = _get_dep_tracking_mode(toolchain, dep_file_file_type_hint)
+                mk_dep_files_flags = get_headers_dep_files_flags_factory(tracking_mode)
                 if mk_dep_files_flags:
                     headers_dep_files = _HeadersDepFiles(
                         processor = cmd_args(compiler_info.dep_files_processor),
                         mk_flags = mk_dep_files_flags,
                         tag = headers_tag,
-                        compiler_type = compiler_info.compiler_type,
-                        file_type = dep_file_file_type_hint,
+                        dep_tracking_mode = tracking_mode,
                     )
 
             argsfile_by_ext[ext.value] = _mk_argsfile(ctx, compiler_info, pre, ext, headers_tag)
@@ -326,8 +333,7 @@ def compile_cxx(
             # command.
             cmd = cmd_args([
                 headers_dep_files.processor,
-                headers_dep_files.compiler_type,
-                headers_dep_files.file_type,
+                headers_dep_files.dep_tracking_mode.value,
                 processor_flags,
                 headers_dep_files.tag.tag_artifacts(dep_file),
                 cmd,
@@ -409,7 +415,7 @@ def _get_compile_base(compiler_info: "_compiler_info") -> "cmd_args":
 
     return cmd
 
-def _dep_file_type(ext: CxxExtension.type) -> [str.type, None]:
+def _dep_file_type(ext: CxxExtension.type) -> [DepFileType.type, None]:
     # Raw assembly doesn't make sense to capture dep files for.
     if ext.value in (".s", ".S", ".asm"):
         return None
@@ -420,13 +426,13 @@ def _dep_file_type(ext: CxxExtension.type) -> [str.type, None]:
 
     # Return the file type aswell
     if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp"):
-        return "cpp"
+        return DepFileType("cpp")
     elif ext.value in (".c", ".m"):
-        return "c"
+        return DepFileType("c")
     elif ext.value == ".cu":
-        return "cuda"
+        return DepFileType("cuda")
     elif ext.value in (".asmpp"):
-        return "asm"
+        return DepFileType("asm")
     else:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
@@ -489,3 +495,11 @@ def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
         # flags ordering-dependent build errors
         ctx.attrs.compiler_flags
     )
+
+def _get_dep_tracking_mode(toolchain: "provider", file_type: DepFileType.type) -> DepTrackingMode.type:
+    if file_type == DepFileType("cpp"):
+        return toolchain.cpp_dep_tracking_mode
+    elif file_type == DepFileType("cuda"):
+        return toolchain.cuda_dep_tracking_mode
+    else:
+        return DepTrackingMode("makefile")
