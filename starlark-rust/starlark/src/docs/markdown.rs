@@ -140,24 +140,26 @@ struct FunctionDetailsRenderer<'a> {
 }
 
 impl<'a> FunctionDetailsRenderer<'a> {
-    /// If there are any parameter docs to render, render them as a table.
-    fn parameters_table(&self, flavor: MarkdownFlavor) -> Option<String> {
-        // If we don't have any meaningful parameter docs, just omit the table entirely.
-        let has_any_docs = self.f.params.iter().any(|p| match p {
-            Param::Arg { docs, .. } => docs.is_some(),
-            Param::NoArgs => false,
-            Param::Args { docs, .. } => docs.is_some(),
-            Param::Kwargs { docs, .. } => docs.is_some(),
-        });
+    /// If there are any parameter docs to render, render them as a list.
+    fn parameters_list(&self, flavor: MarkdownFlavor) -> Option<String> {
+        // Filter out parameters without docs
+        let has_docs: Vec<_> = self
+            .f
+            .params
+            .iter()
+            .filter(|p| match p {
+                Param::Arg { docs, .. } => docs.is_some(),
+                Param::NoArgs => false,
+                Param::Args { docs, .. } => docs.is_some(),
+                Param::Kwargs { docs, .. } => docs.is_some(),
+            })
+            .collect();
 
-        if !has_any_docs {
+        if has_docs.is_empty() {
             return None;
         }
 
-        let header = TableHeader(&["Name", "Details"]);
-        let rows = self
-            .f
-            .params
+        let param_list: String = has_docs
             .iter()
             .filter_map(|p| match p {
                 Param::Arg { name, docs, .. } => {
@@ -174,11 +176,9 @@ impl<'a> FunctionDetailsRenderer<'a> {
                     Some((name.clone(), docs))
                 }
             })
-            .map(|(name, docs)| TableRow(vec![Box::new(Code(Box::new(name))), Box::new(docs)]))
+            .map(|(name, docs)| ParamList(name, docs).render_markdown(flavor))
             .collect();
-
-        let table = Table(Some("starlark_parameters_table"), header, rows);
-        table.render_markdown_opt(flavor)
+        Some(param_list)
     }
 }
 
@@ -201,7 +201,7 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                 let details =
                     DocStringRenderer(DSOpts::Details, &self.f.docs).render_markdown_opt(flavor);
 
-                let parameter_docs = self.parameters_table(flavor);
+                let parameter_docs = self.parameters_list(flavor);
                 let return_docs = DocStringRenderer(DSOpts::Combined, &self.f.ret.docs)
                     .render_markdown_opt(flavor);
 
@@ -516,71 +516,13 @@ impl<'a> RenderMarkdown for CodeBlock<'a> {
     }
 }
 
-/// A table with an optional css class to be applied.
-struct Table<'a>(Option<&'a str>, TableHeader<'a>, Vec<TableRow<'a>>);
+/// A simple list to represent "`parameter`: definition" pais
+struct ParamList(String, String);
 
-impl<'a> RenderMarkdown for Table<'a> {
+impl RenderMarkdown for ParamList {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
-            MarkdownFlavor::DocFile => {
-                let rows = self
-                    .2
-                    .iter()
-                    .filter_map(|row| row.render_markdown_opt(flavor))
-                    .join("\n");
-
-                self.1.render_markdown_opt(flavor).map(|header| {
-                    let css_class = format!("starlark_table{}", self.0.map(|c| format!(" {}", c)).unwrap_or_default());
-                    format!(
-                        "<table class=\"{}\">\n<thead>\n{}\n</thead>\n<tbody>\n{}\n</tbody>\n</table>",
-                        css_class, header, rows
-                    )
-                })
-            }
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
-/// The header of a table including all decoration needed. (`<thead>`, `| --- |` rows, etc)
-struct TableHeader<'a>(&'a [&'a str]);
-
-impl<'a> RenderMarkdown for TableHeader<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => Some(format!(
-                "<tr>\n{}\n</tr>",
-                self.0
-                    .iter()
-                    .map(|col| format!("<th>{}</th>", col))
-                    .join("\n")
-            )),
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
-/// A row for a table with all decoration handled. Does not handled multi-line cells at the moment
-/// due to a restriction in the default markdown table syntax.
-struct TableRow<'a>(Vec<Box<dyn RenderMarkdown + 'a>>);
-
-impl<'a> RenderMarkdown for TableRow<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => Some(format!(
-                "<tr>\n{}\n</tr>",
-                self.0
-                    .iter()
-                    .map(|col| {
-                        let text = col.render_markdown_opt(flavor).unwrap_or_default();
-                        if text.is_empty() {
-                            "<td></td>".to_owned()
-                        } else {
-                            format!("<td>\n\n{}\n\n</td>", text)
-                        }
-                    })
-                    .join("\n")
-            )),
+            MarkdownFlavor::DocFile => Some(format!("* `{}`: {}\n", self.0, self.1,)),
             MarkdownFlavor::LspSummary => None,
         }
     }
@@ -596,11 +538,9 @@ mod test {
     use crate::docs::markdown::DocStringRenderer;
     use crate::docs::markdown::FunctionDetailsRenderer;
     use crate::docs::markdown::MarkdownFlavor;
+    use crate::docs::markdown::ParamList;
     use crate::docs::markdown::PropertyDetailsRenderer;
     use crate::docs::markdown::RenderMarkdown;
-    use crate::docs::markdown::Table;
-    use crate::docs::markdown::TableHeader;
-    use crate::docs::markdown::TableRow;
     use crate::docs::markdown::TypeRenderer;
     use crate::docs::Doc;
     use crate::docs::DocItem;
@@ -820,28 +760,15 @@ mod test {
         let f3_prototype = prototype("f3", &f3);
         let f4_prototype = prototype("f4", &f4);
 
-        let rendered_params = render(&Table(
-            Some("starlark_parameters_table"),
-            TableHeader(&["Name", "Details"]),
-            vec![
-                TableRow(vec![
-                    Box::new(Code(Box::new("p1".to_owned()))),
-                    Box::new(render_ds_combined(&ds)),
-                ]),
-                TableRow(vec![
-                    Box::new(Code(Box::new("p2".to_owned()))),
-                    Box::new(render_ds_combined(&ds)),
-                ]),
-                TableRow(vec![
-                    Box::new(Code(Box::new("*p3".to_owned()))),
-                    Box::new(render_ds_combined(&ds)),
-                ]),
-                TableRow(vec![
-                    Box::new(Code(Box::new("**p4".to_owned()))),
-                    Box::new(render_ds_combined(&ds)),
-                ]),
-            ],
-        ));
+        let rendered_params: String = vec![
+            ParamList("p1".to_owned(), render_ds_combined(&ds)),
+            ParamList("p2".to_owned(), render_ds_combined(&ds)),
+            ParamList("*p3".to_owned(), render_ds_combined(&ds)),
+            ParamList("**p4".to_owned(), render_ds_combined(&ds)),
+        ]
+        .iter()
+        .map(|p| render(p))
+        .collect();
 
         let expected_f1 = format!("## f1\n\n{prototype}", prototype = f1_prototype);
         let expected_f2 = format!(
@@ -1089,53 +1016,6 @@ mod test {
                 p: &Property { docs: ds, typ }
             })
         );
-    }
-
-    #[test]
-    fn doc_file_table() {
-        let header = TableHeader(&["column1", "col2", "column3"]);
-        let rows = vec![
-            TableRow(vec![
-                Box::new("h1".to_owned()),
-                Box::new("h2".to_owned()),
-                Box::new(Code(Box::new("h3".to_owned()))),
-            ]),
-            TableRow(vec![
-                Box::new("h4".to_owned()),
-                Box::new("h5".to_owned()),
-                Box::new(Code(Box::new("h6".to_owned()))),
-            ]),
-        ];
-        let expected = format!(
-            "<table class=\"starlark_table css_class\">\n<thead>\n{}\n</thead>\n<tbody>\n{}\n{}\n</tbody>\n</table>",
-            render(&header),
-            render(rows.get(0).unwrap()),
-            render(rows.get(1).unwrap())
-        );
-
-        let table = Table(Some("css_class"), header, rows);
-
-        assert_eq!(expected, render(&table));
-    }
-
-    #[test]
-    fn doc_file_table_header() {
-        let expected = "<tr>\n<th>column1</th>\n<th>col2</th>\n<th>column3</th>\n</tr>";
-        let header = TableHeader(&["column1", "col2", "column3"]);
-
-        assert_eq!(expected, render(&header));
-    }
-
-    #[test]
-    fn doc_file_table_row() {
-        let expected = "<tr>\n<td>\n\nh1\n\n</td>\n<td>\n\n`h2`\n\n</td>\n<td></td>\n</tr>";
-        let row = TableRow(vec![
-            Box::new("h1".to_owned()),
-            Box::new(Code(Box::new("h2".to_owned()))),
-            Box::<String>::default(),
-        ]);
-
-        assert_eq!(expected, render(&row));
     }
 
     #[test]
