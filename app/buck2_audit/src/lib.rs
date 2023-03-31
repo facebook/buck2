@@ -16,6 +16,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -76,18 +77,6 @@ pub enum AuditCommand {
     Output(AuditOutputCommand),
 }
 
-#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
-pub struct AuditCommandCommonOptions {
-    #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
-}
-
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to
 /// add them without the boilerplate necessary for normal commands. The main difference
 /// is that there is not a custom endpoint added in the daemon for each subcommand, instead
@@ -105,7 +94,7 @@ pub trait AuditSubcommand: Send + Sync + 'static {
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions;
+    fn common_opts(&self) -> &CommonCommandOptions;
 }
 
 impl AuditCommand {

@@ -12,11 +12,11 @@ use std::io::Write;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -26,7 +26,7 @@ use crate::AuditSubcommand;
 )]
 pub struct DeferredMaterializerCommand {
     #[clap(flatten)]
-    pub common_opts: AuditCommandCommonOptions,
+    pub common_opts: CommonCommandOptions,
 
     #[clap(subcommand)]
     pub subcommand: DeferredMaterializerSubcommand,
@@ -116,7 +116,7 @@ impl AuditSubcommand for DeferredMaterializerCommand {
         anyhow::Ok(())
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

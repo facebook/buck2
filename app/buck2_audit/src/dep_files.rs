@@ -18,6 +18,7 @@ use buck2_action_impl::actions::impls::run::dep_files::StoredFingerprints;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
@@ -30,7 +31,6 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -40,7 +40,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditDepFilesCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(help = "Target to query dep files for")]
     pattern: String,
@@ -141,7 +141,7 @@ impl AuditSubcommand for AuditDepFilesCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

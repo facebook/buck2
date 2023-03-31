@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -28,7 +29,6 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(thiserror::Error, Debug)]
@@ -46,7 +46,7 @@ enum VisibilityCommandError {
 )]
 pub struct AuditVisibilityCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Target pattern(s) to analyze.")]
     patterns: Vec<String>,
@@ -162,7 +162,7 @@ impl AuditSubcommand for AuditVisibilityCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

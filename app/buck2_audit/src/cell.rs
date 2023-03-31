@@ -11,6 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellAlias;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -18,7 +19,6 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use indexmap::IndexMap;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -28,7 +28,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditCellCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(long = "json", help = "Output in JSON format")]
     json: bool,
@@ -143,7 +143,7 @@ impl AuditSubcommand for AuditCellCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

@@ -14,12 +14,12 @@ mod package_deps;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
@@ -47,7 +47,7 @@ impl AuditSubcommand for StarlarkCommand {
         }
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         match self {
             StarlarkCommand::Module(cmd) => &cmd.common_opts,
             StarlarkCommand::PackageDeps(cmd) => &cmd.common_opts,

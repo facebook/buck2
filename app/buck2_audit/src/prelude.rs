@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
@@ -20,7 +21,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -30,7 +30,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditPreludeCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]
@@ -72,7 +72,7 @@ impl AuditSubcommand for AuditPreludeCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

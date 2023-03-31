@@ -15,6 +15,7 @@ use buck2_build_api::calculation::Calculation;
 use buck2_build_api::query::analysis::environment::classpath;
 use buck2_build_api::query::dice::get_compatible_targets;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -25,7 +26,6 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use indexmap::IndexMap;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -37,7 +37,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditClasspathCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Target patterns to audit")]
     patterns: Vec<String>,
@@ -131,7 +131,7 @@ impl AuditSubcommand for AuditClasspathCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

@@ -502,7 +502,7 @@ impl CommonConsoleOptions {
 
 /// Common options for commands like `build` or `query`.
 /// Not all the commands have all the options.
-#[derive(Debug, clap::Parser, Default)]
+#[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct CommonCommandOptions {
     /// Buckconfig and similar options.
     #[clap(flatten)]

@@ -11,6 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -50,7 +51,6 @@ use serde::Serialize;
 use serde::Serializer;
 use thiserror::Error;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, Error)]
@@ -68,7 +68,7 @@ enum AuditIncludesError {
 )]
 pub struct AuditIncludesCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     /// Print json representation of outputs
     #[clap(long)]
@@ -319,7 +319,7 @@ impl AuditSubcommand for AuditIncludesCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

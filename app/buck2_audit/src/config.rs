@@ -13,6 +13,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfigLocation;
@@ -25,7 +26,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use serde_json::json;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(
@@ -85,7 +85,7 @@ impl FromStr for ValueStyle {
 #[clap(name = "audit-config", about = "buck audit config")]
 pub struct AuditConfigCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(long = "cell")]
     cell: Option<String>,
@@ -301,7 +301,7 @@ impl AuditSubcommand for AuditConfigCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

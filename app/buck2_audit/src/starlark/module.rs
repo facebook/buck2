@@ -10,6 +10,7 @@
 use std::io::Write;
 
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -21,8 +22,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
-use crate::AuditCommandCommonOptions;
-
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
     name = "module",
@@ -33,7 +32,7 @@ pub struct StarlarkModuleCommand {
     import_path: String,
 
     #[clap(flatten)]
-    pub(crate) common_opts: AuditCommandCommonOptions,
+    pub(crate) common_opts: CommonCommandOptions,
 }
 
 impl StarlarkModuleCommand {

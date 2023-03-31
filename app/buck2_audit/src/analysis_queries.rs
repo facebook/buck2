@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
@@ -26,7 +27,6 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -36,7 +36,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditAnalysisQueriesCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(
         name = "TARGET_PATTERNS",
@@ -118,7 +118,7 @@ impl AuditSubcommand for AuditAnalysisQueriesCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

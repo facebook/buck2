@@ -25,6 +25,7 @@ use buck2_build_api::query::aquery::evaluator::get_dice_aquery_delegate;
 use buck2_build_api::query::dice::aquery::DiceAqueryDelegate;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::QueryOutputFormat;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -46,7 +47,6 @@ use tracing::debug;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, Error)]
@@ -64,7 +64,7 @@ pub(crate) enum AuditOutputError {
 )]
 pub struct AuditOutputCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(
         name = "OUTPUT_PATH",
@@ -280,7 +280,7 @@ impl AuditSubcommand for AuditOutputCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

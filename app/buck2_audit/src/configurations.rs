@@ -11,12 +11,12 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use itertools::Itertools;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -26,7 +26,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditConfigurationsCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(
         name = "configurations",
@@ -63,7 +63,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
         Ok(())
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }

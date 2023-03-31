@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
@@ -30,7 +31,6 @@ use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::AuditCommandCommonOptions;
 use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -40,7 +40,7 @@ use crate::AuditSubcommand;
 )]
 pub struct AuditProvidersCommand {
     #[clap(flatten)]
-    common_opts: AuditCommandCommonOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to analyze")]
     patterns: Vec<String>,
@@ -78,7 +78,7 @@ impl AuditSubcommand for AuditProvidersCommand {
             .await
     }
 
-    fn common_opts(&self) -> &AuditCommandCommonOptions {
+    fn common_opts(&self) -> &CommonCommandOptions {
         &self.common_opts
     }
 }
