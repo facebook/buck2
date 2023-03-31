@@ -6,8 +6,6 @@
 [![docs.rs availability](https://img.shields.io/docsrs/starlark?label=docs.rs)](https://docs.rs/starlark/)
 [![Build status](https://img.shields.io/github/workflow/status/facebookexperimental/starlark-rust/ci.svg)](https://github.com/facebookexperimental/starlark-rust/actions)
 
-_**NOTE:** Version 0.4.0 of this library changes maintainer from [Google](https://github.com/google/starlark-rust) to Facebook._
-
 There are several copies of this repo on GitHub, [facebookexperimental/starlark-rust](https://github.com/facebookexperimental/starlark-rust) is the canonical one.
 
 This project provides a Rust implementation of the [Starlark language](https://github.com/bazelbuild/starlark/blob/master/spec.md). Starlark (formerly codenamed Skylark) is a deterministic language inspired by Python3, used for configuration in the build systems [Bazel](https://bazel.build) and [Buck](https://buck.build). This project was originally developed [in this repo](https://github.com/google/starlark-rust), which contains a more extensive history.
@@ -20,6 +18,10 @@ $ cargo run
 $> 1+2
 3
 ```
+
+This project was started by [Damien Martin-Guillerez](https://github.com/damienmg).
+Version 0.4.0 of this library changed ownership
+[from Google](https://github.com/google/starlark-rust) to Facebook.
 
 ## Learn More
 
