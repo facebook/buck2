@@ -9,6 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -142,7 +143,8 @@ impl AuditSubcommand for AuditVisibilityCommand {
                 )
                 .await?;
 
-                let parsed_target_patterns = load_patterns(&ctx, parsed_patterns).await?;
+                let parsed_target_patterns =
+                    load_patterns(&ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
                 let mut nodes = TargetSet::<TargetNode>::new();
                 for (_package, result) in parsed_target_patterns.iter() {

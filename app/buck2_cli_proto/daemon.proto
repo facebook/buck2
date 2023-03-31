@@ -170,6 +170,7 @@ message ConfiguredTargetsRequest {
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
   bool target_call_stacks = 10;
+  bool skip_missing_targets = 11;
 }
 
 message ConfiguredTargetsResponse {

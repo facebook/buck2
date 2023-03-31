@@ -11,6 +11,7 @@ use std::fmt::Write;
 use std::iter;
 
 use async_trait::async_trait;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
@@ -77,8 +78,15 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         let global_target_platform =
             target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
-        let compatible_targets =
-            load_compatible_patterns(&ctx, parsed_patterns, global_target_platform).await?;
+        let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
+
+        let compatible_targets = load_compatible_patterns(
+            &ctx,
+            parsed_patterns,
+            global_target_platform,
+            skip_missing_targets,
+        )
+        .await?;
 
         let mut serialized_targets_output = String::new();
         for node in compatible_targets.into_iter() {

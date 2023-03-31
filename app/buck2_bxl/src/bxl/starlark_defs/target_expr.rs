@@ -11,6 +11,7 @@ use std::borrow::Cow;
 
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
@@ -227,6 +228,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                         ctx.async_ctx.0,
                         vec![pattern],
                         target_platform.dupe(),
+                        MissingTargetBehavior::Fail,
                     )
                     .await?;
                     Ok(Some(Self::TargetSet(Cow::Owned(loaded_patterns))))
@@ -340,7 +342,9 @@ impl<'v> TargetExpr<'v, TargetNode> {
                     Cow::Owned(TargetLabel::new(pkg, name.as_ref())),
                 ))),
                 pattern => {
-                    let loaded_patterns = load_patterns(ctx.async_ctx.0, vec![pattern]).await?;
+                    let loaded_patterns =
+                        load_patterns(ctx.async_ctx.0, vec![pattern], MissingTargetBehavior::Fail)
+                            .await?;
                     let mut target_set = TargetSet::new();
                     for (_package, results) in loaded_patterns.into_iter() {
                         target_set.extend(results?.into_values());

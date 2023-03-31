@@ -11,6 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_build_api::query::analysis::environment::classpath;
 use buck2_cli_proto::ClientContext;
@@ -69,8 +70,13 @@ impl AuditSubcommand for AuditClasspathCommand {
                 let target_platform =
                     target_platform_from_client_context(&client_ctx, server_ctx, &ctx).await?;
                 // Incompatible targets are skipped because this is an audit command
-                let targets =
-                    load_compatible_patterns(&ctx, parsed_patterns, target_platform).await?;
+                let targets = load_compatible_patterns(
+                    &ctx,
+                    parsed_patterns,
+                    target_platform,
+                    MissingTargetBehavior::Fail,
+                )
+                .await?;
 
                 let mut stdout = stdout.as_writer();
                 let artifact_fs = ctx.get_artifact_fs().await?;

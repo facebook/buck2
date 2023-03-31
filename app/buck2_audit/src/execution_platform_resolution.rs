@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
@@ -88,7 +89,7 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     }
                 }
 
-                let loaded_patterns = load_patterns(&ctx, target_patterns).await?;
+                let loaded_patterns = load_patterns(&ctx, target_patterns, MissingTargetBehavior::Fail).await?;
                 let target_platform = target_platform_from_client_context(
                     &client_ctx,
                     server_ctx,

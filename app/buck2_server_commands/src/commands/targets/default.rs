@@ -14,6 +14,7 @@ use std::io::Write;
 use std::path::Path;
 
 use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::targets_request;
@@ -90,7 +91,7 @@ pub(crate) async fn targets_batch(
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> anyhow::Result<TargetsResponse> {
-    let results = load_patterns(&dice, parsed_patterns).await?;
+    let results = load_patterns(&dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
     let target_hashes = match hash_options.graph_type {
         TargetHashGraphType::Configured => Some(

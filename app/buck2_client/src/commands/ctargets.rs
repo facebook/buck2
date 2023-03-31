@@ -33,6 +33,12 @@ pub struct ConfiguredTargetsCommand {
     #[clap(long)]
     target_call_stacks: bool,
 
+    /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
+    /// This option does not skip missing packages
+    /// and does not ignore errors of `BUCK` file evaluation.
+    #[clap(long)]
+    skip_missing_targets: bool,
+
     /// Patterns to interpret.
     #[clap(name = "TARGET_PATTERNS")]
     patterns: Vec<String>,
@@ -64,6 +70,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),
+                    skip_missing_targets: self.skip_missing_targets,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

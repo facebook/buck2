@@ -25,6 +25,7 @@ use starlark_map::small_set::SmallSet;
 
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
+use crate::calculation::MissingTargetBehavior;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(
@@ -93,8 +94,9 @@ pub async fn load_compatible_patterns(
     ctx: &DiceComputations,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_target_platform: Option<TargetLabel>,
+    skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
-    let loaded_patterns = load_patterns(ctx, parsed_patterns).await?;
+    let loaded_patterns = load_patterns(ctx, parsed_patterns, skip_missing_targets).await?;
     get_compatible_targets(
         ctx,
         loaded_patterns.iter_loaded_targets_by_package(),

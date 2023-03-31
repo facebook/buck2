@@ -78,8 +78,12 @@ impl EvaluationResult {
         &self.imports
     }
 
+    pub fn get_target<'a>(&'a self, name: &TargetNameRef) -> Option<&'a TargetNode> {
+        self.targets.get(name)
+    }
+
     pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<&'a TargetNode> {
-        self.targets.get(path).ok_or_else(|| {
+        self.get_target(path).ok_or_else(|| {
             EvalulationResultError::UnknownTarget {
                 target: path.to_owned(),
                 package: self.package().dupe(),

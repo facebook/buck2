@@ -57,6 +57,7 @@ use indexmap::indexset;
 
 use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
+use crate::calculation::MissingTargetBehavior;
 use crate::configure_targets::load_compatible_patterns;
 use crate::query::cquery::environment::CqueryDelegate;
 use crate::query::uquery::environment::QueryLiterals;
@@ -318,6 +319,7 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
             self.ctx,
             parsed_patterns,
             self.global_target_platform.dupe(),
+            MissingTargetBehavior::Fail,
         )
         .await
     }
@@ -327,7 +329,8 @@ impl<'c> QueryLiterals<ConfiguredTargetNode> for DiceQueryDelegate<'c> {
 impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
     async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        let loaded_patterns = load_patterns(self.ctx, parsed_patterns).await?;
+        let loaded_patterns =
+            load_patterns(self.ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
         let mut target_set = TargetSet::new();
         for (_package, results) in loaded_patterns.into_iter() {
             target_set.extend(results?.into_values());

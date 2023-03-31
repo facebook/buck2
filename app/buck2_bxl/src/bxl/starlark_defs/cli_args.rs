@@ -18,6 +18,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -423,7 +424,8 @@ impl CliArgType {
                         ctx.relative_dir.as_cell_path(),
                         x,
                     )?;
-                    let loaded = load_patterns(ctx.dice, vec![pattern]).await?;
+                    let loaded =
+                        load_patterns(ctx.dice, vec![pattern], MissingTargetBehavior::Fail).await?;
                     Some(CliArgValue::List(
                         loaded
                             .iter_loaded_targets()
