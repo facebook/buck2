@@ -556,6 +556,14 @@ impl ConfiguredTargetNode {
             x.value.hash(state);
         });
     }
+
+    /// If this node is a forward node, return the target it forwards to.
+    pub fn forward_target(&self) -> Option<&ConfiguredTargetNode> {
+        match &self.0.target_node {
+            TargetNodeOrForward::TargetNode(_) => None,
+            TargetNodeOrForward::Forward(_, n) => Some(n),
+        }
+    }
 }
 
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require

@@ -469,6 +469,7 @@ message CommandStart {
   oneof data {
     BuildCommandStart build = 20;
     TargetsCommandStart targets = 21;
+    ConfiguredTargetsCommandStart ctargets = 38;
     QueryCommandStart query = 22;
     CQueryCommandStart cquery = 23;
     TestCommandStart test = 24;
@@ -525,6 +526,8 @@ message TargetsCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
 
+message ConfiguredTargetsCommandStart {}
+
 message QueryCommandStart {
   // TODO(swgillespie) fill this with useful fields
 }
@@ -573,6 +576,7 @@ message CommandEnd {
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;
+    ConfiguredTargetsCommandEnd ctargets = 38;
     QueryCommandEnd query = 22;
     CQueryCommandEnd cquery = 23;
     TestCommandEnd test = 24;
@@ -639,6 +643,8 @@ message LspCommandEnd {}
 message TargetsCommandEnd {
   // TODO(swgillespie) fill this with useful fields
 }
+
+message ConfiguredTargetsCommandEnd {}
 
 message QueryCommandEnd {
   // TODO(swgillespie) fill this with useful fields

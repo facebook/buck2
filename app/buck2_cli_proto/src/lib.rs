@@ -124,6 +124,12 @@ impl HasRecordTargetCallStacks for TargetsRequest {
     }
 }
 
+impl HasRecordTargetCallStacks for ConfiguredTargetsRequest {
+    fn record_target_call_stacks(&self) -> bool {
+        self.target_call_stacks
+    }
+}
+
 macro_rules! result_convert {
     ( $name:ident ) => {
         impl From<$name> for command_result::Result {
@@ -269,6 +275,7 @@ result_convert!(UqueryResponse);
 result_convert!(CqueryResponse);
 result_convert!(TargetsResponse);
 result_convert!(TargetsShowOutputsResponse);
+result_convert!(ConfiguredTargetsResponse);
 result_convert!(GenericResponse);
 result_convert!(UnstableDocsResponse);
 result_convert!(ProfileResponse);
@@ -291,6 +298,7 @@ define_request!(PingRequest);
 define_request!(BuildRequest, has(context, build_options));
 define_request!(BxlRequest, has(context, build_options));
 define_request!(TargetsRequest, has(context));
+define_request!(ConfiguredTargetsRequest, has(context));
 define_request!(AqueryRequest, has(context));
 define_request!(CqueryRequest, has(context));
 define_request!(UqueryRequest, has(context));

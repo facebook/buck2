@@ -22,6 +22,8 @@ use async_trait::async_trait;
 use buck2_audit::server::server_audit_command;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
+use buck2_cli_proto::ConfiguredTargetsRequest;
+use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
@@ -40,6 +42,7 @@ use buck2_server::daemon::server::BuckdServerDependencies;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
 use buck2_server_commands::commands::build::build_command;
+use buck2_server_commands::commands::configured_targets::configured_targets_command;
 use buck2_server_commands::commands::install::install_command;
 use buck2_server_commands::commands::query::aquery::aquery_command;
 use buck2_server_commands::commands::query::cquery::cquery_command;
@@ -207,6 +210,14 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
         targets_show_outputs_command(ctx, partial_result_dispatcher, req).await
+    }
+    async fn ctargets(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: ConfiguredTargetsRequest,
+    ) -> anyhow::Result<ConfiguredTargetsResponse> {
+        configured_targets_command(ctx, partial_result_dispatcher, req).await
     }
     async fn docs(
         &self,

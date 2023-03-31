@@ -8,7 +8,7 @@
  */
 
 mod default;
-mod fmt;
+pub(crate) mod fmt;
 mod resolve_alias;
 mod streaming;
 

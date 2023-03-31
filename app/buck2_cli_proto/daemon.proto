@@ -165,6 +165,17 @@ message TargetsShowOutputsResponse {
   repeated TargetPaths targets_paths = 1;
 }
 
+// `buck2 ctargets` command
+message ConfiguredTargetsRequest {
+  ClientContext context = 1;
+  repeated buck.data.TargetPattern target_patterns = 2;
+  bool target_call_stacks = 10;
+}
+
+message ConfiguredTargetsResponse {
+  string serialized_targets_output = 100;
+}
+
 enum QueryOutputFormat {
   DEFAULT = 0;
   JSON = 1;
@@ -492,6 +503,7 @@ message CommandResult {
     PingResponse ping_response = 4;
     BuildResponse build_response = 5;
     TargetsResponse targets_response = 6;
+    ConfiguredTargetsResponse configured_targets_response = 23;
     CqueryResponse cquery_response = 7;
     UqueryResponse uquery_response = 8;
     TestResponse test_response = 9;
@@ -739,6 +751,7 @@ service DaemonApi {
   rpc Test(TestRequest) returns (stream MultiCommandProgress);
   rpc Targets(TargetsRequest) returns (stream MultiCommandProgress);
   rpc TargetsShowOutputs(TargetsRequest) returns (stream MultiCommandProgress);
+  rpc Ctargets(ConfiguredTargetsRequest) returns (stream MultiCommandProgress);
   rpc Aquery(AqueryRequest) returns (stream MultiCommandProgress);
   rpc Cquery(CqueryRequest) returns (stream MultiCommandProgress);
   rpc Uquery(UqueryRequest) returns (stream MultiCommandProgress);

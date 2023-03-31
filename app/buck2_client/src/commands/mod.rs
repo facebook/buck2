@@ -13,6 +13,7 @@ pub mod bxl;
 pub mod clean;
 pub mod clean_stale;
 pub mod cquery;
+pub mod ctargets;
 pub mod debug;
 pub mod init;
 pub mod install;

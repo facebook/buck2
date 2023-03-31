@@ -220,6 +220,12 @@ pub trait BuckdServerDependencies: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: TargetsRequest,
     ) -> anyhow::Result<TargetsResponse>;
+    async fn ctargets(
+        &self,
+        ctx: Box<dyn ServerCommandContextTrait>,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: ConfiguredTargetsRequest,
+    ) -> anyhow::Result<ConfiguredTargetsResponse>;
     async fn targets_show_outputs(
         &self,
         ctx: Box<dyn ServerCommandContextTrait>,
@@ -960,6 +966,22 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 callbacks.targets(Box::new(ctx), partial_result_dispatcher, req)
+            },
+        )
+        .await
+    }
+
+    type CtargetsStream = ResponseStream;
+    async fn ctargets(
+        &self,
+        req: Request<ConfiguredTargetsRequest>,
+    ) -> Result<Response<ResponseStream>, Status> {
+        let callbacks = self.0.callbacks;
+        self.run_streaming(
+            req,
+            DefaultCommandOptions,
+            |ctx, partial_result_dispatcher, req| {
+                callbacks.ctargets(Box::new(ctx), partial_result_dispatcher, req)
             },
         )
         .await

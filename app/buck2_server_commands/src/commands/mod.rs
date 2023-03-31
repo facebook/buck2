@@ -8,6 +8,7 @@
  */
 
 pub mod build;
+pub mod configured_targets;
 pub mod install;
 pub mod query;
 pub mod targets;

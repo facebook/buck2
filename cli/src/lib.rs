@@ -33,6 +33,7 @@ use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::cquery::CqueryCommand;
+use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
 use buck2_client::commands::init::InitCommand;
 use buck2_client::commands::install::InstallCommand;
@@ -266,6 +267,7 @@ pub(crate) enum CommandKind {
     #[clap(subcommand)]
     Starlark(StarlarkCommand),
     Targets(TargetsCommand),
+    Ctargets(ConfiguredTargetsCommand),
     Uquery(UqueryCommand),
     #[clap(subcommand, setting(AppSettings::Hidden))]
     Debug(DebugCommand),
@@ -419,6 +421,7 @@ impl CommandKind {
             CommandKind::Server(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Targets(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Ctargets(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),

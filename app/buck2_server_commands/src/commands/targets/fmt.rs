@@ -315,16 +315,15 @@ impl TargetFormatter for TargetNameFormat {
             writeln!(buffer, "{}", target_info.node.label()).unwrap();
         }
         if self.target_call_stacks {
-            match target_info.node.call_stack() {
-                Some(call_stack) => {
-                    for line in call_stack.lines() {
-                        writeln!(buffer, "  {}", line).unwrap();
-                    }
-                }
-                None => {
-                    // Should not happen.
-                }
-            }
+            print_target_call_stack_after_target(buffer, target_info.node.call_stack().as_deref());
+        }
+    }
+}
+
+pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack: Option<&str>) {
+    if let Some(call_stack) = call_stack {
+        for line in call_stack.lines() {
+            writeln!(out, "  {}", line).unwrap();
         }
     }
 }
