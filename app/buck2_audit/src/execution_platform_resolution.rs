@@ -16,7 +16,10 @@ use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_core::pattern::pattern_type::ConfigurationPredicate;
+use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
+use buck2_core::pattern::ParsedPattern;
+use buck2_core::target::label::TargetLabel;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -25,6 +28,16 @@ use buck2_server_ctx::pattern::PatternParser;
 use indent_write::io::IndentWriter;
 
 use crate::AuditSubcommand;
+
+#[derive(Debug, thiserror::Error)]
+enum AuditExecutionPlatformResolutionCommandError {
+    #[error("Builtin configurations are not supported: `{0}`")]
+    BuiltinConfigurationsNotSupported(String),
+    #[error(
+        "Patterns with configuration label without configuration hash are not supported: `{0}`"
+    )]
+    ConfigurationLabelWithoutHashNotSupported(String),
+}
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(
@@ -57,23 +70,21 @@ impl AuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 let mut configured_patterns = Vec::new();
                 let mut target_patterns = Vec::new();
                 for pat in self.patterns.iter() {
-                    if let Some((target, cfg_str)) = pat.split_once(' ') {
-                        let cfg_str = match cfg_str.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
-                            Some(s) => s,
-                            None => {
-                                return Err(anyhow::anyhow!(
-                                    "Expected a configuration of the form `(//a:config-<hash>)`, but didn't see surrounding parens"
-                                ));
+                    let pat = pattern_parser.parse_pattern::<ConfiguredTargetPatternExtra>(pat)?;
+                    match pat.clone() {
+                        ParsedPattern::Package(pkg) => target_patterns.push(ParsedPattern::Package(pkg)),
+                        ParsedPattern::Recursive(path) => target_patterns.push(ParsedPattern::Recursive(path)),
+                        ParsedPattern::Target(pkg, target_name, extra) => {
+                            match extra.cfg {
+                                ConfigurationPredicate::Any => target_patterns.push(ParsedPattern::Target(pkg, target_name, extra)),
+                                ConfigurationPredicate::Builtin(_) => return Err(AuditExecutionPlatformResolutionCommandError::BuiltinConfigurationsNotSupported(pat.to_string()).into()),
+                                ConfigurationPredicate::Bound(_label, None) => return Err(AuditExecutionPlatformResolutionCommandError::ConfigurationLabelWithoutHashNotSupported(pat.to_string()).into()),
+                                ConfigurationPredicate::Bound(label, Some(hash)) => {
+                                    let cfg = ConfigurationData::lookup_bound(BoundConfigurationId { label, hash })?;
+                                    configured_patterns.push(TargetLabel::new(pkg, target_name.as_ref()).configure(cfg));
+                                }
                             }
-                        };
-                        let cfg = BoundConfigurationId::parse(cfg_str)?;
-                        let cfg = ConfigurationData::lookup_bound(cfg)?;
-                        let target = pattern_parser
-                            .parse_pattern::<TargetPatternExtra>(target)?
-                            .as_target_label(target)?;
-                        configured_patterns.push(target.configure(cfg));
-                    } else {
-                        target_patterns.push(pattern_parser.parse_pattern::<TargetPatternExtra>(pat)?);
+                        }
                     }
                 }
 
