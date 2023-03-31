@@ -8,6 +8,7 @@
  */
 
 use std::any::Any;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -130,6 +131,8 @@ impl PartialEq for DiceKeyErased {
     }
 }
 
+impl Eq for DiceKeyErased {}
+
 #[derive(Copy, Clone, Dupe)]
 pub(crate) enum DiceKeyErasedRef<'a> {
     Key(&'a dyn DiceKeyDyn),
@@ -205,7 +208,7 @@ impl<'a> CowDiceKey<'a> {
 }
 
 #[async_trait]
-pub(crate) trait DiceKeyDyn: Allocative + Send + Sync + 'static {
+pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
     async fn compute(&self, ctx: &DiceComputations) -> Arc<dyn DiceValueDyn>;
 
     fn eq_any(&self) -> PartialEqAny;
@@ -256,7 +259,7 @@ where
     }
 }
 
-pub(crate) trait DiceProjectionDyn: Allocative + Send + Sync + 'static {
+pub(crate) trait DiceProjectionDyn: Allocative + Display + Send + Sync + 'static {
     fn compute(
         &self,
         derive_from: &MaybeValidDiceValue,
@@ -393,6 +396,63 @@ impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
 }
 
 impl<'a> Eq for ProjectionWithBaseRef<'a> {}
+
+#[allow(unused)] // TODO(bobyf) temporary
+mod introspection {
+    use std::fmt::Display;
+    use std::fmt::Formatter;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
+    use dupe::Dupe;
+
+    use crate::impls::key::DiceKey;
+    use crate::impls::key::DiceKeyErased;
+    use crate::introspection::graph::AnyKey;
+    use crate::introspection::graph::KeyID;
+
+    impl DiceKey {
+        pub(crate) fn introspect(&self) -> KeyID {
+            KeyID(self.index as usize)
+        }
+    }
+
+    impl DiceKeyErased {
+        pub(crate) fn introspect(&self) -> AnyKey {
+            #[derive(Clone, Dupe)]
+            struct Wrap(DiceKeyErased);
+
+            impl Hash for Wrap {
+                fn hash<H: Hasher>(&self, state: &mut H) {
+                    self.0.hash().hash(state);
+                }
+            }
+
+            impl PartialEq for Wrap {
+                fn eq(&self, other: &Self) -> bool {
+                    self.0 == other.0
+                }
+            }
+
+            impl Eq for Wrap {}
+
+            impl Display for Wrap {
+                fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                    match &self.0 {
+                        DiceKeyErased::Key(k) => {
+                            write!(f, "{}", k)
+                        }
+                        DiceKeyErased::Projection(p) => {
+                            write!(f, "{}", p.proj)
+                        }
+                    }
+                }
+            }
+
+            AnyKey::new(Wrap(self.dupe()))
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
