@@ -174,9 +174,9 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         let mut write = |d: &dyn Display| -> anyhow::Result<()> {
             if !first {
                 write!(this.sink.borrow_mut(), "{}{}", sep, d)?;
-                first = false;
             } else {
-                writeln!(this.sink.borrow_mut(), "{}", d)?;
+                write!(this.sink.borrow_mut(), "{}", d)?;
+                first = false;
             }
             Ok(())
         };
@@ -209,6 +209,8 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
                 write(&arg.to_str())?;
             }
         }
+
+        writeln!(this.sink.borrow_mut())?;
 
         Ok(NoneType)
     }
