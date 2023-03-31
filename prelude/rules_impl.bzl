@@ -491,6 +491,7 @@ inlined_extra_attributes = {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.option(attrs.string(), default = None),
         "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
+        "_exec_os_type": _exec_os_type(),
     },
     "http_file": {
         "sha1": attrs.option(attrs.string(), default = None),

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 # Flags to apply to decompress the various types of archives.
@@ -40,17 +41,27 @@ def _type(ctx: "context") -> str.type:
         fail("unsupported archive type: {}".format(typ))
     return typ
 
-def _unarchive_cmd(ext_type: str.type, archive: "artifact") -> [""]:
+def _unarchive_cmd(ext_type: str.type, exec_is_windows: bool.type, archive: "artifact") -> "cmd_args":
+    if exec_is_windows:
+        # So many hacks.
+        if ext_type == "tar.zst":
+            # tar that ships with windows is bsdtar
+            # bsdtar seems to not properly interop with zstd and hangs instead of
+            # exiting with an error. Manually decompressing with zstd and piping to
+            # tar seems to work fine though.
+            return cmd_args(archive, format = "zstd -d {} --stdout | tar -x -f -")
+        elif ext_type == "zip":
+            # unzip and zip are not cli commands available on windows. however, the
+            # bsdtar that ships with windows has builtin support for zip
+            return cmd_args(archive, format = "tar -xf {}")
+
+        # Else hope for the best
+
     if ext_type in _TAR_FLAGS:
-        return [
-            "tar",
-            _TAR_FLAGS[ext_type],
-            "-x",
-            "-f",
-            archive,
-        ]
+        return cmd_args(archive, format = "tar " + _TAR_FLAGS[ext_type] + " -x -f {}")
     elif ext_type == "zip":
-        return ["unzip", archive]
+        # gnutar does not intrinsically support zip
+        return cmd_args(archive, format = "unzip {}")
     else:
         fail()
 
@@ -63,6 +74,8 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     local_only = ctx.attrs.sha1 == None
 
     ext_type = _type(ctx)
+
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     # Download archive.
     archive = ctx.actions.declare_output("archive." + ext_type)
@@ -96,17 +109,31 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         exclude_hidden.append(exclusions)
 
     output = ctx.actions.declare_output(value_or(ctx.attrs.out, ctx.label.name), dir = True)
+
+    if exec_is_windows:
+        ext = "bat"
+        mkdir = "md {}"
+        interpreter = []
+    else:
+        ext = "sh"
+        mkdir = "mkdir -p {}"
+        interpreter = ["/bin/sh"]
+
     script, _ = ctx.actions.write(
-        "unpack.sh",
+        "unpack.{}".format(ext),
         [
-            cmd_args(output, format = "mkdir -p {}"),
+            cmd_args(output, format = mkdir),
             cmd_args(output, format = "cd {}"),
-            cmd_args(_unarchive_cmd(ext_type, archive) + exclude_flags, delimiter = " ").relative_to(output),
+            cmd_args([_unarchive_cmd(ext_type, exec_is_windows, archive)] + exclude_flags, delimiter = " ").relative_to(output),
         ],
         is_executable = True,
         allow_args = True,
     )
-    ctx.actions.run(cmd_args(["/bin/sh", script])
-        .hidden(exclude_hidden + [archive, output.as_output()]), category = "http_archive", local_only = local_only)
+
+    ctx.actions.run(
+        cmd_args(interpreter + [script]).hidden(exclude_hidden + [archive, output.as_output()]),
+        category = "http_archive",
+        local_only = local_only,
+    )
 
     return [DefaultInfo(default_output = output)]
