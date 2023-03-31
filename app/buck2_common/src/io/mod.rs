@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dashmap::DashSet;
@@ -136,8 +137,12 @@ impl IoProvider for TracingIoProvider {
     }
 
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
-        self.trace.insert(path.clone());
-        self.io.read_dir(path).await
+        let entries = self.io.read_dir(path.clone()).await?;
+        for entry in entries.iter() {
+            self.trace
+                .insert(path.join(ForwardRelativePath::unchecked_new(&entry.file_name)));
+        }
+        Ok(entries)
     }
 
     async fn read_path_metadata_if_exists(
