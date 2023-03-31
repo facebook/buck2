@@ -190,7 +190,7 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                     language: Some("python".to_owned()),
                     contents: Box::new(TypeRenderer::Function {
                         function_name: Some(self.name.clone()),
-                        max_args_before_multiline: Some(6),
+                        max_args_before_multiline: Some(3),
                         show_param_details: true,
                         f: self.f,
                     }),
@@ -750,7 +750,7 @@ mod test {
                 contents: Box::new(TypeRenderer::Function {
                     function_name: Some(name.to_owned()),
                     show_param_details: true,
-                    max_args_before_multiline: Some(6),
+                    max_args_before_multiline: Some(3),
                     f,
                 }),
             })
