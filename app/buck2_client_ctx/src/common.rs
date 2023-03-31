@@ -499,3 +499,20 @@ impl CommonConsoleOptions {
         config
     }
 }
+
+/// Common options for commands like `build` or `query`.
+/// Not all the commands have all the options.
+#[derive(Debug, clap::Parser, Default)]
+pub struct CommonCommandOptions {
+    /// Buckconfig and similar options.
+    #[clap(flatten)]
+    pub config_opts: CommonBuildConfigurationOptions,
+
+    /// UI options.
+    #[clap(flatten)]
+    pub console_opts: CommonConsoleOptions,
+
+    /// Event-log options.
+    #[clap(flatten)]
+    pub event_log_opts: CommonDaemonCommandOptions,
+}

@@ -25,6 +25,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonBuildOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -67,13 +68,7 @@ impl FromStr for OutPath {
 #[clap(name = "build", about = "Build the specified targets")]
 pub struct BuildCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -252,7 +247,11 @@ impl StreamingCommand for BuildCommand {
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let show_default_other_outputs = false;
-        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?;
 
         let result = buckd
             .with_flushing()
@@ -280,7 +279,8 @@ impl StreamingCommand for BuildCommand {
                     final_artifact_materializations: self.materializations.to_proto() as i32,
                     target_universe: self.target_universe,
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await;
@@ -290,7 +290,7 @@ impl StreamingCommand for BuildCommand {
             Err(_) => false,
         };
 
-        let console = self.console_opts.final_console();
+        let console = self.common_opts.console_opts.final_console();
 
         if success {
             console.print_success("BUILD SUCCEEDED")?;
@@ -345,15 +345,15 @@ impl StreamingCommand for BuildCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 }
 

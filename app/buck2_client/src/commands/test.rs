@@ -15,6 +15,7 @@ use buck2_cli_proto::TestSessionOptions;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonBuildOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -53,13 +54,7 @@ fn print_error_counter(
 #[clap(name = "test", about = "Build and test the specified targets")]
 pub struct TestCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -139,7 +134,11 @@ impl StreamingCommand for TestCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?;
         let response = buckd
             .with_flushing()
             .test(
@@ -163,7 +162,8 @@ impl StreamingCommand for TestCommand {
                         force_run_from_project_root: self.unstable_allow_all_tests_on_re,
                     }),
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;
@@ -180,7 +180,7 @@ impl StreamingCommand for TestCommand {
         let fatals = statuses.fatals.context("Missing `fatals`")?;
         let skipped = statuses.skipped.context("Missing `skipped`")?;
 
-        let console = self.console_opts.final_console();
+        let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.error_messages)?;
         if !response.error_messages.is_empty() {
             console.print_error(&format!("{} BUILDS FAILED", response.error_messages.len()))?;
@@ -246,15 +246,15 @@ impl StreamingCommand for TestCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 
     fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component>> {

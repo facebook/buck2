@@ -13,6 +13,7 @@ use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -68,13 +69,7 @@ enum TargetHashFunction {
 #[clap(name = "targets", about = "Show details about the specified targets")]
 pub struct TargetsCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     /// Print targets as JSON
     #[clap(long)]
@@ -250,8 +245,11 @@ impl StreamingCommand for TargetsCommand {
 
         let output_format = self.output_format()?;
 
-        let context =
-            Some(ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?);
+        let context = Some(ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?);
 
         let target_hash_modified_paths = self
             .target_hash_modified_paths
@@ -297,7 +295,14 @@ impl StreamingCommand for TargetsCommand {
         };
 
         if self.show_output {
-            targets_show_outputs(ctx.stdin(), buckd, target_request, None, &self.console_opts).await
+            targets_show_outputs(
+                ctx.stdin(),
+                buckd,
+                target_request,
+                None,
+                &self.common_opts.console_opts,
+            )
+            .await
         } else if self.show_full_output {
             let project_root = ctx.paths()?.roots.project_root.clone();
             targets_show_outputs(
@@ -305,24 +310,30 @@ impl StreamingCommand for TargetsCommand {
                 buckd,
                 target_request,
                 Some(project_root.root()),
-                &self.console_opts,
+                &self.common_opts.console_opts,
             )
             .await
         } else {
-            targets(ctx.stdin(), buckd, target_request, &self.console_opts).await
+            targets(
+                ctx.stdin(),
+                buckd,
+                target_request,
+                &self.common_opts.console_opts,
+            )
+            .await
         }
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 }
 

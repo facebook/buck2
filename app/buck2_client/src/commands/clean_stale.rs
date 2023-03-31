@@ -13,6 +13,7 @@ use buck2_cli_proto::CleanStaleRequest;
 use buck2_cli_proto::CleanStaleResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -31,9 +32,7 @@ use humantime;
 /// a flag (--stale) on the clean subcommand, which is a bit weird.
 /// This is just so that it can be used as a StreamingCommand, which CleanCommand should not be.
 pub struct CleanStaleCommand {
-    pub console_opts: CommonConsoleOptions,
-    pub config_opts: CommonBuildConfigurationOptions,
-    pub event_log_opts: CommonDaemonCommandOptions,
+    pub(crate) common_opts: CommonCommandOptions,
     pub keep_since_arg: KeepSinceArg,
     pub dry_run: bool,
     pub tracked_only: bool,
@@ -124,7 +123,11 @@ impl StreamingCommand for CleanStaleCommand {
                 .context("Invalid timestamp")?,
         };
 
-        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?;
         let response: CleanStaleResponse = buckd
             .with_flushing()
             .clean_stale(
@@ -134,7 +137,8 @@ impl StreamingCommand for CleanStaleCommand {
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;
@@ -149,14 +153,14 @@ impl StreamingCommand for CleanStaleCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 }

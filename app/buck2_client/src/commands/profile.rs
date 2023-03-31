@@ -20,6 +20,7 @@ use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -64,20 +65,20 @@ impl ProfileCommand {
                     opts: opts.buck_opts,
                     action: Action::Analysis,
                 },
-                common_opts: opts.common_opts,
+                profile_common_opts: opts.profile_common_opts,
             },
             Self::Loading(opts) => ProfileSubcommand {
                 opts: ProfileOptionsType::BuckProfileOptions {
                     opts: opts.buck_opts,
                     action: Action::Loading,
                 },
-                common_opts: opts.common_opts,
+                profile_common_opts: opts.profile_common_opts,
             },
             Self::Bxl(opts) => ProfileSubcommand {
                 opts: ProfileOptionsType::BxlProfileOptions {
                     opts: opts.bxl_opts,
                 },
-                common_opts: opts.common_opts,
+                profile_common_opts: opts.profile_common_opts,
             },
         }
         .exec(submatches, ctx)
@@ -103,7 +104,7 @@ pub struct BxlProfileOptions {
     bxl_opts: BxlCommandOptions,
 
     #[clap(flatten)]
-    common_opts: ProfileCommonOptions,
+    profile_common_opts: ProfileCommonOptions,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -112,7 +113,7 @@ pub struct BuckProfileOptions {
     buck_opts: AnalysisLoadProfileOptions,
 
     #[clap(flatten)]
-    common_opts: ProfileCommonOptions,
+    profile_common_opts: ProfileCommonOptions,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -129,13 +130,7 @@ pub struct AnalysisLoadProfileOptions {
 #[derive(Debug, clap::Parser)]
 pub struct ProfileCommonOptions {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     /// Output file path for profile data.
     ///
@@ -159,7 +154,7 @@ pub struct ProfileCommonOptions {
 
 pub struct ProfileSubcommand {
     opts: ProfileOptionsType,
-    common_opts: ProfileCommonOptions,
+    profile_common_opts: ProfileCommonOptions,
 }
 
 fn profile_mode_to_profile(mode: &BuckProfileMode) -> Profiler {
@@ -187,14 +182,14 @@ impl StreamingCommand for ProfileSubcommand {
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
         let context = ctx.client_context(
-            &self.common_opts.config_opts,
+            &self.profile_common_opts.common_opts.config_opts,
             matches,
             self.sanitized_argv(),
         )?;
 
-        let destination_path = self.common_opts.output.resolve(&ctx.working_dir);
+        let destination_path = self.profile_common_opts.output.resolve(&ctx.working_dir);
 
-        let profile_mode = &self.common_opts.mode;
+        let profile_mode = &self.profile_common_opts.mode;
 
         let destination_path = destination_path.into_string()?;
 
@@ -261,7 +256,7 @@ impl StreamingCommand for ProfileSubcommand {
         buck2_client_ctx::println!(
             "Starlark {:?} profile has been written to {}",
             profile_mode,
-            self.common_opts.output.display(),
+            self.profile_common_opts.output.display(),
         )?;
         buck2_client_ctx::println!("Elapsed: {:.3}s", elapsed.as_secs_f64())?;
         buck2_client_ctx::println!("Total retained bytes: {}", total_retained_bytes)?;
@@ -270,14 +265,14 @@ impl StreamingCommand for ProfileSubcommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.common_opts.console_opts
+        &self.profile_common_opts.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.common_opts.event_log_opts
+        &self.profile_common_opts.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.common_opts.config_opts
+        &self.profile_common_opts.common_opts.config_opts
     }
 }

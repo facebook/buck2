@@ -13,6 +13,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonBuildOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -25,13 +26,7 @@ use gazebo::prelude::*;
 #[clap(name = "install", about = "Build and install an application")]
 pub struct InstallCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
     build_opts: CommonBuildOptions,
@@ -63,7 +58,11 @@ impl StreamingCommand for InstallCommand {
         matches: &clap::ArgMatches,
         mut ctx: ClientCommandContext,
     ) -> ExitResult {
-        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?;
         let response = buckd
             .with_flushing()
             .install(
@@ -76,11 +75,12 @@ impl StreamingCommand for InstallCommand {
                     installer_run_args: self.extra_run_args,
                     installer_debug: self.installer_debug,
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await;
-        let console = self.console_opts.final_console();
+        let console = self.common_opts.console_opts.final_console();
 
         match response {
             Ok(CommandOutcome::Success(_)) => {
@@ -95,14 +95,14 @@ impl StreamingCommand for InstallCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 }

@@ -13,9 +13,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonConsoleOptions;
-use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -39,13 +37,7 @@ use crate::commands::clean_stale::CleanStaleCommand;
 #[clap(about = "Delete generated files and caches")]
 pub struct CleanCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(
         long = "dry-run",
@@ -73,9 +65,7 @@ impl CleanCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
-                console_opts: self.console_opts,
-                config_opts: self.config_opts,
-                event_log_opts: self.event_log_opts,
+                common_opts: self.common_opts,
                 keep_since_arg,
                 dry_run: self.dry_run,
                 tracked_only: self.tracked_only,
@@ -88,7 +78,7 @@ impl CleanCommand {
         ctx.with_runtime(async move |ctx| {
             let buck_out_dir = ctx.paths()?.buck_out_path();
             let daemon_dir = ctx.paths()?.daemon_dir()?;
-            let console = &self.console_opts.final_console();
+            let console = &self.common_opts.console_opts.final_console();
 
             if self.dry_run {
                 return clean(buck_out_dir, daemon_dir, console, None).await;

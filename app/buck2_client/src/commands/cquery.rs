@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::CqueryRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
+use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -46,13 +47,7 @@ use buck2_query_common::query_args::CommonQueryArgs;
 #[clap(name = "cquery")]
 pub struct CqueryCommand {
     #[clap(flatten)]
-    config_opts: CommonBuildConfigurationOptions,
-
-    #[clap(flatten)]
-    console_opts: CommonConsoleOptions,
-
-    #[clap(flatten)]
-    event_log_opts: CommonDaemonCommandOptions,
+    common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
     query_common: CommonQueryArgs,
@@ -100,7 +95,11 @@ impl StreamingCommand for CqueryCommand {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
         let output_attributes = self.query_common.attributes.get()?;
-        let context = ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_opts.config_opts,
+            matches,
+            self.sanitized_argv(),
+        )?;
 
         let correct_owner = match (self.correct_owner, self.deprecated_owner) {
             (true, false) => true,
@@ -127,7 +126,8 @@ impl StreamingCommand for CqueryCommand {
                     target_call_stacks: self.query_common.target_call_stacks,
                     correct_owner,
                 },
-                ctx.stdin().console_interaction_stream(&self.console_opts),
+                ctx.stdin()
+                    .console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await??;
@@ -144,14 +144,14 @@ impl StreamingCommand for CqueryCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.console_opts
+        &self.common_opts.console_opts
     }
 
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions {
-        &self.event_log_opts
+        &self.common_opts.event_log_opts
     }
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.config_opts
+        &self.common_opts.config_opts
     }
 }
