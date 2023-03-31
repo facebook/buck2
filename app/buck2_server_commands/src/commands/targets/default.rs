@@ -139,11 +139,7 @@ pub(crate) async fn targets_batch(
                         formatter.separator(&mut buffer);
                     }
                     needs_separator = true;
-                    formatter.target(
-                        package.dupe(),
-                        TargetInfo { node, target_hash },
-                        &mut buffer,
-                    )
+                    formatter.target(TargetInfo { node, target_hash }, &mut buffer)
                 }
             }
             Err(e) => {

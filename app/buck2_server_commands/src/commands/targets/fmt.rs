@@ -53,7 +53,7 @@ pub(crate) trait TargetFormatter: Send + Sync {
     fn end(&self, stats: &Stats, buffer: &mut String) {}
     /// Called between each target/imports/package_error
     fn separator(&self, buffer: &mut String) {}
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {}
+    fn target(&self, target_info: TargetInfo<'_>, buffer: &mut String) {}
     fn imports(
         &self,
         source: &CellPath,
@@ -143,7 +143,7 @@ impl TargetFormatter for JsonFormat {
         self.writer.separator(buffer)
     }
 
-    fn target(&self, _package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
+    fn target(&self, target_info: TargetInfo<'_>, buffer: &mut String) {
         self.writer.entry_start(buffer);
         let mut first = true;
 
@@ -303,7 +303,7 @@ struct TargetNameFormat {
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetFormatter for TargetNameFormat {
-    fn target(&self, _package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
+    fn target(&self, target_info: TargetInfo<'_>, buffer: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
                 Some(hash) => {

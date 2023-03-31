@@ -94,7 +94,6 @@ pub(crate) async fn targets_streaming(
                                 formatter.separator(&mut res.stdout);
                             }
                             formatter.target(
-                                package.dupe(),
                                 TargetInfo {
                                     node,
                                     target_hash: fast_hash.map(|fast| {
