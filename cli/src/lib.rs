@@ -93,8 +93,9 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 
 pub use buck2_server_ctx::logging::TracingLogFile;
 
+/// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
-pub(crate) struct CommonOptions {
+struct BeforeSubcommandOptions {
     /// Instances of Buck2 share a daemon if and only if their isolation directory is identical.
     /// The isolation directory also influences the output paths provided by Buck2,
     /// and as a result using a non-default isolation dir will cause cache misses (and slower builds).
@@ -143,7 +144,7 @@ pub(crate) struct CommonOptions {
     help_wrapper: bool,
 }
 
-impl CommonOptions {
+impl BeforeSubcommandOptions {
     pub fn to_server_init_context(&self) -> BuckdServerInitPreferences {
         BuckdServerInitPreferences {
             detect_cycles: self.detect_cycles,
@@ -161,7 +162,7 @@ impl CommonOptions {
 )]
 pub(crate) struct Opt {
     #[clap(flatten)]
-    common_opts: CommonOptions,
+    common_opts: BeforeSubcommandOptions,
     #[clap(subcommand)]
     cmd: CommandKind,
 }
@@ -289,7 +290,7 @@ impl CommandKind {
         self,
         working_dir: WorkingDir,
         matches: &clap::ArgMatches,
-        common_opts: CommonOptions,
+        common_opts: BeforeSubcommandOptions,
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         replay: Option<(ProcessContext, Replayer, TraceId)>,
