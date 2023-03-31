@@ -303,19 +303,16 @@ struct TargetNameFormat {
     target_hash_graph_type: TargetHashGraphType,
 }
 impl TargetFormatter for TargetNameFormat {
-    fn target(&self, package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
+    fn target(&self, _package: PackageLabel, target_info: TargetInfo<'_>, buffer: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
             match target_info.target_hash {
-                Some(hash) => writeln!(
-                    buffer,
-                    "{package}:{name} {hash}",
-                    name = target_info.node.label().name(),
-                )
-                .unwrap(),
+                Some(hash) => {
+                    writeln!(buffer, "{label} {hash}", label = target_info.node.label()).unwrap()
+                }
                 None => {} // print nothing if there is no hash and show_target_hash is specified.
             };
         } else {
-            writeln!(buffer, "{}:{}", package, target_info.node.label().name()).unwrap();
+            writeln!(buffer, "{}", target_info.node.label()).unwrap();
         }
         if self.target_call_stacks {
             match target_info.node.call_stack() {
