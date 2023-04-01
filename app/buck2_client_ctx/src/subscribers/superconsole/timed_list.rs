@@ -9,6 +9,7 @@
 
 use std::fmt::Write;
 use std::time::Duration;
+use std::time::Instant;
 
 use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::display;
@@ -111,8 +112,9 @@ impl TimedListBodyInner {
             )?
         );
 
-        let child_info_elapsed = child_info.start.elapsed();
-        let info_elapsed = info.start.elapsed();
+        let now = Instant::now();
+        let child_info_elapsed = now - child_info.start;
+        let info_elapsed = now - info.start;
         let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
         // but only display the time of the subaction if it differs significantly.
