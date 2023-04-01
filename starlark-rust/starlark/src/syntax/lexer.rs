@@ -40,7 +40,7 @@ pub(crate) enum LexemeError {
     Indentation,
     #[error("Parse error: invalid input `{0}`")]
     InvalidInput(String),
-    #[error("Parse error: tabs are not allowed in the dialect")]
+    #[error("Parse error: tabs are not allowed")]
     InvalidTab,
     #[error("Parse error: unfinished string literal")]
     UnfinishedStringLiteral,
@@ -66,7 +66,6 @@ pub(crate) struct Lexer<'a> {
     parens: isize, // Number of parens we have seen
     lexer: logos::Lexer<'a, Token>,
     done: bool,
-    dialect_allow_tabs: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -80,7 +79,6 @@ impl<'a> Lexer<'a> {
             lexer,
             parens: 0,
             done: false,
-            dialect_allow_tabs: false,
         };
         if let Err(e) = lexer2.calculate_indent() {
             lexer2.buffer.push_back(Err(e));
@@ -160,7 +158,7 @@ impl<'a> Lexer<'a> {
         }
         self.lexer.bump(it.pos() - 1); // last character broke us out the loop
         let indent = spaces + tabs * 8;
-        if tabs > 0 && !self.dialect_allow_tabs {
+        if tabs > 0 {
             return self.err_pos(LexemeError::InvalidTab, self.lexer.span().start);
         }
         let now = self.indent_levels.last().copied().unwrap_or(0);
@@ -415,11 +413,9 @@ impl<'a> Lexer<'a> {
                     }
                     Some(token) => match token {
                         Token::Tabs => {
-                            if !self.dialect_allow_tabs {
-                                self.buffer.push_back(
-                                    self.err_pos(LexemeError::InvalidTab, self.lexer.span().start),
-                                );
-                            }
+                            self.buffer.push_back(
+                                self.err_pos(LexemeError::InvalidTab, self.lexer.span().start),
+                            );
                             continue;
                         }
                         Token::Newline => {
