@@ -80,11 +80,19 @@ pub struct Dialect {
     pub enable_top_level_stmt: bool,
 }
 
+impl Default for Dialect {
+    fn default() -> Dialect {
+        Dialect::Standard
+    }
+}
+
 // These are morally enumerations, so give them enumeration-like names
 // even though they are actually global constants
 #[allow(non_upper_case_globals)]
 impl Dialect {
     /// Follow the [Starlark language standard](https://github.com/bazelbuild/starlark/blob/master/spec.md) as much as possible.
+    ///
+    /// This is also returned by [`Dialect::default()`](Dialect::default).
     pub const Standard: Self = Self {
         enable_def: true,
         enable_lambda: true,
