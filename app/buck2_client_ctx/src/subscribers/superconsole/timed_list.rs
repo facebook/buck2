@@ -111,13 +111,14 @@ impl TimedListBodyInner {
             )?
         );
 
-        let subaction_ratio =
-            child_info.start.elapsed().as_secs_f64() / info.start.elapsed().as_secs_f64();
+        let child_info_elapsed = child_info.start.elapsed();
+        let info_elapsed = info.start.elapsed();
+        let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
         // but only display the time of the subaction if it differs significantly.
         if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
             let subaction_time =
-                display::duration_as_secs_elapsed(child_info.start.elapsed(), time_speed.speed());
+                display::duration_as_secs_elapsed(child_info_elapsed, time_speed.speed());
             event_string.push(' ');
             event_string.push_str(&subaction_time);
         }
@@ -132,8 +133,8 @@ impl TimedListBodyInner {
         Row::text(
             0,
             event_string,
-            display::duration_as_secs_elapsed(info.start.elapsed(), time_speed.speed()),
-            info.start.elapsed(),
+            display::duration_as_secs_elapsed(info_elapsed, time_speed.speed()),
+            info_elapsed,
             &self.cutoffs,
         )
     }
