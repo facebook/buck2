@@ -68,9 +68,6 @@ pub struct Dialect {
     /// Are expressions allowed in type positions as per [PEP 484](https://www.python.org/dev/peps/pep-0484/).
     /// Only enabled in [`Extended`](Dialect::Extended).
     pub enable_types: DialectTypes,
-    /// Are tabs permitted for indentation. If permitted, tabs are equivalent to 8 spaces.
-    /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended).
-    pub enable_tabs: bool,
     /// Do `load()` statements reexport their definition.
     /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended),
     /// but may change in future definitions of the standard.
@@ -103,7 +100,6 @@ impl Dialect {
         enable_load: true,
         enable_keyword_only_arguments: false,
         enable_types: DialectTypes::Disable,
-        enable_tabs: false,
         enable_load_reexport: true, // But they plan to change it
         enable_top_level_stmt: false,
         _non_exhaustive: (),
@@ -116,7 +112,6 @@ impl Dialect {
         enable_load: true,
         enable_keyword_only_arguments: true,
         enable_types: DialectTypes::Enable,
-        enable_tabs: false,
         enable_load_reexport: true,
         enable_top_level_stmt: true,
         _non_exhaustive: (),

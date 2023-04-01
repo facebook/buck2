@@ -81,22 +81,9 @@ def foo(x):
 
 #[test]
 fn test_tabs_fail() {
-    let mut a = Assert::new();
-    a.dialect_set(|d| d.enable_tabs = false);
+    let a = Assert::new();
     a.fail("def f():\n\tpass", "Parse error");
     a.fail("def f():\n x\t=3", "Parse error");
-}
-
-#[test]
-fn test_tabs_pass() {
-    assert::pass("def f():\n '\t'");
-    let mut a = Assert::new();
-    a.dialect(&Dialect {
-        enable_tabs: true,
-        ..Dialect::Standard
-    });
-    a.pass("def f():\n\tpass");
-    a.pass("def f():\n x\t=3");
 }
 
 #[test]

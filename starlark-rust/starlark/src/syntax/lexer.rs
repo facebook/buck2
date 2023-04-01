@@ -70,7 +70,7 @@ pub(crate) struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str, dialect: &Dialect, codemap: CodeMap) -> Self {
+    pub fn new(input: &'a str, _dialect: &Dialect, codemap: CodeMap) -> Self {
         let lexer = Token::lexer(input);
         let mut lexer2 = Self {
             codemap,
@@ -80,7 +80,7 @@ impl<'a> Lexer<'a> {
             lexer,
             parens: 0,
             done: false,
-            dialect_allow_tabs: dialect.enable_tabs,
+            dialect_allow_tabs: false,
         };
         if let Err(e) = lexer2.calculate_indent() {
             lexer2.buffer.push_back(Err(e));
