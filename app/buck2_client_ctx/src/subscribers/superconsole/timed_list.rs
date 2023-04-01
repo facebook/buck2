@@ -136,7 +136,7 @@ impl TimedListBodyInner {
             0,
             event_string,
             display::duration_as_secs_elapsed(info_elapsed, time_speed.speed()),
-            info_elapsed,
+            info_elapsed.mul_f64(time_speed.speed()),
             &self.cutoffs,
         )
     }
@@ -225,7 +225,7 @@ impl Component for TimedListBodyInner {
                 0,
                 remaining_msg.italic(),
                 formatted_count.italic(),
-                longest_count,
+                longest_count.mul_f64(time_speed.speed()),
                 &self.cutoffs,
             )?);
         }

@@ -101,7 +101,7 @@ impl Row {
             TargetDisplayOptions::for_console(display_platform),
         )?;
         let time = display::duration_as_secs_elapsed(span.start.elapsed(), time_speed);
-        let age = span.start.elapsed();
+        let age = span.start.elapsed().mul_f64(time_speed);
         Row::text(padding, event, time, age, cutoffs)
     }
 
