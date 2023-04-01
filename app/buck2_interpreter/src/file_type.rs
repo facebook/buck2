@@ -31,6 +31,7 @@ impl StarlarkFileType {
             enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
+            ..Dialect::Standard
         };
         let package_dialect: Dialect = Dialect {
             enable_def: false,
@@ -41,6 +42,7 @@ impl StarlarkFileType {
             enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
+            ..Dialect::Standard
         };
         let bzl_dialect: Dialect = Dialect {
             enable_def: true,
@@ -55,6 +57,7 @@ impl StarlarkFileType {
             enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: true,
+            ..Dialect::Standard
         };
         let bxl_dialect: Dialect = Dialect {
             enable_def: true,
@@ -69,6 +72,7 @@ impl StarlarkFileType {
             enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: true,
+            ..Dialect::Standard
         };
 
         match self {
