@@ -98,41 +98,36 @@ impl TimedListBodyInner {
         let info = root.info();
         let child_info = single_child.info();
 
-        let event_string = {
-            // always display the event and subaction
-            let mut builder = format!(
-                "{} [{}",
-                display::display_event(
-                    &info.event,
-                    TargetDisplayOptions::for_console(display_platform)
-                )?,
-                display::display_event(
-                    &child_info.event,
-                    TargetDisplayOptions::for_console(display_platform)
-                )?
-            );
+        // always display the event and subaction
+        let mut event_string = format!(
+            "{} [{}",
+            display::display_event(
+                &info.event,
+                TargetDisplayOptions::for_console(display_platform)
+            )?,
+            display::display_event(
+                &child_info.event,
+                TargetDisplayOptions::for_console(display_platform)
+            )?
+        );
 
-            let subaction_ratio =
-                child_info.start.elapsed().as_secs_f64() / info.start.elapsed().as_secs_f64();
+        let subaction_ratio =
+            child_info.start.elapsed().as_secs_f64() / info.start.elapsed().as_secs_f64();
 
-            // but only display the time of the subaction if it differs significantly.
-            if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
-                let subaction_time = display::duration_as_secs_elapsed(
-                    child_info.start.elapsed(),
-                    time_speed.speed(),
-                );
-                builder.push(' ');
-                builder.push_str(&subaction_time);
-            }
+        // but only display the time of the subaction if it differs significantly.
+        if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
+            let subaction_time =
+                display::duration_as_secs_elapsed(child_info.start.elapsed(), time_speed.speed());
+            event_string.push(' ');
+            event_string.push_str(&subaction_time);
+        }
 
-            if remaining_children > 0 {
-                write!(builder, " + {}", remaining_children)
-                    .expect("Write to String is not fallible");
-            }
+        if remaining_children > 0 {
+            write!(event_string, " + {}", remaining_children)
+                .expect("Write to String is not fallible");
+        }
 
-            builder.push(']');
-            builder
-        };
+        event_string.push(']');
 
         Row::text(
             0,
