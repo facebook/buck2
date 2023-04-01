@@ -393,6 +393,19 @@ mod tests {
         _notable: Duration::from_millis(200),
     };
 
+    fn fake_time_speed() -> TimeSpeed {
+        TimeSpeed::new(Some(1.0)).unwrap()
+    }
+
+    fn fake_time(tick: &Tick, secs: u64) -> Instant {
+        tick.start_time
+            .checked_sub(Duration::from_secs(secs))
+            .unwrap()
+            // We add 50ms to give us a 100ms window where we round down correctly
+            .checked_add(Duration::from_millis(50))
+            .unwrap()
+    }
+
     #[test]
     fn test_normal() -> anyhow::Result<()> {
         let tick = Tick::now();
@@ -423,24 +436,10 @@ mod tests {
         ));
 
         let mut state = BuckEventSpanTracker::new();
-        state
-            .start_at(
-                &label,
-                tick.start_time
-                    .checked_sub(Duration::from_millis(2950))
-                    .unwrap(),
-            )
-            .unwrap();
-        state
-            .start_at(
-                &module,
-                tick.start_time
-                    .checked_sub(Duration::from_millis(950))
-                    .unwrap(),
-            )
-            .unwrap();
+        state.start_at(&label, fake_time(&tick, 3)).unwrap();
+        state.start_at(&module, fake_time(&tick, 1)).unwrap();
 
-        let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
+        let time_speed = fake_time_speed();
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -525,16 +524,11 @@ mod tests {
 
         for e in vec![e1, e2, e3] {
             state
-                .start_at(
-                    &Arc::new(e.clone()),
-                    tick.start_time
-                        .checked_sub(Duration::from_millis(950))
-                        .unwrap(),
-                )
+                .start_at(&Arc::new(e.clone()), fake_time(&tick, 1))
                 .unwrap();
         }
 
-        let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
+        let time_speed = fake_time_speed();
         let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
         let action_stats = ActionStats {
             local_actions: 0,
@@ -637,24 +631,10 @@ mod tests {
         ));
 
         let mut state = BuckEventSpanTracker::new();
-        state
-            .start_at(
-                &action,
-                tick.start_time
-                    .checked_sub(Duration::from_millis(9950))
-                    .unwrap(),
-            )
-            .unwrap();
-        state
-            .start_at(
-                &prepare,
-                tick.start_time
-                    .checked_sub(Duration::from_millis(4950))
-                    .unwrap(),
-            )
-            .unwrap();
+        state.start_at(&action, fake_time(&tick, 10)).unwrap();
+        state.start_at(&prepare, fake_time(&tick, 5)).unwrap();
 
-        let time_speed = TimeSpeed::new(Some(1.0)).unwrap();
+        let time_speed = fake_time_speed();
 
         let action_stats = ActionStats {
             local_actions: 0,
@@ -721,14 +701,7 @@ mod tests {
             .into(),
         ));
 
-        state
-            .start_at(
-                &re_download,
-                tick.start_time
-                    .checked_sub(Duration::from_millis(1950))
-                    .unwrap(),
-            )
-            .unwrap();
+        state.start_at(&re_download, fake_time(&tick, 2)).unwrap();
 
         let output = timed_list.draw(
             &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
