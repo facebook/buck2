@@ -78,6 +78,10 @@ pub struct Dialect {
     /// Are `for`, `if` and other statements allowed at the top level.
     /// Only enabled in [`Extended`](Dialect::Extended).
     pub enable_top_level_stmt: bool,
+    /// Like `#[non_exhaustive]`, but allows struct expression.
+    ///
+    /// [Explanation](https://github.com/rust-lang/rust-clippy/issues/6559).
+    pub _non_exhaustive: (),
 }
 
 impl Default for Dialect {
@@ -102,6 +106,7 @@ impl Dialect {
         enable_tabs: false,
         enable_load_reexport: true, // But they plan to change it
         enable_top_level_stmt: false,
+        _non_exhaustive: (),
     };
 
     /// A superset of [`Standard`](Dialect::Standard), including extra features (types, top-level statements etc).
@@ -114,6 +119,7 @@ impl Dialect {
         enable_tabs: false,
         enable_load_reexport: true,
         enable_top_level_stmt: true,
+        _non_exhaustive: (),
     };
 }
 
