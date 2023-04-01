@@ -28,7 +28,6 @@ impl StarlarkFileType {
             enable_load: true,
             enable_keyword_only_arguments: false,
             enable_types: DialectTypes::Disable,
-            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
             ..Dialect::Standard
@@ -39,7 +38,6 @@ impl StarlarkFileType {
             enable_load: true,
             enable_keyword_only_arguments: false,
             enable_types: DialectTypes::Disable,
-            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: false,
             ..Dialect::Standard
@@ -54,7 +52,6 @@ impl StarlarkFileType {
             } else {
                 DialectTypes::Enable
             },
-            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: true,
             ..Dialect::Standard
@@ -69,7 +66,6 @@ impl StarlarkFileType {
             } else {
                 DialectTypes::Enable
             },
-            enable_tabs: false,
             enable_load_reexport: false,
             enable_top_level_stmt: true,
             ..Dialect::Standard
