@@ -60,9 +60,9 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         true
     }
 
-    async fn command<'v>(
+    async fn command(
         &self,
-        server_ctx: &'v dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<ConfiguredTargetsResponse> {

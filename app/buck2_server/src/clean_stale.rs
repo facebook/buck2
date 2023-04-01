@@ -44,9 +44,9 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
     type Response = buck2_cli_proto::CleanStaleResponse;
     type PartialResult = NoPartialResult;
 
-    async fn command<'v>(
+    async fn command(
         &self,
-        server_ctx: &'v dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {

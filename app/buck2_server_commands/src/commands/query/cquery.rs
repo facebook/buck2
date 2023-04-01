@@ -64,9 +64,9 @@ impl ServerCommandTemplate for CqueryServerCommand {
         }
     }
 
-    async fn command<'v>(
+    async fn command(
         &self,
-        server_ctx: &'v dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {

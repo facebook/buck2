@@ -306,9 +306,9 @@ impl ServerCommandTemplate for DocsServerCommand {
     type Response = UnstableDocsResponse;
     type PartialResult = NoPartialResult;
 
-    async fn command<'v>(
+    async fn command(
         &self,
-        server_ctx: &'v dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {

@@ -127,9 +127,9 @@ impl ServerCommandTemplate for TargetsServerCommand {
     type Response = TargetsResponse;
     type PartialResult = buck2_cli_proto::StdoutBytes;
 
-    async fn command<'v>(
+    async fn command(
         &self,
-        server_ctx: &'v dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         dice: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
