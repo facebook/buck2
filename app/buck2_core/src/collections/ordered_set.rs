@@ -123,7 +123,7 @@ impl<T> OrderedSet<T> {
                 value: value.into_key(),
             })
         } else {
-            self.0.insert_hashed(value);
+            self.0.insert_hashed_unique_unchecked(value);
             Ok(())
         }
     }
