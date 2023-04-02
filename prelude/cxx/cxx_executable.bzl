@@ -94,6 +94,7 @@ load(
     ":debug.bzl",
     "ExternalDebugInfoTSet",
     "maybe_external_debug_info",
+    "project_external_debug_info",
 )
 load(
     ":link.bzl",
@@ -491,13 +492,28 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             default_output = binary.index_argsfile,
         )]
 
+    # Provide a debug info target to make sure debug info is materialized.
+    external_debug_info = maybe_external_debug_info(
+        actions = ctx.actions,
+        children = (
+            [binary.external_debug_info] +
+            [s.external_debug_info for s in shared_libs.values()]
+        ),
+    )
+    sub_targets["debuginfo"] = [DefaultInfo(
+        other_outputs = project_external_debug_info(
+            actions = ctx.actions,
+            infos = [external_debug_info],
+        ),
+    )]
+
     return CxxExecutableOutput(
         binary = binary.output,
         dwp = binary.dwp,
         runtime_files = runtime_files,
         sub_targets = sub_targets,
         link_args = links,
-        external_debug_info = binary.external_debug_info,
+        external_debug_info = external_debug_info,
         shared_libs = shared_libs,
         auto_link_groups = auto_link_groups,
         compilation_db = comp_db_info,
