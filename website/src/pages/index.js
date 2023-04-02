@@ -24,7 +24,7 @@ function HomepageHeader() {
         <h1 className="hero__title">{siteConfig.title}</h1>
         <p className="hero__subtitle">
           A large-scale build tool. The successor to Buck.<br/>
-          Ready for users ∈ &#123;C++, Python, Rust, Erlang<FbInternalOnly>, OCaml, Go</FbInternalOnly>&#125;
+            Ready for users ∈ &#123;C++, Python, Rust, Erlang, OCaml<FbInternalOnly>, Go</FbInternalOnly>&#125;
         </p>
         <FbInternalOnly>
           <div className={styles.buttons}>
