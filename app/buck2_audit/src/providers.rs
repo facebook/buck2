@@ -26,6 +26,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::parse_patterns_from_cli_args;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
+use buck2_util::indent::indent;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::stream::FuturesOrdered;
@@ -154,10 +155,6 @@ impl AuditProvidersCommand {
         let mut stdout = stdout.as_writer();
         let mut stderr = server_ctx.stderr()?;
 
-        fn indent(s: &str) -> String {
-            s.lines().map(|line| format!("  {}\n", line)).collect()
-        }
-
         let mut at_least_one_error = false;
         while let Some((target, result)) = futs.next().await {
             match result {
@@ -175,6 +172,7 @@ impl AuditProvidersCommand {
                             "{}:\n{}",
                             target,
                             indent(
+                                "  ",
                                 &provider_names
                                     .iter()
                                     .fold(String::new(), |acc, arg| acc + &format!("- {}\n", arg))
@@ -185,14 +183,14 @@ impl AuditProvidersCommand {
                             &mut stdout,
                             "{}:\n{}",
                             target,
-                            indent(&format!("{:?}", v.provider_collection()))
+                            indent("  ", &format!("{:?}", v.provider_collection()))
                         )?;
                     } else {
                         write!(
                             &mut stdout,
                             "{}:\n{}",
                             target,
-                            indent(&format!("{:#}", v.provider_collection()))
+                            indent("  ", &format!("{:#}", v.provider_collection()))
                         )?;
                     }
                 }
@@ -201,7 +199,7 @@ impl AuditProvidersCommand {
                         &mut stderr,
                         "{}: failed:\n{}",
                         target,
-                        indent(&format!("{:?}", e))
+                        indent("  ", &format!("{:?}", e))
                     )?;
                     at_least_one_error = true;
                 }

@@ -23,6 +23,7 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::multi_query::MultiQueryResult;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
+use buck2_util::indent::indent;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
@@ -104,9 +105,7 @@ impl<'a, T: QueryTarget> Display for PrintableQueryTarget<'a, T> {
         if self.target_call_stacks {
             match self.value.call_stack() {
                 Some(call_stack) => {
-                    for entry in call_stack.lines() {
-                        writeln!(f, "  {}", entry)?;
-                    }
+                    write!(f, "{}", indent("  ", &call_stack))?;
                 }
                 None => {
                     // This is `aquery`.

@@ -27,6 +27,7 @@ use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_util::indent::indent;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use regex::RegexSet;
@@ -322,9 +323,7 @@ impl TargetFormatter for TargetNameFormat {
 
 pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack: Option<&str>) {
     if let Some(call_stack) = call_stack {
-        for line in call_stack.lines() {
-            writeln!(out, "  {}", line).unwrap();
-        }
+        write!(out, "{}", indent("  ", call_stack)).unwrap();
     }
 }
 

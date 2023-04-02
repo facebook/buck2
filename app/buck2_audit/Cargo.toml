@@ -40,3 +40,4 @@ buck2_query = { workspace = true }
 buck2_query_common = { workspace = true }
 buck2_server_commands = { workspace = true }
 buck2_server_ctx = { workspace = true }
+buck2_util = { workspace = true }
