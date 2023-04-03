@@ -41,7 +41,6 @@ use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use either::Either;
-use gazebo::cast;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
@@ -301,8 +300,7 @@ impl<'v> Value<'v> {
     /// Is this value `None`.
     #[inline]
     pub fn is_none(self) -> bool {
-        // Safe because frozen values never have a tag
-        self.0.raw().ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
+        self.ptr_eq(Value::new_none())
     }
 
     /// Obtain the underlying numerical value, if it is one.
@@ -332,11 +330,11 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying `bool` if it is a boolean.
+    #[inline]
     pub fn unpack_bool(self) -> Option<bool> {
-        let p = self.0.raw().ptr_value();
-        if p == cast::ptr_to_usize(&VALUE_TRUE) {
+        if self.ptr_eq(Value::new_bool(true)) {
             Some(true)
-        } else if p == cast::ptr_to_usize(&VALUE_FALSE) {
+        } else if self.ptr_eq(Value::new_bool(false)) {
             Some(false)
         } else {
             None
@@ -910,20 +908,13 @@ impl FrozenValue {
     /// Is a value a Starlark `None`.
     #[inline]
     pub fn is_none(self) -> bool {
-        // Safe because frozen values never have a tag
-        self.0.raw().ptr_value() == cast::ptr_to_usize(&VALUE_NONE)
+        self.to_value().is_none()
     }
 
     /// Return the [`bool`] if the value is a boolean, otherwise [`None`].
+    #[inline]
     pub fn unpack_bool(self) -> Option<bool> {
-        let p = self.0.raw().ptr_value();
-        if p == cast::ptr_to_usize(&VALUE_TRUE) {
-            Some(true)
-        } else if p == cast::ptr_to_usize(&VALUE_FALSE) {
-            Some(false)
-        } else {
-            None
-        }
+        self.to_value().unpack_bool()
     }
 
     /// Return the int if the value is an integer, otherwise [`None`].
