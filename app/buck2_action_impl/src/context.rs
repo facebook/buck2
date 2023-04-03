@@ -381,7 +381,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
 
             let state = &mut *this;
-            let action = UnregisteredWriteMacrosToFileAction::new();
+            let action = UnregisteredWriteMacrosToFileAction::new(
+                output_artifact
+                    .get_path()
+                    .with_short_path(|p| p.to_string()),
+            );
             state.register_action(
                 indexset![],
                 written_macro_files.iter().map(|a| a.as_output()).collect(),

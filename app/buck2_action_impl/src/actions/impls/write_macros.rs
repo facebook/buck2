@@ -44,12 +44,12 @@ use thiserror::Error;
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
-    _private: (),
+    identifier: String,
 }
 
 impl UnregisteredWriteMacrosToFileAction {
-    pub(crate) fn new() -> Self {
-        Self { _private: () }
+    pub(crate) fn new(identifier: String) -> Self {
+        Self { identifier }
     }
 }
 
@@ -61,7 +61,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
-        let action = WriteMacrosToFileAction::new(contents, inputs, outputs)?;
+        let action = WriteMacrosToFileAction::new(self.identifier, contents, inputs, outputs)?;
         Ok(Box::new(action))
     }
 }
@@ -80,6 +80,7 @@ enum WriteMacrosActionValidationError {
 
 #[derive(Debug, Allocative)]
 struct WriteMacrosToFileAction {
+    identifier: String,
     contents: OwnedFrozenValue, // StarlarkCommandLine
     inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
@@ -87,6 +88,7 @@ struct WriteMacrosToFileAction {
 
 impl WriteMacrosToFileAction {
     fn new(
+        identifier: String,
         contents: OwnedFrozenValue,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
@@ -103,6 +105,7 @@ impl WriteMacrosToFileAction {
             ))
         } else {
             Ok(Self {
+                identifier,
                 contents,
                 inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
@@ -134,6 +137,10 @@ impl Action for WriteMacrosToFileAction {
             Lazy::new(|| Category::try_from("write_macros_to_file").unwrap());
 
         &WRITE_MACROS_CATEGORY
+    }
+
+    fn identifier(&self) -> Option<&str> {
+        Some(&self.identifier)
     }
 }
 
