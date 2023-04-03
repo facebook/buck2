@@ -60,48 +60,49 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {
 
 #[starlark_module]
 pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
+    /// Contains configurations for how actions should be executed
+    ///
+    /// * `local_enabled` : Whether to use local execution for this execution platform.
+    /// If both remote_enabled and local_enabled are `True`, we will use the hybrid executor
+    /// * `remote_enabled`: Whether to use remote execution for this execution platform
+    /// * `remote_cache_enabled`: Whether to query RE caches
+    /// * `remote_execution_properties`: Properties for remote execution for this platform
+    /// * `remote_execution_action_key`: A component to inject into the action key
+    /// This should typically used to inject variability into the action key so that
+    /// it's different across e.g. build modes (RE uses the action key for things like expected memory utilization)
+    /// * `remote_execution_max_input_files_mebibytes`: The maximum input file size (in bytes) that remote execution can support
+    /// * `remote_execution_queue_time_threshold_s`: The maximum time in seconds we are willing to wait
+    /// in the RE queue for remote execution to start running our action
+    /// * `remote_execution_use_case`: The use case to use when communicating with RE
+    /// * `use_limited_hybrid`: Whether to use the limited hybrid executor
+    /// * `allow_limited_hybrid_fallbacks`: Whether to allow fallbacks
+    /// * `allow_hybrid_fallbacks_on_failure`: Whether to allow fallbacks when the result is failure (i.e. the command failed on the primary, but the infra worked)
+    /// * `use_windows_path_separators`: Whether to use Windows path separators in command line arguments
+    /// * `allow_cache_uploads`: Whether to upload local actions to the RE cache
+    /// * `max_cache_upload_mebibytes`: Maximum size to upload in cache uploads
+    /// * `experimental_low_pass_filter`: Whether to use the experimental low pass filter
+    /// * `remote_output_paths`: How to express output paths to RE
     #[starlark(type = "command_executor_config")]
     fn CommandExecutorConfig<'v>(
-        // Whether to use local execution for this execution platform. If both
-        // remote_enabled and local_enabled are `True`, we will use the hybrid executor.
         local_enabled: bool,
-        // Whether to use remote execution for this execution platform
         remote_enabled: bool,
-        // Whether to query RE caches.
         #[starlark(default = NoneOr::None, require = named)] remote_cache_enabled: NoneOr<bool>,
-        // properties for remote execution for this platform
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
-        // A component to inject into the action key. This should typically used to inject variability
-        // into the action key so that it's different across e.g. build modes (RE uses the action key
-        // for things like expected memory utilization).
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
-        // The maximum input file size (in bytes) that remote execution can support.
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_max_input_files_mebibytes: NoneOr<i32>,
-        // The maximum time in seconds we are willing to wait in the
-        // RE queue for remote execution to start running our action.
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_queue_time_threshold_s: NoneOr<i32>,
-        // The use case to use when communicating with RE.
         #[starlark(default = NoneType, require = named)] remote_execution_use_case: Value<'v>,
-        // Whether to use the limited hybrid executor
         #[starlark(default = false, require = named)] use_limited_hybrid: bool,
-        // Whether to allow fallbacks
         #[starlark(default = false, require = named)] allow_limited_hybrid_fallbacks: bool,
-        // Whether to allow fallbacks when the result is failure (i.e. the command failed on the
-        // primary, but the infra worked).
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
-        // Whether to use Windows path separators in command line arguments.
         #[starlark(default = false, require = named)] use_windows_path_separators: bool,
-        // Whether to upload local actions to the RE cache
         #[starlark(default = false, require = named)] allow_cache_uploads: bool,
-        // Maximum size to upload in cache uploads
         #[starlark(default = NoneOr::None, require = named)] max_cache_upload_mebibytes: NoneOr<
             i32,
         >,
-        // Whether to use the experimental low pass filter.
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
-        // How to express output paths to RE.
         #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
