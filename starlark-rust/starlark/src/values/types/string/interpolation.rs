@@ -223,6 +223,15 @@ pub(crate) fn percent_s_one<'v>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert;
+
+    #[test]
+    fn test_percent_s_bugs() {
+        // TODO(nga): this should fail.
+        assert::eq("'%'", "'%' % ()");
+        // TODO(nga): this should also fail.
+        assert::eq("'%q'", "'%q' % ()");
+    }
 
     #[test]
     fn test_parse_percent_s_one() {
