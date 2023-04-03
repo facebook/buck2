@@ -42,10 +42,8 @@ use crate::values::ValueLike;
 /// Operator `%` format or evaluation errors
 #[derive(Clone, Dupe, Debug, Error)]
 enum StringInterpolationError {
-    /// Interpolation parameter is too big for the format string.
     #[error("Too many arguments for format string")]
     TooManyParameters,
-    /// Interpolation parameter is too small for the format string.
     #[error("Not enough arguments for format string")]
     NotEnoughParameters,
 }
