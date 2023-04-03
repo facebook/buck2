@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::*;
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -130,9 +129,9 @@ impl StarFun {
         Vec<TokenStream>,
     ) {
         let Bindings { prepare, bindings } = render_binding(self);
-        let binding_params: Vec<_> = bindings.map(|b| b.render_param());
-        let binding_param_types: Vec<_> = bindings.map(|b| b.render_param_type());
-        let binding_args: Vec<_> = bindings.map(|b| b.render_arg());
+        let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
+        let binding_param_types: Vec<_> = bindings.iter().map(|b| b.render_param_type()).collect();
+        let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
         (binding_params, binding_param_types, prepare, binding_args)
     }
 
@@ -360,7 +359,7 @@ fn render_binding(x: &StarFun) -> Bindings {
             }
         }
         StarFunSource::Signature { count } => {
-            let bind_args: Vec<BindingArg> = x.args.map(render_binding_arg);
+            let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
             Bindings {
                 prepare: quote_spanned! { span=>
                     let __args: [_; #count] = self.signature.collect_into(parameters, eval.heap())?;
@@ -369,7 +368,7 @@ fn render_binding(x: &StarFun) -> Bindings {
             }
         }
         StarFunSource::Positional { required, optional } => {
-            let bind_args = x.args.map(render_binding_arg);
+            let bind_args = x.args.iter().map(render_binding_arg).collect();
             if optional == 0 {
                 Bindings {
                     prepare: quote_spanned! {

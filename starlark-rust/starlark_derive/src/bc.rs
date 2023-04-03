@@ -17,7 +17,6 @@
 
 //! Generate stubs for bytecode interpreter.
 
-use gazebo::prelude::*;
 use proc_macro2::Ident;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
@@ -67,7 +66,10 @@ impl BcOpcodeEnum {
     }
 
     fn render_dispatch(&self) -> TokenStream {
-        let variants = self.variants.map(|v| self.render_dispatch_variant(v));
+        let variants = self
+            .variants
+            .iter()
+            .map(|v| self.render_dispatch_variant(v));
         quote_spanned! {
             self.span=>
             impl BcOpcode {
@@ -90,7 +92,10 @@ impl BcOpcodeEnum {
     }
 
     fn render_dispatch_all(&self) -> TokenStream {
-        let variants = self.variants.map(|v| self.render_dispatch_all_variant(v));
+        let variants = self
+            .variants
+            .iter()
+            .map(|v| self.render_dispatch_all_variant(v));
         quote_spanned! {
             self.span=>
             impl BcOpcode {

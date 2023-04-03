@@ -18,7 +18,6 @@
 mod fun;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
 use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::FnArg;
@@ -93,7 +92,9 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
         stmts: input
             .block
             .stmts
-            .into_try_map(|stmt| parse_stmt(stmt, module_kind))?,
+            .into_iter()
+            .map(|stmt| parse_stmt(stmt, module_kind))
+            .collect::<syn::Result<_>>()?,
     })
 }
 

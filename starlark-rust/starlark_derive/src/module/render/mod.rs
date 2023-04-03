@@ -19,7 +19,6 @@ mod fun;
 
 use std::collections::HashSet;
 
-use gazebo::prelude::*;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote_spanned;
@@ -45,7 +44,10 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
         module_kind,
     } = x;
     let statics = format_ident!("{}", module_kind.statics_type_name());
-    let stmts = stmts.into_try_map(render_stmt)?;
+    let stmts: Vec<_> = stmts
+        .into_iter()
+        .map(render_stmt)
+        .collect::<syn::Result<_>>()?;
     let set_docstring =
         docstring.map(|ds| quote_spanned!(span=> globals_builder.set_docstring(#ds);));
     Ok(quote_spanned! {
