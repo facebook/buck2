@@ -34,10 +34,13 @@ use thiserror::Error;
 
 use crate::commands::build::print_build_result;
 
+/// Build and run the selected target.
+///
+/// The Build ID for the underlying build execution is made available to the target in
+/// the `BUCK_RUN_BUILD_ID` environment variable.
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "run",
-    about = "Build and run the specified target",
     setting = clap::AppSettings::TrailingVarArg
 )]
 pub struct RunCommand {
@@ -193,7 +196,12 @@ impl StreamingCommand for RunCommand {
             }
         }
 
-        ExitResult::exec(run_args[0].clone(), run_args, self.chdir)
+        ExitResult::exec(
+            run_args[0].clone(),
+            run_args,
+            self.chdir,
+            vec![("BUCK_RUN_BUILD_ID".to_owned(), ctx.trace_id.to_string())],
+        )
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

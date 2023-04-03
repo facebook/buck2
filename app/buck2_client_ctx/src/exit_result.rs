@@ -28,6 +28,7 @@ pub struct ExecArgs {
     prog: String,
     argv: Vec<String>,
     chdir: Option<String>,
+    env: Vec<(String, String)>,
 }
 
 /// ExitResult represents the outcome of a process execution where we care to return a specific
@@ -80,8 +81,18 @@ impl ExitResult {
         }
     }
 
-    pub fn exec(prog: String, argv: Vec<String>, chdir: Option<String>) -> Self {
-        Self::Exec(ExecArgs { prog, argv, chdir })
+    pub fn exec(
+        prog: String,
+        argv: Vec<String>,
+        chdir: Option<String>,
+        env: Vec<(String, String)>,
+    ) -> Self {
+        Self::Exec(ExecArgs {
+            prog,
+            argv,
+            chdir,
+            env,
+        })
     }
 
     pub fn bail(msg: impl Display) -> Self {
@@ -275,6 +286,11 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
         // This is OK because we immediately call execv after this
         // (otherwise this would be a really bad idea)
         std::env::set_current_dir(dir)?;
+    }
+
+    for (k, v) in args.env {
+        // Same as above
+        std::env::set_var(k, v);
     }
 
     if cfg!(windows) {
