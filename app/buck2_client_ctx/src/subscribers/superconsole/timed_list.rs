@@ -393,16 +393,29 @@ mod tests {
         _notable: Duration::from_millis(200),
     };
 
+    const TIME_DILATION: u64 = 10;
+
     fn fake_time_speed() -> TimeSpeed {
-        TimeSpeed::new(Some(1.0)).unwrap()
+        // We run time 10x slower so that any time occurring due to the
+        // test running on an overloaded server is ignored.
+        //
+        // Note that going to 100x slower causes Windows CI to fail, because
+        // the `Instant` can't go below the time when the VM was booted, or you get an
+        // underflow of `Instant`.
+        TimeSpeed::new(Some(1.0 / (TIME_DILATION as f64))).unwrap()
     }
 
     fn fake_time(tick: &Tick, secs: u64) -> Instant {
         tick.start_time
-            .checked_sub(Duration::from_secs(secs))
-            .unwrap()
+            .checked_sub(Duration::from_secs(secs * TIME_DILATION))
+            .unwrap_or_else(|| {
+                panic!(
+                    "Instant went too low: {:?} - ({secs} * {TIME_DILATION}",
+                    tick.start_time
+                )
+            })
             // We add 50ms to give us a 100ms window where we round down correctly
-            .checked_add(Duration::from_millis(50))
+            .checked_add(Duration::from_millis(50 * TIME_DILATION))
             .unwrap()
     }
 
