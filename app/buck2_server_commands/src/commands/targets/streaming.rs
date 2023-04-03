@@ -109,6 +109,9 @@ pub(crate) async fn targets_streaming(
                         formatter.package_error(package.dupe(), &e, &mut res.stdout);
                         if !keep_going {
                             res.stderr = Some(format!("Error parsing {}\n{:?}", package, e));
+                        } else {
+                            // TODO(nga): When "keep going" and "target name" formatter is used,
+                            //   error is printed nowhere.
                         }
                     }
                 }

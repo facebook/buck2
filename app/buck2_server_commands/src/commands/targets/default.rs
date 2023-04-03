@@ -151,6 +151,8 @@ pub(crate) async fn targets_batch(
                     }
                     needs_separator = true;
                     formatter.package_error(package.dupe(), e.inner(), &mut buffer);
+                    // TODO(nga): When "keep going" and "target name" formatter is used,
+                    //   error is printed nowhere.
                 } else {
                     writeln!(
                         server_ctx.stderr()?,
