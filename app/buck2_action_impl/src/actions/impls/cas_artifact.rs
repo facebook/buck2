@@ -167,6 +167,10 @@ impl Action for CasArtifactAction {
             Lazy::new(|| Category::try_from("cas_artifact").unwrap());
         &CAS_ARTIFACT_CATEGORY
     }
+
+    fn identifier(&self) -> Option<&str> {
+        Some(self.output.get_path().path().as_str())
+    }
 }
 
 #[async_trait]
