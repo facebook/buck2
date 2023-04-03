@@ -76,7 +76,7 @@ use crate::eval::ParametersSpec;
 use crate::values::dict::Dict;
 use crate::values::int::PointerI32;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
-use crate::values::string::interpolation::format_one;
+use crate::values::string::dot_format::format_one;
 use crate::values::string::interpolation::percent_s_one;
 use crate::values::types::known_methods::KnownMethod;
 use crate::values::types::list::value::ListData;

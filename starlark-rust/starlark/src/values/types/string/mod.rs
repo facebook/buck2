@@ -56,6 +56,7 @@ use crate::values::Value;
 use crate::values::ValueError;
 
 mod alloc_unpack;
+pub(crate) mod dot_format;
 pub(crate) mod fast_string;
 pub(crate) mod intern;
 pub(crate) mod interpolation;

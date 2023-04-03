@@ -34,7 +34,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
 use crate::values::enumeration::FrozenEnumType;
-use crate::values::string::interpolation::parse_format_one;
+use crate::values::string::dot_format::parse_format_one;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 

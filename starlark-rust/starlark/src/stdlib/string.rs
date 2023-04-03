@@ -27,8 +27,8 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::stdlib::string::fast_string::convert_str_indices;
 use crate::values::none::NoneOr;
+use crate::values::string::dot_format;
 use crate::values::string::fast_string;
-use crate::values::string::interpolation;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::string::fast_string::StrIndices;
 use crate::values::types::string::iter::iterate_chars;
@@ -368,7 +368,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StringValue<'v>> {
         let iter = args.positions(eval.heap())?;
-        interpolation::format(
+        dot_format::format(
             this,
             iter,
             args.names()?,
