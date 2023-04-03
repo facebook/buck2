@@ -582,13 +582,21 @@ mod imp {
             info: &buck2_data::BuildGraphExecutionInfo,
             _event: &BuckEvent,
         ) -> anyhow::Result<()> {
-            let durations = info
-                .critical_path
-                .iter()
-                .filter_map(|x| x.duration.as_ref())
-                .map(|d| d.try_into_duration())
-                .collect::<Result<Vec<_>, _>>()?;
-            self.critical_path_duration = Some(durations.iter().sum());
+            let mut duration = Duration::default();
+
+            for node in &info.critical_path {
+                if let Some(d) = &node.duration {
+                    duration += d.try_into_duration()?;
+                }
+            }
+
+            for node in &info.critical_path2 {
+                if let Some(d) = &node.duration {
+                    duration += d.try_into_duration()?;
+                }
+            }
+
+            self.critical_path_duration = Some(duration);
             Ok(())
         }
 
