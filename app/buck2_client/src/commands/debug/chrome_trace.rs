@@ -77,6 +77,7 @@ struct ChromeTraceFirstPass {
     pub long_loads: HashSet<buck2_events::span::SpanId>,
     pub local_actions: HashSet<buck2_events::span::SpanId>,
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
+    pub critical_path_span_ids: HashSet<u64>,
 }
 
 impl ChromeTraceFirstPass {
@@ -88,6 +89,7 @@ impl ChromeTraceFirstPass {
             long_loads: HashSet::new(),
             local_actions: HashSet::new(),
             critical_path_action_keys: HashSet::new(),
+            critical_path_span_ids: HashSet::new(),
         }
     }
 
@@ -139,6 +141,12 @@ impl ChromeTraceFirstPass {
                         .iter()
                         .map(|entry| entry.action_key.clone().unwrap())
                         .collect();
+
+                    self.critical_path_span_ids = info
+                        .critical_path2
+                        .iter()
+                        .filter_map(|entry| entry.span_id)
+                        .collect()
                 }
                 _ => {}
             },
@@ -642,11 +650,18 @@ impl ChromeTraceWriter {
                     }
                 }
                 buck2_data::span_start_event::Data::ActionExecution(action) => {
+                    #[allow(clippy::if_same_then_else)]
                     let maybe_track = if self
                         .first_pass
                         .critical_path_action_keys
                         .contains(action.key.as_ref().unwrap())
                     {
+                        Some(Self::CRITICAL_PATH)
+                    } else if event.span_id().map_or(false, |span_id| {
+                        self.first_pass
+                            .critical_path_span_ids
+                            .contains(&span_id.into())
+                    }) {
                         Some(Self::CRITICAL_PATH)
                     } else if self
                         .first_pass

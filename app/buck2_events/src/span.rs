@@ -46,3 +46,9 @@ impl SpanId {
         }
     }
 }
+
+impl From<SpanId> for u64 {
+    fn from(span_id: SpanId) -> Self {
+        span_id.0.into()
+    }
+}
