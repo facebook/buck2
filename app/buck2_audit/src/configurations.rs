@@ -48,7 +48,7 @@ impl AuditSubcommand for AuditConfigurationsCommand {
         let mut stdout = stdout.as_writer();
 
         if self.configs.is_empty() {
-            for cfg in ConfigurationData::iter_existing()?
+            for cfg in ConfigurationData::iter_existing()
                 .filter(|c| c.is_bound())
                 .sorted_by_cached_key(|c| c.full_name().to_owned())
             {

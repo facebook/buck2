@@ -171,8 +171,8 @@ impl ConfigurationData {
     /// are never evicted, this may return configurations that aren't present in the
     /// actual current state (for example, if you do a build and then delete everything
     /// this will still iterate over previously existing configurations).
-    pub fn iter_existing() -> anyhow::Result<impl Iterator<Item = Self>> {
-        Ok(INTERNER.iter().map(Self))
+    pub fn iter_existing() -> impl Iterator<Item = Self> {
+        INTERNER.iter().map(Self)
     }
 
     /// Looks up a known configuration from a `Configuration::full_name()` string. Generally
