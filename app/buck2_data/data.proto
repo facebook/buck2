@@ -278,6 +278,44 @@ message CriticalPathEntry {
   ActionName action_name_fields = 4;
 }
 
+message CriticalPathEntry2 {
+  message Analysis {
+    oneof target {
+      ConfiguredTargetLabel standard_target = 1;
+    }
+  }
+
+  message ActionExecution {
+    ActionName name = 1;
+
+    oneof owner {
+      ConfiguredTargetLabel target_label = 2;
+      BxlFunctionKey bxl_key = 3;
+      AnonTarget anon_target = 4;
+    }
+  }
+
+  optional uint64 span_id = 1;
+
+  // The duration we used to compute the critical path. This will be one of the
+  // durations below, but to ensure not every callsite has to know which one we
+  // chose, we expose it here.
+  google.protobuf.Duration duration = 2;
+
+  // The subset of the duration for this entry whose runtime is controlled by
+  // the user.
+  google.protobuf.Duration user_duration = 3;
+
+  // The total duration for this entry, which might include runtime not
+  // controlled by the user (e.g. Buck querying caches, etc.)
+  google.protobuf.Duration total_duration = 4;
+
+  oneof entry {
+    Analysis analysis = 100;
+    ActionExecution action_execution = 101;
+  }
+}
+
 // Sent once per build.
 message BuildGraphExecutionInfo {
   // The actions that made up the critical path, in chronological order.
@@ -289,6 +327,9 @@ message BuildGraphExecutionInfo {
   uint64 num_nodes = 3;
   // Number of directed edges in the action graph (directed acyclic graph).
   uint64 num_edges = 4;
+  // The actions that made up the critical path, in chronological order, in a
+  // new format. We will have either that, or critical_path;
+  repeated CriticalPathEntry2 critical_path2 = 5;
 }
 
 // An event capturing information from the test discovery phase.

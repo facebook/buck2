@@ -165,6 +165,26 @@ fn main() -> io::Result<()> {
             "concurrent_command_blocking_duration",
             "#[serde(rename = \"concurrent_command_blocking_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
+        .field_attribute(
+            "CriticalPathEntry2.user_duration",
+            "#[serde(rename = \"user_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "CriticalPathEntry2.total_duration",
+            "#[serde(rename = \"total_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .type_attribute(
+            "buck.data.CriticalPathEntry2.entry",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
+            "buck.data.CriticalPathEntry2.Analysis.target",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
+        .type_attribute(
+            "buck.data.CriticalPathEntry2.ActionExecution.owner",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")

@@ -161,6 +161,7 @@ where
 
         instant_event(BuildGraphExecutionInfo {
             critical_path,
+            critical_path2: Vec::new(),
             metadata: metadata::collect(),
             num_nodes,
             num_edges,
