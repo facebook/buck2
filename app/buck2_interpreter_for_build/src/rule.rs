@@ -228,7 +228,8 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let record_target_call_stack =
-            ModuleInternals::from_context(eval)?.record_target_call_stacks();
+            ModuleInternals::from_context(eval, self.rule.rule_type.name())?
+                .record_target_call_stacks();
         let call_stack = if record_target_call_stack {
             Some(eval.call_stack())
         } else {
@@ -238,7 +239,7 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
         self.signature.parser(args, eval, |param_parser, eval| {
             // The body of the callable returned by `rule()`.
             // Records the target in this package's `TargetMap`.
-            let internals = ModuleInternals::from_context(eval)?;
+            let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
             let target_node = TargetNode::from_params(
                 self.rule.dupe(),
                 internals.package(),

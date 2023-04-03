@@ -28,7 +28,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] exclude: Option<Vec<String>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let extra = ModuleInternals::from_context(eval)?;
+        let extra = ModuleInternals::from_context(eval, "glob")?;
         let excludes = exclude.unwrap_or_default();
         let spec = GlobSpec::new(&include, &excludes)?;
         let res = extra.resolve_glob(&spec).map(|path| path.as_str());

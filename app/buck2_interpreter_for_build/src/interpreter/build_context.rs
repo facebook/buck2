@@ -31,10 +31,16 @@ enum BuildContextError {
         "This function is unavailable during analysis (usual solution is to place the information on a toolchain)"
     )]
     UnavailableDuringAnalysis,
-    #[error("Expecting a build file; current file type context is {0:?}")]
-    NotBuildFile(StarlarkFileType),
-    #[error("Expecting a package file; current file type context is {0:?}")]
-    NotPackageFile(StarlarkFileType),
+    #[error("`{0}()` can only be called from a build file context; current file context is {1:?}")]
+    NotBuildFile(String, StarlarkFileType),
+    #[error("Expecting build file context, but current file context is {0:?}")]
+    NotBuildFileNoFunction(StarlarkFileType),
+    #[error(
+        "`{0}()` can only be called from a package file context; current file context is {1:?}"
+    )]
+    NotPackageFile(String, StarlarkFileType),
+    #[error("Expecting package file context, but current file context is {0:?}")]
+    NotPackageFileNoFunction(StarlarkFileType),
 }
 
 #[derive(Debug)]
@@ -57,31 +63,38 @@ impl PerFileTypeContext {
         }
     }
 
-    pub(crate) fn require_build(&self) -> anyhow::Result<&ModuleInternals> {
+    pub(crate) fn require_build(&self, function_name: &str) -> anyhow::Result<&ModuleInternals> {
         match self {
             PerFileTypeContext::Build(internals) => Ok(internals),
-            x => Err(BuildContextError::NotBuildFile(x.file_type()).into()),
+            x => {
+                Err(BuildContextError::NotBuildFile(function_name.to_owned(), x.file_type()).into())
+            }
         }
     }
 
     pub(crate) fn into_build(self) -> anyhow::Result<ModuleInternals> {
         match self {
             PerFileTypeContext::Build(internals) => Ok(internals),
-            x => Err(BuildContextError::NotBuildFile(x.file_type()).into()),
+            x => Err(BuildContextError::NotBuildFileNoFunction(x.file_type()).into()),
         }
     }
 
-    pub(crate) fn require_package_file(&self) -> anyhow::Result<&PackageFileEvalCtx> {
+    pub(crate) fn require_package_file(
+        &self,
+        function_name: &str,
+    ) -> anyhow::Result<&PackageFileEvalCtx> {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),
-            x => Err(BuildContextError::NotPackageFile(x.file_type()).into()),
+            x => Err(
+                BuildContextError::NotPackageFile(function_name.to_owned(), x.file_type()).into(),
+            ),
         }
     }
 
     pub(crate) fn into_package_file(self) -> anyhow::Result<PackageFileEvalCtx> {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),
-            x => Err(BuildContextError::NotPackageFile(x.file_type()).into()),
+            x => Err(BuildContextError::NotPackageFileNoFunction(x.file_type()).into()),
         }
     }
 
@@ -183,7 +196,9 @@ impl<'a> BuildContext<'a> {
 /// EvalResult at the end of interpeting
 impl ModuleInternals {
     /// Try to get this inner context from the `ctx.extra` property.
-    pub fn from_context<'a>(ctx: &'a Evaluator) -> anyhow::Result<&'a Self> {
-        BuildContext::from_context(ctx)?.additional.require_build()
+    pub fn from_context<'a>(ctx: &'a Evaluator, function_name: &str) -> anyhow::Result<&'a Self> {
+        BuildContext::from_context(ctx)?
+            .additional
+            .require_build(function_name)
     }
 }

@@ -20,7 +20,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// This should be called "target exists", not "rule exists"
     /// (if this should exist at all).
     fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
-        Ok(ModuleInternals::from_context(eval)?.target_exists(name))
+        Ok(ModuleInternals::from_context(eval, "rule_exists")?.target_exists(name))
     }
 
     /// Called in a `BUCK` file to declare the oncall contact details for
@@ -30,7 +30,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] name: &str,
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
-        let internals = ModuleInternals::from_context(eval)?;
+        let internals = ModuleInternals::from_context(eval, "oncall")?;
         internals.set_oncall(name)?;
         Ok(NoneType)
     }
@@ -40,7 +40,7 @@ pub fn register_module_natives(globals: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let internals = ModuleInternals::from_context(eval)?;
+        let internals = ModuleInternals::from_context(eval, "implicit_package_symbol")?;
         match internals.get_package_implicit(name) {
             None => Ok(default.unwrap_or_else(Value::new_none)),
             Some(v) => {

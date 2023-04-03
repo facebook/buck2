@@ -75,7 +75,7 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
 
         let package_ctx = BuildContext::from_context(eval)?
             .additional
-            .require_package_file()?;
+            .require_package_file("write_package_value")?;
 
         let extra_value = eval
             .module()
@@ -114,7 +114,7 @@ pub fn register_read_package_value(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         validate_key(key)?;
 
-        let build_ctx = ModuleInternals::from_context(eval)?;
+        let build_ctx = ModuleInternals::from_context(eval, "read_package_value")?;
         match build_ctx.super_package.package_values().get(key) {
             Some(value) => Ok(value.owned_value(eval.frozen_heap())),
             None => Ok(Value::new_none()),
