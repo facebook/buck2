@@ -39,6 +39,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::quiet_soft_error;
 use buck2_core::soft_error;
+use buck2_data::StarlarkFailNoStacktrace;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::BxlFilePath;
@@ -54,11 +56,13 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;
+use starlark::errors::Diagnostic;
 
 use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::BxlResolvedCliArgs;
 use crate::bxl::eval::CliResolutionCtx;
+use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub async fn bxl_command(
     ctx: Box<dyn ServerCommandContextTrait>,
@@ -152,7 +156,29 @@ async fn bxl(
         ConvertMaterializationContext::from(final_artifact_materializations);
 
     let ctx = &ctx;
-    let result = ctx.eval_bxl(bxl_key).await?;
+    let result = match ctx.eval_bxl(bxl_key.clone()).await {
+        Ok(result) => result,
+        Err(e) => {
+            if let Some(shared) = e.downcast_ref::<SharedError>() {
+                if let Some(diag) = shared.inner().downcast_ref::<Diagnostic>() {
+                    if let Some(fail_no_stacktrace) =
+                        diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
+                    {
+                        let dispatcher = get_dispatcher();
+                        dispatcher.instant_event(StarlarkFailNoStacktrace {
+                            trace: format!("{}", diag),
+                        });
+                        dispatcher.console_message(
+                            "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
+                        );
+                        return Err((fail_no_stacktrace.clone()).into());
+                    }
+                }
+            }
+
+            return Err(e);
+        }
+    };
 
     let build_result = ensure_artifacts(ctx, &materialization_context, &result).await;
     copy_output(stdout, ctx, result.get_output_loc()).await?;

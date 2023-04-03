@@ -184,6 +184,9 @@ message InstantEvent {
 
     // Total number of concurrent commands in an active dice.
     DiceConcurrentCommands dice_concurrent_commands = 24;
+
+    // Stacktrace from the fail_no_stacktrace() call.
+    StarlarkFailNoStacktrace starlark_fail_no_stacktrace = 25;
   }
 
   reserved 12; // Log
@@ -1583,6 +1586,10 @@ message IoProviderInfo {
 
 message DiceConcurrentCommands {
   uint32 total_concurrent_commands = 1;
+}
+
+message StarlarkFailNoStacktrace {
+  string trace = 1;
 }
 
 message NoopEvent {}
