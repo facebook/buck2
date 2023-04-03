@@ -121,11 +121,9 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// ascribes no semantics to them. Examples of category-identifier pairs would be `cxx_compile` + `MyCppFile.cpp`,
     /// reflecting a C++ compiler invocation for a file `MyCppFile.cpp`.
     ///
-    /// Not required; if None, only one action will be given in the given category.
-    fn identifier(&self) -> Option<&str> {
-        // TODO(swgillespie) provide this for action implementations
-        None
-    }
+    /// Not required; if None, only one action will be given in the given category. The user should
+    /// be given either control over the identifier or the category.
+    fn identifier(&self) -> Option<&str>;
 
     /// Whether to always print stderr, or only print when a user asks for it.
     fn always_print_stderr(&self) -> bool {

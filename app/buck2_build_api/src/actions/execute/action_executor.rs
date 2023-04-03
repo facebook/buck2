@@ -652,6 +652,10 @@ mod tests {
 
                 &TEST_CATEGORY
             }
+
+            fn identifier(&self) -> Option<&str> {
+                None
+            }
         }
 
         #[async_trait]
