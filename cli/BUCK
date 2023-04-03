@@ -6,7 +6,6 @@ load(
     "audit_dependencies_test",
 )
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
-load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 
 oncall("build_infra")
 
@@ -110,9 +109,8 @@ audit_dependencies_test(
     blocklist_patterns = [
         "fbsource//third-party/rust:blake3.*",
     ],
-    # audit_dependencies_test doesn't work on Windows on Buck1, not sure why,
-    # but that's fine as we can just use Buck2 here.
-    compatible_with = None if is_buck2() else [
+    # audit_dependencies_test doesn't work on Windows as the macro relies on bash
+    compatible_with = [
         "ovr_config//os:linux",
         "ovr_config//os:macos",
     ],
