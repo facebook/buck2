@@ -145,10 +145,18 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
                   external: 'https://github.com/facebook/buck2',
                 }),
               },
+              {
+                label: 'Terms of Use',
+                href: 'https://opensource.fb.com/legal/terms',
+              },
+              {
+                label: 'Privacy Policy',
+                href: 'https://opensource.fb.com/legal/privacy',
+              },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Meta, Inc. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc. Built with Docusaurus.`,
       },
       prism: {
         theme: lightCodeTheme,
