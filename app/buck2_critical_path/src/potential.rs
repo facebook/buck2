@@ -20,7 +20,11 @@ use crate::types::VertexId;
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
-) -> anyhow::Result<(Vec<VertexId>, PathCost, Vec<PathCost>)> {
+) -> anyhow::Result<(
+    CriticalPathVertexData<VertexId>,
+    PathCost,
+    CriticalPathVertexData<PathCost>,
+)> {
     let rdeps = deps.reversed();
 
     // Observation: we receive those nodes in topo sorted order already by construction, so we
@@ -41,7 +45,11 @@ pub fn compute_critical_path_potentials(
         Some(c) => c,
         None => {
             // The graph is empty.
-            return Ok(Default::default());
+            return Ok((
+                CriticalPathVertexData::new(Vec::new()),
+                PathCost::default(),
+                CriticalPathVertexData::new(Vec::new()),
+            ));
         }
     };
 
@@ -230,9 +238,9 @@ pub fn compute_critical_path_potentials(
     }
 
     Ok((
-        critical_path.into_inner(),
+        critical_path,
         critical_path_cost,
-        updated_critical_path_cost.into_inner(),
+        updated_critical_path_cost,
     ))
 }
 
@@ -298,7 +306,7 @@ mod test {
         eprintln!("critical path = {:?}", naive);
 
         let slow = Instant::now();
-        for (idx, replacement) in critical_path.iter().zip(replacement_costs.iter()) {
+        for (idx, replacement) in critical_path.values().zip(replacement_costs.values()) {
             let naive = naive_critical_path_cost(dag, Some((*idx, 0)));
             assert_eq!(naive, *replacement, "replacing node {idx:?} fails");
         }
