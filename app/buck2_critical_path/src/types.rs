@@ -143,7 +143,7 @@ where
         self.keys().map(|k| (k, &self.0[k.0 as usize]))
     }
 
-    pub fn values(&mut self) -> impl Iterator<Item = &T> {
+    pub fn values(&self) -> impl Iterator<Item = &T> {
         self.0.iter()
     }
 
@@ -157,6 +157,20 @@ where
 
     pub fn into_inner(self) -> Vec<T> {
         self.0
+    }
+
+    pub fn map_ref<TT>(&self, f: impl FnMut(&T) -> TT) -> AbstractVertexData<TT, Kind> {
+        AbstractVertexData(self.values().map(f).collect(), PhantomData)
+    }
+
+    pub fn try_map_ref<TT, E>(
+        &self,
+        f: impl FnMut(&T) -> Result<TT, E>,
+    ) -> Result<AbstractVertexData<TT, Kind>, E> {
+        Ok(AbstractVertexData(
+            self.values().map(f).collect::<Result<_, E>>()?,
+            PhantomData,
+        ))
     }
 }
 
