@@ -35,7 +35,6 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::soft_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -589,10 +588,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             fn push_frame(&mut self) -> anyhow::Result<()> {
                 self.depth += 1;
                 if self.depth > 1000 {
-                    soft_error!(
-                        "run_action_recursion_limit_exceeded",
-                        RunActionError::ArtifactVisitRecursionLimitExceeded.into()
-                    )?;
+                    return Err(RunActionError::ArtifactVisitRecursionLimitExceeded.into());
                 }
                 Ok(())
             }
