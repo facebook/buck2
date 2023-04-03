@@ -296,7 +296,7 @@ fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
         argv_ptrs.push(std::ptr::null());
         let prog_cstr = CString::new(args.prog).context("program name contained a null byte")?;
         unsafe {
-            libc::execv(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
+            libc::execvp(prog_cstr.as_ptr(), argv_ptrs.as_ptr());
         }
     }
 
