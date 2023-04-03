@@ -30,7 +30,7 @@ impl VertexKind for CriticalPathIndexKind {}
 /// The ID of a Vertex. This can be used to index into AbstractVertexData. Those IDs are given a
 /// kind so we don't confuse indices in a critical path with vertex indices in a graph.
 #[derive(Copy, Clone, Default, Ord, PartialOrd, PartialEq, Eq, Display)]
-#[display(fmt = "{}", "0")]
+#[display(fmt = "{}", "self.0")]
 pub struct AbstractVertexId<Kind: VertexKind>(u32, PhantomData<Kind>);
 
 impl<Kind> AbstractVertexId<Kind>
