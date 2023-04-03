@@ -330,6 +330,8 @@ message BuildGraphExecutionInfo {
   // The actions that made up the critical path, in chronological order, in a
   // new format. We will have either that, or critical_path;
   repeated CriticalPathEntry2 critical_path2 = 5;
+  // Whether the aggregation is done using total duration or not.
+  bool uses_total_duration = 6;
 }
 
 // An event capturing information from the test discovery phase.

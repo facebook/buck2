@@ -165,6 +165,7 @@ where
             metadata: metadata::collect(),
             num_nodes,
             num_edges,
+            uses_total_duration: false,
         });
         Ok(())
     }
