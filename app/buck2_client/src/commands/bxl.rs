@@ -84,6 +84,7 @@ impl StreamingCommand for BxlCommand {
                     build_opts: Some(self.bxl_opts.build_opts.to_proto()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
+                    print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_ops.console_opts),

@@ -388,6 +388,8 @@ message BxlRequest {
   CommonBuildOptions build_opts = 4;
 
   BuildRequest.Materializations final_artifact_materializations = 6;
+
+  bool print_stacktrace = 7;
 }
 
 message BxlResponse {

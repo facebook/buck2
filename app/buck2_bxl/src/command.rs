@@ -159,23 +159,25 @@ async fn bxl(
     let result = match ctx.eval_bxl(bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
-            if let Some(shared) = e.downcast_ref::<SharedError>() {
-                if let Some(diag) = shared.inner().downcast_ref::<Diagnostic>() {
-                    if let Some(fail_no_stacktrace) =
-                        diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
-                    {
-                        let dispatcher = get_dispatcher();
-                        dispatcher.instant_event(StarlarkFailNoStacktrace {
-                            trace: format!("{}", diag),
-                        });
-                        dispatcher.console_message(
-                            "Re-run the script with `-v5` to show the full stacktrace".to_owned(),
-                        );
-                        return Err((fail_no_stacktrace.clone()).into());
+            if !request.print_stacktrace {
+                if let Some(shared) = e.downcast_ref::<SharedError>() {
+                    if let Some(diag) = shared.inner().downcast_ref::<Diagnostic>() {
+                        if let Some(fail_no_stacktrace) =
+                            diag.message.downcast_ref::<BxlErrorWithoutStacktrace>()
+                        {
+                            let dispatcher = get_dispatcher();
+                            dispatcher.instant_event(StarlarkFailNoStacktrace {
+                                trace: format!("{}", diag),
+                            });
+                            dispatcher.console_message(
+                                "Re-run the script with `-v5` to show the full stacktrace"
+                                    .to_owned(),
+                            );
+                            return Err((fail_no_stacktrace.clone()).into());
+                        }
                     }
                 }
             }
-
             return Err(e);
         }
     };
