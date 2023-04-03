@@ -45,6 +45,9 @@ enum StringInterpolationError {
     NotEnoughParameters,
     #[error("Incomplete format")]
     IncompleteFormat,
+    #[error("Unsupported format character")]
+    // TODO(nga): what character?
+    UnsupportedFormatCharacter,
 }
 
 pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
@@ -152,9 +155,8 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                         let v = Num::unpack_param(next_value()?)?.as_float();
                         float::write_compact(out, v, 'E').unwrap()
                     }
-                    c => {
-                        res.push(b'%');
-                        res.push(c);
+                    _ => {
+                        return Err(StringInterpolationError::UnsupportedFormatCharacter.into());
                     }
                 }
             } else {
@@ -233,9 +235,8 @@ mod tests {
     }
 
     #[test]
-    fn test_percent_s_bugs() {
-        // TODO(nga): this should also fail.
-        assert::eq("'%q'", "'%q' % ()");
+    fn test_unsupported_format_character() {
+        assert::fail("'%q' % (1,)", "Unsupported format character");
     }
 
     #[test]
