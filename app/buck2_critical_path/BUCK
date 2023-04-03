@@ -12,6 +12,7 @@ rust_library(
         "fbsource//third-party/rust:rand_distr",
     ],
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:thiserror",
         "//buck2/starlark-rust/starlark_map:starlark_map",

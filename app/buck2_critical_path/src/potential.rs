@@ -20,12 +20,12 @@ use crate::types::VertexId;
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
-) -> (Vec<VertexId>, PathCost, Vec<PathCost>) {
+) -> anyhow::Result<(Vec<VertexId>, PathCost, Vec<PathCost>)> {
     let rdeps = deps.reversed();
 
     // Observation: we receive those nodes in topo sorted order already by construction, so we
     // could maybe skip this, though in practice it's quick enough that it really does not matter.
-    let topo_order = deps.topo_sort();
+    let topo_order = deps.topo_sort()?;
 
     let (cost_to_sink, successors) = rdeps.find_longest_paths(topo_order.iter().copied(), weights);
     drop(successors); // We don't need this.
@@ -41,7 +41,7 @@ pub fn compute_critical_path_potentials(
         Some(c) => c,
         None => {
             // The graph is empty.
-            return Default::default();
+            return Ok(Default::default());
         }
     };
 
@@ -229,11 +229,11 @@ pub fn compute_critical_path_potentials(
         }
     }
 
-    (
+    Ok((
         critical_path.into_inner(),
         critical_path_cost,
         updated_critical_path_cost.into_inner(),
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -288,7 +288,7 @@ mod test {
 
         let fast = Instant::now();
         let (critical_path, critical_path_cost, replacement_costs) =
-            compute_critical_path_potentials(&dag.graph, &dag.weights);
+            compute_critical_path_potentials(&dag.graph, &dag.weights).unwrap();
         let fast = fast.elapsed();
 
         let naive = naive_critical_path_cost(dag, None);

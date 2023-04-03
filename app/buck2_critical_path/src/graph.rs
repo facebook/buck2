@@ -92,33 +92,44 @@ impl Graph {
 
     /// Obtain a topological ordering of this graph. The graph must be a DAG (but that's the only
     /// thing that GraphBuilder can construct).
-    pub fn topo_sort(&self) -> Vec<VertexId> {
+    pub fn topo_sort(&self) -> Result<Vec<VertexId>, TopoSortError> {
         enum Work {
-            Push(VertexId),
-            Pop(VertexId),
+            Push,
+            Pop,
         }
 
         let mut topo_order = vec![VertexId::new(0); self.vertices.len()];
-        let mut visited = self.allocate_vertex_data(false); // Did we push its children
+
+        // A pair of (marked, visited), where marked means this node is on the stack and visited
+        // means it was popped off.
+        let mut state = self.allocate_vertex_data((false, false));
         let mut current_topo_order_index = self.vertices.len().saturating_sub(1);
 
         let mut queue = Vec::new();
 
         for i in self.iter_vertices() {
-            queue.push(Work::Push(i));
+            queue.push((i, Work::Push));
 
-            while let Some(j) = queue.pop() {
-                match j {
-                    Work::Push(j) => {
-                        if visited[j] {
+            while let Some((j, work)) = queue.pop() {
+                let (marked, visited) = &mut state[j];
+
+                match work {
+                    Work::Push => {
+                        if *visited {
                             continue;
                         }
 
-                        queue.push(Work::Pop(j));
-                        queue.extend(self.iter_edges(j).map(Work::Push));
+                        if *marked {
+                            return Err(TopoSortError::Cycle);
+                        }
+
+                        *marked = true;
+
+                        queue.push((j, Work::Pop));
+                        queue.extend(self.iter_edges(j).map(|k| (k, Work::Push)));
                     }
-                    Work::Pop(j) => {
-                        visited[j] = true;
+                    Work::Pop => {
+                        *visited = true;
                         topo_order[current_topo_order_index] = j;
                         current_topo_order_index = current_topo_order_index.saturating_sub(1);
                     }
@@ -126,7 +137,7 @@ impl Graph {
             }
         }
 
-        topo_order
+        Ok(topo_order)
     }
 
     /// Given a DAG and a *reverse topological* ordering thereof, return the predecessor for each
@@ -225,6 +236,12 @@ impl Graph {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum TopoSortError {
+    #[error("cycle")]
+    Cycle,
+}
+
 pub trait AddEdges {
     type EdgeIterator: Iterator<Item = VertexId>;
 
@@ -313,6 +330,7 @@ mod test {
         let (graph, _keys, data) = test_graph();
         let topo = graph
             .topo_sort()
+            .unwrap()
             .into_iter()
             .map(|k| data[k])
             .collect::<Vec<_>>();
@@ -322,14 +340,14 @@ mod test {
     #[test]
     fn test_topo_sort_empty() {
         let (graph, _, _) = GraphBuilder::<(), ()>::new().finish();
-        assert_eq!(graph.topo_sort(), vec![]);
+        assert_eq!(graph.topo_sort().unwrap(), vec![]);
     }
 
     #[test]
     fn test_topo_sort_large() {
         let mut rng = seeded_rng();
         let graph = make_dag(10000, &mut rng).shuffled(&mut rng).0.graph;
-        let topo_order = graph.topo_sort();
+        let topo_order = graph.topo_sort().unwrap();
         let ranks = {
             let mut ranks = VertexData::new(vec![0; graph.vertices.len()]);
             for (rank, idx) in topo_order.iter().enumerate() {
@@ -341,6 +359,24 @@ mod test {
         for (i, j) in graph.iter_all_edges() {
             assert!(ranks[i] < ranks[j]);
         }
+    }
+
+    #[test]
+    fn test_topo_sort_cycle() {
+        let mut builder = GraphBuilder::new();
+        builder.push(K1, std::iter::empty(), ()).unwrap();
+        builder.push(K0, std::iter::empty(), ()).unwrap();
+        let (graph, keys, _data) = builder.finish();
+
+        let v0 = keys.get(&K0).unwrap();
+        let v1 = keys.get(&K1).unwrap();
+
+        let mut new_edges = graph.allocate_vertex_data(OptionalVertexId::none());
+        new_edges[v0] = v1.into();
+        new_edges[v1] = v0.into();
+        let graph = graph.add_edges(&new_edges).unwrap();
+
+        assert!(graph.topo_sort().is_err());
     }
 
     #[test]
@@ -359,7 +395,7 @@ mod test {
         weights[v2] = 10;
         weights[v3] = 20;
 
-        let topo = graph.topo_sort();
+        let topo = graph.topo_sort().unwrap();
         let (costs, predecessor) = graph.find_longest_paths(topo.iter().rev().copied(), &weights);
 
         assert_eq!(
