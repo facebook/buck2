@@ -43,6 +43,8 @@ enum StringInterpolationError {
     TooManyParameters,
     #[error("Not enough arguments for format string")]
     NotEnoughParameters,
+    #[error("Incomplete format")]
+    IncompleteFormat,
 }
 
 pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
@@ -156,7 +158,7 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                     }
                 }
             } else {
-                res.push(b'%');
+                return Err(StringInterpolationError::IncompleteFormat.into());
             }
         } else {
             res.push(c);
@@ -226,9 +228,12 @@ mod tests {
     use crate::assert;
 
     #[test]
+    fn test_incomplete_format() {
+        assert::fail("'%' % ()", "Incomplete format");
+    }
+
+    #[test]
     fn test_percent_s_bugs() {
-        // TODO(nga): this should fail.
-        assert::eq("'%'", "'%' % ()");
         // TODO(nga): this should also fail.
         assert::eq("'%q'", "'%q' % ()");
     }
