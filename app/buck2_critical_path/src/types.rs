@@ -195,18 +195,22 @@ where
 /// The keys for a graph built using GraphBuilder. This can be accessed using both VertexId
 /// (because the IDs are assigned in order), or K.
 #[derive(Clone)]
-pub struct AbstractKeys<K, Kind: VertexKind>(SmallMap<K, VertexId>, PhantomData<Kind>);
+pub struct AbstractKeys<K, Kind: VertexKind>(SmallMap<K, AbstractVertexId<Kind>>);
 
 impl<K, Kind> AbstractKeys<K, Kind>
 where
     Kind: VertexKind,
     K: Hash + Eq,
 {
-    pub(crate) fn new(v: SmallMap<K, VertexId>) -> Self {
-        Self(v, PhantomData)
+    pub(crate) fn new(v: SmallMap<K, AbstractVertexId<Kind>>) -> Self {
+        Self(v)
     }
 
-    pub fn get(&self, k: &K) -> Option<VertexId> {
+    pub fn iter(&self) -> impl Iterator<Item = (AbstractVertexId<Kind>, &K)> + DoubleEndedIterator {
+        self.0.iter().map(|(key, idx)| (*idx, key))
+    }
+
+    pub fn get(&self, k: &K) -> Option<AbstractVertexId<Kind>> {
         self.0.get(k).copied()
     }
 
