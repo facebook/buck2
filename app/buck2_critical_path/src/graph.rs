@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use starlark_map::small_set::SmallSet;
+use thiserror::Error;
+
 use crate::types::OptionalVertexId;
 use crate::types::VertexData;
 use crate::types::VertexId;
@@ -182,6 +185,64 @@ impl Graph {
     pub fn edges_count(&self) -> usize {
         self.edges.len()
     }
+
+    /// Produce a new graph after adding edges. This may produce a multigraph and the graph may
+    /// stop being a DAG.
+    pub fn add_edges(&self, add: &impl AddEdges) -> Result<Graph, AddEdgesError> {
+        let mut vertices = self.allocate_vertex_data(GraphVertex {
+            edges_idx: 0,
+            edges_count: 0,
+        });
+
+        let mut edges = Vec::with_capacity(self.edges.len());
+
+        let mut from_edges = SmallSet::new();
+
+        for from in self.iter_vertices() {
+            let edges_idx = edges
+                .len()
+                .try_into()
+                .map_err(|_| AddEdgesError::Overflow)?;
+
+            let mut edges_count = 0;
+
+            from_edges.clear();
+            from_edges.extend(self.iter_edges(from));
+            from_edges.extend(add.edges_for_vertex(from));
+
+            for e in from_edges.iter() {
+                edges.push(*e);
+                edges_count += 1;
+            }
+
+            vertices[from] = GraphVertex {
+                edges_idx,
+                edges_count,
+            };
+        }
+
+        Ok(Graph { vertices, edges })
+    }
+}
+
+pub trait AddEdges {
+    type EdgeIterator: Iterator<Item = VertexId>;
+
+    fn edges_for_vertex(&self, idx: VertexId) -> Self::EdgeIterator;
+}
+
+impl AddEdges for VertexData<OptionalVertexId> {
+    type EdgeIterator = std::option::IntoIter<VertexId>;
+
+    fn edges_for_vertex(&self, idx: VertexId) -> Self::EdgeIterator {
+        self[idx].into_option().into_iter()
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum AddEdgesError {
+    #[error("overflow")]
+    Overflow,
 }
 
 #[derive(
@@ -337,5 +398,25 @@ mod test {
         assert_eq!(predecessor[v1].into_option(), None);
         assert_eq!(predecessor[v2].into_option(), Some(v3));
         assert_eq!(predecessor[v3].into_option(), None);
+    }
+
+    #[test]
+    fn test_add_edges() {
+        let (graph, keys, data) = test_graph();
+
+        let v0 = keys.get(&K0).unwrap();
+        let v2 = keys.get(&K2).unwrap();
+        let v3 = keys.get(&K3).unwrap();
+
+        let mut new_edges = graph.allocate_vertex_data(OptionalVertexId::none());
+        new_edges[v0] = v3.into(); // new edge
+        new_edges[v2] = v3.into(); // already exists
+        let graph = graph.add_edges(&new_edges).unwrap();
+
+        let edges = graph
+            .iter_all_edges()
+            .map(|(l, r)| (data[l], data[r]))
+            .collect::<Vec<_>>();
+        assert_eq!(vec![(K2, K3), (K0, K1), (K0, K2), (K0, K3)], edges);
     }
 }

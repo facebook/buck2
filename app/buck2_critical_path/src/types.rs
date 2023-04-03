@@ -16,7 +16,7 @@ use std::ops::IndexMut;
 use derive_more::Display;
 use starlark_map::small_map::SmallMap;
 
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct GraphVertexKind;
 
 #[derive(Copy, Clone, Default, Ord, PartialOrd, PartialEq, Eq, Debug)]
@@ -29,7 +29,7 @@ impl VertexKind for CriticalPathIndexKind {}
 
 /// The ID of a Vertex. This can be used to index into AbstractVertexData. Those IDs are given a
 /// kind so we don't confuse indices in a critical path with vertex indices in a graph.
-#[derive(Copy, Clone, Default, Ord, PartialOrd, PartialEq, Eq, Display)]
+#[derive(Copy, Clone, Default, Ord, PartialOrd, PartialEq, Eq, Display, Hash)]
 #[display(fmt = "{}", "self.0")]
 pub struct AbstractVertexId<Kind: VertexKind>(u32, PhantomData<Kind>);
 
