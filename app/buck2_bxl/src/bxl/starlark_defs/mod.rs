@@ -50,6 +50,7 @@ use thiserror::Error;
 
 use crate::bxl::starlark_defs::cli_args::ArgAccessor;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
+use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
 use crate::bxl::starlark_defs::functions::register_label_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
@@ -116,6 +117,7 @@ fn register_bxl_defs(globals: &mut GlobalsBuilder) {
     register_read_config(globals);
     register_host_info(globals);
     register_instant_function(globals);
+    register_error_handling_function(globals);
 }
 
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {

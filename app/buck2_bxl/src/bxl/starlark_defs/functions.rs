@@ -29,10 +29,13 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
+use starlark::values::none::NoneType;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueLike;
+use thiserror::Error;
 
 use super::artifacts::visit_artifact_path_without_associated_deduped;
 use super::context::output::get_artifact_path_display;
@@ -254,6 +257,29 @@ pub fn register_instant_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn now<'v>(heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkInstant(Instant::now())))
+    }
+}
+
+/// This is used to mark the error returned by `fail_no_stacktrace()` (via context chaining).
+/// We check if this marker is present after finishing BXL evaluation. If this marker is present,
+/// then we hide the stacktrace. Otherwise, we emit the stacktrace to users.
+#[derive(Debug, Error, Clone)]
+#[error("fail:{0}")]
+pub(crate) struct BxlErrorWithoutStacktrace(String);
+
+/// Global method for error handling.
+#[starlark_module]
+pub fn register_error_handling_function(builder: &mut GlobalsBuilder) {
+    fn fail_no_stacktrace(#[starlark(args)] args: Vec<Value>) -> anyhow::Result<NoneType> {
+        let mut s = String::new();
+        for x in args {
+            s.push(' ');
+            match x.unpack_str() {
+                Some(x) => s.push_str(x),
+                None => x.collect_repr(&mut s),
+            }
+        }
+        Err(BxlErrorWithoutStacktrace(s).into())
     }
 }
 
