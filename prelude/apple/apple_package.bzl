@@ -42,10 +42,22 @@ def _get_ipa_contents(ctx) -> "artifact":
     if should_copy_swift_stdlib:
         contents["SwiftSupport"] = _get_swift_support_dir(ctx, app, apple_bundle_info)
 
+    if apple_bundle_info.contains_watchapp:
+        contents["Symbols"] = _build_symbols_dir(ctx)
+
     return ctx.actions.copied_dir(
         "__unzipped_ipa_contents__",
         contents,
     )
+
+def _build_symbols_dir(ctx) -> "artifact":
+    symbols_dir = ctx.actions.declare_output("__symbols__", dir = True)
+    ctx.actions.run(
+        cmd_args(["mkdir", "-p", symbols_dir.as_output()]),
+        category = "watchos_symbols_dir",
+    )
+
+    return symbols_dir
 
 def _get_swift_support_dir(ctx, bundle_output: "artifact", bundle_info: AppleBundleInfo.type) -> "artifact":
     stdlib_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool

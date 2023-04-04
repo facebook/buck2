@@ -12,7 +12,7 @@ load(
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
 )
-load("@prelude//utils:utils.bzl", "expect", "flatten")
+load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
@@ -163,6 +163,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
             bundle = bundle,
             binary_name = get_product_name(ctx),
             is_watchos = get_is_watch_bundle(ctx),
+            contains_watchapp = is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
         ),
         AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),

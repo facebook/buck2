@@ -18,6 +18,10 @@ AppleBundleInfo = provider(fields = [
     # Might be omitted for certain types of bundle (e.g. frameworks) when packaging doesn't depend on it.
     # [None, `bool.type`]
     "is_watchos",
+    # If the bundle contains a Watch Extension executable, we have to update the packaging.
+    # Similar to `is_watchos`, this might be omitted for certain types of bundles which don't depend on it.
+    # [None, `bool.type`]
+    "contains_watchapp",
     # By default, non-framework, non-appex binaries copy Swift libraries into the final
     # binary. This is the opt-out for that.
     # [None, `bool.type`]
