@@ -252,6 +252,7 @@ pub trait AddEdges {
 impl AddEdges for VertexData<OptionalVertexId> {
     type EdgeIterator = std::option::IntoIter<VertexId>;
 
+    #[inline]
     fn edges_for_vertex(&self, idx: VertexId) -> Self::EdgeIterator {
         self[idx].into_option().into_iter()
     }

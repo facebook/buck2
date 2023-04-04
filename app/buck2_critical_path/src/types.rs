@@ -53,6 +53,7 @@ where
 {
     type Output = T;
 
+    #[inline]
     fn index(&self, index: AbstractVertexId<Kind>) -> &Self::Output {
         &self.0[index.0 as usize]
     }
@@ -62,6 +63,7 @@ impl<T, Kind> IndexMut<AbstractVertexId<Kind>> for AbstractVertexData<T, Kind>
 where
     Kind: VertexKind,
 {
+    #[inline]
     fn index_mut(&mut self, index: AbstractVertexId<Kind>) -> &mut Self::Output {
         &mut self.0[index.0 as usize]
     }
