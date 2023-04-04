@@ -14,6 +14,8 @@ use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
+use crate::commands::log::LogCommandOutputFormat;
+
 /// This command outputs materializations from the selected build. The output is a tab-separated
 /// list containing the path, the materialization method, the file count, and the total size (after
 /// decompression).
@@ -21,11 +23,64 @@ use tokio_stream::StreamExt;
 pub struct WhatMaterializedCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
+    #[clap(
+        long = "--format",
+        help = "Which output format to use for this command",
+        default_value = "tabulated",
+        ignore_case = true,
+        arg_enum
+    )]
+    pub output: LogCommandOutputFormat,
+}
+
+fn write_output(
+    output: &LogCommandOutputFormat,
+    materialization: &buck2_data::MaterializationEnd,
+    method: &str,
+) -> anyhow::Result<()> {
+    #[derive(serde::Serialize)]
+    struct Record<'a> {
+        path: &'a str,
+        method: &'a str,
+        file_count: u64,
+        total_bytes: u64,
+    }
+
+    match output {
+        LogCommandOutputFormat::Tabulated => {
+            buck2_client_ctx::println!(
+                "{}\t{}\t{}\t{}",
+                materialization.path,
+                method,
+                materialization.file_count,
+                materialization.total_bytes
+            )
+        }
+        LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
+            let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
+            writer.serialize(Record {
+                path: &materialization.path,
+                method,
+                file_count: materialization.file_count,
+                total_bytes: materialization.total_bytes,
+            })
+        }),
+        LogCommandOutputFormat::Json => buck2_client_ctx::stdio::print_with_writer(|mut w| {
+            let record = Record {
+                path: &materialization.path,
+                method,
+                file_count: materialization.file_count,
+                total_bytes: materialization.total_bytes,
+            };
+            serde_json::to_writer(&mut w, &record)?;
+            w.write(b"\n").map(|_| ())
+        }),
+    }
 }
 
 impl WhatMaterializedCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let Self { event_log } = self;
+        let Self { event_log, output } = self;
 
         let log_path = event_log.get(&ctx)?;
 
@@ -69,13 +124,7 @@ impl WhatMaterializedCommand {
                                         _ => "<unknown>",
                                     };
 
-                                    buck2_client_ctx::println!(
-                                        "{}\t{}\t{}\t{}",
-                                        m.path,
-                                        method,
-                                        m.file_count,
-                                        m.total_bytes
-                                    )?;
+                                    write_output(&output, m, method)?;
                                 }
                                 _ => {}
                             },
