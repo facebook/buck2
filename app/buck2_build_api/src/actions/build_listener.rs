@@ -19,6 +19,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
+use buck2_critical_path::OptionalVertexId;
 use buck2_data::BuildGraphExecutionInfo;
 use buck2_data::CriticalPathEntry;
 use buck2_data::ToProtoMessage;
@@ -302,6 +303,7 @@ where
         Ok(())
     }
 
+    // TODO: We would need something similar with anon targets.
     fn process_top_level_target(
         &mut self,
         top_level: TopLevelTargetSignal,
@@ -331,7 +333,11 @@ pub trait BuildListenerBackend {
         dep_keys: impl Iterator<Item = NodeKey>,
     );
 
-    fn process_top_level_target(&mut self, key: NodeKey, artifacts: impl Iterator<Item = NodeKey>);
+    fn process_top_level_target(
+        &mut self,
+        analysis: NodeKey,
+        artifacts: impl Iterator<Item = NodeKey>,
+    );
 
     fn finish(self) -> anyhow::Result<BuildInfo>;
 }
@@ -394,7 +400,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn process_top_level_target(
         &mut self,
-        _key: NodeKey,
+        _analyis: NodeKey,
         _artifacts: impl Iterator<Item = NodeKey>,
     ) {
     }
@@ -444,6 +450,7 @@ impl BuildListenerBackend for DefaultBackend {
 /// potential savings in addition to the critical path.
 struct LongestPathGraphBackend {
     builder: anyhow::Result<GraphBuilder<NodeKey, NodeData>>,
+    top_level_analysis: Vec<VisibilityEdge>,
 }
 
 struct NodeData {
@@ -451,10 +458,17 @@ struct NodeData {
     duration: NodeDuration,
 }
 
+/// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
+struct VisibilityEdge {
+    node: NodeKey,
+    makes_visible: Vec<NodeKey>,
+}
+
 impl LongestPathGraphBackend {
     fn new() -> Self {
         Self {
             builder: Ok(GraphBuilder::new()),
+            top_level_analysis: Vec::new(),
         }
     }
 }
@@ -482,14 +496,64 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
     fn process_top_level_target(
         &mut self,
-        _key: NodeKey,
-        _artifacts: impl Iterator<Item = NodeKey>,
+        analysis: NodeKey,
+        artifacts: impl Iterator<Item = NodeKey>,
     ) {
+        self.top_level_analysis.push(VisibilityEdge {
+            node: analysis,
+            makes_visible: artifacts.collect(),
+        })
     }
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let (graph, keys, data) = self.builder?.finish();
+
+        let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
+
+        for visibility in &self.top_level_analysis {
+            let analysis = &visibility.node;
+            let artifacts = &visibility.makes_visible;
+
+            let analysis = match keys.get(analysis) {
+                Some(k) => k,
+                None => continue, // Nothing depends on this,
+            };
+
+            let mut queue = Vec::new();
+
+            for artifact in artifacts {
+                let artifact = match keys.get(artifact) {
+                    Some(a) => a,
+                    None => {
+                        // Not built. Unexpected, but we don't report signals in all failure cases so that can happen.
+                        continue;
+                    }
+                };
+
+                queue.push(artifact);
+
+                while let Some(i) = queue.pop() {
+                    if first_analysis[i].is_some() {
+                        continue;
+                    }
+
+                    // Only add those new edges on things that analysis cannot depend on.
+                    match keys[i] {
+                        NodeKey::Analysis(..) => continue,
+                        NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
+                    };
+
+                    first_analysis[i] = analysis.into();
+                    queue.extend(graph.iter_edges(i));
+                }
+            }
+        }
+
         drop(keys);
+
+        let graph = graph
+            .add_edges(&first_analysis)
+            .context("Error adding first_analysis edges to graph")?;
 
         let durations = data.try_map_ref(|d| {
             d.duration
@@ -500,7 +564,8 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         })?;
 
         let (critical_path, _critical_path_cost, _potentials) =
-            compute_critical_path_potentials(&graph, &durations)?;
+            compute_critical_path_potentials(&graph, &durations)
+                .context("Error computing critical path potentials")?;
 
         drop(durations);
 
