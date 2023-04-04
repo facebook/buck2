@@ -19,7 +19,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_client_ctx::LSP_COMMAND_NAME;
 use bytes::BytesMut;
 use futures::stream::StreamExt;
 use lsp_server::Message;
@@ -39,7 +38,7 @@ pub struct LspCommand {
 
 #[async_trait]
 impl StreamingCommand for LspCommand {
-    const COMMAND_NAME: &'static str = LSP_COMMAND_NAME;
+    const COMMAND_NAME: &'static str = "lsp";
 
     async fn exec_impl(
         self,
@@ -95,6 +94,11 @@ impl StreamingCommand for LspCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
+    }
+
+    fn should_show_waiting_message(&self) -> bool {
+        // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
+        false
     }
 }
 

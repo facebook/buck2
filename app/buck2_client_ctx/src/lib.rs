@@ -38,5 +38,3 @@ pub mod streaming;
 pub mod subscribers;
 pub mod ticker;
 pub mod version;
-
-pub const LSP_COMMAND_NAME: &str = "lsp";

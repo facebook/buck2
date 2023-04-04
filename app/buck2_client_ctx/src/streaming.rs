@@ -33,7 +33,6 @@ use crate::subscribers::get::try_get_re_log_subscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::StatefulSuperConsole;
-use crate::LSP_COMMAND_NAME;
 
 fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
@@ -44,8 +43,7 @@ fn default_subscribers<T: StreamingCommand>(
     let root =
         StatefulSuperConsole::default_layout(T::COMMAND_NAME, cmd.extra_superconsole_component());
 
-    // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
-    let show_waiting_message = T::COMMAND_NAME != LSP_COMMAND_NAME;
+    let show_waiting_message = cmd.should_show_waiting_message();
 
     if let Some(v) = get_console_with_root(
         ctx.trace_id.dupe(),
@@ -118,6 +116,11 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     fn sanitized_argv(&self) -> Vec<String> {
         std::env::args().collect()
+    }
+
+    /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.
+    fn should_show_waiting_message(&self) -> bool {
+        true
     }
 }
 
