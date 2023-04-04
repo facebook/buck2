@@ -8,8 +8,8 @@ title: Getting Started
 To get started, first install the `buck2` executable:
 
 ```bash
-rustup install nightly
-cargo +nightly install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2023-01-24
+cargo +nightly-2023-01-24 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:

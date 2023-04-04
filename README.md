@@ -15,8 +15,8 @@ cargo install --path=app/buck2
 
 To build and install the latest `buck2` executable:
 ```sh
-rustup install nightly
-cargo +nightly install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2023-01-24
+cargo +nightly-2023-01-24 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 Build uses prebuilt `protoc` binary from
