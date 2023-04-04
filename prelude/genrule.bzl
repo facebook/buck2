@@ -30,6 +30,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "haskell_dll",
     "fnlc_build",
     "udf_sql",
+    "redex_genrule",  # T148016945
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
