@@ -189,6 +189,10 @@ fn main() -> io::Result<()> {
             "buck.data.CriticalPathEntry2.ActionExecution.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .type_attribute(
+            "buck.data.CriticalPathEntry2.Materialization.owner",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")

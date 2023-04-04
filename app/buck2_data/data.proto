@@ -298,6 +298,16 @@ message CriticalPathEntry2 {
     }
   }
 
+  message Materialization {
+    string path = 1;
+
+    oneof owner {
+      ConfiguredTargetLabel target_label = 2;
+      BxlFunctionKey bxl_key = 3;
+      AnonTarget anon_target = 4;
+    }
+  }
+
   optional uint64 span_id = 1;
 
   // The duration we used to compute the critical path. This will be one of the
@@ -320,6 +330,7 @@ message CriticalPathEntry2 {
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
+    Materialization materialization = 102;
   }
 }
 

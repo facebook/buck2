@@ -7,16 +7,23 @@
  * of this source tree.
  */
 
+use std::time::Instant;
+
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::build_listener::FinalMaterializationSignal;
+use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::build_listener::NodeDuration;
 use crate::calculation::Calculation;
 
 #[async_trait]
@@ -56,6 +63,8 @@ impl ArtifactMaterializer for DiceComputations {
         };
 
         span_async(start_event, async move {
+            let now = Instant::now();
+
             let result: anyhow::Result<_> = try {
                 if required {
                     materializer.ensure_materialized(vec![path]).await?;
@@ -63,6 +72,19 @@ impl ArtifactMaterializer for DiceComputations {
                     materializer.try_materialize_final_artifact(path).await?;
                 }
             };
+
+            if let Some(signals) = self.per_transaction_data().get_build_signals() {
+                let duration = now.elapsed();
+
+                signals.signal(FinalMaterializationSignal {
+                    artifact: artifact.dupe(),
+                    duration: NodeDuration {
+                        user: duration,
+                        total: duration,
+                    },
+                    span_id: current_span(),
+                });
+            }
 
             (
                 result,

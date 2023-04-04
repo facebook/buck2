@@ -40,6 +40,7 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
+use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
@@ -103,6 +104,12 @@ pub struct TopLevelTargetSignal {
     pub artifacts: Vec<ArtifactGroup>,
 }
 
+pub struct FinalMaterializationSignal {
+    pub artifact: BuildArtifact,
+    pub duration: NodeDuration,
+    pub span_id: Option<SpanId>,
+}
+
 /* These signals are distinct from the main Buck event bus because some
  * analysis needs access to the entire build graph, and serializing the
  * entire build graph isn't feasible - therefore, we have these signals
@@ -115,6 +122,7 @@ pub enum BuildSignal {
     ActionRedirection(ActionRedirectionSignal),
     Analysis(AnalysisSignal),
     TopLevelTarget(TopLevelTargetSignal),
+    FinalMaterialization(FinalMaterializationSignal),
     BuildFinished,
 }
 
@@ -144,6 +152,7 @@ pub enum NodeKey {
     TransitiveSetProjection(TransitiveSetProjectionKey),
     // NOTE: we do not currently support analysis of anonymous targets or BXL.
     Analysis(ConfiguredTargetLabel),
+    Materialization(BuildArtifact),
 }
 
 pub struct BuildSignalReceiver<T> {
@@ -202,6 +211,9 @@ where
                 BuildSignal::TopLevelTarget(top_level) => {
                     self.process_top_level_target(top_level)?
                 }
+                BuildSignal::FinalMaterialization(final_materialization) => {
+                    self.process_final_materialization(final_materialization)?
+                }
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -240,6 +252,19 @@ where
                         target: Some(key.as_proto().into()),
                     }
                     .into(),
+                    NodeKey::Materialization(key) => {
+                        let owner = match key.key().owner() {
+                            BaseDeferredKey::TargetLabel(t) => t.as_proto().into(),
+                            BaseDeferredKey::AnonTarget(t) => t.as_proto().into(),
+                            BaseDeferredKey::BxlLabel(t) => t.as_proto().into(),
+                        };
+
+                        buck2_data::critical_path_entry2::Materialization {
+                            owner: Some(owner),
+                            path: key.get_path().path().to_string(),
+                        }
+                        .into()
+                    }
                     NodeKey::TransitiveSetProjection(..) => return None,
                 };
 
@@ -374,6 +399,23 @@ where
 
         self.backend
             .process_top_level_target(NodeKey::Analysis(top_level.label), artifact_keys);
+
+        Ok(())
+    }
+
+    fn process_final_materialization(
+        &mut self,
+        materialization: FinalMaterializationSignal,
+    ) -> Result<(), anyhow::Error> {
+        let dep = NodeKey::ActionKey(materialization.artifact.key().dupe());
+
+        self.backend.process_node(
+            NodeKey::Materialization(materialization.artifact),
+            None,
+            materialization.duration,
+            std::iter::once(dep),
+            materialization.span_id,
+        );
 
         Ok(())
     }
@@ -584,9 +626,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                             continue;
                         }
 
-                        // Only add those new edges on things that analysis cannot depend on.
+                        // Only add those new edges on things that analysis produces
                         match keys[i] {
-                            NodeKey::Analysis(..) => continue,
+                            NodeKey::Analysis(..) | NodeKey::Materialization(..) => continue,
                             NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
                         };
 

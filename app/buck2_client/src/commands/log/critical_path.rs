@@ -111,6 +111,22 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
                     None => {}
                 }
             }
+            Some(Entry::Materialization(materialization)) => {
+                use buck2_data::critical_path_entry2::materialization::Owner;
+
+                kind = "materialization";
+
+                name = match &materialization.owner {
+                    Some(Owner::TargetLabel(t)) => {
+                        display::display_configured_target_label(t, target_display_options)?
+                    }
+                    Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
+                    Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
+                    None => continue,
+                };
+
+                identifier = &materialization.path;
+            }
             None => continue,
         }
 
