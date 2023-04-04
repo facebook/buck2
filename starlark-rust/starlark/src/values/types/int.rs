@@ -31,7 +31,6 @@ use std::hash::Hasher;
 use std::ptr;
 
 use allocative::Allocative;
-use gazebo::cast;
 use num_bigint::BigInt;
 use num_traits::Signed;
 use serde::Serialize;
@@ -40,6 +39,7 @@ use serde::Serializer;
 use crate as starlark;
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
+use crate::cast;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;

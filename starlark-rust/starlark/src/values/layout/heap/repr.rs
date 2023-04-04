@@ -22,9 +22,9 @@ use std::ptr;
 
 use dupe::Dupe;
 use either::Either;
-use gazebo::cast;
 
 use crate::any::AnyLifetime;
+use crate::cast;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;

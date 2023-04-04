@@ -23,7 +23,6 @@ use std::mem;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::cast;
 use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
@@ -31,6 +30,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::cast;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
@@ -113,7 +113,7 @@ impl ValueEmptyArray {
     pub(crate) fn repr<'v>(
         &'static self,
     ) -> &'v AValueRepr<impl AValue<'v, StarlarkValue = Array<'v>>> {
-        // Cast lifetimes. Cannot use `gazebo::cast::ptr_lifetime` here
+        // Cast lifetimes. Cannot use `crate::cast::ptr_lifetime` here
         // because type parameter of `AValue` also need to be casted.
         unsafe {
             transmute!(

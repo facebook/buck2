@@ -31,10 +31,10 @@ use std::num::NonZeroUsize;
 
 use dupe::Dupe;
 use either::Either;
-use gazebo::cast;
 use gazebo::phantom::PhantomDataInvariant;
 use static_assertions::assert_eq_size;
 
+use crate::cast;
 use crate::values::int::PointerI32;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;

@@ -409,6 +409,7 @@ pub mod read_line;
 mod sealed;
 pub mod typing;
 
+pub(crate) mod cast;
 mod hint;
 mod stdlib;
 pub mod syntax;
