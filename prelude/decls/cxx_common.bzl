@@ -314,7 +314,7 @@ def _exported_post_platform_linker_flags_arg():
 def _precompiled_header_arg():
     return {
         "precompiled_header": attrs.option(attrs.source(), default = None, doc = """
-    Path to a [`cxx_precompiled_header`](ROOT/fbsource/rule/cxx_precompiled_header.html) to use when compiling this rule's sources. The precompiled header (PCH) is built on-demand, using
+    Path to a `cxx_precompiled_header` to use when compiling this rule's sources. The precompiled header (PCH) is built on-demand, using
      compiler flags matching those used in this rule's compile jobs. This is to ensure
      compatibility between this rule and the PCH. Also, this rule will inherit additional
      `deps` from the PCH rule, and as a result, additional include paths as well
@@ -368,7 +368,7 @@ def _supports_merged_linking():
     return {
         "supports_merged_linking": attrs.option(attrs.bool(), default = None, doc = """
     Whether this rule supports building with the merged linking strategy when building for non-native
-     binaries (e.g. when using [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+     binaries (e.g. when using `.buckconfig`
     s `merged` setting).
 """),
     }

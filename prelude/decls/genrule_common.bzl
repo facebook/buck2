@@ -65,7 +65,7 @@ def _cmd_arg():
      The output file or directory for the `genrule()`.
      This variable will have whatever value is specified by
      the `out` argument if not using\302\240
-     [named outputs](ROOT/fbsource/concept/named_outputs.html). If
+     named outputs
      using named outputs, this variable will be the output directory.
  
 
@@ -92,7 +92,7 @@ def _cmd_arg():
     ##### String parameter macros
 
      It is also possible to expand references to other rules within the
-     `cmd`, using builtin [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+     `cmd`, using builtin `string parameter macros`
     .
      All build rules expanded in the command are automatically considered
      to be dependencies of the `genrule()`.

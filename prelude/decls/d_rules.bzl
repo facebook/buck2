@@ -144,8 +144,7 @@ d_test = prelude_rule(
                  can, however, have meaning for you as a test author
                  (e.g., `smoke` or `fast`). A label can be
                  used to filter or include a specific `d_test()` rule
-                 when executing [`buck
-                 test`](ROOT/fbsource/command/test.html).
+                 when executing `buck test`
             """),
         } |
         buck.test_rule_timeout_ms() |

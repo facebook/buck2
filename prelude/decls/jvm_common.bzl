@@ -28,15 +28,15 @@ def _resources_arg():
  
 
     **Note:** If `resources_root` isn't set,
-     Buck uses the `[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)`
-     property in [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html) to
+     Buck uses the ``.buckconfig``
+     property in `.buckconfig` to
      determine where resources should be placed within the generated JAR
      file.
 """),
         "resources_root": attrs.option(attrs.source(), default = None, doc = """
     The path that resources are resolved against. For example, if `resources_root` is `"res"` and
      `resources` contains the file `"res/com/example/foo.txt"`, that file will end up as `"com/example/foo.txt"` in the output JAR. This parameter
-     overrides the `[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)` property in [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+     overrides the ``.buckconfig`` property in `.buckconfig`.
 """),
     }
 
@@ -105,7 +105,7 @@ def _source_only_abi_deps():
 def _abi_generation_mode():
     return {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None, doc = """
-    Overrides [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+    Overrides `.buckconfig`
     for this rule.
 """),
     }

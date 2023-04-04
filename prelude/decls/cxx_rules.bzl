@@ -142,7 +142,7 @@ cxx_genrule = prelude_rule(
 
         The information exposed through these tools and configuration options is a reflection of: 
         Buck's built-in settings, 
-        the settings in [`.buckconfig`](ROOT/fbsource/files-and-dirs/buckconfig.html)
+        the settings in `.buckconfig`
         and `.buckconfig.local`,
         and the result of various command-line overrides specified through 
         the `common\\_parameters`command-line option. 
@@ -281,7 +281,7 @@ cxx_genrule = prelude_rule(
 
                  It is also possible to expand references to other rules within the
                  shell command, using the following subset of the 
-                 builtin [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 builtin `string parameter macros`
                 . 
                  Note that all build rules expanded in the command are automatically 
                  considered to be dependencies of the `genrule()`.
@@ -528,7 +528,7 @@ cxx_library = prelude_rule(
                  For example `soname = 'libfoo.$(ext 2.3)'` will be `libfoo.2.3.dylib` on Mac and `libfoo.so.2.3` on Linux.
             """),
             "used_by_wrap_script": attrs.bool(default = False, doc = """
-                When using an [exopackage](ROOT/fbsource/article/exopackage.html) for
+                When using an exopackage
                  Android, if this parameter is set to `True`, then the library is
                  included in the primary APK even if native libraries would otherwise not be
                  placed in it. This is intended for native libraries that are used by a
@@ -777,7 +777,7 @@ cxx_test = prelude_rule(
                 The testing framework to build against and run with. We currently support [`gtest`](https://github.com/google/googletest) and [`boost`](http://www.boost.org/doc/libs/1_57_0/libs/test/doc/html/index.html).
  
 
-                 When set to `gtest`, you must also set [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+                 When set to `gtest`, you must also set `.buckconfig`
                 .
             """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
@@ -786,7 +786,7 @@ cxx_test = prelude_rule(
   
 
                  It is also possible to expand references to other rules within the **values** of
-                 these environment variables, using builtin [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 these environment variables, using builtin `string parameter macros`
                 :
  
                 `$(location //path/to:target)`
@@ -800,7 +800,7 @@ cxx_test = prelude_rule(
   
 
                  It is also possible to expand references to other rules within these
-                 arguments, using builtin [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 arguments, using builtin `string parameter macros`
                 :
  
                 `$(location //path/to:target)`

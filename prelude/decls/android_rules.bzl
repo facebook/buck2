@@ -690,7 +690,7 @@ android_library = prelude_rule(
                  files. These files can be loaded via [Class.getResource()](http://docs.oracle.com/javase/7/docs/api/java/lang/Class.html#getResource(java.lang.String)).
  
                 **Note:** Buck uses the `src_roots` property in
-                 [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html)
+                 `.buckconfig`
                  to help determine where resources should be placed within the generated JAR file.
             """),
         } |
@@ -705,23 +705,23 @@ android_library = prelude_rule(
                 Specifies the version of Java (as a string) to interpret source
                  files as.
                  Overrides the value in "source\\_level" in the "java" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "target": attrs.option(attrs.string(), default = None, doc = """
                 Specifies the version of Java (as a string) for which to
                  generate code.
                  Overrides the value in "target\\_level" in the "java" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "javac": attrs.option(attrs.source(), default = None, doc = """
                 Specifies the Java compiler program to use for this rule.
                  The value is a source path (e.g., //foo/bar:bar).
                  Overrides the value in "javac" in the "tools" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Java compiler. These
-                 arguments follow the ones specified in [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 arguments follow the ones specified in `.buckconfig`.
             """),
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
@@ -962,7 +962,7 @@ android_resource = prelude_rule(
             "res": attrs.option(attrs.one_of(attrs.source(), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None, doc = """
                 A dictionary mapping relative resource paths to either
                  the resource files or the build targets that generate them.
-                 The [`subdir_glob()`](ROOT/fbsource/function/subdir_glob.html) function
+                 The `subdir_glob` function
                  can be used to generate dictionaries based on a directory structure of files checked
                  into the repository. Alternatively, this can be a path to a directory containing
                  Android resources, although this option is deprecated and might be removed in the future.
@@ -974,7 +974,7 @@ android_resource = prelude_rule(
             "assets": attrs.option(attrs.one_of(attrs.source(), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None, doc = """
                 A dictionary mapping relative asset paths to either
                  the asset files or the build targets that generate them.
-                 The [`subdir_glob()`](ROOT/fbsource/function/subdir_glob.html) function
+                 The `subdir_glob` function
                  can be used to generate dictionaries based on a directory structure of files checked
                  into the repository. Alternatively, this can be a path to a directory containing
                  Android assets, although this option is deprecated and might be removed in the future.
@@ -1263,7 +1263,7 @@ prebuilt_jar = prelude_rule(
         is checked into our repository as a precompiled binary rather than one
         that is built from source by Buck. Frequently, these are used to
         reference third-party JAR files (such as junit.jar) and
-        are used as dependencies of [`java_library()`](java_library.html) rules.
+        are used as dependencies of `java_library()` rules.
     """,
     examples = """
         ```
@@ -1363,7 +1363,7 @@ prebuilt_native_library = prelude_rule(
                  internal storage.
             """),
             "has_wrap_script": attrs.bool(default = False, doc = """
-                When using an [exopackage](ROOT/fbsource/article/exopackage.html), if this
+                When using an exopackage, if this
                  parameter is set to `True`, then the libraries for this rule are
                  included in the primary APK even if native libraries would otherwise not be
                  placed in it. This is intended for a native library directory that contains a

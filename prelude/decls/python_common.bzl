@@ -75,7 +75,7 @@ def _linker_flags_arg():
         "linker_flags": attrs.list(attrs.arg(), default = [], doc = """
     Additional linker flags that should be applied to any linking which is specific to this rule.
      Note that whether these flags are used is dependent on the native link strategy selected in
-     `.buckconfig` and currently applies only to the `merged` `[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)`;
+     `.buckconfig` and currently applies only to the `merged` ``.buckconfig``;
      the `separate` link strategy pulls in shared libraries that are linked in the 
      context of the rules that own them, such as `cxx\\_library()`.
 """),
@@ -84,7 +84,7 @@ def _linker_flags_arg():
 def _package_style_arg():
     return {
         "package_style": attrs.option(attrs.enum(PythonBuckConfigPackageStyle), default = None, doc = """
-    Used to override the global packaging style that is set in `[[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+    Used to override the global packaging style that is set in `[`.buckconfig`
     ]`.
 """),
     }
@@ -103,7 +103,7 @@ def _preload_deps_arg():
 def _exclude_deps_from_merged_linking_arg():
     return {
         "exclude_deps_from_merged_linking": attrs.bool(default = False, doc = """
-    When linking the top-level binary with a `merged` `[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)`,
+    When linking the top-level binary with a `merged` ``.buckconfig``,
      do not merge or re-link any native transitive deps of this library. This is useful if
      this library wraps prebuilt native extensions which cannot be re-linked as part of
      library merging.
@@ -113,7 +113,7 @@ def _exclude_deps_from_merged_linking_arg():
 def _deduplicate_merged_link_roots():
     return {
         "deduplicate_merged_link_roots": attrs.option(attrs.bool(), default = None, doc = """
-    When linking multiple top-level binaries with the `merged` `[`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)`,
+    When linking multiple top-level binaries with the `merged` ``.buckconfig``,
      coalesce root link rules which are identical across independent merged links.
 """),
     }

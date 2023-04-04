@@ -112,7 +112,7 @@ java_binary = prelude_rule(
                 If provided, this will be the value specified as the
                  `Main-Class` attribute of the `META-INF/MANIFEST.MF`
                  file in the generated JAR file. Also, when this rule is used as
-                 an executable in a [`genrule()`](genrule.html),
+                 an executable in a `genrule()`,
                  `main_class` will indicate the class whose `main()` method will be invoked to process the command-line arguments. This
                  is consistent with the expected usage of `java -jar
                  *<name.jar>* *<args>*`.
@@ -247,13 +247,13 @@ java_library = prelude_rule(
                 Specifies the version of Java (as a string) to interpret source
                  files as.
                  Overrides the value in "source\\_level" in the "java" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "target": attrs.option(attrs.string(), default = None, doc = """
                 Specifies the version of Java (as a string) for which to
                  generate code.
                  Overrides the value in "target\\_level" in the "java" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "java_version": attrs.option(attrs.string(), default = None, doc = """
                 Equivalent to setting both `source` and `target`  to the given value. Setting this and `source` or `target` (or both!) is an error.
@@ -262,11 +262,11 @@ java_library = prelude_rule(
                 Specifies the Java compiler program to use for this rule.
                  The value is a source path (e.g., //foo/bar:bar).
                  Overrides the value in "javac" in the "tools" section
-                 of [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 of `.buckconfig`.
             """),
             "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Java compiler. These
-                 arguments follow the ones specified in [`.buckconfig`](ROOT/fbsource/concept/buckconfig.html).
+                 arguments follow the ones specified in `.buckconfig`.
             """),
         } |
         jvm_common.remove_classes_arg() |
@@ -331,7 +331,7 @@ java_test = prelude_rule(
         # @unsorted-dict-items
         {
             "srcs": attrs.list(attrs.source(), default = [], doc = """
-                Like [`java_library()`](java_library.html),
+                Like `java_library()`,
                  all of the `.java` files specified by the
                  `srcs` argument will be compiled when this rule is
                  built. In addition, all of the corresponding `.class` files that are built by this rule will be passed as arguments to
@@ -343,7 +343,7 @@ java_test = prelude_rule(
                  `glob(['**/*Test.java'])`.
             """),
             "resources": attrs.list(attrs.source(), default = [], doc = """
-                Same as [`java_library()`](java_library.html).
+                Same as `java_library()`.
             """),
         } |
         buck.test_label_arg() |
@@ -357,7 +357,7 @@ java_test = prelude_rule(
                  `-target` argument for `javac`.
             """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Same as [`java_library()`](java_library.html).
+                Same as `java_library()`.
                  // org.junit.rules.Timeout was not introduced until 4.7.
                  Must include JUnit (version 4.7 or later) as a dependency for JUnit tests.
                  Must include TestNG (version 6.2 or later) and hamcrest as a dependencies for TestNG tests.

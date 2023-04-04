@@ -167,17 +167,17 @@ sh_test = prelude_rule(
             "args": attrs.list(attrs.arg(), default = [], doc = """
                 The list of arguments to invoke this script with. These are literal values, and no shell interpolation is done.
 
-                 These can contain [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 These can contain `string parameter macros`
                 , for example, to give the location of a generated binary to the test script.
             """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 Environment variable overrides that should be used when running the script. The key is the variable name, and the value is its value.
 
-                 The values can contain [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 The values can contain `string parameter macros`
                 such as the location of a generated binary to be used by the test script.
             """),
             "type": attrs.option(attrs.string(), default = None, doc = """
-                If provided, this will be sent to any configured [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+                If provided, this will be sent to any configured `.buckconfig`
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

@@ -128,7 +128,7 @@ def _labels_arg():
     return {
         "labels": attrs.list(attrs.string(), default = [], doc = """
     Set of arbitrary strings which allow you to annotate a `build rule`with tags
-     that can be searched for over an entire dependency tree using [`buck query ()`](ROOT/fbsource/command/query.html#)
+     that can be searched for over an entire dependency tree using `buck query()`
     .
 """),
     }
@@ -156,8 +156,7 @@ def _test_label_arg():
      can, however, have meaning for you as a test author
      (e.g., `smoke` or `fast`). A label can be
      used to filter or include a specific test rule
-     when executing [`buck
-     test`](ROOT/fbsource/command/test.html).
+     when executing `buck test`
 """),
     }
 
@@ -191,7 +190,7 @@ def _test_rule_timeout_ms():
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None, doc = """
     If set specifies the maximum amount of time (in milliseconds) in which all of the tests in this
      rule should complete. This overrides the default `rule_timeout` if any has been
-     specified in [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+     specified in `.buckconfig`
     .
 """),
     }

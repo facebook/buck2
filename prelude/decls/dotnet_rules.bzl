@@ -73,7 +73,7 @@ csharp_library = prelude_rule(
             """),
             "deps": attrs.list(attrs.one_of(attrs.dep(), attrs.string()), default = [], doc = """
                 The set of targets or system-provided assemblies to rely on. Any
-                 values that are targets must be either csharp\\_library or [`prebuilt_dotnet_library`](ROOT/fbsource/rule/prebuilt_dotnet_library.html)
+                 values that are targets must be either csharp\\_library or `prebuilt_dotnet_library`
                  instances.
             """),
             "compiler_flags": attrs.list(attrs.string(), default = [], doc = """

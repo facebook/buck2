@@ -186,7 +186,7 @@ command_alias = prelude_rule(
             "args": attrs.list(attrs.arg(), default = [], doc = """
                 A string of arguments that is passed to the executable specified by
                  `exe` at startup. These arguments support a subset of 
-                 Buck's [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 Buck's `string parameter macros`
                 . Only the 
                  `$(location ...)` and `$(exe ...)` macros are supported currently.
             """),
@@ -559,7 +559,7 @@ genrule = prelude_rule(
                  or `outs` may be present.
             """),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None, doc = """
-                Mapping defining [named outputs](ROOT/fbsource/concept/named_outputs.html)
+                Mapping defining `named outputs`
                   to output paths relative to the rule's output directory. Only one of
                   `out` or `outs` may be present.
  
@@ -669,7 +669,7 @@ http_archive = prelude_rule(
         An `http_archive()` rule is used to download and extract archives
         from the Internet to be used as dependencies for other rules. These rules are
         downloaded by running `fetch`, or can be downloaded as part of
-        `build`by setting [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+        `build`by setting `.buckconfig`
     """,
     examples = """
         Using `http_archive()`, third party packages can be downloaded from
@@ -756,7 +756,7 @@ http_file = prelude_rule(
         dependencies for other rules. This rule only downloads single files, and can
         optionally make them executable (see `http\\_file()executable`)
         These rules are downloaded by running `fetch`, or can
-        be downloaded as part of `build`by setting [`[].`](ROOT/fbsource/files-and-dirs/buckconfig.html#.)
+        be downloaded as part of `build`by setting `.buckconfig`
     """,
     examples = """
         Using `http_file()`, third party packages can be downloaded from
@@ -835,7 +835,7 @@ http_file = prelude_rule(
             "executable": attrs.option(attrs.bool(), default = None, doc = """
                 Whether or not the file should be made executable after downloading. If true,
                  this can also be used via `run`and the 
-                 `$(exe )` [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 `$(exe )` `string parameter macros`
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -942,8 +942,7 @@ remote_file = prelude_rule(
             "url": attrs.string(validate = validate_uri, doc = """
                 You can specify an `http`, `https`, or a `mvn` URL. If you
                  specify a `mvn` URL, it will be decoded as described in the
-                 [javadocs for
-                 MavenUrlDecoder](ROOT/fbsource/javadoc/com/facebook/buck/file/MavenUrlDecoder.html). See the example section below.
+                 javadocs for MavenUrlDecoder See the example section below.
             """),
             "sha1": attrs.string(default = "", doc = """
                 The [`SHA-1`](//wikipedia.org/wiki/SHA-1) hash of the downloaded artifact.

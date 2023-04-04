@@ -525,7 +525,7 @@ python_test = prelude_rule(
   
 
                  It is also possible to expand references to other rules within the **values** of
-                 these environment variables, using builtin [string parameter macros](ROOT/fbsource/function/string_parameter_macros.html)
+                 these environment variables, using builtin `string parameter macros`
                 :
  
                 `$(location //path/to:target)`
@@ -542,8 +542,7 @@ python_test = prelude_rule(
                  can, however, have meaning for you as a test author
                  (e.g., `smoke` or `fast`). A label can be
                  used to filter or include a specific `python_test()` rule
-                 when executing [`buck
-                 test`](ROOT/fbsource/command/test.html).
+                 when executing `buck test`
             """),
         } |
         buck.test_rule_timeout_ms() |
