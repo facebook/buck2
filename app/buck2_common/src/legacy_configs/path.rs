@@ -55,9 +55,9 @@ pub(crate) static DEFAULT_BUCK_CONFIG_FILES: &[BuckConfigFile] = &[
     BuckConfigFile::GlobalFile("/etc/buckconfig"),
     // TODO: use %PROGRAMDATA% on Windows
     #[cfg(windows)]
-    BuckConfigFile::GlobalFolder("C:/ProgramData/buckconfig.d"),
+    BuckConfigFile::GlobalFolder("C:\\ProgramData\\buckconfig.d"),
     #[cfg(windows)]
-    BuckConfigFile::GlobalFile("C:/ProgramData/buckconfig"),
+    BuckConfigFile::GlobalFile("C:\\ProgramData\\buckconfig"),
     BuckConfigFile::UserFolder(".buckconfig.d"),
     BuckConfigFile::UserFile(".buckconfig.local"),
     BuckConfigFile::ProjectRelativeFolder(".buckconfig.d"),
