@@ -18,14 +18,25 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
+use crate::commands::log::LogCommandOutputFormat;
+
 /// This command outputs stats about uploads to RE from the selected invocation.
 #[derive(Debug, clap::Parser)]
 pub struct WhatUploadedCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
+    #[clap(
+        long = "--format",
+        help = "Which output format to use for this command",
+        default_value = "tabulated",
+        ignore_case = true,
+        arg_enum
+    )]
+    pub output: LogCommandOutputFormat,
 }
 
 fn print_uploads(
+    format: &LogCommandOutputFormat,
     upload: ReUploadEvent,
     state: &HashMap<u64, buck2_data::ActionExecutionStart>,
     total_digests: &mut u64,
@@ -45,9 +56,38 @@ fn print_uploads(
     } else {
         "unknown action".to_owned()
     };
-    buck2_client_ctx::println!("{}\t{}\t{}", action_str, digests_uploaded, bytes_uploaded)?;
 
-    Ok(())
+    #[derive(serde::Serialize)]
+    struct Record<'a> {
+        action: &'a str,
+        digests_uploaded: u64,
+        bytes_uploaded: u64,
+    }
+
+    match format {
+        LogCommandOutputFormat::Tabulated => {
+            buck2_client_ctx::println!("{}\t{}\t{}", action_str, digests_uploaded, bytes_uploaded)
+        }
+        LogCommandOutputFormat::Csv => buck2_client_ctx::stdio::print_with_writer(|w| {
+            let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
+            writer.serialize(Record {
+                action: &action_str,
+                digests_uploaded,
+                bytes_uploaded,
+            })
+        }),
+        LogCommandOutputFormat::Json => {
+            buck2_client_ctx::stdio::print_with_writer(|w| {
+                let record = Record {
+                    action: &action_str,
+                    digests_uploaded,
+                    bytes_uploaded,
+                };
+                serde_json::to_writer(w, &record)
+            })?;
+            buck2_client_ctx::println!("")
+        }
+    }
 }
 
 struct ReUploadEvent<'a> {
@@ -57,7 +97,7 @@ struct ReUploadEvent<'a> {
 
 impl WhatUploadedCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let Self { event_log } = self;
+        let Self { event_log, output } = self;
 
         let log_path = event_log.get(&ctx)?;
 
@@ -86,6 +126,7 @@ impl WhatUploadedCommand {
                             match end.data.as_ref() {
                                 Some(buck2_data::span_end_event::Data::ReUpload(ref u)) => {
                                     print_uploads(
+                                        &output,
                                         ReUploadEvent {
                                             parent_span_id: event.parent_id,
                                             inner: u,
