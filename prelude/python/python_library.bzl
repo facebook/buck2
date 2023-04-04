@@ -35,6 +35,7 @@ load(":compile.bzl", "compile_manifests")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
+    "create_dep_manifest_for_source_map",
     "create_manifest_for_source_dir",
     "create_manifest_for_source_map",
 )
@@ -45,6 +46,7 @@ load(
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_source_db", "create_source_db_no_deps")
+load(":toolchain.bzl", "PythonToolchainInfo")
 
 def dest_prefix(label: "label", base_module: [None, str.type]) -> str.type:
     """
@@ -102,6 +104,7 @@ def create_python_library_info(
         srcs: [ManifestInfo.type, None] = None,
         src_types: [ManifestInfo.type, None] = None,
         bytecode: [ManifestInfo.type, None] = None,
+        dep_manifest: [ManifestInfo.type, None] = None,
         resources: [(ManifestInfo.type, ["_arglike"]), None] = None,
         extensions: [{str.type: LinkedObject.type}, None] = None,
         deps: ["PythonLibraryInfo"] = [],
@@ -128,6 +131,7 @@ def create_python_library_info(
         srcs = srcs,
         src_types = src_types,
         resources = resources,
+        dep_manifest = dep_manifest,
         bytecode = bytecode,
         extensions = extensions,
     )
@@ -283,6 +287,8 @@ def python_library_impl(ctx: "context") -> ["provider"]:
     src_types = _src_types(qualified_srcs, type_stubs)
 
     src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    dep_manifest = None
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
     # Compile bytecode.
@@ -291,6 +297,10 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         bytecode = compile_manifests(ctx, [src_manifest])
         sub_targets["compile"] = [DefaultInfo(default_output = bytecode)]
         bytecode_manifest = create_manifest_for_source_dir(ctx, "bytecode", bytecode)
+        sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = src_manifest.artifacts)]
+        if python_toolchain.emit_dependency_metadata:
+            dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
+            sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
 
     raw_deps = (
         [ctx.attrs.deps] +
@@ -304,6 +314,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         src_types = src_type_manifest,
         resources = py_resources(ctx, resources) if resources else None,
         bytecode = bytecode_manifest,
+        dep_manifest = dep_manifest,
         deps = deps,
         shared_libraries = shared_libraries,
     )

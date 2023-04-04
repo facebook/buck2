@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:debug.bzl", "project_external_debug_info")
+load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Manifests are files containing information how to map sources into a package.
 # The files are JSON lists with an entry per source, where each source is 3-tuple
@@ -17,6 +18,32 @@ ManifestInfo = record(
     # All artifacts that are referenced in the manifest.
     artifacts = field([["artifact", "transitive_set_args_projection"]]),
 )
+
+# Parse imports from a *.py file to generate a list of required modules
+def create_dep_manifest_for_source_map(
+        ctx: "context",
+        python_toolchain: PythonToolchainInfo.type,
+        srcs: {str.type: "artifact"}) -> ManifestInfo.type:
+    entries = []
+    artifacts = []
+    for path, artifact in srcs.items():
+        out_name = "__dep_manifests__/{}".format(path)
+        if not path.endswith(".py"):
+            continue
+
+        dep_manifest = ctx.actions.declare_output(out_name)
+        cmd = cmd_args(python_toolchain.parse_imports)
+        cmd.add(cmd_args(artifact))
+        cmd.add(cmd_args(dep_manifest.as_output()))
+        ctx.actions.run(cmd, category = "generate_dep_manifest", identifier = out_name)
+        entries.append((dep_manifest, path))
+        artifacts.append(dep_manifest)
+
+    manifest = ctx.actions.write_json("dep.manifest", entries)
+    return ManifestInfo(
+        manifest = manifest,
+        artifacts = artifacts,
+    )
 
 def _write_manifest(
         ctx: "context",

@@ -18,7 +18,7 @@ PythonLibraryManifests = record(
     src_types = field([ManifestInfo.type, None], None),
     resources = field([(ManifestInfo.type, ["_arglike"]), None]),
     bytecode = field([ManifestInfo.type, None]),
-    # A map of module name to to source artifact for Python extensions.
+    dep_manifest = field([ManifestInfo.type, None]),
     extensions = field([{str.type: "_a"}, None]),
 )
 
@@ -31,6 +31,16 @@ def _bytecode_manifests(value: PythonLibraryManifests.type):
     if value.bytecode == None:
         return []
     return value.bytecode.manifest
+
+def _dep_manifests(value: PythonLibraryManifests.type):
+    if value.dep_manifest == None:
+        return []
+    return cmd_args(value.dep_manifest.manifest, format = "--manifest={}")
+
+def _dep_artifacts(value: PythonLibraryManifests.type):
+    if value.dep_manifest == None:
+        return []
+    return value.dep_manifest.artifacts
 
 def _hidden_resources(value: PythonLibraryManifests.type):
     if value.resources == None:
@@ -77,6 +87,8 @@ PythonLibraryManifestsTSet = transitive_set(
     args_projections = {
         "bytecode_artifacts": _bytecode_artifacts,
         "bytecode_manifests": _bytecode_manifests,
+        "dep_artifacts": _dep_artifacts,
+        "dep_manifests": _dep_manifests,
         "hidden_resources": _hidden_resources,
         "resource_artifacts": _resource_artifacts,
         "resource_manifests": _resource_manifests,

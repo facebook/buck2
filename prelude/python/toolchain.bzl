@@ -41,6 +41,8 @@ PythonToolchainInfo = provider(fields = [
     "version",
     "native_link_strategy",
     "generate_static_extension_info",
+    "parse_imports",
+    "traverse_dep_manifest",
     "package_style",
     "make_source_db",
     "make_source_db_no_deps",
@@ -52,6 +54,7 @@ PythonToolchainInfo = provider(fields = [
     "pex_extension",
     "emit_omnibus_metadata",
     "fail_with_message",
+    "emit_dependency_metadata",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments

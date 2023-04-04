@@ -71,6 +71,25 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_library(
+    name = "py38stdlib",
+    srcs = ["py38stdlib.py"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "parse_imports",
+    main = "parse_imports.py",
+    deps = [":py38stdlib"],
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "traverse_dep_manifest",
+    main = "traverse_dep_manifest.py",
+    deps = [":py38stdlib"],
+    visibility = ["PUBLIC"],
+)
+
 # Main file used for native python binaries
 prelude.export_file(
     name = "embedded_main.cpp",
