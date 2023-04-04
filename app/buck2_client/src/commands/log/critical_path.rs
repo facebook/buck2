@@ -7,10 +7,15 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::time::Duration;
+
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
+use buck2_event_observer::display;
+use buck2_event_observer::display::TargetDisplayOptions;
 use tokio_stream::StreamExt;
 
 /// This command outputs stats about uploads to RE from the selected invocation.
@@ -60,6 +65,89 @@ impl CriticalPathCommand {
     }
 }
 
-fn log_critical_path(_critical_path: &buck2_data::BuildGraphExecutionInfo) -> anyhow::Result<()> {
+fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> anyhow::Result<()> {
+    let target_display_options = TargetDisplayOptions::for_log();
+
+    for entry in &critical_path.critical_path2 {
+        use buck2_data::critical_path_entry2::Entry;
+
+        let kind;
+        let name;
+        let mut category = "";
+        let mut identifier = "";
+
+        match &entry.entry {
+            Some(Entry::Analysis(analysis)) => {
+                use buck2_data::critical_path_entry2::analysis::Target;
+
+                kind = "analysis";
+
+                name = match &analysis.target {
+                    Some(Target::StandardTarget(t)) => {
+                        display::display_configured_target_label(t, target_display_options)?
+                    }
+                    None => continue,
+                };
+            }
+            Some(Entry::ActionExecution(action_execution)) => {
+                use buck2_data::critical_path_entry2::action_execution::Owner;
+
+                kind = "action";
+
+                name = match &action_execution.owner {
+                    Some(Owner::TargetLabel(t)) => {
+                        display::display_configured_target_label(t, target_display_options)?
+                    }
+                    Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
+                    Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
+                    None => continue,
+                };
+
+                match &action_execution.name {
+                    Some(name) => {
+                        category = &name.category;
+                        identifier = &name.identifier;
+                    }
+                    None => {}
+                }
+            }
+            None => continue,
+        }
+
+        struct OptionalDuration {
+            inner: Option<Duration>,
+        }
+
+        impl OptionalDuration {
+            fn new<T, E>(d: Option<T>) -> Result<Self, E>
+            where
+                T: TryInto<Duration, Error = E>,
+            {
+                Ok(Self {
+                    inner: d.map(|d| d.try_into()).transpose()?,
+                })
+            }
+        }
+
+        impl fmt::Display for OptionalDuration {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                if let Some(inner) = self.inner {
+                    write!(f, "{}", inner.as_micros())?;
+                }
+                Ok(())
+            }
+        }
+
+        buck2_client_ctx::println!(
+            "{}\t{}\t{}\t{}\t{}\t{}",
+            kind,
+            name,
+            category,
+            identifier,
+            OptionalDuration::new(entry.total_duration.clone())?,
+            OptionalDuration::new(entry.user_duration.clone())?,
+        )?;
+    }
+
     Ok(())
 }
