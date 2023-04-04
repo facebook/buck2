@@ -90,7 +90,7 @@ def rewrite_dep_file(src_path, dst_path):
             f.write("\n")
 
 
-def makefile_to_depfile(args):
+def process_dep_file(args):
     """
     Expects the src dep file to be the first argument, dst dep file to be the
     second argument, and the command to follow.

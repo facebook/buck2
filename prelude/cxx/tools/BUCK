@@ -21,6 +21,7 @@ prelude.python_bootstrap_library(
     name = "dep_file_processors",
     srcs = [
         "makefile_to_dep_file.py",
+        "show_headers_to_dep_file.py",
         "dep_file_utils.py",
     ],
     visibility = ["PUBLIC"],

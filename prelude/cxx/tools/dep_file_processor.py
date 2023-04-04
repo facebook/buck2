@@ -7,7 +7,9 @@
 
 import sys
 
-import makefile_to_dep_file
+from makefile_to_dep_file import process_dep_file
+
+from show_headers_to_dep_file import process_show_headers_dep_file
 
 
 def main():
@@ -30,8 +32,12 @@ def main():
     dep_file -> Expected output path
     cmd_args -> Args to be executed in order to get dependencies
     """
-    dep_tracking_mode = sys.argv[1]  # noqa
-    makefile_to_dep_file.makefile_to_depfile(sys.argv[2:])
+
+    dep_tracking_mode = sys.argv[1]
+    if dep_tracking_mode == "show_headers":
+        process_show_headers_dep_file(sys.argv[3], sys.argv[4:], sys.argv[2])
+    else:
+        process_dep_file(sys.argv[2:])
 
 
 if __name__ == "__main__":
