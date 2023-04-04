@@ -33,6 +33,7 @@ use derive_more::From;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use gazebo::prelude::VecExt;
 use itertools::Itertools;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -209,6 +210,37 @@ where
             num_edges,
         } = self.backend.finish()?;
 
+        let critical_path = critical_path
+            .iter()
+            .filter_map(|data| {
+                let action = data.action.as_ref()?;
+
+                let name = format!(
+                    "{} {}{}",
+                    action.owner(),
+                    action.category(),
+                    action
+                        .identifier()
+                        .map_or_else(|| "".to_owned(), |v| format!("[{}]", v))
+                );
+
+                Some((name, data.duration.critical_path_duration(), action))
+            })
+            .map(|(name, duration, action)| {
+                anyhow::Ok(CriticalPathEntry {
+                    action_name: name,
+                    action_key: Some(action.key().as_proto()),
+                    duration: Some(duration.try_into()?),
+                    action_name_fields: Some(buck2_data::ActionName {
+                        category: action.category().to_string(),
+                        identifier: action
+                            .identifier()
+                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
+                    }),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         instant_event(BuildGraphExecutionInfo {
             critical_path,
             critical_path2: Vec::new(),
@@ -344,13 +376,13 @@ pub trait BuildListenerBackend {
 }
 
 pub struct BuildInfo {
-    critical_path: Vec<CriticalPathEntry>,
+    critical_path: Vec<NodeData>,
     num_nodes: u64,
     num_edges: u64,
 }
 
 struct DefaultBackend {
-    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Option<Arc<RegisteredAction>>>>,
+    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, NodeData>>,
     num_nodes: u64,
     num_edges: u64,
 }
@@ -382,6 +414,11 @@ impl BuildListenerBackend for DefaultBackend {
             })
             .max_by_key(|d| d.1);
 
+        let value = NodeData {
+            action: value,
+            duration,
+        };
+
         let node = match longest_ancestor {
             Some((key, ancestor_duration)) => CriticalPathNode {
                 prev: Some(key.dupe()),
@@ -408,36 +445,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
-            .into_iter()
-            .filter_map(|(_key, node_data, duration)| {
-                let action = node_data.as_ref()?;
-                if duration == Duration::ZERO {
-                    return None;
-                }
-                let name = format!(
-                    "{} {}{}",
-                    action.owner(),
-                    action.category(),
-                    action
-                        .identifier()
-                        .map_or_else(|| "".to_owned(), |v| format!("[{}]", v))
-                );
-                Some((name, duration, action))
-            })
-            .map(|(name, duration, action)| {
-                anyhow::Ok(CriticalPathEntry {
-                    action_name: name,
-                    action_key: Some(action.key().as_proto()),
-                    duration: Some(duration.try_into()?),
-                    action_name_fields: Some(buck2_data::ActionName {
-                        category: action.category().to_string(),
-                        identifier: action
-                            .identifier()
-                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
-                    }),
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            .into_map(|(_key, node_data, _duration)| node_data.dupe());
 
         Ok(BuildInfo {
             critical_path,
@@ -454,6 +462,7 @@ struct LongestPathGraphBackend {
     top_level_analysis: Vec<VisibilityEdge>,
 }
 
+#[derive(Dupe, Clone)]
 struct NodeData {
     action: Option<Arc<RegisteredAction>>,
     duration: NodeDuration,
@@ -507,7 +516,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     }
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
-        let (graph, keys, data) = self.builder?.finish();
+        let (graph, keys, mut data) = self.builder?.finish();
 
         let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
 
@@ -572,35 +581,18 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
         let critical_path = critical_path
             .values()
-            .filter_map(|idx| {
-                let data = &data[*idx];
-                let action = data.action.as_ref()?;
-
-                let name = format!(
-                    "{} {}{}",
-                    action.owner(),
-                    action.category(),
-                    action
-                        .identifier()
-                        .map_or_else(|| "".to_owned(), |v| format!("[{}]", v))
-                );
-
-                Some((name, data.duration.critical_path_duration(), action))
+            .map(|idx| {
+                // OK to replace `data` with empty things here because we know that we will not access
+                // the same index twice.
+                std::mem::replace(
+                    &mut data[*idx],
+                    NodeData {
+                        action: None,
+                        duration: NodeDuration::zero(),
+                    },
+                )
             })
-            .map(|(name, duration, action)| {
-                anyhow::Ok(CriticalPathEntry {
-                    action_name: name,
-                    action_key: Some(action.key().as_proto()),
-                    duration: Some(duration.try_into()?),
-                    action_name_fields: Some(buck2_data::ActionName {
-                        category: action.category().to_string(),
-                        identifier: action
-                            .identifier()
-                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
-                    }),
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect();
 
         Ok(BuildInfo {
             critical_path,
