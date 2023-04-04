@@ -552,52 +552,56 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     }
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
-        let (graph, keys, mut data) = self.builder?.finish();
+        let (graph, keys, mut data) = {
+            let (graph, keys, data) = self.builder?.finish();
 
-        let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
+            let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
 
-        for visibility in &self.top_level_analysis {
-            let analysis = &visibility.node;
-            let artifacts = &visibility.makes_visible;
+            for visibility in &self.top_level_analysis {
+                let analysis = &visibility.node;
+                let artifacts = &visibility.makes_visible;
 
-            let analysis = match keys.get(analysis) {
-                Some(k) => k,
-                None => continue, // Nothing depends on this,
-            };
-
-            let mut queue = Vec::new();
-
-            for artifact in artifacts {
-                let artifact = match keys.get(artifact) {
-                    Some(a) => a,
-                    None => {
-                        // Not built. Unexpected, but we don't report signals in all failure cases so that can happen.
-                        continue;
-                    }
+                let analysis = match keys.get(analysis) {
+                    Some(k) => k,
+                    None => continue, // Nothing depends on this,
                 };
 
-                queue.push(artifact);
+                let mut queue = Vec::new();
 
-                while let Some(i) = queue.pop() {
-                    if first_analysis[i].is_some() {
-                        continue;
-                    }
-
-                    // Only add those new edges on things that analysis cannot depend on.
-                    match keys[i] {
-                        NodeKey::Analysis(..) => continue,
-                        NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
+                for artifact in artifacts {
+                    let artifact = match keys.get(artifact) {
+                        Some(a) => a,
+                        None => {
+                            // Not built. Unexpected, but we don't report signals in all failure cases so that can happen.
+                            continue;
+                        }
                     };
 
-                    first_analysis[i] = analysis.into();
-                    queue.extend(graph.iter_edges(i));
+                    queue.push(artifact);
+
+                    while let Some(i) = queue.pop() {
+                        if first_analysis[i].is_some() {
+                            continue;
+                        }
+
+                        // Only add those new edges on things that analysis cannot depend on.
+                        match keys[i] {
+                            NodeKey::Analysis(..) => continue,
+                            NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
+                        };
+
+                        first_analysis[i] = analysis.into();
+                        queue.extend(graph.iter_edges(i));
+                    }
                 }
             }
-        }
 
-        let graph = graph
-            .add_edges(&first_analysis)
-            .context("Error adding first_analysis edges to graph")?;
+            let graph = graph
+                .add_edges(&first_analysis)
+                .context("Error adding first_analysis edges to graph")?;
+
+            (graph, keys, data)
+        };
 
         let durations = data.try_map_ref(|d| {
             d.duration
