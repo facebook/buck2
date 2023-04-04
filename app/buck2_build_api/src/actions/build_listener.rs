@@ -214,7 +214,7 @@ where
 
         let critical_path2 = critical_path
             .iter()
-            .filter_map(|(key, data)| {
+            .filter_map(|(key, data, potential_improvement)| {
                 let entry: buck2_data::critical_path_entry2::Entry = match key {
                     NodeKey::ActionKey(action_key) => {
                         let owner = match action_key.owner() {
@@ -243,14 +243,17 @@ where
                     NodeKey::TransitiveSetProjection(..) => return None,
                 };
 
-                Some((entry, data))
+                Some((entry, data, potential_improvement))
             })
-            .map(|(entry, data)| {
+            .map(|(entry, data, potential_improvement)| {
                 anyhow::Ok(buck2_data::CriticalPathEntry2 {
                     span_id: data.span_id.map(|span_id| span_id.into()),
                     duration: Some(data.duration.critical_path_duration().try_into()?),
                     user_duration: Some(data.duration.user.try_into()?),
                     total_duration: Some(data.duration.total.try_into()?),
+                    potential_improvement_duration: potential_improvement
+                        .map(|p| p.try_into())
+                        .transpose()?,
                     entry: Some(entry),
                 })
             })
@@ -396,7 +399,8 @@ pub trait BuildListenerBackend {
 }
 
 pub struct BuildInfo {
-    critical_path: Vec<(NodeKey, NodeData)>,
+    // Node, its data, and its potential for improvement
+    critical_path: Vec<(NodeKey, NodeData, Option<Duration>)>,
     num_nodes: u64,
     num_edges: u64,
 }
@@ -467,7 +471,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
-            .into_map(|(key, data, _duration)| (key.dupe(), data.dupe()));
+            .into_map(|(key, data, _duration)| (key.dupe(), data.dupe(), None));
 
         Ok(BuildInfo {
             critical_path,
@@ -603,21 +607,22 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .context("Duration `as_micros()` exceeds u64")
         })?;
 
-        let (critical_path, _critical_path_cost, _potentials) =
+        let (critical_path, critical_path_cost, replacement_durations) =
             compute_critical_path_potentials(&graph, &durations)
                 .context("Error computing critical path potentials")?;
 
         drop(durations);
 
         let critical_path = critical_path
-            .values()
-            .map(|idx| {
-                let key = keys[*idx].dupe();
+            .iter()
+            .map(|(cp_idx, vertex_idx)| {
+                let vertex_idx = *vertex_idx;
+                let key = keys[vertex_idx].dupe();
 
                 // OK to replace `data` with empty things here because we know that we will not access
                 // the same index twice.
                 let data = std::mem::replace(
-                    &mut data[*idx],
+                    &mut data[vertex_idx],
                     NodeData {
                         action: None,
                         duration: NodeDuration::zero(),
@@ -625,7 +630,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                     },
                 );
 
-                (key, data)
+                let potential = critical_path_cost - replacement_durations[cp_idx];
+
+                (key, data, Some(Duration::from_micros(potential.runtime)))
             })
             .collect();
 

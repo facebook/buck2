@@ -139,13 +139,14 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
         }
 
         buck2_client_ctx::println!(
-            "{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             kind,
             name,
             category,
             identifier,
             OptionalDuration::new(entry.total_duration.clone())?,
             OptionalDuration::new(entry.user_duration.clone())?,
+            OptionalDuration::new(entry.potential_improvement_duration.clone())?,
         )?;
     }
 

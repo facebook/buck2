@@ -173,6 +173,10 @@ fn main() -> io::Result<()> {
             "CriticalPathEntry2.total_duration",
             "#[serde(rename = \"total_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
+        .field_attribute(
+            "CriticalPathEntry2.potential_improvement_duration",
+            "#[serde(rename = \"potential_improvement_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .type_attribute(
             "buck.data.CriticalPathEntry2.entry",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",

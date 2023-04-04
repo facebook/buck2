@@ -313,6 +313,10 @@ message CriticalPathEntry2 {
   // controlled by the user (e.g. Buck querying caches, etc.)
   google.protobuf.Duration total_duration = 4;
 
+  // The maximum improvement possible for this node. This should be compared to
+  // `duration` (since it can't exceed it).
+  optional google.protobuf.Duration potential_improvement_duration = 5;
+
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
