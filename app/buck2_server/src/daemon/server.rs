@@ -449,19 +449,23 @@ impl BuckdServer {
             move |req| async move {
                 let result: anyhow::Result<Res> = try {
                     let base_context = daemon_state.prepare_command(dispatch.dupe(), guard).await?;
-                    build_listener::scope(base_context.events.dupe(), |build_sender| async {
-                        let context = ServerCommandContext::new(
-                            base_context,
-                            req.client_context()?,
-                            build_sender,
-                            opts.starlark_profiler_instrumentation_override(&req)?,
-                            req.build_options(),
-                            daemon_state.paths.buck_out_dir(),
-                            req.record_target_call_stacks(),
-                        )?;
+                    build_listener::scope(
+                        base_context.events.dupe(),
+                        data.critical_path_backend,
+                        |build_sender| async {
+                            let context = ServerCommandContext::new(
+                                base_context,
+                                req.client_context()?,
+                                build_sender,
+                                opts.starlark_profiler_instrumentation_override(&req)?,
+                                req.build_options(),
+                                daemon_state.paths.buck_out_dir(),
+                                req.record_target_call_stacks(),
+                            )?;
 
-                        func(context, PartialResultDispatcher::new(dispatch.dupe()), req).await
-                    })
+                            func(context, PartialResultDispatcher::new(dispatch.dupe()), req).await
+                        },
+                    )
                     .await?
                 };
 

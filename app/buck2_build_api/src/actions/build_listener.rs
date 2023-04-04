@@ -11,12 +11,13 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::hash::Hash;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_core::env_helper::EnvHelper;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
@@ -829,6 +830,28 @@ fn start_listener(
     (sender, receiver_task_handle)
 }
 
+#[derive(Copy, Clone, Dupe, Allocative)]
+pub enum CriticalPathBackendName {
+    LongestPathGraph,
+    Default,
+}
+
+impl FromStr for CriticalPathBackendName {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "longest-path-graph" {
+            return Ok(Self::LongestPathGraph);
+        }
+
+        if s == "default" {
+            return Ok(Self::Default);
+        }
+
+        Err(anyhow::anyhow!("Invalid backend name: `{}`", s))
+    }
+}
+
 /// Creates a Build Listener signal pair and invokes the given asynchronous function with the send-end of the signal
 /// sender.
 ///
@@ -840,18 +863,20 @@ fn start_listener(
 /// This function arranges for a background task to be spawned that drives the receiver, while invoking the called
 /// function with a live BuildSignalSender that can be used to send events to the listening receiver. Upon return of
 /// `scope`, the sender terminates the receiver by sending a `BuildFinished` signal and joins the receiver task.
-pub async fn scope<F, R, Fut>(events: EventDispatcher, func: F) -> anyhow::Result<R>
+pub async fn scope<F, R, Fut>(
+    events: EventDispatcher,
+    backend: CriticalPathBackendName,
+    func: F,
+) -> anyhow::Result<R>
 where
     F: FnOnce(BuildSignalSender) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    static USE_LONGEST_PATH_GRAPH: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_LONGEST_PATH_GRAPH");
-    let use_longest_path_graph = USE_LONGEST_PATH_GRAPH.get_copied()?.unwrap_or_default();
-
-    let (sender, handle) = if use_longest_path_graph {
-        start_listener(events, LongestPathGraphBackend::new())
-    } else {
-        start_listener(events, DefaultBackend::new())
+    let (sender, handle) = match backend {
+        CriticalPathBackendName::LongestPathGraph => {
+            start_listener(events, LongestPathGraphBackend::new())
+        }
+        CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
     };
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);
