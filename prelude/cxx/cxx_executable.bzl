@@ -104,6 +104,8 @@ load(
 )
 load(
     ":link_groups.bzl",
+    "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
+    "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "create_link_groups",
     "find_relevant_roots",
@@ -445,6 +447,17 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             for name, lib in shared_libs.items()
         },
     )]
+    if link_group_mappings:
+        readable_mappings = {}
+        for node, group in link_group_mappings.items():
+            readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
+
+        sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
+            default_output = ctx.actions.write_json(
+                binary.output.basename + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
+                readable_mappings,
+            ),
+        )]
 
     # TODO(T110378140): We can't really enable this yet, as Python binaries
     # consuming C++ binaries as resources don't know how to handle the

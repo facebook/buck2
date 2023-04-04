@@ -82,8 +82,16 @@ load(
     "get_undefined_symbols_args",
 )
 
+# Returns a list of targets that belong in the current link group. If using
+# auto_link_groups, this sub_target will only be available to use with the
+# main binary, and it will return a list of all targets that map to a link
+# group.
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
-LINK_GROUP_MAP_FILE_NAME = "link_group_map.json"
+LINK_GROUP_MAP_DATABASE_FILENAME = "link_group_map_database.json"
+
+# Returns a mapping from link group names to its constituent targets.
+LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
+LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
 
 LinkGroupInfo = provider(fields = [
     "groups",  # [Group.type]
@@ -447,7 +455,7 @@ def get_filtered_targets(labels_to_links_map: {"label": LinkGroupLinkInfo.type})
     return [label.raw_target() for label in labels_to_links_map.keys()]
 
 def get_link_group_map_json(ctx: "context", targets: ["target_label"]) -> DefaultInfo.type:
-    json_map = ctx.actions.write_json(LINK_GROUP_MAP_FILE_NAME, sorted(targets))
+    json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
     return DefaultInfo(default_output = json_map)
 
 def make_link_group_info(groups: [Group.type], mappings: {"label": str.type}) -> LinkGroupInfo.type:
