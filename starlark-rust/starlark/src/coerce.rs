@@ -21,8 +21,10 @@ use std::alloc::Layout;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
+use std::ops::Deref;
+use std::ptr;
 
-use gazebo::cast::transmute_unchecked;
 pub use starlark_derive::Coerce;
 use starlark_map::small_map::SmallMap;
 
@@ -151,7 +153,8 @@ where
     From: Coerce<To>,
 {
     assert_eq!(Layout::new::<From>(), Layout::new::<To>());
-    unsafe { transmute_unchecked(x) }
+    let x = ManuallyDrop::new(x);
+    unsafe { ptr::read(x.deref() as *const From as *const To) }
 }
 
 #[cfg(test)]
