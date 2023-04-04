@@ -198,13 +198,17 @@ impl Graph {
 
     /// Produce a new graph after adding edges. This may produce a multigraph and the graph may
     /// stop being a DAG.
-    pub fn add_edges(&self, add: &impl AddEdges) -> Result<Graph, AddEdgesError> {
+    pub fn add_edges(
+        &self,
+        add: &impl AddEdges,
+        size_hint: impl Into<Option<usize>>,
+    ) -> Result<Graph, AddEdgesError> {
         let mut vertices = self.allocate_vertex_data(GraphVertex {
             edges_idx: 0,
             edges_count: 0,
         });
 
-        let mut edges = Vec::with_capacity(self.edges.len());
+        let mut edges = Vec::with_capacity(self.edges.len() + size_hint.into().unwrap_or_default());
         let mut all_edges_idx = 0;
 
         for from in self.iter_vertices() {
@@ -371,7 +375,7 @@ mod test {
         let mut new_edges = graph.allocate_vertex_data(OptionalVertexId::none());
         new_edges[v0] = v1.into();
         new_edges[v1] = v0.into();
-        let graph = graph.add_edges(&new_edges).unwrap();
+        let graph = graph.add_edges(&new_edges, None).unwrap();
 
         assert!(graph.topo_sort().is_err());
     }
@@ -444,7 +448,7 @@ mod test {
         let mut new_edges = graph.allocate_vertex_data(OptionalVertexId::none());
         new_edges[v0] = v3.into(); // new edge
         new_edges[v2] = v3.into(); // already exists
-        let graph = graph.add_edges(&new_edges).unwrap();
+        let graph = graph.add_edges(&new_edges, None).unwrap();
 
         let edges = graph
             .iter_all_edges()

@@ -598,6 +598,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             let (graph, keys, data) = self.builder?.finish();
 
             let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
+            let mut n = 0;
 
             for visibility in &self.top_level_analysis {
                 let analysis = &visibility.node;
@@ -634,12 +635,13 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
                         first_analysis[i] = analysis.into();
                         queue.extend(graph.iter_edges(i));
+                        n += 1;
                     }
                 }
             }
 
             let graph = graph
-                .add_edges(&first_analysis)
+                .add_edges(&first_analysis, n)
                 .context("Error adding first_analysis edges to graph")?;
 
             (graph, keys, data)
