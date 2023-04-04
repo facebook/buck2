@@ -608,98 +608,127 @@ impl ChromeTraceWriter {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(start_data),
-            }) => match start_data {
-                buck2_data::span_start_event::Data::Command(_command) => {
-                    self.open_named_span(
-                        event,
+            }) => {
+                let on_critical_path = event.span_id().map_or(false, |span_id| {
+                    self.first_pass
+                        .critical_path_span_ids
+                        .contains(&span_id.into())
+                });
+
+                let categorization = match start_data {
+                    buck2_data::span_start_event::Data::Command(_command) => Some((
                         self.invocation.command_line_args.join(" "),
                         Self::UNCATEGORIZED,
-                    )?;
-                }
-                buck2_data::span_start_event::Data::Analysis(analysis) => {
-                    self.span_counters
-                        .bump_counter_while_span(event, "analysis", 1)?;
-                    if self
-                        .first_pass
-                        .long_analyses
-                        .contains(&event.span_id().unwrap())
-                    {
-                        let name = format!(
-                            "analysis {}",
-                            display::display_analysis_target(
-                                analysis
-                                    .target
-                                    .as_ref()
-                                    .expect("AnalysisStart event missing 'target' field"),
-                                TargetDisplayOptions::for_chrome_trace()
-                            )?,
-                        );
-                        self.open_named_span(event, name, Self::UNCATEGORIZED)?;
+                    )),
+                    buck2_data::span_start_event::Data::Analysis(analysis) => {
+                        self.span_counters
+                            .bump_counter_while_span(event, "analysis", 1)?;
+
+                        let category = if on_critical_path {
+                            Some(Self::CRITICAL_PATH)
+                        } else if self
+                            .first_pass
+                            .long_analyses
+                            .contains(&event.span_id().unwrap())
+                        {
+                            Some(Self::UNCATEGORIZED)
+                        } else {
+                            None
+                        };
+
+                        category
+                            .map(|category| {
+                                let name = format!(
+                                    "analysis {}",
+                                    display::display_analysis_target(
+                                        analysis
+                                            .target
+                                            .as_ref()
+                                            .expect("AnalysisStart event missing 'target' field"),
+                                        TargetDisplayOptions::for_chrome_trace()
+                                    )?,
+                                );
+
+                                anyhow::Ok((name, category))
+                            })
+                            .transpose()?
                     }
-                }
-                buck2_data::span_start_event::Data::Load(eval) => {
-                    self.span_counters
-                        .bump_counter_while_span(event, "load", 1)?;
-                    if self
-                        .first_pass
-                        .long_loads
-                        .contains(&event.span_id().unwrap())
-                    {
-                        let name = format!("load {}", eval.module_id);
-                        self.open_named_span(event, name, Self::UNCATEGORIZED)?;
+                    buck2_data::span_start_event::Data::Load(eval) => {
+                        self.span_counters
+                            .bump_counter_while_span(event, "load", 1)?;
+
+                        let category = if on_critical_path {
+                            Some(Self::CRITICAL_PATH)
+                        } else if self
+                            .first_pass
+                            .long_loads
+                            .contains(&event.span_id().unwrap())
+                        {
+                            Some(Self::UNCATEGORIZED)
+                        } else {
+                            None
+                        };
+
+                        category.map(|category| (format!("load {}", eval.module_id), category))
                     }
-                }
-                buck2_data::span_start_event::Data::ActionExecution(action) => {
-                    #[allow(clippy::if_same_then_else)]
-                    let maybe_track = if self
-                        .first_pass
-                        .critical_path_action_keys
-                        .contains(action.key.as_ref().unwrap())
-                    {
-                        Some(Self::CRITICAL_PATH)
-                    } else if event.span_id().map_or(false, |span_id| {
-                        self.first_pass
-                            .critical_path_span_ids
-                            .contains(&span_id.into())
-                    }) {
-                        Some(Self::CRITICAL_PATH)
-                    } else if self
-                        .first_pass
-                        .local_actions
-                        .contains(&event.span_id().unwrap())
-                    {
-                        Some(Self::UNCATEGORIZED)
-                    } else {
-                        None
-                    };
-                    if let Some(track) = maybe_track {
-                        let name = display::display_action_identity(
-                            action.key.as_ref(),
-                            action.name.as_ref(),
-                            TargetDisplayOptions::for_chrome_trace(),
+                    buck2_data::span_start_event::Data::ActionExecution(action) => {
+                        #[allow(clippy::if_same_then_else)]
+                        let category = if self
+                            .first_pass
+                            .critical_path_action_keys
+                            .contains(action.key.as_ref().unwrap())
+                        {
+                            Some(Self::CRITICAL_PATH)
+                        } else if on_critical_path {
+                            Some(Self::CRITICAL_PATH)
+                        } else if self
+                            .first_pass
+                            .local_actions
+                            .contains(&event.span_id().unwrap())
+                        {
+                            Some(Self::UNCATEGORIZED)
+                        } else {
+                            None
+                        };
+
+                        category
+                            .map(|category| {
+                                let name = display::display_action_identity(
+                                    action.key.as_ref(),
+                                    action.name.as_ref(),
+                                    TargetDisplayOptions::for_chrome_trace(),
+                                )?;
+
+                                anyhow::Ok((name, category))
+                            })
+                            .transpose()?
+                    }
+                    buck2_data::span_start_event::Data::ExecutorStage(stage) => {
+                        let name = display::display_executor_stage(
+                            stage.stage.as_ref().context("expected stage")?,
                         )?;
-                        self.open_named_span(event, name, track)?;
+                        self.span_counters.bump_counter_while_span(event, name, 1)?;
+
+                        if self.open_spans.contains_key(&event.parent_id().unwrap()) {
+                            // As a child event, this will inherit its parent's track.
+                            Some((name.to_owned(), Self::UNCATEGORIZED))
+                        } else {
+                            None
+                        }
                     }
-                }
-                buck2_data::span_start_event::Data::ExecutorStage(stage) => {
-                    let name = display::display_executor_stage(
-                        stage.stage.as_ref().context("expected stage")?,
-                    )?;
-                    self.span_counters.bump_counter_while_span(event, name, 1)?;
-                    if self.open_spans.contains_key(&event.parent_id().unwrap()) {
-                        // As a child event, this will inherit its parent's track.
-                        self.open_named_span(event, name.to_owned(), Self::UNCATEGORIZED)?;
+                    buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
+                        Some(("file_watcher_sync".to_owned(), Self::CRITICAL_PATH))
                     }
+                    _ => None,
+                };
+
+                match categorization {
+                    Some((name, category)) => {
+                        self.open_named_span(event, name, category)?;
+                    }
+                    None => {}
                 }
-                buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
-                    self.open_named_span(
-                        event,
-                        "file_watcher_sync".to_owned(),
-                        Self::CRITICAL_PATH,
-                    )?;
-                }
-                _ => {}
-            },
+            }
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
             // which added a variant which is not available in version used when compiling this program.
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent { data: None }) => {}
