@@ -309,7 +309,7 @@ impl<'a> Assert<'a> {
         match gc {
             GcStrategy::Never => eval.disable_gc(),
             GcStrategy::Auto => {}
-            GcStrategy::Always => eval.before_stmt(&gc_always),
+            GcStrategy::Always => eval.before_stmt_fn(&gc_always),
         }
         eval.set_loader(&loader);
         eval.eval_module(ast, &self.globals)

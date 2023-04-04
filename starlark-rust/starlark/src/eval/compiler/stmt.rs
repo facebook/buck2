@@ -526,9 +526,9 @@ pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
         eval.before_stmt.enabled(),
         "this code should not be called if `before_stmt` is set"
     );
-    let fs = mem::take(&mut eval.before_stmt.before_stmt);
-    for f in &fs {
-        f(span.span.file_span_ref(), eval)
+    let mut fs = mem::take(&mut eval.before_stmt.before_stmt);
+    for f in &mut fs {
+        f.call(span.span.file_span_ref(), eval)
     }
     let added = mem::replace(&mut eval.before_stmt.before_stmt, fs);
     assert!(

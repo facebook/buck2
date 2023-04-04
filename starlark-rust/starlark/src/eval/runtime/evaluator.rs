@@ -41,6 +41,7 @@ use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::before_stmt::BeforeStmt;
+use crate::eval::runtime::before_stmt::BeforeStmtFunc;
 use crate::eval::runtime::call_stack::CheapCallStack;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
@@ -259,7 +260,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             ProfileMode::Statement | ProfileMode::Coverage => {
                 self.stmt_profile.enable();
-                self.before_stmt(&|span, eval| eval.stmt_profile.before_stmt(span));
+                self.before_stmt_fn(&|span, eval| eval.stmt_profile.before_stmt(span));
             }
             ProfileMode::TimeFlame => {
                 self.flame_profile.enable();
@@ -385,10 +386,14 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.call_stack.top_location()
     }
 
-    pub(crate) fn before_stmt(
+    pub(crate) fn before_stmt_fn(
         &mut self,
         f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
     ) {
+        self.before_stmt(f.into())
+    }
+
+    pub(crate) fn before_stmt(&mut self, f: BeforeStmtFunc<'a>) {
         self.before_stmt.before_stmt.push(f)
     }
 
@@ -399,7 +404,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         &mut self,
         f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
     ) {
-        self.before_stmt(f);
+        self.before_stmt(f.into())
     }
 
     /// Set the handler invoked when `print` function is used.

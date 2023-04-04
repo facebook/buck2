@@ -28,6 +28,7 @@ use std::time::Instant;
 use dupe::Dupe;
 use gazebo::prelude::*;
 pub use runtime::arguments::Arguments;
+pub use runtime::before_stmt::BeforeStmtFuncDyn;
 pub use runtime::call_stack::CallStack;
 pub use runtime::evaluator::Evaluator;
 pub use runtime::file_loader::FileLoader;

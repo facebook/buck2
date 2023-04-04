@@ -34,7 +34,7 @@ fn before_stmt() {
     };
 
     let mut evaluator = Evaluator::new(&module);
-    evaluator.before_stmt(&before_stmt);
+    evaluator.before_stmt_fn(&before_stmt);
 
     let program = "\
 x = 1          # 0
