@@ -192,6 +192,7 @@ async fn targets(
                     other.cached,
                     other.imports,
                     hashing,
+                    request.concurrency.as_ref().map(|x| x.concurrency as usize),
                 )
                 .await;
                 // Make sure we always flush the outputter, even on failure, as we may have partially written to it

@@ -38,6 +38,7 @@ use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
 use starlark_map::small_set::SmallSet;
+use tokio::sync::Semaphore;
 
 use crate::commands::targets::fmt::Stats;
 use crate::commands::targets::fmt::TargetFormatter;
@@ -57,6 +58,7 @@ pub(crate) async fn targets_streaming(
     cached: bool,
     imports: bool,
     fast_hash: Option<bool>, // None = no hashing
+    threads: Option<usize>,
 ) -> anyhow::Result<TargetsResponse> {
     struct Res {
         stats: Stats,           // Stats to merge in
@@ -66,11 +68,13 @@ pub(crate) async fn targets_streaming(
     }
 
     let imported = Arc::new(Mutex::new(SmallSet::new()));
+    let threads = Arc::new(Semaphore::new(threads.unwrap_or(Semaphore::MAX_PERMITS)));
 
     let mut packages = stream_packages(&dice, parsed_patterns)
         .map(|x| {
             let formatter = formatter.dupe();
             let imported = imported.dupe();
+            let threads = threads.dupe();
 
             dice.temporary_spawn(move |dice| async move {
                 let (package, spec) = x?;
@@ -80,7 +84,12 @@ pub(crate) async fn targets_streaming(
                     stderr: None,
                     stdout: String::new(),
                 };
-                match load_targets(&dice, package.dupe(), spec, cached).await {
+                let targets = {
+                    // This bit of code is the heavy CPU stuff, so guard it with the threads
+                    let _permit = threads.acquire().await.unwrap();
+                    load_targets(&dice, package.dupe(), spec, cached).await
+                };
+                match targets {
                     Ok((eval_result, targets)) => {
                         res.stats.success += 1;
                         if imports {
