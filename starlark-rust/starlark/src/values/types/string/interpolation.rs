@@ -21,7 +21,6 @@
 use std::fmt::Write;
 
 use dupe::Dupe;
-use gazebo::cast;
 use thiserror::Error;
 
 use crate::values::float;
@@ -45,23 +44,149 @@ enum StringInterpolationError {
     NotEnoughParameters,
     #[error("Incomplete format")]
     IncompleteFormat,
-    #[error("Unsupported format character")]
-    // TODO(nga): what character?
-    UnsupportedFormatCharacter,
+    #[error("Unsupported format character: {0:?}")]
+    UnsupportedFormatCharacter(char),
+    #[error("Expecting format character (internal error)")]
+    ExpectingFormatCharacter,
+}
+
+enum PercentSFormat {
+    /// `%s`.
+    Str,
+    /// `%r`.
+    Repr,
+    /// `%d`.
+    Dec,
+    /// `%o`.
+    Oct,
+    /// `%x`.
+    Hex,
+    /// `%X`.
+    HexUpper,
+    /// `%e`.
+    Exp,
+    /// `%E`.
+    ExpUpper,
+    /// `%f` or `%F`.
+    Float,
+    /// `%g`.
+    FloatCompact,
+    /// `%G`.
+    FloatCompactUpper,
+}
+
+struct PercentFormatParser<'a> {
+    rem: &'a str,
+}
+
+struct Item<'a> {
+    literal: &'a str,
+    format: Option<PercentSFormat>,
+}
+
+impl<'a> Iterator for PercentFormatParser<'a> {
+    type Item = anyhow::Result<Item<'a>>;
+
+    #[allow(clippy::collapsible_else_if)] // Makes code more readable.
+    fn next(&mut self) -> Option<Self::Item> {
+        let index_of_percent = self.rem.bytes().position(|c| c == b'%');
+        if let Some(index_of_percent) = index_of_percent {
+            let prev_rem = self.rem;
+            let (literal, rem) = self.rem.split_at(index_of_percent);
+            match rem.as_bytes().get(1) {
+                None => return Some(Err(StringInterpolationError::IncompleteFormat.into())),
+                Some(f) => {
+                    let res = match f {
+                        b'%' => {
+                            // Include the percent in the literal.
+                            let literal = &prev_rem[..index_of_percent + 1];
+                            Item {
+                                literal,
+                                format: None,
+                            }
+                        }
+                        b's' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Str),
+                        },
+                        b'r' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Repr),
+                        },
+                        b'd' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Dec),
+                        },
+                        b'o' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Oct),
+                        },
+                        b'x' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Hex),
+                        },
+                        b'X' => Item {
+                            literal,
+                            format: Some(PercentSFormat::HexUpper),
+                        },
+                        b'e' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Exp),
+                        },
+                        b'E' => Item {
+                            literal,
+                            format: Some(PercentSFormat::ExpUpper),
+                        },
+                        b'f' | b'F' => Item {
+                            literal,
+                            format: Some(PercentSFormat::Float),
+                        },
+                        b'g' => Item {
+                            literal,
+                            format: Some(PercentSFormat::FloatCompact),
+                        },
+                        b'G' => Item {
+                            literal,
+                            format: Some(PercentSFormat::FloatCompactUpper),
+                        },
+                        _ => {
+                            // Note we need to find the second character, not the second byte.
+                            let Some(c) = rem.chars().nth(1) else {
+                                return Some(Err(StringInterpolationError::ExpectingFormatCharacter.into()));
+                            };
+                            return Some(Err(
+                                StringInterpolationError::UnsupportedFormatCharacter(c).into(),
+                            ));
+                        }
+                    };
+                    // We reach here only if format character is ASCII,
+                    // so we can safely skip 2 bytes.
+                    self.rem = &rem[2..];
+                    Some(Ok(res))
+                }
+            }
+        } else {
+            if self.rem.is_empty() {
+                None
+            } else {
+                let literal = self.rem;
+                self.rem = "";
+                Some(Ok(Item {
+                    literal,
+                    format: None,
+                }))
+            }
+        }
+    }
 }
 
 pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
-    // For performance reasons, we treat format as a list of bytes
-    // (which is fine, the only thing we care about are '%' and ASCII digits).
-    // As a result, we accumulate into a Vec<u8>, which we know at any point
-    // we are at the end or at a '%' must be a valid UTF8 buffer.
-
     // NOTE(nga): use could reuse `Evaluator::string_pool` here, but
     //   * we don't have access to `Evaluator` in `StarlarkValue::percent`
     //   * after single %s made intrinsic, this code is not that hot now
 
     // random guess as a baseline capacity
-    let mut res: Vec<u8> = Vec::with_capacity(format.len() + 20);
+    let mut res: String = String::with_capacity(format.len() + 20);
 
     let tuple = Tuple::from_value(value);
     let one = &[value];
@@ -77,99 +202,88 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
     };
 
     // because of the way format is defined, we can deal with it as bytes
-    let mut format = format.as_bytes().iter().copied();
-    while let Some(c) = format.next() {
-        if c == b'%' {
-            if let Some(c) = format.next() {
-                let out: &mut String = unsafe { cast::ptr_mut(&mut res) };
-                match c {
-                    b'%' => res.push(b'%'),
-                    b's' => {
-                        let arg = next_value()?;
-                        match arg.unpack_str() {
-                            None => arg.collect_repr(out),
-                            Some(s) => out.push_str(s),
-                        }
-                    }
-                    b'r' => next_value()?.collect_repr(out),
-                    b'd' => {
-                        let value = next_value()?;
-                        if let Some(num::Num::Float(v)) = value.unpack_num() {
-                            match num::Num::Float(v.trunc()).as_int() {
-                                None => {
-                                    return ValueError::unsupported(&float::StarlarkFloat(v), "%d");
-                                }
-                                Some(v) => write!(out, "{}", v).unwrap(),
-                            }
-                        } else {
-                            write!(out, "{}", value.to_int()?).unwrap()
-                        }
-                    }
-                    b'o' => {
-                        let v = next_value()?.to_int()?;
-                        write!(
-                            out,
-                            "{}{:o}",
-                            if v < 0 { "-" } else { "" },
-                            v.wrapping_abs() as u64
-                        )
-                        .unwrap();
-                    }
-                    b'x' => {
-                        let v = next_value()?.to_int()?;
-                        write!(
-                            out,
-                            "{}{:x}",
-                            if v < 0 { "-" } else { "" },
-                            v.wrapping_abs() as u64
-                        )
-                        .unwrap();
-                    }
-                    b'X' => {
-                        let v = next_value()?.to_int()?;
-                        write!(
-                            out,
-                            "{}{:X}",
-                            if v < 0 { "-" } else { "" },
-                            v.wrapping_abs() as u64
-                        )
-                        .unwrap()
-                    }
-                    b'e' => {
-                        let v = Num::unpack_param(next_value()?)?.as_float();
-                        float::write_scientific(out, v, 'e', false).unwrap()
-                    }
-                    b'E' => {
-                        let v = Num::unpack_param(next_value()?)?.as_float();
-                        float::write_scientific(out, v, 'E', false).unwrap()
-                    }
-                    b'f' | b'F' => {
-                        let v = Num::unpack_param(next_value()?)?.as_float();
-                        float::write_decimal(out, v).unwrap()
-                    }
-                    b'g' => {
-                        let v = Num::unpack_param(next_value()?)?.as_float();
-                        float::write_compact(out, v, 'e').unwrap()
-                    }
-                    b'G' => {
-                        let v = Num::unpack_param(next_value()?)?.as_float();
-                        float::write_compact(out, v, 'E').unwrap()
-                    }
-                    _ => {
-                        return Err(StringInterpolationError::UnsupportedFormatCharacter.into());
-                    }
+    for item in (PercentFormatParser { rem: format }) {
+        let item = item?;
+        res.push_str(item.literal);
+        match item.format {
+            None => {}
+            Some(PercentSFormat::Str) => {
+                let arg = next_value()?;
+                match arg.unpack_str() {
+                    None => arg.collect_repr(&mut res),
+                    Some(s) => res.push_str(s),
                 }
-            } else {
-                return Err(StringInterpolationError::IncompleteFormat.into());
             }
-        } else {
-            res.push(c);
+            Some(PercentSFormat::Repr) => next_value()?.collect_repr(&mut res),
+            Some(PercentSFormat::Dec) => {
+                let value = next_value()?;
+                if let Some(num::Num::Float(v)) = value.unpack_num() {
+                    match num::Num::Float(v.trunc()).as_int() {
+                        None => {
+                            return ValueError::unsupported(&float::StarlarkFloat(v), "%d");
+                        }
+                        Some(v) => write!(res, "{}", v).unwrap(),
+                    }
+                } else {
+                    write!(res, "{}", value.to_int()?).unwrap()
+                }
+            }
+            Some(PercentSFormat::Oct) => {
+                let v = next_value()?.to_int()?;
+                write!(
+                    res,
+                    "{}{:o}",
+                    if v < 0 { "-" } else { "" },
+                    v.wrapping_abs() as u64
+                )
+                .unwrap();
+            }
+            Some(PercentSFormat::Hex) => {
+                let v = next_value()?.to_int()?;
+                write!(
+                    res,
+                    "{}{:x}",
+                    if v < 0 { "-" } else { "" },
+                    v.wrapping_abs() as u64
+                )
+                .unwrap();
+            }
+            Some(PercentSFormat::HexUpper) => {
+                let v = next_value()?.to_int()?;
+                write!(
+                    res,
+                    "{}{:X}",
+                    if v < 0 { "-" } else { "" },
+                    v.wrapping_abs() as u64
+                )
+                .unwrap();
+            }
+            Some(PercentSFormat::Exp) => {
+                let v = Num::unpack_param(next_value()?)?.as_float();
+                float::write_scientific(&mut res, v, 'e', false).unwrap()
+            }
+            Some(PercentSFormat::ExpUpper) => {
+                let v = Num::unpack_param(next_value()?)?.as_float();
+                float::write_scientific(&mut res, v, 'E', false).unwrap()
+            }
+            Some(PercentSFormat::Float) => {
+                let v = Num::unpack_param(next_value()?)?.as_float();
+                float::write_decimal(&mut res, v).unwrap()
+            }
+            Some(PercentSFormat::FloatCompact) => {
+                let v = Num::unpack_param(next_value()?)?.as_float();
+                float::write_compact(&mut res, v, 'e').unwrap()
+            }
+            Some(PercentSFormat::FloatCompactUpper) => {
+                let v = Num::unpack_param(next_value()?)?.as_float();
+                float::write_compact(&mut res, v, 'E').unwrap()
+            }
         }
     }
     if values.next().is_some() {
         Err(StringInterpolationError::TooManyParameters.into())
     } else {
-        Ok(unsafe { String::from_utf8_unchecked(res) })
+        Ok(res)
     }
 }
 
@@ -236,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_format_character() {
-        assert::fail("'%q' % (1,)", "Unsupported format character");
+        assert::fail("'xx%qxx' % (1,)", "Unsupported format character: 'q'");
     }
 
     #[test]
