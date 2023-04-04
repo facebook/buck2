@@ -98,6 +98,7 @@ impl TargetsMap {
         match self.map.try_insert(NameIndexed(target_node)) {
             Err(ordered_set::OccupiedError {
                 value: NameIndexed(target_node),
+                occupied: _,
             }) => Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into()),
             Ok(()) => Ok(()),
         }

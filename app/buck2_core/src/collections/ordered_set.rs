@@ -21,8 +21,9 @@ use starlark_map::Hashed;
 pub struct OrderedSet<T>(SmallSet<T>);
 
 #[derive(Debug)]
-pub struct OccupiedError<T> {
+pub struct OccupiedError<'a, T> {
     pub value: T,
+    pub occupied: &'a T,
 }
 
 impl<T> OrderedSet<T> {
@@ -113,19 +114,31 @@ impl<T> OrderedSet<T> {
     /// Insert an element if element is not present in the set,
     /// otherwise return the element.
     #[inline]
-    pub fn try_insert(&mut self, value: T) -> Result<(), OccupiedError<T>>
+    pub fn try_insert<'a>(&'a mut self, value: T) -> Result<(), OccupiedError<'a, T>>
     where
         T: Hash + Eq,
     {
         let value = Hashed::new(value);
-        if self.0.contains_hashed(value.as_ref()) {
-            Err(OccupiedError {
+
+        // SAFETY: Extending the lifetime of the `self` reference here is valid because:
+        //  1. The `self` reference already has lifetime `'a`.
+        //  2. Within this block, we only use `this`, not `self`.
+        //  3. Unless we return from this block, we do not store any references
+        //     derived from `this` which might later conflict with `self`.
+        // Writing the equivalent safe code does not work,
+        // due to a well-known limitation of the borrow-checker:
+        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=703ece3ad1d40f3c0d6ba1cd8b18194e
+        // `-Zpolonius` fixes the issue.
+        let this: &'a mut Self = unsafe { &mut *(self as *mut Self) };
+        if let Some(occupied) = this.0.get_hashed(value.as_ref()) {
+            return Err(OccupiedError {
                 value: value.into_key(),
-            })
-        } else {
-            self.0.insert_hashed_unique_unchecked(value);
-            Ok(())
+                occupied,
+            });
         }
+
+        self.0.insert_hashed_unique_unchecked(value);
+        Ok(())
     }
 
     #[inline]
