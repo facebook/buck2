@@ -74,6 +74,7 @@ rust_library(
         "fbsource//third-party/rust:annotate-snippets",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",
+        "fbsource//third-party/rust:debugserver-types",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",

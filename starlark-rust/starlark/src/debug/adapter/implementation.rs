@@ -18,7 +18,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -31,37 +30,51 @@ use debugserver_types::*;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
-use starlark::codemap::FileSpan;
-use starlark::codemap::FileSpanRef;
-use starlark::eval::BeforeStmtFuncDyn;
-use starlark::eval::Evaluator;
-use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 
-use crate::eval::dialect;
+use crate::codemap::FileSpan;
+use crate::codemap::FileSpanRef;
+use crate::debug::DapAdapter;
+use crate::debug::DapAdapterClient;
+use crate::debug::DapAdapterEvalHook;
+use crate::eval::BeforeStmtFuncDyn;
+use crate::eval::Evaluator;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
 
-pub trait DapAdapterClient: Debug + Send + Sync + 'static {
-    fn log(&self, x: &str);
+pub(crate) fn prepare_dap_adapter(
+    client: Box<dyn DapAdapterClient>,
+) -> (impl DapAdapter, impl DapAdapterEvalHook) {
+    let (sender, receiver) = std::sync::mpsc::channel::<ToEvalMessage>();
+    let state = Arc::new(SharedAdapterState {
+        client,
+        breakpoints: Arc::new(Mutex::new(HashMap::new())),
+        disable_breakpoints: Arc::new(0usize.into()),
+    });
 
-    fn event_stopped(&self);
-
-    fn event_initialized(&self);
+    (
+        DapAdapterImpl {
+            state: state.clone(),
+            sender,
+        },
+        DapAdapterEvalHookImpl::new(state, receiver),
+    )
 }
 
 type ToEvalMessage = Box<dyn Fn(FileSpanRef, &mut Evaluator) -> Next + Send>;
 
+/// The DapAdapter allows
 #[derive(Debug)]
-pub struct DapAdapter {
+struct DapAdapterImpl {
     state: Arc<SharedAdapterState>,
     sender: Sender<ToEvalMessage>,
 }
 
-pub struct DapAdapterEvaluationWrapper {
+struct DapAdapterEvalHookImpl {
     state: Arc<SharedAdapterState>,
     receiver: Receiver<ToEvalMessage>,
 }
 
-impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvaluationWrapper {
+impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
     fn call<'v>(&mut self, span_loc: FileSpanRef, eval: &mut Evaluator<'v, 'a>) {
         let stop = if self.state.disable_breakpoints.load(Ordering::SeqCst) > 0 {
             false
@@ -85,20 +98,20 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvaluationWrapper {
     }
 }
 
-static_assertions::assert_impl_all!(DapAdapter: Send);
-
-impl Debug for DapAdapterEvaluationWrapper {
+impl Debug for DapAdapterEvalHookImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DapAdapterEvaluationWrapper").finish()
     }
 }
 
-impl DapAdapterEvaluationWrapper {
+impl DapAdapterEvalHookImpl {
     fn new(state: Arc<SharedAdapterState>, receiver: Receiver<ToEvalMessage>) -> Self {
         Self { state, receiver }
     }
+}
 
-    pub fn wrap_for_dap<'v, 'a>(self: Box<Self>, mut eval: Evaluator<'v, 'a>) -> Evaluator<'v, 'a> {
+impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
+    fn add_dap_hooks<'v, 'a>(self: Box<Self>, mut eval: Evaluator<'v, 'a>) -> Evaluator<'v, 'a> {
         eval.before_stmt_for_dap((self as Box<dyn BeforeStmtFuncDyn>).into());
         eval
     }
@@ -119,63 +132,8 @@ enum Next {
     RemainPaused,
 }
 
-impl DapAdapter {
-    pub fn new(client: Box<dyn DapAdapterClient>) -> (Self, DapAdapterEvaluationWrapper) {
-        let (sender, receiver) = std::sync::mpsc::channel::<ToEvalMessage>();
-        let state = Arc::new(SharedAdapterState {
-            client,
-            breakpoints: Arc::new(Mutex::new(HashMap::new())),
-            disable_breakpoints: Arc::new(0usize.into()),
-        });
-
-        (
-            Self {
-                state: state.clone(),
-                sender,
-            },
-            DapAdapterEvaluationWrapper::new(state, receiver),
-        )
-    }
-
-    fn inject<T: 'static + Send>(
-        &self,
-        f: Box<dyn Fn(FileSpanRef, &mut Evaluator) -> (Next, T) + Send>,
-    ) -> T {
-        let (sender, receiver) = channel();
-        self.sender
-            .send(Box::new(move |span, eval| {
-                let (next, res) = f(span, eval);
-                sender.send(res).unwrap();
-                next
-            }))
-            .unwrap();
-        receiver.recv().unwrap()
-    }
-
-    fn inject_continue(&self) {
-        self.inject(Box::new(|_, _| (Next::Continue, ())))
-    }
-
-    fn with_ctx<T: 'static + Send>(
-        &self,
-        f: Box<dyn Fn(FileSpanRef, &mut Evaluator) -> T + Send>,
-    ) -> T {
-        self.inject(Box::new(move |span, eval| {
-            (Next::RemainPaused, f(span, eval))
-        }))
-    }
-
-    pub fn capabilities() -> Capabilities {
-        Capabilities {
-            supports_configuration_done_request: Some(true),
-            supports_evaluate_for_hovers: Some(true),
-            supports_set_variable: Some(true),
-            supports_step_in_targets_request: Some(true),
-            ..Capabilities::default()
-        }
-    }
-
-    pub fn set_breakpoints(
+impl DapAdapter for DapAdapterImpl {
+    fn set_breakpoints(
         &self,
         x: SetBreakpointsArguments,
     ) -> anyhow::Result<SetBreakpointsResponseBody> {
@@ -188,7 +146,7 @@ impl DapAdapter {
                 breakpoints: Vec::new(),
             })
         } else {
-            match AstModule::parse_file(Path::new(&source), &dialect()) {
+            match self.state.client.get_ast(&source) {
                 Err(_) => {
                     self.state.breakpoints.lock().unwrap().remove(&source);
                     Ok(SetBreakpointsResponseBody {
@@ -215,7 +173,7 @@ impl DapAdapter {
         }
     }
 
-    pub fn stack_trace(&self, _: StackTraceArguments) -> anyhow::Result<StackTraceResponseBody> {
+    fn stack_trace(&self, _: StackTraceArguments) -> anyhow::Result<StackTraceResponseBody> {
         fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFrame {
             let mut s = StackFrame {
                 id: id as i64,
@@ -261,7 +219,7 @@ impl DapAdapter {
         }))
     }
 
-    pub fn scopes(&self, _: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
+    fn scopes(&self, _: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
         self.with_ctx(Box::new(|_, eval| {
             let vars = eval.local_variables();
             Ok(ScopesResponseBody {
@@ -281,7 +239,7 @@ impl DapAdapter {
         }))
     }
 
-    pub fn variables(&self, _: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {
+    fn variables(&self, _: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {
         self.with_ctx(Box::new(|_, eval| {
             let vars = eval.local_variables();
             Ok(VariablesResponseBody {
@@ -302,12 +260,12 @@ impl DapAdapter {
         }))
     }
 
-    pub fn continue_(&self, _: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {
+    fn continue_(&self, _: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {
         self.inject_continue();
         Ok(ContinueResponseBody::default())
     }
 
-    pub fn evaluate(&self, x: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody> {
+    fn evaluate(&self, x: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody> {
         let disable_breakpoints = self.state.disable_breakpoints.dupe();
         self.with_ctx(Box::new(move |_, eval| {
             // We don't want to trigger breakpoints during an evaluate,
@@ -327,6 +285,36 @@ impl DapAdapter {
                 type_: None,
                 variables_reference: 0.0,
             })
+        }))
+    }
+}
+
+impl DapAdapterImpl {
+    fn inject<T: 'static + Send>(
+        &self,
+        f: Box<dyn Fn(FileSpanRef, &mut Evaluator) -> (Next, T) + Send>,
+    ) -> T {
+        let (sender, receiver) = channel();
+        self.sender
+            .send(Box::new(move |span, eval| {
+                let (next, res) = f(span, eval);
+                sender.send(res).unwrap();
+                next
+            }))
+            .unwrap();
+        receiver.recv().unwrap()
+    }
+
+    fn inject_continue(&self) {
+        self.inject(Box::new(|_, _| (Next::Continue, ())))
+    }
+
+    fn with_ctx<T: 'static + Send>(
+        &self,
+        f: Box<dyn Fn(FileSpanRef, &mut Evaluator) -> T + Send>,
+    ) -> T {
+        self.inject(Box::new(move |span, eval| {
+            (Next::RemainPaused, f(span, eval))
         }))
     }
 }

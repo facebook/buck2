@@ -398,7 +398,7 @@ pub mod any;
 pub mod assert;
 pub mod codemap;
 pub mod collections;
-mod debug;
+pub mod debug;
 pub mod docs;
 pub mod environment;
 pub mod errors;

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -25,31 +26,29 @@ use dupe::Dupe;
 pub(crate) use library::*;
 use serde_json::Map;
 use serde_json::Value;
+use starlark::debug::dap_capabilities;
+use starlark::debug::prepare_dap_adapter;
+use starlark::debug::DapAdapter;
+use starlark::debug::DapAdapterClient;
+use starlark::debug::DapAdapterEvalHook;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 
-use crate::dap::adapter::DapAdapter;
-use crate::dap::adapter::DapAdapterClient;
 use crate::eval::dialect;
 use crate::eval::globals;
 
-mod adapter;
 mod library;
 
 #[derive(Debug)]
 struct Backend {
-    adapter: Arc<adapter::DapAdapter>,
-    eval_wrapper: Mutex<Option<Box<adapter::DapAdapterEvaluationWrapper>>>,
+    adapter: Arc<dyn DapAdapter>,
+    eval_wrapper: Mutex<Option<Box<dyn DapAdapterEvalHook>>>,
     client: Client,
     file: Mutex<Option<String>>,
 }
 
 impl DapAdapterClient for Client {
-    fn log(&self, x: &str) {
-        self.log(x)
-    }
-
     fn event_stopped(&self) {
         self.event_stopped(StoppedEventBody {
             reason: "breakpoint".to_owned(),
@@ -61,8 +60,8 @@ impl DapAdapterClient for Client {
         });
     }
 
-    fn event_initialized(&self) {
-        self.event_initialized(None)
+    fn get_ast(&self, source: &str) -> anyhow::Result<AstModule> {
+        AstModule::parse_file(Path::new(source), &dialect())
     }
 }
 
@@ -79,7 +78,7 @@ impl Backend {
             let module = Module::new();
             let globals = globals();
             let eval = Evaluator::new(&module);
-            let mut eval = wrapper.wrap_for_dap(eval);
+            let mut eval = wrapper.add_dap_hooks(eval);
 
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));
@@ -115,7 +114,7 @@ impl Backend {
 impl DebugServer for Backend {
     fn initialize(&self, _: InitializeRequestArguments) -> anyhow::Result<Option<Capabilities>> {
         self.client.event_initialized(None);
-        Ok(Some(DapAdapter::capabilities()))
+        Ok(Some(dap_capabilities()))
     }
 
     fn set_breakpoints(
@@ -183,7 +182,7 @@ impl DebugServer for Backend {
 
 pub(crate) fn server() {
     DapService::run(|client| {
-        let (adapter, wrapper) = DapAdapter::new(Box::new(client.dupe()));
+        let (adapter, wrapper) = prepare_dap_adapter(Box::new(client.dupe()));
         Backend {
             adapter: Arc::new(adapter),
             eval_wrapper: Mutex::new(Some(Box::new(wrapper))),
