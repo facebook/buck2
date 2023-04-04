@@ -711,11 +711,6 @@ impl ChromeTraceWriter {
                         "blocking_executor_io_queue_size",
                         _snapshot.blocking_executor_io_queue_size,
                     )?;
-                    self.snapshot_counters.set(
-                        event.timestamp(),
-                        "blocking_executor_io_queue_size",
-                        _snapshot.blocking_executor_io_queue_size,
-                    )?;
                     for (nic, stats) in &_snapshot.network_interface_stats {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
