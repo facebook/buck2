@@ -308,6 +308,8 @@ message CriticalPathEntry2 {
     }
   }
 
+  message ComputeCriticalPath {}
+
   optional uint64 span_id = 1;
 
   // The duration we used to compute the critical path. This will be one of the
@@ -331,6 +333,7 @@ message CriticalPathEntry2 {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
     Materialization materialization = 102;
+    ComputeCriticalPath compute_critical_path = 103;
   }
 }
 

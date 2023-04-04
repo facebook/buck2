@@ -127,6 +127,10 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
 
                 identifier = &materialization.path;
             }
+            Some(Entry::ComputeCriticalPath(..)) => {
+                kind = "compute-critical-path";
+                name = "".to_owned();
+            }
             None => continue,
         }
 

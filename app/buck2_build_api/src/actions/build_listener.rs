@@ -13,6 +13,7 @@ use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_core::env_helper::EnvHelper;
@@ -218,11 +219,30 @@ where
             }
         }
 
+        let now = Instant::now();
+
         let BuildInfo {
             critical_path,
             num_nodes,
             num_edges,
         } = self.backend.finish()?;
+
+        let compute_elapsed = now.elapsed();
+
+        let meta_entry_data = NodeData {
+            action: None,
+            span_id: None,
+            duration: NodeDuration {
+                user: Duration::ZERO,
+                total: compute_elapsed,
+            },
+        };
+
+        let meta_entry = (
+            buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
+            &meta_entry_data,
+            &Some(compute_elapsed),
+        );
 
         let critical_path2 = critical_path
             .iter()
@@ -270,6 +290,7 @@ where
 
                 Some((entry, data, potential_improvement))
             })
+            .chain(std::iter::once(meta_entry))
             .map(|(entry, data, potential_improvement)| {
                 anyhow::Ok(buck2_data::CriticalPathEntry2 {
                     span_id: data.span_id.map(|span_id| span_id.into()),
