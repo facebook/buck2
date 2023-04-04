@@ -400,11 +400,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// This function is used by DAP, and it is not public API.
     // TODO(nga): pull DAP into the crate, and hide this function.
     #[doc(hidden)]
-    pub fn before_stmt_for_dap(
-        &mut self,
-        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a>),
-    ) {
-        self.before_stmt(f.into())
+    pub fn before_stmt_for_dap(&mut self, f: BeforeStmtFunc<'a>) {
+        self.before_stmt(f)
     }
 
     /// Set the handler invoked when `print` function is used.
