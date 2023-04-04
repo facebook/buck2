@@ -8,6 +8,7 @@
  */
 
 //! Implementation of the cli and query_* attr query language.
+use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::StreamExt;
@@ -65,7 +66,7 @@ where
         .iter()
         .map(|input| {
             let input = input.as_ref();
-            let query = query.replace("%s", input);
+            let query = query.replace(QUERY_PERCENT_S_PLACEHOLDER, input);
             let input = input.to_owned();
             func(input, query)
         })

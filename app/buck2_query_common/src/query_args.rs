@@ -9,6 +9,7 @@
 
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_core::soft_error;
+use buck2_query_parser::placeholder::QUERY_PERCENT_SS_PLACEHOLDER;
 use dupe::Dupe;
 use thiserror::Error;
 
@@ -190,9 +191,13 @@ impl CommonQueryArgs {
     }
 
     pub fn get_query(&self) -> (String, Vec<String>) {
-        if self.query.contains("%Ss") {
+        if self.query.contains(QUERY_PERCENT_SS_PLACEHOLDER) {
             let replacement = Self::args_as_set(&self.query_args);
-            (self.query.replace("%Ss", &replacement), vec![])
+            (
+                self.query
+                    .replace(QUERY_PERCENT_SS_PLACEHOLDER, &replacement),
+                vec![],
+            )
         } else {
             (self.query.clone(), self.query_args.clone())
         }

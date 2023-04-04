@@ -15,6 +15,7 @@ use buck2_query::query::syntax::simple::eval::literals::extract_target_literals;
 use buck2_query::query::syntax::simple::eval::multi_query::process_multi_query;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use futures::Future;
 use gazebo::prelude::*;
 use starlark::collections::SmallSet;
@@ -39,7 +40,7 @@ pub async fn eval_query<
     environment: impl FnOnce(Vec<String>) -> Fut,
 ) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
     let mut literals = SmallSet::new();
-    if query.contains("%s") {
+    if query.contains(QUERY_PERCENT_S_PLACEHOLDER) {
         // We'd really like the query args to only be literals (file or target).
         // If that didn't work, we'd really like query args to be well-formed expressions.
         // Unfortunately Buck1 just substitutes in arbitrarily strings, where the query
@@ -47,10 +48,14 @@ pub async fn eval_query<
         // We have to be backwards compatible :(
         for q in query_args {
             let q = q.as_ref();
-            if q.contains("%s") {
+            if q.contains(QUERY_PERCENT_S_PLACEHOLDER) {
                 return Err(EvalQueryError::PlaceholderInPattern(q.to_owned()).into());
             }
-            extract_target_literals(functions, &query.replace("%s", q), &mut literals)?;
+            extract_target_literals(
+                functions,
+                &query.replace(QUERY_PERCENT_S_PLACEHOLDER, q),
+                &mut literals,
+            )?;
         }
         let env = environment(literals.into_iter().collect()).await?;
         let results = process_multi_query(query, query_args, |input, query| {

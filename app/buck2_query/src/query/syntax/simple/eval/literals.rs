@@ -10,6 +10,7 @@
 //! Implementation of the cli and query_* attr query language.
 
 use buck2_query_parser::parse_expr;
+use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use starlark_map::small_set::SmallSet;
 
 use crate::query::syntax::simple::eval::values::QueryResultExt;
@@ -30,7 +31,7 @@ pub fn extract_target_literals<F: QueryFunctions>(
     }
     impl QueryLiteralVisitor for LiteralExtractor<'_> {
         fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
-            if pattern != "%s" {
+            if pattern != QUERY_PERCENT_S_PLACEHOLDER {
                 self.literals.get_or_insert_owned(pattern);
             }
             Ok(())

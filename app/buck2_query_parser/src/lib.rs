@@ -44,6 +44,7 @@
 //!
 //! ```
 
+pub mod placeholder;
 pub mod span;
 pub mod spanned;
 

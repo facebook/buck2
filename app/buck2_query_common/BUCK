@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_query_parser:buck2_query_parser",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

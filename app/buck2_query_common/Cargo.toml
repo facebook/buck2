@@ -14,3 +14,4 @@ thiserror = {workspace = true }
 # Please do not add dependency on `buck2_build_api`.
 buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
+buck2_query_parser = { workspace = true }
