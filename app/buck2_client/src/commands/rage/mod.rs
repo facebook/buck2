@@ -239,7 +239,7 @@ impl RageCommand {
             let system_info_command =
                 RageSection::get("System info".to_owned(), timeout, system_info::get);
             let daemon_stderr_command =
-                RageSection::get("Daemon stderr".to_owned(), timeout, || {
+                RageSection::get("Daemon stderr Manifold path".to_owned(), timeout, || {
                     upload_daemon_stderr(stderr_path, &manifold_id)
                 });
             let hg_snapshot_id_command = RageSection::get(
@@ -247,13 +247,15 @@ impl RageCommand {
                 timeout,
                 source_control::get_info,
             );
-            let dice_dump_command = RageSection::get("Dice Dump".to_owned(), timeout, || async {
-                rage_dumps::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
-            });
-            let materializer_state =
-                RageSection::get("Materializer state".to_owned(), timeout, || {
-                    materializer::upload_materializer_state(&buckd, &client_ctx, &manifold_id)
+            let dice_dump_command =
+                RageSection::get("Dice dump Manifold path".to_owned(), timeout, || async {
+                    rage_dumps::upload_dice_dump(buckd.clone()?, dice_dump_dir, &manifold_id).await
                 });
+            let materializer_state = RageSection::get(
+                "Materializer state Manifold path".to_owned(),
+                timeout,
+                || materializer::upload_materializer_state(&buckd, &client_ctx, &manifold_id),
+            );
             let build_info_command = {
                 let title = "Associated invocation info".to_owned();
                 match selected_invocation.as_ref() {
@@ -265,7 +267,7 @@ impl RageCommand {
             };
 
             let event_log_command = {
-                let title = "Event log upload".to_owned();
+                let title = "Event log upload Manifold path".to_owned();
                 match selected_invocation.as_ref() {
                     None => RageSection::get_skipped(title),
                     Some(path) => {
