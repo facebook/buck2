@@ -93,6 +93,11 @@ pub struct ActionRedirectionSignal {
     pub dest: ActionKey,
 }
 
+pub struct TopLevelTargetSignal {
+    pub label: ConfiguredTargetLabel,
+    pub artifacts: Vec<ArtifactGroup>,
+}
+
 /* These signals are distinct from the main Buck event bus because some
  * analysis needs access to the entire build graph, and serializing the
  * entire build graph isn't feasible - therefore, we have these signals
@@ -104,6 +109,7 @@ pub enum BuildSignal {
     TransitiveSetComputation(TransitiveSetComputationSignal),
     ActionRedirection(ActionRedirectionSignal),
     Analysis(AnalysisSignal),
+    TopLevelTarget(TopLevelTargetSignal),
     BuildFinished,
 }
 
@@ -188,6 +194,9 @@ where
                     self.process_action_redirection(redirection)?
                 }
                 BuildSignal::Analysis(analysis) => self.process_analysis(analysis)?,
+                BuildSignal::TopLevelTarget(top_level) => {
+                    self.process_top_level_target(top_level)?
+                }
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -292,6 +301,25 @@ where
 
         Ok(())
     }
+
+    fn process_top_level_target(
+        &mut self,
+        top_level: TopLevelTargetSignal,
+    ) -> Result<(), anyhow::Error> {
+        let artifact_keys = top_level.artifacts.into_iter().filter_map(|dep| match dep {
+            ArtifactGroup::Artifact(artifact) => {
+                artifact.action_key().duped().map(NodeKey::ActionKey)
+            }
+            ArtifactGroup::TransitiveSetProjection(key) => {
+                Some(NodeKey::TransitiveSetProjection(key.dupe()))
+            }
+        });
+
+        self.backend
+            .process_top_level_target(NodeKey::Analysis(top_level.label), artifact_keys);
+
+        Ok(())
+    }
 }
 
 pub trait BuildListenerBackend {
@@ -302,6 +330,8 @@ pub trait BuildListenerBackend {
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
     );
+
+    fn process_top_level_target(&mut self, key: NodeKey, artifacts: impl Iterator<Item = NodeKey>);
 
     fn finish(self) -> anyhow::Result<BuildInfo>;
 }
@@ -360,6 +390,13 @@ impl BuildListenerBackend for DefaultBackend {
 
         self.num_nodes += 1;
         self.predecessors.insert(key, node.dupe());
+    }
+
+    fn process_top_level_target(
+        &mut self,
+        _key: NodeKey,
+        _artifacts: impl Iterator<Item = NodeKey>,
+    ) {
     }
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
@@ -441,6 +478,13 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             Ok(()) => {}
             Err(e) => self.builder = Err(e.into()),
         }
+    }
+
+    fn process_top_level_target(
+        &mut self,
+        _key: NodeKey,
+        _artifacts: impl Iterator<Item = NodeKey>,
+    ) {
     }
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
