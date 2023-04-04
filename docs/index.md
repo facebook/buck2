@@ -17,6 +17,7 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 
 ### For end users
 
+* [Getting Started](getting_started.md) - how to get started with using Buck2.
 * [Benefits](benefits.md) - the benefits of using Buck2.
 
 <FbInternalOnly>
