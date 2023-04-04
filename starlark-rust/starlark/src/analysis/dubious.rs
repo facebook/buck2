@@ -17,7 +17,6 @@
 
 use std::collections::HashMap;
 
-use gazebo::variants::VariantName;
 use num_bigint::BigInt;
 use thiserror::Error;
 
@@ -33,7 +32,7 @@ use crate::syntax::lexer::TokenInt;
 use crate::syntax::AstModule;
 use crate::values::num::Num;
 
-#[derive(Error, Debug, VariantName)]
+#[derive(Error, Debug)]
 pub(crate) enum Dubious {
     #[error("Duplicate dictionary key `{0}`, also used at {1}")]
     DuplicateKey(String, FileSpan),
@@ -42,6 +41,12 @@ pub(crate) enum Dubious {
 impl LintWarning for Dubious {
     fn is_serious(&self) -> bool {
         true
+    }
+
+    fn short_name(&self) -> &'static str {
+        match self {
+            Dubious::DuplicateKey(..) => "duplicate-key",
+        }
     }
 }
 

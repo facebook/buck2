@@ -26,7 +26,6 @@ use std::mem;
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
 use static_assertions::assert_eq_size;
 
 use crate::codemap::CodeMap;
@@ -257,7 +256,7 @@ pub(crate) enum ClauseP<P: AstPayload> {
     If(AstExprP<P>),
 }
 
-#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, VariantName)]
+#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq)]
 pub(crate) enum BinOp {
     Or,
     And,
@@ -282,7 +281,7 @@ pub(crate) enum BinOp {
     RightShift,
 }
 
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, VariantName)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
 pub(crate) enum AssignOp {
     Add,         // +=
     Subtract,    // -=

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use gazebo::variants::VariantName;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -32,7 +31,7 @@ use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
-#[derive(Error, Debug, VariantName)]
+#[derive(Error, Debug)]
 pub(crate) enum FlowIssue {
     #[error("`return` lacks expression, but function `{0}` at {1} seems to want one due to {2}")]
     MissingReturnExpression(String, ResolvedFileSpan, ResolvedFileSpan),
@@ -56,6 +55,18 @@ impl LintWarning for FlowIssue {
             // Sometimes people add these to make flow clearer
             FlowIssue::RedundantContinue | FlowIssue::RedundantReturn => false,
             _ => true,
+        }
+    }
+
+    fn short_name(&self) -> &'static str {
+        match self {
+            FlowIssue::MissingReturnExpression(..) => "missing-return-expression",
+            FlowIssue::MissingReturn(..) => "missing-return",
+            FlowIssue::Unreachable(..) => "unreachable",
+            FlowIssue::RedundantReturn => "redundant-return",
+            FlowIssue::RedundantContinue => "redundant-continue",
+            FlowIssue::MisplacedLoad => "misplaced-load",
+            FlowIssue::NoEffect => "no-effect",
         }
     }
 }

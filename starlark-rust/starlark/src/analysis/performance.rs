@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use gazebo::variants::VariantName;
 use thiserror::Error;
 
 use crate::analysis::types::LintT;
@@ -26,7 +25,7 @@ use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::Expr;
 use crate::syntax::AstModule;
 
-#[derive(Error, Debug, VariantName)]
+#[derive(Error, Debug)]
 pub(crate) enum Performance {
     #[error("Dict copy `{0}` is more efficient as `{1}`")]
     DictWithoutStarStar(String, String),
@@ -43,6 +42,14 @@ pub(crate) enum Performance {
 impl LintWarning for Performance {
     fn is_serious(&self) -> bool {
         true
+    }
+
+    fn short_name(&self) -> &'static str {
+        match self {
+            Performance::DictWithoutStarStar(..) => "dict-without-star-star",
+            Performance::EagerAndInefficientBoolCheck(..) => "eager-and-inefficient-bool-check",
+            Performance::InefficientBoolCheck(..) => "inefficient-bool-check",
+        }
     }
 }
 

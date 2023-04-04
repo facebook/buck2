@@ -20,7 +20,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use gazebo::prelude::*;
-use gazebo::variants::VariantName;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
@@ -324,7 +323,7 @@ impl TypingContext<'_> {
                 let span = lhs.span;
                 let rhs = self.expression_type(rhs);
                 let lhs = self.expression_assign(lhs);
-                self.expression_primitive_ty(op.variant_name(), lhs, vec![rhs], span)
+                self.expression_primitive_ty(&format!("{:?}", op), lhs, vec![rhs], span)
             }
             BindExpr::SetIndex(id, index, e) => {
                 let span = index.span;
@@ -496,7 +495,7 @@ impl TypingContext<'_> {
                         self.expression_primitive_ty("less", lhs, vec![rhs], span);
                         bool_ret
                     }
-                    _ => self.expression_primitive_ty(op.variant_name(), lhs, vec![rhs], span),
+                    _ => self.expression_primitive_ty(&format!("{:?}", op), lhs, vec![rhs], span),
                 }
             }
             ExprP::If(c_t_f) => {
