@@ -10,13 +10,13 @@ To clone, build, and install `buck2`:
 ```sh
 git clone https://github.com/facebook/buck2.git
 cd buck2/
-cargo install --path=cli
+cargo install --path=app/buck2
 ```
 
 To build and install the latest `buck2` executable:
 ```sh
 rustup install nightly
-cargo +nightly install --git https://github.com/facebook/buck2.git cli
+cargo +nightly install --git https://github.com/facebook/buck2.git buck2
 ```
 
 Build uses prebuilt `protoc` binary from

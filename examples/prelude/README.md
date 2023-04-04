@@ -3,7 +3,7 @@
 From buck2 project root, run the following to build buck2 with cargo
 
 ```sh
-cargo install --path=cli --root=/tmp
+cargo install buck2 --root=/tmp
 export BUCK2="/tmp/bin/buck2"
 ```
 

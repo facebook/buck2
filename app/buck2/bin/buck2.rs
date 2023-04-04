@@ -17,13 +17,13 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
+use buck2::exec;
+use buck2::panic;
+use buck2::TracingLogFile;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use cli::exec;
-use cli::panic;
-use cli::TracingLogFile;
 use fbinit::FacebookInit;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator

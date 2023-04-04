@@ -30,7 +30,7 @@ for arg in "$@"; do
       shift
       ;;
     --cargo)
-      cargo install --path=cli --root=/tmp
+      cargo install --path=app/buck2 --root=/tmp
       BUCK2_COMMAND="/tmp/bin/buck2"
       shift
       ;;

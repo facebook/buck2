@@ -14,7 +14,7 @@ export_file(
 
 alias(
     name = "buck2",
-    actual = "//buck2/cli:buck2",
+    actual = "//buck2/app/buck2:buck2-bin",
 )
 
 # buildifier: disable=no-effect

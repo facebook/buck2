@@ -9,7 +9,7 @@ To get started, first install the `buck2` executable:
 
 ```bash
 rustup install nightly
-cargo +nightly install --git https://github.com/facebook/buck2.git cli
+cargo +nightly install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:

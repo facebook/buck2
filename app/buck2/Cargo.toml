@@ -1,7 +1,7 @@
 [package]
 description = ""
 edition = "2021"
-name = "cli"
+name = "buck2"
 version = "0.1.0"
 
 [dependencies]
@@ -13,7 +13,7 @@ clap = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
-# @oss-disable: hostcaps = { path = "../../common/rust/shed/hostcaps" }
+# @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
 itertools = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
@@ -34,10 +34,10 @@ gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../gazebo_lint/gazebo_lint"
+# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 host_sharing = { workspace = true }
 starlark = { workspace = true }
-# @oss-disable: user = { path = "../../common/rust/user", optional = true }
+# @oss-disable: user = { path = "../../../common/rust/user", optional = true }
 allocative = { workspace = true }
 
 buck2_audit = { workspace = true }
