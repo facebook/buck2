@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_build_api::query::cquery::environment::CqueryEnvironment;
 use buck2_build_api::query::cquery::environment::CqueryOwnerBehavior;
 use buck2_build_api::query::cquery::evaluator::get_cquery_evaluator;
@@ -39,6 +40,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
@@ -49,6 +51,7 @@ use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::starlark_defs::uquery::unpack_unconfigured_query_args;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(
@@ -604,7 +607,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// Evaluates some general query string.
+    /// Evaluates some general query string. `query_args` can be a target_set of unconfigured nodes, or
+    /// a list of strings.
     ///
     /// Sample usage:
     /// ```text
@@ -615,10 +619,34 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     fn eval<'v>(
         this: &StarlarkCQueryCtx<'v>,
         query: &'v str,
-        #[starlark(default = Vec::new())] query_args: Vec<&'v str>,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
         #[starlark(default = NoneOr::None)] target_universe: NoneOr<Vec<&'v str>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        let query_args = if query_args.is_none() {
+            Vec::new()
+        } else {
+            let unwrapped_query_args = query_args.into_option().unwrap();
+            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args)? {
+                query_args
+            } else {
+                let err = Err(ValueError::IncorrectParameterTypeWithExpected(
+                    "list of strings, or a target_set of unconfigured nodes".to_owned(),
+                    query_args.into_option().unwrap().get_type().to_owned(),
+                )
+                .into());
+
+                if <&StarlarkTargetSet<ConfiguredTargetNode>>::unpack_value(unwrapped_query_args)
+                    .is_some()
+                {
+                    return err
+                        .context("target_set with configured nodes are currently not supported");
+                }
+
+                return err;
+            }
+        };
+
         this.ctx.async_ctx.via_dice(|ctx| async {
             match get_cquery_evaluator(
                 ctx,
