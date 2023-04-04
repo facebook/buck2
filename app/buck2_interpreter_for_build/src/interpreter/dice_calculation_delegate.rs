@@ -8,6 +8,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -56,6 +57,7 @@ use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_cell::InterpreterForCell;
 use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::load_signals::HasLoadSignals;
 use crate::super_package::data::SuperPackage;
 
 #[derive(Debug, thiserror::Error)]
@@ -432,6 +434,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         package: PackageLabel,
         profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> anyhow::Result<EvaluationResult> {
+        let now = Instant::now();
         let listing = self.resolve_package_listing(package.dupe()).await?;
 
         let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
@@ -469,6 +472,12 @@ impl<'c> DiceCalculationDelegate<'c> {
                 )
                 .with_context(|| DiceCalculationDelegateError::EvalBuildFileError(build_file_path));
             let error = result.as_ref().err().map(|e| format!("{:#}", e));
+
+            if let Ok(res) = result.as_ref() {
+                if let Some(signals) = self.ctx.per_transaction_data().get_load_signals() {
+                    signals.send_load(package, &res, now.elapsed());
+                }
+            }
 
             (
                 result,

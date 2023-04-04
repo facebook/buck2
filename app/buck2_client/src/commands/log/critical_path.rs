@@ -131,6 +131,10 @@ fn log_critical_path(critical_path: &buck2_data::BuildGraphExecutionInfo) -> any
                 kind = "compute-critical-path";
                 name = "".to_owned();
             }
+            Some(Entry::Load(load)) => {
+                kind = "load";
+                name = load.package.clone();
+            }
             None => continue,
         }
 

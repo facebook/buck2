@@ -17,17 +17,22 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_data::ToProtoMessage;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_events::span::SpanId;
+use buck2_interpreter_for_build::load_signals::LoadSignalSender;
+use buck2_interpreter_for_build::load_signals::SetLoadSignals;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::eval_result::EvaluationResult;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
@@ -111,6 +116,13 @@ pub struct FinalMaterializationSignal {
     pub span_id: Option<SpanId>,
 }
 
+pub struct LoadSignal {
+    pub package: PackageLabel,
+    pub deps: Vec<PackageLabel>,
+    pub duration: NodeDuration,
+    pub span_id: Option<SpanId>,
+}
+
 /* These signals are distinct from the main Buck event bus because some
  * analysis needs access to the entire build graph, and serializing the
  * entire build graph isn't feasible - therefore, we have these signals
@@ -124,6 +136,7 @@ pub enum BuildSignal {
     Analysis(AnalysisSignal),
     TopLevelTarget(TopLevelTargetSignal),
     FinalMaterialization(FinalMaterializationSignal),
+    Load(LoadSignal),
     BuildFinished,
 }
 
@@ -135,6 +148,29 @@ pub struct BuildSignalSender {
 impl BuildSignalSender {
     pub fn signal(&self, signal: impl Into<BuildSignal>) {
         let _ignore_error = self.sender.send(signal.into());
+    }
+}
+
+impl LoadSignalSender for BuildSignalSender {
+    fn send_load(&self, package: PackageLabel, res: &EvaluationResult, duration: Duration) {
+        let deps = res
+            .targets()
+            .values()
+            .flat_map(|target| target.deps().map(|t| t.pkg()))
+            .unique()
+            .map(|pkg| pkg.dupe())
+            .collect::<Vec<_>>();
+
+        self.signal(LoadSignal {
+            package,
+            deps,
+            duration: NodeDuration {
+                user: duration,
+                total: duration,
+            },
+            // Not quite right, that should encompass the load stage too
+            span_id: current_span(),
+        });
     }
 }
 
@@ -154,10 +190,15 @@ pub enum NodeKey {
     // NOTE: we do not currently support analysis of anonymous targets or BXL.
     Analysis(ConfiguredTargetLabel),
     Materialization(BuildArtifact),
+    Load(PackageLabel),
 }
 
 pub struct BuildSignalReceiver<T> {
     receiver: UnboundedReceiverStream<BuildSignal>,
+    // Maps a PackageLabel to the first PackageLabel that had an edge to it. When that PackageLabel
+    // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
+    // is how we discovered its existence.
+    first_edge_to_load: HashMap<PackageLabel, PackageLabel>,
     backend: T,
 }
 
@@ -195,6 +236,7 @@ where
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
+            first_edge_to_load: HashMap::new(),
         }
     }
 
@@ -215,6 +257,7 @@ where
                 BuildSignal::FinalMaterialization(final_materialization) => {
                     self.process_final_materialization(final_materialization)?
                 }
+                BuildSignal::Load(load) => self.process_load(load)?,
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -285,6 +328,10 @@ where
                         }
                         .into()
                     }
+                    NodeKey::Load(package) => buck2_data::critical_path_entry2::Load {
+                        package: package.to_string(),
+                    }
+                    .into(),
                     NodeKey::TransitiveSetProjection(..) => return None,
                 };
 
@@ -391,7 +438,8 @@ where
         let dep_keys = analysis
             .node
             .deps()
-            .map(|d| NodeKey::Analysis(d.label().dupe()));
+            .map(|d| NodeKey::Analysis(d.label().dupe()))
+            .chain(std::iter::once(NodeKey::Load(analysis.label.pkg())));
 
         self.backend.process_node(
             NodeKey::Analysis(analysis.label),
@@ -436,6 +484,34 @@ where
             materialization.duration,
             std::iter::once(dep),
             materialization.span_id,
+        );
+
+        Ok(())
+    }
+
+    fn process_load(&mut self, load: LoadSignal) -> Result<(), anyhow::Error> {
+        for d in load.deps {
+            if d == load.package {
+                continue;
+            }
+            self.first_edge_to_load
+                .entry(d)
+                .or_insert_with(|| load.package.dupe());
+        }
+
+        let edge = self
+            .first_edge_to_load
+            .get(&load.package)
+            .duped()
+            .map(NodeKey::Load)
+            .into_iter();
+
+        self.backend.process_node(
+            NodeKey::Load(load.package),
+            None,
+            load.duration,
+            edge,
+            load.span_id,
         );
 
         Ok(())
@@ -650,7 +726,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
                         // Only add those new edges on things that analysis produces
                         match keys[i] {
-                            NodeKey::Analysis(..) | NodeKey::Materialization(..) => continue,
+                            NodeKey::Analysis(..)
+                            | NodeKey::Materialization(..)
+                            | NodeKey::Load(..) => continue,
                             NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
                         };
 
@@ -719,7 +797,8 @@ pub trait SetBuildSignals {
 
 impl SetBuildSignals for UserComputationData {
     fn set_build_signals(&mut self, sender: BuildSignalSender) {
-        self.data.set(sender);
+        self.data.set(sender.dupe());
+        self.set_load_signals(sender);
     }
 }
 
