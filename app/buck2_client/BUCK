@@ -20,6 +20,7 @@ rust_library(
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:clap-3",
         "fbsource//third-party/rust:crossterm",
+        "fbsource//third-party/rust:csv",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:httparse",
         "fbsource//third-party/rust:humantime",

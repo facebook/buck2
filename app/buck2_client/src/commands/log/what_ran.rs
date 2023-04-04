@@ -24,25 +24,12 @@ use buck2_event_observer::what_ran::WhatRanOutputCommandExtra;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
-use dupe::Dupe;
 use futures::stream::Stream;
 use futures::TryStreamExt;
 use indexmap::IndexMap;
 use tokio::runtime;
 
-#[derive(
-    Debug,
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Dupe,
-    clap::ArgEnum
-)]
-#[clap(rename_all = "snake_case")]
-pub enum WhatRanSubcommandOutput {
-    Tabulated,
-    Json,
-}
+use crate::commands::log::LogCommandOutputFormat;
 
 /// This command outputs everything the last invocation of Buck2 ran. Other invocations can be
 /// targeted using the flags.
@@ -90,7 +77,7 @@ pub struct WhatRanCommandCommon {
         ignore_case = true,
         arg_enum
     )]
-    pub output: WhatRanSubcommandOutput,
+    pub output: LogCommandOutputFormat,
 
     #[clap(flatten)]
     pub options: WhatRanOptions,
@@ -288,7 +275,7 @@ impl WhatRanComandImplementation for WhatFailedImpl {
 }
 
 /// An output that writes to stdout in a tabulated format.
-impl WhatRanOutputWriter for WhatRanSubcommandOutput {
+impl WhatRanOutputWriter for LogCommandOutputFormat {
     fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
         match self {
             Self::Tabulated => {
@@ -298,7 +285,7 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                     command.identity(),
                     command.repro().executor(),
                     command.repro().as_human_readable()
-                )?;
+                )
             }
             Self::Json => {
                 let reproducer = match command.repro() {
@@ -335,12 +322,31 @@ impl WhatRanOutputWriter for WhatRanSubcommandOutput {
                     extra: command.extra().map(Into::into),
                 };
 
-                let serialized_command = serde_json::to_string(&command)?;
-                buck2_client_ctx::println!("{}", serialized_command)?;
+                buck2_client_ctx::stdio::print_with_writer(|mut w| {
+                    serde_json::to_writer(&mut w, &command)?;
+                    w.write(b"\n").map(|_| ())
+                })
             }
-        };
+            Self::Csv => {
+                #[derive(serde::Serialize)]
+                struct Record<'a> {
+                    reason: &'a str,
+                    identity: &'a str,
+                    executor: String,
+                    reproducer: String,
+                }
 
-        Ok(())
+                buck2_client_ctx::stdio::print_with_writer(|w| {
+                    let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(w);
+                    writer.serialize(Record {
+                        reason: command.reason(),
+                        identity: command.identity(),
+                        executor: command.repro().executor(),
+                        reproducer: command.repro().as_human_readable().to_string(),
+                    })
+                })
+            }
+        }
     }
 }
 

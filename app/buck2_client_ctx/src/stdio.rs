@@ -100,3 +100,22 @@ pub fn flush() -> anyhow::Result<()> {
         }
     })
 }
+
+pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
+where
+    E: Into<anyhow::Error>,
+    F: FnOnce(&mut dyn Write) -> Result<(), E>,
+{
+    match f(&mut io::stdout().lock()) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let e: anyhow::Error = e.into();
+            match e.downcast_ref::<io::Error>() {
+                Some(io_error) if io_error.kind() == io::ErrorKind::BrokenPipe => {
+                    Err(anyhow::Error::new(FailureExitCode::StdoutBrokenPipe))
+                }
+                Some(_) | None => Err(e),
+            }
+        }
+    }
+}

@@ -15,6 +15,7 @@ bytesize = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }
 crossterm = { workspace = true }
+csv = { workspace = true }
 futures = { workspace = true }
 humantime = { workspace = true }
 indexmap = { workspace = true }

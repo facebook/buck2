@@ -18,6 +18,22 @@ pub mod what_uploaded;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use dupe::Dupe;
+
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Dupe,
+    clap::ArgEnum
+)]
+#[clap(rename_all = "snake_case")]
+pub enum LogCommandOutputFormat {
+    Tabulated,
+    Json,
+    Csv,
+}
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]
