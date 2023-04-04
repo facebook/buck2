@@ -387,13 +387,6 @@ impl AverageRateOfChangeCounters {
         }
     }
 
-    pub fn with_start_value(name: &'static str, start_value: f32) -> Self {
-        Self {
-            previous_timestamp_and_amount_by_key: HashMap::new(),
-            counters: SimpleCounters::<f32>::new(name, start_value),
-        }
-    }
-
     fn set_average_rate_of_change_per_ms(
         &mut self,
         timestamp: SystemTime,
@@ -416,40 +409,6 @@ impl AverageRateOfChangeCounters {
             .insert(key.to_owned(), TimestampAndAmount { timestamp, amount });
 
         Ok(())
-    }
-}
-
-/// Lazily init an average rate of change counter so that we base the delta
-/// computation based on the value of the *first* event value. Helpful to remove
-/// persistent offset values in timeseries data.
-struct LazyInitAverageRateOfChangeCounters {
-    name: &'static str,
-    rate_of_change_counters: Option<AverageRateOfChangeCounters>,
-}
-
-impl LazyInitAverageRateOfChangeCounters {
-    pub fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            rate_of_change_counters: None,
-        }
-    }
-
-    fn set_average_rate_of_change_per_ms(
-        &mut self,
-        timestamp: SystemTime,
-        key: &str,
-        amount: u64,
-    ) -> anyhow::Result<()> {
-        if let Some(counters) = &mut self.rate_of_change_counters {
-            counters.set_average_rate_of_change_per_ms(timestamp, key, amount)
-        } else {
-            let mut counters =
-                AverageRateOfChangeCounters::with_start_value(self.name, amount as f32);
-            counters.set_average_rate_of_change_per_ms(timestamp, key, amount)?;
-            self.rate_of_change_counters = Some(counters);
-            Ok(())
-        }
     }
 }
 
@@ -501,7 +460,6 @@ struct ChromeTraceWriter {
     snapshot_counters: SimpleCounters<u64>,
     max_rss_gigabytes_counter: SimpleCounters<f64>,
     rate_of_change_counters: AverageRateOfChangeCounters,
-    system_network_io_counters: LazyInitAverageRateOfChangeCounters,
 }
 
 impl ChromeTraceWriter {
@@ -520,9 +478,6 @@ impl ChromeTraceWriter {
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
             max_rss_gigabytes_counter: SimpleCounters::<f64>::new("max_rss", 0.0),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
-            system_network_io_counters: LazyInitAverageRateOfChangeCounters::new(
-                "system_network_io",
-            ),
         }
     }
 
@@ -563,9 +518,6 @@ impl ChromeTraceWriter {
         self.rate_of_change_counters
             .counters
             .flush_all_to(&mut self.trace_events)?;
-        if let Some(c) = &mut self.system_network_io_counters.rate_of_change_counters {
-            c.counters.flush_all_to(&mut self.trace_events)?;
-        }
 
         serde_json::to_writer(
             file,
@@ -765,13 +717,13 @@ impl ChromeTraceWriter {
                         _snapshot.blocking_executor_io_queue_size,
                     )?;
                     for (nic, stats) in &_snapshot.network_interface_stats {
-                        self.system_network_io_counters
+                        self.rate_of_change_counters
                             .set_average_rate_of_change_per_ms(
                                 event.timestamp(),
                                 &format!("{}_send_bytes", &nic),
                                 stats.tx_bytes,
                             )?;
-                        self.system_network_io_counters
+                        self.rate_of_change_counters
                             .set_average_rate_of_change_per_ms(
                                 event.timestamp(),
                                 &format!("{}_receive_bytes", &nic),
