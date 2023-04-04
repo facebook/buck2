@@ -18,6 +18,10 @@ AppleBundleInfo = provider(fields = [
     # Might be omitted for certain types of bundle (e.g. frameworks) when packaging doesn't depend on it.
     # [None, `bool.type`]
     "is_watchos",
+    # By default, non-framework, non-appex binaries copy Swift libraries into the final
+    # binary. This is the opt-out for that.
+    # [None, `bool.type`]
+    "skip_copying_swift_stdlib",
 ])
 
 # Provider which helps to propagate minimum deployment version up the target graph.

@@ -159,7 +159,12 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
-        AppleBundleInfo(bundle = bundle, binary_name = get_product_name(ctx), is_watchos = get_is_watch_bundle(ctx)),
+        AppleBundleInfo(
+            bundle = bundle,
+            binary_name = get_product_name(ctx),
+            is_watchos = get_is_watch_bundle(ctx),
+            skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
+        ),
         AppleDebuggableInfo(dsyms = dsym_artifacts, external_debug_info = external_debug_info),
         InstallInfo(
             installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,

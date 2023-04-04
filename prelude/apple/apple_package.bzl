@@ -37,10 +37,10 @@ def _get_ipa_contents(ctx) -> "artifact":
         paths.join("Payload", app.basename): app,
     }
 
-    # TODO: Respect the 'skip_copying_swift_stdlib' on apple_bundle, etc.
-    should_copy_swift_stdlib = (app.extension not in _SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS)
+    apple_bundle_info = bundle[AppleBundleInfo]
+    should_copy_swift_stdlib = not (apple_bundle_info.skip_copying_swift_stdlib or app.extension in _SKIP_COPYING_SWIFT_STDLIB_EXTENSIONS)
     if should_copy_swift_stdlib:
-        contents["SwiftSupport"] = _get_swift_support_dir(ctx, app, bundle[AppleBundleInfo])
+        contents["SwiftSupport"] = _get_swift_support_dir(ctx, app, apple_bundle_info)
 
     return ctx.actions.copied_dir(
         "__unzipped_ipa_contents__",
