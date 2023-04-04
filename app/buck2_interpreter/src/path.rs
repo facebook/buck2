@@ -122,7 +122,7 @@ impl PackageFilePath {
         self.dir().parent().map(PackageFilePath::for_dir)
     }
 
-    pub(crate) fn path(&self) -> &CellPath {
+    pub fn path(&self) -> &CellPath {
         &self.path
     }
 }

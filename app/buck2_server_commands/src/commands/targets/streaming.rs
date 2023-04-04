@@ -18,12 +18,15 @@ use std::sync::Mutex;
 use buck2_cli_proto::TargetsResponse;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -55,9 +58,9 @@ pub(crate) async fn targets_streaming(
     imports: bool,
     fast_hash: Option<bool>, // None = no hashing
 ) -> anyhow::Result<TargetsResponse> {
-    #[derive(Default)]
     struct Res {
         stats: Stats,           // Stats to merge in
+        package: PackageLabel,  // The package I was operating on
         stderr: Option<String>, // Print to stderr (and break)
         stdout: String,         // Print to stdout
     }
@@ -70,8 +73,13 @@ pub(crate) async fn targets_streaming(
             let imported = imported.dupe();
 
             dice.temporary_spawn(move |dice| async move {
-                let mut res = Res::default();
                 let (package, spec) = x?;
+                let mut res = Res {
+                    stats: Stats::default(),
+                    package: package.dupe(),
+                    stderr: None,
+                    stdout: String::new(),
+                };
                 match load_targets(&dice, package.dupe(), spec, cached).await {
                     Ok((eval_result, targets)) => {
                         res.stats.success += 1;
@@ -125,6 +133,7 @@ pub(crate) async fn targets_streaming(
     formatter.begin(&mut buffer);
     let mut stats = Stats::default();
     let mut needs_separator = false;
+    let mut package_files_seen = SmallSet::new();
     while let Some(res) = packages.next().await {
         let res = res?;
         stats.merge(&res.stats);
@@ -139,6 +148,30 @@ pub(crate) async fn targets_streaming(
             needs_separator = true;
             outputter.write2(stdout, &buffer, &res.stdout)?;
             buffer.clear();
+        }
+        if imports {
+            // Need to also find imports from PACKAGE files
+            let mut path = Some(PackageFilePath::for_dir(res.package.as_cell_path()));
+            while let Some(x) = path {
+                if package_files_seen.contains(&x) {
+                    break;
+                }
+                package_files_seen.insert(x.clone());
+                // These aren't cached, but the cost is relatively low (Starlark parsing),
+                // and there aren't many, so we just do it on the main thread.
+                // We ignore errors as these will bubble up as BUCK file errors already.
+                if let Ok(Some(imports)) = package_imports(&dice, &x).await {
+                    if needs_separator {
+                        formatter.separator(&mut buffer);
+                    }
+                    needs_separator = true;
+                    formatter.imports(x.path(), &imports, None, &mut buffer);
+                    outputter.write1(stdout, &buffer)?;
+                    buffer.clear();
+                    imported.lock().unwrap().extend(imports.into_iter());
+                }
+                path = x.parent_package_file();
+            }
         }
     }
 
@@ -216,4 +249,21 @@ async fn load_targets(
         PackageSpec::All => result.targets().values().duped().collect(),
     };
     Ok((result, targets))
+}
+
+/// Return `None` if the PACKAGE file doesn't exist
+async fn package_imports(
+    dice: &DiceComputations,
+    path: &PackageFilePath,
+) -> anyhow::Result<Option<Vec<ImportPath>>> {
+    // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
+    // Therefore we re-parse the file, if it exists.
+    // Fortunately, there are only a small number (currently a few hundred)
+    let interpreter = dice
+        .get_interpreter_calculator(path.cell(), path.build_file_cell())
+        .await?;
+    Ok(interpreter
+        .prepare_package_file_eval(path)
+        .await?
+        .map(|x| x.1.get_loaded_modules().imports().cloned().collect()))
 }

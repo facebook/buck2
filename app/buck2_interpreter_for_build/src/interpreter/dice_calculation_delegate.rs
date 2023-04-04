@@ -296,7 +296,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     }
 
     /// Return `None` if there's no `PACKAGE` file in the directory.
-    async fn prepare_package_file_eval(
+    pub async fn prepare_package_file_eval(
         &self,
         path: &PackageFilePath,
     ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
