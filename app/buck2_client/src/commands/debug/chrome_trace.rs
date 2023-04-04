@@ -379,7 +379,6 @@ struct AverageRateOfChangeCounters {
 }
 
 impl AverageRateOfChangeCounters {
-    const MSECS_PER_SEC: f32 = 1000.0;
     pub fn new(name: &'static str) -> Self {
         Self {
             previous_timestamp_and_amount_by_key: HashMap::new(),
@@ -387,7 +386,7 @@ impl AverageRateOfChangeCounters {
         }
     }
 
-    fn set_average_rate_of_change_per_ms(
+    fn set_average_rate_of_change_per_s(
         &mut self,
         timestamp: SystemTime,
         key: &str,
@@ -398,12 +397,13 @@ impl AverageRateOfChangeCounters {
             let secs_since_last_datapoint =
                 timestamp.duration_since(previous.timestamp)?.as_secs_f32();
             let value_change_since_last_datapoint = (amount - previous.amount) as f32;
-            self.counters.set(
-                timestamp,
-                key,
-                value_change_since_last_datapoint
-                    / (Self::MSECS_PER_SEC * secs_since_last_datapoint),
-            )?;
+            if secs_since_last_datapoint > 0.0 {
+                self.counters.set(
+                    timestamp,
+                    key,
+                    value_change_since_last_datapoint / secs_since_last_datapoint,
+                )?;
+            }
         }
         self.previous_timestamp_and_amount_by_key
             .insert(key.to_owned(), TimestampAndAmount { timestamp, amount });
@@ -695,15 +695,15 @@ impl ChromeTraceWriter {
                         (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
                     )?;
                     self.rate_of_change_counters
-                        .set_average_rate_of_change_per_ms(
+                        .set_average_rate_of_change_per_s(
                             event.timestamp(),
-                            "average_user_cpu_in_usecs_per_msec",
+                            "average_user_cpu_in_usecs_per_s",
                             _snapshot.buck2_user_cpu_us,
                         )?;
                     self.rate_of_change_counters
-                        .set_average_rate_of_change_per_ms(
+                        .set_average_rate_of_change_per_s(
                             event.timestamp(),
-                            "average_system_cpu_in_usecs_per_msec",
+                            "average_system_cpu_in_usecs_per_s",
                             _snapshot.buck2_system_cpu_us,
                         )?;
                     self.snapshot_counters.set(
@@ -718,13 +718,13 @@ impl ChromeTraceWriter {
                     )?;
                     for (nic, stats) in &_snapshot.network_interface_stats {
                         self.rate_of_change_counters
-                            .set_average_rate_of_change_per_ms(
+                            .set_average_rate_of_change_per_s(
                                 event.timestamp(),
                                 &format!("{}_send_bytes", &nic),
                                 stats.tx_bytes,
                             )?;
                         self.rate_of_change_counters
-                            .set_average_rate_of_change_per_ms(
+                            .set_average_rate_of_change_per_s(
                                 event.timestamp(),
                                 &format!("{}_receive_bytes", &nic),
                                 stats.rx_bytes,
