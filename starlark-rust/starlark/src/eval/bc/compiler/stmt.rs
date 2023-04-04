@@ -190,7 +190,6 @@ impl IrSpanned<StmtCompiled> {
         }
     }
 
-    #[allow(clippy::collapsible_else_if)]
     fn write_return(
         span: FrameSpan,
         expr: &IrSpanned<ExprCompiled>,

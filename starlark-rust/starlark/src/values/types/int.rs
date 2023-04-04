@@ -356,7 +356,6 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         }
     }
 
-    #[allow(clippy::collapsible_else_if)]
     fn right_shift(&self, other: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             None | Some(Num::Float(_)) => ValueError::unsupported_with(self, ">>", other),

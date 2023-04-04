@@ -141,6 +141,7 @@ CLIPPY_ALLOW = [
     "clippy::bool-to-int-with-if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
     "clippy::collapsible-if",  # Sometimes nesting better expresses intent
+    "clippy::collapsible-else-if",  # Sometimes nesting better expresses intent
     "clippy::comparison_chain",  # Generates worse code and harder to read
     "clippy::comparison_to_empty",  # x == "" is clearer than x.is_empty()
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
