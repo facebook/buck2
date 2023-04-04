@@ -16,14 +16,32 @@ use buck2_core::collections::ordered_set;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
+use buck2_util::indent::indent;
 use dupe::Dupe;
 
 use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Debug, thiserror::Error)]
 enum TargetsError {
-    #[error("Attempted to register target {0} twice")]
-    RegisteredTargetTwice(TargetLabel),
+    #[error(
+        "Attempted to register target {0} twice, {}",
+        Self::format_call_stack_for_registered_target_twice(_1)
+    )]
+    RegisteredTargetTwice(TargetLabel, Option<String>),
+}
+
+impl TargetsError {
+    fn format_call_stack_for_registered_target_twice(call_stack: &Option<String>) -> String {
+        // With current macro setup, duplicate target errors occur often
+        // when suffixed targets are used. When we finally fix this suffixed target setup,
+        // this code can be removed.
+        match call_stack {
+            None => "re-run the command with `--target-call-stacks` \
+                    to obtain a call stack of the first registration"
+                .to_owned(),
+            Some(call_stack) => format!("first registered at:\n{}", indent("  ", call_stack)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Dupe, Allocative)]
@@ -98,8 +116,12 @@ impl TargetsMap {
         match self.map.try_insert(NameIndexed(target_node)) {
             Err(ordered_set::OccupiedError {
                 value: NameIndexed(target_node),
-                occupied: _,
-            }) => Err(TargetsError::RegisteredTargetTwice(target_node.label().dupe()).into()),
+                occupied,
+            }) => Err(TargetsError::RegisteredTargetTwice(
+                target_node.label().dupe(),
+                occupied.0.call_stack(),
+            )
+            .into()),
             Ok(()) => Ok(()),
         }
     }
