@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod critical_path;
 pub mod last_log;
 pub mod show_log;
 pub mod what_failed;
@@ -44,6 +45,9 @@ pub enum LogCommand {
 
     /// Shows how many bytes/digests were uploaded by a command.
     WhatUploaded(what_uploaded::WhatUploadedCommand),
+
+    /// Shows how many bytes/digests were uploaded by a command.
+    CriticalPath(critical_path::CriticalPathCommand),
 }
 
 impl LogCommand {
@@ -56,6 +60,7 @@ impl LogCommand {
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
             Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
             Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
+            Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
         }
     }
 }
