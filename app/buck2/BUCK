@@ -19,11 +19,13 @@ rust_library(
         (
             "linux",
             [
+                "fbsource//third-party/rust:nix",
             ],
         ),
         (
             "macos",
             [
+                "fbsource//third-party/rust:nix",
             ],
         ),
         (
@@ -46,7 +48,6 @@ rust_library(
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
-        "fbsource//third-party/rust:nix",
         "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",

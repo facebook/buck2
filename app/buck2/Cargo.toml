@@ -16,7 +16,6 @@ hex = { workspace = true }
 # @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
 itertools = { workspace = true }
 libc = { workspace = true }
-nix = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -63,6 +62,7 @@ buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { workspace = true }
+nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 libc = { workspace = true }

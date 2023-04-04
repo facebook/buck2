@@ -10,7 +10,6 @@ bincode = { workspace = true }
 bytes = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
-nix = { workspace = true }
 pin-project = { workspace = true }
 rand = { workspace = true }
 take_mut = { workspace = true }
@@ -33,6 +32,9 @@ buck2_data = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_util = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }

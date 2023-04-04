@@ -30,9 +30,7 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
-tower = { workspace = true }
 tracing = { workspace = true }
-nix = { workspace = true }
 num_enum = { workspace = true }
 derivative = { workspace = true }
 parking_lot = { workspace = true }
@@ -56,10 +54,9 @@ buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-xattr = { workspace = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true }
+tower = { workspace = true }
 xattr = { workspace = true }
 
 [features]
