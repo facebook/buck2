@@ -56,6 +56,7 @@ pub struct AnalysisSignal {
     pub duration: NodeDuration,
 }
 
+#[derive(Copy, Clone, Dupe)]
 pub struct NodeDuration {
     /// The amount of time for this node that corresponds to something the user might be able to
     /// improve. We should better break this down.
@@ -130,7 +131,7 @@ struct CriticalPathNode<TKey: Eq, TValue> {
     /// The aggregated duration of this critical path.
     pub duration: Duration,
     /// The value of this node. If None, this node just won't be included when displaying.
-    pub value: Option<TValue>,
+    pub value: TValue,
     pub prev: Option<TKey>,
 }
 
@@ -149,7 +150,7 @@ pub struct BuildSignalReceiver<T> {
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
     predecessors: &HashMap<TKey, CriticalPathNode<TKey, TValue>>,
-) -> Vec<(&TKey, &Option<TValue>, Duration)> {
+) -> Vec<(&TKey, &TValue, Duration)> {
     let terminal = predecessors
         .iter()
         .max_by_key(|(_key, data)| data.duration)
@@ -349,7 +350,7 @@ pub struct BuildInfo {
 }
 
 struct DefaultBackend {
-    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Arc<RegisteredAction>>>,
+    predecessors: HashMap<NodeKey, CriticalPathNode<NodeKey, Option<Arc<RegisteredAction>>>>,
     num_nodes: u64,
     num_edges: u64,
 }
@@ -377,15 +378,15 @@ impl BuildListenerBackend for DefaultBackend {
             .filter_map(|node_key| {
                 self.num_edges += 1;
                 let node_data = self.predecessors.get(&node_key)?;
-                Some((node_key, node_data))
+                Some((node_key, node_data.duration))
             })
-            .max_by_key(|d| d.1.duration);
+            .max_by_key(|d| d.1);
 
         let node = match longest_ancestor {
-            Some((key, data)) => CriticalPathNode {
+            Some((key, ancestor_duration)) => CriticalPathNode {
                 prev: Some(key.dupe()),
                 value,
-                duration: data.duration + duration.critical_path_duration(),
+                duration: ancestor_duration + duration.critical_path_duration(),
             },
             None => CriticalPathNode {
                 prev: None,
@@ -395,7 +396,7 @@ impl BuildListenerBackend for DefaultBackend {
         };
 
         self.num_nodes += 1;
-        self.predecessors.insert(key, node.dupe());
+        self.predecessors.insert(key, node);
     }
 
     fn process_top_level_target(
@@ -408,8 +409,8 @@ impl BuildListenerBackend for DefaultBackend {
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
             .into_iter()
-            .filter_map(|(_key, maybe_action, duration)| {
-                let action = maybe_action.as_ref()?;
+            .filter_map(|(_key, node_data, duration)| {
+                let action = node_data.as_ref()?;
                 if duration == Duration::ZERO {
                     return None;
                 }
@@ -680,7 +681,7 @@ where
 mod tests {
     use super::*;
 
-    type CriticalPathMap = HashMap<i32, CriticalPathNode<i32, i32>>;
+    type CriticalPathMap = HashMap<i32, CriticalPathNode<i32, Option<i32>>>;
 
     fn cp_insert(
         predecessors: &mut CriticalPathMap,
