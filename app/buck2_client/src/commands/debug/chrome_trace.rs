@@ -730,6 +730,18 @@ impl ChromeTraceWriter {
                                 stats.rx_bytes,
                             )?;
                     }
+                    self.rate_of_change_counters
+                        .set_average_rate_of_change_per_s(
+                            event.timestamp(),
+                            "re_upload_bytes",
+                            _snapshot.re_upload_bytes,
+                        )?;
+                    self.rate_of_change_counters
+                        .set_average_rate_of_change_per_s(
+                            event.timestamp(),
+                            "re_download_bytes",
+                            _snapshot.re_download_bytes,
+                        )?;
                 }
             }
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
