@@ -360,6 +360,7 @@ where
             num_nodes,
             num_edges,
             uses_total_duration: false,
+            backend_name: Some(T::name().to_string()),
         });
         Ok(())
     }
@@ -536,6 +537,8 @@ pub trait BuildListenerBackend {
     );
 
     fn finish(self) -> anyhow::Result<BuildInfo>;
+
+    fn name() -> CriticalPathBackendName;
 }
 
 pub struct BuildInfo {
@@ -618,6 +621,10 @@ impl BuildListenerBackend for DefaultBackend {
             num_nodes: self.num_nodes,
             num_edges: self.num_edges,
         })
+    }
+
+    fn name() -> CriticalPathBackendName {
+        CriticalPathBackendName::Default
     }
 }
 
@@ -790,6 +797,10 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             num_edges: graph.edges_count() as _,
         })
     }
+
+    fn name() -> CriticalPathBackendName {
+        CriticalPathBackendName::LongestPathGraph
+    }
 }
 
 pub trait SetBuildSignals {
@@ -830,9 +841,11 @@ fn start_listener(
     (sender, receiver_task_handle)
 }
 
-#[derive(Copy, Clone, Dupe, Allocative)]
+#[derive(Copy, Clone, Dupe, Display, Allocative)]
 pub enum CriticalPathBackendName {
+    #[display(fmt = "longest-path-graph")]
     LongestPathGraph,
+    #[display(fmt = "default")]
     Default,
 }
 

@@ -358,6 +358,8 @@ message BuildGraphExecutionInfo {
   repeated CriticalPathEntry2 critical_path2 = 5;
   // Whether the aggregation is done using total duration or not.
   bool uses_total_duration = 6;
+  // The backend that was use to produce the critical path.
+  optional string backend_name = 7;
 }
 
 // An event capturing information from the test discovery phase.
