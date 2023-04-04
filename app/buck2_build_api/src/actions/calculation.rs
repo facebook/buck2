@@ -9,6 +9,7 @@
 
 use std::iter::zip;
 use std::sync::Arc;
+use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -35,6 +36,7 @@ use ref_cast::RefCast;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
+use crate::actions::build_listener::ActionExecutionDuration;
 use crate::actions::build_listener::ActionExecutionSignal;
 use crate::actions::build_listener::ActionRedirectionSignal;
 use crate::actions::build_listener::HasBuildSignals;
@@ -116,6 +118,8 @@ async fn build_action_no_redirect(
         .await
         .context(format!("for action `{}`", action))?;
 
+    let now = Instant::now();
+
     let fut = async move {
         let (execute_result, command_reports) =
             executor.execute(materialized_inputs, &action).await;
@@ -149,7 +153,10 @@ async fn build_action_no_redirect(
                 if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
                     signals.signal(ActionExecutionSignal {
                         action: action.dupe(),
-                        duration: meta.timing.wall_time,
+                        duration: ActionExecutionDuration {
+                            user: meta.timing.wall_time,
+                            total: now.elapsed(),
+                        },
                     });
                 }
 
