@@ -9,15 +9,13 @@
 
 use proc_macro2::Span;
 use quote::quote;
-use syn::parse_macro_input;
+use syn::spanned::Spanned;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::Ident;
 
-pub fn derive_variant_names(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
+pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {
         let mut variant_body = Vec::new();
         for variant in data_enum.variants {
@@ -46,15 +44,16 @@ pub fn derive_variant_names(input: proc_macro::TokenStream) -> proc_macro::Token
             }
         };
 
-        gen.into()
+        Ok(gen.into())
     } else {
-        panic!("Can only derive variant name on enums")
+        Err(syn::Error::new(
+            input.span(),
+            "Can only derive variant name on enums",
+        ))
     }
 }
 
-pub fn derive_unpack_variants(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
+pub(crate) fn derive_unpack_variants(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {
         let mut variant_fns = Vec::new();
         for variant in data_enum.variants {
@@ -133,9 +132,12 @@ pub fn derive_unpack_variants(input: proc_macro::TokenStream) -> proc_macro::Tok
             }
         };
 
-        gen.into()
+        Ok(gen.into())
     } else {
-        panic!("Can only derive variant name on enums")
+        Err(syn::Error::new(
+            input.span(),
+            "Can only derive variant name on enums",
+        ))
     }
 }
 
