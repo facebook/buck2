@@ -6,14 +6,18 @@ This repo contains the code for the Buck2 build system - the successor to the or
 
 ## Getting started
 
-To clone, build, and install `buck2`:
+Buck2 is written in Rust, which requires [rustup](https://rustup.rs/] to compile.
+
+You can either build `buck2` from a clone of the Buck2 repo:
+
 ```sh
 git clone https://github.com/facebook/buck2.git
 cd buck2/
 cargo install --path=app/buck2
 ```
 
-To build and install the latest `buck2` executable:
+Or alternatively install it directly from GitHub:
+
 ```sh
 rustup install nightly-2023-01-24
 cargo +nightly-2023-01-24 install --git https://github.com/facebook/buck2.git buck2

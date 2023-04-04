@@ -5,7 +5,7 @@ title: Getting Started
 
 ## Installing Buck2
 
-To get started, first install the `buck2` executable:
+To get started, first install [rustup](https://rustup.rs/), then compile the `buck2` executable:
 
 ```bash
 rustup install nightly-2023-01-24
