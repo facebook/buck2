@@ -475,7 +475,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
             if let Ok(res) = result.as_ref() {
                 if let Some(signals) = self.ctx.per_transaction_data().get_load_signals() {
-                    signals.send_load(package, &res, now.elapsed());
+                    signals.send_load(package, res, now.elapsed());
                 }
             }
 
