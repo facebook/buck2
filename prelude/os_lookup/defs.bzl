@@ -5,7 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "Platform", "TargetCpuType")
+load("@prelude//decls/android_rules.bzl", "TargetCpuType")
+load("@prelude//decls/core_rules.bzl", "Platform")
 
 OsLookup = provider(fields = ["cpu", "platform"])
 

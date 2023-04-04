@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "attributes")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
@@ -13,6 +12,7 @@ load("@prelude//cxx:linker.bzl", "LINKERS")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "value_or")
+load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
 
 def cxx_toolchain_impl(ctx):
     c_compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
@@ -180,7 +180,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
     }
 
 def _cxx_toolchain_inheriting_target_platform_attrs():
-    attrs = dict(attributes["cxx_toolchain"])
+    attrs = dict(cxx_rules.cxx_toolchain.attrs)
     attrs.update(cxx_toolchain_extra_attributes(is_toolchain_rule = True))
     return attrs
 

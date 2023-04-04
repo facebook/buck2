@@ -5,10 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "AppleBundleExtension", "Traversal")
 load("@prelude//apple:apple_bundle.bzl", "apple_bundle_impl")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//decls/common.bzl", "Traversal")
+load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
 load(":watch_transition.bzl", "watch_transition")
 
 def _apple_bundle_base_attrs():

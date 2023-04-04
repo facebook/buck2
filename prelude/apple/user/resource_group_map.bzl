@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "Traversal")
 load(
     "@prelude//apple:resource_groups.bzl",
     "ResourceGraph",
@@ -20,6 +19,7 @@ load(
     "parse_groups_definitions",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//decls/common.bzl", "Traversal")
 
 def v1_attrs():
     return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string())))))

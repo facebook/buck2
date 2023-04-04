@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attributes.bzl", "Linkage", "Traversal")
 load(
     "@prelude//cxx:groups.bzl",
     "compute_mappings",
@@ -34,6 +33,7 @@ load(
     "SharedLibraryInfo",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
+load("@prelude//decls/common.bzl", "Linkage", "Traversal")
 
 def _v1_attrs(optional_root: bool.type = False):
     attrs_root = attrs.dep(providers = [

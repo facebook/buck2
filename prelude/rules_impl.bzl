@@ -88,12 +88,32 @@ load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo
 # Zip file
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
+# Rule declarations
+load("@prelude//decls/android_rules.bzl", "android_rules")
+load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "Linkage")
+load("@prelude//decls/core_rules.bzl", "core_rules")
+load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
+load("@prelude//decls/d_rules.bzl", "d_rules")
+load("@prelude//decls/dotnet_rules.bzl", "dotnet_rules")
+load("@prelude//decls/go_rules.bzl", "go_rules")
+load("@prelude//decls/groovy_rules.bzl", "groovy_rules")
+load("@prelude//decls/halide_rules.bzl", "halide_rules")
+load("@prelude//decls/haskell_rules.bzl", "haskell_rules")
+load("@prelude//decls/ios_rules.bzl", "ios_rules")
+load("@prelude//decls/java_rules.bzl", "java_rules")
+load("@prelude//decls/js_rules.bzl", "js_rules")
+load("@prelude//decls/kotlin_rules.bzl", "kotlin_rules")
+load("@prelude//decls/lua_rules.bzl", "lua_rules")
+load("@prelude//decls/ocaml_rules.bzl", "ocaml_rules")
+load("@prelude//decls/python_rules.bzl", "python_rules")
+load("@prelude//decls/rust_rules.bzl", "rust_rules")
+load("@prelude//decls/scala_rules.bzl", "scala_rules")
+load("@prelude//decls/shell_rules.bzl", "shell_rules")
+load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
+
 # Constraints
 load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
-
-# General
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
-load(":attributes.bzl", "IncludeType", "LinkableDepType", "Linkage", "attributes")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
 load(":filegroup.bzl", "filegroup_impl")
@@ -106,6 +126,29 @@ load(":test_suite.bzl", "test_suite_impl")
 
 # Other
 load(":worker_tool.bzl", "worker_tool")
+
+rule_decl_records = [
+    android_rules,
+    core_rules,
+    cxx_rules,
+    d_rules,
+    dotnet_rules,
+    go_rules,
+    groovy_rules,
+    halide_rules,
+    haskell_rules,
+    ios_rules,
+    java_rules,
+    kotlin_rules,
+    lua_rules,
+    ocaml_rules,
+    python_rules,
+    rust_rules,
+    shell_rules,
+    js_rules,
+    scala_rules,
+    uncategorized_rules,
+]
 
 def _merge_dictionaries(dicts):
     result = {}
@@ -207,8 +250,8 @@ def _cxx_python_extension_attrs():
     # So we can reuse cxx_library, we augment it with the additional attributes it defines.
     # This isn't the ideal way to reuse it (we'd rather cxx_library was split it multiple reusable parts),
     # but it's the pragmatic way of getting it working for now.
-    library = attributes["cxx_library"]
-    me = attributes["cxx_python_extension"]
+    library = cxx_rules.cxx_library.attrs
+    me = python_rules.cxx_python_extension.attrs
     res = {k: attrs.default_only(library[k]) for k in library if k not in me}
     res.update({
         "allow_embedding": attrs.bool(default = True),
@@ -232,11 +275,11 @@ def _cxx_python_extension_attrs():
 
 # Attrs common between python binary/test
 def _python_executable_attrs():
-    cxx_binary_attrs = {k: v for k, v in attributes["cxx_binary"].items()}
+    cxx_binary_attrs = {k: v for k, v in cxx_rules.cxx_binary.attrs.items()}
     cxx_binary_attrs.update(_cxx_binary_and_test_attrs())
     python_executable_attrs = {}
     python_executable_attrs["srcs"] = None
-    python_executable_attrs.update(attributes["python_binary"])
+    python_executable_attrs.update(python_rules.python_binary.attrs)
     updated_attrs = {
         key: attrs.default_only(cxx_binary_attrs[key])
         for key in cxx_binary_attrs

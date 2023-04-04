@@ -8,8 +8,7 @@
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 
 # Combine the attributes we generate, we the custom implementations we have.
-load(":attributes.bzl", "attributes")
-load(":rules_impl.bzl", "extra_attributes", "implemented_rules", "toolchain_rule_names", "transitions")
+load("@prelude//rules_impl.bzl", "extra_attributes", "implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -20,7 +19,10 @@ def _unimplemented_impl(name):
     # some features disabled.
     return partial(_unimplemented, name)
 
-def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
+def _mk_rule(rule_spec: "") -> "rule":
+    name = rule_spec.name
+    attributes = rule_spec.attrs
+
     # We want native code-containing rules to be marked incompatible with fat
     # platforms. Getting the ones that use cxx/apple toolchains is a little
     # overly broad as it includes things like python that don't themselves have
@@ -39,13 +41,27 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes = dict(attributes)
-
         attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "fbcode//buck2/platform/execution:fat_platform_incompatible")
 
     extra_args = {}
     cfg = transitions.get(name)
     if cfg != None:
         extra_args["cfg"] = cfg
+
+    if rule_spec.docs:
+        doc = rule_spec.docs
+
+        # This is awkward. When generating documentation, we'll strip leading whitespace
+        # like it's a python docstring. For that to work here, we need the "Examples:" line
+        # to match the other lines for leading whitespace. We've just hardcoded this to
+        # be what its expected to be in prelude.
+        # TODO(cjhopman): Figure out something better here.
+        if rule_spec.examples:
+            doc += "\n{}Examples:\n{}".format(" " * 8, rule_spec.examples)
+        if rule_spec.further:
+            doc += "\n{}Additional notes:\n{}".format(" " * 8, rule_spec.further)
+
+        extra_args["doc"] = doc
 
     return rule(
         impl = getattr(implemented_rules, name, _unimplemented_impl(name)),
@@ -55,19 +71,39 @@ def _mk_rule(name: str.type, attributes: {str.type: "attribute"}) -> "rule":
         **extra_args
     )
 
-def _merge_attributes() -> {str.type: {str.type: "attribute"}}:
-    attrs = dict(attributes)
+def _flatten_decls():
+    decls = {}
+    for decl_set in rule_decl_records:
+        for rule in dir(decl_set):
+            decls[rule] = getattr(decl_set, rule)
+    return decls
+
+def _update_rules(rules: {str.type: ""}, extra_attributes: ""):
     for k in dir(extra_attributes):
         v = getattr(extra_attributes, k)
-        if k in attrs:
-            d = dict(attrs[k])
+        if k in rules:
+            d = dict(rules[k].attrs)
             d.update(v)
-            attrs[k] = d
+            rules[k] = struct(
+                name = rules[k].name,
+                attrs = d,
+                docs = rules[k].docs,
+                examples = rules[k].examples,
+                further = rules[k].further,
+            )
         else:
-            attrs[k] = v
-    return attrs
+            rules[k] = struct(
+                name = k,
+                attrs = v,
+                docs = None,
+                examples = None,
+                further = None,
+            )
 
-rules = {name: _mk_rule(name, attrs) for name, attrs in _merge_attributes().items()}
+_declared_rules = _flatten_decls()
+_update_rules(_declared_rules, extra_attributes)
+
+rules = {rule.name: _mk_rule(rule) for rule in _declared_rules.values()}
 
 # The rules are accessed by doing module.name, so we have to put them on the correct module.
 load_symbols(rules)
