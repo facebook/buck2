@@ -150,6 +150,7 @@ message TargetsRequest {
     ResolveAlias resolve_alias = 20;
     Other other = 21;
   }
+  Concurrency concurrency = 22;
 }
 
 message TargetsResponse {

@@ -176,6 +176,10 @@ pub struct TargetsCommand {
     /// Patterns to interpret
     #[clap(name = "TARGET_PATTERNS")]
     patterns: Vec<String>,
+
+    /// Number of threads to use during execution (default is # cores)
+    #[clap(short = 'j', long = "num-threads", value_name = "THREADS")]
+    pub num_threads: Option<u32>,
 }
 
 impl TargetsCommand {
@@ -292,6 +296,9 @@ impl StreamingCommand for TargetsCommand {
             output: self
                 .output
                 .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
+            concurrency: self
+                .num_threads
+                .map(|num| buck2_cli_proto::Concurrency { concurrency: num }),
         };
 
         if self.show_output {
