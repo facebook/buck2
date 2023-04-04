@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_data::BuildGraphExecutionInfo;
@@ -25,6 +26,7 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
@@ -44,10 +46,16 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 
 pub struct ActionExecutionSignal {
     pub action: Arc<RegisteredAction>,
-    pub duration: ActionExecutionDuration,
+    pub duration: NodeDuration,
 }
 
-pub struct ActionExecutionDuration {
+pub struct AnalysisSignal {
+    pub label: ConfiguredTargetLabel,
+    pub node: ConfiguredTargetNode,
+    pub duration: NodeDuration,
+}
+
+pub struct NodeDuration {
     /// The amount of time for this node that corresponds to something the user might be able to
     /// improve. We should better break this down.
     pub user: Duration,
@@ -55,16 +63,14 @@ pub struct ActionExecutionDuration {
     pub total: Duration,
 }
 
-impl ActionExecutionDuration {
+impl NodeDuration {
     /// Returns the duration we are using in our critical path calculation. This doesn't really
     /// *need* to be a function but right now we use user and want to switch to total so it's
     /// eaiser to do that if this is in a single function.
     fn critical_path_duration(&self) -> Duration {
         self.user
     }
-}
 
-impl ActionExecutionDuration {
     fn zero() -> Self {
         Self {
             user: Duration::from_secs(0),
@@ -72,7 +78,6 @@ impl ActionExecutionDuration {
         }
     }
 }
-
 pub struct TransitiveSetComputationSignal {
     pub key: TransitiveSetProjectionKey,
     pub artifacts: HashSet<ActionKey>,
@@ -98,6 +103,7 @@ pub enum BuildSignal {
     ActionExecution(ActionExecutionSignal),
     TransitiveSetComputation(TransitiveSetComputationSignal),
     ActionRedirection(ActionRedirectionSignal),
+    Analysis(AnalysisSignal),
     BuildFinished,
 }
 
@@ -125,6 +131,8 @@ struct CriticalPathNode<TKey: Eq, TValue> {
 pub enum NodeKey {
     ActionKey(ActionKey),
     TransitiveSetProjection(TransitiveSetProjectionKey),
+    // NOTE: we do not currently support analysis of anonymous targets or BXL.
+    Analysis(ConfiguredTargetLabel),
 }
 
 pub struct BuildSignalReceiver<T> {
@@ -179,6 +187,7 @@ where
                 BuildSignal::ActionRedirection(redirection) => {
                     self.process_action_redirection(redirection)?
                 }
+                BuildSignal::Analysis(analysis) => self.process_analysis(analysis)?,
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -204,14 +213,25 @@ where
         // Identify most costly predecessor.
         let inputs = execution.action.inputs()?;
 
-        let dep_keys = inputs.iter().filter_map(|dep| match dep {
-            ArtifactGroup::Artifact(artifact) => {
-                artifact.action_key().duped().map(NodeKey::ActionKey)
-            }
-            ArtifactGroup::TransitiveSetProjection(key) => {
-                Some(NodeKey::TransitiveSetProjection(key.dupe()))
-            }
-        });
+        let dep_keys = inputs
+            .iter()
+            .filter_map(|dep| match dep {
+                ArtifactGroup::Artifact(artifact) => {
+                    artifact.action_key().duped().map(NodeKey::ActionKey)
+                }
+                ArtifactGroup::TransitiveSetProjection(key) => {
+                    Some(NodeKey::TransitiveSetProjection(key.dupe()))
+                }
+            })
+            .chain(
+                execution
+                    .action
+                    .owner()
+                    .unpack_target_label()
+                    .duped()
+                    .map(NodeKey::Analysis)
+                    .into_iter(),
+            );
 
         self.backend.process_node(
             NodeKey::ActionKey(execution.action.key().dupe()),
@@ -230,7 +250,7 @@ where
         self.backend.process_node(
             NodeKey::ActionKey(redirection.key),
             None,
-            ActionExecutionDuration::zero(), // Those nodes don't carry a duration.
+            NodeDuration::zero(), // Those nodes don't carry a duration.
             std::iter::once(NodeKey::ActionKey(redirection.dest)),
         );
 
@@ -250,8 +270,24 @@ where
         self.backend.process_node(
             NodeKey::TransitiveSetProjection(set.key),
             None,
-            ActionExecutionDuration::zero(), // Those nodes don't carry a duration.
+            NodeDuration::zero(), // Those nodes don't carry a duration.
             artifacts.chain(sets),
+        );
+
+        Ok(())
+    }
+
+    fn process_analysis(&mut self, analysis: AnalysisSignal) -> Result<(), anyhow::Error> {
+        let dep_keys = analysis
+            .node
+            .deps()
+            .map(|d| NodeKey::Analysis(d.label().dupe()));
+
+        self.backend.process_node(
+            NodeKey::Analysis(analysis.label),
+            None,
+            analysis.duration,
+            dep_keys,
         );
 
         Ok(())
@@ -263,7 +299,7 @@ pub trait BuildListenerBackend {
         &mut self,
         key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
-        duration: ActionExecutionDuration,
+        duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
     );
 
@@ -297,7 +333,7 @@ impl BuildListenerBackend for DefaultBackend {
         &mut self,
         key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
-        duration: ActionExecutionDuration,
+        duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
     ) {
         let longest_ancestor = dep_keys
@@ -375,7 +411,7 @@ struct LongestPathGraphBackend {
 
 struct NodeData {
     action: Option<Arc<RegisteredAction>>,
-    duration: ActionExecutionDuration,
+    duration: NodeDuration,
 }
 
 impl LongestPathGraphBackend {
@@ -391,7 +427,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         &mut self,
         key: NodeKey,
         action: Option<Arc<RegisteredAction>>,
-        duration: ActionExecutionDuration,
+        duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
     ) {
         let builder = match self.builder.as_mut() {

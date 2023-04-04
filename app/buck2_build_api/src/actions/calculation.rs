@@ -36,10 +36,10 @@ use ref_cast::RefCast;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::build_listener::ActionExecutionDuration;
 use crate::actions::build_listener::ActionExecutionSignal;
 use crate::actions::build_listener::ActionRedirectionSignal;
 use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::build_listener::NodeDuration;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKey;
@@ -153,7 +153,7 @@ async fn build_action_no_redirect(
                 if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
                     signals.signal(ActionExecutionSignal {
                         action: action.dupe(),
-                        duration: ActionExecutionDuration {
+                        duration: NodeDuration {
                             user: meta.timing.wall_time,
                             total: now.elapsed(),
                         },

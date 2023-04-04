@@ -10,6 +10,7 @@
 //! Rule analysis related Dice calculations
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -43,6 +44,9 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use starlark::eval::ProfileMode;
 
+use crate::actions::build_listener::AnalysisSignal;
+use crate::actions::build_listener::HasBuildSignals;
+use crate::actions::build_listener::NodeDuration;
 use crate::analysis::calculation::keys::AnalysisKey;
 use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
@@ -257,8 +261,10 @@ async fn get_analysis_result(
 
     let mut dep_analysis = get_dep_analysis(&configured_node, ctx).await?;
 
+    let now = Instant::now();
+
     let func = configured_node.rule_type();
-    match func {
+    let res = match func {
         RuleType::Starlark(func) => {
             let rule_impl = get_rule_impl(ctx, func).await?;
             let start_event = buck2_data::AnalysisStart {
@@ -315,7 +321,24 @@ async fn get_analysis_result(
             assert!(dep_analysis.len() == 1);
             Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
         }
+    };
+
+    if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
+        // Notify our critical path tracking that *this action* is secretly that
+        // other action we just jumped to.
+        let duration = now.elapsed();
+
+        signals.signal(AnalysisSignal {
+            label: target.dupe(),
+            node: configured_node,
+            duration: NodeDuration {
+                user: duration,
+                total: duration,
+            },
+        });
     }
+
+    res
 }
 
 fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
