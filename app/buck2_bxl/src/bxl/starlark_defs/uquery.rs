@@ -22,6 +22,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::OptionExt;
+use gazebo::prelude::SliceExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -29,6 +30,7 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_type;
+use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -38,6 +40,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
@@ -394,7 +397,8 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// Evaluates some general query string
+    /// Evaluates some general query string, `query_args` can be a target_set of unconfigured nodes, or
+    /// a list of strings.
     ///
     /// Sample usage:
     /// ```text
@@ -405,9 +409,24 @@ fn register_uquery(builder: &mut MethodsBuilder) {
     fn eval<'v>(
         this: &StarlarkUQueryCtx<'v>,
         query: &'v str,
-        #[starlark(default = Vec::new())] query_args: Vec<String>,
+        #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
+        let query_args = if query_args.is_none() {
+            Vec::new()
+        } else {
+            let unwrapped_query_args = query_args.into_option().unwrap();
+            if let Some(query_args) = unpack_unconfigured_query_args(unwrapped_query_args)? {
+                query_args
+            } else {
+                return Err(ValueError::IncorrectParameterTypeWithExpected(
+                    "list of strings, or a target_set with unconfigured nodes".to_owned(),
+                    unwrapped_query_args.get_type().to_owned(),
+                )
+                .into());
+            }
+        };
+
         this.ctx.async_ctx.via_dice(|ctx| async {
             match get_uquery_evaluator(
                 ctx,
@@ -426,5 +445,23 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                 Err(e) => Err(e),
             }
         })
+    }
+}
+
+pub(crate) fn unpack_unconfigured_query_args<'v>(
+    query_args: Value<'v>,
+) -> anyhow::Result<Option<Vec<String>>> {
+    if let Some(list) = <&ListRef>::unpack_value(query_args) {
+        Ok(Some(list.content().try_map(|e| match e.unpack_str() {
+            Some(arg) => Ok(arg.to_owned()),
+            None => Err(ValueError::IncorrectParameterTypeWithExpected(
+                "list of strings, or a target_set of unconfigured nodes".to_owned(),
+                query_args.get_type().to_owned(),
+            )),
+        })?))
+    } else if let Some(set) = <&StarlarkTargetSet<TargetNode>>::unpack_value(query_args) {
+        Ok(Some(set.0.iter_names().map(|e| e.to_string()).collect()))
+    } else {
+        Ok(None)
     }
 }
