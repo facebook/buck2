@@ -14,6 +14,10 @@ use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context as _;
+use buck2_core::env_helper::EnvHelper;
+use buck2_critical_path::compute_critical_path_potentials;
+use buck2_critical_path::GraphBuilder;
 use buck2_data::BuildGraphExecutionInfo;
 use buck2_data::CriticalPathEntry;
 use buck2_data::ToProtoMessage;
@@ -337,6 +341,102 @@ impl BuildListenerBackend for DefaultBackend {
     }
 }
 
+/// An implementation of critical path that uses a longest-paths graph in order to produce
+/// potential savings in addition to the critical path.
+struct LongestPathGraphBackend {
+    builder: anyhow::Result<GraphBuilder<NodeKey, NodeData>>,
+}
+
+struct NodeData {
+    action: Option<Arc<RegisteredAction>>,
+    duration: Duration,
+}
+
+impl LongestPathGraphBackend {
+    fn new() -> Self {
+        Self {
+            builder: Ok(GraphBuilder::new()),
+        }
+    }
+}
+
+impl BuildListenerBackend for LongestPathGraphBackend {
+    fn process_node(
+        &mut self,
+        key: NodeKey,
+        action: Option<Arc<RegisteredAction>>,
+        duration: Duration,
+        dep_keys: impl Iterator<Item = NodeKey>,
+    ) {
+        let builder = match self.builder.as_mut() {
+            Ok(b) => b,
+            Err(..) => return,
+        };
+
+        let res = builder.push(key, dep_keys, NodeData { action, duration });
+
+        match res {
+            Ok(()) => {}
+            Err(e) => self.builder = Err(e.into()),
+        }
+    }
+
+    fn finish(self) -> anyhow::Result<BuildInfo> {
+        let (graph, keys, data) = self.builder?.finish();
+        drop(keys);
+
+        let durations = data.try_map_ref(|d| {
+            d.duration
+                .as_micros()
+                .try_into()
+                .context("Duration `as_micros()` exceeds u64")
+        })?;
+
+        let (critical_path, _critical_path_cost, _potentials) =
+            compute_critical_path_potentials(&graph, &durations)?;
+
+        drop(durations);
+
+        let critical_path = critical_path
+            .values()
+            .filter_map(|idx| {
+                let data = &data[*idx];
+                let action = data.action.as_ref()?;
+
+                let name = format!(
+                    "{} {}{}",
+                    action.owner(),
+                    action.category(),
+                    action
+                        .identifier()
+                        .map_or_else(|| "".to_owned(), |v| format!("[{}]", v))
+                );
+
+                Some((name, data.duration, action))
+            })
+            .map(|(name, duration, action)| {
+                anyhow::Ok(CriticalPathEntry {
+                    action_name: name,
+                    action_key: Some(action.key().as_proto()),
+                    duration: Some(duration.try_into()?),
+                    action_name_fields: Some(buck2_data::ActionName {
+                        category: action.category().to_string(),
+                        identifier: action
+                            .identifier()
+                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
+                    }),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(BuildInfo {
+            critical_path,
+            num_nodes: graph.vertices_count() as _,
+            num_edges: graph.edges_count() as _,
+        })
+    }
+}
+
 pub trait SetBuildSignals {
     fn set_build_signals(&mut self, sender: BuildSignalSender);
 }
@@ -357,13 +457,16 @@ impl HasBuildSignals for UserComputationData {
     }
 }
 
-fn start_listener(events: EventDispatcher) -> (BuildSignalSender, JoinHandle<anyhow::Result<()>>) {
+fn start_listener(
+    events: EventDispatcher,
+    backend: impl BuildListenerBackend + Send + 'static,
+) -> (BuildSignalSender, JoinHandle<anyhow::Result<()>>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let sender = BuildSignalSender {
         sender: Arc::new(sender),
     };
 
-    let listener = BuildSignalReceiver::new(receiver, DefaultBackend::new());
+    let listener = BuildSignalReceiver::new(receiver, backend);
     let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
         listener.run_and_log().await
     }));
@@ -387,7 +490,14 @@ where
     F: FnOnce(BuildSignalSender) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    let (sender, handle) = start_listener(events);
+    static USE_LONGEST_PATH_GRAPH: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_LONGEST_PATH_GRAPH");
+    let use_longest_path_graph = USE_LONGEST_PATH_GRAPH.get_copied()?.unwrap_or_default();
+
+    let (sender, handle) = if use_longest_path_graph {
+        start_listener(events, LongestPathGraphBackend::new())
+    } else {
+        start_listener(events, DefaultBackend::new())
+    };
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);
     handle.await??;
