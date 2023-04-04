@@ -715,7 +715,13 @@ def create_link_groups(
         root_link_group,
     )
 
+    link_groups_created = False
     for link_group_spec in link_group_specs:
+        if link_group_spec.group.attrs.discard_group:
+            # Don't create a link group for deps that we want to drop
+            continue
+        link_groups_created = True
+
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
         # handle the case when a link group can depend on the executable.
@@ -774,7 +780,7 @@ def create_link_groups(
     # needed by these link groups are pulled in and exported to the dynamic
     # symbol table.
     symbol_ldflags = []
-    if link_group_specs:
+    if link_group_specs and link_groups_created:
         symbol_ldflags.extend(
             _symbol_flags_for_link_groups(
                 ctx = ctx,
