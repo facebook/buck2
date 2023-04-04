@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::types::OptionalVertexId;
@@ -206,24 +205,22 @@ impl Graph {
         });
 
         let mut edges = Vec::with_capacity(self.edges.len());
-
-        let mut from_edges = SmallSet::new();
+        let mut all_edges_idx = 0;
 
         for from in self.iter_vertices() {
-            let edges_idx = edges
-                .len()
-                .try_into()
-                .map_err(|_| AddEdgesError::Overflow)?;
-
+            let edges_idx = all_edges_idx;
             let mut edges_count = 0;
 
-            from_edges.clear();
-            from_edges.extend(self.iter_edges(from));
-            from_edges.extend(add.edges_for_vertex(from));
-
-            for e in from_edges.iter() {
-                edges.push(*e);
+            for e in self.iter_edges(from) {
+                edges.push(e);
                 edges_count += 1;
+                all_edges_idx += 1;
+            }
+
+            for e in add.edges_for_vertex(from) {
+                edges.push(e);
+                edges_count += 1;
+                all_edges_idx += 1;
             }
 
             vertices[from] = GraphVertex {
@@ -453,6 +450,9 @@ mod test {
             .iter_all_edges()
             .map(|(l, r)| (data[l], data[r]))
             .collect::<Vec<_>>();
-        assert_eq!(vec![(K2, K3), (K0, K1), (K0, K2), (K0, K3)], edges);
+        assert_eq!(
+            vec![(K2, K3), (K2, K3), (K0, K1), (K0, K2), (K0, K3)],
+            edges
+        );
     }
 }
