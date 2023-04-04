@@ -20,8 +20,6 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
-use buck2_data::BuildGraphExecutionInfo;
-use buck2_data::CriticalPathEntry;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -46,6 +44,7 @@ use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 pub struct ActionExecutionSignal {
     pub action: Arc<RegisteredAction>,
@@ -213,40 +212,53 @@ where
             num_edges,
         } = self.backend.finish()?;
 
-        let critical_path = critical_path
+        let critical_path2 = critical_path
             .iter()
-            .filter_map(|data| {
-                let action = data.action.as_ref()?;
+            .filter_map(|(key, data)| {
+                let entry: buck2_data::critical_path_entry2::Entry = match key {
+                    NodeKey::ActionKey(action_key) => {
+                        let owner = match action_key.owner() {
+                            BaseDeferredKey::TargetLabel(t) => t.as_proto().into(),
+                            BaseDeferredKey::AnonTarget(t) => t.as_proto().into(),
+                            BaseDeferredKey::BxlLabel(t) => t.as_proto().into(),
+                        };
 
-                let name = format!(
-                    "{} {}{}",
-                    action.owner(),
-                    action.category(),
-                    action
-                        .identifier()
-                        .map_or_else(|| "".to_owned(), |v| format!("[{}]", v))
-                );
+                        // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
+                        // in our data.
+                        let action = data.action.as_ref()?;
 
-                Some((name, data.duration.critical_path_duration(), action))
+                        buck2_data::critical_path_entry2::ActionExecution {
+                            owner: Some(owner),
+                            name: Some(buck2_data::ActionName {
+                                category: action.category().as_str().to_owned(),
+                                identifier: action.identifier().unwrap_or("").to_owned(),
+                            }),
+                        }
+                        .into()
+                    }
+                    NodeKey::Analysis(key) => buck2_data::critical_path_entry2::Analysis {
+                        target: Some(key.as_proto().into()),
+                    }
+                    .into(),
+                    NodeKey::TransitiveSetProjection(..) => return None,
+                };
+
+                Some((entry, data))
             })
-            .map(|(name, duration, action)| {
-                anyhow::Ok(CriticalPathEntry {
-                    action_name: name,
-                    action_key: Some(action.key().as_proto()),
-                    duration: Some(duration.try_into()?),
-                    action_name_fields: Some(buck2_data::ActionName {
-                        category: action.category().to_string(),
-                        identifier: action
-                            .identifier()
-                            .map_or_else(|| "".to_owned(), |i| i.to_owned()),
-                    }),
+            .map(|(entry, data)| {
+                anyhow::Ok(buck2_data::CriticalPathEntry2 {
+                    span_id: data.span_id.map(|span_id| span_id.into()),
+                    duration: Some(data.duration.critical_path_duration().try_into()?),
+                    user_duration: Some(data.duration.user.try_into()?),
+                    total_duration: Some(data.duration.total.try_into()?),
+                    entry: Some(entry),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        instant_event(BuildGraphExecutionInfo {
-            critical_path,
-            critical_path2: Vec::new(),
+        instant_event(buck2_data::BuildGraphExecutionInfo {
+            critical_path: Vec::new(),
+            critical_path2,
             metadata: metadata::collect(),
             num_nodes,
             num_edges,
@@ -384,7 +396,7 @@ pub trait BuildListenerBackend {
 }
 
 pub struct BuildInfo {
-    critical_path: Vec<NodeData>,
+    critical_path: Vec<(NodeKey, NodeData)>,
     num_nodes: u64,
     num_edges: u64,
 }
@@ -455,7 +467,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
-            .into_map(|(_key, node_data, _duration)| node_data.dupe());
+            .into_map(|(key, data, _duration)| (key.dupe(), data.dupe()));
 
         Ok(BuildInfo {
             critical_path,
@@ -579,8 +591,6 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             }
         }
 
-        drop(keys);
-
         let graph = graph
             .add_edges(&first_analysis)
             .context("Error adding first_analysis edges to graph")?;
@@ -602,16 +612,20 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         let critical_path = critical_path
             .values()
             .map(|idx| {
+                let key = keys[*idx].dupe();
+
                 // OK to replace `data` with empty things here because we know that we will not access
                 // the same index twice.
-                std::mem::replace(
+                let data = std::mem::replace(
                     &mut data[*idx],
                     NodeData {
                         action: None,
                         duration: NodeDuration::zero(),
                         span_id: None,
                     },
-                )
+                );
+
+                (key, data)
             })
             .collect();
 
