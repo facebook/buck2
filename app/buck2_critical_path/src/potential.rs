@@ -9,6 +9,9 @@
 
 use std::collections::BinaryHeap;
 
+use anyhow::Context as _;
+use crossbeam::thread;
+
 use crate::graph::Graph;
 use crate::graph::PathCost;
 use crate::types::CriticalPathIndex;
@@ -25,17 +28,44 @@ pub fn compute_critical_path_potentials(
     PathCost,
     CriticalPathVertexData<PathCost>,
 )> {
-    let rdeps = deps.reversed();
+    let mut rdeps = None;
+    let mut topo_order = None;
 
-    // Observation: we receive those nodes in topo sorted order already by construction, so we
-    // could maybe skip this, though in practice it's quick enough that it really does not matter.
-    let topo_order = deps.topo_sort()?;
+    thread::scope(|s| {
+        s.spawn(|_| {
+            rdeps = Some(deps.reversed());
+        });
+        s.spawn(|_| {
+            topo_order = Some(deps.topo_sort());
+        });
+    })
+    .ok()
+    .context("Threads panicked")?;
 
-    let (cost_to_sink, successors) = rdeps.find_longest_paths(topo_order.iter().copied(), weights);
-    drop(successors); // We don't need this.
+    let rdeps = rdeps.unwrap();
+    let topo_order = topo_order.unwrap()?;
 
-    let (cost_from_source, predecessors) =
-        deps.find_longest_paths(topo_order.iter().rev().copied(), weights);
+    let mut cost_to_sink = None;
+    let mut cost_from_source = None;
+    let mut predecessors = None;
+
+    thread::scope(|s| {
+        s.spawn(|_| {
+            let (paths, _) = rdeps.find_longest_paths(topo_order.iter().copied(), weights);
+            cost_to_sink = Some(paths);
+        });
+        s.spawn(|_| {
+            let (paths, pred) = deps.find_longest_paths(topo_order.iter().rev().copied(), weights);
+            cost_from_source = Some(paths);
+            predecessors = Some(pred);
+        });
+    })
+    .ok()
+    .context("Threads panicked")?;
+
+    let cost_to_sink = cost_to_sink.unwrap();
+    let cost_from_source = cost_from_source.unwrap();
+    let predecessors = predecessors.unwrap();
 
     // Look up the critical path. Find the node with the highest cost from a source, then iterate
     // over predecessors to reconstruct the critical path.
@@ -101,23 +131,31 @@ pub fn compute_critical_path_potentials(
         }
     }
 
-    for (cp_idx, vertex_idx) in critical_path.iter().rev() {
-        GraphVisitor {
-            graph: &rdeps,
-            mark: &mut last_cp_predecessor,
-            cp_idx,
-        }
-        .visit(*vertex_idx);
-    }
+    thread::scope(|s| {
+        s.spawn(|_| {
+            for (cp_idx, vertex_idx) in critical_path.iter().rev() {
+                GraphVisitor {
+                    graph: &rdeps,
+                    mark: &mut last_cp_predecessor,
+                    cp_idx,
+                }
+                .visit(*vertex_idx);
+            }
+        });
 
-    for (cp_idx, vertex_idx) in critical_path.iter() {
-        GraphVisitor {
-            graph: deps,
-            mark: &mut first_cp_successor,
-            cp_idx,
-        }
-        .visit(*vertex_idx);
-    }
+        s.spawn(|_| {
+            for (cp_idx, vertex_idx) in critical_path.iter() {
+                GraphVisitor {
+                    graph: deps,
+                    mark: &mut first_cp_successor,
+                    cp_idx,
+                }
+                .visit(*vertex_idx);
+            }
+        });
+    })
+    .ok()
+    .context("Threads panicked")?;
 
     // Compute the cost of the longest path through each vertex. We do this here instead of inline
     // later to avoid jumping around 3 arrays later (whereas here we can do so linearly).

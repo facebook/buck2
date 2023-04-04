@@ -101,6 +101,7 @@ common-path = "1.0.0"
 constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.1", features = [] }
+crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crossbeam-epoch = "0.9.7"
 crossterm = "0.23"
