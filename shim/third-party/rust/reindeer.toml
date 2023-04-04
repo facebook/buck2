@@ -40,10 +40,6 @@ fixup_templates = true
 # targets, so that you can to a test/check build.
 include_top_level = true
 
-# Include targets for binary and cdylib-only packages (that is packages which
-# can't directly be depended-on by Rust)
-extra_top_levels = true
-
 # Configuration for vendoring
 [vendor]
 # Exclude files listed in the .gitignore in this directory
@@ -135,6 +131,9 @@ target_arch = ["x86_64"]
 # of the same package). This option can speed up `cargo vendor` when there are
 # lots packages being managed.
 versioned_dirs = true
+
+# Support Cargo's unstable "artifact dependencies" functionality, RFC 3028.
+bindeps = true
 
 # Configuration for generated BUCK file
 [buck]

@@ -90,7 +90,7 @@ is_proc_translated = "0.1.1"
 itertools = "0.10.3"
 jemalloc-ctl = "0.3.3"
 jemallocator = { version = "0.3.2", features = ["profiling"] }
-lalrpop = "0.19.7"
+lalrpop = { version = "0.19.7", artifact = "bin" }
 lalrpop-util = "0.19.7"
 libc = "0.2.132"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
