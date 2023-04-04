@@ -16,6 +16,9 @@ def apple_bundle_config() -> {str.type: ""}:
         "_bundling_log_file_enabled": _maybe_get_bool("bundling_log_file_enabled", False),
         "_codesign_type": read_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _maybe_get_bool("compile_resources_locally_override", None),
+        # This is a kill switch for the feature, it can also be disabled by setting
+        # `apple.fast_adhoc_signing_enabled=false` in a global buckconfig file.
+        "_fast_adhoc_signing_enabled": _maybe_get_bool("fast_adhoc_signing_enabled", True),
         "_incremental_bundling_enabled": _maybe_get_bool("incremental_bundling_enabled", True),
         "_profile_bundling_enabled": _maybe_get_bool("profile_bundling_enabled", False),
         "_use_entitlements_when_adhoc_code_signing": _maybe_get_bool("use_entitlements_when_adhoc_code_signing", None),

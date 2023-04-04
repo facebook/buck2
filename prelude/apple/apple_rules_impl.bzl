@@ -139,6 +139,7 @@ extra_attributes = {
         "_bundling_log_file_enabled": attrs.bool(default = False),
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
+        "_fast_adhoc_signing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_omnibus_environment": omnibus_environment_attr(),
         "_profile_bundling_enabled": attrs.bool(default = False),

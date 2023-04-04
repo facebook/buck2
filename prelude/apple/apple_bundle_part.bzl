@@ -122,6 +122,9 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         bundling_log_output = ctx.actions.declare_output("bundling_log.txt").as_output()
         command.add("--log-file", bundling_log_output)
 
+    if ctx.attrs._fast_adhoc_signing_enabled:
+        command.add("--fast-adhoc-signing")
+
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,
