@@ -27,6 +27,7 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
+use buck2_events::span::SpanId;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use derive_more::Display;
 use derive_more::From;
@@ -49,12 +50,14 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 pub struct ActionExecutionSignal {
     pub action: Arc<RegisteredAction>,
     pub duration: NodeDuration,
+    pub span_id: Option<SpanId>,
 }
 
 pub struct AnalysisSignal {
     pub label: ConfiguredTargetLabel,
     pub node: ConfiguredTargetNode,
     pub duration: NodeDuration,
+    pub span_id: Option<SpanId>,
 }
 
 #[derive(Copy, Clone, Dupe)]
@@ -281,6 +284,7 @@ where
             Some(execution.action.dupe()),
             execution.duration,
             dep_keys,
+            execution.span_id,
         );
 
         Ok(())
@@ -295,6 +299,7 @@ where
             None,
             NodeDuration::zero(), // Those nodes don't carry a duration.
             std::iter::once(NodeKey::ActionKey(redirection.dest)),
+            None,
         );
 
         Ok(())
@@ -315,6 +320,7 @@ where
             None,
             NodeDuration::zero(), // Those nodes don't carry a duration.
             artifacts.chain(sets),
+            None,
         );
 
         Ok(())
@@ -331,6 +337,7 @@ where
             None,
             analysis.duration,
             dep_keys,
+            analysis.span_id,
         );
 
         Ok(())
@@ -364,6 +371,7 @@ pub trait BuildListenerBackend {
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
+        span_id: Option<SpanId>,
     );
 
     fn process_top_level_target(
@@ -404,6 +412,7 @@ impl BuildListenerBackend for DefaultBackend {
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
+        span_id: Option<SpanId>,
     ) {
         let longest_ancestor = dep_keys
             .unique()
@@ -417,6 +426,7 @@ impl BuildListenerBackend for DefaultBackend {
         let value = NodeData {
             action: value,
             duration,
+            span_id,
         };
 
         let node = match longest_ancestor {
@@ -466,6 +476,7 @@ struct LongestPathGraphBackend {
 struct NodeData {
     action: Option<Arc<RegisteredAction>>,
     duration: NodeDuration,
+    span_id: Option<SpanId>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
@@ -490,13 +501,22 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         action: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
+        span_id: Option<SpanId>,
     ) {
         let builder = match self.builder.as_mut() {
             Ok(b) => b,
             Err(..) => return,
         };
 
-        let res = builder.push(key, dep_keys, NodeData { action, duration });
+        let res = builder.push(
+            key,
+            dep_keys,
+            NodeData {
+                action,
+                duration,
+                span_id,
+            },
+        );
 
         match res {
             Ok(()) => {}
@@ -589,6 +609,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                     NodeData {
                         action: None,
                         duration: NodeDuration::zero(),
+                        span_id: None,
                     },
                 )
             })

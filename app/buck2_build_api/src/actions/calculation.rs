@@ -18,6 +18,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_data::ToProtoMessage;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -157,6 +158,7 @@ async fn build_action_no_redirect(
                             user: meta.timing.wall_time,
                             total: now.elapsed(),
                         },
+                        span_id: current_span(),
                     });
                 }
 

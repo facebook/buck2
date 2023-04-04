@@ -21,6 +21,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::path::StarlarkModulePath;
@@ -263,6 +264,8 @@ async fn get_analysis_result(
 
     let now = Instant::now();
 
+    let mut span_id = None;
+
     let func = configured_node.rule_type();
     let res = match func {
         RuleType::Starlark(func) => {
@@ -274,6 +277,7 @@ async fn get_analysis_result(
 
             span_async(start_event, async {
                 let mut profile = None;
+                span_id = current_span();
 
                 let result: anyhow::Result<_> = try {
                     let query_results = resolve_queries(ctx, &configured_node).await?;
@@ -335,6 +339,7 @@ async fn get_analysis_result(
                 user: duration,
                 total: duration,
             },
+            span_id,
         });
     }
 
