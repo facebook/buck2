@@ -135,6 +135,10 @@ struct BeforeSubcommandOptions {
 
     /// Do not launch a daemon process, run buck server in client process.
     ///
+    /// Note even when running in no-buckd mode, it still writes state files.
+    /// In particular, this command effectively kills buckd process
+    /// running with the same isolation directory.
+    ///
     /// This is an unsupported option used only for development work.
     #[clap(long, global(true))]
     no_buckd: bool,
