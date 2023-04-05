@@ -190,11 +190,12 @@ impl PreparedCommandExecutor for HybridExecutor {
                 CommandExecutionStatus::Success { .. } => false,
                 // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
                 CommandExecutionStatus::Failure { .. } => fallback_on_failure,
+                // Don't retry timeouts. They are used for tests and falling back on a timeout is
+                // sort of the opposite of what's been requested.
+                CommandExecutionStatus::TimedOut { .. } => false,
                 // Errors are infra errors and are always retried because that is the point of
                 // falling back.
-                CommandExecutionStatus::Error { .. } | CommandExecutionStatus::TimedOut { .. } => {
-                    true
-                }
+                CommandExecutionStatus::Error { .. } => true,
             }
         };
 
