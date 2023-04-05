@@ -1,9 +1,16 @@
-load(":toolchain.bzl", "go_toolchain")
+load(":export_file.bzl", "export_file")
+load(":toolchain.bzl", "go_toolchain", "toolchain_config")
+
+export_file(
+    name = "symlink.bat",
+    src = "symlink.bat",
+)
 
 go_toolchain(
-    name = "go_linux",
-    platform = "linux-amd64",
-    sha1 = "3511fcb34e0162abdcdeea0ab532f0264943e3d8",
-    version = "1.18.3",
+    name = "go",
+    archive_extension = toolchain_config.archive_extension,
+    platform = toolchain_config.platform,
+    sha1 = toolchain_config.sha1,
+    version = toolchain_config.version,
     visibility = ["PUBLIC"],
 )
