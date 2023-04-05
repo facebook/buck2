@@ -111,6 +111,7 @@ pub fn initialize(handler: SoftErrorHandler) -> anyhow::Result<()> {
 }
 
 /// Parse either a boolean or `only=category1,category2`
+#[derive(Debug, PartialEq, Eq)]
 enum HardErrorConfig {
     Bool(bool),
     Selected(SmallSet<String>),
@@ -129,6 +130,10 @@ impl FromStr for HardErrorConfig {
     type Err = InvalidHardErrorConfig;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Self::Bool(false));
+        }
+
         if let Ok(v) = s.parse() {
             return Ok(Self::Bool(v));
         }
@@ -246,6 +251,12 @@ mod tests {
     fn test_hard_error() -> anyhow::Result<()> {
         assert!(HardErrorConfig::from_str("true")?.should_hard_error("foo"));
         assert!(!HardErrorConfig::from_str("false")?.should_hard_error("foo"));
+        assert_eq!(
+            HardErrorConfig::Bool(false),
+            HardErrorConfig::from_str("")?,
+            "Empty string must parse to no hard errors"
+        );
+        assert!(!HardErrorConfig::from_str("")?.should_hard_error("foo"));
 
         assert!(HardErrorConfig::from_str("only=foo,bar")?.should_hard_error("foo"));
         assert!(!HardErrorConfig::from_str("only=foo,bar")?.should_hard_error("baz"));
