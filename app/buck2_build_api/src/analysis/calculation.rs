@@ -163,57 +163,65 @@ async fn resolve_queries_impl(
     ctx: &DiceComputations,
     queries: impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredAttr>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
-    let mut all_query_results = HashMap::new();
+    let all_query_results =
+        futures::future::try_join_all(queries.map(|(query, resolved_literals_labels)| {
+            let ctx = ctx;
+            async move {
+                let mut node_lookups: FuturesOrdered<_> = resolved_literals_labels
+                    .iter()
+                    .map(|(literal, label)| async move {
+                        (
+                            literal,
+                            ctx.get_configured_target_node(label.target()).await,
+                        )
+                    })
+                    .collect();
 
-    for (query, resolved_literals_labels) in queries {
-        let mut node_lookups: FuturesOrdered<_> = resolved_literals_labels
-            .iter()
-            .map(|(literal, label)| async move {
-                (
-                    literal,
-                    ctx.get_configured_target_node(label.target()).await,
-                )
-            })
-            .collect();
+                let mut resolved_literals: HashMap<&str, _> = HashMap::new();
+                while let Some((literal, result)) = node_lookups.next().await {
+                    resolved_literals.insert(literal, result?.require_compatible()?);
+                }
 
-        let mut resolved_literals: HashMap<&str, _> = HashMap::new();
-        while let Some((literal, result)) = node_lookups.next().await {
-            resolved_literals.insert(literal, result?.require_compatible()?);
-        }
+                let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
+                let delegate = AnalysisConfiguredGraphQueryDelegate {
+                    dice_query_delegate,
+                    resolved_literals,
+                };
 
-        let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
-        let delegate = AnalysisConfiguredGraphQueryDelegate {
-            dice_query_delegate,
-            resolved_literals,
-        };
+                let functions = ConfiguredGraphQueryEnvironment::functions();
+                let env = ConfiguredGraphQueryEnvironment::new(&delegate);
+                let result = {
+                    let evaluator = QueryEvaluator::new(&env, &functions);
 
-        let functions = ConfiguredGraphQueryEnvironment::functions();
-        let env = ConfiguredGraphQueryEnvironment::new(&delegate);
-        let result = {
-            let evaluator = QueryEvaluator::new(&env, &functions);
+                    let result = evaluator.eval_query(&query).await?;
+                    result.try_into_targets()?
+                };
 
-            let result = evaluator.eval_query(&query).await?;
-            result.try_into_targets()?
-        };
+                // analysis for all the deps in the query result should already have been run since they must
+                // be in our dependency graph, and so we don't worry about parallelizing these lookups.
+                let mut query_results = Vec::new();
+                for node in result.iter() {
+                    let label = node.label();
+                    query_results.push((
+                        label.dupe(),
+                        ctx.get_analysis_result(label)
+                            .await?
+                            .require_compatible()?
+                            .provider_collection,
+                    ))
+                }
 
-        // analysis for all the deps in the query result should already have been run since they must
-        // be in our dependency graph, and so we don't worry about parallelizing these lookups.
-        let mut query_results = Vec::new();
-        for node in result.iter() {
-            let label = node.label();
-            query_results.push((
-                label.dupe(),
-                ctx.get_analysis_result(label)
-                    .await?
-                    .require_compatible()?
-                    .provider_collection,
-            ))
-        }
+                anyhow::Ok((query.to_owned(), query_results))
+            }
+        }))
+        .await?;
 
-        all_query_results.insert(query.to_owned(), std::sync::Arc::new(query_results));
+    let mut map = HashMap::with_capacity(all_query_results.len());
+    for (query, results) in all_query_results {
+        map.insert(query, Arc::new(results));
     }
 
-    Ok(all_query_results)
+    Ok(map)
 }
 
 pub async fn get_dep_analysis<'v>(
