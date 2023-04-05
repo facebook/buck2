@@ -95,8 +95,6 @@ pub struct RawDirEntry {
 pub struct ReadDirOutput {
     /// Sorted.
     pub included: Arc<[SimpleDirEntry]>,
-    /// Sorted.
-    pub ignored: Arc<[RawDirEntry]>,
 }
 
 impl ReadDirOutput {
@@ -323,10 +321,8 @@ pub trait FileOps: Allocative + Send + Sync {
         path: CellPathRef<'async_trait>,
     ) -> anyhow::Result<Option<String>>;
 
-    async fn read_dir_with_ignores(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<ReadDirOutput>;
+    /// Return the list of file outputs, sorted.
+    async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput>;
 
     async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool>;
 
@@ -343,11 +339,6 @@ impl dyn FileOps + '_ {
         self.read_file_if_exists(path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
-    }
-
-    /// Return the list of file outputs, sorted.
-    pub async fn read_dir(&self, path: CellPathRef<'_>) -> anyhow::Result<Arc<[SimpleDirEntry]>> {
-        Ok(self.read_dir_with_ignores(path).await?.included)
     }
 
     pub async fn try_exists(&self, path: CellPathRef<'_>) -> anyhow::Result<bool> {
@@ -508,10 +499,7 @@ pub mod testing {
             }))
         }
 
-        async fn read_dir_with_ignores(
-            &self,
-            path: CellPathRef<'async_trait>,
-        ) -> anyhow::Result<ReadDirOutput> {
+        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
             let included = self
                 .entries
                 .get(&path.to_owned())
@@ -522,10 +510,7 @@ pub mod testing {
                     _ => None,
                 })
                 .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))?;
-            Ok(ReadDirOutput {
-                included,
-                ignored: Vec::new().into(),
-            })
+            Ok(ReadDirOutput { included })
         }
 
         async fn read_path_metadata_if_exists(

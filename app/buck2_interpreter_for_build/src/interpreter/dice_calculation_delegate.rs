@@ -301,7 +301,7 @@ impl<'c> DiceCalculationDelegate<'c> {
         path: &PackageFilePath,
     ) -> anyhow::Result<Option<(AstModule, ModuleDeps)>> {
         // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-        let dir = self.fs.read_dir_with_ignores(path.dir()).await?;
+        let dir = self.fs.read_dir(path.dir()).await?;
         // Note:
         // * we are using `read_dir` instead of `read_path_metadata` because
         //   * it is an extra IO, and `read_dir` is likely already cached.

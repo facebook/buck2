@@ -155,7 +155,7 @@ impl FileHasher for PathsAndContentsHasher {
                     }
                     PathMetadata::Directory => {
                         res.push(2u8);
-                        let files = file_ops.read_dir(cell_path.dupe()).await?;
+                        let files = file_ops.read_dir(cell_path.dupe()).await?.included;
                         res.extend(files.len().to_be_bytes());
                         for x in &*files {
                             let name = x.file_name.as_str();

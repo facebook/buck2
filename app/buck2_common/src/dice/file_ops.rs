@@ -135,10 +135,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
             self.io_provider().read_file_if_exists(project_path).await
         }
 
-        async fn read_dir_with_ignores(
-            &self,
-            path: CellPathRef<'async_trait>,
-        ) -> anyhow::Result<ReadDirOutput> {
+        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
                 .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
@@ -179,19 +176,13 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
             // Filter out any entries that are ignored.
             let mut included_entries = Vec::new();
-            let mut ignored_entries = Vec::new();
             for e in entries {
                 let RawDirEntry {
                     file_type,
                     file_name,
                 } = e;
 
-                if is_ignored(&file_name)? {
-                    ignored_entries.push(RawDirEntry {
-                        file_type,
-                        file_name,
-                    });
-                } else {
+                if !is_ignored(&file_name)? {
                     let file_name = match FileNameBuf::try_from_or_get_back(file_name) {
                         Ok(file_name) => file_name,
                         Err(file_name) => {
@@ -211,7 +202,6 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
 
             Ok(ReadDirOutput {
                 included: included_entries.into(),
-                ignored: ignored_entries.into(),
             })
         }
 
@@ -379,7 +369,7 @@ impl Key for ReadDirKey {
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         get_default_file_ops(ctx)
             .await?
-            .read_dir_with_ignores(self.0.as_ref())
+            .read_dir(self.0.as_ref())
             .await
             .shared_error()
     }
@@ -449,10 +439,7 @@ impl<'c> FileOps for DiceFileOps<'c> {
             .await
     }
 
-    async fn read_dir_with_ignores(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<ReadDirOutput> {
+    async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
         self.0
             .compute(&ReadDirKey(path.to_owned()))
             .await?

@@ -238,17 +238,11 @@ async fn check_file_status(
                     for entry in fs_util::read_dir(&abs_path)? {
                         fs_list.push(entry?.file_name().into_string().ok().context("not UTF-8")?);
                     }
-                    let dice_read_dir = file_ops.read_dir_with_ignores(cell_path.as_ref()).await?;
+                    let dice_read_dir = file_ops.read_dir(cell_path.as_ref()).await?;
                     let mut dice_list: Vec<String> = dice_read_dir
                         .included
                         .iter()
                         .map(|SimpleDirEntry { file_name, .. }| file_name.as_str().to_owned())
-                        .chain(
-                            dice_read_dir
-                                .ignored
-                                .iter()
-                                .map(|e| e.file_name.as_str().to_owned()),
-                        )
                         .collect();
                     fs_list.sort();
                     dice_list.sort();

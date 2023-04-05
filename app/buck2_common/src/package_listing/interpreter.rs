@@ -58,7 +58,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
         let buildfile_candidates = cell_instance.buildfiles();
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
-                let listing = self.fs.read_dir(path.dupe()).await?;
+                let listing = self.fs.read_dir(path.dupe()).await?.included;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
                     return Ok(PackageLabel::from_cell_path(path));
                 }
@@ -85,7 +85,7 @@ impl<'c> PackageListingResolver for InterpreterPackageListingResolver<'c> {
                     // stop when we are no longer within the enclosing path
                     break;
                 }
-                let listing = self.fs.read_dir(path.dupe()).await?;
+                let listing = self.fs.read_dir(path.dupe()).await?.included;
                 if find_buildfile(buildfile_candidates, &listing).is_some() {
                     packages.push(PackageLabel::from_cell_path(path));
                 }
@@ -126,7 +126,8 @@ impl<'c> InterpreterPackageListingResolver<'c> {
             .fs
             .read_dir(root.as_cell_path())
             .await
-            .context(buck2_data::ErrorCategory::User)?;
+            .context(buck2_data::ErrorCategory::User)?
+            .included;
         let buildfile = find_buildfile(buildfile_candidates, &root_entries)
             .ok_or_else(|| {
                 PackageListingError::NoBuildFile(
@@ -173,7 +174,7 @@ impl<'c> InterpreterPackageListingResolver<'c> {
         )?;
 
         while let Some((path, entries_result)) = work.next().await {
-            let entries = entries_result?;
+            let entries = entries_result?.included;
             if find_buildfile(buildfile_candidates, &entries).is_none() {
                 process_entries(&mut work, &mut files, path.as_ref(), &entries)?;
                 dirs.push(path);

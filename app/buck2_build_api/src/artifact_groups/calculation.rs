@@ -243,7 +243,7 @@ async fn dir_artifact_value(
     cell_path: CellPathRef<'_>,
     digest_config: DigestConfig,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let files = file_ops.read_dir(cell_path.dupe()).await?;
+    let files = file_ops.read_dir(cell_path.dupe()).await?.included;
 
     let entries = files.iter().map(|x| async {
         let value = path_artifact_value(

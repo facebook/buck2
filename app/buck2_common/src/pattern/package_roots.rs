@@ -102,7 +102,7 @@ async fn find_package_roots_impl<E>(
     while let Some((path, listing)) = queue.next().await {
         let (buildfile_candidates, listing) = match cell_resolver
             .get(path.cell())
-            .and_then(|cell_instance| anyhow::Ok((cell_instance.buildfiles(), listing?)))
+            .and_then(|cell_instance| anyhow::Ok((cell_instance.buildfiles(), listing?.included)))
         {
             Ok(r) => r,
             Err(e) => {

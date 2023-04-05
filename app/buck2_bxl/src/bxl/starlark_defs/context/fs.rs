@@ -151,7 +151,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
         match path {
             Ok(path) => this.dice.via_dice(async move |ctx| {
-                let read_dir_output = ctx.file_ops().read_dir_with_ignores(path.as_ref()).await?;
+                let read_dir_output = ctx.file_ops().read_dir(path.as_ref()).await?;
                 Ok(StarlarkReadDirSet {
                     cell_path: path,
                     included: read_dir_output.included,
