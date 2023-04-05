@@ -56,8 +56,6 @@
 // TODO(cjhopman): Starlark values don't really do anything with the rest of the flags so
 // propagating them hasn't been necessary, but it would be easy enough to implement if we wanted to.
 
-mod indenter;
-
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
@@ -67,7 +65,7 @@ const INDENT: &str = "  ";
 /// Used to indent a displayed item for alternate display. This helps us pretty-print deep data structures.
 fn subwriter<T: Display>(indent: &'static str, f: &mut fmt::Formatter, v: T) -> fmt::Result {
     if f.alternate() {
-        write!(indenter::indented(f, indent), "{:#}", &v)
+        write!(indenter::indented(f).with_str(indent), "{:#}", &v)
     } else {
         Display::fmt(&v, f)
     }

@@ -9,5 +9,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     deps = [
+        "fbsource//third-party/rust:indenter",
     ],
 )

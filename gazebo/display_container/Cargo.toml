@@ -8,3 +8,6 @@ description = "Utilities to implement Display"
 repository = "https://github.com/facebookincubator/gazebo"
 documentation = "https://docs.rs/display_container"
 categories = ["rust-patterns"]
+
+[dependencies]
+indenter = { workspace = true }
