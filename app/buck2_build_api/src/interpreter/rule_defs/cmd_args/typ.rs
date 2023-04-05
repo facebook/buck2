@@ -12,6 +12,7 @@ use std::cell::RefMut;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -20,7 +21,7 @@ use display_container::display_chain;
 use display_container::display_container;
 use display_container::display_pair;
 use dupe::Dupe;
-use gazebo::cell::ARef;
+use either::Either;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use regex::Regex;
@@ -496,11 +497,11 @@ fn cmd_args_mut<'v>(
     }
 }
 
-fn cmd_args<'v>(x: Value<'v>) -> ARef<'v, StarlarkCommandLineDataGen<Value<'v>>> {
+fn cmd_args<'v>(x: Value<'v>) -> impl Deref<Target = StarlarkCommandLineDataGen<Value<'v>>> {
     if let Some(x) = x.downcast_ref::<StarlarkCommandLine>() {
-        ARef::new_ref(x.0.borrow())
+        Either::Left(x.0.borrow())
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCommandLine>() {
-        ARef::new_ptr(coerce(&x.0))
+        Either::Right(coerce(&x.0))
     } else {
         unreachable!("This parameter must always be a type of command args")
     }
