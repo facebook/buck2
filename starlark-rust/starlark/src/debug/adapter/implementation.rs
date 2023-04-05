@@ -37,6 +37,8 @@ use crate::debug::DapAdapter;
 use crate::debug::DapAdapterClient;
 use crate::debug::DapAdapterEvalHook;
 use crate::debug::ScopesInfo;
+use crate::debug::Variable;
+use crate::debug::VariablesInfo;
 use crate::eval::BeforeStmtFuncDyn;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
@@ -228,21 +230,16 @@ impl DapAdapter for DapAdapterImpl {
         }))
     }
 
-    fn variables(&self, _: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {
+    fn variables(&self) -> anyhow::Result<VariablesInfo> {
         self.with_ctx(Box::new(|_, eval| {
             let vars = eval.local_variables();
-            Ok(VariablesResponseBody {
-                variables: vars
+            Ok(VariablesInfo {
+                locals: vars
                     .into_iter()
                     .map(|(name, value)| Variable {
                         name,
                         value: value.to_string(),
-                        type_: Some(value.get_type().to_owned()),
-                        evaluate_name: None,
-                        indexed_variables: None,
-                        named_variables: None,
-                        presentation_hint: None,
-                        variables_reference: 0,
+                        type_: value.get_type().to_owned(),
                     })
                     .collect(),
             })

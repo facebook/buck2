@@ -43,6 +43,38 @@ pub struct ScopesInfo {
     pub num_locals: usize,
 }
 
+/// Information about a variable.
+pub struct Variable {
+    /// Name of the variable.
+    pub name: String,
+    /// The value as a String.
+    pub value: String,
+    /// The variables type.
+    pub type_: String,
+}
+
+impl Variable {
+    /// Helper to convert to the DAP Variable type.
+    pub fn to_dap(self) -> debugserver_types::Variable {
+        debugserver_types::Variable {
+            name: self.name,
+            value: self.value,
+            type_: Some(self.type_),
+            evaluate_name: None,
+            indexed_variables: None,
+            named_variables: None,
+            presentation_hint: None,
+            variables_reference: 0,
+        }
+    }
+}
+
+/// Information about variables in scope.
+pub struct VariablesInfo {
+    /// Local variables.
+    pub locals: Vec<Variable>,
+}
+
 /// The DapAdapter accepts DAP requests and updates the hooks in the running evaluator.
 pub trait DapAdapter: Debug + Send + 'static {
     /// Sets multiple breakpoints for a file (and clears existing ones).
@@ -66,7 +98,7 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// Gets child variables for a variable reference.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables>
-    fn variables(&self, args: VariablesArguments) -> anyhow::Result<VariablesResponseBody>;
+    fn variables(&self) -> anyhow::Result<VariablesInfo>;
 
     /// Resumes execution.
     ///
