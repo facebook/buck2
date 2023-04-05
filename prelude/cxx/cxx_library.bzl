@@ -314,6 +314,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 default_outputs = compiled_srcs.pic_clang_traces,
             )]
 
+    if impl_params.generate_sub_targets.objects:
+        object_sub_targets = {o.short_path: [DefaultInfo(o)] for o in compiled_srcs.objects or []}
+        sub_targets["objects"] = [DefaultInfo(sub_targets = object_sub_targets)]
+
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
         comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.comp_db_commands.src_compile_cmds)
