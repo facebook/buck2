@@ -120,8 +120,8 @@ pub fn register_target_function(builder: &mut GlobalsBuilder) {
     ///
     /// Sample usage:
     /// ```text
-    /// def _impl_target_set(ctx):
-    ///     targets = target_set()
+    /// def _impl_ctarget_set(ctx):
+    ///     targets = ctarget_set()
     ///     ctx.output.print(type(targets))
     ///     ctx.output.print(len(targets))
     /// ```
