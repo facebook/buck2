@@ -69,12 +69,12 @@ pub enum ExecutorPreference {
 }
 
 impl ExecutorPreference {
-    pub fn and(self, other: &Self) -> anyhow::Result<Self> {
+    pub fn and(self, other: Self) -> anyhow::Result<Self> {
         let requires_remote = self.requires_remote() || other.requires_remote();
         let requires_local = self.requires_local() || other.requires_local();
 
         if requires_remote && requires_local {
-            return Err(IncompatibleExecutorPreferences { a: self, b: *other }.into());
+            return Err(IncompatibleExecutorPreferences { a: self, b: other }.into());
         }
 
         if requires_local {
@@ -85,14 +85,14 @@ impl ExecutorPreference {
             return Ok(Self::RemoteRequired);
         }
 
-        // Making prefer_local take precedence over prefer_remote just because
-        // some rules set prefer_local and we probably shouldn't override those
-        if self.prefers_local() || other.prefers_local() {
-            return Ok(Self::LocalPreferred);
-        }
+        for pref in [self, other] {
+            if pref.prefers_local() {
+                return Ok(Self::LocalPreferred);
+            }
 
-        if self.prefers_remote() || other.prefers_remote() {
-            return Ok(Self::RemotePreferred);
+            if pref.prefers_remote() {
+                return Ok(Self::RemotePreferred);
+            }
         }
 
         Ok(Self::Default)

@@ -88,7 +88,7 @@ impl PreparedCommandExecutor for HybridExecutor {
     ) -> CommandExecutionResult {
         let executor_preference = self
             .executor_preference
-            .and(&command.request.executor_preference());
+            .and(command.request.executor_preference());
 
         let executor_preference = match executor_preference {
             Ok(executor_preference) => executor_preference,

@@ -395,12 +395,12 @@ impl BuckTestOrchestrator {
         if !self.session.options().allow_re {
             // We don't ban RE (we only prefer not to use it) if the session doesn't allow it, so
             // that executor overrides or default executor can still route executions to RE.
-            executor_preference = executor_preference.and(&ExecutorPreference::LocalPreferred)?;
+            executor_preference = executor_preference.and(ExecutorPreference::LocalPreferred)?;
         }
 
         if !supports_re {
             // But if the test doesn't support RE at all, then we ban it.
-            executor_preference = executor_preference.and(&ExecutorPreference::LocalRequired)?;
+            executor_preference = executor_preference.and(ExecutorPreference::LocalRequired)?;
         }
 
         request = request
