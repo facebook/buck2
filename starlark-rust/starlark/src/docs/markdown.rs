@@ -211,15 +211,15 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                     body.push_str(&summary);
                 }
                 if let Some(parameter_docs) = parameter_docs {
-                    body.push_str("\n\n### Parameters\n\n");
+                    body.push_str("\n\n#### Parameters\n\n");
                     body.push_str(&parameter_docs);
                 }
                 if let Some(details) = details {
-                    body.push_str("\n\n### Details\n\n");
+                    body.push_str("\n\n#### Details\n\n");
                     body.push_str(&details);
                 }
                 if let Some(returns) = return_docs {
-                    body.push_str("\n\n### Returns\n\n");
+                    body.push_str("\n\n#### Returns\n\n");
                     body.push_str(&returns);
                 }
 
@@ -777,14 +777,14 @@ mod test {
             summary = render_ds_summary(&ds_no_details)
         );
         let expected_f3 = format!(
-            "## f3\n\n{prototype}\n\n{summary}\n\n### Parameters\n\n{parameters}\n\n### Details\n\n{details}",
+            "## f3\n\n{prototype}\n\n{summary}\n\n#### Parameters\n\n{parameters}\n\n#### Details\n\n{details}",
             prototype = f3_prototype,
             summary = render_ds_summary(&ds),
             parameters = rendered_params,
             details = render_ds_details(&ds)
         );
         let expected_f4 = format!(
-            "## f4\n\n{prototype}\n\n{summary}\n\n### Parameters\n\n{parameters}\n\n### Details\n\n{details}\n\n### Returns\n\n{returns}",
+            "## f4\n\n{prototype}\n\n{summary}\n\n#### Parameters\n\n{parameters}\n\n#### Details\n\n{details}\n\n#### Returns\n\n{returns}",
             prototype = f4_prototype,
             summary = render_ds_summary(&ds),
             parameters = rendered_params,
