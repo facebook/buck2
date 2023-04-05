@@ -92,10 +92,6 @@ pub(crate) enum EvaluatorError {
     ProfileOrInstrumentationAlreadyEnabled,
     #[error("Top frame is not def (internal error)")]
     TopFrameNotDef,
-    #[error("Top second frame is not def (internal error)")]
-    TopSecondFrameNotDef,
-    #[error("Top frame is not native (internal error)")]
-    TopFrameNotNative,
     #[error(
         "Coverage profile generation not implemented (but can be obtained with `.coverage()` function)"
     )]
@@ -645,31 +641,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
     }
 
-    pub(crate) fn top_frame_def_info(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
-        let func = self.call_stack.top_nth_function(0)?;
-        if let Some(func) = func.downcast_ref::<Def>() {
-            Ok(func.def_info)
-        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
-            Ok(func.def_info)
-        } else if func.is_none() {
-            // For module, top frame is `None`.
-            Ok(self.module_def_info)
-        } else {
-            Err(EvaluatorError::TopFrameNotDef.into())
-        }
-    }
-
-    /// When top frame is `breakpoint` or `debug_evaluate` function, skip it.
-    pub(crate) fn top_second_frame_def_info_for_debugger(
-        &self,
-    ) -> anyhow::Result<FrozenRef<DefInfo>> {
-        // Self-check: we are in `breakpoint` or `debug_evaluate` function.
-        let breakpoint = self.call_stack.top_nth_function(0)?;
-        breakpoint
-            .downcast_ref::<NativeFunction>()
-            .ok_or(EvaluatorError::TopFrameNotNative)?;
-
-        let func = self.call_stack.top_nth_function(1)?;
+    fn func_to_def_info(&self, func: Value<'_>) -> anyhow::Result<FrozenRef<DefInfo>> {
         if let Some(func) = func.downcast_ref::<Def>() {
             Ok(func.def_info)
         } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
@@ -678,8 +650,29 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             // For module, it is `None`.
             Ok(self.module_def_info)
         } else {
-            Err(EvaluatorError::TopSecondFrameNotDef.into())
+            Err(EvaluatorError::TopFrameNotDef.into())
         }
+    }
+
+    pub(crate) fn top_frame_def_info(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
+        let func = self.call_stack.top_nth_function(0)?;
+        self.func_to_def_info(func)
+    }
+
+    /// Gets the "top frame" for debugging. If the real top frame is `breakpoint` or `debug_evaluate`
+    /// it will be skipped. This should only be used for the starlark debugger.
+    pub(crate) fn top_frame_def_info_for_debugger(&self) -> anyhow::Result<FrozenRef<DefInfo>> {
+        let func = {
+            let top = self.call_stack.top_nth_function(0)?;
+            if top.downcast_ref::<NativeFunction>().is_some() {
+                // we are in `breakpoint` or `debug_evaluate` function, get the next frame.
+                self.call_stack.top_nth_function(1)?
+            } else {
+                top
+            }
+        };
+
+        self.func_to_def_info(func)
     }
 
     /// Cause a GC to be triggered next time it's possible.
