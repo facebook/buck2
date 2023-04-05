@@ -12,9 +12,9 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_query::query::environment::LabeledNode;
+use display_container::display_container;
 use dupe::IterDupedExt;
 use fancy_regex::Regex;
-use gazebo::display::display_container;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryTarget;

@@ -26,6 +26,7 @@ fbinit = { workspace = true }
 
 allocative = { workspace = true }
 gazebo = { workspace = true }
+display_container = { workspace = true }
 dupe = { workspace = true }
 dice = { workspace = true }
 buck2_events = { workspace = true }

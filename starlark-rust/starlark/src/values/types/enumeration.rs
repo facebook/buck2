@@ -41,9 +41,9 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use derivative::Derivative;
+use display_container::display_container;
 use either::Either;
 use gazebo::cell::AsARef;
-use gazebo::display::display_container;
 use serde::Serialize;
 use starlark_map::Equivalent;
 use thiserror::Error;

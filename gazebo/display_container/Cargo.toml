@@ -1,0 +1,10 @@
+[package]
+name = "display_container"
+version = "0.8.1"
+license = "MIT OR Apache-2.0"
+authors = ["Facebook"]
+edition = "2021"
+description = "Utilities to implement Display"
+repository = "https://github.com/facebookincubator/gazebo"
+documentation = "https://docs.rs/display_container"
+categories = ["rust-patterns"]

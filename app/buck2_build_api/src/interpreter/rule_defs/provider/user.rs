@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
-use gazebo::display::display_keyed_container;
+use display_container::display_keyed_container;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;

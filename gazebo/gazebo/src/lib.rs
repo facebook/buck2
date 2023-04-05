@@ -15,11 +15,9 @@
 pub mod cast;
 pub mod cell;
 pub mod cmp;
-pub mod display;
 pub(crate) mod ext;
 pub mod file;
 pub mod hash;
-pub(crate) mod indenter;
 pub mod phantom;
 pub mod prelude;
 pub mod types;

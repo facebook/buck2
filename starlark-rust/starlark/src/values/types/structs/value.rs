@@ -22,7 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::display::display_keyed_container;
+use display_container::display_keyed_container;
 use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;

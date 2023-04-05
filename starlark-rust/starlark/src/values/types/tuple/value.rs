@@ -23,7 +23,7 @@ use std::fmt::Formatter;
 use std::slice;
 
 use allocative::Allocative;
-use gazebo::display::display_container;
+use display_container::display_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 

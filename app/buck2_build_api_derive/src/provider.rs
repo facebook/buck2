@@ -251,7 +251,7 @@ impl ProviderCodegen {
         Ok(quote! {
             impl<V: std::fmt::Display> std::fmt::Display for #gen_name<V> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    gazebo::display::display_keyed_container(
+                    display_container::display_keyed_container(
                         f,
                         &format!("{}(", #name_str),
                         ")",

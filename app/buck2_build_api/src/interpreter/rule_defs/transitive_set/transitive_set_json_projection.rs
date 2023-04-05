@@ -13,10 +13,10 @@ use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use display_container::display_chain;
+use display_container::display_container;
+use display_container::display_pair;
 use dupe::Dupe;
-use gazebo::display::display_chain;
-use gazebo::display::display_container;
-use gazebo::display::display_pair;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::Methods;

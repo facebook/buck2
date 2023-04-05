@@ -13,7 +13,7 @@
 //!
 //! ```
 //! use std::fmt;
-//! use gazebo::display::*;
+//! use display_container::*;
 //!
 //! struct MyItems(Vec<(String, i32)>);
 //!
@@ -56,11 +56,11 @@
 // TODO(cjhopman): Starlark values don't really do anything with the rest of the flags so
 // propagating them hasn't been necessary, but it would be easy enough to implement if we wanted to.
 
+mod indenter;
+
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
-
-use crate::indenter;
 
 const INDENT: &str = "  ";
 

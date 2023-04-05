@@ -12,10 +12,10 @@ use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use display_container::display_chain;
+use display_container::display_container;
+use display_container::display_pair;
 use dupe::Dupe;
-use gazebo::display::display_chain;
-use gazebo::display::display_container;
-use gazebo::display::display_pair;
 use gazebo::prelude::*;
 use serde::ser::SerializeMap;
 use serde::Serialize;

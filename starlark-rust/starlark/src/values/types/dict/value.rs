@@ -26,8 +26,8 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use display_container::display_keyed_container;
 use gazebo::cell::ARef;
-use gazebo::display::display_keyed_container;
 use serde::Serialize;
 use starlark_map::Equivalent;
 

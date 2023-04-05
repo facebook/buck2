@@ -67,6 +67,7 @@ members = [
     # @oss-disable: "gazebo_lint/gazebo_lint",
     # Uncomment to manually test linter_test
     # "gazebo_lint/linter_test",
+    "gazebo/display_container",
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
     "remote_execution/oss/re_grpc",
@@ -244,6 +245,7 @@ gazebo.path = "gazebo/gazebo"
 dupe.version = "0.8.1"
 dupe.path = "gazebo/dupe"
 dice = { path = "dice/dice" }
+display_container = { path = "gazebo/display_container" }
 host_sharing = { path = "host_sharing" }
 more_futures = { path = "shed/more_futures" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }

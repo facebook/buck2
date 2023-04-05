@@ -48,10 +48,10 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use display_container::display_keyed_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::AsARef;
-use gazebo::display::display_keyed_container;
 use serde::Serialize;
 
 use crate as starlark;

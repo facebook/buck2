@@ -12,8 +12,8 @@ use std::fmt;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
+use display_container::display_container;
 use fancy_regex::Regex;
-use gazebo::display::display_container;
 use indexmap::IndexSet;
 
 use crate::query::environment::QueryEnvironment;

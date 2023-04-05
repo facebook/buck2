@@ -45,6 +45,7 @@ fnv = { workspace = true }
 allocative = { workspace = true }
 dice = { workspace = true }
 fbinit = { workspace = true }
+display_container = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
