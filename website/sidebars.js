@@ -179,7 +179,7 @@ const manualSidebar = [
     items: [
       {
         type: 'doc',
-        id: 'generated/starlark/prelude/prelude.bzl',
+        id: 'generated/starlark/prelude/docs/rules.bzl',
         label: 'Rules API',
       },
       {

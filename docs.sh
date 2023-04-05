@@ -55,6 +55,6 @@ rm -rf docs/generated
 # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
 mkdir -p docs/generated/
 cp -prvf starlark-rust/docs docs/generated/starlark_rust_docs
-"$BUCK2_COMMAND" docs starlark --format=markdown_files --markdown-files-destination-dir=docs/generated --builtins prelude//:prelude.bzl "$@"
+"$BUCK2_COMMAND" docs starlark --format=markdown_files --markdown-files-destination-dir=docs/generated --builtins prelude//docs:rules.bzl "$@"
 cp -prvf docs/generated/native/bxl docs/generated/bxl
 rm -rf docs/generated/native/bxl
