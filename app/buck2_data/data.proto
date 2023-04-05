@@ -933,7 +933,7 @@ message CommandExecution {
   // (Hybrid execution only) This executor released its claim in order to allow
   // another executor to proceed. We use this to cancel local tasks when racing
   // local & RE.
-  message ClaimCancelled {}
+  message Cancelled {}
 
   reserved 6;
 
@@ -943,7 +943,7 @@ message CommandExecution {
     Failure failure = 3;
     Timeout timeout = 4;
     Error error = 5;
-    ClaimCancelled claim_cancelled = 7;
+    Cancelled cancelled = 7;
   }
 }
 

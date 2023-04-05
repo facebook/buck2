@@ -74,7 +74,7 @@ impl CommandExecutionManager {
 
     pub fn cancel(self) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::ClaimCancelled,
+            CommandExecutionStatus::Cancelled,
             IndexMap::new(),
             Default::default(),
             None,
@@ -136,7 +136,7 @@ impl CommandExecutionManagerWithClaim {
 
     pub fn cancel_claim(self) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::ClaimCancelled,
+            CommandExecutionStatus::Cancelled,
             IndexMap::new(),
             Default::default(),
             None,

@@ -536,7 +536,7 @@ pub fn display_action_error<'a>(
 fn failure_reason_for_command_execution(
     command_execution: &buck2_data::CommandExecution,
 ) -> anyhow::Result<String> {
-    use buck2_data::command_execution::ClaimCancelled;
+    use buck2_data::command_execution::Cancelled;
     use buck2_data::command_execution::Error;
     use buck2_data::command_execution::Failure;
     use buck2_data::command_execution::Status;
@@ -598,7 +598,7 @@ fn failure_reason_for_command_execution(
         Status::Error(Error { stage, error }) => {
             format!("Internal error (stage: {}): {}", stage, error)
         }
-        Status::ClaimCancelled(ClaimCancelled {}) => "Command was cancelled".to_owned(),
+        Status::Cancelled(Cancelled {}) => "Command was cancelled".to_owned(),
     })
 }
 

@@ -509,8 +509,8 @@ impl BuckTestOrchestrator {
                 timing,
                 outputs,
             ),
-            CommandExecutionStatus::ClaimCancelled => {
-                return Err(anyhow::anyhow!("Internal error: ClaimCancelled"));
+            CommandExecutionStatus::Cancelled => {
+                return Err(anyhow::anyhow!("Internal error: Cancelled"));
             }
         })
     }

@@ -44,7 +44,7 @@ pub enum CommandExecutionStatus {
         duration: Duration,
     },
     // TODO: We should rename this.
-    ClaimCancelled,
+    Cancelled,
 }
 
 impl CommandExecutionStatus {
@@ -54,7 +54,7 @@ impl CommandExecutionStatus {
             CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { .. } => None,
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::ClaimCancelled => None,
+            CommandExecutionStatus::Cancelled => None,
         }
     }
 }
@@ -74,7 +74,7 @@ impl Display for CommandExecutionStatus {
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
-            CommandExecutionStatus::ClaimCancelled => write!(f, "ClaimCancelled"),
+            CommandExecutionStatus::Cancelled => write!(f, "Cancelled"),
         }
     }
 }
