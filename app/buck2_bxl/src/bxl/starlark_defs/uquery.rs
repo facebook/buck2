@@ -132,6 +132,28 @@ impl<'v> StarlarkUQueryCtx<'v> {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn register_uquery(builder: &mut MethodsBuilder) {
+    /// The attrfilter query for rule attribute filtering.
+    fn attrfilter<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        attr: &str,
+        value: &str,
+        targets: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx.async_ctx.via(|| async {
+            this.functions
+                .attrfilter(
+                    attr,
+                    value,
+                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+                .map(StarlarkTargetSet::from)
+        })
+    }
+
     /// The inputs query for finding input files.
     ///
     /// Sample usage:
