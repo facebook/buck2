@@ -21,8 +21,4 @@ mod breakpoint;
 mod evaluate;
 mod inspect;
 
-pub use adapter::dap_capabilities;
-pub use adapter::prepare_dap_adapter;
-pub use adapter::DapAdapter;
-pub use adapter::DapAdapterClient;
-pub use adapter::DapAdapterEvalHook;
+pub use adapter::*;
