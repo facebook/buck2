@@ -625,6 +625,8 @@ def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams.type
         headers = False,
         link_group_map = False,
         xcode_data = False,
+        clang_traces = False,
+        objects = False,
     )
     provider_params = CxxRuleProviderParams(
         compilation_database = False,
