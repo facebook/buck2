@@ -29,6 +29,7 @@ use allocative::Allocative;
 use display_container::display_keyed_container;
 use gazebo::cell::ARef;
 use serde::Serialize;
+use starlark_map::small_map;
 use starlark_map::Equivalent;
 
 use crate as starlark;
@@ -44,7 +45,6 @@ use crate::values::comparison::equals_small_map;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
-use crate::values::iter::ARefIterator;
 use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::string::hash_string_value;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -300,12 +300,38 @@ impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
 
 trait DictLike<'v>: Debug + Allocative {
     fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>>;
+    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>;
     fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> anyhow::Result<()>;
 }
 
 impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
     fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
         ARef::new_ref(Ref::map(self.borrow(), |x| &x.content))
+    }
+
+    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
+        struct IterImpl<'a, 'v> {
+            /// Keep the dict borrowed so that it won't be modified while we iterate.
+            _dict: Ref<'a, Dict<'v>>,
+            iter: small_map::Keys<'a, Value<'v>, Value<'v>>,
+        }
+
+        impl<'a, 'v> Iterator for IterImpl<'a, 'v> {
+            type Item = Value<'v>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.iter.next().copied()
+            }
+
+            fn size_hint(&self) -> (usize, Option<usize>) {
+                self.iter.size_hint()
+            }
+        }
+
+        let dict = self.borrow();
+        // Drop the lifetime: we need to return the iterator while borrowing the dict.
+        let iter = unsafe { &*(&dict.content as *const SmallMap<Value, Value>) }.keys();
+        Box::new(IterImpl { _dict: dict, iter })
     }
 
     fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> anyhow::Result<()> {
@@ -322,6 +348,10 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 impl<'v> DictLike<'v> for FrozenDictData {
     fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
         ARef::new_ptr(coerce(&self.content))
+    }
+
+    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
+        Box::new(self.content.keys().copied().map(|v| v.to_value()))
     }
 
     fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> anyhow::Result<()> {
@@ -400,9 +430,7 @@ where
     where
         'v: 'a,
     {
-        Ok(Box::new(ARefIterator::new(self.0.content(), |x| {
-            x.keys().copied()
-        })))
+        Ok(self.0.content_iter())
     }
 
     fn with_iterator(

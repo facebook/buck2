@@ -94,7 +94,6 @@ pub(crate) mod error;
 mod freeze;
 pub(crate) mod frozen_ref;
 mod index;
-pub(crate) mod iter;
 pub(crate) mod layout;
 pub(crate) mod num;
 mod owned;
