@@ -40,6 +40,7 @@ def create_jar_artifact_kotlincd(
         abi_generation_mode: [AbiGenerationMode.type, None],
         java_toolchain: "JavaToolchainInfo",
         kotlin_toolchain: "KotlinToolchainInfo",
+        javac_tool: [str.type, "RunInfo", "artifact", None],
         label: "label",
         srcs: ["artifact"],
         remove_classes: [str.type],
@@ -113,12 +114,16 @@ def create_jar_artifact_kotlincd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
+    # external javac does not support used classes
+    track_class_usage = javac_tool == None
+
     def encode_library_command(
             output_paths: OutputPaths.type,
             path_to_class_hashes: "artifact",
             classpath_jars_tag: "artifact_tag") -> struct.type:
         target_type = TargetType("library")
         base_jar_command = encode_base_jar_command(
+            javac_tool,
             target_type,
             output_paths,
             remove_classes,
@@ -135,7 +140,7 @@ def create_jar_artifact_kotlincd(
             ap_params = ap_params,
             plugin_params = plugin_params,
             extra_arguments = cmd_args(extra_arguments),
-            track_class_usage = True,
+            track_class_usage = track_class_usage,
         )
 
         return struct(
@@ -160,6 +165,7 @@ def create_jar_artifact_kotlincd(
             target_type: TargetType.type,
             classpath_jars_tag: "artifact_tag") -> struct.type:
         base_jar_command = encode_base_jar_command(
+            javac_tool,
             target_type,
             output_paths,
             remove_classes,
@@ -239,7 +245,7 @@ def create_jar_artifact_kotlincd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library"):
+        if srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
             used_classes_json_outputs = [
                 output_paths.jar_parent.project("used-classes.json"),
                 output_paths.jar_parent.project("kotlin-used-classes.json"),

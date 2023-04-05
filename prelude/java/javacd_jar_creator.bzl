@@ -89,6 +89,9 @@ def create_jar_artifact_javacd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
+    # external javac does not support used classes
+    track_class_usage = javac_tool == None
+
     def encode_library_command(
             output_paths: OutputPaths.type,
             path_to_class_hashes: "artifact",
@@ -96,6 +99,7 @@ def create_jar_artifact_javacd(
         target_type = TargetType("library")
 
         base_jar_command = encode_base_jar_command(
+            javac_tool,
             target_type,
             output_paths,
             remove_classes,
@@ -112,7 +116,7 @@ def create_jar_artifact_javacd(
             ap_params,
             plugin_params,
             extra_arguments,
-            track_class_usage = True,
+            track_class_usage = track_class_usage,
         )
 
         return struct(
@@ -133,6 +137,7 @@ def create_jar_artifact_javacd(
             target_type: TargetType.type,
             classpath_jars_tag: "artifact_tag") -> struct.type:
         base_jar_command = encode_base_jar_command(
+            javac_tool,
             target_type,
             output_paths,
             remove_classes,
@@ -149,7 +154,7 @@ def create_jar_artifact_javacd(
             ap_params,
             plugin_params,
             extra_arguments,
-            track_class_usage = True,
+            track_class_usage = track_class_usage,
         )
         abi_params = encode_jar_params(remove_classes, output_paths)
 
@@ -211,7 +216,7 @@ def create_jar_artifact_javacd(
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
 
         dep_files = {}
-        if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")):
+        if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
             abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir") if java_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset and (target_type == TargetType("library") or target_type == TargetType("source_abi")) else None
             used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
             cmd = setup_dep_files(

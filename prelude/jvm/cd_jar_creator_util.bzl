@@ -260,6 +260,7 @@ def encode_plugin_params(plugin_params: ["PluginParams", None]) -> [struct.type,
     return encoded_plugin_params
 
 def encode_base_jar_command(
+        javac_tool: [str.type, "RunInfo", "artifact", None],
         target_type: TargetType.type,
         output_paths: OutputPaths.type,
         remove_classes: [str.type],
@@ -287,6 +288,15 @@ def encode_base_jar_command(
         fullyQualifiedName = qualified_name,
         type = encode_target_type(target_type),
     )
+    if javac_tool:
+        resolved_javac = {
+            "externalJavac": {
+                "commandPrefix": [javac_tool],
+                "shortName": str(javac_tool),
+            },
+        }
+    else:
+        resolved_javac = {"jsr199Javac": {}}
     resolved_java_options = struct(
         bootclasspathList = bootclasspath_entries,
         languageLevelOptions = struct(
@@ -321,7 +331,7 @@ def encode_base_jar_command(
             }
             for (k, v) in resources_map.items()
         ],
-        resolvedJavac = {"jsr199Javac": {}},
+        resolvedJavac = resolved_javac,
         resolvedJavacOptions = resolved_java_options,
         libraryJarParameters = library_jar_params,
     )

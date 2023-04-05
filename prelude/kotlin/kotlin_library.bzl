@@ -29,7 +29,7 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
@@ -339,6 +339,7 @@ def build_kotlin_library(
                 abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode),
                 java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
                 kotlin_toolchain = kotlin_toolchain,
+                javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
                 label = ctx.label,
                 srcs = srcs,
                 remove_classes = ctx.attrs.remove_classes,
