@@ -125,9 +125,8 @@ jobs:
   macos-build:
     description: |
       Build all with cargo for macOS
-    macos:
-      xcode: 13.4.1
-    resource_class: large
+    executor: mac-arm64
+    resource_class: macos.m1.large.gen1
     steps:
       - checkout
       - setup_macos_env
@@ -137,9 +136,8 @@ jobs:
   macos-build-example-and-upload-binary:
     description: |
       Build the example project and upload buck2 binary for macOS
-    macos:
-      xcode: 13.4.1
-    resource_class: large
+    executor: mac-arm64
+    resource_class: macos.m1.large.gen1
     steps:
       - checkout
       - setup_macos_env
