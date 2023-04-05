@@ -78,10 +78,6 @@ load("@prelude//python:python_test.bzl", "python_test_impl")
 # Python Bootstrap
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 
-# Rust
-load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
-load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
-
 # Zip file
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
@@ -158,7 +154,7 @@ def _merge_dictionaries(dicts):
 
     return result
 
-implemented_rules = struct(
+extra_implemented_rules = struct(
     #common rules
     alias = alias_impl,
     command_alias = command_alias_impl,
@@ -222,12 +218,6 @@ implemented_rules = struct(
     #python bootstrap
     python_bootstrap_binary = python_bootstrap_binary_impl,
     python_bootstrap_library = python_bootstrap_library_impl,
-
-    #rust
-    rust_binary = rust_binary_impl,
-    rust_library = rust_library_impl,
-    prebuilt_rust_library = prebuilt_rust_library_impl,
-    rust_test = rust_test_impl,
 
     #merged **kwargs
     **_merge_dictionaries([

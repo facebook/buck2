@@ -6,9 +6,10 @@
 # of this source tree.
 
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
+load("@prelude//decls/common.bzl", "prelude_rule")
 
 # Combine the attributes we generate, we the custom implementations we have.
-load("@prelude//rules_impl.bzl", "extra_attributes", "implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
+load("@prelude//rules_impl.bzl", "extra_attributes", "extra_implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -63,8 +64,17 @@ def _mk_rule(rule_spec: "") -> "rule":
 
         extra_args["doc"] = doc
 
+    impl = rule_spec.impl
+    extra_impl = getattr(extra_implemented_rules, name, None)
+    if extra_impl:
+        if impl:
+            fail("{} had an impl in the declaration and in the extra_implemented_rules overrides".format(name))
+        impl = extra_impl
+    if not impl:
+        impl = _unimplemented_impl(name)
+
     return rule(
-        impl = getattr(implemented_rules, name, _unimplemented_impl(name)),
+        impl = impl,
         attrs = attributes,
         is_configuration_rule = name in _config_implemented_rules,
         is_toolchain_rule = name in toolchain_rule_names,
@@ -84,16 +94,18 @@ def _update_rules(rules: {str.type: ""}, extra_attributes: ""):
         if k in rules:
             d = dict(rules[k].attrs)
             d.update(v)
-            rules[k] = struct(
+            rules[k] = prelude_rule(
                 name = rules[k].name,
+                impl = rules[k].impl,
                 attrs = d,
                 docs = rules[k].docs,
                 examples = rules[k].examples,
                 further = rules[k].further,
             )
         else:
-            rules[k] = struct(
+            rules[k] = prelude_rule(
                 name = k,
+                impl = None,
                 attrs = v,
                 docs = None,
                 examples = None,
