@@ -163,8 +163,22 @@ impl DebugServer for Backend {
         self.adapter.stack_trace(v)
     }
 
-    fn scopes(&self, v: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
-        self.adapter.scopes(v)
+    fn scopes(&self, _: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
+        let scopes_info = self.adapter.scopes()?;
+        Ok(ScopesResponseBody {
+            scopes: vec![Scope {
+                name: "Locals".to_owned(),
+                named_variables: Some(scopes_info.num_locals as i64),
+                variables_reference: 2000,
+                expensive: false,
+                column: None,
+                end_column: None,
+                end_line: None,
+                indexed_variables: None,
+                line: None,
+                source: None,
+            }],
+        })
     }
 
     fn variables(&self, v: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {

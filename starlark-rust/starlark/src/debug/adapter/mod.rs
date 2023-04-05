@@ -37,6 +37,12 @@ pub trait DapAdapterClient: Debug + Send + Sync + 'static {
     fn get_ast(&self, source: &str) -> anyhow::Result<AstModule>;
 }
 
+/// Information about the variables scopes
+pub struct ScopesInfo {
+    /// Number of local variables.
+    pub num_locals: usize,
+}
+
 /// The DapAdapter accepts DAP requests and updates the hooks in the running evaluator.
 pub trait DapAdapter: Debug + Send + 'static {
     /// Sets multiple breakpoints for a file (and clears existing ones).
@@ -55,7 +61,7 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// Gets the variables scope for a frame.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Scopes>
-    fn scopes(&self, args: ScopesArguments) -> anyhow::Result<ScopesResponseBody>;
+    fn scopes(&self) -> anyhow::Result<ScopesInfo>;
 
     /// Gets child variables for a variable reference.
     ///

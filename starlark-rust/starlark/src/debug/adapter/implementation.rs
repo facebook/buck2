@@ -36,6 +36,7 @@ use crate::codemap::FileSpanRef;
 use crate::debug::DapAdapter;
 use crate::debug::DapAdapterClient;
 use crate::debug::DapAdapterEvalHook;
+use crate::debug::ScopesInfo;
 use crate::eval::BeforeStmtFuncDyn;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
@@ -218,22 +219,11 @@ impl DapAdapter for DapAdapterImpl {
         }))
     }
 
-    fn scopes(&self, _: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
+    fn scopes(&self) -> anyhow::Result<ScopesInfo> {
         self.with_ctx(Box::new(|_, eval| {
             let vars = eval.local_variables();
-            Ok(ScopesResponseBody {
-                scopes: vec![Scope {
-                    name: "Locals".to_owned(),
-                    named_variables: Some(vars.len() as i64),
-                    variables_reference: 2000,
-                    expensive: false,
-                    column: None,
-                    end_column: None,
-                    end_line: None,
-                    indexed_variables: None,
-                    line: None,
-                    source: None,
-                }],
+            Ok(ScopesInfo {
+                num_locals: vars.len(),
             })
         }))
     }
