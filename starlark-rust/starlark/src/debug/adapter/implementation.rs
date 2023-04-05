@@ -134,6 +134,32 @@ enum Next {
     RemainPaused,
 }
 
+fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFrame {
+    let mut s = StackFrame {
+        id: id as i64,
+        name,
+        column: 0,
+        line: 0,
+        end_column: None,
+        end_line: None,
+        module_id: None,
+        presentation_hint: None,
+        source: None,
+    };
+    if let Some(loc) = location {
+        let span = loc.resolve_span();
+        s.line = span.begin_line as i64 + 1;
+        s.column = span.begin_column as i64 + 1;
+        s.end_line = Some(span.end_line as i64 + 1);
+        s.end_column = Some(span.end_column as i64 + 1);
+        s.source = Some(Source {
+            path: Some(loc.filename().to_owned()),
+            ..Source::default()
+        })
+    }
+    s
+}
+
 impl DapAdapter for DapAdapterImpl {
     fn set_breakpoints(
         &self,
@@ -175,33 +201,15 @@ impl DapAdapter for DapAdapterImpl {
         }
     }
 
-    fn stack_trace(&self, _: StackTraceArguments) -> anyhow::Result<StackTraceResponseBody> {
-        fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFrame {
-            let mut s = StackFrame {
-                id: id as i64,
-                name,
-                column: 0,
-                line: 0,
-                end_column: None,
-                end_line: None,
-                module_id: None,
-                presentation_hint: None,
-                source: None,
-            };
-            if let Some(loc) = location {
-                let span = loc.resolve_span();
-                s.line = span.begin_line as i64 + 1;
-                s.column = span.begin_column as i64 + 1;
-                s.end_line = Some(span.end_line as i64 + 1);
-                s.end_column = Some(span.end_column as i64 + 1);
-                s.source = Some(Source {
-                    path: Some(loc.filename().to_owned()),
-                    ..Source::default()
-                })
-            }
-            s
-        }
+    fn top_frame(&self) -> anyhow::Result<Option<StackFrame>> {
+        self.with_ctx(Box::new(|span, eval| {
+            let frame = eval.call_stack_top_frame();
+            let name = frame.map_or("".to_owned(), |v| v.name);
+            Ok(Some(convert_frame(0, name, Some(span.to_file_span()))))
+        }))
+    }
 
+    fn stack_trace(&self, _: StackTraceArguments) -> anyhow::Result<StackTraceResponseBody> {
         // Our model of a Frame and the debugger model are a bit different.
         // We record the location of the call, but DAP wants the location we are at.
         // We also have them in the wrong order

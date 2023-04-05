@@ -85,6 +85,9 @@ pub trait DapAdapter: Debug + Send + 'static {
         args: SetBreakpointsArguments,
     ) -> anyhow::Result<SetBreakpointsResponseBody>;
 
+    /// Gets the top stack frame, may be None if entered from native.
+    fn top_frame(&self) -> anyhow::Result<Option<StackFrame>>;
+
     /// Gets a stacktrace from the current execution state.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StackTrace>
