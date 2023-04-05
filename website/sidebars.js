@@ -170,19 +170,17 @@ const manualSidebar = [
   {
     type: 'category',
     label: 'API',
+    link: {
+      type: 'generated-index',
+      title: 'APIs',
+      description: 'APIs you can use within Buck2.',
+      slug: "/api"
+    },
     items: [
       {
-        type: 'category',
-        label: 'Rules',
-        link: {
-          type: 'generated-index',
-          title: 'Prelude Rules API',
-          description: 'API documentation for prelude.bzl',
-          slug: '/generated/starlark/prelude',
-        },
-        items: [
-          'generated/starlark/prelude/prelude.bzl',
-        ],
+        type: 'doc',
+        id: 'generated/starlark/prelude/prelude.bzl',
+        label: 'Rules API',
       },
       {
         type: 'category',

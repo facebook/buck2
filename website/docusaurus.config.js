@@ -88,7 +88,13 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
           },
           {
             type: 'doc',
-            docId: '/generated/starlark/prelude',
+            docId: 'generated/starlark/prelude/prelude.bzl',
+            position: 'left',
+            label: 'Rules',
+          },
+          {
+            type: 'doc',
+            docId: '/api',
             position: 'left',
             label: 'API',
           },
