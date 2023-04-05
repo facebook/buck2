@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:utils.bzl", "expect", "from_named_set", "is_any", "value_or")
+load("@prelude//utils:utils.bzl", "expect", "from_named_set", "is_any", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":platform.bzl", "cxx_by_platform")
 
@@ -163,6 +163,12 @@ def as_raw_headers(
         no_fail = mode != HeadersAsRawHeadersMode("required"),
     )
 
+def _header_mode(ctx: "context") -> HeaderMode.type:
+    header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
+    if header_mode != None:
+        return header_mode
+    return get_cxx_toolchain_info(ctx).header_mode
+
 def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type) -> [Headers.type, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
@@ -175,7 +181,7 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
     if len(srcs) == 0:
         return None
 
-    header_mode = get_cxx_toolchain_info(ctx).header_mode
+    header_mode = _header_mode(ctx)
 
     # TODO(T110378135): There's a bug in clang where using header maps w/o
     # explicit `-I` anchors breaks module map lookups.  This will be fixed
