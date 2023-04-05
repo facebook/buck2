@@ -387,6 +387,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.call_stack.top_frame()
     }
 
+    /// Current size (in frames) of the stack.
+    pub fn call_stack_count(&self) -> usize {
+        self.call_stack.count()
+    }
+
     /// Obtain the top location on the call-stack. May be [`None`] if the
     /// call happened via native functions.
     pub fn call_stack_top_location(&self) -> Option<FileSpan> {

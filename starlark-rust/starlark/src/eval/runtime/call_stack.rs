@@ -158,6 +158,11 @@ impl<'v> CheapCallStack<'v> {
         self.count -= 1;
     }
 
+    /// Current size (in frames) of the stack.
+    pub(crate) fn count(&self) -> usize {
+        self.count
+    }
+
     /// The frame at the top of the stack. May be `None` if
     /// either there the stack is empty, or the top of the stack lacks location
     /// information (e.g. called from Rust).
