@@ -354,7 +354,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
                     return Ok(());
                 }
 
-                for dep in target.deps() {
+                for dep in target.target_deps() {
                     func.visit(LabeledNode::node_ref(dep).dupe())?;
                 }
 
