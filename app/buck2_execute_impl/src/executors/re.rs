@@ -173,6 +173,21 @@ impl ReExecutor {
                     None,
                     Default::default(),
                 )
+            } else if is_timeout_error(&response.error) && request.timeout().is_some() {
+                manager.timeout(
+                    CommandExecutionKind::Remote {
+                        digest: action_digest.dupe(),
+                    },
+                    // Checked above: we fallthrough to the error path if we didn't set a timeout
+                    // and yet received one.
+                    request.timeout().unwrap(),
+                    CommandStdStreams::Remote(response.std_streams(
+                        &self.re_client,
+                        self.re_use_case,
+                        digest_config,
+                    )),
+                    response.timing(),
+                )
             } else {
                 manager.error(
                     "remote_exec_error",
@@ -290,5 +305,21 @@ fn as_missing_outputs_error(err: &remote_execution::REError) -> Option<&str> {
         Some(&err.message)
     } else {
         None
+    }
+}
+
+fn is_timeout_error(err: &remote_execution::REError) -> bool {
+    #[cfg(fbcode_build)]
+    {
+        // Not ideal, but DEADLINE_EXCEEDED will show up if you e.g. timeout connecting to RE, so we
+        // need to actually match on the message :(
+        err.code == TCode::DEADLINE_EXCEEDED && err.message == "Execution timed out"
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        // Not obvious what this looks like in the GRPC API.
+        let _ignored = err;
+        false
     }
 }

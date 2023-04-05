@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context as _;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::OutputPathsBehavior;
 use buck2_common::file_ops::FileMetadata;
@@ -156,7 +157,7 @@ impl CommandExecutor {
                     request.env(),
                     input_digest,
                     action_metadata_blobs,
-                    None,
+                    request.timeout(),
                     self.0.re_platform.clone(),
                     false,
                     digest_config,
@@ -231,7 +232,7 @@ fn re_create_action(
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
     blobs: impl Iterator<Item = (Vec<u8>, TrackedFileDigest)>,
-    timeout: Option<&Duration>,
+    timeout: Option<Duration>,
     platform: RE::Platform,
     do_not_cache: bool,
     digest_config: DigestConfig,
@@ -296,11 +297,6 @@ fn re_create_action(
         }
     }
 
-    let timeout = timeout.map(|t| prost_types::Duration {
-        seconds: t.as_secs() as i64,
-        nanos: t.subsec_nanos() as i32,
-    });
-
     let mut prepared_blobs = ActionBlobs::new(digest_config);
     for (data, digest) in blobs {
         prepared_blobs.add_blob(digest, data);
@@ -312,7 +308,10 @@ fn re_create_action(
                 .add_protobuf_message(&command, digest_config)
                 .to_grpc(),
         ),
-        timeout,
+        timeout: timeout
+            .map(|t| t.try_into())
+            .transpose()
+            .context("Cannot convert timeout to GRPC")?,
         do_not_cache,
         ..Default::default()
     };
