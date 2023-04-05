@@ -269,7 +269,7 @@ def _cxx_python_extension_attrs():
         "_omnibus_environment": omnibus_environment_attr(),
         # Copied from python_library.
         "_python_toolchain": _python_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     })
     return res
 
@@ -310,10 +310,10 @@ def _python_executable_attrs():
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_python_toolchain": _python_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     })
 
     return updated_attrs
@@ -407,12 +407,6 @@ def _python_toolchain():
 def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
-def _target_os_type() -> "attribute":
-    return buck.target_os_type_arg()
-
-def _exec_os_type() -> "attribute":
-    return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
-
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
 
@@ -425,9 +419,9 @@ inlined_extra_attributes = {
         "_go_toolchain": _go_toolchain(),
     },
     "command_alias": {
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_find_and_replace_bat": attrs.default_only(attrs.exec_dep(default = "prelude//tools:find_and_replace.bat")),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     },
     # The 'actual' attribute of configured_alias is a configured_label, which is
     # currently unimplemented. Map it to dep so we can simply forward the providers.
@@ -450,7 +444,7 @@ inlined_extra_attributes = {
     #c++
     "cxx_genrule": genrule_attributes() | {
         "_cxx_toolchain": _cxx_toolchain(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
     },
     "cxx_library": {
         "auto_link_groups": attrs.bool(default = False),
@@ -488,7 +482,7 @@ inlined_extra_attributes = {
     "genrule": genrule_attributes() | {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
     },
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
@@ -535,7 +529,7 @@ inlined_extra_attributes = {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.option(attrs.string(), default = None),
         "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
     },
     "http_file": {
         "sha1": attrs.option(attrs.string(), default = None),
@@ -574,7 +568,7 @@ inlined_extra_attributes = {
     "python_bootstrap_binary": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attrs.source(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
         "_win_python_wrapper": attrs.default_only(
             attrs.option(
@@ -616,9 +610,9 @@ inlined_extra_attributes = {
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": _rust_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     },
     "rust_library": {
         # linker_flags weren't supported for rust_library in Buck v1 but the
@@ -642,10 +636,10 @@ inlined_extra_attributes = {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_omnibus_environment": omnibus_environment_attr(),
         "_rust_toolchain": _rust_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     },
     "rust_test": {
         "coverage": attrs.bool(default = False),
@@ -655,9 +649,9 @@ inlined_extra_attributes = {
         "remote_execution": attrs.option(re_opts, default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "_cxx_toolchain": _cxx_toolchain(),
-        "_exec_os_type": _exec_os_type(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": _rust_toolchain(),
-        "_target_os_type": _target_os_type(),
+        "_target_os_type": buck.target_os_type_arg(),
     },
     "sh_test": {},
     "test_suite": {

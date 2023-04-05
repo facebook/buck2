@@ -198,9 +198,13 @@ def _test_rule_timeout_ms():
 def _target_os_type_arg() -> "attribute":
     return attrs.default_only(attrs.dep(default = "prelude//os_lookup/targets:os_lookup"))
 
+def _exec_os_type_arg() -> "attribute":
+    return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
+
 buck = struct(
     name_arg = _name_arg,
     deps_query_arg = _deps_query_arg,
+    exec_os_type_arg = _exec_os_type_arg,
     provided_deps_query_arg = _provided_deps_query_arg,
     platform_deps_arg = _platform_deps_arg,
     labels_arg = _labels_arg,
