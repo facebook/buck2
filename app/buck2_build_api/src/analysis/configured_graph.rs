@@ -43,7 +43,7 @@ impl<'c> AnalysisDiceQueryDelegate<'c> {
 
 pub struct AnalysisConfiguredGraphQueryDelegate<'a> {
     pub dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a>>,
-    pub resolved_literals: HashMap<&'a str, ConfiguredTargetNode>,
+    pub resolved_literals: HashMap<String, ConfiguredTargetNode>,
 }
 
 #[async_trait]

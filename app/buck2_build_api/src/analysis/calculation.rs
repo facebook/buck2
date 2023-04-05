@@ -36,6 +36,7 @@ use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -59,6 +60,7 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
+use crate::query::analysis::environment::AnalysisQueryError;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[async_trait]
@@ -151,7 +153,7 @@ pub async fn resolve_queries(
         },
         async {
             (
-                resolve_queries_impl(ctx, queries).await,
+                resolve_queries_impl(ctx, configured_node, queries).await,
                 buck2_data::AnalysisStageEnd {},
             )
         },
@@ -161,25 +163,21 @@ pub async fn resolve_queries(
 
 async fn resolve_queries_impl(
     ctx: &DiceComputations,
+    configured_node: &ConfiguredTargetNode,
     queries: impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredAttr>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
-    let all_query_results =
+    let deps: TargetSet<_> = configured_node.deps().duped().collect();
+    let query_results =
         futures::future::try_join_all(queries.map(|(query, resolved_literals_labels)| {
             let ctx = ctx;
+            let deps = &deps;
             async move {
-                let mut node_lookups: FuturesOrdered<_> = resolved_literals_labels
-                    .iter()
-                    .map(|(literal, label)| async move {
-                        (
-                            literal,
-                            ctx.get_configured_target_node(label.target()).await,
-                        )
-                    })
-                    .collect();
-
-                let mut resolved_literals: HashMap<&str, _> = HashMap::new();
-                while let Some((literal, result)) = node_lookups.next().await {
-                    resolved_literals.insert(literal, result?.require_compatible()?);
+                let mut resolved_literals = HashMap::with_capacity(resolved_literals_labels.len());
+                for (literal, label) in resolved_literals_labels {
+                    let node = deps.get(label.target()).ok_or_else(|| {
+                        AnalysisQueryError::LiteralNotFoundInDeps(literal.clone())
+                    })?;
+                    resolved_literals.insert(literal, node.dupe());
                 }
 
                 let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
@@ -211,17 +209,13 @@ async fn resolve_queries_impl(
                     ))
                 }
 
-                anyhow::Ok((query.to_owned(), query_results))
+                anyhow::Ok((query.to_owned(), Arc::new(query_results)))
             }
         }))
         .await?;
 
-    let mut map = HashMap::with_capacity(all_query_results.len());
-    for (query, results) in all_query_results {
-        map.insert(query, Arc::new(results));
-    }
-
-    Ok(map)
+    let query_results: HashMap<_, _> = query_results.into_iter().collect();
+    Ok(query_results)
 }
 
 pub async fn get_dep_analysis<'v>(
