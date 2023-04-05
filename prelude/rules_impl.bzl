@@ -33,10 +33,9 @@ load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 
 # Haskell
-load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "HaskellPlatformInfo", "HaskellToolchainInfo", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
+load("@prelude//haskell:haskell.bzl", "HaskellLibraryProvider", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
 load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
@@ -75,15 +74,13 @@ load("@prelude//python:python_binary.bzl", "python_binary_impl")
 load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
-load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 
 # Python Bootstrap
-load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "PythonBootstrapToolchainInfo", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
+load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 
 # Rust
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "prebuilt_rust_library_impl", "rust_library_impl")
-load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
 
 # Zip file
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
@@ -109,6 +106,7 @@ load("@prelude//decls/python_rules.bzl", "python_rules")
 load("@prelude//decls/rust_rules.bzl", "rust_rules")
 load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
 
 # Constraints
@@ -265,10 +263,10 @@ def _cxx_python_extension_attrs():
         "suffix_all": attrs.bool(default = True),
         "support_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_omnibus_environment": omnibus_environment_attr(),
         # Copied from python_library.
-        "_python_toolchain": _python_toolchain(),
+        "_python_toolchain": toolchains_common.python(),
         "_target_os_type": buck.target_os_type_arg(),
     })
     return res
@@ -309,10 +307,10 @@ def _python_executable_attrs():
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_omnibus_environment": omnibus_environment_attr(),
-        "_python_toolchain": _python_toolchain(),
+        "_python_toolchain": toolchains_common.python(),
         "_target_os_type": buck.target_os_type_arg(),
     })
 
@@ -366,7 +364,7 @@ def _cxx_binary_and_test_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
     }
 
 NativeLinkStrategy = ["separate", "native", "merged"]
@@ -382,30 +380,9 @@ def _python_binary_attrs():
     binary_attrs.update({
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
-        "_python_toolchain": _python_toolchain(),
+        "_python_toolchain": toolchains_common.python(),
     })
     return binary_attrs
-
-def _toolchain(lang: str.type, providers: [""]) -> "attribute":
-    return attrs.default_only(attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers))
-
-def _cxx_toolchain():
-    return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
-
-def _haskell_toolchain():
-    return _toolchain("haskell", [HaskellToolchainInfo, HaskellPlatformInfo])
-
-def _rust_toolchain():
-    return _toolchain("rust", [RustToolchainInfo, RustPlatformInfo])
-
-def _go_toolchain():
-    return _toolchain("go", [GoToolchainInfo])
-
-def _python_toolchain():
-    return _toolchain("python", [PythonToolchainInfo, PythonPlatformInfo])
-
-def _python_bootstrap_toolchain():
-    return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 def _create_manifest_for_source_dir():
     return attrs.exec_dep(default = "prelude//python/tools:create_manifest_for_source_dir")
@@ -415,8 +392,8 @@ inlined_extra_attributes = {
     # go
     "cgo_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_go_toolchain": _go_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_go_toolchain": toolchains_common.go(),
     },
     "command_alias": {
         "_exec_os_type": buck.exec_os_type_arg(),
@@ -443,7 +420,7 @@ inlined_extra_attributes = {
 
     #c++
     "cxx_genrule": genrule_attributes() | {
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
     },
     "cxx_library": {
@@ -462,7 +439,7 @@ inlined_extra_attributes = {
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "supports_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
     },
@@ -487,17 +464,17 @@ inlined_extra_attributes = {
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
-        "_go_toolchain": _go_toolchain(),
+        "_go_toolchain": toolchains_common.go(),
     },
     "go_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
-        "_go_toolchain": _go_toolchain(),
+        "_go_toolchain": toolchains_common.go(),
     },
     "go_test": {
         "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "_go_toolchain": _go_toolchain(),
+        "_go_toolchain": toolchains_common.go(),
         "_testmaingen": attrs.default_only(attrs.exec_dep(default = "prelude//go/tools:testmaingen")),
     },
 
@@ -510,17 +487,17 @@ inlined_extra_attributes = {
     },
     "haskell_binary": {
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_haskell_toolchain": _haskell_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_haskell_toolchain": toolchains_common.haskell(),
     },
     "haskell_ide": {
-        "_haskell_toolchain": _haskell_toolchain(),
+        "_haskell_toolchain": toolchains_common.haskell(),
     },
     "haskell_library": {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_haskell_toolchain": _haskell_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_haskell_toolchain": toolchains_common.haskell(),
     },
 
     # http things get only 1 hash in v1 but in v2 we allow multiple. Also,
@@ -549,7 +526,7 @@ inlined_extra_attributes = {
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_omnibus_environment": omnibus_environment_attr(),
     },
 
@@ -557,11 +534,11 @@ inlined_extra_attributes = {
     "prebuilt_python_library": {
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
-        "_python_toolchain": _python_toolchain(),
+        "_python_toolchain": toolchains_common.python(),
     },
     "prebuilt_rust_library": {
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_rust_toolchain": _rust_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_rust_toolchain": toolchains_common.rust(),
     },
     "python_binary": _python_binary_attrs(),
     #python bootstrap
@@ -569,7 +546,7 @@ inlined_extra_attributes = {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attrs.source(),
         "_exec_os_type": buck.exec_os_type_arg(),
-        "_python_bootstrap_toolchain": _python_bootstrap_toolchain(),
+        "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
         "_win_python_wrapper": attrs.default_only(
             attrs.option(
                 attrs.dep(),
@@ -586,8 +563,8 @@ inlined_extra_attributes = {
     "python_library": {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
-        "_cxx_toolchain": _cxx_toolchain(),
-        "_python_toolchain": _python_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_python_toolchain": toolchains_common.python(),
     },
     "python_needed_coverage_test": {
         "contacts": attrs.list(attrs.string(), default = []),
@@ -609,9 +586,9 @@ inlined_extra_attributes = {
         "incremental_build_mode": attrs.option(attrs.string(), default = None),
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
-        "_rust_toolchain": _rust_toolchain(),
+        "_rust_toolchain": toolchains_common.rust(),
         "_target_os_type": buck.target_os_type_arg(),
     },
     "rust_library": {
@@ -635,10 +612,10 @@ inlined_extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_omnibus_environment": omnibus_environment_attr(),
-        "_rust_toolchain": _rust_toolchain(),
+        "_rust_toolchain": toolchains_common.rust(),
         "_target_os_type": buck.target_os_type_arg(),
     },
     "rust_test": {
@@ -648,9 +625,9 @@ inlined_extra_attributes = {
         "incremental_enabled": attrs.bool(default = False),
         "remote_execution": attrs.option(re_opts, default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
-        "_cxx_toolchain": _cxx_toolchain(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
-        "_rust_toolchain": _rust_toolchain(),
+        "_rust_toolchain": toolchains_common.rust(),
         "_target_os_type": buck.target_os_type_arg(),
     },
     "sh_test": {},
