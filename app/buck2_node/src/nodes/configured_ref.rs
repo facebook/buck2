@@ -100,13 +100,11 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
 
     fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        // TODO(cjhopman): This should return a Result. It should also be implemented.
-        unimplemented!("exec_deps() isn't implemented for query attrs")
+        Box::new(self.0.exec_deps().map(ConfiguredGraphNodeRef::ref_cast))
     }
 
     fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::NodeRef> + Send + 'a> {
-        // TODO(cjhopman): This should return a Result. It should also be implemented.
-        unimplemented!("target_deps() isn't implemented for query attrs")
+        Box::new(self.0.target_deps().map(ConfiguredGraphNodeRef::ref_cast))
     }
 
     fn attr_any_matches(
