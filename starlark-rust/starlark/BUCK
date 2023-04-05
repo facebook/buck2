@@ -20,7 +20,6 @@ buck_rust_binary(
         "fbsource//third-party/rust:lsp-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:walkdir",
         ":starlark",
