@@ -659,14 +659,6 @@ inlined_extra_attributes = {
         "_rust_toolchain": _rust_toolchain(),
         "_target_os_type": _target_os_type(),
     },
-
-    # scala
-    "scala_library": {
-        "resources_root": attrs.option(attrs.string(), default = None),
-    },
-    "scala_test": {
-        "resources_root": attrs.option(attrs.string(), default = None),
-    },
     "sh_binary": {
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_target_os_type": _target_os_type(),
