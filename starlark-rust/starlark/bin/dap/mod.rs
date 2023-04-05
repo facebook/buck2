@@ -77,8 +77,8 @@ impl Backend {
             let ast = AstModule::parse_file(&path, &dialect())?;
             let module = Module::new();
             let globals = globals();
-            let eval = Evaluator::new(&module);
-            let mut eval = wrapper.add_dap_hooks(eval);
+            let mut eval = Evaluator::new(&module);
+            wrapper.add_dap_hooks(&mut eval);
 
             // No way to pass back success/failure to the caller
             client.log(&format!("EVALUATION START: {}", path.display()));

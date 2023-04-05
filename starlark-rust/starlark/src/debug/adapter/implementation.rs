@@ -111,9 +111,8 @@ impl DapAdapterEvalHookImpl {
 }
 
 impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
-    fn add_dap_hooks<'v, 'a>(self: Box<Self>, mut eval: Evaluator<'v, 'a>) -> Evaluator<'v, 'a> {
+    fn add_dap_hooks<'v, 'a>(self: Box<Self>, eval: &mut Evaluator<'v, 'a>) {
         eval.before_stmt_for_dap((self as Box<dyn BeforeStmtFuncDyn>).into());
-        eval
     }
 }
 

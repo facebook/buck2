@@ -78,7 +78,7 @@ pub trait DapAdapter: Debug + Send + 'static {
 /// things there).
 pub trait DapAdapterEvalHook: Debug + Send + 'static {
     /// Hooks the evaluator for this DapAdapter.
-    fn add_dap_hooks<'v, 'a>(self: Box<Self>, eval: Evaluator<'v, 'a>) -> Evaluator<'v, 'a>;
+    fn add_dap_hooks<'v, 'a>(self: Box<Self>, eval: &mut Evaluator<'v, 'a>);
 }
 
 /// The DAP capabilities that the adapter supports.
