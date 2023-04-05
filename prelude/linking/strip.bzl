@@ -12,7 +12,7 @@ def strip_debug_info(ctx: "context", name: str.type, obj: "artifact") -> "artifa
     Strip debug information from an object.
     """
     strip = get_cxx_toolchain_info(ctx).binary_utilities_info.strip
-    output = ctx.actions.declare_output(name)
+    output = ctx.actions.declare_output("__striped_objects__", name)
     cmd = cmd_args([strip, "-S", "-o", output.as_output(), obj])
     ctx.actions.run(cmd, category = "strip_debug", identifier = name)
     return output
