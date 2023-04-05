@@ -158,6 +158,32 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         })
     }
 
+    /// The somepaths query, which returns the graph of nodes on some arbitrary path from a start to destination target.
+    fn somepath<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        from: Value<'v>,
+        to: Value<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        this.ctx.async_ctx.via(|| async {
+            Ok(this
+                .functions
+                .somepath(
+                    &this.env,
+                    &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                    &*TargetExpr::<'v, TargetNode>::unpack(to, this.ctx, eval)
+                        .await?
+                        .get(&this.env)
+                        .await?,
+                )
+                .await
+                .map(StarlarkTargetSet::from)?)
+        })
+    }
+
     /// The attrfilter query for rule attribute filtering.
     fn attrfilter<'v>(
         this: &StarlarkUQueryCtx<'v>,
