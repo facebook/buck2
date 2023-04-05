@@ -10,4 +10,5 @@ documentation = "https://docs.rs/display_container"
 categories = ["rust-patterns"]
 
 [dependencies]
+either = { workspace = true }
 indenter = { workspace = true }
