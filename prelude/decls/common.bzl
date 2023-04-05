@@ -62,7 +62,7 @@ def _deps_query_arg():
     Status: **experimental/unstable**.
      The deps query takes a query string that accepts the following query functions, and appends the
      output of the query to the declared deps:
- 
+
      * `attrfilter`
     * `deps`
     * `except`
@@ -76,7 +76,7 @@ def _deps_query_arg():
      The macro `$declared_deps` may be used anywhere a target literal pattern is expected
      in order to refer to the explicit deps of this rule as they appear in the rule's definition.
      For example, if your build rule declares
- 
+
     ```
 
       android_library(
@@ -89,7 +89,7 @@ def _deps_query_arg():
      then the macro `$declared_deps` would be expanded to a
      literal `set(//foo:foo)`.
      Some example queries:
- 
+
     ```
 
       "filter({name_regex}, $declared_deps)".format(name_regex='//.*')
@@ -176,7 +176,7 @@ def _fork_mode():
      used for new tests since it encourages tests to not cleanup after themselves and
      increases the tests' computational resources and running time.)
 
- 
+
     `none`
     All tests will run in the same process.
     `per_test`
@@ -201,6 +201,33 @@ def _target_os_type_arg() -> "attribute":
 def _exec_os_type_arg() -> "attribute":
     return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
 
+def _re_opts_for_tests_arg() -> "attribute":
+    # Attributes types do not have records.
+    # The expected shape of re_opts is:
+    # {
+    #     "capabilities": Dict<str, str> | None
+    #     "use_case": str | None
+    # }
+    return attrs.option(
+        attrs.dict(
+            key = attrs.string(),
+            value = attrs.option(
+                attrs.one_of(
+                    attrs.dict(
+                        key = attrs.string(),
+                        value = attrs.string(),
+                        sorted = False,
+                    ),
+                    attrs.string(),
+                ),
+                # TODO(cjhopman): I think this default does nothing, it should be deleted
+                default = None,
+            ),
+            sorted = False,
+        ),
+        default = None,
+    )
+
 buck = struct(
     name_arg = _name_arg,
     deps_query_arg = _deps_query_arg,
@@ -215,5 +242,6 @@ buck = struct(
     run_test_separately_arg = _run_test_separately_arg,
     fork_mode = _fork_mode,
     test_rule_timeout_ms = _test_rule_timeout_ms,
+    re_opts_for_tests_arg = _re_opts_for_tests_arg,
     target_os_type_arg = _target_os_type_arg,
 )

@@ -316,32 +316,10 @@ def _python_executable_attrs():
 
     return updated_attrs
 
-# Attributes types do not have records.
-# The expected shape of re_opts is:
-# {
-#     "capabilities": Dict<str, str> | None
-#     "use_case": str | None
-# }
-re_opts = attrs.dict(
-    key = attrs.string(),
-    value = attrs.option(
-        attrs.one_of(
-            attrs.dict(
-                key = attrs.string(),
-                value = attrs.string(),
-                sorted = False,
-            ),
-            attrs.string(),
-        ),
-        default = None,
-    ),
-    sorted = False,
-)
-
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs.update({
-        "remote_execution": attrs.option(re_opts, default = None),
+        "remote_execution": buck.re_opts_for_tests_arg(),
         "_test_main": attrs.source(default = "prelude//python/tools:__test_main__.py"),
     })
     return test_attrs
@@ -445,7 +423,7 @@ inlined_extra_attributes = {
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
     "cxx_test": dict(
-        remote_execution = attrs.option(re_opts, default = None),
+        remote_execution = buck.re_opts_for_tests_arg(),
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
@@ -536,10 +514,6 @@ inlined_extra_attributes = {
         "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
         "_python_toolchain": toolchains_common.python(),
     },
-    "prebuilt_rust_library": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_rust_toolchain": toolchains_common.rust(),
-    },
     "python_binary": _python_binary_attrs(),
     #python bootstrap
     "python_bootstrap_binary": {
@@ -571,7 +545,7 @@ inlined_extra_attributes = {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
         "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-        "remote_execution": attrs.option(re_opts, default = None),
+        "remote_execution": buck.re_opts_for_tests_arg(),
         "test": attrs.dep(providers = [ExternalRunnerTestInfo]),
     },
     "python_test": _python_test_attrs(),
@@ -580,56 +554,7 @@ inlined_extra_attributes = {
         "sha256": attrs.option(attrs.string(), default = None),
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
-    #rust
-    "rust_binary": {
-        "coverage": attrs.bool(default = False),
-        "incremental_build_mode": attrs.option(attrs.string(), default = None),
-        "incremental_enabled": attrs.bool(default = False),
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_rust_toolchain": toolchains_common.rust(),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
-    "rust_library": {
-        # linker_flags weren't supported for rust_library in Buck v1 but the
-        # fbcode macros pass them anyway. They're typically empty since the
-        # config-level flags don't get injected, but it doesn't hurt to accept
-        # them and it simplifies the implementation of Rust rules since they
-        # don't have to know whether we're building a rust_binary or a
-        # rust_library.
-        "coverage": attrs.bool(default = False),
-        "doc_deps": attrs.list(attrs.dep(), default = []),
-        "doc_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
-        "doc_linker_flags": attrs.list(attrs.arg(), default = []),
-        "doc_named_deps": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-        "doc_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        "doc_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-        "doctests": attrs.bool(default = True),
-        "incremental_build_mode": attrs.option(attrs.string(), default = None),
-        "incremental_enabled": attrs.bool(default = False),
-        "linker_flags": attrs.list(attrs.arg(), default = []),
-        "preferred_linkage": attrs.enum(Linkage, default = "any"),
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
-        "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_omnibus_environment": omnibus_environment_attr(),
-        "_rust_toolchain": toolchains_common.rust(),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
-    "rust_test": {
-        "coverage": attrs.bool(default = False),
-        "framework": attrs.bool(default = True),
-        "incremental_build_mode": attrs.option(attrs.string(), default = None),
-        "incremental_enabled": attrs.bool(default = False),
-        "remote_execution": attrs.option(re_opts, default = None),
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_rust_toolchain": toolchains_common.rust(),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
+    "rust_test": {},
     "sh_test": {},
     "test_suite": {
         # On buck1 query, tests attribute on test_suite is treated as deps, while on buck2 it is not.
