@@ -195,6 +195,9 @@ def _test_rule_timeout_ms():
 """),
     }
 
+def _target_os_type_arg() -> "attribute":
+    return attrs.default_only(attrs.dep(default = "prelude//os_lookup/targets:os_lookup"))
+
 buck = struct(
     name_arg = _name_arg,
     deps_query_arg = _deps_query_arg,
@@ -208,4 +211,5 @@ buck = struct(
     run_test_separately_arg = _run_test_separately_arg,
     fork_mode = _fork_mode,
     test_rule_timeout_ms = _test_rule_timeout_ms,
+    target_os_type_arg = _target_os_type_arg,
 )

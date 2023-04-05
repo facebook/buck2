@@ -90,7 +90,7 @@ load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attr
 
 # Rule declarations
 load("@prelude//decls/android_rules.bzl", "android_rules")
-load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "Linkage")
+load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "Linkage", "buck")
 load("@prelude//decls/core_rules.bzl", "core_rules")
 load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
 load("@prelude//decls/d_rules.bzl", "d_rules")
@@ -408,7 +408,7 @@ def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
 def _target_os_type() -> "attribute":
-    return attrs.default_only(attrs.dep(default = "prelude//os_lookup/targets:os_lookup"))
+    return buck.target_os_type_arg()
 
 def _exec_os_type() -> "attribute":
     return attrs.default_only(attrs.exec_dep(default = "prelude//os_lookup/targets:os_lookup"))
@@ -659,17 +659,7 @@ inlined_extra_attributes = {
         "_rust_toolchain": _rust_toolchain(),
         "_target_os_type": _target_os_type(),
     },
-    "sh_binary": {
-        "resources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "_target_os_type": _target_os_type(),
-    },
-    "sh_test": {
-        "list_args": attrs.option(attrs.list(attrs.string()), default = None),
-        "list_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
-        "run_args": attrs.list(attrs.string(), default = []),
-        "run_env": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-        "test": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
-    },
+    "sh_test": {},
     "test_suite": {
         # On buck1 query, tests attribute on test_suite is treated as deps, while on buck2 it is not.
         # While buck2's behavior makes more sense, we want to preserve buck1 behavior on test_suite for now to make TD behavior match between buck1 and buck2.
