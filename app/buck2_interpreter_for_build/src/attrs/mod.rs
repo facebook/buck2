@@ -57,7 +57,12 @@ impl AttributeCoerceExt for Attribute {
                 .coercer()
                 .coerce_with_default(configurable, coercer_ctx, value, default.map(|x| &**x))
                 .map(CoercedValue::Custom)
-                .with_context(|| format!("Error coercing attribute `{}`", param_name)),
+                .with_context(|| {
+                    format!(
+                        "Error coercing attribute `{}` of type `{}`",
+                        param_name, self
+                    )
+                }),
             Some(_) => Ok(CoercedValue::Default),
             None => Err(AttrCoerceError::MissingMandatoryParameter(param_name.to_owned()).into()),
         }
