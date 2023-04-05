@@ -43,6 +43,7 @@ pub enum CommandExecutionStatus {
         execution_kind: CommandExecutionKind,
         duration: Duration,
     },
+    // TODO: We should rename this.
     ClaimCancelled,
 }
 

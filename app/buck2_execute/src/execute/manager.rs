@@ -71,6 +71,16 @@ impl CommandExecutionManager {
     pub fn on_result_delayed(&mut self) {
         self.claim_manager.on_result_delayed();
     }
+
+    pub fn cancel(self) -> CommandExecutionResult {
+        self.result(
+            CommandExecutionStatus::ClaimCancelled,
+            IndexMap::new(),
+            Default::default(),
+            None,
+            CommandExecutionMetadata::default(),
+        )
+    }
 }
 
 impl CommandExecutionManagerLike for CommandExecutionManager {

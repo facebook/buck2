@@ -147,6 +147,9 @@ impl ReExecutor {
 
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
+            Ok(ExecuteResponseOrCancelled::Cancelled) => {
+                return ControlFlow::Break(manager.cancel());
+            }
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 

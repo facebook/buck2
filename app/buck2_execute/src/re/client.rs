@@ -135,8 +135,11 @@ impl OpStats {
     }
 }
 
+// The large one is the actual default case
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponseOrCancelled {
     Response(ExecuteResponse),
+    Cancelled,
 }
 
 #[derive(Allocative)]
@@ -742,6 +745,12 @@ impl RemoteExecutionClientImpl {
             None
         };
 
+        #[allow(clippy::large_enum_variant)]
+        enum ResponseOrStateChange {
+            Present(ExecuteWithProgressResponse),
+            Cancelled,
+        }
+
         /// Wait for either the ExecuteResponse to show up, or a stage change, within a span
         /// on the CommandExecutionManager.
         async fn wait_for_response_or_stage_change(
@@ -750,17 +759,39 @@ impl RemoteExecutionClientImpl {
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
             re_max_queue_time: Option<Duration>,
-        ) -> anyhow::Result<ExecuteWithProgressResponse> {
+        ) -> anyhow::Result<ResponseOrStateChange> {
             executor_stage_async(
                 buck2_data::ReStage {
                     stage: Some(report_stage),
                 },
                 async move {
-                    while let Some(event) = receiver.next().await {
+                    loop {
+                        let next = futures::future::select(
+                            manager.liveliness_observer.while_alive(),
+                            receiver.next(),
+                        );
+
+                        let event = match next.await {
+                            futures::future::Either::Left((_dead, _)) => {
+                                return Ok(ResponseOrStateChange::Cancelled);
+                            }
+                            futures::future::Either::Right((event, _)) => match event {
+                                Some(event) => event,
+                                None => {
+                                    return Err(anyhow::anyhow!(
+                                        "RE execution did not yield a ExecuteResponse"
+                                    ));
+                                }
+                            },
+                        };
+
                         let event = event.context("Error was returned on the stream by RE")?;
+
                         if event.execute_response.is_some() || event.stage != previous_stage {
-                            return Ok(event);
+                            return Ok(ResponseOrStateChange::Present(event));
                         }
+
+                        // TODO: This should be one block up?
                         if let Some(re_max_queue_time) = re_max_queue_time {
                             if let Some(info) = event.metadata.task_info {
                                 let est = u64::try_from(info.estimated_queue_time_ms)
@@ -773,9 +804,6 @@ impl RemoteExecutionClientImpl {
                             }
                         }
                     }
-                    Err(anyhow::anyhow!(
-                        "RE execution did not yield a ExecuteResponse"
-                    ))
                 },
             )
             .await
@@ -848,6 +876,13 @@ impl RemoteExecutionClientImpl {
                 re_max_queue_time,
             )
             .await?;
+
+            let progress_response = match progress_response {
+                ResponseOrStateChange::Present(r) => r,
+                ResponseOrStateChange::Cancelled => {
+                    return Ok(ExecuteResponseOrCancelled::Cancelled);
+                }
+            };
 
             // Return the result if we're done
             if let Some(execute_response) = progress_response.execute_response {
