@@ -196,8 +196,8 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         })
     }
 
-    // The somepaths query.
-    fn somepaths<'v>(
+    // The somepath query.
+    fn somepath<'v>(
         this: &StarlarkCQueryCtx<'v>,
         from: Value<'v>,
         to: Value<'v>,
