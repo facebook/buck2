@@ -32,7 +32,6 @@ use futures::FutureExt;
 use prost::Message;
 use remote_execution as RE;
 use remote_execution::ActionResultResponse;
-use remote_execution::ExecuteResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
@@ -46,6 +45,7 @@ use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
+use crate::re::client::ExecuteResponseOrCancelled;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::client::RemoteExecutionClientStats;
 use crate::re::re_get_session_id::ReGetSessionId;
@@ -367,7 +367,7 @@ impl ManagedRemoteExecutionClient {
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
         re_max_queue_time: Option<Duration>,
-    ) -> anyhow::Result<ExecuteResponse> {
+    ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.lock()?
             .get()
             .await?

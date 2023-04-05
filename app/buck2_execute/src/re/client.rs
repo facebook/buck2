@@ -135,6 +135,10 @@ impl OpStats {
     }
 }
 
+pub enum ExecuteResponseOrCancelled {
+    Response(ExecuteResponse),
+}
+
 #[derive(Allocative)]
 struct RemoteExecutionClientData {
     client: RemoteExecutionClientImpl,
@@ -304,7 +308,7 @@ impl RemoteExecutionClient {
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
         re_max_queue_time: Option<Duration>,
-    ) -> anyhow::Result<ExecuteResponse> {
+    ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
             .op(self
@@ -720,7 +724,7 @@ impl RemoteExecutionClientImpl {
         manager: &mut CommandExecutionManager,
         re_max_queue_time: Option<Duration>,
         platform: &remote_execution::Platform,
-    ) -> anyhow::Result<ExecuteResponse> {
+    ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::re_stage;
         use buck2_data::ReExecute;
         use buck2_data::ReQueue;
@@ -847,7 +851,7 @@ impl RemoteExecutionClientImpl {
 
             // Return the result if we're done
             if let Some(execute_response) = progress_response.execute_response {
-                return Ok(execute_response);
+                return Ok(ExecuteResponseOrCancelled::Response(execute_response));
             }
 
             // Change the stage
@@ -864,7 +868,7 @@ impl RemoteExecutionClientImpl {
         manager: &mut CommandExecutionManager,
         skip_cache_lookup: bool,
         re_max_queue_time: Option<Duration>,
-    ) -> anyhow::Result<ExecuteResponse> {
+    ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
             action_history_info: Some(ActionHistoryInfo {
                 action_key: identity.action_key.clone(),

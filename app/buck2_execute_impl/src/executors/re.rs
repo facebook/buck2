@@ -34,6 +34,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::client::ExecuteResponseOrCancelled;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use dupe::Dupe;
@@ -145,7 +146,7 @@ impl ReExecutor {
             .await;
 
         let response = match execute_response {
-            Ok(result) => result,
+            Ok(ExecuteResponseOrCancelled::Response(result)) => result,
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 
