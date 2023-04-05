@@ -59,10 +59,14 @@ impl CheapFrame<'_> {
         if let Some(span) = self.span {
             span.inlined_frames.extend_frames(frames);
         }
-        frames.push(Frame {
+        frames.push(self.to_frame());
+    }
+
+    fn to_frame(&self) -> Frame {
+        Frame {
             name: self.function.name_for_call_stack(),
             location: self.location(),
-        });
+        }
     }
 }
 
@@ -152,6 +156,13 @@ impl<'v> CheapCallStack<'v> {
         debug_assert!(self.count >= 1);
         // We could clear the elements, but don't need to bother
         self.count -= 1;
+    }
+
+    /// The frame at the top of the stack. May be `None` if
+    /// either there the stack is empty, or the top of the stack lacks location
+    /// information (e.g. called from Rust).
+    pub(crate) fn top_frame(&self) -> Option<Frame> {
+        Some(self.stack.last().as_ref()?.to_frame())
     }
 
     /// The location at the top of the stack. May be `None` if

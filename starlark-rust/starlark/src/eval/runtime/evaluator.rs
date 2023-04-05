@@ -35,6 +35,7 @@ use crate::environment::EnvironmentError;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
+use crate::errors::Frame;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
@@ -378,6 +379,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     pub fn call_stack(&self) -> CallStack {
         self.call_stack
             .to_diagnostic_frames(InlinedFrames::default())
+    }
+
+    /// Obtain the top frame on the call-stack. May be [`None`] if the
+    /// call happened via native functions.
+    pub fn call_stack_top_frame(&self) -> Option<Frame> {
+        self.call_stack.top_frame()
     }
 
     /// Obtain the top location on the call-stack. May be [`None`] if the
