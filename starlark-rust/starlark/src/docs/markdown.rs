@@ -518,16 +518,7 @@ mod test {
     use starlark_map::small_map::SmallMap;
     use starlark_map::smallmap;
 
-    use crate::docs::markdown::render_doc_string;
-    use crate::docs::markdown::Code;
-    use crate::docs::markdown::CodeBlock;
-    use crate::docs::markdown::DSOpts;
-    use crate::docs::markdown::FunctionDetailsRenderer;
-    use crate::docs::markdown::MarkdownFlavor;
-    use crate::docs::markdown::ParamList;
-    use crate::docs::markdown::PropertyDetailsRenderer;
-    use crate::docs::markdown::RenderMarkdown;
-    use crate::docs::markdown::TypeRenderer;
+    use super::*;
     use crate::docs::Doc;
     use crate::docs::DocItem;
     use crate::docs::DocString;
