@@ -134,19 +134,14 @@ fn render_function_parameters(params: &[Param]) -> Option<String> {
     let param_list: String = has_docs
         .iter()
         .filter_map(|p| match p {
-            Param::Arg { name, docs, .. } => {
-                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-            }
+            Param::Arg { name, docs, .. } => Some((name, docs)),
             Param::NoArgs => None,
-            Param::Args { name, docs, .. } => {
-                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-            }
-            Param::Kwargs { name, docs, .. } => {
-                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-            }
+            Param::Args { name, docs, .. } => Some((name, docs)),
+            Param::Kwargs { name, docs, .. } => Some((name, docs)),
         })
         .map(|(name, docs)| {
-            ParamList(name, docs.unwrap_or_default()).render_markdown(MarkdownFlavor::DocFile)
+            let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
+            format!("* `{name}`: {docs}\n")
         })
         .collect();
     Some(param_list)
@@ -366,18 +361,6 @@ impl<'a> RenderMarkdown for CodeBlock<'a> {
     }
 }
 
-/// A simple list to represent "`parameter`: definition" pais
-struct ParamList(String, String);
-
-impl RenderMarkdown for ParamList {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => Some(format!("* `{}`: {}\n", self.0, self.1,)),
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
@@ -584,15 +567,11 @@ mod test {
         let f3_prototype = prototype("f3", &f3);
         let f4_prototype = prototype("f4", &f4);
 
-        let rendered_params: String = vec![
-            ParamList("p1".to_owned(), render_ds_combined(&ds)),
-            ParamList("p2".to_owned(), render_ds_combined(&ds)),
-            ParamList("*p3".to_owned(), render_ds_combined(&ds)),
-            ParamList("**p4".to_owned(), render_ds_combined(&ds)),
-        ]
-        .iter()
-        .map(|p| render(p))
-        .collect();
+        let doc_bit = render_ds_combined(&ds);
+        let rendered_params: String = ["p1", "p2", "*p3", "**p4"]
+            .iter()
+            .map(|x| format!("* `{x}`: {doc_bit}\n"))
+            .collect();
 
         let expected_f1 = format!("## f1\n\n{prototype}", prototype = f1_prototype);
         let expected_f2 = format!(
