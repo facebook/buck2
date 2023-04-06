@@ -193,7 +193,6 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                     contents: Box::new(TypeRenderer::Function {
                         function_name: Some(self.name),
                         max_args_before_multiline: Some(3),
-                        show_param_details: true,
                         f: self.f,
                     }),
                 };
@@ -383,8 +382,6 @@ enum TypeRenderer<'a> {
         /// their prototype split over multiple lines. Otherwise, it is returned as
         /// a single line.
         max_args_before_multiline: Option<usize>,
-        /// Whether to show things like the name of the parameter, and default values if present.
-        show_param_details: bool,
         /// If provided, print out the function name in the prototype as well.
         function_name: Option<&'a str>,
         f: &'a Function,
@@ -413,7 +410,6 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                 TypeRenderer::Type(t) => Some(raw_type(t)),
                 TypeRenderer::Function {
                     max_args_before_multiline: max_args_per_line,
-                    show_param_details,
                     function_name,
                     f,
                 } => {
@@ -424,30 +420,18 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                             default_value,
                             ..
                         } => {
-                            if *show_param_details {
-                                let type_string = raw_type_prefix(": ", typ);
-                                match default_value {
-                                    Some(v) => format!("{}{} = {}", name, type_string, v),
-                                    None => format!("{}{}", name, type_string),
-                                }
-                            } else {
-                                raw_type(typ)
+                            let type_string = raw_type_prefix(": ", typ);
+                            match default_value {
+                                Some(v) => format!("{}{} = {}", name, type_string, v),
+                                None => format!("{}{}", name, type_string),
                             }
                         }
                         Param::NoArgs => "*".to_owned(),
                         Param::Args { typ, name, .. } => {
-                            if *show_param_details {
-                                format!("{}{}", name, raw_type_prefix(": ", typ))
-                            } else {
-                                format!("*{}", raw_type(typ))
-                            }
+                            format!("{}{}", name, raw_type_prefix(": ", typ))
                         }
                         Param::Kwargs { typ, name, .. } => {
-                            if *show_param_details {
-                                format!("{}{}", name, raw_type_prefix(": ", typ))
-                            } else {
-                                format!("**{}", raw_type(typ))
-                            }
+                            format!("{}{}", name, raw_type_prefix(": ", typ))
                         }
                     });
 
@@ -744,7 +728,6 @@ mod test {
                 language: Some("python".to_owned()),
                 contents: Box::new(TypeRenderer::Function {
                     function_name: Some(name),
-                    show_param_details: true,
                     max_args_before_multiline: Some(3),
                     f,
                 }),
