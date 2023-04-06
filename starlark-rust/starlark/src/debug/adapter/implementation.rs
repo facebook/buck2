@@ -50,7 +50,7 @@ pub(crate) fn prepare_dap_adapter(
     let (sender, receiver) = std::sync::mpsc::channel::<ToEvalMessage>();
     let state = Arc::new(SharedAdapterState {
         client,
-        breakpoints: Arc::new(Mutex::new(HashMap::new())),
+        breakpoints: Arc::new(Mutex::new(BreakpointConfig::new())),
         disable_breakpoints: Arc::new(0usize.into()),
     });
 
@@ -83,10 +83,7 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
             false
         } else {
             let breaks = self.state.breakpoints.lock().unwrap();
-            breaks
-                .get(span_loc.filename())
-                .map(|set| set.contains(&span_loc.to_file_span()))
-                .unwrap_or_default()
+            breaks.at(span_loc)
         };
         if stop {
             self.state.client.event_stopped();
@@ -120,11 +117,33 @@ impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
 }
 
 #[derive(Debug)]
+struct BreakpointConfig {
+    // maps a source filename to the breakpoint spans for the file
+    breakpoints: HashMap<String, HashSet<FileSpan>>,
+}
+
+impl BreakpointConfig {
+    fn new() -> Self {
+        Self {
+            breakpoints: HashMap::new(),
+        }
+    }
+
+    fn at(&self, span_loc: FileSpanRef) -> bool {
+        self.breakpoints
+            .get(span_loc.filename())
+            .map_or(false, |file_breaks| {
+                file_breaks.contains(&span_loc.to_file_span())
+            })
+    }
+}
+
+#[derive(Debug)]
 struct SharedAdapterState {
     client: Box<dyn DapAdapterClient>,
     // These breakpoints must all match statements as per before_stmt.
     // Those values for which we abort the execution.
-    breakpoints: Arc<Mutex<HashMap<String, HashSet<FileSpan>>>>,
+    breakpoints: Arc<Mutex<BreakpointConfig>>,
     // Set while we are doing evaluate calls (>= 1 means disable)
     disable_breakpoints: Arc<AtomicUsize>,
 }
@@ -169,14 +188,24 @@ impl DapAdapter for DapAdapterImpl {
         let source = x.source.path.unwrap();
 
         if breakpoints.is_empty() {
-            self.state.breakpoints.lock().unwrap().remove(&source);
+            self.state
+                .breakpoints
+                .lock()
+                .unwrap()
+                .breakpoints
+                .remove(&source);
             Ok(SetBreakpointsResponseBody {
                 breakpoints: Vec::new(),
             })
         } else {
             match self.state.client.get_ast(&source) {
                 Err(_) => {
-                    self.state.breakpoints.lock().unwrap().remove(&source);
+                    self.state
+                        .breakpoints
+                        .lock()
+                        .unwrap()
+                        .breakpoints
+                        .remove(&source);
                     Ok(SetBreakpointsResponseBody {
                         breakpoints: vec![breakpoint(false); breakpoints.len()],
                     })
@@ -192,6 +221,7 @@ impl DapAdapter for DapAdapterImpl {
                         .breakpoints
                         .lock()
                         .unwrap()
+                        .breakpoints
                         .insert(source, list.iter().filter_map(|x| x.duped()).collect());
                     Ok(SetBreakpointsResponseBody {
                         breakpoints: list.map(|x| breakpoint(x.is_some())),
@@ -313,8 +343,8 @@ impl DapAdapterImpl {
     }
 }
 
-fn breakpoint(verified: bool) -> Breakpoint {
-    Breakpoint {
+pub(crate) fn breakpoint(verified: bool) -> debugserver_types::Breakpoint {
+    debugserver_types::Breakpoint {
         column: None,
         end_column: None,
         end_line: None,
