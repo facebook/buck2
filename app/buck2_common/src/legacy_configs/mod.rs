@@ -1237,9 +1237,15 @@ fn push_all_files_from_a_directory(
                 path: AbsNormPath::new(&entry_path)?.to_buf(),
                 owned_by_project,
             });
+        } else if entry_path.is_dir() {
+            push_all_files_from_a_directory(
+                buckconfig_paths,
+                &AbsNormPathBuf::try_from(entry_path)?,
+                owned_by_project,
+            )?;
         } else {
             tracing::warn!(
-                "Expected a directory of buckconfig files at `{}`, but this entry was not a file: `{}`",
+                "Expected a directory of buckconfig files at `{}`, but this entry was not a file or directory: `{}`",
                 folder_path,
                 entry_path.display()
             );
@@ -1888,6 +1894,30 @@ mod tests {
 
             push_all_files_from_a_directory(&mut v, file, false)?;
             assert_eq!(v, vec![]);
+
+            Ok(())
+        }
+
+        #[test]
+        fn dir_with_file_in_dir() -> anyhow::Result<()> {
+            let mut v = vec![];
+            let dir = tempfile::tempdir()?;
+            let nested_dir = dir.path().join("nested");
+            fs_util::create_dir_all(&nested_dir)?;
+            let file = nested_dir.join("foo");
+            fs_util::write(&file, "")?;
+
+            let file = AbsNormPath::new(&file)?;
+            let dir = AbsNormPath::new(&dir)?;
+
+            push_all_files_from_a_directory(&mut v, dir, false)?;
+            assert_eq!(
+                v,
+                vec![MainConfigFile {
+                    path: file.to_owned(),
+                    owned_by_project: false,
+                }]
+            );
 
             Ok(())
         }
