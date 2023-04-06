@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -31,7 +32,7 @@ use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::nodes::configured::ConfiguredTargetNode;
 
 /// `ConfiguredTargetNode` as both `LabeledNode` and `NodeLabel` and also `QueryTarget`.
-#[derive(Debug, Dupe, Clone, RefCast)]
+#[derive(Debug, Dupe, Clone, RefCast, Allocative)]
 #[repr(C)]
 pub struct ConfiguredGraphNodeRef(pub ConfiguredTargetNode);
 
