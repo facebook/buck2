@@ -1,8 +1,4 @@
 [repositories]
 root = .
-prelude = .
-buck = no
-fbcode = no
-fbsource = no
-ovr_config = no
-toolchains = no
+prelude = prelude
+toolchains = toolchains
