@@ -192,7 +192,6 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                     language: Some("python".to_owned()),
                     contents: Box::new(TypeRenderer::Function {
                         function_name: Some(self.name),
-                        max_args_before_multiline: Some(3),
                         f: self.f,
                     }),
                 };
@@ -371,6 +370,11 @@ impl<'a> RenderMarkdown for MemberDetails<'a> {
     }
 }
 
+/// Any functions with more parameters than this will have
+/// their prototype split over multiple lines. Otherwise, it is returned as
+/// a single line.
+const MAX_ARGS_BEFORE_MULTILINE: usize = 3;
+
 /// Render a "type". This is either a [`Type`] object, or details about a function to
 /// produce a function prototype.
 enum TypeRenderer<'a> {
@@ -378,10 +382,6 @@ enum TypeRenderer<'a> {
     Type(&'a Option<Type>),
     /// A function, with some extra formatting options.
     Function {
-        /// If present, then any functions with more parameters than this will have
-        /// their prototype split over multiple lines. Otherwise, it is returned as
-        /// a single line.
-        max_args_before_multiline: Option<usize>,
         /// If provided, print out the function name in the prototype as well.
         function_name: Option<&'a str>,
         f: &'a Function,
@@ -408,11 +408,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
         match flavor {
             MarkdownFlavor::DocFile => match self {
                 TypeRenderer::Type(t) => Some(raw_type(t)),
-                TypeRenderer::Function {
-                    max_args_before_multiline: max_args_per_line,
-                    function_name,
-                    f,
-                } => {
+                TypeRenderer::Function { function_name, f } => {
                     let mut params = f.params.iter().map(|p| match p {
                         Param::Arg {
                             typ,
@@ -440,15 +436,14 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                         Some(name) => format!("def {}", name),
                         None => String::new(),
                     };
-                    match max_args_per_line {
-                        Some(i) if *i < f.params.len() => {
-                            let chunked_params = params.join(",\n    ");
-                            Some(format!(
-                                "{}(\n    {}\n){}",
-                                prefix, chunked_params, ret_type
-                            ))
-                        }
-                        _ => Some(format!("{}({}){}", prefix, params.join(", "), ret_type)),
+                    if MAX_ARGS_BEFORE_MULTILINE < f.params.len() {
+                        let chunked_params = params.join(",\n    ");
+                        Some(format!(
+                            "{}(\n    {}\n){}",
+                            prefix, chunked_params, ret_type
+                        ))
+                    } else {
+                        Some(format!("{}({}){}", prefix, params.join(", "), ret_type))
                     }
                 }
             },
@@ -728,7 +723,6 @@ mod test {
                 language: Some("python".to_owned()),
                 contents: Box::new(TypeRenderer::Function {
                     function_name: Some(name),
-                    max_args_before_multiline: Some(3),
                     f,
                 }),
             })
