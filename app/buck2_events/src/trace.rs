@@ -25,7 +25,7 @@ use uuid::Uuid;
 /// events even when a command is not running.
 #[derive(Debug, Clone, PartialEq, Eq, Allocative)]
 pub struct TraceId(
-    #[allocative(skip)] // TODO: should count.
+    #[allocative(skip)] // `Uuid` is inline.
     pub(crate)  Uuid,
 );
 
