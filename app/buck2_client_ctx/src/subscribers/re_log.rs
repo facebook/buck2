@@ -14,6 +14,8 @@ use std::time::Duration;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_observer::unpack_event::unpack_event;
+use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_events::BuckEvent;
 use futures::Future;
 use futures::FutureExt;
@@ -63,14 +65,13 @@ impl EventSubscriber for ReLog {
 
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         for event in events {
-            match event.data() {
-                buck2_data::buck_event::Data::Instant(ref instant) => {
-                    match instant.data.as_ref().context("Missing `data`")? {
-                        buck2_data::instant_event::Data::ReSession(session) => {
-                            self.re_session_id = Some(session.session_id.clone());
-                        }
-                        _ => {}
-                    }
+            match unpack_event(event)? {
+                UnpackedBuckEvent::Instant(
+                    _,
+                    _,
+                    buck2_data::instant_event::Data::ReSession(session),
+                ) => {
+                    self.re_session_id = Some(session.session_id.clone());
                 }
                 _ => {}
             }
