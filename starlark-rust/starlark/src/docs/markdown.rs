@@ -148,18 +148,14 @@ fn render_function_parameters(params: &[Param]) -> Option<String> {
 }
 
 fn render_function(name: &str, function: &Function) -> String {
-    let prototype = CodeBlock {
-        language: Some("python".to_owned()),
-        contents: Box::new(TypeRenderer::Function {
+    let prototype = render_code_block(
+        &(TypeRenderer::Function {
             function_name: name,
             f: function,
-        }),
-    };
-    let header = format!(
-        "## {}\n\n{}",
-        name,
-        prototype.render_markdown(MarkdownFlavor::DocFile)
+        }
+        .render_markdown(MarkdownFlavor::DocFile)),
     );
+    let header = format!("## {name}\n\n{prototype}");
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
 
@@ -339,26 +335,8 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
     }
 }
 
-/// A code block that optionally has a language. Note that this will always take multiple
-/// lines, so may not be ideal for tables at the moment.
-struct CodeBlock<'a> {
-    language: Option<String>,
-    contents: Box<dyn RenderMarkdown + 'a>,
-}
-
-impl<'a> RenderMarkdown for CodeBlock<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => self.contents.render_markdown_opt(flavor).map(|contents| {
-                format!(
-                    "```{}\n{}\n```",
-                    self.language.clone().unwrap_or_default(),
-                    contents
-                )
-            }),
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
+fn render_code_block(contents: &str) -> String {
+    format!("```python\n{contents}\n```")
 }
 
 #[cfg(test)]
@@ -409,42 +387,6 @@ mod test {
         Some(Type {
             raw_type: "int".to_owned(),
         })
-    }
-
-    #[test]
-    fn doc_file_code_block() {
-        let expected_no_lang = textwrap::dedent(
-            r#"
-            ```
-            foo
-            bar
-            ```
-            "#,
-        )
-        .trim()
-        .to_owned();
-
-        let expected_python = textwrap::dedent(
-            r#"
-            ```python
-            foo
-            bar
-            ```"#,
-        )
-        .trim()
-        .to_owned();
-
-        let no_lang = CodeBlock {
-            language: None,
-            contents: Box::new("foo\nbar".to_owned()),
-        };
-        let python = CodeBlock {
-            language: Some("python".to_owned()),
-            contents: Box::new("foo\nbar".to_owned()),
-        };
-
-        assert_eq!(expected_no_lang, render(&no_lang));
-        assert_eq!(expected_python, render(&python));
     }
 
     #[test]
@@ -554,13 +496,10 @@ mod test {
         };
 
         fn prototype(name: &str, f: &Function) -> String {
-            render(&CodeBlock {
-                language: Some("python".to_owned()),
-                contents: Box::new(TypeRenderer::Function {
-                    function_name: name,
-                    f,
-                }),
-            })
+            render_code_block(&render(&TypeRenderer::Function {
+                function_name: name,
+                f,
+            }))
         }
         let f1_prototype = prototype("f1", &f1);
         let f2_prototype = prototype("f2", &f2);
