@@ -106,11 +106,13 @@ impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => {
-                let header = format!(
-                    "## {} : {}",
-                    self.name,
-                    Code(Box::new(TypeRenderer::Type(&self.p.typ))).render_markdown(flavor)
-                );
+                let mut header = format!("## {}", self.name);
+                if self.p.typ.is_some() {
+                    header += &format!(
+                        " : {}",
+                        Code(Box::new(TypeRenderer::Type(&self.p.typ))).render_markdown(flavor)
+                    );
+                };
                 let summary =
                     DocStringRenderer(DSOpts::Summary, &self.p.docs).render_markdown_opt(flavor);
                 let details =
@@ -394,7 +396,15 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
         fn raw_type(t: &Option<Type>) -> String {
             match t {
                 Some(t) if !t.raw_type.is_empty() => t.raw_type.clone(),
-                _ => "UNKNOWN".to_owned(),
+                _ => "\"\"".to_owned(),
+            }
+        }
+
+        fn raw_type_prefix(prefix: &str, t: &Option<Type>) -> String {
+            if t.is_some() {
+                format!("{prefix}{}", raw_type(t))
+            } else {
+                String::new()
             }
         }
 
@@ -414,36 +424,34 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                             default_value,
                             ..
                         } => {
-                            let type_string = raw_type(typ);
                             if *show_param_details {
+                                let type_string = raw_type_prefix(": ", typ);
                                 match default_value {
-                                    Some(v) => format!("{}: {} = {}", name, type_string, v),
-                                    None => format!("{}: {}", name, type_string),
+                                    Some(v) => format!("{}{} = {}", name, type_string, v),
+                                    None => format!("{}{}", name, type_string),
                                 }
                             } else {
-                                type_string
+                                raw_type(typ)
                             }
                         }
                         Param::NoArgs => "*".to_owned(),
                         Param::Args { typ, name, .. } => {
-                            let type_string = raw_type(typ);
                             if *show_param_details {
-                                format!("{}: {}", name, type_string)
+                                format!("{}{}", name, raw_type_prefix(": ", typ))
                             } else {
-                                format!("*{}", type_string)
+                                format!("*{}", raw_type(typ))
                             }
                         }
                         Param::Kwargs { typ, name, .. } => {
-                            let type_string = raw_type(typ);
                             if *show_param_details {
-                                format!("{}: {}", name, type_string)
+                                format!("{}{}", name, raw_type_prefix(": ", typ))
                             } else {
-                                format!("**{}", type_string)
+                                format!("**{}", raw_type(typ))
                             }
                         }
                     });
 
-                    let ret_type = raw_type(&f.ret.typ);
+                    let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
                     let prefix = match function_name {
                         Some(name) => format!("def {}", name),
                         None => String::new(),
@@ -452,11 +460,11 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                         Some(i) if *i < f.params.len() => {
                             let chunked_params = params.join(",\n    ");
                             Some(format!(
-                                "{}(\n    {}\n) -> {}",
+                                "{}(\n    {}\n){}",
                                 prefix, chunked_params, ret_type
                             ))
                         }
-                        _ => Some(format!("{}({}) -> {}", prefix, params.join(", "), ret_type)),
+                        _ => Some(format!("{}({}){}", prefix, params.join(", "), ret_type)),
                     }
                 }
             },
