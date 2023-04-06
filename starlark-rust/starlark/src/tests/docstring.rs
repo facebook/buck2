@@ -21,8 +21,8 @@ use crate::assert;
 use crate::assert::Assert;
 use crate::const_frozen_string;
 use crate::docs::DocStringKind;
+use crate::docs::ModuleDocs;
 use crate::environment::Module;
-use crate::environment::ModuleDocs;
 use crate::values::Value;
 
 #[test]

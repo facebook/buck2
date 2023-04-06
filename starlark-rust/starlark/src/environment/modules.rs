@@ -22,7 +22,6 @@
 
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::mem;
 use std::time::Duration;
 use std::time::Instant;
@@ -32,9 +31,9 @@ use dupe::Dupe;
 use itertools::Itertools;
 
 use crate::collections::Hashed;
-use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::docs::ModuleDocs;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
@@ -96,15 +95,6 @@ pub(crate) struct FrozenModuleData {
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
     heap_profile: Option<RetainedHeapProfile>,
-}
-
-/// Container for the documentation for a module
-#[derive(Clone, Debug, PartialEq)]
-pub struct ModuleDocs {
-    /// The documentation for the module itself
-    pub docs: Option<DocString>,
-    /// A mapping of top level symbols to their documentation, if any.
-    pub members: HashMap<String, Option<DocItem>>,
 }
 
 /// A container for user values, used during execution.

@@ -418,6 +418,15 @@ impl Module {
     }
 }
 
+/// Container for the documentation for a module
+#[derive(Clone, Debug, PartialEq)]
+pub struct ModuleDocs {
+    /// The documentation for the module itself
+    pub docs: Option<DocString>,
+    /// A mapping of top level symbols to their documentation, if any.
+    pub members: HashMap<String, Option<DocItem>>,
+}
+
 /// Documents a single function.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Allocative)]
 pub struct Function {
