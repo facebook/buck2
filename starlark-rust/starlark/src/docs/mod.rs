@@ -407,14 +407,35 @@ pub struct Module {
     /// In general, this should be the first statement of a loaded file, if that statement is
     /// a string literal.
     pub docs: Option<DocString>,
+    /// A mapping of top level symbols to their documentation, if any.
+    pub members: HashMap<String, Option<DocItem>>,
 }
 
 impl Module {
     fn render_as_code(&self) -> String {
-        self.docs
+        let mut res = self
+            .docs
             .as_ref()
             .map(DocString::render_as_quoted_code)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        for (k, v) in &self.members {
+            if let Some(v) = v {
+                res.push('\n');
+                res.push_str(
+                    &(Doc {
+                        id: Identifier {
+                            name: k.clone(),
+                            location: None,
+                        },
+                        item: v.clone(),
+                        custom_attrs: HashMap::new(),
+                    }
+                    .render_as_code()),
+                );
+                res.push('\n');
+            }
+        }
+        res
     }
 }
 
@@ -1643,7 +1664,10 @@ mod tests {
                     name: "some_module".to_owned(),
                     location: None,
                 },
-                item: DocItem::Module(Module { docs: ds }),
+                item: DocItem::Module(Module {
+                    docs: ds,
+                    members: HashMap::new(),
+                }),
                 custom_attrs: Default::default(),
             },
         ];

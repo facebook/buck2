@@ -260,6 +260,7 @@ async fn get_docs_from_module(
             },
             item: DocItem::Module(starlark::docs::Module {
                 docs: Some(module_doc),
+                members: HashMap::new(),
             }),
             custom_attrs: Default::default(),
         });

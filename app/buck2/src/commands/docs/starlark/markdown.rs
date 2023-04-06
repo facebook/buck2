@@ -167,7 +167,10 @@ mod tests {
                     location: None,
                 },
                 custom_attrs: HashMap::new(),
-                item: DocItem::Module(Module { docs: ds.clone() }),
+                item: DocItem::Module(Module {
+                    docs: ds.clone(),
+                    members: HashMap::new(),
+                }),
             },
             Doc {
                 id: Identifier {
@@ -226,7 +229,10 @@ mod tests {
                     }),
                 },
                 custom_attrs: HashMap::new(),
-                item: DocItem::Module(Module { docs: ds }),
+                item: DocItem::Module(Module {
+                    docs: ds,
+                    members: HashMap::new(),
+                }),
             },
         ];
 

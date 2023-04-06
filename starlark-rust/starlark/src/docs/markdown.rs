@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
+
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -265,7 +267,29 @@ impl<'a> RenderMarkdown for ModuleRenderer<'a> {
                 };
                 let docs =
                     DocStringRenderer(DSOpts::Combined, &self.module.docs).render_markdown(flavor);
-                Some(format!("# {}\n\n{}", name, docs))
+                let mut res = format!("# {}\n\n{}", name, docs);
+
+                for (k, v) in &self.module.members {
+                    res.push('\n');
+                    match v {
+                        Some(v) => res.push_str(
+                            &(Doc {
+                                id: Identifier {
+                                    name: k.clone(),
+                                    location: None,
+                                },
+                                item: v.clone(),
+                                custom_attrs: HashMap::new(),
+                            }
+                            .render_markdown_opt(flavor)
+                            .unwrap_or_default()),
+                        ),
+                        None => res.push_str(&format!("{}: UNKNOWN", k)),
+                    }
+                    res.push('\n');
+                }
+
+                Some(res)
             }
             MarkdownFlavor::LspSummary => None,
         }
@@ -794,7 +818,10 @@ mod test {
                 name: "some_module".to_owned(),
                 location: None,
             },
-            item: DocItem::Module(Module { docs: ds.clone() }),
+            item: DocItem::Module(Module {
+                docs: ds.clone(),
+                members: HashMap::new(),
+            }),
             custom_attrs: HashMap::default(),
         };
         let doc_with_loc = Doc {
@@ -805,7 +832,10 @@ mod test {
                     position: None,
                 }),
             },
-            item: DocItem::Module(Module { docs: ds }),
+            item: DocItem::Module(Module {
+                docs: ds,
+                members: HashMap::new(),
+            }),
             custom_attrs: HashMap::default(),
         };
 
