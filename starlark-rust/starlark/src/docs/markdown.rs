@@ -98,7 +98,7 @@ impl<'a> RenderMarkdown for DocStringRenderer<'a> {
 
 /// Renders details about a property of an object that has the given name.
 struct PropertyDetailsRenderer<'a> {
-    name: String,
+    name: &'a str,
     p: &'a Property,
 }
 
@@ -135,7 +135,7 @@ impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
 
 /// Renders the details panel of a function (either standalone or on an object).
 struct FunctionDetailsRenderer<'a> {
-    name: String,
+    name: &'a str,
     f: &'a Function,
 }
 
@@ -189,7 +189,7 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                 let prototype = CodeBlock {
                     language: Some("python".to_owned()),
                     contents: Box::new(TypeRenderer::Function {
-                        function_name: Some(self.name.clone()),
+                        function_name: Some(self.name),
                         max_args_before_multiline: Some(3),
                         show_param_details: true,
                         f: self.f,
@@ -240,7 +240,7 @@ impl<'a> RenderMarkdown for FunctionRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => FunctionDetailsRenderer {
-                name: self.id.name.clone(),
+                name: &self.id.name,
                 f: self.function,
             }
             .render_markdown_opt(flavor),
@@ -301,7 +301,7 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
                     .map(|(name, member)| {
                         MemberDetails {
-                            name: name.clone(),
+                            name: &name,
                             member,
                         }
                         .render_markdown(flavor)
@@ -354,7 +354,7 @@ impl RenderMarkdown for Doc {
 
 /// Details about a member. Proxies to `PropertyDetailsRenderer` and `FunctionDetailsRenderer`
 struct MemberDetails<'a> {
-    name: String,
+    name: &'a str,
     member: &'a Member,
 }
 
@@ -363,15 +363,13 @@ impl<'a> RenderMarkdown for MemberDetails<'a> {
         match flavor {
             MarkdownFlavor::DocFile => match self.member {
                 Member::Property(p) => PropertyDetailsRenderer {
-                    name: self.name.clone(),
+                    name: &self.name,
                     p,
                 }
                 .render_markdown_opt(flavor),
-                Member::Function(f) => FunctionDetailsRenderer {
-                    name: self.name.clone(),
-                    f,
+                Member::Function(f) => {
+                    FunctionDetailsRenderer { name: self.name, f }.render_markdown_opt(flavor)
                 }
-                .render_markdown_opt(flavor),
             },
             MarkdownFlavor::LspSummary => None,
         }
@@ -392,7 +390,7 @@ enum TypeRenderer<'a> {
         /// Whether to show things like the name of the parameter, and default values if present.
         show_param_details: bool,
         /// If provided, print out the function name in the prototype as well.
-        function_name: Option<String>,
+        function_name: Option<&'a str>,
         f: &'a Function,
     },
 }
@@ -743,7 +741,7 @@ mod test {
             render(&CodeBlock {
                 language: Some("python".to_owned()),
                 contents: Box::new(TypeRenderer::Function {
-                    function_name: Some(name.to_owned()),
+                    function_name: Some(name),
                     show_param_details: true,
                     max_args_before_multiline: Some(3),
                     f,
@@ -789,31 +787,19 @@ mod test {
 
         assert_eq!(
             expected_f1,
-            render(&FunctionDetailsRenderer {
-                name: "f1".to_owned(),
-                f: &f1
-            })
+            render(&FunctionDetailsRenderer { name: "f1", f: &f1 })
         );
         assert_eq!(
             expected_f2,
-            render(&FunctionDetailsRenderer {
-                name: "f2".to_owned(),
-                f: &f2
-            })
+            render(&FunctionDetailsRenderer { name: "f2", f: &f2 })
         );
         assert_eq!(
             expected_f3,
-            render(&FunctionDetailsRenderer {
-                name: "f3".to_owned(),
-                f: &f3
-            })
+            render(&FunctionDetailsRenderer { name: "f3", f: &f3 })
         );
         assert_eq!(
             expected_f4,
-            render(&FunctionDetailsRenderer {
-                name: "f4".to_owned(),
-                f: &f4
-            })
+            render(&FunctionDetailsRenderer { name: "f4", f: &f4 })
         );
     }
 
@@ -881,18 +867,9 @@ mod test {
             },
         };
 
-        let p1_details = render(&PropertyDetailsRenderer {
-            name: "p1".to_owned(),
-            p: &p1,
-        });
-        let p2_details = render(&PropertyDetailsRenderer {
-            name: "p2".to_owned(),
-            p: &p2,
-        });
-        let f1_details = render(&FunctionDetailsRenderer {
-            name: "f1".to_owned(),
-            f: &f1,
-        });
+        let p1_details = render(&PropertyDetailsRenderer { name: "p1", p: &p1 });
+        let p2_details = render(&PropertyDetailsRenderer { name: "p2", p: &p2 });
+        let f1_details = render(&FunctionDetailsRenderer { name: "f1", f: &f1 });
 
         let expected_without_docs_root = format!(
             "# foo1\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
@@ -987,7 +964,7 @@ mod test {
         assert_eq!(
             expected_no_docs,
             render(&PropertyDetailsRenderer {
-                name: "foo1".to_owned(),
+                name: "foo1",
                 p: &Property {
                     docs: None,
                     typ: typ.clone()
@@ -997,7 +974,7 @@ mod test {
         assert_eq!(
             expected_no_details,
             render(&PropertyDetailsRenderer {
-                name: "foo2".to_owned(),
+                name: "foo2",
                 p: &Property {
                     docs: ds_no_details,
                     typ: typ.clone()
@@ -1007,7 +984,7 @@ mod test {
         assert_eq!(
             expected_with_docs,
             render(&PropertyDetailsRenderer {
-                name: "foo3".to_owned(),
+                name: "foo3",
                 p: &Property { docs: ds, typ }
             })
         );
@@ -1041,21 +1018,21 @@ mod test {
         assert_eq!(
             expected_no_docs,
             render(&PropertyDetailsRenderer {
-                name: "foo".to_owned(),
+                name: "foo",
                 p: &no_docs
             })
         );
         assert_eq!(
             expected_no_details,
             render(&PropertyDetailsRenderer {
-                name: "foo".to_owned(),
+                name: "foo",
                 p: &no_details
             })
         );
         assert_eq!(
             expected_with_summary_and_details,
             render(&PropertyDetailsRenderer {
-                name: "foo".to_owned(),
+                name: "foo",
                 p: &with_summary_and_details
             })
         );
