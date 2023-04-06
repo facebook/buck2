@@ -31,6 +31,7 @@ use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
+use crate::codemap::Span;
 use crate::debug::adapter::Breakpoint;
 use crate::debug::adapter::ResolvedBreakpoints;
 use crate::debug::DapAdapter;
@@ -172,7 +173,7 @@ impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
 #[derive(Debug)]
 struct BreakpointConfig {
     // maps a source filename to the breakpoint spans for the file
-    breakpoints: HashMap<String, HashMap<FileSpan, Breakpoint>>,
+    breakpoints: HashMap<String, HashMap<Span, Breakpoint>>,
 }
 
 impl BreakpointConfig {
@@ -185,7 +186,7 @@ impl BreakpointConfig {
     fn at(&self, span_loc: FileSpanRef) -> Option<&Breakpoint> {
         self.breakpoints
             .get(span_loc.filename())
-            .and_then(|file_breaks| file_breaks.get(&span_loc.to_file_span()))
+            .and_then(|file_breaks| file_breaks.get(&span_loc.span))
     }
 
     fn set_breakpoints(
@@ -202,7 +203,7 @@ impl BreakpointConfig {
                     .0
                     .iter()
                     .filter_map(|x| x.clone())
-                    .map(|x| (x.span.dupe(), x))
+                    .map(|x| (x.span.span, x))
                     .collect(),
             );
         }
