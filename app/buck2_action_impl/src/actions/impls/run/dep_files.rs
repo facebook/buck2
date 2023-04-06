@@ -341,6 +341,11 @@ async fn dep_files_match(
         return Ok(false);
     }
 
+    if digests.directory == previous_state.digests.directory {
+        tracing::trace!("Dep files hit: Command line and directory have not changed");
+        return Ok(true);
+    }
+
     let dep_files = previous_state
         .read_dep_files(ctx.fs(), ctx.materializer())
         .await
