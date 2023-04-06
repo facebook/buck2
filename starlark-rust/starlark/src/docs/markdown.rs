@@ -285,10 +285,11 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                 // If this is a native, top level object, render it with a larger
                 // header. Sub objects will be listed along side members, so use
                 // smaller headers there.
-                let mut title = match self.id.location.is_none() {
-                    true => format!("# {}", self.id.name),
-                    false => format!("## {}", self.id.name),
-                };
+                let mut title = format!(
+                    "#{} {}",
+                    if self.id.location.is_none() { "" } else { "#" },
+                    self.id.name,
+                );
                 let mut summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
                     .render_markdown_opt(flavor)
                     .map(|s| format!("\n\n{}", s))
