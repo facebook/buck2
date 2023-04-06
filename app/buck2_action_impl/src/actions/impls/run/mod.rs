@@ -31,6 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use buck2_core::category::Category;
+use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::span_async;
@@ -58,6 +59,7 @@ use thiserror::Error;
 
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
 use crate::actions::impls::run::dep_files::populate_dep_files;
+use crate::actions::impls::run::dep_files::CommandDigests;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::DepFilesKey;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
@@ -417,11 +419,14 @@ impl IncrementalActionExecutable for RunAction {
                             ..
                         } = visitor;
 
-                        let cli_digest = prepared.expanded.fingerprint();
+                        let digests = CommandDigests {
+                            cli: prepared.expanded.fingerprint(),
+                            directory: prepared.paths.input_directory().fingerprint().data().dupe(),
+                        };
 
                         let matching_result = match_or_clear_dep_file(
                             &dep_files_key,
-                            &cli_digest,
+                            &digests,
                             &declared_inputs,
                             self.outputs.as_slice(),
                             &declared_dep_files,
@@ -432,12 +437,7 @@ impl IncrementalActionExecutable for RunAction {
                         (
                             matching_result,
                             prepared,
-                            (
-                                dep_files_key,
-                                cli_digest,
-                                declared_inputs,
-                                declared_dep_files,
-                            ),
+                            (dep_files_key, digests, declared_inputs, declared_dep_files),
                         )
                     };
 
@@ -477,11 +477,11 @@ impl IncrementalActionExecutable for RunAction {
         let outputs = ActionOutputs::new(outputs);
 
         if let Some(dep_files) = dep_files {
-            let (dep_files_key, cli_digest, declared_inputs, declared_dep_files) = dep_files;
+            let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
 
             populate_dep_files(
                 dep_files_key,
-                cli_digest,
+                digests,
                 declared_inputs,
                 declared_dep_files,
                 &outputs,

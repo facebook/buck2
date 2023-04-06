@@ -27,6 +27,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::Category;
 use buck2_core::directory::DirectorySelector;
@@ -152,10 +153,16 @@ impl PartialEq<PartitionedInputs<ActionImmutableDirectory>> for StoredFingerprin
 /// to return the previous value).
 #[derive(Allocative)]
 pub struct DepFileState {
-    cli_digest: ExpandedCommandLineDigest,
+    digests: CommandDigests,
     input_signatures: Mutex<DepFileStateInputSignatures>,
     declared_dep_files: DeclaredDepFiles,
     result: ActionOutputs,
+}
+
+#[derive(Allocative)]
+pub struct CommandDigests {
+    pub cli: ExpandedCommandLineDigest,
+    pub directory: FileDigest,
 }
 
 impl DepFileState {
@@ -257,10 +264,10 @@ impl RunActionDepFiles {
 }
 
 /// Match the dep file recorded for key, or clear it from the map (if it exists).
-#[instrument(level = "debug", skip(cli_digest, declared_inputs, ctx), fields(key = %key))]
+#[instrument(level = "debug", skip(digests, declared_inputs, ctx), fields(key = %key))]
 pub(crate) async fn match_or_clear_dep_file(
     key: &DepFilesKey,
-    cli_digest: &ExpandedCommandLineDigest,
+    digests: &CommandDigests,
     declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
@@ -275,11 +282,8 @@ pub(crate) async fn match_or_clear_dep_file(
     // can't assume they'll still be on disk, and we have to bail.
     if declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files)
         && outputs_are_reusable(declared_outputs, &previous_state.result)
-        && *cli_digest == previous_state.cli_digest
+        && digests.cli == previous_state.digests.cli
     {
-        // First, we need to ensure we have the dep files. If we've materialized them before, this
-        // will be a no-op.
-
         let dep_files = previous_state
             .read_dep_files(ctx.fs(), ctx.materializer())
             .await
@@ -369,7 +373,7 @@ fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutp
 /// Post-process the dep files produced by an action.
 pub(crate) async fn populate_dep_files(
     key: DepFilesKey,
-    cli_digest: ExpandedCommandLineDigest,
+    digests: CommandDigests,
     declared_inputs: PartitionedInputs<Vec<ArtifactGroup>>,
     declared_dep_files: DeclaredDepFiles,
     result: &ActionOutputs,
@@ -381,7 +385,7 @@ pub(crate) async fn populate_dep_files(
     let digest_config = ctx.digest_config();
 
     let state = DepFileState {
-        cli_digest,
+        digests,
         input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
             directories.share(digest_config),
         ))),
