@@ -38,13 +38,12 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
-use buck2_query::query::traversal::async_unordered_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
-use buck2_query::query::traversal::ChildVisitor;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use indexmap::IndexMap;
 use inventory::ctor;
 use thiserror::Error;
@@ -254,7 +253,7 @@ impl<'a> ConfiguredGraphFunctions<'a> {
         let label_to_artifact = env
             .get_from_template_placeholder_info(template_name, &targets)
             .await?;
-        let targets = env.find_target_nodes(&targets, label_to_artifact).await?;
+        let targets = env.find_target_nodes(targets, label_to_artifact)?;
         Ok(targets.into())
     }
 }
@@ -327,53 +326,31 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
     /// dependencies on all the nodes that we lookup. It's common for these queries to operate
     /// over inputs that are aggregated as data flows up the graph and it's important that we
     /// don't inadvertently cause flattening of those sets.
-    async fn find_target_nodes(
+    fn find_target_nodes(
         &self,
-        targets: &TargetSet<ConfiguredGraphNodeRef>,
+        targets: TargetSet<ConfiguredGraphNodeRef>,
         label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact>,
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
-        struct TraversalDelegate {
-            targets: TargetSet<ConfiguredGraphNodeRef>,
-            label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact>,
-        }
+        let mut queue: VecDeque<_> = targets.iter().duped().collect();
+        let mut seen = targets;
+        let mut result = TargetSet::new();
 
-        #[async_trait]
-        impl AsyncTraversalDelegate<ConfiguredGraphNodeRef> for TraversalDelegate {
-            fn visit(&mut self, target: ConfiguredGraphNodeRef) -> anyhow::Result<()> {
-                let label = target.label();
-                if self.label_to_artifact.contains_key(label) {
-                    self.targets.insert(target);
-                }
-
-                Ok(())
+        while let Some(target) = queue.pop_front() {
+            if label_to_artifact.contains_key(target.label()) {
+                result.insert(target.dupe());
             }
-
-            async fn for_each_child(
-                &mut self,
-                target: &ConfiguredGraphNodeRef,
-                func: &mut dyn ChildVisitor<ConfiguredGraphNodeRef>,
-            ) -> anyhow::Result<()> {
-                // if all found then skip traversing further
-                if self.targets.len() == self.label_to_artifact.len() {
-                    return Ok(());
+            if result.len() == label_to_artifact.len() {
+                return Ok(result);
+            }
+            for dep in target.0.target_deps() {
+                let dep = ConfiguredGraphNodeRef(dep.dupe());
+                if seen.insert(dep.dupe()) {
+                    queue.push_back(dep);
                 }
-
-                for dep in target.target_deps() {
-                    func.visit(LabeledNode::node_ref(dep).dupe())?;
-                }
-
-                Ok(())
             }
         }
 
-        let mut delegate = TraversalDelegate {
-            targets: TargetSet::new(),
-            label_to_artifact,
-        };
-        async_unordered_traversal(&ConfiguredGraphNodeRefLookup, targets.iter(), &mut delegate)
-            .await?;
-
-        Ok(delegate.targets)
+        Ok(result)
     }
 }
 
