@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-byteorder = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }

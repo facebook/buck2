@@ -333,11 +333,11 @@ mod tests {
     fn trace_id_hash_produces_a_reasonable_number() {
         let trace_id = TraceId(Uuid::parse_str("0436430c-2b02-624c-2032-570501212b57").unwrap());
         let hash = trace_id.hash();
-        assert_eq!(2320012437054630743i64, hash);
+        assert_eq!(5739261098605499414, hash);
 
         let other_trace_id =
             TraceId(Uuid::parse_str("586615bb-f57a-45a6-8804-3c6fcb0347de").unwrap());
         let hash = other_trace_id.hash();
-        assert_eq!(-8645718933799483426i64, hash);
+        assert_eq!(8717222666446319742, hash);
     }
 }

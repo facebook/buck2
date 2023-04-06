@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
@@ -14,8 +15,6 @@ use std::hash::Hasher;
 use std::str::FromStr;
 
 use allocative::Allocative;
-use byteorder::ByteOrder;
-use byteorder::NetworkEndian;
 use dupe::Dupe;
 use uuid::Uuid;
 
@@ -23,7 +22,7 @@ use uuid::Uuid;
 ///
 /// TraceIds generally correspond to commands, but they do not have to, e.g. in the case of a Buck daemon producing
 /// events even when a command is not running.
-#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct TraceId(
     #[allocative(skip)] // `Uuid` is inline.
     pub(crate)  Uuid,
@@ -78,16 +77,11 @@ impl TraceId {
         TraceId(Uuid::nil())
     }
 
-    /// Retrieves the cached hash of this TraceId.
+    /// Generate short hash to be used as a message key for a Scribe client.
     pub fn hash(&self) -> i64 {
-        NetworkEndian::read_i64(&self.0.as_bytes()[8..16])
-    }
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq is still correct.
-impl Hash for TraceId {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash().hash(state);
+        let mut hasher = DefaultHasher::new();
+        Hash::hash(self, &mut hasher);
+        hasher.finish() as i64
     }
 }
 
