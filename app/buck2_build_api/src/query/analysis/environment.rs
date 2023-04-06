@@ -23,9 +23,11 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_query::query::compatibility::MaybeCompatible;
+use buck2_query::query::environment::deps;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::environment::TraversalFilter;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -435,6 +437,42 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("owner").into())
+    }
+
+    async fn deps(
+        &self,
+        targets: &TargetSet<Self::Target>,
+        depth: Option<i32>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
+    ) -> anyhow::Result<TargetSet<Self::Target>> {
+        if filter.is_some() {
+            // We fallback to default `deps` implementation here because evaluating filter function is async.
+            deps(self, targets, depth, filter).await
+        } else {
+            // We reimplement `deps` here rather than relying on the default implementation for two reasons.
+            // (1) default `deps` implementation is asynchronous, but for configured target nodes, this can be entirely
+            // synchronous when a user doesn't specify a filter function (this usually happens in practice).
+            // (2) default `deps` currently uses a separate visited target set and result target set, but they can
+            // actually be the same - once you've traversed the entire deps graph, the visited set is your result set.
+            // This only uses one set and reduces the amount of hashing needed for deps.
+            // TODO(scottcao): Make `deps` default implementation use one set for both visited and result targets.
+            // TODO(scottcao): Make traversals synchronous for both ConfiguredTargetNode and ConfiguredGraphNodeRef.
+            let mut deps = targets.clone();
+            let mut queue: VecDeque<_> = targets.iter().map(|target| (target.dupe(), 0)).collect();
+
+            while let Some((target, target_depth)) = queue.pop_front() {
+                if depth.map_or(true, |max_depth| max_depth < 0 || target_depth < max_depth) {
+                    for dep in target.deps() {
+                        // Unlike default `deps` implementation, we just insert into one set here instead of two.
+                        if deps.insert(dep.dupe()) {
+                            queue.push_back((dep.dupe(), target_depth + 1));
+                        }
+                    }
+                }
+            }
+
+            Ok(deps)
+        }
     }
 }
 
