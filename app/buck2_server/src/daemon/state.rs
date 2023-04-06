@@ -370,7 +370,7 @@ impl DaemonState {
         .context("failed to init scribe sink")?;
 
         let critical_path_backend = root_config
-            .parse("buck2", "critical_path_backend")?
+            .parse("buck2", "critical_path_backend2")?
             .unwrap_or(CriticalPathBackendName::Default);
 
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
