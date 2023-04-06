@@ -5,6 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//java:class_to_srcs.bzl",
+    "JavaClassToSourceMapInfo",  # @unused Used as a type
+    "merge_class_to_source_map_from_jar",
+)
 load("@prelude//java:java_library.bzl", "build_java_library")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
@@ -18,7 +23,7 @@ def java_test_impl(ctx: "context") -> ["provider"]:
         return [DefaultInfo()]
 
     java_providers = build_java_library(ctx, ctx.attrs.srcs)
-    external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info)
+    external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info, java_providers.class_to_src_map)
 
     return inject_test_run_info(ctx, external_runner_test_info) + [
         java_providers.java_library_intellij_info,
@@ -32,6 +37,7 @@ def build_junit_test(
         ctx: "context",
         tests_java_library_info: "JavaLibraryInfo",
         tests_java_packaging_info: "JavaPackagingInfo",
+        tests_class_to_source_info: [JavaClassToSourceMapInfo.type, None] = None,
         extra_cmds: list.type = [],
         extra_classpath_entries: ["artifact"] = []) -> ExternalRunnerTestInfo.type:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
@@ -112,6 +118,18 @@ def build_junit_test(
             if key in env:
                 fail("Duplicate key for java_test env: '{}'".format(key))
             env[key] = value
+
+    if tests_class_to_source_info != None:
+        transitive_class_to_src_map = merge_class_to_source_map_from_jar(
+            actions = ctx.actions,
+            name = ctx.attrs.name + ".transitive_class_to_src.json",
+            java_test_toolchain = java_test_toolchain,
+            relative_to = ctx.label.cell_root if run_from_cell_root else None,
+            deps = [tests_class_to_source_info],
+        )
+        if run_from_cell_root:
+            transitive_class_to_src_map = cmd_args(transitive_class_to_src_map).relative_to(ctx.label.cell_root)
+        env["JACOCO_CLASSNAME_SOURCE_MAP"] = transitive_class_to_src_map
 
     test_info = ExternalRunnerTestInfo(
         type = "junit",

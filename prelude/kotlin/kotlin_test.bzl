@@ -14,7 +14,7 @@ def kotlin_test_impl(ctx: "context") -> ["provider"]:
         return [DefaultInfo()]
 
     java_providers = build_kotlin_library(ctx, ctx.attrs.srcs)
-    external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info)
+    external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info, java_providers.class_to_src_map)
 
     return inject_test_run_info(ctx, external_runner_test_info) + [
         java_providers.java_library_intellij_info,

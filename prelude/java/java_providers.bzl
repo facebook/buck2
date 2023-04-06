@@ -10,6 +10,7 @@ load(
     "ResourceInfo",
     "gather_resources",
 )
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_path_separator")
@@ -214,10 +215,11 @@ JavaProviders = record(
     cxx_resource_info = ResourceInfo.type,
     template_placeholder_info = TemplatePlaceholderInfo.type,
     default_info = DefaultInfo.type,
+    class_to_src_map = [JavaClassToSourceMapInfo.type, None],
 )
 
 def to_list(java_providers: JavaProviders.type) -> ["provider"]:
-    return [
+    providers = [
         java_providers.java_library_info,
         java_providers.java_library_intellij_info,
         java_providers.java_packaging_info,
@@ -226,6 +228,9 @@ def to_list(java_providers: JavaProviders.type) -> ["provider"]:
         java_providers.template_placeholder_info,
         java_providers.default_info,
     ]
+    if java_providers.class_to_src_map != None:
+        providers.append(java_providers.class_to_src_map)
+    return providers
 
 # Creates a JavaCompileOutputs. `classpath_abi` can be set to specify a
 # specific artifact to be used as the abi for the JavaClasspathEntry.

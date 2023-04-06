@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//java:class_to_srcs.bzl", "create_class_to_source_map_from_jar", "create_class_to_source_map_info")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
@@ -634,6 +635,23 @@ def build_java_library(
         has_srcs = has_srcs,
     )
 
+    class_to_srcs = None
+    if outputs != None:
+        class_to_srcs = create_class_to_source_map_from_jar(
+            actions = ctx.actions,
+            java_toolchain = java_toolchain,
+            name = ctx.attrs.name + ".class_to_srcs.json",
+            jar = outputs.classpath_entry.abi,
+            srcs = ctx.attrs.srcs,
+            jar_path = outputs.classpath_entry.full_library,
+        )
+        sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
+    class_to_src_map = create_class_to_source_map_info(
+        ctx = ctx,
+        mapping = class_to_srcs,
+        deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps + ctx.attrs.provided_deps + provided_deps_query + ctx.attrs.exported_provided_deps,
+    )
+
     default_info = get_default_info(outputs, sub_targets | extra_sub_targets)
     return JavaProviders(
         java_library_info = java_library_info,
@@ -643,4 +661,5 @@ def build_java_library(
         cxx_resource_info = cxx_resource_info,
         template_placeholder_info = template_placeholder_info,
         default_info = default_info,
+        class_to_src_map = class_to_src_map,
     )

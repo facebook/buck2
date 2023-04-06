@@ -383,6 +383,7 @@ def build_kotlin_library(
                 cxx_resource_info = cxx_resource_info,
                 template_placeholder_info = template_placeholder_info,
                 default_info = default_info,
+                class_to_src_map = None,
             )
         else:
             fail("unrecognized kotlinc protocol `{}`".format(kotlin_toolchain.kotlinc_protocol))

@@ -45,6 +45,7 @@ JavaToolchainInfo = provider(
         "used_classes_to_dep_file",
         "zip_scrubber",
         "is_bootstrap_toolchain",
+        "gen_class_to_source_map",
     ],
 )
 
@@ -60,6 +61,7 @@ JavaTestToolchainInfo = provider(
         "testng_test_runner_main_class_args",
         "list_class_names",
         "use_java_custom_class_loader",
+        "merge_class_to_source_maps",
     ],
 )
 
