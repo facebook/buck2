@@ -164,15 +164,6 @@ impl Drop for Evaluator<'_, '_> {
     fn drop(&mut self) {}
 }
 
-unsafe impl<'v> Trace<'v> for Evaluator<'v, '_> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.module_env.trace(tracer);
-        self.current_frame.trace(tracer);
-        self.call_stack.trace(tracer);
-        self.flame_profile.trace(tracer);
-    }
-}
-
 impl<'v, 'a> Evaluator<'v, 'a> {
     /// Crate a new [`Evaluator`] specifying the [`Module`] used for module variables.
     ///
@@ -679,6 +670,13 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     pub(crate) fn trigger_gc(&mut self) {
         // We will GC next time we can, since the threshold is if 0 or more bytes are allocated
         self.next_gc_level = 0;
+    }
+
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.module_env.trace(tracer);
+        self.current_frame.trace(tracer);
+        self.call_stack.trace(tracer);
+        self.flame_profile.trace(tracer);
     }
 
     /// Perform a garbage collection.
