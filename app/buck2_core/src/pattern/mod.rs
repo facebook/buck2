@@ -766,11 +766,6 @@ where
         Some(rel) if cell_alias.is_none() && (relative || package_path.is_empty()) => {
             rel.join(package_path)
         }
-        Some(rel)
-            if rel.cell() == cell && rel.path().as_forward_relative_path() == package_path =>
-        {
-            rel.to_owned()
-        }
         _ => CellPath::new(cell, CellRelativePath::new(package_path).to_owned()),
     };
 
