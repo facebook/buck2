@@ -191,7 +191,7 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                 let prototype = CodeBlock {
                     language: Some("python".to_owned()),
                     contents: Box::new(TypeRenderer::Function {
-                        function_name: Some(self.name),
+                        function_name: self.name,
                         f: self.f,
                     }),
                 };
@@ -382,8 +382,8 @@ enum TypeRenderer<'a> {
     Type(&'a Option<Type>),
     /// A function, with some extra formatting options.
     Function {
-        /// If provided, print out the function name in the prototype as well.
-        function_name: Option<&'a str>,
+        /// The function name in the prototype as well.
+        function_name: &'a str,
         f: &'a Function,
     },
 }
@@ -432,10 +432,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                     });
 
                     let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
-                    let prefix = match function_name {
-                        Some(name) => format!("def {}", name),
-                        None => String::new(),
-                    };
+                    let prefix = format!("def {}", function_name);
                     if MAX_ARGS_BEFORE_MULTILINE < f.params.len() {
                         let chunked_params = params.join(",\n    ");
                         Some(format!(
@@ -722,7 +719,7 @@ mod test {
             render(&CodeBlock {
                 language: Some("python".to_owned()),
                 contents: Box::new(TypeRenderer::Function {
-                    function_name: Some(name),
+                    function_name: name,
                     f,
                 }),
             })
