@@ -37,6 +37,7 @@ use crate::debug::DapAdapter;
 use crate::debug::DapAdapterClient;
 use crate::debug::DapAdapterEvalHook;
 use crate::debug::ScopesInfo;
+use crate::debug::StepKind;
 use crate::debug::Variable;
 use crate::debug::VariablesInfo;
 use crate::eval::BeforeStmtFuncDyn;
@@ -76,6 +77,7 @@ struct DapAdapterImpl {
 struct DapAdapterEvalHookImpl {
     state: Arc<SharedAdapterState>,
     receiver: Receiver<ToEvalMessage>,
+    step: Option<(StepKind, usize)>,
 }
 
 fn evaluate_expr<'v>(
@@ -112,12 +114,28 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
                 None => false,
             }
         };
-        if stop {
+
+        let step_stop = match self.step {
+            None => false,
+            Some((StepKind::Into, _)) => true,
+            // These aren't quite right because we only get called before statements and so we could
+            // return from the current function and be in an expression that then calls another function
+            // without hitting a new statement in the outer function.
+            Some((StepKind::Over, stack_size)) => eval.call_stack_count() <= stack_size,
+            Some((StepKind::Out, stack_size)) => eval.call_stack_count() < stack_size,
+        };
+
+        if stop || step_stop {
+            self.step = None;
             self.state.client.event_stopped();
             loop {
                 let msg = self.receiver.recv();
                 match msg.map(|msg| msg(span_loc, eval)) {
                     Ok(Next::Continue) => break,
+                    Ok(Next::Step(kind)) => {
+                        self.step = Some((kind, eval.call_stack_count()));
+                        break;
+                    }
                     Ok(Next::RemainPaused) => continue,
                     Err(..) => {
                         // DapAdapter has been dropped so we'll continue.
@@ -137,7 +155,11 @@ impl Debug for DapAdapterEvalHookImpl {
 
 impl DapAdapterEvalHookImpl {
     fn new(state: Arc<SharedAdapterState>, receiver: Receiver<ToEvalMessage>) -> Self {
-        Self { state, receiver }
+        Self {
+            state,
+            receiver,
+            step: None,
+        }
     }
 }
 
@@ -198,9 +220,11 @@ struct SharedAdapterState {
     disable_breakpoints: Arc<AtomicUsize>,
 }
 
+#[derive(Debug, Clone, Copy, Dupe)]
 enum Next {
     Continue,
     RemainPaused,
+    Step(StepKind),
 }
 
 fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFrame {
@@ -295,9 +319,14 @@ impl DapAdapter for DapAdapterImpl {
         }))
     }
 
-    fn continue_(&self, _: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {
-        self.inject_continue();
-        Ok(ContinueResponseBody::default())
+    fn continue_(&self) -> anyhow::Result<()> {
+        self.inject_next(Next::Continue);
+        Ok(())
+    }
+
+    fn step(&self, kind: StepKind) -> anyhow::Result<()> {
+        self.inject_next(Next::Step(kind));
+        Ok(())
     }
 
     fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateResponseBody> {
@@ -336,8 +365,8 @@ impl DapAdapterImpl {
         receiver.recv().unwrap()
     }
 
-    fn inject_continue(&self) {
-        self.inject(Box::new(|_, _| (Next::Continue, ())))
+    fn inject_next(&self, next: Next) {
+        self.inject(Box::new(move |_, _| (next, ())))
     }
 
     fn with_ctx<T: 'static + Send>(

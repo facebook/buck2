@@ -200,8 +200,9 @@ impl DebugServer for Backend {
         self.adapter.evaluate(&x.expression)
     }
 
-    fn continue_(&self, x: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {
-        self.adapter.continue_(x)
+    fn continue_(&self, _: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {
+        self.adapter.continue_()?;
+        Ok(ContinueResponseBody::default())
     }
 }
 

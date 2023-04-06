@@ -22,6 +22,7 @@
 use std::fmt::Debug;
 
 use debugserver_types::*;
+use dupe::Dupe;
 
 use crate::codemap::FileSpan;
 use crate::eval::Evaluator;
@@ -68,6 +69,20 @@ impl Variable {
     }
 }
 
+/// The kind of debugger step, used for next/stepin/stepout requests.
+#[derive(Debug, Clone, Dupe, Copy)]
+pub enum StepKind {
+    /// Step "into" the statement. This is generally used on a function call to stop in the
+    /// function call. In practice, this will stop on the next statement.
+    Into,
+    /// Step "over" the statement. This will stop on the next statement in the current function
+    /// after the current one (so will step "over" a function call).
+    Over,
+    /// Step "out" of the current function. This will stop on the next statement after this
+    /// function returns.
+    Out,
+}
+
 /// Information about variables in scope.
 pub struct VariablesInfo {
     /// Local variables.
@@ -106,8 +121,14 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// Resumes execution.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue>
-    fn continue_(&self, args: ContinueArguments) -> anyhow::Result<ContinueResponseBody>;
+    fn continue_(&self) -> anyhow::Result<()>;
 
+    /// Continues execution until some condition.
+    ///
+    /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next>
+    /// <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn>
+    /// <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut>
+    fn step(&self, kind: StepKind) -> anyhow::Result<()>;
     /// Evaluates in expression in the context of the top-most frame.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Evaluate>

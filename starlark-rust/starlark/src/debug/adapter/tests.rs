@@ -34,6 +34,7 @@ mod t {
     use crate::debug::DapAdapter;
     use crate::debug::DapAdapterClient;
     use crate::debug::DapAdapterEvalHook;
+    use crate::debug::StepKind;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
     use crate::eval::Evaluator;
@@ -170,7 +171,7 @@ print(x)
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
-            adapter.continue_(ContinueArguments { thread_id: 0 })?;
+            adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })
@@ -212,7 +213,140 @@ print(x)
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
-            adapter.continue_(ContinueArguments { thread_id: 0 })?;
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_step_over() -> anyhow::Result<()> {
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def adjust(y):
+    y[0] += 1
+    y[1] += 1 # line 4
+    y[2] += 1
+x = [1, 2, 3]
+adjust(x) # line 7
+adjust(x)
+print(x)
+        ";
+        std::thread::scope(|s| {
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
+            adapter.step(StepKind::Over)?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+            adapter.step(StepKind::Over)?;
+            controller.wait_for_eval_stopped(3, TIMEOUT);
+            assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_step_into() -> anyhow::Result<()> {
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def adjust(y):
+    y[0] += 1
+    y[1] += 1 # line 4
+    y[2] += 1
+x = [1, 2, 3]
+adjust(x) # line 7
+adjust(x)
+print(x)
+        ";
+        std::thread::scope(|s| {
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
+
+            // into adjust
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+            assert_eq!("[1, 2, 3]", adapter.evaluate("y")?.result);
+
+            // into should go to next line
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(3, TIMEOUT);
+            assert_eq!("[2, 2, 3]", adapter.evaluate("y")?.result);
+            // two more intos should get us out of the function call
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(4, TIMEOUT);
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(5, TIMEOUT);
+            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+
+            // and once more back into the function
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(6, TIMEOUT);
+            assert_eq!("[2, 3, 4]", adapter.evaluate("y")?.result);
+
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_step_out() -> anyhow::Result<()> {
+        let controller = BreakpointController::new();
+        let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
+        let file_contents = "
+def adjust(y):
+    y[0] += 1
+    y[1] += 1 # line 4
+    y[2] += 1
+x = [1, 2, 3]
+adjust(x) # line 7
+adjust(x)
+print(x)
+        ";
+        std::thread::scope(|s| {
+            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(4, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
+            // should break on the first time hitting line 4
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+            assert_eq!("[2, 2, 3]", adapter.evaluate("y")?.result);
+
+            // step out should take us to line 8
+            adapter.step(StepKind::Out)?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+
+            // step out should actually hit the breakpoint at 4 first (before getting out)
+            adapter.step(StepKind::Out)?;
+            controller.wait_for_eval_stopped(3, TIMEOUT);
+            assert_eq!("[3, 3, 4]", adapter.evaluate("y")?.result);
+
+            // step out shoudl get out to the print
+            adapter.step(StepKind::Out)?;
+            controller.wait_for_eval_stopped(4, TIMEOUT);
+            assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
+
+            // one more out should be equivalent to continue
+            adapter.step(StepKind::Out)?;
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })
