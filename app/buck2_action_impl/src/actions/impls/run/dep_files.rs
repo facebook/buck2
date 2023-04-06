@@ -415,6 +415,12 @@ pub struct PartitionedInputs<D> {
     pub tagged: HashMap<Arc<str>, D>,
 }
 
+impl<D> PartitionedInputs<D> {
+    pub fn iter(&self) -> impl Iterator<Item = &D> {
+        std::iter::once(&self.untagged).chain(self.tagged.values())
+    }
+}
+
 impl Default for PartitionedInputs<Vec<ArtifactGroup>> {
     fn default() -> Self {
         Self {

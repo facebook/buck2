@@ -221,6 +221,113 @@ impl RunAction {
             })
         }
     }
+
+    fn prepare(
+        &self,
+        visitor: &mut impl RunActionVisitor,
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> anyhow::Result<PreparedRunAction> {
+        let fs = ctx.fs();
+
+        let expanded = self.expand_command_line(&ctx.executor_fs(), visitor)?;
+
+        // TODO (@torozco): At this point, might as well just receive the list already. Finding
+        // those things in a HashMap is just not very useful.
+        let artifact_inputs: Vec<&ArtifactGroupValues> = visitor
+            .inputs()
+            .map(|group| ctx.artifact_values(group))
+            .collect();
+
+        let mut inputs: Vec<CommandExecutionInput> =
+            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+
+        // Handle case when user requested file with action metadata to be generated.
+        // Generate content and output path for the file. It will be either passed
+        // to RE as a blob or written to disk in local executor.
+        // Path to this file is passed to user in environment variable which is selected by user.
+        let extra_env = if let Some(metadata_param) = &self.inner.metadata_param {
+            let path = BuckOutPath::new(
+                ctx.target().owner().dupe().into_dyn(),
+                metadata_param.path.clone(),
+            );
+            let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
+            let extra = (metadata_param.env_var.to_owned(), resolved_path.to_string());
+            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
+            inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
+                data,
+                digest,
+                path,
+            }));
+            Some(extra)
+        } else {
+            None
+        };
+
+        let paths = CommandExecutionPaths::new(
+            inputs,
+            self.outputs
+                .iter()
+                .map(|b| CommandExecutionOutput::BuildArtifact {
+                    path: b.get_path().dupe(),
+                    output_type: b.output_type(),
+                })
+                .collect(),
+            ctx.fs(),
+            ctx.digest_config(),
+        )?;
+
+        Ok(PreparedRunAction {
+            expanded,
+            extra_env,
+            paths,
+        })
+    }
+}
+
+struct PreparedRunAction {
+    expanded: ExpandedCommandLine,
+    extra_env: Option<(String, String)>,
+    paths: CommandExecutionPaths,
+}
+
+impl PreparedRunAction {
+    fn into_command_execution_request(self) -> CommandExecutionRequest {
+        let Self {
+            expanded: ExpandedCommandLine { cli, mut env },
+            extra_env,
+            paths,
+        } = self;
+
+        for (k, v) in extra_env.into_iter() {
+            env.insert(k, v);
+        }
+
+        CommandExecutionRequest::new(cli, paths, env)
+    }
+}
+
+trait RunActionVisitor: CommandLineArtifactVisitor {
+    type Iter<'a>: Iterator<Item = &'a ArtifactGroup>
+    where
+        Self: 'a;
+
+    fn inputs<'a>(&'a self) -> Self::Iter<'a>;
+}
+
+impl RunActionVisitor for SimpleCommandLineArtifactVisitor {
+    type Iter<'a> = impl Iterator<Item = &'a ArtifactGroup> where Self: 'a;
+
+    fn inputs<'a>(&'a self) -> Self::Iter<'a> {
+        self.inputs.iter()
+    }
+}
+
+impl RunActionVisitor for DepFilesCommandLineVisitor<'_> {
+    type Iter<'a> = impl Iterator<Item = &'a ArtifactGroup> where Self: 'a;
+
+    fn inputs<'a>(&'a self) -> Self::Iter<'a> {
+        self.inputs.iter().flat_map(|g| g.iter())
+    }
 }
 
 #[async_trait]
@@ -290,17 +397,19 @@ impl IncrementalActionExecutable for RunAction {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
 
-        let dep_files = if !process_dep_files {
-            None
+        let (prepared, dep_files) = if !process_dep_files {
+            (
+                self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
+                None,
+            )
         } else {
-            let (matching_result, dep_files) =
+            let (matching_result, prepared, dep_files) =
                 span_async(buck2_data::MatchDepFilesStart {}, async {
                     let res: anyhow::Result<_> = try {
                         let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
 
                         let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-                        let expanded =
-                            self.expand_command_line(&ctx.executor_fs(), &mut visitor)?;
+                        let prepared = self.prepare(&mut visitor, ctx)?;
 
                         let DepFilesCommandLineVisitor {
                             inputs: declared_inputs,
@@ -308,7 +417,7 @@ impl IncrementalActionExecutable for RunAction {
                             ..
                         } = visitor;
 
-                        let cli_digest = expanded.fingerprint();
+                        let cli_digest = prepared.expanded.fingerprint();
 
                         let matching_result = match_or_clear_dep_file(
                             &dep_files_key,
@@ -322,6 +431,7 @@ impl IncrementalActionExecutable for RunAction {
 
                         (
                             matching_result,
+                            prepared,
                             (
                                 dep_files_key,
                                 cli_digest,
@@ -345,73 +455,22 @@ impl IncrementalActionExecutable for RunAction {
                 ));
             }
 
-            Some(dep_files)
+            (prepared, Some(dep_files))
         };
-
-        let fs = ctx.fs();
-
-        let (ExpandedCommandLine { cli, mut env }, inputs) = {
-            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            let cli = self.expand_command_line(&ctx.executor_fs(), &mut artifact_visitor)?;
-            (cli, artifact_visitor.inputs)
-        };
-
-        // TODO (@torozco): At this point, might as well just receive the list already. Finding
-        // those things in a HashMap is just not very useful.
-        let artifact_inputs: Vec<&ArtifactGroupValues> = inputs
-            .iter()
-            .map(|group| ctx.artifact_values(group))
-            .collect();
-
-        let mut inputs: Vec<CommandExecutionInput> =
-            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
-
-        // Handle case when user requested file with action metadata to be generated.
-        // Generate content and output path for the file. It will be either passed
-        // to RE as a blob or written to disk in local executor.
-        // Path to this file is passed to user in environment variable which is selected by user.
-        if let Some(metadata_param) = &self.inner.metadata_param {
-            let path = BuckOutPath::new(
-                ctx.target().owner().dupe().into_dyn(),
-                metadata_param.path.clone(),
-            );
-            let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
-            env.insert(metadata_param.env_var.to_owned(), resolved_path.to_string());
-            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
-            inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
-                data,
-                digest,
-                path,
-            }));
-        }
 
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
-        let req = CommandExecutionRequest::new(
-            cli,
-            CommandExecutionPaths::new(
-                inputs,
-                self.outputs
-                    .iter()
-                    .map(|b| CommandExecutionOutput::BuildArtifact {
-                        path: b.get_path().dupe(),
-                        output_type: b.output_type(),
-                    })
-                    .collect(),
-                ctx.fs(),
-                ctx.digest_config(),
-            )?,
-            env,
-        )
-        .with_prefetch_lossy_stderr(true)
-        .with_executor_preference(self.inner.executor_preference)
-        .with_host_sharing_requirements(host_sharing_requirements)
-        .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
-        .with_allow_cache_upload(self.inner.allow_cache_upload)
-        .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
-        .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
-        .with_custom_tmpdir(ctx.target().custom_tmpdir());
+        let req = prepared
+            .into_command_execution_request()
+            .with_prefetch_lossy_stderr(true)
+            .with_executor_preference(self.inner.executor_preference)
+            .with_host_sharing_requirements(host_sharing_requirements)
+            .with_outputs_cleanup(!self.inner.no_outputs_cleanup)
+            .with_allow_cache_upload(self.inner.allow_cache_upload)
+            .with_local_environment_inheritance(EnvironmentInheritance::local_command_exclusions())
+            .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
+            .with_custom_tmpdir(ctx.target().custom_tmpdir());
 
         let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
