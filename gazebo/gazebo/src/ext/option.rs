@@ -26,9 +26,6 @@ impl<T> OptionExt for Option<T> {
     type Item = T;
 
     fn try_map<U, E, F: FnOnce(Self::Item) -> Result<U, E>>(self, f: F) -> Result<Option<U>, E> {
-        Ok(match self {
-            None => None,
-            Some(x) => Some(f(x)?),
-        })
+        self.map(f).transpose()
     }
 }
