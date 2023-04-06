@@ -41,7 +41,6 @@
 //! # "#);
 //! ```
 
-use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -51,7 +50,6 @@ use allocative::Allocative;
 use display_container::display_keyed_container;
 use dupe::Dupe;
 use either::Either;
-use gazebo::cell::AsARef;
 use serde::Serialize;
 
 use crate as starlark;
@@ -66,6 +64,9 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::values::comparison::equals_slice;
 use crate::values::function::FUNCTION_TYPE;
+use crate::values::types::exported_name::ExportedName;
+use crate::values::types::exported_name::FrozenExportedName;
+use crate::values::types::exported_name::MutableExportedName;
 use crate::values::typing::TypeCompiled;
 use crate::values::Freeze;
 use crate::values::Freezer;
@@ -119,9 +120,7 @@ unsafe impl<From: Coerce<To>, To> Coerce<FieldGen<To>> for FieldGen<From> {}
     Allocative
 )]
 #[starlark_docs(builtin = "extension")]
-pub struct RecordTypeGen<V, Typ> {
-    /// The name of this type, e.g. MyRecord
-    /// Either `Option<String>` or a `RefCell` thereof.
+pub struct RecordTypeGen<V, Typ: ExportedName> {
     typ: Typ,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     fields: SmallMap<String, (FieldGen<V>, TypeCompiled)>,
@@ -130,7 +129,7 @@ pub struct RecordTypeGen<V, Typ> {
     parameter_spec: ParametersSpec<FrozenValue>,
 }
 
-impl<V: Display, Typ> Display for RecordTypeGen<V, Typ> {
+impl<V: Display, Typ: ExportedName> Display for RecordTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_keyed_container(
             f,
@@ -143,9 +142,9 @@ impl<V: Display, Typ> Display for RecordTypeGen<V, Typ> {
 }
 
 /// Type of a record in a heap.
-pub type RecordType<'v> = RecordTypeGen<Value<'v>, RefCell<Option<String>>>;
+pub type RecordType<'v> = RecordTypeGen<Value<'v>, MutableExportedName>;
 /// Type of a record in a frozen heap.
-pub type FrozenRecordType = RecordTypeGen<FrozenValue, Option<String>>;
+pub type FrozenRecordType = RecordTypeGen<FrozenValue, FrozenExportedName>;
 
 /// An actual record.
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
@@ -181,7 +180,7 @@ impl<'v> RecordType<'v> {
     pub(crate) fn new(fields: SmallMap<String, (FieldGen<Value<'v>>, TypeCompiled)>) -> Self {
         let parameter_spec = Self::make_parameter_spec(&fields);
         Self {
-            typ: RefCell::new(None),
+            typ: MutableExportedName::default(),
             fields,
             parameter_spec,
         }
@@ -252,7 +251,7 @@ impl<'v> Freeze for RecordType<'v> {
             fields.insert_hashed(k, (t.0.freeze(freezer)?, t.1));
         }
         Ok(FrozenRecordType {
-            typ: self.typ.into_inner(),
+            typ: self.typ.freeze(freezer)?,
             fields,
             parameter_spec: self.parameter_spec,
         })
@@ -263,7 +262,7 @@ impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for Reco
 where
     Self: ProvidesStaticType,
     FieldGen<V>: ProvidesStaticType,
-    Typ: AsARef<Option<String>> + Debug + Allocative,
+    Typ: ExportedName,
 {
     starlark_type!(FUNCTION_TYPE);
 
@@ -327,9 +326,10 @@ where
         if attribute == "type" {
             Some(
                 heap.alloc(
-                    AsARef::as_aref(&self.typ)
-                        .as_deref()
-                        .unwrap_or(Record::TYPE),
+                    self.typ
+                        .borrow()
+                        .as_ref()
+                        .map_or(Record::TYPE, |s| s.as_str()),
                 ),
             )
         } else {
@@ -339,10 +339,10 @@ where
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         fn eq<'v>(
-            a: &RecordTypeGen<impl ValueLike<'v>, impl AsARef<Option<String>>>,
-            b: &RecordTypeGen<impl ValueLike<'v>, impl AsARef<Option<String>>>,
+            a: &RecordTypeGen<impl ValueLike<'v>, impl ExportedName>,
+            b: &RecordTypeGen<impl ValueLike<'v>, impl ExportedName>,
         ) -> anyhow::Result<bool> {
-            if AsARef::as_aref(&a.typ) != AsARef::as_aref(&b.typ) {
+            if a.typ.borrow() != b.typ.borrow() {
                 return Ok(false);
             };
             if a.fields.len() != b.fields.len() {
@@ -369,12 +369,7 @@ where
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-        if let Some(typ) = AsARef::as_ref_cell(&self.typ) {
-            let mut typ = typ.borrow_mut();
-            if typ.is_none() {
-                *typ = Some(variable_name.to_owned())
-            }
-        }
+        self.typ.try_export_as(variable_name);
     }
 }
 
@@ -389,8 +384,8 @@ where
             return true;
         }
         match self.get_record_type() {
-            Either::Left(x) => Some(ty) == x.typ.borrow().as_deref(),
-            Either::Right(x) => Some(ty) == x.typ.as_deref(),
+            Either::Left(x) => x.typ.equal_to(ty),
+            Either::Right(x) => x.typ.equal_to(ty),
         }
     }
 

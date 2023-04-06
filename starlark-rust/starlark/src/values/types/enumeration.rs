@@ -34,7 +34,7 @@
 //! assert_eq([v.value for v in Colors], ["Red", "Green", "Blue"])
 //! # "#);
 //! ```
-use std::cell::RefCell;
+
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -43,7 +43,6 @@ use allocative::Allocative;
 use derivative::Derivative;
 use display_container::display_container;
 use either::Either;
-use gazebo::cell::AsARef;
 use serde::Serialize;
 use starlark_map::Equivalent;
 use thiserror::Error;
@@ -59,6 +58,9 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
+use crate::values::types::exported_name::ExportedName;
+use crate::values::types::exported_name::FrozenExportedName;
+use crate::values::types::exported_name::MutableExportedName;
 use crate::values::Freeze;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -92,24 +94,23 @@ enum EnumError {
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
-pub struct EnumTypeGen<V, Typ> {
-    // Typ = RefCell<Option<String>> or Option<String>
+pub struct EnumTypeGen<V, Typ: ExportedName> {
     typ: Typ,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
     elements: SmallMap<V, V>,
 }
 
-impl<V: Display, Typ> Display for EnumTypeGen<V, Typ> {
+impl<V: Display, Typ: ExportedName> Display for EnumTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         display_container(f, "enum(", ")", self.elements.iter().map(|(k, _v)| k))
     }
 }
 
 /// Unfrozen enum type.
-pub type EnumType<'v> = EnumTypeGen<Value<'v>, RefCell<Option<String>>>;
+pub type EnumType<'v> = EnumTypeGen<Value<'v>, MutableExportedName>;
 /// Frozen enum type.
-pub type FrozenEnumType = EnumTypeGen<FrozenValue, Option<String>>;
+pub type FrozenEnumType = EnumTypeGen<FrozenValue, FrozenExportedName>;
 
 /// A value from an enumeration.
 #[derive(
@@ -145,7 +146,7 @@ impl<'v> EnumType<'v> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
         let typ = heap.alloc(EnumType {
-            typ: RefCell::new(None),
+            typ: MutableExportedName::default(),
             elements: SmallMap::new(),
         });
 
@@ -185,9 +186,11 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
     }
 }
 
-impl<'v, Typ: 'v, V: ValueLike<'v> + 'v> EnumTypeGen<V, Typ>
+impl<'v, Typ, V> EnumTypeGen<V, Typ>
 where
     Value<'v>: Equivalent<V>,
+    Typ: ExportedName,
+    V: ValueLike<'v> + 'v,
 {
     pub(crate) fn construct(&self, val: Value<'v>) -> anyhow::Result<V> {
         match self.elements.get_hashed_by_value(val.get_hashed()?) {
@@ -200,7 +203,7 @@ where
 impl<'v, Typ: Allocative + 'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for EnumTypeGen<V, Typ>
 where
     Self: ProvidesStaticType,
-    Typ: AsARef<Option<String>> + Debug + Allocative,
+    Typ: ExportedName,
     Value<'v>: Equivalent<V>,
 {
     starlark_type!(FUNCTION_TYPE);
@@ -251,10 +254,10 @@ where
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         fn eq<'v>(
-            a: &EnumTypeGen<impl ValueLike<'v>, impl AsARef<Option<String>>>,
-            b: &EnumTypeGen<impl ValueLike<'v>, impl AsARef<Option<String>>>,
+            a: &EnumTypeGen<impl ValueLike<'v>, impl ExportedName>,
+            b: &EnumTypeGen<impl ValueLike<'v>, impl ExportedName>,
         ) -> anyhow::Result<bool> {
-            if AsARef::as_aref(&a.typ) != AsARef::as_aref(&b.typ) {
+            if a.typ.borrow() != b.typ.borrow() {
                 return Ok(false);
             }
             if a.elements.len() != b.elements.len() {
@@ -276,12 +279,7 @@ where
     }
 
     fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-        if let Some(typ) = AsARef::as_ref_cell(&self.typ) {
-            let mut typ = typ.borrow_mut();
-            if typ.is_none() {
-                *typ = Some(variable_name.to_owned())
-            }
-        }
+        self.typ.try_export_as(variable_name);
     }
 }
 
@@ -290,10 +288,11 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
-        match this {
-            Either::Left(x) => Ok(heap.alloc(x.typ.borrow().as_deref().unwrap_or(EnumValue::TYPE))),
-            Either::Right(x) => Ok(heap.alloc(x.typ.as_deref().unwrap_or(EnumValue::TYPE))),
-        }
+        let typ = match this {
+            Either::Left(x) => x.typ.borrow(),
+            Either::Right(x) => x.typ.borrow(),
+        };
+        Ok(heap.alloc(typ.as_ref().map_or(EnumValue::TYPE, |n| n.as_str())))
     }
 
     fn values<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -316,8 +315,8 @@ where
             return true;
         }
         match self.get_enum_type() {
-            Either::Left(x) => Some(ty) == x.typ.borrow().as_deref(),
-            Either::Right(x) => Some(ty) == x.typ.as_deref(),
+            Either::Left(x) => x.typ.equal_to(ty),
+            Either::Right(x) => x.typ.equal_to(ty),
         }
     }
 
