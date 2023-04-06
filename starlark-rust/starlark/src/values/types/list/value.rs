@@ -610,7 +610,7 @@ def list_result():
 
     #[test]
     fn test_compare() {
-        // TODO(nga): this is a bug, it should be lexicographic comparison.
-        assert::is_true("[1, 2] > [10]");
+        // Lexicographic comparison.
+        assert::is_true("[1, 2] < [10]");
     }
 }

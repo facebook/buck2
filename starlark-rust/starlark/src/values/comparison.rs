@@ -56,12 +56,7 @@ pub(crate) fn compare_slice<E, X1, X2>(
     ys: &[X2],
     f: impl Fn(&X1, &X2) -> Result<Ordering, E>,
 ) -> Result<Ordering, E> {
-    // TODO(nga): this function is used to compare lists and tuples,
-    //   and it should compare them lexicographically.
-    Ok(cmp_chain! {
-        xs.len().cmp(&ys.len()),
-        xs.iter().try_cmp_by(ys, f)?,
-    })
+    xs.iter().try_cmp_by(ys, f)
 }
 
 pub(crate) fn compare_small_map<E, K, K2: Ord + Hash, V1, V2>(
