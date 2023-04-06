@@ -33,6 +33,7 @@ pub mod span;
 pub mod trace;
 
 use std::num::NonZeroU64;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -44,7 +45,6 @@ use derive_more::From;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;
 use thiserror::Error;
-use uuid::Uuid;
 
 use crate::sink::channel::ChannelEventSink;
 use crate::source::ChannelEventSource;
@@ -84,7 +84,7 @@ impl BuckEvent {
     ) -> BuckEvent {
         let event = buck2_data::BuckEvent {
             timestamp: Some(timestamp.into()),
-            trace_id: trace_id.0.hyphenated().to_string(),
+            trace_id: trace_id.to_string(),
             span_id: span_id.map_or(0, |s| s.0.into()),
             parent_id: parent_id.map_or(0, |s| s.0.into()),
             data: Some(data),
@@ -102,7 +102,7 @@ impl BuckEvent {
     }
 
     pub fn trace_id(&self) -> anyhow::Result<TraceId> {
-        Ok(TraceId(Uuid::parse_str(&self.event.trace_id)?))
+        Ok(TraceId::from_str(&self.event.trace_id)?)
     }
 
     pub fn span_id(&self) -> Option<SpanId> {
@@ -331,12 +331,11 @@ mod tests {
 
     #[test]
     fn trace_id_hash_produces_a_reasonable_number() {
-        let trace_id = TraceId(Uuid::parse_str("0436430c-2b02-624c-2032-570501212b57").unwrap());
+        let trace_id = TraceId::from_str("0436430c-2b02-624c-2032-570501212b57").unwrap();
         let hash = trace_id.hash();
         assert_eq!(5739261098605499414, hash);
 
-        let other_trace_id =
-            TraceId(Uuid::parse_str("586615bb-f57a-45a6-8804-3c6fcb0347de").unwrap());
+        let other_trace_id = TraceId::from_str("586615bb-f57a-45a6-8804-3c6fcb0347de").unwrap();
         let hash = other_trace_id.hash();
         assert_eq!(8717222666446319742, hash);
     }

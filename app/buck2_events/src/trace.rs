@@ -25,7 +25,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub struct TraceId(
     #[allocative(skip)] // `Uuid` is inline.
-    pub(crate)  Uuid,
+    Uuid,
 );
 
 // UUID is 16 bytes.
