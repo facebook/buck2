@@ -79,23 +79,15 @@ enum DSOpts {
     Combined,
 }
 
-/// Renders a docstring in a given fashion.
-struct DocStringRenderer<'a>(DSOpts, &'a Option<DocString>);
-
-impl<'a> RenderMarkdown for DocStringRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => self.1.as_ref().and_then(|d| match self.0 {
-                DSOpts::Summary => Some(d.summary.clone()),
-                DSOpts::Details => d.details.clone(),
-                DSOpts::Combined => Some(match &d.details {
-                    Some(details) => format!("{}\n\n{}", d.summary, details),
-                    None => d.summary.clone(),
-                }),
-            }),
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
+fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String> {
+    string.as_ref().and_then(|d| match opts {
+        DSOpts::Summary => Some(d.summary.clone()),
+        DSOpts::Details => d.details.clone(),
+        DSOpts::Combined => Some(match &d.details {
+            Some(details) => format!("{}\n\n{}", d.summary, details),
+            None => d.summary.clone(),
+        }),
+    })
 }
 
 /// Renders details about a property of an object that has the given name.
@@ -115,10 +107,8 @@ impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
                         Code(Box::new(TypeRenderer::Type(&self.p.typ))).render_markdown(flavor)
                     );
                 };
-                let summary =
-                    DocStringRenderer(DSOpts::Summary, &self.p.docs).render_markdown_opt(flavor);
-                let details =
-                    DocStringRenderer(DSOpts::Details, &self.p.docs).render_markdown_opt(flavor);
+                let summary = render_doc_string(DSOpts::Summary, &self.p.docs);
+                let details = render_doc_string(DSOpts::Details, &self.p.docs);
 
                 let mut body = header;
                 if let Some(summary) = summary {
@@ -167,20 +157,17 @@ impl<'a> FunctionDetailsRenderer<'a> {
             .iter()
             .filter_map(|p| match p {
                 Param::Arg { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
-                    Some((name.clone(), docs))
+                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
                 }
                 Param::NoArgs => None,
                 Param::Args { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
-                    Some((name.clone(), docs))
+                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
                 }
                 Param::Kwargs { name, docs, .. } => {
-                    let docs = DocStringRenderer(DSOpts::Combined, docs).render_markdown(flavor);
-                    Some((name.clone(), docs))
+                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
                 }
             })
-            .map(|(name, docs)| ParamList(name, docs).render_markdown(flavor))
+            .map(|(name, docs)| ParamList(name, docs.unwrap_or_default()).render_markdown(flavor))
             .collect();
         Some(param_list)
     }
@@ -198,14 +185,11 @@ impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
                     }),
                 };
                 let header = format!("## {}\n\n{}", self.name, prototype.render_markdown(flavor));
-                let summary =
-                    DocStringRenderer(DSOpts::Summary, &self.f.docs).render_markdown_opt(flavor);
-                let details =
-                    DocStringRenderer(DSOpts::Details, &self.f.docs).render_markdown_opt(flavor);
+                let summary = render_doc_string(DSOpts::Summary, &self.f.docs);
+                let details = render_doc_string(DSOpts::Details, &self.f.docs);
 
                 let parameter_docs = self.parameters_list(flavor);
-                let return_docs = DocStringRenderer(DSOpts::Combined, &self.f.ret.docs)
-                    .render_markdown_opt(flavor);
+                let return_docs = render_doc_string(DSOpts::Combined, &self.f.ret.docs);
 
                 let mut body = header;
                 if let Some(summary) = summary {
@@ -266,7 +250,7 @@ impl<'a> RenderMarkdown for ModuleRenderer<'a> {
                     None => self.id.name.as_str(),
                 };
                 let docs =
-                    DocStringRenderer(DSOpts::Combined, &self.module.docs).render_markdown(flavor);
+                    render_doc_string(DSOpts::Combined, &self.module.docs).unwrap_or_default();
                 let mut res = format!("# {}\n\n{}", name, docs);
 
                 for (k, v) in &self.module.members {
@@ -314,8 +298,7 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     if self.id.location.is_none() { "" } else { "#" },
                     self.id.name,
                 );
-                let summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
-                    .render_markdown_opt(flavor)
+                let summary = render_doc_string(DSOpts::Combined, &self.object.docs)
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
 
@@ -535,10 +518,10 @@ mod test {
     use starlark_map::small_map::SmallMap;
     use starlark_map::smallmap;
 
+    use crate::docs::markdown::render_doc_string;
     use crate::docs::markdown::Code;
     use crate::docs::markdown::CodeBlock;
     use crate::docs::markdown::DSOpts;
-    use crate::docs::markdown::DocStringRenderer;
     use crate::docs::markdown::FunctionDetailsRenderer;
     use crate::docs::markdown::MarkdownFlavor;
     use crate::docs::markdown::ParamList;
@@ -567,13 +550,13 @@ mod test {
     }
 
     fn render_ds_summary(ds: &Option<DocString>) -> String {
-        render(&DocStringRenderer(DSOpts::Summary, ds))
+        render_doc_string(DSOpts::Summary, ds).unwrap_or_default()
     }
     fn render_ds_details(ds: &Option<DocString>) -> String {
-        render(&DocStringRenderer(DSOpts::Details, ds))
+        render_doc_string(DSOpts::Details, ds).unwrap_or_default()
     }
     fn render_ds_combined(ds: &Option<DocString>) -> String {
-        render(&DocStringRenderer(DSOpts::Combined, ds))
+        render_doc_string(DSOpts::Combined, ds).unwrap_or_default()
     }
     fn sample_ds() -> Option<DocString> {
         DocString::from_docstring(DocStringKind::Rust, "Summary\n\nDetails")
@@ -629,52 +612,34 @@ mod test {
         let without_details = sample_ds_no_details();
         let with_details = sample_ds();
 
+        assert_eq!(None, render_doc_string(DSOpts::Summary, &without_docstring));
+        assert_eq!(None, render_doc_string(DSOpts::Details, &without_docstring));
         assert_eq!(
             None,
-            DocStringRenderer(DSOpts::Summary, &without_docstring)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
-        );
-        assert_eq!(
-            None,
-            DocStringRenderer(DSOpts::Details, &without_docstring)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
-        );
-        assert_eq!(
-            None,
-            DocStringRenderer(DSOpts::Combined, &without_docstring)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Combined, &without_docstring)
         );
 
         assert_eq!(
             Some("Summary".to_owned()),
-            DocStringRenderer(DSOpts::Summary, &without_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Summary, &without_details)
         );
-        assert_eq!(
-            None,
-            DocStringRenderer(DSOpts::Details, &without_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
-        );
+        assert_eq!(None, render_doc_string(DSOpts::Details, &without_details));
         assert_eq!(
             Some("Summary".to_owned()),
-            DocStringRenderer(DSOpts::Combined, &without_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Combined, &without_details)
         );
 
         assert_eq!(
             Some("Summary".to_owned()),
-            DocStringRenderer(DSOpts::Summary, &with_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Summary, &with_details)
         );
         assert_eq!(
             Some("Details".to_owned()),
-            DocStringRenderer(DSOpts::Details, &with_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Details, &with_details)
         );
         assert_eq!(
             Some("Summary\n\nDetails".to_owned()),
-            DocStringRenderer(DSOpts::Combined, &with_details)
-                .render_markdown_opt(MarkdownFlavor::DocFile)
+            render_doc_string(DSOpts::Combined, &with_details)
         );
     }
 
