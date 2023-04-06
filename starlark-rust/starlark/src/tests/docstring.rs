@@ -17,6 +17,8 @@
 
 //! Test docstrings.
 
+use starlark_map::smallmap;
+
 use crate::assert;
 use crate::assert::Assert;
 use crate::const_frozen_string;
@@ -343,7 +345,7 @@ Some extra details can go here,
     and indentation is kept as expected",
         ),
 
-        members: hashmap! {
+        members: smallmap! {
             "f1".to_owned() => Some(DocItem::Function(Function {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
                 ..Default::default()
@@ -356,7 +358,7 @@ Some extra details can go here,
         docs: None,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
-        members: hashmap! {
+        members: smallmap! {
             "x".to_owned() => const_frozen_string!("blah").to_value().documentation(),
             "f1".to_owned() => empty_function.clone(),
         },
@@ -364,7 +366,7 @@ Some extra details can go here,
 
     let expected_m3 = docs::Module {
         docs: None,
-        members: hashmap! {
+        members: smallmap! {
             "f1".to_owned() => empty_function,
         },
     };

@@ -46,6 +46,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
+use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
@@ -260,7 +261,7 @@ async fn get_docs_from_module(
             },
             item: DocItem::Module(starlark::docs::Module {
                 docs: Some(module_doc),
-                members: HashMap::new(),
+                members: SmallMap::new(),
             }),
             custom_attrs: Default::default(),
         });

@@ -532,6 +532,8 @@ impl RenderMarkdown for ParamList {
 mod test {
     use std::collections::HashMap;
 
+    use starlark_map::small_map::SmallMap;
+
     use crate::docs::markdown::Code;
     use crate::docs::markdown::CodeBlock;
     use crate::docs::markdown::DSOpts;
@@ -825,7 +827,7 @@ mod test {
             },
             item: DocItem::Module(Module {
                 docs: ds.clone(),
-                members: HashMap::new(),
+                members: SmallMap::new(),
             }),
             custom_attrs: HashMap::default(),
         };
@@ -839,7 +841,7 @@ mod test {
             },
             item: DocItem::Module(Module {
                 docs: ds,
-                members: HashMap::new(),
+                members: SmallMap::new(),
             }),
             custom_attrs: HashMap::default(),
         };

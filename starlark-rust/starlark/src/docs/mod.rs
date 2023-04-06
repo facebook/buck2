@@ -35,6 +35,7 @@ use regex::RegexBuilder;
 use serde::Deserialize;
 use serde::Serialize;
 pub use starlark_derive::StarlarkDocs;
+use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::codemap::Spanned;
@@ -408,7 +409,7 @@ pub struct Module {
     /// a string literal.
     pub docs: Option<DocString>,
     /// A mapping of top level symbols to their documentation, if any.
-    pub members: HashMap<String, Option<DocItem>>,
+    pub members: SmallMap<String, Option<DocItem>>,
 }
 
 impl Module {
@@ -1659,7 +1660,7 @@ mod tests {
                 },
                 item: DocItem::Module(Module {
                     docs: ds,
-                    members: HashMap::new(),
+                    members: SmallMap::new(),
                 }),
                 custom_attrs: Default::default(),
             },

@@ -134,6 +134,7 @@ pub(crate) fn generate_markdown_files(
 #[cfg(test)]
 mod tests {
     use maplit::hashmap;
+    use starlark::collections::SmallMap;
     use starlark::docs::*;
 
     use super::*;
@@ -169,7 +170,7 @@ mod tests {
                 custom_attrs: HashMap::new(),
                 item: DocItem::Module(Module {
                     docs: ds.clone(),
-                    members: HashMap::new(),
+                    members: SmallMap::new(),
                 }),
             },
             Doc {
@@ -231,7 +232,7 @@ mod tests {
                 custom_attrs: HashMap::new(),
                 item: DocItem::Module(Module {
                     docs: ds,
-                    members: HashMap::new(),
+                    members: SmallMap::new(),
                 }),
             },
         ];
