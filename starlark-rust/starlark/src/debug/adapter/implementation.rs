@@ -16,7 +16,6 @@
  */
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -28,11 +27,12 @@ use std::sync::Mutex;
 
 use debugserver_types::*;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
+use crate::debug::adapter::Breakpoint;
+use crate::debug::adapter::ResolvedBreakpoints;
 use crate::debug::DapAdapter;
 use crate::debug::DapAdapterClient;
 use crate::debug::DapAdapterEvalHook;
@@ -83,7 +83,8 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
             false
         } else {
             let breaks = self.state.breakpoints.lock().unwrap();
-            breaks.at(span_loc)
+            let breakpoint = breaks.at(span_loc);
+            breakpoint.is_some()
         };
         if stop {
             self.state.client.event_stopped();
@@ -119,7 +120,7 @@ impl DapAdapterEvalHook for DapAdapterEvalHookImpl {
 #[derive(Debug)]
 struct BreakpointConfig {
     // maps a source filename to the breakpoint spans for the file
-    breakpoints: HashMap<String, HashSet<FileSpan>>,
+    breakpoints: HashMap<String, HashMap<FileSpan, Breakpoint>>,
 }
 
 impl BreakpointConfig {
@@ -129,12 +130,31 @@ impl BreakpointConfig {
         }
     }
 
-    fn at(&self, span_loc: FileSpanRef) -> bool {
+    fn at(&self, span_loc: FileSpanRef) -> Option<&Breakpoint> {
         self.breakpoints
             .get(span_loc.filename())
-            .map_or(false, |file_breaks| {
-                file_breaks.contains(&span_loc.to_file_span())
-            })
+            .and_then(|file_breaks| file_breaks.get(&span_loc.to_file_span()))
+    }
+
+    fn set_breakpoints(
+        &mut self,
+        source: &str,
+        breakpoints: &ResolvedBreakpoints,
+    ) -> anyhow::Result<()> {
+        if breakpoints.0.is_empty() {
+            self.breakpoints.remove(source);
+        } else {
+            self.breakpoints.insert(
+                source.to_owned(),
+                breakpoints
+                    .0
+                    .iter()
+                    .filter_map(|x| x.clone())
+                    .map(|x| (x.span.dupe(), x))
+                    .collect(),
+            );
+        }
+        Ok(())
     }
 }
 
@@ -182,53 +202,14 @@ fn convert_frame(id: usize, name: String, location: Option<FileSpan>) -> StackFr
 impl DapAdapter for DapAdapterImpl {
     fn set_breakpoints(
         &self,
-        x: SetBreakpointsArguments,
-    ) -> anyhow::Result<SetBreakpointsResponseBody> {
-        let breakpoints = x.breakpoints.unwrap_or_default();
-        let source = x.source.path.unwrap();
-
-        if breakpoints.is_empty() {
-            self.state
-                .breakpoints
-                .lock()
-                .unwrap()
-                .breakpoints
-                .remove(&source);
-            Ok(SetBreakpointsResponseBody {
-                breakpoints: Vec::new(),
-            })
-        } else {
-            match self.state.client.get_ast(&source) {
-                Err(_) => {
-                    self.state
-                        .breakpoints
-                        .lock()
-                        .unwrap()
-                        .breakpoints
-                        .remove(&source);
-                    Ok(SetBreakpointsResponseBody {
-                        breakpoints: vec![breakpoint(false); breakpoints.len()],
-                    })
-                }
-                Ok(ast) => {
-                    let poss: HashMap<usize, FileSpan> = ast
-                        .stmt_locations()
-                        .iter()
-                        .map(|span| (span.resolve_span().begin_line, span.dupe()))
-                        .collect();
-                    let list = breakpoints.map(|x| poss.get(&(x.line as usize - 1)));
-                    self.state
-                        .breakpoints
-                        .lock()
-                        .unwrap()
-                        .breakpoints
-                        .insert(source, list.iter().filter_map(|x| x.duped()).collect());
-                    Ok(SetBreakpointsResponseBody {
-                        breakpoints: list.map(|x| breakpoint(x.is_some())),
-                    })
-                }
-            }
-        }
+        source: &str,
+        breakpoints: &ResolvedBreakpoints,
+    ) -> anyhow::Result<()> {
+        self.state
+            .breakpoints
+            .lock()
+            .unwrap()
+            .set_breakpoints(source, breakpoints)
     }
 
     fn top_frame(&self) -> anyhow::Result<Option<StackFrame>> {
@@ -353,5 +334,33 @@ pub(crate) fn breakpoint(verified: bool) -> debugserver_types::Breakpoint {
         message: None,
         source: None,
         verified,
+    }
+}
+
+pub(crate) fn resolve_breakpoints(
+    args: &SetBreakpointsArguments,
+    ast: &AstModule,
+) -> anyhow::Result<ResolvedBreakpoints> {
+    let poss: HashMap<usize, FileSpan> = ast
+        .stmt_locations()
+        .iter()
+        .map(|span| (span.resolve_span().begin_line, span.dupe()))
+        .collect();
+    Ok(ResolvedBreakpoints(args.breakpoints.as_ref().map_or(
+        Vec::new(),
+        |v| {
+            v.map(|x| {
+                poss.get(&(x.line as usize - 1))
+                    .map(|span| Breakpoint { span: span.clone() })
+            })
+        },
+    )))
+}
+
+pub(crate) fn resolved_breakpoints_to_dap(
+    breakpoints: &ResolvedBreakpoints,
+) -> SetBreakpointsResponseBody {
+    SetBreakpointsResponseBody {
+        breakpoints: breakpoints.0.map(|x| breakpoint(x.is_some())),
     }
 }

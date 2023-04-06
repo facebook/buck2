@@ -29,6 +29,7 @@ use serde_json::Map;
 use serde_json::Value;
 use starlark::debug::dap_capabilities;
 use starlark::debug::prepare_dap_adapter;
+use starlark::debug::resolve_breakpoints;
 use starlark::debug::DapAdapter;
 use starlark::debug::DapAdapterClient;
 use starlark::debug::DapAdapterEvalHook;
@@ -60,10 +61,13 @@ impl DapAdapterClient for Client {
             text: None,
         });
     }
+}
 
-    fn get_ast(&self, source: &str) -> anyhow::Result<AstModule> {
-        AstModule::parse_file(Path::new(source), &dialect())
-    }
+fn get_ast(source: &str) -> anyhow::Result<Arc<AstModule>> {
+    Ok(Arc::new(AstModule::parse_file(
+        Path::new(source),
+        &dialect(),
+    )?))
 }
 
 impl Backend {
@@ -122,7 +126,10 @@ impl DebugServer for Backend {
         &self,
         x: SetBreakpointsArguments,
     ) -> anyhow::Result<SetBreakpointsResponseBody> {
-        self.adapter.set_breakpoints(x)
+        let source = x.source.path.as_ref().unwrap();
+        let resolved = resolve_breakpoints(&x, &*get_ast(source)?)?;
+        self.adapter.set_breakpoints(source, &resolved)?;
+        Ok(resolved.to_response())
     }
 
     fn set_exception_breakpoints(&self, _: SetExceptionBreakpointsArguments) -> anyhow::Result<()> {

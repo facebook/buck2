@@ -23,6 +23,7 @@ use std::fmt::Debug;
 
 use debugserver_types::*;
 
+use crate::codemap::FileSpan;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 
@@ -32,9 +33,6 @@ mod implementation;
 pub trait DapAdapterClient: Debug + Send + Sync + 'static {
     /// Indicates that the evaluation stopped at a breakpoint.
     fn event_stopped(&self);
-
-    /// Gets the ast for source.
-    fn get_ast(&self, source: &str) -> anyhow::Result<AstModule>;
 }
 
 /// Information about the variables scopes
@@ -82,8 +80,9 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetBreakpoints>
     fn set_breakpoints(
         &self,
-        args: SetBreakpointsArguments,
-    ) -> anyhow::Result<SetBreakpointsResponseBody>;
+        source: &str,
+        breakpoints: &ResolvedBreakpoints,
+    ) -> anyhow::Result<()>;
 
     /// Gets the top stack frame, may be None if entered from native.
     fn top_frame(&self) -> anyhow::Result<Option<StackFrame>>;
@@ -112,6 +111,30 @@ pub trait DapAdapter: Debug + Send + 'static {
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Evaluate>
     fn evaluate(&self, args: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody>;
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct Breakpoint {
+    span: FileSpan,
+}
+
+/// Breakpoints resolved to their spans.
+#[derive(Debug)]
+pub struct ResolvedBreakpoints(Vec<Option<Breakpoint>>);
+
+impl ResolvedBreakpoints {
+    /// Converts resolved breakpoints to a SetBreakpointsResponseBody. The breakpoints should've been resolved from the corresponding SetBreakpointsRequest.
+    pub fn to_response(&self) -> SetBreakpointsResponseBody {
+        implementation::resolved_breakpoints_to_dap(self)
+    }
+}
+
+/// Resolves the breakpoints to their FileSpan if possible.
+pub fn resolve_breakpoints(
+    args: &SetBreakpointsArguments,
+    ast: &AstModule,
+) -> anyhow::Result<ResolvedBreakpoints> {
+    implementation::resolve_breakpoints(args, ast)
 }
 
 /// This is sort of the evaluation side of the DapAdapter. It's expected that these are on different threads
