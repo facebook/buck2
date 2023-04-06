@@ -296,9 +296,9 @@ impl DapAdapter for DapAdapterImpl {
         Ok(ContinueResponseBody::default())
     }
 
-    fn evaluate(&self, x: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody> {
+    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateResponseBody> {
         let state = self.state.dupe();
-        let expression = x.expression;
+        let expression = expr.to_owned();
         self.with_ctx(Box::new(move |_, eval| {
             let s = match evaluate_expr(&state, eval, expression.clone()) {
                 Err(e) => format!("{:#}", e),

@@ -197,7 +197,7 @@ impl DebugServer for Backend {
     }
 
     fn evaluate(&self, x: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody> {
-        self.adapter.evaluate(x)
+        self.adapter.evaluate(&x.expression)
     }
 
     fn continue_(&self, x: ContinueArguments) -> anyhow::Result<ContinueResponseBody> {

@@ -111,7 +111,7 @@ pub trait DapAdapter: Debug + Send + 'static {
     /// Evaluates in expression in the context of the top-most frame.
     ///
     /// See <https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Evaluate>
-    fn evaluate(&self, args: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody>;
+    fn evaluate(&self, expr: &str) -> anyhow::Result<EvaluateResponseBody>;
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
