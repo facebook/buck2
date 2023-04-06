@@ -127,8 +127,10 @@ impl Display for IncompatiblePlatformReason {
         match &self.cause {
             IncompatiblePlatformReasonCause::UnsatisfiedConfig(unsatisfied_config) => write!(
                 f,
-                "{} incompatible ({} unsatisfied)",
-                self.target, unsatisfied_config
+                "{} is incompatible with {} ({} unsatisfied), check the target's compatibility attributes",
+                self.target.unconfigured(),
+                self.target.cfg(),
+                unsatisfied_config,
             ),
             IncompatiblePlatformReasonCause::Dependency(previous) => {
                 if f.alternate() {
