@@ -221,9 +221,7 @@ def f4(a: "string") -> "string":
 
 #[test]
 fn test_module_docstring_parses() {
-    use crate::docs::DocItem;
     use crate::docs::DocString;
-    use crate::docs::Module;
 
     let m1 = assert::pass_module(
         r#"
@@ -264,15 +262,13 @@ def f1():
     let m2_docs = m2.documentation();
     let m3_docs = m3.documentation();
 
-    let expected_m1 = Some(DocItem::Module(Module {
-        docs: DocString::from_docstring(
-            DocStringKind::Starlark,
-            r"This is the summary of the module's docs
+    let expected_m1 = DocString::from_docstring(
+        DocStringKind::Starlark,
+        r"This is the summary of the module's docs
 
 Some extra details can go here,
     and indentation is kept as expected",
-        ),
-    }));
+    );
 
     assert_eq!(expected_m1, m1_docs);
     assert_eq!(None, m2_docs);
@@ -284,7 +280,6 @@ fn test_module_docs_return() {
     use crate::docs::DocItem;
     use crate::docs::DocString;
     use crate::docs::Function;
-    use crate::docs::Module;
 
     let mut a = Assert::new();
     let mod_a = r#"
@@ -340,15 +335,14 @@ def f1():
     let empty_function = Some(DocItem::Function(Function::default()));
 
     let expected_m1 = ModuleDocs {
-        module: Some(DocItem::Module(Module {
-            docs: DocString::from_docstring(
-                DocStringKind::Starlark,
-                r"This is the summary of the module's docs
+        docs: DocString::from_docstring(
+            DocStringKind::Starlark,
+            r"This is the summary of the module's docs
 
 Some extra details can go here,
     and indentation is kept as expected",
-            ),
-        })),
+        ),
+
         members: hashmap! {
             "f1".to_owned() => Some(DocItem::Function(Function {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
@@ -359,7 +353,7 @@ Some extra details can go here,
     };
 
     let expected_m2 = ModuleDocs {
-        module: None,
+        docs: None,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
         members: hashmap! {
@@ -369,7 +363,7 @@ Some extra details can go here,
     };
 
     let expected_m3 = ModuleDocs {
-        module: None,
+        docs: None,
         members: hashmap! {
             "f1".to_owned() => empty_function,
         },

@@ -32,7 +32,6 @@ use dupe::Dupe;
 use itertools::Itertools;
 
 use crate::collections::Hashed;
-use crate::docs;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
@@ -103,7 +102,7 @@ pub(crate) struct FrozenModuleData {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModuleDocs {
     /// The documentation for the module itself
-    pub module: Option<DocItem>,
+    pub docs: Option<DocString>,
     /// A mapping of top level symbols to their documentation, if any.
     pub members: HashMap<String, Option<DocItem>>,
 }
@@ -210,8 +209,8 @@ impl FrozenModule {
         self.module.all_items()
     }
 
-    /// Fetch the documentation for the module.
-    pub fn documentation(&self) -> Option<DocItem> {
+    /// Fetch the top-level documentation for the module.
+    pub fn documentation(&self) -> Option<DocString> {
         self.module.documentation()
     }
 
@@ -230,7 +229,7 @@ impl FrozenModule {
             .collect();
 
         ModuleDocs {
-            module: self.documentation(),
+            docs: self.documentation(),
             members,
         }
     }
@@ -301,12 +300,10 @@ impl FrozenModuleData {
         None
     }
 
-    pub(crate) fn documentation(&self) -> Option<DocItem> {
-        self.docstring.as_ref().map(|d| {
-            DocItem::Module(docs::Module {
-                docs: DocString::from_docstring(DocStringKind::Starlark, d),
-            })
-        })
+    pub(crate) fn documentation(&self) -> Option<DocString> {
+        self.docstring
+            .as_ref()
+            .and_then(|d| DocString::from_docstring(DocStringKind::Starlark, d))
     }
 }
 

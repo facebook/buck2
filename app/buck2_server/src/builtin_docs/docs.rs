@@ -249,7 +249,7 @@ async fn get_docs_from_module(
 
     let mut docs = vec![];
 
-    if let Some(module_doc) = module_docs.module {
+    if let Some(module_doc) = module_docs.docs {
         docs.push(Doc {
             id: Identifier {
                 name: import_path_string.clone(),
@@ -258,7 +258,9 @@ async fn get_docs_from_module(
                     position: None,
                 }),
             },
-            item: module_doc,
+            item: DocItem::Module(starlark::docs::Module {
+                docs: Some(module_doc),
+            }),
             custom_attrs: Default::default(),
         });
     }
