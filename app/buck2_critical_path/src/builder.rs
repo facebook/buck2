@@ -23,9 +23,6 @@ pub enum PushError {
     #[error("duplicate key")]
     DuplicateKey,
 
-    #[error("missing dep")]
-    MissingDep,
-
     #[error("overflow")]
     Overflow,
 }
@@ -84,7 +81,10 @@ where
         let mut edges_count = 0;
 
         for dep in deps {
-            let dep_idx = self.keys.get(&dep).ok_or(PushError::MissingDep)?;
+            let dep_idx = match self.keys.get(&dep) {
+                Some(idx) => idx,
+                None => continue,
+            };
             self.edges.push(*dep_idx);
             edges_count += 1;
         }
@@ -130,5 +130,26 @@ mod test {
         assert_eq!(keys[bar_idx], "bar");
         assert_eq!(data[foo_idx], "foo value");
         assert_eq!(data[bar_idx], "bar value");
+    }
+
+    #[test]
+    fn test_missing_ok() {
+        let mut builder = GraphBuilder::new();
+        builder
+            .push("foo", std::iter::once("bar"), "foo value")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_duplicate_err() {
+        let mut builder = GraphBuilder::new();
+        builder
+            .push("foo", std::iter::empty(), "foo value")
+            .unwrap();
+        assert!(
+            builder
+                .push("foo", std::iter::empty(), "foo value")
+                .is_err()
+        );
     }
 }
