@@ -43,7 +43,6 @@ use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use indexmap::IndexMap;
 use inventory::ctor;
 use thiserror::Error;
@@ -219,6 +218,12 @@ pub trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
         }
         Ok(label_to_artifact)
     }
+
+    async fn get_targets_from_template_placeholder_info(
+        &self,
+        template_name: &'static str,
+        targets: TargetSet<ConfiguredGraphNodeRef>,
+    ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>;
 }
 
 pub struct ConfiguredGraphQueryEnvironment<'a> {
@@ -250,10 +255,9 @@ impl<'a> ConfiguredGraphFunctions<'a> {
             "classpath_including_targets_with_no_output"
         };
 
-        let label_to_artifact = env
-            .get_from_template_placeholder_info(template_name, &targets)
+        let targets = env
+            .get_targets_from_template_placeholder_info(template_name, targets)
             .await?;
-        let targets = env.find_target_nodes(targets, label_to_artifact)?;
         Ok(targets.into())
     }
 }
@@ -319,38 +323,14 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
             .await
     }
 
-    /// Finds the nodes for a list of target labels within the deps of the provided targets.
-    ///
-    /// It may seem like if we have ConfiguredTargetLabel we should just be able to lookup the
-    /// nodes directly, but that would require going through dice and then dice would record
-    /// dependencies on all the nodes that we lookup. It's common for these queries to operate
-    /// over inputs that are aggregated as data flows up the graph and it's important that we
-    /// don't inadvertently cause flattening of those sets.
-    fn find_target_nodes(
+    async fn get_targets_from_template_placeholder_info(
         &self,
+        template_name: &'static str,
         targets: TargetSet<ConfiguredGraphNodeRef>,
-        label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact>,
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
-        let mut queue: VecDeque<_> = targets.iter().duped().collect();
-        let mut seen = targets;
-        let mut result = TargetSet::new();
-
-        while let Some(target) = queue.pop_front() {
-            if label_to_artifact.contains_key(target.label()) {
-                result.insert(target.dupe());
-            }
-            if result.len() == label_to_artifact.len() {
-                return Ok(result);
-            }
-            for dep in target.0.target_deps() {
-                let dep = ConfiguredGraphNodeRef(dep.dupe());
-                if seen.insert(dep.dupe()) {
-                    queue.push_back(dep);
-                }
-            }
-        }
-
-        Ok(result)
+        self.delegate
+            .get_targets_from_template_placeholder_info(template_name, targets)
+            .await
     }
 }
 
