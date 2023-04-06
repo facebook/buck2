@@ -5,11 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@toolchains//:rust_toolchain.bzl", "RustCompilerInfo")
+
 def _rust_binary_impl(ctx):
     file = ctx.attrs.file
     out = ctx.actions.declare_output("main")
 
-    cmd = cmd_args(["rustc", "--crate-type=bin", file, "-o", out.as_output()])
+    cmd = cmd_args([ctx.attrs.toolchain[RustCompilerInfo].compiler_path, "--crate-type=bin", file, "-o", out.as_output()])
 
     ctx.actions.run(cmd, category = "compile")
 
@@ -19,5 +21,6 @@ rust_binary = rule(
     impl = _rust_binary_impl,
     attrs = {
         "file": attrs.source(),
+        "toolchain": attrs.toolchain_dep(),
     },
 )

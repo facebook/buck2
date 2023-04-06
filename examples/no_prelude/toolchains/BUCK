@@ -1,0 +1,30 @@
+load("//:cpp_toolchain.bzl", "cpp_local_toolchain")
+load("//:go_toolchain.bzl", "go_toolchain", "toolchain_config")
+load("//:rust_toolchain.bzl", "rust_local_toolchain")
+load(":export_file.bzl", "export_file")
+
+cpp_local_toolchain(
+    name = "cpp",
+    command = "clang++",
+    visibility = ["PUBLIC"],
+)
+
+rust_local_toolchain(
+    name = "rust",
+    command = "rustc",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "symlink.bat",
+    src = "symlink.bat",
+)
+
+go_toolchain(
+    name = "go",
+    archive_extension = toolchain_config.archive_extension,
+    platform = toolchain_config.platform,
+    sha1 = toolchain_config.sha1,
+    version = toolchain_config.version,
+    visibility = ["PUBLIC"],
+)

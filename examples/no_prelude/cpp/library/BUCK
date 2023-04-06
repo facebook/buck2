@@ -2,9 +2,9 @@ load("//cpp:rules.bzl", "cpp_library")
 
 cpp_library(
     name = "library",
-    srcs = glob(["src/**/*.cpp"]),
-    headers = glob(["src/**/*.hpp"]),
-    toolchain = "//cpp:clang",
+    srcs = glob(["*.cpp"]),
+    headers = glob(["*.hpp"]),
+    toolchain = "toolchains//:cpp",
     visibility = ["PUBLIC"],
     deps = [],
 )

@@ -1,9 +1,8 @@
-load(":toolchain.bzl", "go_toolchain")
+load("//go:rules.bzl", "go_binary")
 
-go_toolchain(
-    name = "go_linux",
-    platform = "linux-amd64",
-    sha1 = "3511fcb34e0162abdcdeea0ab532f0264943e3d8",
-    version = "1.18.3",
-    visibility = ["PUBLIC"],
+go_binary(
+    name = "main",
+    srcs = glob(["*.go"]),
+    toolchain = "toolchains//:go",
+    deps = [],
 )
