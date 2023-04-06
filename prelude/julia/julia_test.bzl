@@ -5,6 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def julia_test_impl(_ctx: "context") -> ["provider"]:
-    # TODO
-    return [DefaultInfo()]
+load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
+load(":julia_binary.bzl", "build_julia_command")
+
+def julia_test_impl(ctx: "context") -> ["provider"]:
+    cmd = build_julia_command(ctx)
+    external_runner_test_info = ExternalRunnerTestInfo(
+        type = "julia",
+        command = [cmd],
+        contacts = ctx.attrs.contacts,
+    )
+
+    return inject_test_run_info(ctx, external_runner_test_info) + [DefaultInfo()]

@@ -589,6 +589,7 @@ for rule in [
     "android_instrumentation_test",
     "kotlin_test",
     "robolectric_test",
+    "julia_test",
 ]:
     # NOTE: We make this a `dep` not an `exec_dep` even though we'll execute
     # it, because it needs to execute in the same platform as the test itself

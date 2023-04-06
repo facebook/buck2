@@ -40,11 +40,12 @@ extra_attributes = {
         "_julia_toolchain": julia_toolchain(),
     },
     "julia_test": {
+        "contacts": attrs.list(attrs.string(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "julia_args": attrs.list(attrs.string(), default = []),
         "julia_flags": attrs.list(attrs.string(), default = []),
-        "resources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "src": attrs.source(),
+        "main": attrs.string(),
+        "srcs": attrs.list(attrs.source(), default = []),
         "_julia_toolchain": julia_toolchain(),
         # TODO: coverage
     },
