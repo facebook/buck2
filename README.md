@@ -1,8 +1,11 @@
 # Buck2 [![CI](https://circleci.com/gh/facebook/buck2.svg?style=svg)](https://app.circleci.com/pipelines/github/facebook/buck2)
 
-**WARNING:** This project is not yet polished. We are continuing to develop it in the open, but don't expect it to be suitable for most people until Mar/Apr/May 2023 (at which point we'll properly announce it). If you try and use it, you will probably have a bad time. If you are willing to work closely with us, please give it a go and [let us know](https://github.com/facebook/buck2/issues) what is blocking you.
+This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build).
 
-This repo contains the code for the Buck2 build system - the successor to the original [Buck build system](https://buck.build). To understand why it might be interesting, see [this explainer](https://buck2.build/docs/why/). For the moment, we only test it on Linux.
+* To understand why Buck2 might be interesting, see [this explainer](https://buck2.build/docs/why/) or [our introductory blog post](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system).
+* For our user-facing documentation see [https://buck2.build/](https://buck2.build/).
+
+We're keen for you to give Buck2 a go and [let us know](https://github.com/facebook/buck2/issues) any problems you run into.
 
 ## Getting started
 
