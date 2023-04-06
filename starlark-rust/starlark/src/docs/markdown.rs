@@ -94,9 +94,8 @@ fn render_property(name: &str, property: &Property) -> String {
     let mut header = format!("## {}", name);
     if property.typ.is_some() {
         header += &format!(
-            " : {}",
-            Code(Box::new(TypeRenderer::Type(&property.typ)))
-                .render_markdown(MarkdownFlavor::DocFile)
+            " : `{}`",
+            TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
         );
     };
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
@@ -340,22 +339,6 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                     }
                 }
             },
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
-/// A string that should be put in "`" and be rendered literally.
-
-struct Code<'a>(Box<dyn RenderMarkdown + 'a>);
-
-impl<'a> RenderMarkdown for Code<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => self
-                .0
-                .render_markdown_opt(flavor)
-                .map(|md| format!("`{}`", md)),
             MarkdownFlavor::LspSummary => None,
         }
     }
@@ -640,11 +623,6 @@ mod test {
     }
 
     #[test]
-    fn doc_file_literal() {
-        assert_eq!("`foo`", render(&Code(Box::new("foo".to_owned()))));
-    }
-
-    #[test]
     fn doc_file_module() {
         let ds = sample_ds();
         let ds_render = render_ds_combined(&ds);
@@ -785,18 +763,15 @@ mod test {
         let ds_no_details = sample_ds_no_details();
         let typ = sample_type();
 
-        let expected_no_docs = format!(
-            "## foo1 : {}",
-            render(&Code(Box::new(TypeRenderer::Type(&typ))))
-        );
+        let expected_no_docs = format!("## foo1 : `{}`", render(&TypeRenderer::Type(&typ)));
         let expected_no_details = format!(
-            "## foo2 : {}\n\n{}",
-            render(&Code(Box::new(TypeRenderer::Type(&typ)))),
+            "## foo2 : `{}`\n\n{}",
+            render(&TypeRenderer::Type(&typ)),
             render_ds_summary(&ds_no_details)
         );
         let expected_with_docs = format!(
-            "## foo3 : {}\n\n{}\n\n{}",
-            render(&Code(Box::new(TypeRenderer::Type(&typ)))),
+            "## foo3 : `{}`\n\n{}\n\n{}",
+            render(&TypeRenderer::Type(&typ)),
             render_ds_summary(&ds),
             render_ds_details(&ds)
         );
