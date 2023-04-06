@@ -139,11 +139,24 @@ impl ExecutorPreference {
     }
 }
 
+pub struct CommandExecutionPaths {
+    inputs: Vec<CommandExecutionInput>,
+    outputs: IndexSet<CommandExecutionOutput>,
+}
+
+impl CommandExecutionPaths {
+    pub fn new(
+        inputs: Vec<CommandExecutionInput>,
+        outputs: IndexSet<CommandExecutionOutput>,
+    ) -> Self {
+        Self { inputs, outputs }
+    }
+}
+
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
     args: Vec<String>,
-    inputs: Vec<CommandExecutionInput>,
-    outputs: IndexSet<CommandExecutionOutput>,
+    paths: CommandExecutionPaths,
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     executor_preference: ExecutorPreference,
@@ -170,14 +183,12 @@ pub struct CommandExecutionRequest {
 impl CommandExecutionRequest {
     pub fn new(
         args: Vec<String>,
-        inputs: Vec<CommandExecutionInput>,
-        outputs: IndexSet<CommandExecutionOutput>,
+        paths: CommandExecutionPaths,
         env: SortedVectorMap<String, String>,
     ) -> Self {
         Self {
             args,
-            inputs,
-            outputs,
+            paths,
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
@@ -247,11 +258,11 @@ impl CommandExecutionRequest {
     }
 
     pub fn inputs(&self) -> &[CommandExecutionInput] {
-        &self.inputs
+        &self.paths.inputs
     }
 
     pub fn outputs<'a>(&'a self) -> impl Iterator<Item = CommandExecutionOutputRef<'a>> + 'a {
-        self.outputs.iter().map(|output| output.as_ref())
+        self.paths.outputs.iter().map(|output| output.as_ref())
     }
 
     pub fn env(&self) -> &SortedVectorMap<String, String> {

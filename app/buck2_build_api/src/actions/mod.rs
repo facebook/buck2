@@ -348,6 +348,7 @@ pub(crate) mod testings {
     use async_trait::async_trait;
     use buck2_core::category::Category;
     use buck2_execute::execute::request::CommandExecutionOutput;
+    use buck2_execute::execute::request::CommandExecutionPaths;
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use derivative::Derivative;
@@ -470,14 +471,16 @@ pub(crate) mod testings {
         ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),
-                Vec::new(),
-                self.outputs
-                    .iter()
-                    .map(|b| CommandExecutionOutput::BuildArtifact {
-                        path: b.get_path().dupe(),
-                        output_type: OutputType::File,
-                    })
-                    .collect(),
+                CommandExecutionPaths::new(
+                    Vec::new(),
+                    self.outputs
+                        .iter()
+                        .map(|b| CommandExecutionOutput::BuildArtifact {
+                            path: b.get_path().dupe(),
+                            output_type: OutputType::File,
+                        })
+                        .collect(),
+                ),
                 sorted_vector_map![],
             );
 

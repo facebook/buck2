@@ -545,6 +545,7 @@ mod tests {
     use buck2_execute::execute::command_executor::CommandExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionOutput;
+    use buck2_execute::execute::request::CommandExecutionPaths;
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
@@ -668,24 +669,26 @@ mod tests {
 
                 let req = CommandExecutionRequest::new(
                     vec!["foo".to_owned(), "bar".to_owned(), "cmd".to_owned()],
-                    self.inputs
-                        .iter()
-                        .map(|x| {
-                            CommandExecutionInput::Artifact(Box::new(
-                                ArtifactGroupValues::from_artifact(
-                                    x.unpack_artifact().unwrap().dupe(),
-                                    ArtifactValue::file(ctx.digest_config().empty_file()),
-                                ),
-                            ))
-                        })
-                        .collect(),
-                    self.outputs
-                        .iter()
-                        .map(|b| CommandExecutionOutput::BuildArtifact {
-                            path: b.get_path().dupe(),
-                            output_type: OutputType::FileOrDirectory,
-                        })
-                        .collect(),
+                    CommandExecutionPaths::new(
+                        self.inputs
+                            .iter()
+                            .map(|x| {
+                                CommandExecutionInput::Artifact(Box::new(
+                                    ArtifactGroupValues::from_artifact(
+                                        x.unpack_artifact().unwrap().dupe(),
+                                        ArtifactValue::file(ctx.digest_config().empty_file()),
+                                    ),
+                                ))
+                            })
+                            .collect(),
+                        self.outputs
+                            .iter()
+                            .map(|b| CommandExecutionOutput::BuildArtifact {
+                                path: b.get_path().dupe(),
+                                output_type: OutputType::FileOrDirectory,
+                            })
+                            .collect(),
+                    ),
                     SortedVectorMap::new(),
                 );
 

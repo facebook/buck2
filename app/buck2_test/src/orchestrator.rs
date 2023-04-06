@@ -65,6 +65,7 @@ use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
@@ -687,7 +688,8 @@ impl BuckTestOrchestrator {
             .into_iter()
             .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
             .collect();
-        let mut request = CommandExecutionRequest::new(cmd, inputs, outputs, env);
+        let mut request =
+            CommandExecutionRequest::new(cmd, CommandExecutionPaths::new(inputs, outputs), env);
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());

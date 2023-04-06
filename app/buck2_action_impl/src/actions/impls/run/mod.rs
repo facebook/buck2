@@ -39,6 +39,7 @@ use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
+use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use dupe::Dupe;
@@ -389,14 +390,16 @@ impl IncrementalActionExecutable for RunAction {
 
         let req = CommandExecutionRequest::new(
             cli,
-            inputs,
-            self.outputs
-                .iter()
-                .map(|b| CommandExecutionOutput::BuildArtifact {
-                    path: b.get_path().dupe(),
-                    output_type: b.output_type(),
-                })
-                .collect(),
+            CommandExecutionPaths::new(
+                inputs,
+                self.outputs
+                    .iter()
+                    .map(|b| CommandExecutionOutput::BuildArtifact {
+                        path: b.get_path().dupe(),
+                        output_type: b.output_type(),
+                    })
+                    .collect(),
+            ),
             env,
         )
         .with_prefetch_lossy_stderr(true)
