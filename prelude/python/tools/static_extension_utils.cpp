@@ -8,6 +8,7 @@
  */
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include "Python.h"
 
@@ -16,7 +17,7 @@ typedef PyObject* (*pyinitfunc)();
 typedef struct {
 } StaticExtensionFinderObject;
 
-extern std::unordered_map<std::string, pyinitfunc> _static_extension_info;
+extern std::unordered_map<std::string_view, pyinitfunc> _static_extension_info;
 
 namespace {
 

@@ -20,7 +20,7 @@ def main(argv: List[str]) -> int:
 
     externs = []
     table = [
-        "std::unordered_map<std::string, pyinitfunc>  _static_extension_info = {",
+        "std::unordered_map<std::string_view, pyinitfunc> _static_extension_info = {",
     ]
     i = 0
     for python_name in args.extension:
@@ -37,7 +37,7 @@ def main(argv: List[str]) -> int:
             '#include "Python.h"',
             '#include "import.h"',
             "#include <unordered_map>",
-            "#include <string>",
+            "#include <string_view>",
             "typedef PyObject* (*pyinitfunc)();",
         ]
         + externs
