@@ -19,6 +19,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::package::PackageLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
@@ -893,7 +894,13 @@ where
     };
     let result = func(sender.dupe()).await;
     sender.signal(BuildSignal::BuildFinished);
-    handle.await??;
+    let res = handle
+        .await
+        .context("Error joining critical path task")?
+        .context("Error computing critical path");
+    if let Err(e) = res {
+        soft_error!("critical_path_computation_failed", e)?;
+    }
     result
 }
 
