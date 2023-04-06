@@ -234,52 +234,35 @@ fn render_object(name: &str, object: &Object) -> String {
         .members
         .iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(name, member)| {
-            MemberDetails {
-                name: &name,
-                member,
-            }
-            .render_markdown(MarkdownFlavor::DocFile)
-        })
+        .map(|(name, member)| render_member(name, member))
         .collect();
     let members_details = member_details.join("\n\n---\n\n");
 
     format!("{title}{summary}\n\n{members_details}")
 }
 
+fn render_doc_item(name: &str, item: &DocItem) -> String {
+    match &item {
+        DocItem::Module(m) => render_module(name, m),
+        DocItem::Object(o) => render_object(name, o),
+        DocItem::Function(f) => render_function(name, f),
+        DocItem::Property(p) => render_property(name, p),
+    }
+}
+
 impl RenderMarkdown for Doc {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
-            MarkdownFlavor::DocFile => {
-                // These just proxy to the Renderer types so we can add extra metadata to them,
-                // like the identifier.
-                match &self.item {
-                    DocItem::Module(m) => Some(render_module(&self.id.name, m)),
-                    DocItem::Object(o) => Some(render_object(&self.id.name, o)),
-                    DocItem::Function(f) => Some(render_function(&self.id.name, f)),
-                    DocItem::Property(p) => Some(render_property(&self.id.name, p)),
-                }
-            }
+            MarkdownFlavor::DocFile => Some(render_doc_item(&self.id.name, &self.item)),
             MarkdownFlavor::LspSummary => None,
         }
     }
 }
 
-/// Details about a member. Proxies to `PropertyDetailsRenderer` and `FunctionDetailsRenderer`
-struct MemberDetails<'a> {
-    name: &'a str,
-    member: &'a Member,
-}
-
-impl<'a> RenderMarkdown for MemberDetails<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => match self.member {
-                Member::Property(p) => Some(render_property(&self.name, p)),
-                Member::Function(f) => Some(render_function(&self.name, f)),
-            },
-            MarkdownFlavor::LspSummary => None,
-        }
+fn render_member(name: &str, member: &Member) -> String {
+    match member {
+        Member::Property(p) => render_property(name, p),
+        Member::Function(f) => render_function(name, f),
     }
 }
 
