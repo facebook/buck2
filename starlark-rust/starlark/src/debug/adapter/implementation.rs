@@ -115,10 +115,14 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
         if stop {
             self.state.client.event_stopped();
             loop {
-                let msg = self.receiver.recv().unwrap();
-                match msg(span_loc, eval) {
-                    Next::Continue => break,
-                    Next::RemainPaused => continue,
+                let msg = self.receiver.recv();
+                match msg.map(|msg| msg(span_loc, eval)) {
+                    Ok(Next::Continue) => break,
+                    Ok(Next::RemainPaused) => continue,
+                    Err(..) => {
+                        // DapAdapter has been dropped so we'll continue.
+                        break;
+                    }
                 }
             }
         }
