@@ -607,4 +607,10 @@ def list_result():
         );
         a.is_true("load('x','list_result')\nx = list_result()\nx += [8]\nx == [1, 2, 4, 8]");
     }
+
+    #[test]
+    fn test_compare() {
+        // TODO(nga): this is a bug, it should be lexicographic comparison.
+        assert::is_true("[1, 2] > [10]");
+    }
 }
