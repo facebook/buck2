@@ -19,6 +19,7 @@ derive_more = { workspace = true }
 fs2 = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
+httparse = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 linked-hash-map = { workspace = true }

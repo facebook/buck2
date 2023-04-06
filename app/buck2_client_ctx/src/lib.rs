@@ -25,6 +25,7 @@ pub mod exit_result;
 pub mod file_tailer;
 pub mod final_console;
 pub mod find_certs;
+pub mod ide_support;
 pub mod manifold;
 pub mod path_arg;
 pub mod protobuf_util;

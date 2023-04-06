@@ -29,6 +29,7 @@ rust_library(
         ),
     ],
     test_deps = [
+        "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:pretty_assertions",
         "fbsource//third-party/rust:tempfile",
     ],
@@ -44,6 +45,7 @@ rust_library(
         "fbsource//third-party/rust:fs2",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:httparse",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:lsp-server",
