@@ -316,12 +316,7 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     summary = "\n\nThis document contains a list of rules and their signatures provided by our prelude.".to_owned();
                 };
 
-                Some(format!(
-                    "{title}{summary}\n\n{members_details}",
-                    title = title,
-                    summary = summary,
-                    members_details = members_details
-                ))
+                Some(format!("{title}{summary}\n\n{members_details}"))
             }
             MarkdownFlavor::LspSummary => None,
         }
