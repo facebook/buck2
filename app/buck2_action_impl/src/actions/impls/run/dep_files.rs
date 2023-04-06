@@ -324,53 +324,67 @@ async fn dep_files_match(
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<bool> {
-    // We first need to check if the same dep files existed before or not. If not, then we
-    // can't assume they'll still be on disk, and we have to bail.
-    if declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files)
-        && outputs_are_reusable(declared_outputs, &previous_state.result)
-        && digests.cli == previous_state.digests.cli
-    {
-        let dep_files = previous_state
-            .read_dep_files(ctx.fs(), ctx.materializer())
-            .await
-            .context(
-                "Error reading persisted dep files. \
-                Fix the command that produced an invalid dep file. \
-                You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
-            )?;
-
-        if let Some(dep_files) = dep_files {
-            // Now we need to know the fingerprints on the original action. Produce them if they're
-            // missing. We're either storing input directories or outputs here.
-
-            let digest_config = ctx.digest_config();
-
-            let fingerprints_match = {
-                // NOTE: We don't bother releasing the guard here (we'd have to clone the fingerprints to do
-                // so), because this Mutex won't be contended: only one action will look at its value.
-                let previous_fingerprints = previous_state.locked_compute_fingerprints(
-                    Cow::Borrowed(&dep_files),
-                    KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
-                    digest_config,
-                );
-
-                // NOTE: We use the new directory to e.g. resolve symlinks referenced in the dep file. This
-                // makes sense: if a path in the depfile is still a symlink, then we'll compare the new
-                // destination and the old. If it's not, then we can assume that the tool wouldn't traverse
-                // the symlink anymore.
-                let new_fingerprints = declared_inputs
-                    .to_directories(ctx)?
-                    .filter(dep_files)
-                    .fingerprint(digest_config);
-
-                *previous_fingerprints == new_fingerprints
-            };
-
-            return Ok(fingerprints_match);
-        }
+    if !declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files) {
+        // We first need to check if the same dep files existed before or not. If not, then we
+        // can't assume they'll still be on disk, and we have to bail.
+        tracing::trace!("Dep files miss: Dep files declaration has changed");
+        return Ok(false);
     }
 
-    Ok(false)
+    if !outputs_are_reusable(declared_outputs, &previous_state.result) {
+        tracing::trace!("Dep files miss: Output declaration has changed");
+        return Ok(false);
+    }
+
+    if digests.cli != previous_state.digests.cli {
+        tracing::trace!("Dep files miss: Command line has changed");
+        return Ok(false);
+    }
+
+    let dep_files = previous_state
+        .read_dep_files(ctx.fs(), ctx.materializer())
+        .await
+        .context(
+            "Error reading persisted dep files. \
+            Fix the command that produced an invalid dep file. \
+            You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
+        )?;
+
+    let dep_files = match dep_files {
+        Some(dep_files) => dep_files,
+        None => {
+            tracing::trace!("Dep files miss: Dep files cannot be materialized");
+            return Ok(false);
+        }
+    };
+
+    // Now we need to know the fingerprints on the original action. Produce them if they're
+    // missing. We're either storing input directories or outputs here.
+
+    let digest_config = ctx.digest_config();
+
+    let fingerprints_match = {
+        // NOTE: We don't bother releasing the guard here (we'd have to clone the fingerprints to do
+        // so), because this Mutex won't be contended: only one action will look at its value.
+        let previous_fingerprints = previous_state.locked_compute_fingerprints(
+            Cow::Borrowed(&dep_files),
+            KEEP_DIRECTORIES.get_copied()?.unwrap_or_default(),
+            digest_config,
+        );
+
+        // NOTE: We use the new directory to e.g. resolve symlinks referenced in the dep file. This
+        // makes sense: if a path in the depfile is still a symlink, then we'll compare the new
+        // destination and the old. If it's not, then we can assume that the tool wouldn't traverse
+        // the symlink anymore.
+        let new_fingerprints = declared_inputs
+            .to_directories(ctx)?
+            .filter(dep_files)
+            .fingerprint(digest_config);
+
+        *previous_fingerprints == new_fingerprints
+    };
+
+    Ok(fingerprints_match)
 }
 
 /// If an action is unchanged but now requires a different set of outputs, that's not a cache hit
