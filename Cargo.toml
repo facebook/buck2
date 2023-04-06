@@ -83,6 +83,7 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1.0.65"
+arc-swap = "1.6.0"
 assert_matches = "1.5"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip", "zstd"] }
 async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11"] }

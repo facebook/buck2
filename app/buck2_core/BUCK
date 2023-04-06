@@ -17,6 +17,7 @@ rust_library(
     deps = [
         "fbsource//third-party/blake3:blake3-rust",
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:arc-swap",
         "fbsource//third-party/rust:common-path",
         "fbsource//third-party/rust:compact_str",
         "fbsource//third-party/rust:dashmap",

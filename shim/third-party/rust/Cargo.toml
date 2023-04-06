@@ -25,6 +25,7 @@ unicode-segmentation = "1.7"
 annotate-snippets = { version = "0.9.0", features = ["color"] }
 anyhow = "1.0.65"
 anymap = "0.12.1"
+arc-swap = "1.6.0"
 argfile = "0.1.0"
 assert_matches = "1.5"
 async-compression = { version = "0.3.8", features = ["tokio", "gzip", "zstd"] }

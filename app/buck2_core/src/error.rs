@@ -10,8 +10,11 @@
 use std::str::FromStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::sync::Mutex;
 
+use anyhow::Context;
+use arc_swap::ArcSwapOption;
 use once_cell::sync::OnceCell;
 use starlark_map::small_set::SmallSet;
 
@@ -23,7 +26,11 @@ type SoftErrorHandler = Box<
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
-static HARD_ERROR: EnvHelper<HardErrorConfig> = EnvHelper::new("BUCK2_HARD_ERROR");
+pub static BUCK2_HARD_ERROR_ENV_VAR: EnvHelper<String> = EnvHelper::new("BUCK2_HARD_ERROR");
+
+static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
+    config: ArcSwapOption::const_empty(),
+};
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
@@ -63,6 +70,27 @@ macro_rules! quiet_soft_error(
     } }
 );
 
+fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
+    // This function should return `Guard<Arc<HardErrorConfig>>` to make it a little bit faster,
+    // see https://github.com/vorner/arc-swap/issues/90
+
+    if let Some(config) = HARD_ERROR_CONFIG.config.load_full() {
+        return Ok(config);
+    }
+
+    let config = BUCK2_HARD_ERROR_ENV_VAR.get()?.map_or("", |s| s.as_str());
+    let config = HardErrorConfig::from_str(config)?;
+    HARD_ERROR_CONFIG.config.store(Some(Arc::new(config)));
+    HARD_ERROR_CONFIG
+        .config
+        .load_full()
+        .context("Just stored a value (internal error)")
+}
+
+pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {
+    HARD_ERROR_CONFIG.reload_hard_error_config(var_value)
+}
+
 // Hidden because an implementation detail of `soft_error!`.
 #[doc(hidden)]
 pub fn handle_soft_error(
@@ -84,10 +112,8 @@ pub fn handle_soft_error(
         }
     }
 
-    if let Some(h) = HARD_ERROR.get()? {
-        if h.should_hard_error(category) {
-            return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
-        }
+    if hard_error_config()?.should_hard_error(category) {
+        return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
     }
 
     Ok(err)
@@ -101,7 +127,7 @@ pub fn reset_soft_error_counters() {
 }
 
 pub fn initialize(handler: SoftErrorHandler) -> anyhow::Result<()> {
-    HARD_ERROR.get()?;
+    hard_error_config()?;
 
     if let Err(_e) = HANDLER.set(handler) {
         panic!("Cannot initialize soft_error handler more than once");
@@ -150,6 +176,24 @@ impl FromStr for HardErrorConfig {
         }
 
         Err(InvalidHardErrorConfig(s.to_owned()))
+    }
+}
+
+struct HardErrorConfigHolder {
+    config: ArcSwapOption<HardErrorConfig>,
+}
+
+impl HardErrorConfigHolder {
+    fn reload_hard_error_config(&self, var_value: &str) -> anyhow::Result<()> {
+        let config = HardErrorConfig::from_str(var_value)?;
+        if let Some(old_config) = &*self.config.load() {
+            if **old_config == config {
+                return Ok(());
+            }
+        }
+
+        self.config.store(Some(Arc::new(config)));
+        Ok(())
     }
 }
 
@@ -262,5 +306,28 @@ mod tests {
         assert!(!HardErrorConfig::from_str("only=foo,bar")?.should_hard_error("baz"));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_reset_soft_error_handler() {
+        let config = HardErrorConfigHolder {
+            config: ArcSwapOption::const_empty(),
+        };
+
+        assert!(config.config.load().is_none());
+
+        config.reload_hard_error_config("true").unwrap();
+        let c0 = config.config.load();
+        let c0 = c0.as_ref().unwrap();
+        config.reload_hard_error_config("true").unwrap();
+        let c1 = config.config.load();
+        let c1 = c1.as_ref().unwrap();
+        assert!(Arc::ptr_eq(c0, c1), "Reload identical config is no-op");
+        assert_eq!(**c0, HardErrorConfig::Bool(true));
+
+        config.reload_hard_error_config("false").unwrap();
+        let c2 = config.config.load();
+        let c2 = c2.as_ref().unwrap();
+        assert_eq!(**c2, HardErrorConfig::Bool(false));
     }
 }

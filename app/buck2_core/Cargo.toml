@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+arc-swap = { workspace = true }
 blake3 = { workspace = true }
 common-path = { workspace = true }
 compact_str = { workspace = true }
