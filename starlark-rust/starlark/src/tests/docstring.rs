@@ -20,8 +20,8 @@
 use crate::assert;
 use crate::assert::Assert;
 use crate::const_frozen_string;
+use crate::docs;
 use crate::docs::DocStringKind;
-use crate::docs::ModuleDocs;
 use crate::environment::Module;
 use crate::values::Value;
 
@@ -334,7 +334,7 @@ def f1():
 
     let empty_function = Some(DocItem::Function(Function::default()));
 
-    let expected_m1 = ModuleDocs {
+    let expected_m1 = docs::Module {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             r"This is the summary of the module's docs
@@ -352,7 +352,7 @@ Some extra details can go here,
         },
     };
 
-    let expected_m2 = ModuleDocs {
+    let expected_m2 = docs::Module {
         docs: None,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
@@ -362,7 +362,7 @@ Some extra details can go here,
         },
     };
 
-    let expected_m3 = ModuleDocs {
+    let expected_m3 = docs::Module {
         docs: None,
         members: hashmap! {
             "f1".to_owned() => empty_function,

@@ -31,9 +31,9 @@ use dupe::Dupe;
 use itertools::Itertools;
 
 use crate::collections::Hashed;
+use crate::docs;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::docs::ModuleDocs;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
@@ -207,7 +207,7 @@ impl FrozenModule {
     /// The documentation for the module, and all of its top level values
     ///
     /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
-    pub fn module_documentation(&self) -> ModuleDocs {
+    pub fn module_documentation(&self) -> docs::Module {
         let members = self
             .names()
             .filter(|n| Module::default_visibility(n) == Visibility::Public)
@@ -218,7 +218,7 @@ impl FrozenModule {
             })
             .collect();
 
-        ModuleDocs {
+        docs::Module {
             docs: self.documentation(),
             members,
         }
