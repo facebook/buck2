@@ -36,6 +36,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -425,6 +426,8 @@ impl BuckdServer {
         // This will reset counters incorrectly if commands are running concurrently.
         // This is fine.
         reset_soft_error_counters();
+
+        reload_hard_error_config(&req.get_ref().client_context()?.buck2_hard_error)?;
 
         OneshotCommandOptions::pre_run(&opts, self)?;
 
