@@ -17,13 +17,11 @@
 
 //! Test starlark-rust embedding.
 
-use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::cell::AsARef;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -37,6 +35,8 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::any::StarlarkAny;
 use crate::values::none::NoneType;
+use crate::values::types::exported_name::ExportedName;
+use crate::values::types::exported_name::MutableExportedName;
 use crate::values::Freeze;
 use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
@@ -59,32 +59,29 @@ fn test_export_as() {
 
     #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative, Freeze)]
     #[allocative(skip)]
-    struct Exporter<T> {
-        // Either String or a RefCell therefore
+    struct Exporter<T: ExportedName> {
         named: T,
         value: i32,
     }
 
-    impl<T: AsARef<String>> Display for Exporter<T> {
+    impl<T: ExportedName> Display for Exporter<T> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}={}", AsARef::as_aref(&self.named), self.value)
+            write!(f, "{}={}", self.named, self.value)
         }
     }
 
-    impl<'v, T: AsARef<String> + Debug + 'v> StarlarkValue<'v> for Exporter<T>
+    impl<'v, T: ExportedName> StarlarkValue<'v> for Exporter<T>
     where
         Self: ProvidesStaticType,
     {
         starlark_type!("exporter");
 
         fn export_as(&self, variable_name: &str, _eval: &mut Evaluator<'v, '_>) {
-            if let Some(named) = AsARef::as_ref_cell(&self.named) {
-                *named.borrow_mut() = variable_name.to_owned();
-            }
+            self.named.try_export_as(variable_name);
         }
     }
 
-    impl AllocValue<'_> for Exporter<RefCell<String>> {
+    impl AllocValue<'_> for Exporter<MutableExportedName> {
         fn alloc_value(self, heap: &Heap) -> Value {
             heap.alloc_complex(self)
         }
@@ -92,9 +89,9 @@ fn test_export_as() {
 
     #[starlark_module]
     fn exporter(builder: &mut GlobalsBuilder) {
-        fn exporter(value: i32) -> anyhow::Result<Exporter<RefCell<String>>> {
+        fn exporter(value: i32) -> anyhow::Result<Exporter<MutableExportedName>> {
             Ok(Exporter {
-                named: RefCell::new("unnamed".to_owned()),
+                named: MutableExportedName::default(),
                 value,
             })
         }
@@ -108,7 +105,7 @@ fn test_export_as() {
     );
     // could reasonably be x=1 or y=1 twice, since the order
     // of calls to export_as is not defined
-    let opt1 = "(x=1, x=1, longer_name=2, unnamed=3)".to_owned();
+    let opt1 = "(x=1, x=1, longer_name=2, <not_exported>=3)".to_owned();
     let opt2 = opt1.replace("x=", "y=");
 
     a.is_true(&format!(

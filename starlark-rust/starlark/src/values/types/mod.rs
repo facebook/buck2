@@ -22,6 +22,7 @@ pub mod bigint;
 pub mod bool;
 pub mod dict;
 pub mod enumeration;
+pub mod exported_name;
 pub mod float;
 pub mod function;
 pub mod int;

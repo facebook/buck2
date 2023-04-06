@@ -72,6 +72,7 @@ pub use crate::values::types::array;
 pub use crate::values::types::bool;
 pub use crate::values::types::dict;
 pub use crate::values::types::enumeration;
+pub use crate::values::types::exported_name;
 pub use crate::values::types::float;
 pub use crate::values::types::function;
 pub use crate::values::types::int;
