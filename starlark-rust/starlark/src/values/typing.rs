@@ -22,6 +22,7 @@ use allocative::Allocative;
 use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
+use crate as starlark;
 use crate::coerce::Coerce;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -51,8 +52,8 @@ trait TypeCompiledImpl: Allocative + Send + Sync + 'static {
     fn matches(&self, value: Value) -> bool;
 }
 
-#[derive(Allocative)]
-pub(crate) struct TypeCompiled(Box<dyn TypeCompiledImpl>);
+#[derive(Allocative, Freeze)]
+pub(crate) struct TypeCompiled(#[freeze(identity)] Box<dyn TypeCompiledImpl>);
 
 unsafe impl Coerce<TypeCompiled> for TypeCompiled {}
 

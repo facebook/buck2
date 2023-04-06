@@ -24,7 +24,6 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::OptionExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -74,9 +73,7 @@ impl<'v> Freeze for ValueCaptured<'v> {
     type Frozen = FrozenValueCaptured;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValueCaptured> {
-        Ok(FrozenValueCaptured(
-            self.0.get().try_map(|v| freezer.freeze(v))?,
-        ))
+        Ok(FrozenValueCaptured(self.0.get().freeze(freezer)?))
     }
 }
 

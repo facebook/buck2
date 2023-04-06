@@ -20,9 +20,8 @@ use std::cell::RefMut;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::prelude::OptionExt;
-use gazebo::prelude::SliceExt;
 
+use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -79,10 +78,7 @@ impl<'v> MutableSlots<'v> {
     }
 
     pub(crate) fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenSlots> {
-        let slots = self
-            .0
-            .into_inner()
-            .try_map(|x| x.try_map(|x| x.freeze(freezer)))?;
+        let slots = self.0.into_inner().freeze(freezer)?;
         Ok(FrozenSlots(slots))
     }
 }

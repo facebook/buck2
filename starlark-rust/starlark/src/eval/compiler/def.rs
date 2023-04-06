@@ -29,7 +29,6 @@ use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::OptionExt;
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
 use once_cell::sync::Lazy;
@@ -600,9 +599,7 @@ impl<'v> Freeze for Def<'v> {
         let parameter_types = self
             .parameter_types
             .into_try_map(|(i, s, v, t)| anyhow::Ok((i, s, v.freeze(freezer)?, t)))?;
-        let return_type = self
-            .return_type
-            .try_map(|(v, t)| anyhow::Ok((v.freeze(freezer)?, t)))?;
+        let return_type = self.return_type.freeze(freezer)?;
         let captured = self.captured.try_map(|x| x.freeze(freezer))?;
         let module = AtomicFrozenRefOption::new(self.module.load_relaxed());
         Ok(FrozenDef {
