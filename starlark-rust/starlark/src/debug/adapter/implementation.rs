@@ -43,6 +43,7 @@ use crate::eval::BeforeStmtFuncDyn;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::values::Value;
 
 pub(crate) fn prepare_dap_adapter(
     client: Box<dyn DapAdapterClient>,
@@ -75,6 +76,21 @@ struct DapAdapterImpl {
 struct DapAdapterEvalHookImpl {
     state: Arc<SharedAdapterState>,
     receiver: Receiver<ToEvalMessage>,
+}
+
+fn evaluate_expr<'v>(
+    state: &SharedAdapterState,
+    eval: &mut Evaluator<'v, '_>,
+    expr: String,
+) -> anyhow::Result<Value<'v>> {
+    // We don't want to trigger breakpoints during an evaluate,
+    // not least because we currently don't allow reenterant evaluate
+    state.disable_breakpoints.fetch_add(1, Ordering::SeqCst);
+    // Don't use `?`, we need to reset disable_breakpoints.
+    let ast = AstModule::parse("interactive", expr, &Dialect::Extended);
+    let res = ast.and_then(|ast| eval.eval_statements(ast));
+    state.disable_breakpoints.fetch_sub(1, Ordering::SeqCst);
+    res
 }
 
 impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
@@ -271,17 +287,13 @@ impl DapAdapter for DapAdapterImpl {
     }
 
     fn evaluate(&self, x: EvaluateArguments) -> anyhow::Result<EvaluateResponseBody> {
-        let disable_breakpoints = self.state.disable_breakpoints.dupe();
+        let state = self.state.dupe();
+        let expression = x.expression;
         self.with_ctx(Box::new(move |_, eval| {
-            // We don't want to trigger breakpoints during an evaluate,
-            // not least because we currently don't allow reenterant evaluate
-            disable_breakpoints.fetch_add(1, Ordering::SeqCst);
-            let ast = AstModule::parse("interactive", x.expression.clone(), &Dialect::Extended);
-            let s = match ast.and_then(|ast| eval.eval_statements(ast)) {
+            let s = match evaluate_expr(&state, eval, expression.clone()) {
                 Err(e) => format!("{:#}", e),
                 Ok(v) => v.to_string(),
             };
-            disable_breakpoints.fetch_sub(1, Ordering::SeqCst);
             Ok(EvaluateResponseBody {
                 indexed_variables: None,
                 named_variables: None,
