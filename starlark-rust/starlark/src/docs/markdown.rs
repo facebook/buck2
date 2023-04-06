@@ -285,12 +285,12 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                 // If this is a native, top level object, render it with a larger
                 // header. Sub objects will be listed along side members, so use
                 // smaller headers there.
-                let mut title = format!(
+                let title = format!(
                     "#{} {}",
                     if self.id.location.is_none() { "" } else { "#" },
                     self.id.name,
                 );
-                let mut summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
+                let summary = DocStringRenderer(DSOpts::Combined, &self.object.docs)
                     .render_markdown_opt(flavor)
                     .map(|s| format!("\n\n{}", s))
                     .unwrap_or_default();
@@ -309,13 +309,6 @@ impl<'a> RenderMarkdown for ObjectRenderer<'a> {
                     })
                     .collect();
                 let members_details = member_details.join("\n\n---\n\n");
-
-                // Manually insert a summary as well, as nothing is pulled in from the bzl file
-                // TODO: remove this conditional when we fix up the prelude docs.
-                if self.id.name == "native" {
-                    title = "".to_owned();
-                    summary = "\n\nThis document contains a list of rules and their signatures provided by our prelude.".to_owned();
-                };
 
                 Some(format!("{title}{summary}\n\n{members_details}"))
             }
