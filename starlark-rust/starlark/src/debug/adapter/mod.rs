@@ -28,6 +28,7 @@ use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 
 mod implementation;
+mod tests;
 
 /// The DapAdapterClient is implemented by the user and provides functionality required by the DapAdapter.
 pub trait DapAdapterClient: Debug + Send + Sync + 'static {
@@ -116,6 +117,7 @@ pub trait DapAdapter: Debug + Send + 'static {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Breakpoint {
     span: FileSpan,
+    condition: Option<String>,
 }
 
 /// Breakpoints resolved to their spans.
@@ -152,6 +154,7 @@ pub fn dap_capabilities() -> Capabilities {
         supports_evaluate_for_hovers: Some(true),
         supports_set_variable: Some(true),
         supports_step_in_targets_request: Some(true),
+        supports_conditional_breakpoints: Some(true),
         ..Capabilities::default()
     }
 }

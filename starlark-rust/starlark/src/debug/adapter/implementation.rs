@@ -100,7 +100,17 @@ impl<'a> BeforeStmtFuncDyn<'a> for DapAdapterEvalHookImpl {
         } else {
             let breaks = self.state.breakpoints.lock().unwrap();
             let breakpoint = breaks.at(span_loc);
-            breakpoint.is_some()
+            match breakpoint {
+                Some(Breakpoint {
+                    condition: Some(condition),
+                    ..
+                }) => match evaluate_expr(&self.state, eval, condition.to_owned()) {
+                    Ok(v) => v.to_bool(),
+                    _ => true,
+                },
+                Some(..) => true,
+                None => false,
+            }
         };
         if stop {
             self.state.client.event_stopped();
@@ -362,8 +372,10 @@ pub(crate) fn resolve_breakpoints(
         Vec::new(),
         |v| {
             v.map(|x| {
-                poss.get(&(x.line as usize - 1))
-                    .map(|span| Breakpoint { span: span.clone() })
+                poss.get(&(x.line as usize - 1)).map(|span| Breakpoint {
+                    span: span.clone(),
+                    condition: x.condition.clone(),
+                })
             })
         },
     )))
