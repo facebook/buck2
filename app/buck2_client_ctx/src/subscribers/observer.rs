@@ -19,4 +19,5 @@ pub enum ErrorCause {
     Unknown,
     Infra,
     User,
+    DaemonIsBusy,
 }

@@ -71,6 +71,7 @@ pub struct DiceAccessor {
     pub setup: Box<dyn DiceUpdater>,
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
+    pub exit_when_different_state: bool,
 }
 
 #[async_trait]
@@ -145,6 +146,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                             dice_accessor.is_nested_invocation,
                             dice_accessor.sanitized_argv,
                             exclusive_cmd,
+                            dice_accessor.exit_when_different_state,
                         )
                         .await,
                     DiceCriticalSectionEnd {},

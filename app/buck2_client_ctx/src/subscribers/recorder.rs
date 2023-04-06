@@ -110,6 +110,7 @@ mod imp {
         metadata: HashMap<String, String>,
         analysis_count: u64,
         total_concurrent_commands: Option<u32>,
+        exit_when_different_state: bool,
     }
 
     impl InvocationRecorder {
@@ -188,6 +189,7 @@ mod imp {
                 metadata: buck2_events::metadata::collect(),
                 analysis_count: 0,
                 total_concurrent_commands: None,
+                exit_when_different_state: false,
             }
         }
 
@@ -311,6 +313,7 @@ mod imp {
                     .take(),
                 analysis_count: Some(self.analysis_count),
                 total_concurrent_commands: self.total_concurrent_commands,
+                exit_when_different_state: Some(self.exit_when_different_state),
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -617,6 +620,14 @@ mod imp {
             Ok(())
         }
 
+        fn handle_exit_when_different_state(
+            &mut self,
+            _exit_when_different_state: &buck2_data::ExitWhenDifferentState,
+        ) -> anyhow::Result<()> {
+            self.exit_when_different_state = true;
+            Ok(())
+        }
+
         fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
             self.tags.extend(tag.tags.iter().cloned());
             Ok(())
@@ -805,6 +816,9 @@ mod imp {
                         buck2_data::instant_event::Data::DiceConcurrentCommands(
                             dice_concurrent_commands,
                         ) => self.handle_dice_concurrent_commands(dice_concurrent_commands),
+                        buck2_data::instant_event::Data::ExitWhenDifferentState(
+                            exit_when_different_state,
+                        ) => self.handle_exit_when_different_state(exit_when_different_state),
                         _ => Ok(()),
                     }
                 }
@@ -843,7 +857,10 @@ mod imp {
 
     impl ErrorObserver for InvocationRecorder {
         fn error_cause(&self) -> ErrorCause {
-            if self.run_command_failure_count > 0 {
+            if self.exit_when_different_state {
+                // User wants to immediately exit concurrent commands with different states
+                return ErrorCause::DaemonIsBusy;
+            } else if self.run_command_failure_count > 0 {
                 // Action fails likely because of user-defined commands in the action
                 return ErrorCause::User;
             }

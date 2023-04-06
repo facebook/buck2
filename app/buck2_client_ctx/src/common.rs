@@ -350,6 +350,10 @@ pub struct CommonBuildOptions {
 
     #[clap(long)]
     upload_all_actions: bool,
+
+    /// Exit the current command if there was a state change in the concurrently-running command.
+    #[clap(long)]
+    exit_when_different_state: bool,
 }
 
 impl CommonBuildOptions {
@@ -389,6 +393,7 @@ impl CommonBuildOptions {
             eager_dep_files: self.eager_dep_files,
             upload_all_actions: self.upload_all_actions,
             no_remote_cache: self.no_remote_cache,
+            exit_when_different_state: self.exit_when_different_state,
         }
     }
 }

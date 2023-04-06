@@ -19,6 +19,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_core::soft_error;
@@ -31,6 +32,7 @@ use buck2_data::DiceSynchronizeSectionEnd;
 use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
+use buck2_data::ExitWhenDifferentState;
 use buck2_data::NoActiveDiceState;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::trace::TraceId;
@@ -65,6 +67,8 @@ enum ConcurrencyHandlerError {
         "Recursive invocation of Buck, with a different state. Use `--isolation-dir` on the inner invocation to fix this. Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
     NestedInvocationWithDifferentStates(String, String),
+    #[error("`--exit-when-different-state` was set")]
+    ExitWhenDifferentState,
 }
 
 #[derive(Clone, Dupe, Copy, Debug, Allocative)]
@@ -414,6 +418,7 @@ impl ConcurrencyHandler {
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
         exclusive_cmd: Option<String>,
+        exit_when_different_state: bool,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -448,6 +453,7 @@ impl ConcurrencyHandler {
                             events,
                             is_nested_invocation,
                             sanitized_argv,
+                            exit_when_different_state,
                         )
                     })
                     .await,
@@ -471,6 +477,7 @@ impl ConcurrencyHandler {
         event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
+        exit_when_different_state: bool,
     ) -> anyhow::Result<(OnExecExit, DiceTransaction)> {
         let trace = event_dispatcher.trace_id().dupe();
 
@@ -576,6 +583,14 @@ impl ConcurrencyHandler {
                                 break (transaction, state.will_taint());
                             }
                             BypassSemaphore::Block => {
+                                if exit_when_different_state {
+                                    event_dispatcher.instant_event(ExitWhenDifferentState {});
+
+                                    return Err(anyhow::Error::new(
+                                        ConcurrencyHandlerError::ExitWhenDifferentState,
+                                    ))
+                                    .context(buck2_data::ErrorCause::DaemonIsBusy);
+                                }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
                                 //
@@ -844,6 +859,7 @@ mod tests {
             true,
             Vec::new(),
             None,
+            false,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -858,6 +874,7 @@ mod tests {
             true,
             Vec::new(),
             None,
+            false,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -872,6 +889,7 @@ mod tests {
             true,
             Vec::new(),
             None,
+            false,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -909,6 +927,7 @@ mod tests {
             true,
             Vec::new(),
             None,
+            false,
         );
 
         let fut2 = concurrency.enter(
@@ -924,6 +943,7 @@ mod tests {
             true,
             Vec::new(),
             None,
+            false,
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -964,6 +984,7 @@ mod tests {
             false,
             Vec::new(),
             None,
+            false,
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -978,6 +999,7 @@ mod tests {
             false,
             Vec::new(),
             None,
+            false,
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -992,6 +1014,7 @@ mod tests {
             false,
             Vec::new(),
             None,
+            false,
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -1044,6 +1067,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1067,6 +1091,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1092,6 +1117,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1171,6 +1197,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1192,6 +1219,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1213,6 +1241,7 @@ mod tests {
                         false,
                         Vec::new(),
                         None,
+                        false,
                     )
                     .await
             }
@@ -1226,6 +1255,132 @@ mod tests {
         for mut events in [events1, events2, events3] {
             assert!(has_taint_event(&mut events));
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn parallel_invocation_exit_when_different_state() -> anyhow::Result<()> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+
+        let concurrency = ConcurrencyHandler::new(
+            dice.dupe(),
+            NestedInvocation::Run,
+            ParallelInvocation::Block,
+            DiceCleanup::Block,
+        );
+
+        let traces1 = TraceId::new();
+        let traces2 = traces1.dupe();
+        let traces_different = TraceId::new();
+
+        let block1 = Arc::new(RwLock::new(()));
+        let blocked1 = block1.write().await;
+
+        let block2 = Arc::new(RwLock::new(()));
+        let blocked2 = block2.write().await;
+
+        let barrier1 = Arc::new(Barrier::new(3));
+        let barrier2 = Arc::new(Barrier::new(2));
+
+        let arrived = Arc::new(AtomicBool::new(false));
+
+        let fut1 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier1.dupe();
+            let b = block1.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces1),
+                        &TestDiceDataProvider,
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        true,
+                    )
+                    .await
+            }
+        });
+
+        let fut2 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier1.dupe();
+            let b = block2.dupe();
+
+            async move {
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces2),
+                        &TestDiceDataProvider,
+                        &NoChanges,
+                        |_| async move {
+                            barrier.wait().await;
+                            let _g = b.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        true,
+                    )
+                    .await
+            }
+        });
+
+        barrier1.wait().await;
+
+        let fut3 = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier2.dupe();
+            let arrived = arrived.dupe();
+
+            async move {
+                barrier.wait().await;
+                concurrency
+                    .enter(
+                        EventDispatcher::null_sink_with_trace(traces_different),
+                        &TestDiceDataProvider,
+                        &CtxDifferent,
+                        |_| async move {
+                            arrived.store(true, Ordering::Relaxed);
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        true,
+                    )
+                    .await
+            }
+        });
+
+        barrier2.wait().await;
+
+        assert!(!arrived.load(Ordering::Relaxed));
+
+        drop(blocked1);
+        fut1.await??;
+
+        assert!(!arrived.load(Ordering::Relaxed));
+
+        drop(blocked2);
+        fut2.await??;
+
+        let fut3_result = fut3.await?;
+
+        assert!(fut3_result.is_err());
+        assert!(
+            fut3_result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("daemon is busy")
+        );
 
         Ok(())
     }
@@ -1304,6 +1459,7 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
+                false,
             )
             .await?;
 
@@ -1321,6 +1477,7 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
+                false,
             )
             .await?;
 
@@ -1337,6 +1494,7 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
+                false,
             )
             .await?;
 
@@ -1452,6 +1610,7 @@ mod tests {
                             false,
                             Vec::new(),
                             exclusive_cmd,
+                            false,
                         )
                         .await
                 }
@@ -1551,6 +1710,7 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
+                false,
             )
             .await?;
 
@@ -1570,6 +1730,7 @@ mod tests {
                 false,
                 Vec::new(),
                 None,
+                false,
             )
             .await?;
 
@@ -1605,6 +1766,7 @@ mod tests {
                     false,
                     Vec::new(),
                     None,
+                    false,
                 )
                 .await
         });

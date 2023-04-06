@@ -258,6 +258,7 @@ pub fn gen_error_exit_code(cause: ErrorCause) -> u8 {
         ErrorCause::Unknown => 2, // We treat unknown as infra error.
         ErrorCause::Infra => 2,
         ErrorCause::User => 3,
+        ErrorCause::DaemonIsBusy => 4, // For exiting concurrent commands of a different state early
     }
 }
 

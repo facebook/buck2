@@ -292,6 +292,9 @@ message CommonBuildOptions {
   /// Whether to skip doing cache queries.
   bool no_remote_cache = 11;
 
+  /// Error out concurrent commands after there is a state change.
+  bool exit_when_different_state = 12;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if

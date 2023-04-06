@@ -187,6 +187,10 @@ message InstantEvent {
 
     // Stacktrace from the fail_no_stacktrace() call.
     StarlarkFailNoStacktrace starlark_fail_no_stacktrace = 25;
+
+    // Emitted when the user requests that concurrent commands with different
+    // states should be exited immediately
+    ExitWhenDifferentState exit_when_different_state = 26;
   }
 
   reserved 12; // Log
@@ -1460,6 +1464,7 @@ message InvocationRecord {
   optional uint64 analysis_count = 60;
   // Total concurrent commands.
   optional uint32 total_concurrent_commands = 61;
+  optional bool exit_when_different_state = 62;
 }
 
 message CacheUploadStart {
@@ -1553,6 +1558,8 @@ message DiceSynchronizeSectionStart {}
 
 message DiceSynchronizeSectionEnd {}
 
+message ExitWhenDifferentState {}
+
 message BxlExecutionStart {
   string name = 1;
 }
@@ -1591,6 +1598,7 @@ enum ErrorCategory {
 
 enum ErrorCause {
   INVALID_PACKAGE = 0;
+  DAEMON_IS_BUSY = 1;
   // Add causes here as needed
 }
 
