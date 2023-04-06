@@ -21,8 +21,12 @@ use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use bytes::BytesMut;
 use futures::stream::StreamExt;
+use futures::Stream;
 use lsp_server::Message;
 use once_cell::sync::Lazy;
+use serde::Deserialize;
+use serde::Serialize;
+use tokio::io::AsyncRead;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::FramedRead;
 
@@ -48,21 +52,15 @@ impl StreamingCommand for LspCommand {
     ) -> ExitResult {
         let client_context =
             ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
-
-        let stream = FramedRead::new(ctx.stdin(), LspMessageDecoder).filter_map(|m| {
-            let m = m.and_then(|m| {
-                let lsp_json = serde_json::to_string(&m)?;
-                Ok(LspRequest { lsp_json })
-            });
-
-            futures::future::ready(match m {
-                Ok(m) => Some(m),
+        let stream = ide_message_stream::<_, Message>(ctx.stdin()).filter_map(|m| async move {
+            match m {
+                Ok(lsp_json) => Some(LspRequest { lsp_json }),
                 Err(e) => {
                     let _ignored =
                         buck2_client_ctx::eprintln!("Could not read message from stdin: `{}`", e);
                     None
                 }
-            })
+            }
         });
 
         reborrow_stream_for_static(
@@ -101,15 +99,29 @@ impl StreamingCommand for LspCommand {
         false
     }
 }
+/// Reads from input a stream of lsp-like messages and returns them as serde_json serialized strings.
+pub fn ide_message_stream<T: AsyncRead, Message: for<'a> Deserialize<'a> + Serialize>(
+    input: T,
+) -> impl Stream<Item = anyhow::Result<String>> {
+    FramedRead::new(
+        input,
+        LspMessageLikeDecoder::<Message> {
+            _marker: std::marker::PhantomData,
+        },
+    )
+    .map(|m| m.and_then(|m| Ok(serde_json::to_string(&m)?)))
+}
 
-struct LspMessageDecoder;
+pub struct LspMessageLikeDecoder<T: for<'a> Deserialize<'a>> {
+    _marker: std::marker::PhantomData<T>,
+}
 
-impl Decoder for LspMessageDecoder {
-    type Item = Message;
+impl<T: for<'a> Deserialize<'a>> Decoder for LspMessageLikeDecoder<T> {
+    type Item = T;
     type Error = anyhow::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        // The LSP protocol allows at most 2 headers (Content-Length and Content-Type), but since a
+        // The LSP (and DAP) protocol allows at most 2 headers (Content-Length and Content-Type), but since a
         // header is 2 pointers we allow ourselves quite a few more.
         let mut headers_buff = [httparse::EMPTY_HEADER; 16];
 
@@ -178,15 +190,19 @@ mod test {
             bytes.extend_from_slice(&tmp);
         };
 
+        let mut decoder = LspMessageLikeDecoder {
+            _marker: std::marker::PhantomData,
+        };
+
         // Decoding a subset should return None and not consume anything.
         {
             let mut tmp = BytesMut::new();
             tmp.extend_from_slice(&bytes[0..8]);
-            assert_matches!(LspMessageDecoder.decode(&mut tmp)?, None);
+            assert_matches!(decoder.decode(&mut tmp)?, None);
             assert_eq!(tmp.len(), 8);
         }
 
-        assert_matches!(LspMessageDecoder.decode(&mut bytes)?, Some(Message::Request(Request {
+        assert_matches!(decoder.decode(&mut bytes)?, Some(Message::Request(Request {
             id, method, params
         })) => {
             assert_eq!(id, r1.id);
@@ -194,7 +210,7 @@ mod test {
             assert_eq!(params, r1.params);
         });
 
-        assert_matches!(LspMessageDecoder.decode(&mut bytes)?, Some(Message::Request(Request {
+        assert_matches!(decoder.decode(&mut bytes)?, Some(Message::Request(Request {
             id, method, params
         })) => {
             assert_eq!(id, r2.id);
@@ -202,7 +218,7 @@ mod test {
             assert_eq!(params, r2.params);
         });
 
-        assert_matches!(LspMessageDecoder.decode(&mut bytes)?, None);
+        assert_matches!(decoder.decode(&mut bytes)?, None);
         assert_eq!(bytes.len(), 0);
 
         Ok(())
