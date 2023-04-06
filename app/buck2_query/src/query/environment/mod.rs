@@ -420,72 +420,81 @@ pub trait QueryEnvironment: Send + Sync {
         depth: Option<i32>,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        let mut deps = TargetSet::new();
-
-        struct Delegate<'a, Q: QueryTarget> {
-            deps: &'a mut TargetSet<Q>,
-            filter: Option<&'a dyn TraversalFilter<Q>>,
-        }
-
-        #[async_trait]
-        impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
-            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-                self.deps.insert(target);
-                Ok(())
-            }
-
-            async fn for_each_child(
-                &mut self,
-                target: &Q,
-                func: &mut dyn ChildVisitor<Q>,
-            ) -> anyhow::Result<()> {
-                let res: anyhow::Result<_> = try {
-                    match self.filter {
-                        Some(filter) => {
-                            for dep in filter.get_children(target).await?.iter() {
-                                func.visit(dep.node_ref().clone())?;
-                            }
-                        }
-                        None => {
-                            for dep in target.deps() {
-                                func.visit(dep.clone())?;
-                            }
-                        }
-                    }
-                };
-                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
-            }
-        }
-
-        match depth {
-            // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
-            // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
-            // and so to specify a filter you need to specify a depth.
-            Some(v) if (0..1_000_000_000).contains(&v) => {
-                self.depth_limited_traversal(
-                    targets,
-                    &mut Delegate {
-                        deps: &mut deps,
-                        filter,
-                    },
-                    v as u32,
-                )
-                .await?;
-            }
-            _ => {
-                self.dfs_postorder(
-                    targets,
-                    &mut Delegate {
-                        deps: &mut deps,
-                        filter,
-                    },
-                )
-                .await?;
-            }
-        }
-
-        Ok(deps)
+        deps(self, targets, depth, filter).await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>>;
+}
+
+pub async fn deps<Env: QueryEnvironment + ?Sized>(
+    env: &Env,
+    targets: &TargetSet<Env::Target>,
+    depth: Option<i32>,
+    filter: Option<&dyn TraversalFilter<Env::Target>>,
+) -> anyhow::Result<TargetSet<Env::Target>> {
+    let mut deps = TargetSet::new();
+
+    struct Delegate<'a, Q: QueryTarget> {
+        deps: &'a mut TargetSet<Q>,
+        filter: Option<&'a dyn TraversalFilter<Q>>,
+    }
+
+    #[async_trait]
+    impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
+        fn visit(&mut self, target: Q) -> anyhow::Result<()> {
+            self.deps.insert(target);
+            Ok(())
+        }
+
+        async fn for_each_child(
+            &mut self,
+            target: &Q,
+            func: &mut dyn ChildVisitor<Q>,
+        ) -> anyhow::Result<()> {
+            let res: anyhow::Result<_> = try {
+                match self.filter {
+                    Some(filter) => {
+                        for dep in filter.get_children(target).await?.iter() {
+                            func.visit(dep.node_ref().clone())?;
+                        }
+                    }
+                    None => {
+                        for dep in target.deps() {
+                            func.visit(dep.clone())?;
+                        }
+                    }
+                }
+            };
+            res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
+        }
+    }
+
+    match depth {
+        // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
+        // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
+        // and so to specify a filter you need to specify a depth.
+        Some(v) if (0..1_000_000_000).contains(&v) => {
+            env.depth_limited_traversal(
+                targets,
+                &mut Delegate {
+                    deps: &mut deps,
+                    filter,
+                },
+                v as u32,
+            )
+            .await?;
+        }
+        _ => {
+            env.dfs_postorder(
+                targets,
+                &mut Delegate {
+                    deps: &mut deps,
+                    filter,
+                },
+            )
+            .await?;
+        }
+    }
+
+    Ok(deps)
 }
