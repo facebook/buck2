@@ -66,9 +66,16 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                 )),
             },
             Expr::BinaryOpSequence(left, exprs) => {
-                let mut value = self.eval(left).await?.value;
-                for (op, right) in exprs {
-                    let right = self.eval(right).await?;
+                let (left, rights) = futures::future::try_join(
+                    self.eval(left),
+                    futures::future::try_join_all(exprs.iter().map(|(op, expr)| async move {
+                        let value = self.eval(expr).await?;
+                        Ok((op, value))
+                    })),
+                )
+                .await?;
+                let mut value = left.value;
+                for (op, right) in rights {
                     value = right
                         .async_into_map_res(|right| async move {
                             match self.functions.get_op(*op) {
