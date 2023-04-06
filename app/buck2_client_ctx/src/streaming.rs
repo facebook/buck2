@@ -72,6 +72,7 @@ fn default_subscribers<T: StreamingCommand>(
     {
         subscribers.push(recorder);
     }
+    subscribers.extend(cmd.extra_subscribers());
     Ok(subscribers)
 }
 
@@ -112,6 +113,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Allows a command to add additional superconsole components when superconsole is used.
     fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
         None
+    }
+
+    fn extra_subscribers(&self) -> Vec<Box<dyn EventSubscriber>> {
+        vec![]
     }
 
     fn sanitized_argv(&self) -> Vec<String> {
