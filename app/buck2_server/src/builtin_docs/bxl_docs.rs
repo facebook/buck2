@@ -17,6 +17,7 @@ use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::Member;
 use starlark::docs::Object;
+use starlark_map::smallmap;
 
 use crate::builtin_docs::docs::builtin_doc;
 
@@ -50,7 +51,7 @@ pub(crate) fn get_builtin_bxl_docs(
                             // Otherwise, it will be named `native.md`, which is confusing in static docs.
                             let doc_item = DocItem::Object(Object {
                                 docs: None,
-                                members: vec![(member.0.clone(), Member::Function(function))],
+                                members: smallmap! {member.0.clone() => Member::Function(function)},
                             });
 
                             docs.push(builtin_doc(member.0.as_str(), "bxl", doc_item));

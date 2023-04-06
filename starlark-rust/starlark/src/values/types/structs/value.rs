@@ -198,6 +198,8 @@ impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
 
 #[cfg(test)]
 mod tests {
+    use starlark_map::smallmap;
+
     use crate::assert;
     use crate::docs;
     use crate::docs::DocItem;
@@ -259,35 +261,31 @@ json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
     fn test_docs() {
         let expected = DocItem::Object(docs::Object {
             docs: None,
-            members: vec![
-                (
-                    "member".to_owned(),
-                    docs::Member::Property(docs::Property {
+            members: smallmap! {
+                "member".to_owned() =>
+                docs::Member::Property(docs::Property {
+                    docs: None,
+                    typ: None,
+                }),
+                "some_func".to_owned() =>
+                docs::Member::Function(docs::Function {
+                    docs: DocString::from_docstring(DocStringKind::Starlark, "some_func docs"),
+                    params: vec![docs::Param::Arg {
+                        name: "v".to_owned(),
                         docs: None,
-                        typ: None,
-                    }),
-                ),
-                (
-                    "some_func".to_owned(),
-                    docs::Member::Function(docs::Function {
-                        docs: DocString::from_docstring(DocStringKind::Starlark, "some_func docs"),
-                        params: vec![docs::Param::Arg {
-                            name: "v".to_owned(),
-                            docs: None,
-                            typ: Some(docs::Type {
-                                raw_type: "\"x\"".to_owned(),
-                            }),
-                            default_value: None,
-                        }],
-                        ret: docs::Return {
-                            docs: None,
-                            typ: Some(docs::Type {
-                                raw_type: "\"y\"".to_owned(),
-                            }),
-                        },
-                    }),
-                ),
-            ],
+                        typ: Some(docs::Type {
+                            raw_type: "\"x\"".to_owned(),
+                        }),
+                        default_value: None,
+                    }],
+                    ret: docs::Return {
+                        docs: None,
+                        typ: Some(docs::Type {
+                            raw_type: "\"y\"".to_owned(),
+                        }),
+                    },
+                }),
+            },
         });
 
         let s = assert::pass(

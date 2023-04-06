@@ -770,7 +770,7 @@ pub enum Member {
 pub struct Object {
     pub docs: Option<DocString>,
     /// Name and details of each member of this object.
-    pub members: Vec<(String, Member)>,
+    pub members: SmallMap<String, Member>,
 }
 
 impl Object {
@@ -915,6 +915,7 @@ mod tests {
 
     use allocative::Allocative;
     use starlark_derive::starlark_module;
+    use starlark_map::smallmap;
 
     use super::*;
     use crate as starlark;
@@ -1032,78 +1033,72 @@ mod tests {
                 DocStringKind::Rust,
                 "These are where the module docs go\n\nThis is what is passed to users for an object, so be careful\nnot to register two modules for a single object.",
             ),
-            members: vec![
-                (
-                    "func1".to_owned(),
-                    super::Member::Function(super::Function {
-                        docs: DocString::from_docstring(DocStringKind::Rust, "Docs for func1"),
-                        params: vec![Param::Arg {
-                            name: "foo".to_owned(),
-                            docs: DocString::from_docstring(DocStringKind::Rust, "Docs for foo"),
-                            typ: string_typ.clone(),
-                            default_value: None,
-                        }],
-                        ret: Return {
-                            docs: DocString::from_docstring(
-                                DocStringKind::Rust,
-                                "The string 'func1'",
-                            ),
-                            typ: string_typ.clone(),
-                        },
-                    }),
-                ),
-                (
-                    "func2".to_owned(),
-                    super::Member::Function(super::Function {
-                        docs: None,
-                        params: vec![],
-                        ret: Return {
-                            docs: None,
-                            typ: string_typ.clone(),
-                        },
-                    }),
-                ),
-                (
-                    "func3".to_owned(),
-                    super::Member::Function(super::Function {
+            members: smallmap! {
+                "func1".to_owned() =>
+                super::Member::Function(super::Function {
+                    docs: DocString::from_docstring(DocStringKind::Rust, "Docs for func1"),
+                    params: vec![Param::Arg {
+                        name: "foo".to_owned(),
+                        docs: DocString::from_docstring(DocStringKind::Rust, "Docs for foo"),
+                        typ: string_typ.clone(),
+                        default_value: None,
+                    }],
+                    ret: Return {
                         docs: DocString::from_docstring(
                             DocStringKind::Rust,
-                            "A function with only positional arguments.",
+                            "The string 'func1'",
                         ),
-                        params: vec![
-                            Param::Arg {
-                                name: "a1".to_owned(),
-                                docs: None,
-                                typ: Some(Type {
-                                    raw_type: "int.type".to_owned(),
-                                }),
-                                default_value: None,
-                            },
-                            Param::Arg {
-                                name: "a2".to_owned(),
-                                docs: None,
-                                typ: Some(Type {
-                                    raw_type: "[None, int.type]".to_owned(),
-                                }),
-                                default_value: Some("None".to_owned()),
-                            },
-                            Param::Arg {
-                                name: "step".to_owned(),
-                                docs: None,
-                                typ: Some(Type {
-                                    raw_type: "int.type".to_owned(),
-                                }),
-                                // TODO: This should actually show '1'...
-                                default_value: Some("None".to_owned()),
-                            },
-                        ],
-                        ret: Return {
+                        typ: string_typ.clone(),
+                    },
+                }),
+                "func2".to_owned() =>
+                super::Member::Function(super::Function {
+                    docs: None,
+                    params: vec![],
+                    ret: Return {
+                        docs: None,
+                        typ: string_typ.clone(),
+                    },
+                }),
+                "func3".to_owned() =>
+                super::Member::Function(super::Function {
+                    docs: DocString::from_docstring(
+                        DocStringKind::Rust,
+                        "A function with only positional arguments.",
+                    ),
+                    params: vec![
+                        Param::Arg {
+                            name: "a1".to_owned(),
                             docs: None,
-                            typ: string_typ,
+                            typ: Some(Type {
+                                raw_type: "int.type".to_owned(),
+                            }),
+                            default_value: None,
                         },
-                    }),
-                ),
-            ],
+                        Param::Arg {
+                            name: "a2".to_owned(),
+                            docs: None,
+                            typ: Some(Type {
+                                raw_type: "[None, int.type]".to_owned(),
+                            }),
+                            default_value: Some("None".to_owned()),
+                        },
+                        Param::Arg {
+                            name: "step".to_owned(),
+                            docs: None,
+                            typ: Some(Type {
+                                raw_type: "int.type".to_owned(),
+                            }),
+                            // TODO: This should actually show '1'...
+                            default_value: Some("None".to_owned()),
+                        },
+                    ],
+                    ret: Return {
+                        docs: None,
+                        typ: string_typ,
+                    },
+                }),
+            },
         };
         let expected = DocItem::Object(expected_object);
 
@@ -1121,52 +1116,44 @@ mod tests {
                 DocStringKind::Rust,
                 "These are where the module docs go\n\nThis is what is passed to users for an object, so be careful\nnot to register two modules for a single object.",
             ),
-            members: vec![
-                (
-                    "attr1".to_owned(),
-                    super::Member::Property(super::Property {
-                        docs: DocString::from_docstring(DocStringKind::Rust, "Docs for attr1"),
+            members: smallmap! {
+                "attr1".to_owned() =>
+                super::Member::Property(super::Property {
+                    docs: DocString::from_docstring(DocStringKind::Rust, "Docs for attr1"),
+                    typ: string_typ.clone(),
+                }),
+                "attr2".to_owned() =>
+                super::Member::Property(super::Property {
+                    docs: None,
+                    typ: string_typ.clone(),
+                }),
+                "func1".to_owned() =>
+                super::Member::Function(super::Function {
+                    docs: DocString::from_docstring(DocStringKind::Rust, "Docs for func1"),
+                    params: vec![Param::Arg {
+                        name: "foo".to_owned(),
+                        docs: DocString::from_docstring(DocStringKind::Rust, "Docs for foo"),
                         typ: string_typ.clone(),
-                    }),
-                ),
-                (
-                    "attr2".to_owned(),
-                    super::Member::Property(super::Property {
-                        docs: None,
+                        default_value: None,
+                    }],
+                    ret: Return {
+                        docs: DocString::from_docstring(
+                            DocStringKind::Rust,
+                            "The string 'func1'",
+                        ),
                         typ: string_typ.clone(),
-                    }),
-                ),
-                (
-                    "func1".to_owned(),
-                    super::Member::Function(super::Function {
-                        docs: DocString::from_docstring(DocStringKind::Rust, "Docs for func1"),
-                        params: vec![Param::Arg {
-                            name: "foo".to_owned(),
-                            docs: DocString::from_docstring(DocStringKind::Rust, "Docs for foo"),
-                            typ: string_typ.clone(),
-                            default_value: None,
-                        }],
-                        ret: Return {
-                            docs: DocString::from_docstring(
-                                DocStringKind::Rust,
-                                "The string 'func1'",
-                            ),
-                            typ: string_typ.clone(),
-                        },
-                    }),
-                ),
-                (
-                    "func2".to_owned(),
-                    super::Member::Function(super::Function {
+                    },
+                }),
+                "func2".to_owned() =>
+                super::Member::Function(super::Function {
+                    docs: None,
+                    params: vec![],
+                    ret: Return {
                         docs: None,
-                        params: vec![],
-                        ret: Return {
-                            docs: None,
-                            typ: string_typ,
-                        },
-                    }),
-                ),
-            ],
+                        typ: string_typ,
+                    },
+                }),
+            },
         };
         let expected = Some(DocItem::Object(expected_object));
 
@@ -1584,33 +1571,27 @@ mod tests {
                 },
                 item: DocItem::Object(Object {
                     docs: ds.clone(),
-                    members: vec![
-                        (
-                            "prop1".to_owned(),
-                            Member::Property(Property {
+                    members: smallmap! {
+                        "prop1".to_owned() =>
+                        Member::Property(Property {
+                            docs: ds.clone(),
+                            typ: typ.clone(),
+                        }),
+                        "prop2".to_owned() =>
+                        Member::Property(Property {
+                            docs: None,
+                            typ: None,
+                        }),
+                        "func1".to_owned() =>
+                        Member::Function(Function {
+                            docs: ds.clone(),
+                            params: vec![],
+                            ret: Return {
                                 docs: ds.clone(),
                                 typ: typ.clone(),
-                            }),
-                        ),
-                        (
-                            "prop2".to_owned(),
-                            Member::Property(Property {
-                                docs: None,
-                                typ: None,
-                            }),
-                        ),
-                        (
-                            "func1".to_owned(),
-                            Member::Function(Function {
-                                docs: ds.clone(),
-                                params: vec![],
-                                ret: Return {
-                                    docs: ds.clone(),
-                                    typ: typ.clone(),
-                                },
-                            }),
-                        ),
-                    ],
+                            },
+                        }),
+                    },
                 }),
                 custom_attrs: Default::default(),
             },

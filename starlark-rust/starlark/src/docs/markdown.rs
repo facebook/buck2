@@ -533,6 +533,7 @@ mod test {
     use std::collections::HashMap;
 
     use starlark_map::small_map::SmallMap;
+    use starlark_map::smallmap;
 
     use crate::docs::markdown::Code;
     use crate::docs::markdown::CodeBlock;
@@ -904,11 +905,11 @@ mod test {
             f1 = f1_details,
         );
 
-        let members = vec![
-            ("p1".to_owned(), Member::Property(p1)),
-            ("p2".to_owned(), Member::Property(p2)),
-            ("f1".to_owned(), Member::Function(f1)),
-        ];
+        let members = smallmap! {
+            "p1".to_owned() => Member::Property(p1),
+            "p2".to_owned() => Member::Property(p2),
+            "f1".to_owned() => Member::Function(f1),
+        };
 
         let without_docs_root = Doc {
             id: Identifier {

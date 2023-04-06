@@ -81,6 +81,7 @@ rust_library(
         "//buck2/remote_execution:remote_execution",
         "//buck2/shed/more_futures:more_futures",
         "//buck2/starlark-rust/starlark:starlark",
+        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/fbinit:fbinit",
         "//watchman/rust/watchman_client:watchman_client",
     ],
