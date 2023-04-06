@@ -52,6 +52,10 @@ impl OracleDocs {
                 }
                 self.objects.insert(doc.id.name.clone(), items);
             }
+            DocItem::Property(x) => {
+                self.functions
+                    .insert(doc.id.name.clone(), Ty::from_docs_property(x));
+            }
             DocItem::Function(x) => {
                 self.functions
                     .insert(doc.id.name.clone(), Ty::from_docs_function(x));

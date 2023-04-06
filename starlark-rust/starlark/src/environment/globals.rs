@@ -575,6 +575,7 @@ fn common_documentation<'a>(
                 None => val.to_value().documentation().and_then(|d| match d {
                     DocItem::Module(_) | DocItem::Object(_) => None,
                     DocItem::Function(f) => Some(docs::Member::Function(f)),
+                    DocItem::Property(p) => Some(docs::Member::Property(p)),
                 }),
             };
             m.map(|member| (name.to_owned(), member))

@@ -819,6 +819,7 @@ pub enum DocItem {
     Module(Module),
     Object(Object),
     Function(Function),
+    Property(Property),
 }
 
 /// The main structure that represents the documentation for a given symbol / module.
@@ -841,6 +842,7 @@ impl Doc {
             DocItem::Module(m) => m.render_as_code(),
             DocItem::Object(o) => o.render_as_code(&self.id.name),
             DocItem::Function(f) => f.render_as_code(&self.id.name),
+            DocItem::Property(p) => p.render_as_code(&self.id.name),
         }
     }
 }

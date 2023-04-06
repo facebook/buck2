@@ -629,6 +629,10 @@ impl Ty {
         }
     }
 
+    pub(crate) fn from_docs_property(property: &docs::Property) -> Self {
+        Self::from_docs_type(&property.typ)
+    }
+
     pub(crate) fn from_docs_function(function: &docs::Function) -> Self {
         let mut params = Vec::with_capacity(function.params.len());
         let mut no_args = false;

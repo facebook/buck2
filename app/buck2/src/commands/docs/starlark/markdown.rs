@@ -71,7 +71,7 @@ impl MarkdownOutput {
             None => match &doc.item {
                 // Functions all go in one file. Objects get their on file (e.g. each provider,
                 // Artifact, etc)
-                DocItem::Module(_) | DocItem::Function(_) => {
+                DocItem::Module(_) | DocItem::Function(_) | DocItem::Property(_) => {
                     opts.native_subdir.join(subdir.as_path()).join("native")
                 }
                 DocItem::Object(_) => opts.native_subdir.join(subdir.as_path()).join(&doc.id.name),

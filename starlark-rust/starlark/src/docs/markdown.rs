@@ -363,6 +363,11 @@ impl RenderMarkdown for Doc {
                         function: f,
                     }
                     .render_markdown_opt(flavor),
+                    DocItem::Property(p) => PropertyDetailsRenderer {
+                        name: &self.id.name,
+                        p,
+                    }
+                    .render_markdown_opt(flavor),
                 }
             }
             MarkdownFlavor::LspSummary => None,
