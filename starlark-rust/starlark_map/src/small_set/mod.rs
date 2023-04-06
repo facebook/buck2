@@ -23,8 +23,11 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 
 use allocative::Allocative;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
@@ -512,6 +515,57 @@ macro_rules! smallset {
     };
 }
 
+impl<T: Serialize> Serialize for SmallSet<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_seq(self.iter())
+    }
+}
+
+impl<'de, T> Deserialize<'de> for SmallSet<T>
+where
+    T: Deserialize<'de> + Hash + Eq,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SeqVisitor<T> {
+            marker: PhantomData<SmallSet<T>>,
+        }
+
+        impl<'de, T> serde::de::Visitor<'de> for SeqVisitor<T>
+        where
+            T: serde::de::Deserialize<'de> + Hash + Eq,
+        {
+            type Value = SmallSet<T>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence")
+            }
+
+            #[inline]
+            fn visit_seq<A>(self, mut set: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut values = SmallSet::with_capacity(set.size_hint().unwrap_or(0));
+                while let Some(value) = set.next_element()? {
+                    values.insert(value);
+                }
+                Ok(values)
+            }
+        }
+
+        let visitor = SeqVisitor {
+            marker: PhantomData,
+        };
+        deserializer.deserialize_seq(visitor)
+    }
+}
+
 #[allow(clippy::from_iter_instead_of_collect)]
 #[cfg(test)]
 mod tests {
@@ -688,5 +742,16 @@ mod tests {
         assert_eq!(Some(&3), iter.next());
         assert_eq!((0, Some(0)), iter.size_hint());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_json() {
+        let mp = smallset! {"a".to_owned() , "b".to_owned() };
+        let expected = serde_json::json!(["a", "b"]);
+        assert_eq!(serde_json::to_value(&mp).unwrap(), expected);
+        assert_eq!(
+            serde_json::from_value::<SmallSet<String>>(expected).unwrap(),
+            mp
+        );
     }
 }

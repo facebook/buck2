@@ -24,10 +24,13 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 use std::mem;
 
 use allocative::Allocative;
 use hashbrown::raw::RawTable;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
@@ -925,6 +928,59 @@ macro_rules! smallmap {
     };
 }
 
+impl<K: Serialize, V: Serialize> Serialize for SmallMap<K, V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_map(self.iter())
+    }
+}
+
+impl<'de, K, V> Deserialize<'de> for SmallMap<K, V>
+where
+    K: Deserialize<'de> + Hash + Eq,
+    V: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct MapVisitor<K, V> {
+            marker: PhantomData<SmallMap<K, V>>,
+        }
+
+        impl<'de, K, V> serde::de::Visitor<'de> for MapVisitor<K, V>
+        where
+            K: Deserialize<'de> + Hash + Eq,
+            V: Deserialize<'de>,
+        {
+            type Value = SmallMap<K, V>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a map")
+            }
+
+            #[inline]
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut values = SmallMap::with_capacity(map.size_hint().unwrap_or(0));
+                while let Some((key, value)) = map.next_entry()? {
+                    values.insert(key, value);
+                }
+                Ok(values)
+            }
+        }
+
+        let visitor = MapVisitor {
+            marker: PhantomData,
+        };
+        deserializer.deserialize_map(visitor)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
@@ -1236,5 +1292,19 @@ mod tests {
         assert_eq!(Some((99, 990)), m.remove_entry(&99));
         assert_eq!(Some(&980), m.get(&98));
         m.assert_invariants();
+    }
+
+    #[test]
+    fn test_json() {
+        let mp = smallmap! {"a".to_owned() => 1, "b".to_owned() => 2};
+        let expected = serde_json::json!({
+            "a": 1,
+            "b": 2,
+        });
+        assert_eq!(serde_json::to_value(&mp).unwrap(), expected);
+        assert_eq!(
+            serde_json::from_value::<SmallMap<String, i32>>(expected).unwrap(),
+            mp
+        );
     }
 }
