@@ -12,9 +12,6 @@ authors = [
 
 [dependencies]
 dupe = { workspace = true }
-gazebo_lint.version = "0.1"
-gazebo_lint.optional = true
-# @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 allocative = { workspace = true }
 
 fnv = "1.0.7"
@@ -23,6 +20,3 @@ serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0.48"
-
-[features]
-# @oss-disable: default = ["gazebo_lint"]
