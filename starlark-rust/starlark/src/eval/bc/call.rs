@@ -22,7 +22,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 
 use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;

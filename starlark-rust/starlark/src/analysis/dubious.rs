@@ -123,7 +123,7 @@ pub(crate) fn lint(module: &AstModule) -> Vec<LintT<Dubious>> {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::*;
+    use gazebo::prelude::SliceExt;
 
     use super::*;
     use crate::syntax::Dialect;

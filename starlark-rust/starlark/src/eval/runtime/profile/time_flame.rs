@@ -21,7 +21,7 @@ use std::slice;
 use std::time::Instant;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;

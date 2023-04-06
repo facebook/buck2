@@ -17,7 +17,7 @@
 
 //! Compile assignment lhs.
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::collections::symbol_map::Symbol;
 use crate::eval::bc::compiler::expr::write_n_exprs;

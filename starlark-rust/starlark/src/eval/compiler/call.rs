@@ -19,7 +19,7 @@
 
 use std::cell::Cell;
 
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;

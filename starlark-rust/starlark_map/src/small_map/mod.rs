@@ -27,7 +27,7 @@ use std::hash::Hasher;
 use std::mem;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use gazebo::prelude::Default_;
 use hashbrown::raw::RawTable;
 
 use crate::equivalent::Equivalent;

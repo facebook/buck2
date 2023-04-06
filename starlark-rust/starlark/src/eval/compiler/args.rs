@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::*;
+use gazebo::prelude::OptionExt;
+use gazebo::prelude::SliceExt;
 
 use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;

@@ -27,7 +27,8 @@ use std::slice;
 
 use allocative::Allocative;
 use display_container::display_container;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use serde::Serialize;
 
 use crate as starlark;

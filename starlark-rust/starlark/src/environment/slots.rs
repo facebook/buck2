@@ -20,7 +20,8 @@ use std::cell::RefMut;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::OptionExt;
+use gazebo::prelude::SliceExt;
 
 use crate::values::Freezer;
 use crate::values::FrozenValue;

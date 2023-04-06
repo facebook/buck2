@@ -25,7 +25,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use gazebo::prelude::Default_;
 
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;

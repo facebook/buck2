@@ -24,7 +24,7 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use gazebo::prelude::OptionExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

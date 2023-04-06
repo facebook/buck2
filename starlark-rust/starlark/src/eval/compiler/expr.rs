@@ -20,7 +20,8 @@
 use std::cmp::Ordering;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use thiserror::Error;
 
 use crate::codemap::Spanned;

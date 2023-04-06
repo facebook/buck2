@@ -17,7 +17,7 @@
 
 //! Compile def.
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::eval::bc::instr_impl::InstrDef;
 use crate::eval::bc::instr_impl::InstrDefData;

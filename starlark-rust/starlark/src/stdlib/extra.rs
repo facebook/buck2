@@ -19,7 +19,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use itertools::Itertools;
 
 use crate as starlark;

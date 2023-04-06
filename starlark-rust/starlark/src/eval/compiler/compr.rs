@@ -17,7 +17,7 @@
 
 //! List/dict/set comprenension evaluation.
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;

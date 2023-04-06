@@ -326,7 +326,7 @@ pub(crate) fn scope(module: &AstModule) -> Scope {
 mod test {
     use std::iter;
 
-    use gazebo::prelude::*;
+    use gazebo::prelude::VecExt;
 
     use super::*;
     use crate::codemap::Pos;

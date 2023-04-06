@@ -21,7 +21,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use either::Either;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 
 use crate::docs;
 use crate::eval::compiler::scope::CstExpr;

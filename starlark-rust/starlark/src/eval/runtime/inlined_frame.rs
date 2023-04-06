@@ -140,7 +140,7 @@ impl<'f> InlinedFrameAlloc<'f> {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::*;
+    use gazebo::prelude::SliceExt;
 
     use crate::codemap::CodeMap;
     use crate::eval::runtime::frame_span::FrameSpan;

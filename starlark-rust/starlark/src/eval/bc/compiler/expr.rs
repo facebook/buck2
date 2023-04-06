@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::collections::Hashed;
 use crate::collections::SmallMap;

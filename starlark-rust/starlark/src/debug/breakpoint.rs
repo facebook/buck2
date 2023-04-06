@@ -45,7 +45,7 @@ impl AstModule {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::*;
+    use gazebo::prelude::SliceExt;
 
     use crate::assert;
 

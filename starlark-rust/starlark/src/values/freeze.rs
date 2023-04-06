@@ -19,7 +19,8 @@ use std::cell::RefCell;
 use std::marker;
 use std::marker::PhantomData;
 
-use gazebo::prelude::*;
+use gazebo::prelude::OptionExt;
+use gazebo::prelude::VecExt;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;

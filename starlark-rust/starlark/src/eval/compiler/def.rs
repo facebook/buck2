@@ -29,7 +29,9 @@ use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::OptionExt;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use once_cell::sync::Lazy;
 
 use crate as starlark;

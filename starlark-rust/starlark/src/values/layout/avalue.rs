@@ -23,7 +23,7 @@ use std::mem;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map::SmallMap;

@@ -17,7 +17,7 @@
 
 //! Map AST payload.
 
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 
 use crate::codemap::Spanned;
 use crate::syntax::ast::ArgumentP;

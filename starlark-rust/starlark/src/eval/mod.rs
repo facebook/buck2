@@ -26,7 +26,7 @@ use std::mem;
 use std::time::Instant;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
 pub use runtime::call_stack::CallStack;

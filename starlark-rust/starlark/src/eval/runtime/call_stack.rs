@@ -29,7 +29,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::errors::Frame;

@@ -23,7 +23,7 @@ use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 use itertools::Either;
 use lsp_types::Diagnostic;
 use lsp_types::Url;

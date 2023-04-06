@@ -29,7 +29,7 @@ use std::sync::Mutex;
 use debugserver_types::*;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;

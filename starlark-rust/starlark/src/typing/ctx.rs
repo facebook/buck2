@@ -19,7 +19,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
+use gazebo::prelude::VecExt;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;

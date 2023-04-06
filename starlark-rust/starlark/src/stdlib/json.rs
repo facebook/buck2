@@ -17,7 +17,7 @@
 
 use std::str::FromStr;
 
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 use num_bigint::BigInt;
 use thiserror::Error;
 

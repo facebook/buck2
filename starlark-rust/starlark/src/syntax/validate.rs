@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;

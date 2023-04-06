@@ -21,7 +21,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::VecExt;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;

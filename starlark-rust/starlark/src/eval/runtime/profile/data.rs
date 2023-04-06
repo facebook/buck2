@@ -20,7 +20,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;

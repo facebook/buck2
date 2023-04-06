@@ -19,7 +19,7 @@ use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::prelude::*;
+use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
 use crate::coerce::Coerce;

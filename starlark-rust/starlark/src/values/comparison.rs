@@ -18,7 +18,7 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use gazebo::prelude::*;
+use gazebo::prelude::IterExt;
 use itertools::Itertools;
 use starlark_map::Equivalent;
 
