@@ -47,7 +47,7 @@ impl MiniperfCounter {
             return self.count;
         }
 
-        let ratio = self.time_running as f64 / self.time_enabled as f64;
+        let ratio = self.time_enabled as f64 / self.time_running as f64;
         (self.count as f64 * ratio) as u64
     }
 }
@@ -71,8 +71,8 @@ mod test {
         assert_eq!(
             MiniperfCounter {
                 count: 123,
-                time_enabled: 50,
-                time_running: 100
+                time_enabled: 100,
+                time_running: 50
             }
             .adjusted_count(),
             246
