@@ -27,7 +27,6 @@ use std::hash::Hasher;
 use std::mem;
 
 use allocative::Allocative;
-use gazebo::prelude::Default_;
 use hashbrown::raw::RawTable;
 
 use crate::equivalent::Equivalent;
@@ -63,12 +62,19 @@ const NO_INDEX_THRESHOLD: usize = 16;
 ///
 /// * Functions which work with the position, e.g. [`get_index_of`](SmallMap::get_index_of).
 #[repr(C)]
-#[derive(Clone, Default_, Allocative)]
+#[derive(Clone, Allocative)]
 pub struct SmallMap<K, V> {
     entries: VecMap<K, V>,
     /// Map a key to the index in `entries`.
     /// This field is initialized when the size of the map exceeds `NO_INDEX_THRESHOLD`.
     index: Option<Box<RawTable<usize>>>,
+}
+
+impl<K, V> Default for SmallMap<K, V> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<K: Debug, V: Debug> Debug for SmallMap<K, V> {

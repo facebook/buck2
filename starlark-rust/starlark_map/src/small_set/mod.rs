@@ -25,7 +25,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use gazebo::prelude::Default_;
 
 use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
@@ -37,8 +36,15 @@ pub use crate::small_set::iter::IterHashed;
 pub use crate::small_set::iter::IterMutUnchecked;
 
 /// An memory-efficient set with deterministic order, based on [`SmallMap`].
-#[derive(Clone, Default_, Allocative)]
+#[derive(Clone, Allocative)]
 pub struct SmallSet<T>(SmallMap<T, ()>);
+
+impl<T> Default for SmallSet<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Debug> Debug for SmallSet<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

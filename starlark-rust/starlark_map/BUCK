@@ -14,6 +14,5 @@ rust_library(
         "fbsource//third-party/rust:hashbrown",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
-        "//buck2/gazebo/gazebo:gazebo",
     ],
 )
