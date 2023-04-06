@@ -9,7 +9,7 @@ We're keen for you to give Buck2 a go and [let us know](https://github.com/faceb
 
 ## Getting started
 
-Buck2 is written in Rust, which requires [rustup](https://rustup.rs/] to compile.
+Buck2 is written in Rust, which requires [rustup](https://rustup.rs/) to compile.
 
 You can either build `buck2` from a clone of the Buck2 repo:
 
