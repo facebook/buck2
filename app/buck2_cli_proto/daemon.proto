@@ -93,6 +93,9 @@ message ClientContext {
   }
   HostArchOverride host_arch = 13;
   repeated string argfiles = 14;
+
+  /// Contents of `BUCK2_HARD_ERROR` environment variable.
+  string buck2_hard_error = 20;
 }
 
 message TargetsRequest {
