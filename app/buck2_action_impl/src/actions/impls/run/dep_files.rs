@@ -278,6 +278,52 @@ pub(crate) async fn match_or_clear_dep_file(
         None => return Ok(None),
     };
 
+    if dep_files_match(
+        &previous_state,
+        digests,
+        declared_inputs,
+        declared_outputs,
+        declared_dep_files,
+        ctx,
+    )
+    .await?
+    {
+        let fs = ctx.fs();
+
+        // Finally, we need to make sure that the artifacts in the materializer actually
+        // match. This is necessary in case a different action wrote to those artifacts and
+        // didn't use the same cache key.
+        let output_matches = previous_state
+            .result
+            .iter()
+            .map(|(path, value)| (fs.buck_out_path_resolver().resolve_gen(path), value.dupe()))
+            .collect();
+
+        let materializer_accepts = ctx
+            .materializer()
+            .declare_match(output_matches)
+            .await?
+            .is_match();
+
+        if materializer_accepts {
+            tracing::trace!("Dep files are a hit");
+            return Ok(Some(previous_state.result.dupe()));
+        }
+    }
+
+    tracing::trace!("Dep files are a miss");
+    DEP_FILES.remove(key);
+    Ok(None)
+}
+
+async fn dep_files_match(
+    previous_state: &DepFileState,
+    digests: &CommandDigests,
+    declared_inputs: &PartitionedInputs<Vec<ArtifactGroup>>,
+    declared_outputs: &[BuildArtifact],
+    declared_dep_files: &DeclaredDepFiles,
+    ctx: &dyn ActionExecutionCtx,
+) -> anyhow::Result<bool> {
     // We first need to check if the same dep files existed before or not. If not, then we
     // can't assume they'll still be on disk, and we have to bail.
     if declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files)
@@ -289,8 +335,8 @@ pub(crate) async fn match_or_clear_dep_file(
             .await
             .context(
                 "Error reading persisted dep files. \
-            Fix the command that produced an invalid dep file. \
-            You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
+                Fix the command that produced an invalid dep file. \
+                You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
             )?;
 
         if let Some(dep_files) = dep_files {
@@ -320,41 +366,11 @@ pub(crate) async fn match_or_clear_dep_file(
                 *previous_fingerprints == new_fingerprints
             };
 
-            if fingerprints_match {
-                let fs = ctx.fs();
-
-                // Finally, we need to make sure that the artifacts in the materializer actually
-                // match. This is necessary in case a different action wrote to those artifacts and
-                // didn't use the same cache key.
-                let output_matches = previous_state
-                    .result
-                    .iter()
-                    .map(|(path, value)| {
-                        (fs.buck_out_path_resolver().resolve_gen(path), value.dupe())
-                    })
-                    .collect();
-
-                let is_match = ctx
-                    .materializer()
-                    .declare_match(output_matches)
-                    .await?
-                    .is_match();
-
-                if is_match {
-                    tracing::trace!("Dep files are a hit");
-                    return Ok(Some(previous_state.result.dupe()));
-                } else {
-                    tracing::trace!("Dep files mismatch in materializer");
-                };
-            }
+            return Ok(fingerprints_match);
         }
     }
 
-    tracing::trace!("Dep files are a miss");
-
-    DEP_FILES.remove(key);
-
-    Ok(None)
+    Ok(false)
 }
 
 /// If an action is unchanged but now requires a different set of outputs, that's not a cache hit
