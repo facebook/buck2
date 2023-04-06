@@ -90,238 +90,161 @@ fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String>
     })
 }
 
-/// Renders details about a property of an object that has the given name.
-struct PropertyDetailsRenderer<'a> {
-    name: &'a str,
-    p: &'a Property,
+fn render_property(name: &str, property: &Property) -> String {
+    let mut header = format!("## {}", name);
+    if property.typ.is_some() {
+        header += &format!(
+            " : {}",
+            Code(Box::new(TypeRenderer::Type(&property.typ)))
+                .render_markdown(MarkdownFlavor::DocFile)
+        );
+    };
+    let summary = render_doc_string(DSOpts::Summary, &property.docs);
+    let details = render_doc_string(DSOpts::Details, &property.docs);
+
+    let mut body = header;
+    if let Some(summary) = summary {
+        body.push_str("\n\n");
+        body.push_str(&summary);
+    }
+    if let Some(details) = details {
+        body.push_str("\n\n");
+        body.push_str(&details);
+    }
+
+    body
 }
 
-impl<'a> RenderMarkdown for PropertyDetailsRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => {
-                let mut header = format!("## {}", self.name);
-                if self.p.typ.is_some() {
-                    header += &format!(
-                        " : {}",
-                        Code(Box::new(TypeRenderer::Type(&self.p.typ))).render_markdown(flavor)
-                    );
-                };
-                let summary = render_doc_string(DSOpts::Summary, &self.p.docs);
-                let details = render_doc_string(DSOpts::Details, &self.p.docs);
+/// If there are any parameter docs to render, render them as a list.
+fn render_function_parameters(params: &[Param]) -> Option<String> {
+    // Filter out parameters without docs
+    let has_docs: Vec<_> = params
+        .iter()
+        .filter(|p| match p {
+            Param::Arg { docs, .. } => docs.is_some(),
+            Param::NoArgs => false,
+            Param::Args { docs, .. } => docs.is_some(),
+            Param::Kwargs { docs, .. } => docs.is_some(),
+        })
+        .collect();
 
-                let mut body = header;
-                if let Some(summary) = summary {
-                    body.push_str("\n\n");
-                    body.push_str(&summary);
-                }
-                if let Some(details) = details {
-                    body.push_str("\n\n");
-                    body.push_str(&details);
-                }
+    if has_docs.is_empty() {
+        return None;
+    }
 
-                return Some(body);
+    let param_list: String = has_docs
+        .iter()
+        .filter_map(|p| match p {
+            Param::Arg { name, docs, .. } => {
+                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
             }
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
-/// Renders the details panel of a function (either standalone or on an object).
-struct FunctionDetailsRenderer<'a> {
-    name: &'a str,
-    f: &'a Function,
-}
-
-impl<'a> FunctionDetailsRenderer<'a> {
-    /// If there are any parameter docs to render, render them as a list.
-    fn parameters_list(&self, flavor: MarkdownFlavor) -> Option<String> {
-        // Filter out parameters without docs
-        let has_docs: Vec<_> = self
-            .f
-            .params
-            .iter()
-            .filter(|p| match p {
-                Param::Arg { docs, .. } => docs.is_some(),
-                Param::NoArgs => false,
-                Param::Args { docs, .. } => docs.is_some(),
-                Param::Kwargs { docs, .. } => docs.is_some(),
-            })
-            .collect();
-
-        if has_docs.is_empty() {
-            return None;
-        }
-
-        let param_list: String = has_docs
-            .iter()
-            .filter_map(|p| match p {
-                Param::Arg { name, docs, .. } => {
-                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-                }
-                Param::NoArgs => None,
-                Param::Args { name, docs, .. } => {
-                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-                }
-                Param::Kwargs { name, docs, .. } => {
-                    Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
-                }
-            })
-            .map(|(name, docs)| ParamList(name, docs.unwrap_or_default()).render_markdown(flavor))
-            .collect();
-        Some(param_list)
-    }
-}
-
-impl<'a> RenderMarkdown for FunctionDetailsRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => {
-                let prototype = CodeBlock {
-                    language: Some("python".to_owned()),
-                    contents: Box::new(TypeRenderer::Function {
-                        function_name: self.name,
-                        f: self.f,
-                    }),
-                };
-                let header = format!("## {}\n\n{}", self.name, prototype.render_markdown(flavor));
-                let summary = render_doc_string(DSOpts::Summary, &self.f.docs);
-                let details = render_doc_string(DSOpts::Details, &self.f.docs);
-
-                let parameter_docs = self.parameters_list(flavor);
-                let return_docs = render_doc_string(DSOpts::Combined, &self.f.ret.docs);
-
-                let mut body = header;
-                if let Some(summary) = summary {
-                    body.push_str("\n\n");
-                    body.push_str(&summary);
-                }
-                if let Some(parameter_docs) = parameter_docs {
-                    body.push_str("\n\n#### Parameters\n\n");
-                    body.push_str(&parameter_docs);
-                }
-                if let Some(details) = details {
-                    body.push_str("\n\n#### Details\n\n");
-                    body.push_str(&details);
-                }
-                if let Some(returns) = return_docs {
-                    body.push_str("\n\n#### Returns\n\n");
-                    body.push_str(&returns);
-                }
-
-                Some(body)
+            Param::NoArgs => None,
+            Param::Args { name, docs, .. } => {
+                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
             }
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
-}
-
-/// Renders a top level function from a [`Doc`].
-struct FunctionRenderer<'a> {
-    id: &'a Identifier,
-    function: &'a Function,
-}
-
-impl<'a> RenderMarkdown for FunctionRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => FunctionDetailsRenderer {
-                name: &self.id.name,
-                f: self.function,
+            Param::Kwargs { name, docs, .. } => {
+                Some((name.clone(), render_doc_string(DSOpts::Combined, docs)))
             }
-            .render_markdown_opt(flavor),
-            MarkdownFlavor::LspSummary => None,
-        }
+        })
+        .map(|(name, docs)| {
+            ParamList(name, docs.unwrap_or_default()).render_markdown(MarkdownFlavor::DocFile)
+        })
+        .collect();
+    Some(param_list)
+}
+
+fn render_function(name: &str, function: &Function) -> String {
+    let prototype = CodeBlock {
+        language: Some("python".to_owned()),
+        contents: Box::new(TypeRenderer::Function {
+            function_name: name,
+            f: function,
+        }),
+    };
+    let header = format!(
+        "## {}\n\n{}",
+        name,
+        prototype.render_markdown(MarkdownFlavor::DocFile)
+    );
+    let summary = render_doc_string(DSOpts::Summary, &function.docs);
+    let details = render_doc_string(DSOpts::Details, &function.docs);
+
+    let parameter_docs = render_function_parameters(&function.params);
+    let return_docs = render_doc_string(DSOpts::Combined, &function.ret.docs);
+
+    let mut body = header;
+    if let Some(summary) = summary {
+        body.push_str("\n\n");
+        body.push_str(&summary);
     }
+    if let Some(parameter_docs) = parameter_docs {
+        body.push_str("\n\n#### Parameters\n\n");
+        body.push_str(&parameter_docs);
+    }
+    if let Some(details) = details {
+        body.push_str("\n\n#### Details\n\n");
+        body.push_str(&details);
+    }
+    if let Some(returns) = return_docs {
+        body.push_str("\n\n#### Returns\n\n");
+        body.push_str(&returns);
+    }
+
+    body
 }
 
 /// Render a top level module.
-struct ModuleRenderer<'a> {
-    id: &'a Identifier,
-    module: &'a Module,
-}
+fn render_module(name: &str, module: &Module) -> String {
+    let docs = render_doc_string(DSOpts::Combined, &module.docs).unwrap_or_default();
+    let mut res = format!("# {}\n\n{}", name, docs);
 
-impl<'a> RenderMarkdown for ModuleRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => {
-                let name = match &self.id.location {
-                    Some(l) => l.path.as_str(),
-                    None => self.id.name.as_str(),
-                };
-                let docs =
-                    render_doc_string(DSOpts::Combined, &self.module.docs).unwrap_or_default();
-                let mut res = format!("# {}\n\n{}", name, docs);
-
-                for (k, v) in &self.module.members {
-                    res.push('\n');
-                    match v {
-                        Some(v) => res.push_str(
-                            &(Doc {
-                                id: Identifier {
-                                    name: k.clone(),
-                                    location: None,
-                                },
-                                item: v.clone(),
-                                custom_attrs: HashMap::new(),
-                            }
-                            .render_markdown_opt(flavor)
-                            .unwrap_or_default()),
-                        ),
-                        None => res.push_str(&format!("{}: UNKNOWN", k)),
-                    }
-                    res.push('\n');
+    for (k, v) in &module.members {
+        res.push('\n');
+        match v {
+            Some(v) => res.push_str(
+                &(Doc {
+                    id: Identifier {
+                        name: k.clone(),
+                        location: None,
+                    },
+                    item: v.clone(),
+                    custom_attrs: HashMap::new(),
                 }
-
-                Some(res)
-            }
-            MarkdownFlavor::LspSummary => None,
+                .render_markdown_opt(MarkdownFlavor::DocFile)
+                .unwrap_or_default()),
+            ),
+            None => res.push_str(&format!("{}: UNKNOWN", k)),
         }
+        res.push('\n');
     }
+
+    res
 }
 
-/// Render a top level object.
-struct ObjectRenderer<'a> {
-    id: &'a Identifier,
-    object: &'a Object,
-}
+fn render_object(name: &str, object: &Object) -> String {
+    // If this is a native, top level object, render it with a larger
+    // header. Sub objects will be listed along side members, so use
+    // smaller headers there.
+    let title = format!("# {name}");
+    let summary = render_doc_string(DSOpts::Combined, &object.docs)
+        .map(|s| format!("\n\n{}", s))
+        .unwrap_or_default();
 
-impl<'a> RenderMarkdown for ObjectRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => {
-                // If this is a native, top level object, render it with a larger
-                // header. Sub objects will be listed along side members, so use
-                // smaller headers there.
-                let title = format!(
-                    "#{} {}",
-                    if self.id.location.is_none() { "" } else { "#" },
-                    self.id.name,
-                );
-                let summary = render_doc_string(DSOpts::Combined, &self.object.docs)
-                    .map(|s| format!("\n\n{}", s))
-                    .unwrap_or_default();
-
-                let member_details: Vec<String> = self
-                    .object
-                    .members
-                    .iter()
-                    .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-                    .map(|(name, member)| {
-                        MemberDetails {
-                            name: &name,
-                            member,
-                        }
-                        .render_markdown(flavor)
-                    })
-                    .collect();
-                let members_details = member_details.join("\n\n---\n\n");
-
-                Some(format!("{title}{summary}\n\n{members_details}"))
+    let member_details: Vec<String> = object
+        .members
+        .iter()
+        .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
+        .map(|(name, member)| {
+            MemberDetails {
+                name: &name,
+                member,
             }
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
+            .render_markdown(MarkdownFlavor::DocFile)
+        })
+        .collect();
+    let members_details = member_details.join("\n\n---\n\n");
+
+    format!("{title}{summary}\n\n{members_details}")
 }
 
 impl RenderMarkdown for Doc {
@@ -331,26 +254,10 @@ impl RenderMarkdown for Doc {
                 // These just proxy to the Renderer types so we can add extra metadata to them,
                 // like the identifier.
                 match &self.item {
-                    DocItem::Module(m) => ModuleRenderer {
-                        id: &self.id,
-                        module: m,
-                    }
-                    .render_markdown_opt(flavor),
-                    DocItem::Object(o) => ObjectRenderer {
-                        id: &self.id,
-                        object: o,
-                    }
-                    .render_markdown_opt(flavor),
-                    DocItem::Function(f) => FunctionRenderer {
-                        id: &self.id,
-                        function: f,
-                    }
-                    .render_markdown_opt(flavor),
-                    DocItem::Property(p) => PropertyDetailsRenderer {
-                        name: &self.id.name,
-                        p,
-                    }
-                    .render_markdown_opt(flavor),
+                    DocItem::Module(m) => Some(render_module(&self.id.name, m)),
+                    DocItem::Object(o) => Some(render_object(&self.id.name, o)),
+                    DocItem::Function(f) => Some(render_function(&self.id.name, f)),
+                    DocItem::Property(p) => Some(render_property(&self.id.name, p)),
                 }
             }
             MarkdownFlavor::LspSummary => None,
@@ -368,14 +275,8 @@ impl<'a> RenderMarkdown for MemberDetails<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
         match flavor {
             MarkdownFlavor::DocFile => match self.member {
-                Member::Property(p) => PropertyDetailsRenderer {
-                    name: &self.name,
-                    p,
-                }
-                .render_markdown_opt(flavor),
-                Member::Function(f) => {
-                    FunctionDetailsRenderer { name: self.name, f }.render_markdown_opt(flavor)
-                }
+                Member::Property(p) => Some(render_property(&self.name, p)),
+                Member::Function(f) => Some(render_function(&self.name, f)),
             },
             MarkdownFlavor::LspSummary => None,
         }
@@ -749,22 +650,10 @@ mod test {
             returns = render_ds_combined(&ds)
         );
 
-        assert_eq!(
-            expected_f1,
-            render(&FunctionDetailsRenderer { name: "f1", f: &f1 })
-        );
-        assert_eq!(
-            expected_f2,
-            render(&FunctionDetailsRenderer { name: "f2", f: &f2 })
-        );
-        assert_eq!(
-            expected_f3,
-            render(&FunctionDetailsRenderer { name: "f3", f: &f3 })
-        );
-        assert_eq!(
-            expected_f4,
-            render(&FunctionDetailsRenderer { name: "f4", f: &f4 })
-        );
+        assert_eq!(expected_f1, render_function("f1", &f1));
+        assert_eq!(expected_f2, render_function("f2", &f2));
+        assert_eq!(expected_f3, render_function("f3", &f3));
+        assert_eq!(expected_f4, render_function("f4", &f4));
     }
 
     #[test]
@@ -804,10 +693,8 @@ mod test {
         };
 
         let expected_doc_without_loc = format!("# some_module\n\n{}", ds_render);
-        let expected_doc_with_loc = format!("# /foo/bar/baz.bzl\n\n{}", ds_render);
-
         assert_eq!(expected_doc_without_loc, render(&doc_without_loc));
-        assert_eq!(expected_doc_with_loc, render(&doc_with_loc));
+        assert_eq!(expected_doc_without_loc, render(&doc_with_loc));
     }
 
     #[test]
@@ -837,9 +724,9 @@ mod test {
             },
         };
 
-        let p1_details = render(&PropertyDetailsRenderer { name: "p1", p: &p1 });
-        let p2_details = render(&PropertyDetailsRenderer { name: "p2", p: &p2 });
-        let f1_details = render(&FunctionDetailsRenderer { name: "f1", f: &f1 });
+        let p1_details = render_property("p1", &p1);
+        let p2_details = render_property("p2", &p2);
+        let f1_details = render_function("f1", &f1);
 
         let expected_without_docs_root = format!(
             "# foo1\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
@@ -848,7 +735,7 @@ mod test {
             f1 = f1_details,
         );
         let expected_without_docs_non_root = format!(
-            "## foo2\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
+            "# foo2\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
@@ -933,30 +820,27 @@ mod test {
 
         assert_eq!(
             expected_no_docs,
-            render(&PropertyDetailsRenderer {
-                name: "foo1",
-                p: &Property {
+            render_property(
+                "foo1",
+                &Property {
                     docs: None,
                     typ: typ.clone()
                 }
-            })
+            )
         );
         assert_eq!(
             expected_no_details,
-            render(&PropertyDetailsRenderer {
-                name: "foo2",
-                p: &Property {
+            render_property(
+                "foo2",
+                &Property {
                     docs: ds_no_details,
                     typ: typ.clone()
                 }
-            })
+            )
         );
         assert_eq!(
             expected_with_docs,
-            render(&PropertyDetailsRenderer {
-                name: "foo3",
-                p: &Property { docs: ds, typ }
-            })
+            render_property("foo3", &Property { docs: ds, typ })
         );
     }
 
@@ -985,26 +869,11 @@ mod test {
         let expected_no_details = format!("## foo : `int`\n\n{}", render_no_details);
         let expected_with_summary_and_details = format!("## foo : `int`\n\n{}", render_with_both);
 
-        assert_eq!(
-            expected_no_docs,
-            render(&PropertyDetailsRenderer {
-                name: "foo",
-                p: &no_docs
-            })
-        );
-        assert_eq!(
-            expected_no_details,
-            render(&PropertyDetailsRenderer {
-                name: "foo",
-                p: &no_details
-            })
-        );
+        assert_eq!(expected_no_docs, render_property("foo", &no_docs));
+        assert_eq!(expected_no_details, render_property("foo", &no_details));
         assert_eq!(
             expected_with_summary_and_details,
-            render(&PropertyDetailsRenderer {
-                name: "foo",
-                p: &with_summary_and_details
-            })
+            render_property("foo", &with_summary_and_details)
         );
     }
 }
