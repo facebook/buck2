@@ -19,7 +19,6 @@ use std::cell::RefCell;
 use std::marker;
 use std::marker::PhantomData;
 
-use gazebo::prelude::OptionExt;
 use gazebo::prelude::VecExt;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -165,7 +164,7 @@ where
     type Frozen = Option<T::Frozen>;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Option<T::Frozen>> {
-        self.try_map(|v| v.freeze(freezer))
+        self.map(|v| v.freeze(freezer)).transpose()
     }
 }
 

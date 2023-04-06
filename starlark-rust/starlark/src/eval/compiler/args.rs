@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::OptionExt;
 use gazebo::prelude::SliceExt;
 
 use crate::coerce::coerce;
@@ -94,12 +93,14 @@ impl ArgsCompiledValue {
         let args = self
             .args
             .as_ref()
-            .try_map(|args| expr_to_value(args).ok_or(()))
+            .map(|args| expr_to_value(args).ok_or(()))
+            .transpose()
             .ok()?;
         let kwargs = self
             .kwargs
             .as_ref()
-            .try_map(|kwargs| expr_to_value(kwargs).ok_or(()))
+            .map(|kwargs| expr_to_value(kwargs).ok_or(()))
+            .transpose()
             .ok()?;
         Some(handler(&Arguments(ArgumentsFull {
             pos: &pos,
