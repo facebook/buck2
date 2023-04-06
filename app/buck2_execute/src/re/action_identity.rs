@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use crate::execute::prepared::ActionPaths;
+use crate::execute::request::CommandExecutionPaths;
 use crate::execute::target::CommandExecutionTarget;
 
 pub struct ReActionIdentity<'a> {
@@ -22,14 +22,14 @@ pub struct ReActionIdentity<'a> {
     pub affinity_key: String,
 
     /// Details about the action collected while uploading
-    pub action_paths: &'a ActionPaths,
+    pub paths: &'a CommandExecutionPaths,
 }
 
 impl<'a> ReActionIdentity<'a> {
     pub fn new(
         target: &'a dyn CommandExecutionTarget,
         executor_action_key: Option<&str>,
-        action_paths: &'a ActionPaths,
+        paths: &'a CommandExecutionPaths,
     ) -> Self {
         let mut action_key = target.re_action_key();
         if let Some(executor_action_key) = executor_action_key {
@@ -40,7 +40,7 @@ impl<'a> ReActionIdentity<'a> {
             _target: target,
             action_key,
             affinity_key: target.re_affinity_key(),
-            action_paths,
+            paths,
         }
     }
 }

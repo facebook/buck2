@@ -480,7 +480,9 @@ pub(crate) mod testings {
                             output_type: OutputType::File,
                         })
                         .collect(),
-                ),
+                    ctx.fs(),
+                    ctx.digest_config(),
+                )?,
                 sorted_vector_map![],
             );
 

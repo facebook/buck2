@@ -688,7 +688,9 @@ mod tests {
                                 output_type: OutputType::FileOrDirectory,
                             })
                             .collect(),
-                    ),
+                        ctx.fs(),
+                        ctx.digest_config(),
+                    )?,
                     SortedVectorMap::new(),
                 );
 

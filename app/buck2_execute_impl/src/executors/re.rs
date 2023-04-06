@@ -24,10 +24,10 @@ use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::output::CommandStdStreams;
-use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
+use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::target::CommandExecutionTarget;
@@ -69,15 +69,15 @@ pub struct ReExecutor {
 
 impl ReExecutor {
     /// Indicate whether an action is too big to run on RE.
-    pub fn is_action_too_large(&self, action_paths: &ActionPaths) -> bool {
-        action_paths.input_files_bytes > self.re_max_input_files_bytes
+    pub fn is_action_too_large(&self, paths: &CommandExecutionPaths) -> bool {
+        paths.input_files_bytes() > self.re_max_input_files_bytes
     }
 
     async fn upload(
         &self,
         manager: CommandExecutionManager,
         blobs: &ActionBlobs,
-        action_paths: &ActionPaths,
+        paths: &CommandExecutionPaths,
         digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
@@ -88,7 +88,7 @@ impl ReExecutor {
                     &self.materializer,
                     blobs,
                     ProjectRelativePath::empty(),
-                    &action_paths.inputs,
+                    paths.input_directory(),
                     self.re_use_case,
                     digest_config,
                 )
@@ -120,7 +120,6 @@ impl ReExecutor {
         action: &dyn CommandExecutionTarget,
         request: &CommandExecutionRequest,
         action_digest: &ActionDigest,
-        action_paths: &ActionPaths,
         digest_config: DigestConfig,
         platform: &RE::Platform,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
@@ -130,7 +129,8 @@ impl ReExecutor {
             action_digest,
         );
 
-        let identity = ReActionIdentity::new(action, self.re_action_key.as_deref(), action_paths);
+        let identity =
+            ReActionIdentity::new(action, self.re_action_key.as_deref(), request.paths());
 
         let execute_response = self
             .re_client
@@ -233,7 +233,6 @@ impl PreparedCommandExecutor for ReExecutor {
         let PreparedCommand {
             request,
             target,
-            action_paths,
             prepared_action:
                 PreparedAction {
                     action: action_digest,
@@ -250,7 +249,7 @@ impl PreparedCommandExecutor for ReExecutor {
         }
 
         let manager = self
-            .upload(manager, blobs, action_paths, *digest_config)
+            .upload(manager, blobs, request.paths(), *digest_config)
             .await?;
 
         let (manager, response) = self
@@ -259,7 +258,6 @@ impl PreparedCommandExecutor for ReExecutor {
                 *target,
                 request,
                 action_digest,
-                action_paths,
                 *digest_config,
                 platform,
             )
@@ -276,7 +274,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 stage: Some(buck2_data::ReDownload {}.into()),
             }
             .into(),
-            action_paths,
+            request.paths(),
             request.outputs(),
             action_digest,
             &response,

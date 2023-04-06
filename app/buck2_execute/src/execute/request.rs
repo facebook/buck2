@@ -11,7 +11,11 @@ use std::fmt::Display;
 use std::time::Duration;
 
 use allocative::Allocative;
+use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::DirectoryIterator;
+use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
@@ -28,7 +32,12 @@ use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
+use crate::digest_config::DigestConfig;
+use crate::directory::insert_entry;
+use crate::directory::ActionDirectoryMember;
+use crate::directory::ActionImmutableDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
+use crate::execute::inputs_directory::inputs_directory;
 
 #[derive(Clone)]
 pub struct ActionMetadataBlob {
@@ -142,14 +151,78 @@ impl ExecutorPreference {
 pub struct CommandExecutionPaths {
     inputs: Vec<CommandExecutionInput>,
     outputs: IndexSet<CommandExecutionOutput>,
+
+    input_directory: ActionImmutableDirectory,
+    output_paths: Vec<(ProjectRelativePathBuf, OutputType)>,
+
+    /// Total size of input files.
+    input_files_bytes: u64,
 }
 
 impl CommandExecutionPaths {
     pub fn new(
         inputs: Vec<CommandExecutionInput>,
         outputs: IndexSet<CommandExecutionOutput>,
-    ) -> Self {
-        Self { inputs, outputs }
+        fs: &ArtifactFs,
+        digest_config: DigestConfig,
+    ) -> anyhow::Result<Self> {
+        let mut builder = inputs_directory(&inputs, fs)?;
+
+        let output_paths = outputs
+            .iter()
+            .map(|o| {
+                let resolved = o.as_ref().resolve(fs);
+                if let Some(dir) = resolved.path_to_create() {
+                    builder.mkdir(dir)?;
+                }
+                let output_type = resolved.output_type;
+                Ok((resolved.into_path(), output_type))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        insert_entry(
+            &mut builder,
+            ProjectRelativePath::unchecked_new(".buckconfig"),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
+                digest_config.cas_digest_config(),
+            ))),
+        )?;
+
+        let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
+
+        let mut input_files_bytes = 0;
+
+        for entry in input_directory
+            .fingerprinted_unordered_walk()
+            .without_paths()
+        {
+            match entry {
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+                    input_files_bytes += f.digest.size();
+                }
+                _ => {}
+            };
+        }
+
+        Ok(Self {
+            inputs,
+            outputs,
+            input_directory,
+            output_paths,
+            input_files_bytes,
+        })
+    }
+
+    pub fn input_directory(&self) -> &ActionImmutableDirectory {
+        &self.input_directory
+    }
+
+    pub fn output_paths(&self) -> &[(ProjectRelativePathBuf, OutputType)] {
+        &self.output_paths
+    }
+
+    pub fn input_files_bytes(&self) -> u64 {
+        self.input_files_bytes
     }
 }
 
@@ -201,6 +274,10 @@ impl CommandExecutionRequest {
             allow_cache_upload: false,
             force_full_hybrid_if_capable: false,
         }
+    }
+
+    pub fn paths(&self) -> &CommandExecutionPaths {
+        &self.paths
     }
 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {

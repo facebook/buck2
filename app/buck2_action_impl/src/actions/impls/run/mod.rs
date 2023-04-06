@@ -399,7 +399,9 @@ impl IncrementalActionExecutable for RunAction {
                         output_type: b.output_type(),
                     })
                     .collect(),
-            ),
+                ctx.fs(),
+                ctx.digest_config(),
+            )?,
             env,
         )
         .with_prefetch_lossy_stderr(true)

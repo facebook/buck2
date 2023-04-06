@@ -30,7 +30,6 @@ use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
-use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -78,7 +77,6 @@ impl CachingExecutor {
         &self,
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
-        action_paths: &ActionPaths,
         action_digest: &ActionDigest,
         action_blobs: &ActionBlobs,
         digest_config: DigestConfig,
@@ -98,7 +96,7 @@ impl CachingExecutor {
                     &self.materializer,
                     action_blobs,
                     ProjectRelativePath::empty(),
-                    &action_paths.inputs,
+                    request.paths().input_directory(),
                     self.re_use_case,
                     digest_config,
                 )
@@ -140,7 +138,7 @@ impl CachingExecutor {
                     action_digest: action_digest.to_string(),
                 }
                 .into(),
-                action_paths,
+                request.paths(),
                 request.outputs(),
                 action_digest,
                 &response,
@@ -426,7 +424,6 @@ impl PreparedCommandExecutor for CachingExecutor {
             .try_action_cache_fetch(
                 manager,
                 command.request,
-                &command.action_paths,
                 &command.prepared_action.action,
                 &command.prepared_action.blobs,
                 command.digest_config,

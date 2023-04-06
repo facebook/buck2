@@ -8,26 +8,15 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use remote_execution as RE;
 
 use crate::digest_config::DigestConfig;
-use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::request::CommandExecutionRequest;
-use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
-
-pub struct ActionPaths {
-    pub inputs: ActionImmutableDirectory,
-    pub outputs: Vec<(ProjectRelativePathBuf, OutputType)>,
-
-    /// Total size of input files.
-    pub input_files_bytes: u64,
-}
 
 pub struct PreparedAction {
     pub action: ActionDigest,
@@ -40,7 +29,6 @@ pub struct PreparedAction {
 pub struct PreparedCommand<'a, 'b> {
     pub request: &'a CommandExecutionRequest,
     pub target: &'b dyn CommandExecutionTarget,
-    pub action_paths: ActionPaths,
     pub prepared_action: PreparedAction,
     pub digest_config: DigestConfig,
 }

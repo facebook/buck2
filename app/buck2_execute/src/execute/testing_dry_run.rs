@@ -57,7 +57,6 @@ impl PreparedCommandExecutor for DryRunExecutor {
         let PreparedCommand {
             request,
             target: _target,
-            action_paths: _action_paths,
             prepared_action: _prepared_action,
             digest_config,
         } = command;

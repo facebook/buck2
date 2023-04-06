@@ -606,7 +606,6 @@ impl PreparedCommandExecutor for LocalExecutor {
         let PreparedCommand {
             request,
             target: _,
-            action_paths: _,
             prepared_action,
             digest_config,
         } = command;

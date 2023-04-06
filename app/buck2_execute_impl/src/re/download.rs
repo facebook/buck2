@@ -31,9 +31,9 @@ use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
 use buck2_execute::execute::output::CommandStdStreams;
-use buck2_execute::execute::prepared::ActionPaths;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
+use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -58,7 +58,7 @@ pub async fn download_action_results<'a>(
     digest_config: DigestConfig,
     manager: CommandExecutionManager,
     stage: buck2_data::executor_stage_start::Stage,
-    action_paths: &ActionPaths,
+    paths: &CommandExecutionPaths,
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
     action_digest: &ActionDigest,
     response: &dyn RemoteActionResult,
@@ -76,7 +76,7 @@ pub async fn download_action_results<'a>(
     let download = downloader.download(
         manager,
         stage,
-        action_paths,
+        paths,
         requested_outputs,
         action_digest,
         response,
@@ -114,7 +114,7 @@ impl CasDownloader<'_> {
         &self,
         manager: CommandExecutionManagerWithClaim,
         stage: buck2_data::executor_stage_start::Stage,
-        action_paths: &ActionPaths,
+        paths: &CommandExecutionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
@@ -127,7 +127,7 @@ impl CasDownloader<'_> {
     > {
         let download_response = executor_stage_async(
             stage,
-            self.materialize_files(action_paths, requested_outputs, action_digest, output_spec),
+            self.materialize_files(paths, requested_outputs, action_digest, output_spec),
         )
         .await;
 
@@ -146,7 +146,7 @@ impl CasDownloader<'_> {
 
     async fn materialize_files<'a>(
         &self,
-        action_paths: &ActionPaths,
+        paths: &CommandExecutionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
@@ -164,11 +164,8 @@ impl CasDownloader<'_> {
         // 1. merges all the outputs (files and trees) into the inputs structure
         // 2. computes the ArtifactValue for all outputs from that merged structure
         // 3. pass those new ArtifactValue to the materializer
-        let ActionPaths {
-            inputs: input_dir,
-            outputs: output_paths,
-            ..
-        } = action_paths;
+        let input_dir = paths.input_directory();
+        let output_paths = paths.output_paths();
         let mut input_dir = input_dir.clone().into_builder();
 
         for x in output_spec.output_files() {
@@ -215,7 +212,7 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
-                to_declare.push((path.clone(), value.dupe()));
+                to_declare.push((path.to_owned(), value.dupe()));
                 mapped_outputs.insert(requested.cloned(), value);
             }
         }

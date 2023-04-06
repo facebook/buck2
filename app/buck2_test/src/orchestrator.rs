@@ -210,6 +210,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 expanded_env,
                 inputs,
                 declared_outputs,
+                &fs,
             )
             .await?;
 
@@ -351,6 +352,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 expanded_env,
                 inputs,
                 declared_outputs,
+                &fs,
             )
             .await?;
 
@@ -671,6 +673,7 @@ impl BuckTestOrchestrator {
         env: SortedVectorMap<String, String>,
         cmd_inputs: IndexSet<ArtifactGroup>,
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        fs: &ArtifactFs,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -688,8 +691,11 @@ impl BuckTestOrchestrator {
             .into_iter()
             .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
             .collect();
-        let mut request =
-            CommandExecutionRequest::new(cmd, CommandExecutionPaths::new(inputs, outputs), env);
+        let mut request = CommandExecutionRequest::new(
+            cmd,
+            CommandExecutionPaths::new(inputs, outputs, fs, self.digest_config)?,
+            env,
+        );
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());

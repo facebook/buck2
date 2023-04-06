@@ -14,13 +14,9 @@ use std::time::Duration;
 use anyhow::Context as _;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::OutputPathsBehavior;
-use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::directory::DirectoryEntry;
-use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dupe::Dupe;
 use remote_execution as RE;
@@ -29,19 +25,14 @@ use sorted_vector_map::SortedVectorMap;
 use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
-use crate::directory::insert_entry;
-use crate::directory::ActionDirectoryMember;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::executor_stage_async;
-use crate::execute::inputs_directory::inputs_directory;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::manager::CommandExecutionManagerExt;
-use crate::execute::prepared::ActionPaths;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionInput;
-use crate::execute::request::CommandExecutionOutputRef;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionMetadata;
@@ -114,15 +105,13 @@ impl CommandExecutor {
         manager: CommandExecutionManager,
         digest_config: DigestConfig,
     ) -> CommandExecutionResult {
-        let (manager, action_paths, prepared_action) =
-            self.prepare(manager, request, digest_config).await?;
+        let (manager, prepared_action) = self.prepare(manager, request, digest_config).await?;
         self.0
             .inner
             .exec_cmd(
                 &PreparedCommand {
                     target: action,
                     request,
-                    action_paths,
                     prepared_action,
                     digest_config,
                 },
@@ -136,92 +125,39 @@ impl CommandExecutor {
         manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ActionPaths, PreparedAction)>
-    {
-        let (action_paths, action) =
-            match executor_stage_async(buck2_data::PrepareAction {}, async {
-                let action_paths =
-                    self.preamble(request.inputs(), request.outputs(), digest_config)?;
-                let input_digest = action_paths.inputs.fingerprint();
+    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, PreparedAction)> {
+        let action = match executor_stage_async(buck2_data::PrepareAction {}, async {
+            let input_digest = request.paths().input_directory().fingerprint();
 
-                let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
-                    CommandExecutionInput::Artifact(_) => None,
-                    CommandExecutionInput::ActionMetadata(metadata) => {
-                        Some((metadata.data.clone(), metadata.digest.dupe()))
-                    }
-                });
-                let action = re_create_action(
-                    request.args().to_vec(),
-                    &action_paths.outputs,
-                    request.working_directory().map(|p| p.as_str().to_owned()),
-                    request.env(),
-                    input_digest,
-                    action_metadata_blobs,
-                    request.timeout(),
-                    self.0.re_platform.clone(),
-                    false,
-                    digest_config,
-                    self.0.options.output_paths_behavior,
-                )?;
-
-                anyhow::Ok((action_paths, action))
-            })
-            .await
-            {
-                Ok(v) => v,
-                Err(e) => return ControlFlow::Break(manager.error("prepare", e)),
-            };
-
-        ControlFlow::Continue((manager, action_paths, action))
-    }
-
-    /// Return the inputs (in the form of a ActionImmutableDirectory) and the outputs for this
-    /// action.
-    fn preamble<'a>(
-        &self,
-        inputs: &[CommandExecutionInput],
-        outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
-        digest_config: DigestConfig,
-    ) -> anyhow::Result<ActionPaths> {
-        let mut builder = inputs_directory(inputs, &self.0.artifact_fs)?;
-
-        let output_paths = outputs
-            .map(|o| {
-                let resolved = o.resolve(&self.0.artifact_fs);
-                if let Some(dir) = resolved.path_to_create() {
-                    builder.mkdir(dir)?;
+            let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
+                CommandExecutionInput::Artifact(_) => None,
+                CommandExecutionInput::ActionMetadata(metadata) => {
+                    Some((metadata.data.clone(), metadata.digest.dupe()))
                 }
-                let output_type = resolved.output_type;
-                Ok((resolved.into_path(), output_type))
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            });
+            let action = re_create_action(
+                request.args().to_vec(),
+                request.paths().output_paths(),
+                request.working_directory().map(|p| p.as_str().to_owned()),
+                request.env(),
+                input_digest,
+                action_metadata_blobs,
+                request.timeout(),
+                self.0.re_platform.clone(),
+                false,
+                digest_config,
+                self.0.options.output_paths_behavior,
+            )?;
 
-        insert_entry(
-            &mut builder,
-            ProjectRelativePath::unchecked_new(".buckconfig"),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
-                digest_config.cas_digest_config(),
-            ))),
-        )?;
-
-        let input_dir = builder.fingerprint(digest_config.as_directory_serializer());
-
-        let mut input_files_bytes = 0;
-
-        for entry in input_dir.fingerprinted_unordered_walk().without_paths() {
-            match entry {
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                    input_files_bytes += f.digest.size();
-                }
-                _ => {}
-            };
-        }
-
-        Ok(ActionPaths {
-            inputs: input_dir,
-            outputs: output_paths,
-            input_files_bytes,
+            anyhow::Ok(action)
         })
+        .await
+        {
+            Ok(v) => v,
+            Err(e) => return ControlFlow::Break(manager.error("prepare", e)),
+        };
+
+        ControlFlow::Continue((manager, action))
     }
 }
 

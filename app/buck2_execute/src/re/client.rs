@@ -912,7 +912,7 @@ impl RemoteExecutionClientImpl {
             }),
             host_resource_requirements: Some(HostResourceRequirements {
                 affinity_keys: vec![identity.affinity_key.clone()],
-                input_files_bytes: identity.action_paths.input_files_bytes as i64,
+                input_files_bytes: identity.paths.input_files_bytes() as i64,
                 ..Default::default()
             }),
             platform: Some(re_platform(platform)),
