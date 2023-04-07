@@ -26,6 +26,7 @@ mod error;
 pub mod run;
 mod server;
 
+mod dap_api;
 /// A handle to the debugger server.
 #[derive(Debug, Clone, Dupe)]
 pub struct BuckStarlarkDebuggerHandle(Arc<HandleData>);
