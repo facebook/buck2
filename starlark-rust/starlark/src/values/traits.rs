@@ -66,7 +66,8 @@ use crate::values::ValueError;
 /// A Starlark type containing values will need to exist in two states: one containing [`Value`]
 /// and one containing [`FrozenValue`](crate::values::FrozenValue). To deal with that, if we are defining the type
 /// containing a single value, let's call it `One`, we'd define `OneGen`
-/// (for the general version), and then have the [`starlark_complex_value!`] macro
+/// (for the general version), and then have the
+/// [`starlark_complex_value!`](crate::starlark_complex_value!) macro
 /// generate `One` and `FrozenOne` aliases.
 ///
 /// ```
@@ -97,8 +98,8 @@ use crate::values::ValueError;
 /// }
 /// ```
 ///
-/// The [`starlark_complex_value!`] requires that the type have an instance for `Coerce`,
-/// then the macro defines two type aliases.
+/// The [`starlark_complex_value!`](crate::starlark_complex_value!) requires that
+/// the type have an instance for `Coerce`, then the macro defines two type aliases.
 ///
 /// ```
 /// # use crate::starlark::values::*;
@@ -138,12 +139,14 @@ use crate::values::ValueError;
 ///
 /// If the types are different between the frozen and non-frozen values you can define your own
 /// type specialisations as `type One<'v> = OneGen<Value<'v>>` and `type FrozenOne = OneGen<String>`
-/// and use [`starlark_complex_values!`] which will provide similar facilities to [`starlark_complex_value!`].
+/// and use [`starlark_complex_values!`](crate::starlark_complex_values!) which will provide similar facilities to
+/// [`starlark_complex_value!`](crate::starlark_type!).
 ///
 /// ## Other types
 ///
-/// The macro [`starlark_complex_value!`] is applicable when there is a single base type,
-/// `FooGen<V>`, with specialisations `FooGen<Value<'v>>` and `FooGen<FrozenValue>`.
+/// The macro [`starlark_complex_value!`](crate::starlark_complex_value!) is applicable
+/// when there is a single base type, `FooGen<V>`, with specialisations
+/// `FooGen<Value<'v>>` and `FooGen<FrozenValue>`.
 /// If you have a type where the difference between frozen and non-frozen does not follow this
 /// pattern then you will have to write instances of the traits you need manually.
 /// Examples of cases where the macro doesn't work include:
@@ -175,7 +178,7 @@ where
 /// There are only two required members of [`StarlarkValue`], namely
 /// [`TYPE`](StarlarkValue::TYPE)
 /// and [`get_type_value_static`](StarlarkValue::get_type_value_static).
-/// Both these should be implemented with the [`starlark_type!`] macro:
+/// Both these should be implemented with the [`starlark_type!`](crate::starlark_type!) macro:
 ///
 /// ```
 /// use starlark::values::StarlarkValue;
@@ -209,21 +212,21 @@ pub trait StarlarkValue<'v>:
     /// Return a string describing the type of self, as returned by the type()
     /// function.
     ///
-    /// This can be only implemented by the [`starlark_type!`] macro.
+    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
     const TYPE: &'static str;
 
     /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
     /// as it would not be performant to allocate a new value each time.
     ///
-    /// This can be only implemented by the [`starlark_type!`] macro.
+    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
     fn get_type_value_static() -> FrozenStringValue;
 
     /// Return a string that is the representation of a type that a user would use in
     /// type annotations. This often will be the same as [`Self::TYPE`], but in
     /// some instances it might be slightly different than what is returned by `TYPE`.
     ///
-    /// This can be only implemented by the [`starlark_type!`] macro.
+    /// This can be only implemented by the [`starlark_type!`](crate::starlark_type!) macro.
     fn get_type_starlark_repr() -> String {
         format!("\"{}\"", Self::get_type_value_static().as_str())
     }

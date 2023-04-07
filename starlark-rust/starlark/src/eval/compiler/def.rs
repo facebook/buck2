@@ -73,6 +73,8 @@ use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
+use crate::starlark_complex_values;
+use crate::starlark_type;
 use crate::syntax::ast::ParameterP;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;

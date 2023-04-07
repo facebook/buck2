@@ -25,6 +25,7 @@ use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::starlark_type;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;

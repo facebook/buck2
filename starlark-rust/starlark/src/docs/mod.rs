@@ -925,6 +925,8 @@ mod tests {
     use crate::environment::Methods;
     use crate::environment::MethodsBuilder;
     use crate::environment::MethodsStatic;
+    use crate::starlark_simple_value;
+    use crate::starlark_type;
     use crate::values::NoSerialize;
     use crate::values::StarlarkValue;
     use crate::values::Value;

@@ -46,6 +46,7 @@ use crate::collections::StarlarkHasher;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
+use crate::starlark_type;
 use crate::values::index::apply_slice;
 use crate::values::string::repr::string_repr;
 use crate::values::types::none::NoneOr;

@@ -29,6 +29,7 @@ use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::starlark_type;
 use crate::values::Freeze;
 use crate::values::Freezer;
 use crate::values::FrozenValue;

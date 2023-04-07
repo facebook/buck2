@@ -34,6 +34,7 @@ use serde::Serialize;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
+use crate::starlark_type;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;
 use crate::values::FrozenHeap;

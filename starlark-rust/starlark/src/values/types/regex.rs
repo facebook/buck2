@@ -30,6 +30,8 @@ use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
+use crate::starlark_simple_value;
+use crate::starlark_type;
 use crate::values::StarlarkValue;
 
 /// A type that can be passed around as a StarlarkRegex, which wraps Rust value

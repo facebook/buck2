@@ -27,6 +27,8 @@ use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::starlark_simple_value;
+use crate::starlark_type;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenValueTyped;

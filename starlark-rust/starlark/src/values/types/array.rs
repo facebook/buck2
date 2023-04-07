@@ -33,6 +33,7 @@ use serde::Serialize;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::private::Private;
+use crate::starlark_type;
 use crate::values::types::list::value::display_list;
 use crate::values::StarlarkValue;
 use crate::values::Value;

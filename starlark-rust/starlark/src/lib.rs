@@ -380,7 +380,6 @@
 #![allow(clippy::useless_transmute)] // Seems to be a clippy bug, but we should be using less transmute anyway
 #![deny(missing_docs)]
 
-#[macro_use]
 mod macros;
 
 pub use starlark_derive::starlark_module;

@@ -29,6 +29,8 @@ use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::starlark_simple_value;
+use crate::starlark_type;
 use crate::values::index::convert_index;
 use crate::values::index::convert_slice_indices;
 use crate::values::Heap;

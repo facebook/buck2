@@ -43,6 +43,7 @@ use crate::collections::SmallMap;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
+use crate::starlark_type;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;

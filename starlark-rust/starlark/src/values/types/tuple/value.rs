@@ -34,6 +34,7 @@ use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
+use crate::starlark_type;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;

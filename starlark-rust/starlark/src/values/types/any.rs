@@ -77,6 +77,7 @@ use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::starlark_type;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;

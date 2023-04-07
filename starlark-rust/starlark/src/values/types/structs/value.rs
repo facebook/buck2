@@ -37,6 +37,8 @@ use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::docs;
 use crate::docs::DocItem;
+use crate::starlark_complex_value;
+use crate::starlark_type;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;

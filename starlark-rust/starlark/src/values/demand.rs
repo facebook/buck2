@@ -64,6 +64,8 @@ mod tests {
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;
+    use crate::starlark_simple_value;
+    use crate::starlark_type;
     use crate::values::demand::Demand;
     use crate::values::Heap;
     use crate::values::StarlarkValue;

@@ -41,6 +41,7 @@ use crate::hint::unlikely;
 use crate::private::Private;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
+use crate::starlark_type;
 use crate::values::array::Array;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;

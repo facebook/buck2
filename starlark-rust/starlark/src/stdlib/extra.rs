@@ -36,6 +36,8 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
+use crate::starlark_complex_values;
+use crate::starlark_type;
 use crate::values::dict::DictRef;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::string::StringValueLike;

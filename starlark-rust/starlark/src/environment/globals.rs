@@ -597,6 +597,7 @@ mod tests {
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::assert::Assert;
+    use crate::starlark_simple_value;
     use crate::starlark_type;
     use crate::values::NoSerialize;
     use crate::values::StarlarkValue;
