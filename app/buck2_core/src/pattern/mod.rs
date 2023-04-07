@@ -239,8 +239,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_resolver,
             None,
             TargetParsingOptions {
-                relative_dir,
-                relative: false,
+                relative: TargetParsingRel::RequireAbsolute(relative_dir),
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
@@ -267,8 +266,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
-                relative_dir: Some(relative_dir),
-                relative: true,
+                relative: TargetParsingRel::AllowRelative(relative_dir),
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
@@ -299,8 +297,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
-                relative_dir: Some(relative_dir),
-                relative: true,
+                relative: TargetParsingRel::AllowRelative(relative_dir),
                 infer_target: true,
                 strip_package_trailing_slash: true,
             },
@@ -682,12 +679,33 @@ fn normalize_package<'a>(
 }
 
 #[derive(Clone, Dupe)]
+enum TargetParsingRel<'a> {
+    /// The dir this pattern should be interpreted relative to.
+    AllowRelative(CellPathRef<'a>),
+    /// The dir this pattern should be interpreted relative to.
+    /// This is only used for targets such as `:foo`.
+    RequireAbsolute(Option<CellPathRef<'a>>),
+}
+
+impl<'a> TargetParsingRel<'a> {
+    fn dir(&self) -> Option<CellPathRef<'a>> {
+        match self {
+            TargetParsingRel::AllowRelative(dir) => Some(*dir),
+            TargetParsingRel::RequireAbsolute(dir) => *dir,
+        }
+    }
+
+    fn allow_relative(&self) -> bool {
+        match self {
+            TargetParsingRel::AllowRelative(_) => true,
+            TargetParsingRel::RequireAbsolute(_) => false,
+        }
+    }
+}
+
+#[derive(Clone, Dupe)]
 struct TargetParsingOptions<'a> {
-    /// The dir this pattern should be intepreted relative to.  This will be used to prepend to the
-    /// package if `relative` is set, otherwise it'll only be used for targets such as `:foo`.
-    relative_dir: Option<CellPathRef<'a>>,
-    /// Whether to interpret packages relatively.
-    relative: bool,
+    relative: TargetParsingRel<'a>,
     /// Whether to infer the target in a pattern such as `foo/bar` (to `foo/bar:bar`).
     infer_target: bool,
     /// Whether to strip trailing slashes in package names, in e.g. `foo/bar/` or `foo/bar/:qux`.
@@ -699,8 +717,7 @@ struct TargetParsingOptions<'a> {
 impl<'a> TargetParsingOptions<'a> {
     fn precise() -> TargetParsingOptions<'a> {
         TargetParsingOptions {
-            relative_dir: None,
-            relative: false,
+            relative: TargetParsingRel::RequireAbsolute(None),
             infer_target: false,
             strip_package_trailing_slash: false,
         }
@@ -719,17 +736,10 @@ where
     T: PatternType,
 {
     let TargetParsingOptions {
-        relative_dir,
         relative,
         infer_target,
         strip_package_trailing_slash,
     } = opts;
-
-    debug_assert!(if relative {
-        relative_dir.is_some()
-    } else {
-        true
-    });
 
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
@@ -754,7 +764,7 @@ where
     // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
     // it.
     let is_absolute = cell_alias.is_some() || pattern.is_adjacent_target();
-    if !relative && !is_absolute {
+    if !relative.allow_relative() && !is_absolute {
         return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
@@ -763,8 +773,10 @@ where
 
     let package_path = pattern.package_path();
 
-    let path = match relative_dir {
-        Some(rel) if cell_alias.is_none() && (relative || package_path.is_empty()) => {
+    let path = match relative.dir() {
+        Some(rel)
+            if cell_alias.is_none() && (relative.allow_relative() || package_path.is_empty()) =>
+        {
             CellPathCow::Owned(rel.join(package_path))
         }
         _ => CellPathCow::Borrowed(CellPathRef::new(cell, CellRelativePath::new(package_path))),
