@@ -18,8 +18,7 @@ fn get_env(key: &str) -> Option<OsString> {
 }
 
 #[cfg(not(buck2_build))]
-fn set_var(var: &str, override_var: &str, path: &Path) {
-    assert!(path.exists(), "Path does not exist: `{}`", path.display());
+fn set_var(var: &str, override_var: &str, path: Option<&Path>) {
 
     let path_buf;
     let path = if let Some(override_var_value) = env::var_os(override_var) {
@@ -27,6 +26,8 @@ fn set_var(var: &str, override_var: &str, path: &Path) {
         path_buf = std::path::PathBuf::from(override_var_value);
         &path_buf
     } else {
+        let path = path.unwrap();
+        assert!(path.exists(), "Path does not exist: `{}`", path.display());
         path
     };
 
@@ -50,7 +51,7 @@ fn maybe_set_protoc() {
         set_var(
             "PROTOC",
             "BUCK2_BUILD_PROTOC",
-            &protoc_bin_vendored::protoc_bin_path().unwrap(),
+            protoc_bin_vendored::protoc_bin_path(),
         );
     }
 }
@@ -62,7 +63,7 @@ fn maybe_set_protoc_include() {
         set_var(
             "PROTOC_INCLUDE",
             "BUCK2_BUILD_PROTOC_INCLUDE",
-            &protoc_bin_vendored::include_path().unwrap(),
+            protoc_bin_vendored::include_path(),
         );
     }
 }
