@@ -350,3 +350,24 @@ impl<'a> CellPathRef<'a> {
         self.path.strip_prefix(&base.path)
     }
 }
+
+pub(crate) enum CellPathCow<'a> {
+    Borrowed(CellPathRef<'a>),
+    Owned(CellPath),
+}
+
+impl<'a> CellPathCow<'a> {
+    pub(crate) fn into_owned(self) -> CellPath {
+        match self {
+            CellPathCow::Borrowed(v) => v.to_owned(),
+            CellPathCow::Owned(v) => v,
+        }
+    }
+
+    pub(crate) fn as_ref(&self) -> CellPathRef<'_> {
+        match self {
+            CellPathCow::Borrowed(v) => *v,
+            CellPathCow::Owned(v) => v.as_ref(),
+        }
+    }
+}

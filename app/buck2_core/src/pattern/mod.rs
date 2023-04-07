@@ -31,6 +31,7 @@ use pattern_type::TargetPatternExtra;
 use regex::Regex;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAlias;
@@ -764,13 +765,13 @@ where
 
     let path = match relative_dir {
         Some(rel) if cell_alias.is_none() && (relative || package_path.is_empty()) => {
-            rel.join(package_path)
+            CellPathCow::Owned(rel.join(package_path))
         }
-        _ => CellPath::new(cell, CellRelativePath::new(package_path).to_owned()),
+        _ => CellPathCow::Borrowed(CellPathRef::new(cell, CellRelativePath::new(package_path))),
     };
 
     match pattern {
-        PatternData::Recursive { .. } => Ok(ParsedPattern::Recursive(path)),
+        PatternData::Recursive { .. } => Ok(ParsedPattern::Recursive(path.into_owned())),
         PatternData::AllTargetsInPackage { .. } => Ok(ParsedPattern::Package(
             PackageLabel::from_cell_path(path.as_ref()),
         )),
