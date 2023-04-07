@@ -5,6 +5,7 @@ name = "buck2_server"
 version = "0.1.0"
 
 [dependencies]
+debugserver-types = {workspace = true}
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
