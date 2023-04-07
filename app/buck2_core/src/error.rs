@@ -202,7 +202,7 @@ impl HardErrorConfigHolder {
 struct InvalidHardErrorConfig(String);
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::Mutex;
     use std::sync::MutexGuard;
     use std::sync::Once;
@@ -227,7 +227,7 @@ mod tests {
             .push(format!("{:?}, : {} : {} : {}", loc, err, category, quiet));
     }
 
-    fn test_init() -> MutexGuard<'static, ()> {
+    pub(crate) fn test_init() -> MutexGuard<'static, ()> {
         // Tests in Rust can be executed concurrently, and these tests work with global state,
         // so use mutex to ensure we only run one test at a time.
         static TEST_MUTEX: Mutex<()> = Mutex::new(());

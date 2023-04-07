@@ -768,6 +768,14 @@ where
         return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
+    // Prohibit parsing `:foo` as `root//:foo`.
+    if relative.dir().is_none() && cell_alias.is_none() {
+        soft_error!(
+            "adjacent_target_no_path",
+            TargetPatternParseError::AbsoluteRequired.into()
+        )?;
+    }
+
     // We ask for the cell, but if the pattern is relative we might not use it
     let cell = cell_resolver.resolve(cell_alias.unwrap_or_default())?;
 
@@ -1199,6 +1207,11 @@ mod tests {
 
     #[test]
     fn test_parsed_opt_absolute() -> anyhow::Result<()> {
+        // Parse `:target` fires soft error, which races with tests of `soft_error!`.
+        // This is hack, but this is temporary code anyway.
+        // TODO(nga): remove this hack when `soft_error!` is removed.
+        let _lock = crate::error::tests::test_init();
+
         let package = CellPath::new(
             resolver().resolve_self(),
             CellRelativePath::unchecked_new("package/path").to_owned(),
