@@ -24,7 +24,6 @@ use crate::streaming_request_handler::StreamingRequestHandler;
 /// Messages from the debugger server to its client (the cli `buck2 starlark debug-attach` which
 /// then forwards them along through its stdout).
 #[derive(Debug)]
-#[allow(unused)] // temporary
 pub(crate) enum ToClientMessage {
     Event(dap::Event),
     Response(dap::Response),

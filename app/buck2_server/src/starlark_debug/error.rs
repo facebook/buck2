@@ -11,7 +11,6 @@ use thiserror::Error;
 
 /// Errors from buck's starlark debugger
 #[derive(Debug, Error)]
-#[allow(unused)] // temporary
 pub(crate) enum StarlarkDebuggerError {
     #[error("starlark debugger has not yet implemented this functionality")]
     Unimplemented,
@@ -21,7 +20,6 @@ pub(crate) enum StarlarkDebuggerError {
 
 /// Internal errors from buck's starlark debugger
 #[derive(Debug, Error)]
-#[allow(unused)] // temporary
 pub(crate) enum StarlarkDebuggerInternalError {
     #[error("Internal error: debbugger server shutdown unexpectedly")]
     UnexpectedDebuggerShutdown,

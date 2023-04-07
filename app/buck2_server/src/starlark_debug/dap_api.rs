@@ -11,8 +11,6 @@
 //! protocol implemented by the buck debug server and some utilities for working with
 //! the debug adapter response/request/etc types.
 
-#![allow(unused)] // temporary
-
 use debugserver_types as dap;
 use serde::Deserialize;
 use serde::Serialize;

@@ -13,6 +13,7 @@ bincode = { workspace = true }
 chrono = { workspace = true }
 constant_time_eq = { workspace = true }
 crossbeam-channel = { workspace = true }
+derive_more = { workspace = true }
 flate2 = { workspace = true }
 futures = { workspace = true }
 inferno = { workspace = true }

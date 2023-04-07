@@ -7,6 +7,43 @@
  * of this source tree.
  */
 
+//! Provides the (daemon-side) support for buck2's starlark debugging.
+//!
+//! Components of the debugger:
+//!
+//! [BuckStarlarkDebuggerServer] is the main way that the core of buck2 integrates
+//! the starlark debugger. This provides the hooks to wrap a Starlark evaluation and
+//! enable the debugger (and handle communication between that starlark evaluation
+//! and the debugger server/state)
+//!
+//! [BuckStarlarkDebuggerHandle] is a "handle" the to the debugger server. One of these
+//! will be created for each buck2 command and put in the dice per-transaction data. Code
+//! that needs to do starlark evaluation can then use this to setup their Evaluator
+//! appropriately (though this is really just an implementation detail hidden in the
+//! helper [buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider]).
+//!
+//! [CURRENT_DEBUGGER] holds a global reference for the currently attached debugger and
+//! vends out handles (through [create_debugger_handle]).
+//!
+//! ServerState the internal implementation of the starlark debugger server sends all
+//! requests and starlark evaluation events to the single-threaded ServerState.
+//!
+//! Information about the debugger behavior:
+//!
+//! The debugger server exposes all current starlark evaluations as separate threads to
+//! the DAP client. Then, one of it's main responsibility is as a mux/demux for requests/events/etc
+//! flowing between the DAP client and the starlark evaluation.
+//!
+//! The server also tracks the state of all evaluations so that it can send regularly
+//! debugger snapshots to all current buck commands. Those commands in turn use those snapshots
+//! to render a debugger superconsole component so that users aren't left confused about
+//! why their commands are seemingly hanging.
+//!
+//! The server handles a variety of other small adapter functionality. For example,
+//! the DAP client may send source file references as absolute paths, but our starlark
+//! evaluators will only understand them as the project-relative paths that buck
+//! uses and so the server must convert them from/to the client/starlark.
+
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -15,6 +52,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use buck2_interpreter::starlark_debug::StarlarkDebuggerHandle;
+use derive_more::Display;
 use dupe::Dupe;
 use tokio::sync::mpsc;
 
@@ -22,27 +60,43 @@ use crate::starlark_debug::error::StarlarkDebuggerError;
 use crate::starlark_debug::run::ToClientMessage;
 use crate::starlark_debug::server::BuckStarlarkDebuggerServer;
 
+mod controller;
+mod dap_api;
 mod error;
-pub mod run;
+pub(crate) mod run;
 mod server;
 
-mod dap_api;
 /// A handle to the debugger server.
 #[derive(Debug, Clone, Dupe)]
 pub struct BuckStarlarkDebuggerHandle(Arc<HandleData>);
 
 #[derive(Debug)]
-pub struct HandleData {}
+pub struct HandleData {
+    id: HandleId,
+    server: Arc<BuckStarlarkDebuggerServer>,
+}
+
+impl Drop for HandleData {
+    fn drop(&mut self) {
+        self.server.drop_handle(self.id)
+    }
+}
 
 #[async_trait]
 impl StarlarkDebuggerHandle for BuckStarlarkDebuggerHandle {
     async fn start_eval(
         &self,
-        _description: &str,
+        description: &str,
     ) -> anyhow::Result<Box<dyn StarlarkDebugController>> {
-        unimplemented!("coming soon")
+        self.0.server.start_eval(self, description).await
     }
 }
+
+#[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash)]
+pub(crate) struct HandleId(u32);
+
+#[derive(Display, Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash)]
+pub(crate) struct HookId(u32);
 
 /// We allow only a single debugger to be attached at a time. While it's attached, this will hold the server instance.
 static CURRENT_DEBUGGER: Mutex<Option<Arc<BuckStarlarkDebuggerServer>>> = Mutex::new(None);
