@@ -59,8 +59,6 @@ def main() -> None:
 
     # Clear the docs folder first so that if we change the names of any
     # objects, we'll remove old docs
-    if os.path.exists("docs/generated"):
-        shutil.rmtree("docs/generated")
     for x in Path("docs").rglob("*.generated.md"):
         os.remove(x)
 
