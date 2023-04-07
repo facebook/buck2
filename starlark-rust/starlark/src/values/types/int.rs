@@ -35,6 +35,7 @@ use num_bigint::BigInt;
 use num_traits::Signed;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::AnyLifetime;

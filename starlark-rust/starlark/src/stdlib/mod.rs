@@ -128,6 +128,8 @@ mod tests {
     use allocative::Allocative;
     use derive_more::Display;
     use dupe::Dupe;
+    use starlark_derive::starlark_module;
+    use starlark_derive::NoSerialize;
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;

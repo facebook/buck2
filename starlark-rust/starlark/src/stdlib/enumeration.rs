@@ -16,6 +16,8 @@
  */
 
 //! Implementation of `enum` function.
+use starlark_derive::starlark_module;
+
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::values::enumeration::EnumType;

@@ -21,6 +21,9 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use fancy_regex::Regex;
+use starlark_derive::starlark_module;
+use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

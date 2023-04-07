@@ -75,6 +75,7 @@ fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Va
 #[cfg(test)]
 mod tests {
     use gazebo::prelude::SliceExt;
+    use starlark_derive::starlark_module;
 
     use crate as starlark;
     use crate::assert;

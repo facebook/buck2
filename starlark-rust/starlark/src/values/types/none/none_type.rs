@@ -22,6 +22,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

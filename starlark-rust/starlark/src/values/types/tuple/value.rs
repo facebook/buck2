@@ -26,6 +26,7 @@ use allocative::Allocative;
 use display_container::display_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

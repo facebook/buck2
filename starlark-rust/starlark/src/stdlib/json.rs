@@ -19,6 +19,7 @@ use std::str::FromStr;
 
 use gazebo::prelude::VecExt;
 use num_bigint::BigInt;
+use starlark_derive::starlark_module;
 use thiserror::Error;
 
 use crate as starlark;

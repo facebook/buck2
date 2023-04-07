@@ -23,6 +23,8 @@ use std::cmp::Ordering;
 use std::fmt::Display;
 use std::num::NonZeroI32;
 
+use starlark_derive::starlark_module;
+
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;

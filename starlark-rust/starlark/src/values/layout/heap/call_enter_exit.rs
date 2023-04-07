@@ -21,6 +21,7 @@ use std::fmt::Debug;
 use std::time::Instant;
 
 use allocative::Allocative;
+use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

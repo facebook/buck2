@@ -51,6 +51,8 @@ use display_container::display_keyed_container;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
+use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

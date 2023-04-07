@@ -73,6 +73,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

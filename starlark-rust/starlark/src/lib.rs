@@ -383,8 +383,6 @@
 #[macro_use]
 extern crate gazebo;
 #[macro_use]
-extern crate starlark_derive;
-#[macro_use]
 mod macros;
 
 pub use starlark_derive::starlark_module;

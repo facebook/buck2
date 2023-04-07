@@ -26,6 +26,7 @@ use dupe::Dupe;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

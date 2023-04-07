@@ -20,6 +20,7 @@
 use std::cmp;
 
 use gazebo::prelude::SliceExt;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;

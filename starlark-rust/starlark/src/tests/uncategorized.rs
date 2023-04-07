@@ -21,6 +21,7 @@ use std::fmt::Write;
 use allocative::Allocative;
 use anyhow::Context;
 use derive_more::Display;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

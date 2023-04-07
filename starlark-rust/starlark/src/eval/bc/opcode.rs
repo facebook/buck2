@@ -22,6 +22,7 @@ use std::any::TypeId;
 use std::marker;
 
 use dupe::Dupe;
+use starlark_derive::starlark_internal_bc;
 
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::*;

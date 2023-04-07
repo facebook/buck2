@@ -22,6 +22,8 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use derive_more::Display;
+use starlark_derive::starlark_module;
+use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

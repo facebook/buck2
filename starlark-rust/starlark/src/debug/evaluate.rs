@@ -110,6 +110,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
+    use starlark_derive::starlark_module;
 
     use super::*;
     use crate as starlark;

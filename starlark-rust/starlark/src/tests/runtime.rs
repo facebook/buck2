@@ -24,6 +24,7 @@ use std::sync::atomic::Ordering;
 
 use derive_more::Display;
 use once_cell::sync::Lazy;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::assert;

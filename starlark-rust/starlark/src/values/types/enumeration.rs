@@ -44,6 +44,9 @@ use derivative::Derivative;
 use display_container::display_container;
 use either::Either;
 use serde::Serialize;
+use starlark_derive::starlark_module;
+use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkDocs;
 use starlark_map::Equivalent;
 use thiserror::Error;
 

@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use starlark_derive::starlark_module;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;

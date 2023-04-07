@@ -23,6 +23,8 @@ use std::collections::HashMap;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::Freeze;
+use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
 

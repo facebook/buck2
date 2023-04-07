@@ -26,6 +26,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

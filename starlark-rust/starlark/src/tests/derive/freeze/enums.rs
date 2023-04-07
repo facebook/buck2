@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use starlark_derive::Freeze;
+
 use crate as starlark;
 
 #[allow(dead_code)] // If it compiles, it works.

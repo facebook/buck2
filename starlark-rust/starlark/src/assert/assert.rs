@@ -28,6 +28,7 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::codemap::CodeMap;

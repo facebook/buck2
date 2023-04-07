@@ -29,6 +29,7 @@ use allocative::Allocative;
 use display_container::display_keyed_container;
 use gazebo::cell::ARef;
 use serde::Serialize;
+use starlark_derive::StarlarkDocs;
 use starlark_map::small_map;
 use starlark_map::Equivalent;
 

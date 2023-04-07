@@ -17,6 +17,8 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::Trace;
+use starlark_derive::VisitSpanMut;
 
 use crate as starlark;
 use crate::eval::bc::stack_ptr::BcSlot;

@@ -20,7 +20,11 @@ use derive_more::Display;
 use maplit::hashmap;
 use serde::Serialize;
 use serde::Serializer;
+use starlark_derive::starlark_module;
+use starlark_derive::Freeze;
+use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkDocs;
+use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

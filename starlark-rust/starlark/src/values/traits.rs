@@ -35,6 +35,7 @@ use std::fmt::Write;
 
 use allocative::Allocative;
 use erased_serde::Serialize;
+use starlark_derive::starlark_internal_vtable;
 
 use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;

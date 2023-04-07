@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;

@@ -27,6 +27,7 @@ use std::mem;
 
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
+use starlark_derive::VisitSpanMut;
 use thiserror::Error;
 
 use crate::codemap::Span;

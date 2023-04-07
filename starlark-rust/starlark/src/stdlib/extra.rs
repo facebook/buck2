@@ -22,6 +22,8 @@ use allocative::Allocative;
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
 use itertools::Itertools;
+use starlark_derive::starlark_module;
+use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

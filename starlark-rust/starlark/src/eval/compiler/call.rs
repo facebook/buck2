@@ -20,6 +20,7 @@
 use std::cell::Cell;
 
 use gazebo::prelude::VecExt;
+use starlark_derive::VisitSpanMut;
 
 use crate::collections::symbol_map::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;

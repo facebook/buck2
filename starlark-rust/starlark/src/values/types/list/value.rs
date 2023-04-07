@@ -30,6 +30,8 @@ use display_container::display_container;
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
 use serde::Serialize;
+use starlark_derive::StarlarkDocs;
+use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

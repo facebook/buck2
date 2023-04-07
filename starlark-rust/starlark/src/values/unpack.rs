@@ -28,7 +28,8 @@ use crate::values::types::tuple::value::Tuple;
 use crate::values::Value;
 use crate::values::ValueError;
 
-/// How to convert a [`Value`] to a Rust type. Required for all arguments in a [`#[starlark_module]`](macro@starlark_module) definition.
+/// How to convert a [`Value`] to a Rust type. Required for all arguments in
+/// a [`#[starlark_module]`](macro@crate::starlark_module) definition.
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Description of values acceptable by `unpack_value`, e. g. `list or str`.
     fn expected() -> String {
@@ -83,7 +84,7 @@ impl<'v> UnpackValue<'v> for Value<'v> {
 /// A wrapper that keeps the original value on the heap for use elsewhere,
 /// and also, when unpacked, unpacks the value to validate it is of
 /// the correct type. Has an [`UnpackValue`] instance, so often used as
-/// an argument to [`#[starlark_module]`](macro@starlark_module) defined
+/// an argument to [`#[starlark_module]`](macro@crate::starlark_module) defined
 /// functions.
 ///
 /// Two container specializations of this are [`ListOf`](crate::values::list::ListOf)

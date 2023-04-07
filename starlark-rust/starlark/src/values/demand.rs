@@ -60,6 +60,7 @@ pub(crate) fn request_value_impl<'v, T: AnyLifetime<'v>>(value: Value<'v>) -> Op
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
+    use starlark_derive::NoSerialize;
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;

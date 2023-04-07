@@ -18,6 +18,7 @@
 //! Implementation of `record` function.
 
 use dupe::Dupe;
+use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::collections::SmallMap;

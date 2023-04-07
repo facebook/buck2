@@ -32,6 +32,8 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use gazebo::prelude::VecExt;
 use once_cell::sync::Lazy;
+use starlark_derive::NoSerialize;
+use starlark_derive::VisitSpanMut;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

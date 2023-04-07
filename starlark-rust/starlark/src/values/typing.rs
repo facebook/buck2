@@ -20,6 +20,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use gazebo::prelude::SliceExt;
+use starlark_derive::Freeze;
 use thiserror::Error;
 
 use crate as starlark;

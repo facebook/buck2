@@ -19,6 +19,7 @@ use std::sync::Mutex;
 
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use starlark_derive::starlark_module;
 use thiserror::Error;
 
 use crate as starlark;

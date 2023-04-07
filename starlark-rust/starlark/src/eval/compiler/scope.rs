@@ -19,6 +19,7 @@ use std::iter;
 use std::mem;
 
 use dupe::Dupe;
+use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 

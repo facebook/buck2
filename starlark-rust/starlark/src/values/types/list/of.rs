@@ -18,6 +18,8 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+use starlark_derive::Trace;
+
 use crate as starlark;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;

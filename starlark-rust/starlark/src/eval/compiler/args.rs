@@ -16,6 +16,7 @@
  */
 
 use gazebo::prelude::SliceExt;
+use starlark_derive::VisitSpanMut;
 
 use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;

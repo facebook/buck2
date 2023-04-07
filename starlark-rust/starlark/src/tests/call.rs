@@ -17,6 +17,8 @@
 
 //! Test call expression and parameter binding.
 
+use starlark_derive::starlark_module;
+
 use crate as starlark;
 use crate::assert;
 use crate::assert::Assert;

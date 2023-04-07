@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
+use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -147,7 +148,7 @@ impl NativeCallableRawDocs {
 
 /// Starlark representation of native (Rust) functions.
 ///
-/// Almost always created with [`#[starlark_module]`](macro@starlark_module).
+/// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
 #[derive(Derivative, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[derivative(Debug)]
 #[display(fmt = "{}", name)]

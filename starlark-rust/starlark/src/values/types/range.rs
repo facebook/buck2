@@ -24,6 +24,8 @@ use std::num::NonZeroI32;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
