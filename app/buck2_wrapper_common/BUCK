@@ -10,8 +10,10 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sysinfo",
+        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
