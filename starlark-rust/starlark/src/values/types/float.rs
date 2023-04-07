@@ -224,9 +224,17 @@ impl AllocFrozenValue for f64 {
     }
 }
 
+/// Allows only a float - an int will not be accepted.
 impl<'v> UnpackValue<'v> for StarlarkFloat {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         Some(*value.downcast_ref::<StarlarkFloat>()?)
+    }
+}
+
+/// Allows either a float or an int. If the int is not in the range of a float, it will lose precision.
+impl<'v> UnpackValue<'v> for f64 {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        value.unpack_num().map(|x| x.as_float())
     }
 }
 
