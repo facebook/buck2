@@ -22,7 +22,7 @@ The two interesting directories in this repo are `gazebo` (which contains the so
 
 ## Learn More
 
-You can learn more about Gazebo in [this introductory video](https://www.youtube.com/watch?v=OsrBYHIYCYk), or from the following blog posts:
+You can learn more about Gazebo in [this introductory video](https://www.youtube.com/watch?v=pQJkx9HL_04), or from the following blog posts:
 
 * [Rust Nibbles - Gazebo: Prelude](https://developers.facebook.com/blog/post/2021/06/29/rust-nibbles-gazebo-prelude/)
 * [Rust Nibbles - Gazebo: Dupe](https://developers.facebook.com/blog/post/2021/07/06/rust-nibbles-gazebo-dupe/)
