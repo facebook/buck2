@@ -18,7 +18,6 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
-use gazebo::cmp_chain;
 use gazebo::prelude::IterExt;
 use itertools::Itertools;
 use starlark_map::Equivalent;
@@ -60,19 +59,24 @@ pub(crate) fn compare_small_map<E, K, K2: Ord + Hash, V1, V2>(
     key: impl Fn(&K) -> K2,
     f: impl Fn(&V1, &V2) -> Result<Ordering, E>,
 ) -> Result<Ordering, E> {
-    Ok(cmp_chain! {
-        // TODO(nga): this function is only used to compare structs,
-        //   and it compares them incorrectly. This code is supposed to return `False`:
-        //   ```
-        //   struct(b=1) < struct(a=1, x=1)
-        //   ```
-        //   It returns `True`.
-        x.len().cmp(&y.len()),
-        x.iter()
-            .sorted_by_key(|(k, _)| key(k))
-            .try_cmp_by(
-                y.iter().sorted_by_key(|(k, _)| key(k)),
-                |(xk, xv), (yk, yv)| Ok(cmp_chain! { key(xk).cmp(&key(yk)), f(xv, yv)? })
-            )?
-    })
+    // TODO(nga): this function is only used to compare structs,
+    //   and it compares them incorrectly. This code is supposed to return `False`:
+    //   ```
+    //   struct(b=1) < struct(a=1, x=1)
+    //   ```
+    //   It returns `True`.
+    let cmp = x.len().cmp(&y.len());
+    if cmp != Ordering::Equal {
+        return Ok(cmp);
+    }
+    x.iter().sorted_by_key(|(k, _)| key(k)).try_cmp_by(
+        y.iter().sorted_by_key(|(k, _)| key(k)),
+        |(xk, xv), (yk, yv)| {
+            let key_cmp = key(xk).cmp(&key(yk));
+            if key_cmp != Ordering::Equal {
+                return Ok(key_cmp);
+            }
+            f(xv, yv)
+        },
+    )
 }
