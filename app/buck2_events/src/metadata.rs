@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::env;
 
 use buck2_core::facebook_only;
+use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use once_cell::sync::Lazy;
 
 use crate::TraceId;
@@ -63,7 +64,7 @@ pub fn collect() -> HashMap<String, String> {
 
     add_env_var(&mut map, "sandcastle_job_info", "SANDCASTLE_JOB_INFO");
     add_env_var(&mut map, "sandcastle_alias", "SANDCASTLE_ALIAS");
-    add_env_var(&mut map, "launched_via_wrapper", "BUCK2_WRAPPER");
+    add_env_var(&mut map, "launched_via_wrapper", BUCK2_WRAPPER_ENV_VAR);
     add_env_var(&mut map, "fbpackage_name", "FBPACKAGE_PACKAGE_NAME");
     add_env_var(&mut map, "fbpackage_version", "FBPACKAGE_PACKAGE_VERSION");
     add_env_var(&mut map, "fbpackage_release", "FBPACKAGE_PACKAGE_RELEASE");

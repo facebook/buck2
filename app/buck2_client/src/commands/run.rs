@@ -29,6 +29,8 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::SUPERCONSOLE_WIDTH;
+use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
+use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -163,8 +165,8 @@ impl StreamingCommand for RunCommand {
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
-        std::env::remove_var("BUCK2_WRAPPER");
-        std::env::remove_var("BUCK_WRAPPER_UUID");
+        std::env::remove_var(BUCK2_WRAPPER_ENV_VAR);
+        std::env::remove_var(BUCK_WRAPPER_UUID_ENV_VAR);
 
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_context(|| {

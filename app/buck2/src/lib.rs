@@ -93,6 +93,7 @@ fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
 }
 
 pub use buck2_server_ctx::logging::TracingLogFile;
+use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 
 /// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
@@ -321,10 +322,10 @@ impl CommandKind {
 
         let trace_id = match replay.as_ref() {
             Some((_, _, trace_id)) => trace_id.dupe(),
-            None => match std::env::var("BUCK_WRAPPER_UUID") {
-                Ok(uuid_str) => {
-                    TraceId::from_str(&uuid_str).context("invalid trace ID in BUCK_WRAPPER_UUID")?
-                }
+            None => match std::env::var(BUCK_WRAPPER_UUID_ENV_VAR) {
+                Ok(uuid_str) => TraceId::from_str(&uuid_str).with_context(|| {
+                    format!("invalid trace ID in {}", BUCK_WRAPPER_UUID_ENV_VAR)
+                })?,
                 _ => TraceId::new(),
             },
         };

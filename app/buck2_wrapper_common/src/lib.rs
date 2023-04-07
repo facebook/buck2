@@ -20,6 +20,9 @@ use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
 
+pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
+pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
+
 /// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
 /// succeeded without errors.
 pub fn killall(write: impl Fn(String)) -> bool {
