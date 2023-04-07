@@ -78,7 +78,7 @@ fn parse_starlark_fn_param_attr(
     tokens: &Attribute,
     param_attrs: &mut FnParamAttrs,
 ) -> syn::Result<()> {
-    assert!(tokens.path.is_ident("starlark"));
+    assert!(tokens.path().is_ident("starlark"));
     let parse = |parser: ParseStream| -> syn::Result<()> {
         let mut first = true;
         while !parser.is_empty() {
@@ -141,7 +141,7 @@ fn parse_starlark_fn_param_attr(
 fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
     let mut param_attrs = FnParamAttrs::default();
     for attr in attrs {
-        if attr.path.is_ident("starlark") {
+        if attr.path().is_ident("starlark") {
             parse_starlark_fn_param_attr(&attr, &mut param_attrs)?;
         } else {
             param_attrs.unused_attrs.push(attr);
@@ -152,7 +152,7 @@ fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
 
 /// Parse `#[starlark(...)]` fn attribute.
 fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Result<()> {
-    assert!(tokens.path.is_ident("starlark"));
+    assert!(tokens.path().is_ident("starlark"));
     let parse = |parser: ParseStream| -> syn::Result<()> {
         let mut first = true;
         while !parser.is_empty() {
@@ -202,7 +202,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
 fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
     let mut res = FnAttrs::default();
     for x in xs {
-        if x.path.is_ident("starlark") {
+        if x.path().is_ident("starlark") {
             parse_starlark_fn_attr(&x, &mut res)?;
         } else if let Some(ds) = is_attribute_docstring(&x) {
             match &mut res.docstring {

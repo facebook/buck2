@@ -19,14 +19,14 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Error;
-use syn::Meta;
-use syn::NestedMeta;
 use syn::Result;
+use syn::Token;
 use syn::Type;
 
 pub fn derive_attrs(input: TokenStream) -> TokenStream {
@@ -91,8 +91,6 @@ impl Field {
     }
 }
 
-static STARLARK_ATTR_ERR_MSG: &str = "valid starlark attributes are {skip}";
-
 fn expand_attrs_derive(data: Data, name: Ident) -> Result<proc_macro2::TokenStream> {
     let fields: Vec<_> = match data {
         Data::Struct(s) => Ok(s.fields.iter().cloned().collect()),
@@ -116,28 +114,17 @@ fn expand_attrs_derive(data: Data, name: Ident) -> Result<proc_macro2::TokenStre
                     starlark_args: vec![],
                     ty: field.ty,
                 }),
-                Some(attr) => match attr.parse_meta() {
-                    Ok(Meta::List(lst)) => {
-                        let starlark_args = lst
-                            .nested
-                            .iter()
-                            .map(|m| match m {
-                                NestedMeta::Meta(Meta::Path(p)) => p
-                                    .get_ident()
-                                    .ok_or_else(|| Error::new(m.span(), STARLARK_ATTR_ERR_MSG))
-                                    .map(|i| i.clone()),
-                                _ => Err(Error::new(m.span(), STARLARK_ATTR_ERR_MSG)),
-                            })
-                            .collect::<Result<_>>()?;
-                        Ok(Field {
-                            ident: field.ident.unwrap(),
-                            starlark_args,
-                            ty: field.ty,
-                        })
-                    }
-                    Ok(_) => Err(Error::new(attr.span(), "starlark attr must parse as list")),
-                    Err(e) => Err(e),
-                },
+                Some(attr) => {
+                    let starlark_args = attr
+                        .parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)?
+                        .into_iter()
+                        .collect();
+                    Ok(Field {
+                        ident: field.ident.unwrap(),
+                        starlark_args,
+                        ty: field.ty,
+                    })
+                }
             }
         })
         .filter(|f| f.as_ref().map(|f| !f.skip()).unwrap_or(true))
@@ -191,7 +178,7 @@ fn field_attr<'a, I: ?Sized>(field: &'a syn::Field, path: &I) -> Option<&'a Attr
 where
     Ident: PartialEq<I>,
 {
-    field.attrs.iter().find(|a| a.path.is_ident(path))
+    field.attrs.iter().find(|a| a.path().is_ident(path))
 }
 
 pub fn starlark_attrs() -> TokenStream {

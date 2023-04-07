@@ -61,7 +61,7 @@ impl ProviderCodegen {
                     .attrs
                     .clone()
                     .into_iter()
-                    .partition(|a| !a.path.is_ident(PROVIDER_IDENT));
+                    .partition(|a| !a.path().is_ident(PROVIDER_IDENT));
                 field.attrs = attrs;
                 if provider_attr.len() > 1 {
                     return Err(syn::Error::new_spanned(
@@ -136,11 +136,15 @@ impl ProviderCodegen {
         let mut doc_lines = vec![];
 
         for attr in attrs {
-            if attr.path.is_ident("doc") {
-                if let Ok(syn::Meta::NameValue(syn::MetaNameValue {
-                    lit: syn::Lit::Str(s),
+            if attr.path().is_ident("doc") {
+                if let syn::Meta::NameValue(syn::MetaNameValue {
+                    value:
+                        syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(s),
+                            ..
+                        }),
                     ..
-                })) = attr.parse_meta()
+                }) = &attr.meta
                 {
                     doc_lines.push(s.value());
                 }

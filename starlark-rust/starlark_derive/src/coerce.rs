@@ -221,7 +221,7 @@ fn check_repr(input: &DeriveInput) -> syn::Result<()> {
     };
 
     for attr in &input.attrs {
-        if attr.path.is_ident("repr") {
+        if attr.path().is_ident("repr") {
             if let Err(error) = attr.parse_args_with(|input: ParseStream| {
                 while !input.is_empty() {
                     let path = input.call(Path::parse_mod_style)?;

@@ -305,7 +305,7 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<AllocativeAttrs> {
     let mut opts = AllocativeAttrs::default();
 
     for attr in attrs.iter() {
-        if !attr.path.is_ident("allocative") {
+        if !attr.path().is_ident("allocative") {
             continue;
         }
 

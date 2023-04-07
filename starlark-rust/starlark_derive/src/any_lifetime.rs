@@ -108,6 +108,7 @@ fn type_param_bound_replace_lifetimes_with_static(
                 path: path_replace_lifetimes_with_static(&trait_bound.path)?,
             }))
         }
+        _ => Ok(bound.clone()),
     }
 }
 
@@ -123,7 +124,7 @@ pub(crate) fn derive_provides_static_type(
 fn derive_provides_static_type_impl(
     input: proc_macro::TokenStream,
 ) -> syn::Result<proc_macro::TokenStream> {
-    let input = syn::parse_macro_input::parse::<DeriveInput>(input)?;
+    let input: DeriveInput = syn::parse(input)?;
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

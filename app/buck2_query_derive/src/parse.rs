@@ -13,6 +13,8 @@ use proc_macro2::TokenStream;
 use syn::parse::Result;
 use syn::spanned::Spanned;
 use syn::Error;
+use syn::Expr;
+use syn::ExprLit;
 use syn::FnArg;
 use syn::Generics;
 use syn::Ident;
@@ -22,7 +24,6 @@ use syn::ItemImpl;
 use syn::Lit;
 use syn::Meta;
 use syn::MetaNameValue;
-use syn::NestedMeta;
 use syn::Pat;
 use syn::PatIdent;
 use syn::PatType;
@@ -48,10 +49,14 @@ impl DocString {
     fn parse(attrs: &[syn::Attribute]) -> Option<Self> {
         let mut docs = Vec::new();
         for attr in attrs {
-            if attr.path.is_ident("doc") {
-                if let Ok(Meta::NameValue(MetaNameValue {
-                    lit: Lit::Str(s), ..
-                })) = attr.parse_meta()
+            if attr.path().is_ident("doc") {
+                if let Meta::NameValue(MetaNameValue {
+                    value:
+                        Expr::Lit(ExprLit {
+                            lit: Lit::Str(s), ..
+                        }),
+                    ..
+                }) = &attr.meta
                 {
                     docs.push(s.value());
                 }
@@ -164,7 +169,7 @@ impl syn::parse::Parse for Module {
         let binary_op_path = Path::from(Ident::new("binary_op", Span::call_site()));
         for item in items {
             match item {
-                ImplItem::Method(method) => {
+                ImplItem::Fn(method) => {
                     let sig = &method.sig;
                     let span = sig.span();
 
@@ -228,24 +233,15 @@ impl syn::parse::Parse for Module {
                     let docs = DocString::parse(&original_attrs);
 
                     for attr in original_attrs {
-                        if attr.path == binary_op_path {
-                            let meta = attr.parse_meta()?;
-                            fn op_parse(meta: Meta) -> Result<Path> {
-                                if let Meta::List(meta) = &meta {
-                                    if meta.nested.len() == 1 {
-                                        let inner = meta.nested.first().unwrap();
-                                        if let NestedMeta::Meta(Meta::Path(path)) = inner {
-                                            return Ok(path.clone());
-                                        }
-                                    }
-                                }
-
-                                Err(Error::new_spanned(
-                                    meta,
+                        if *attr.path() == binary_op_path {
+                            if let Ok(path) = attr.parse_args::<Path>() {
+                                binary_op = Some(path);
+                            } else {
+                                return Err(Error::new_spanned(
+                                    &attr.meta,
                                     "#[query_module] attribute `binary_op` should receive a single argument identifying the binary op like `#[binary_op(BinaryOp::Intersect)]`",
-                                ))
+                                ));
                             }
-                            binary_op = Some(op_parse(meta)?);
                         } else {
                             method.attrs.push(attr)
                         }

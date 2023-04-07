@@ -21,11 +21,11 @@ use syn::parse_macro_input;
 use syn::DeriveInput;
 use syn::GenericParam;
 use syn::Lifetime;
-use syn::LifetimeDef;
+use syn::LifetimeParam;
 
 pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
-    let tick_v = GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'v", Span::call_site())));
+    let tick_v = GenericParam::Lifetime(LifetimeParam::new(Lifetime::new("'v", Span::call_site())));
 
     let mut has_tick_v = false;
     for param in &mut input.generics.params {

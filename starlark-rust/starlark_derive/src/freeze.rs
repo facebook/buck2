@@ -153,7 +153,7 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
     let mut opts = FreezeDeriveOptions::default();
 
     for attr in attrs.iter() {
-        if !attr.path.is_ident("freeze") {
+        if !attr.path().is_ident("freeze") {
             continue;
         }
 
@@ -196,7 +196,7 @@ fn is_identity(attrs: &[Attribute]) -> syn::Result<bool> {
     syn::custom_keyword!(identity);
 
     for attr in attrs.iter() {
-        if !attr.path.is_ident("freeze") {
+        if !attr.path().is_ident("freeze") {
             continue;
         }
 

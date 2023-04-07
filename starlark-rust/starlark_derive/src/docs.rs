@@ -26,6 +26,8 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::DeriveInput;
+use syn::Expr;
+use syn::ExprLit;
 use syn::MetaNameValue;
 use syn::Token;
 
@@ -118,7 +120,11 @@ fn get_attrs(attr: Attribute) -> syn::Result<HashMap<String, String>> {
         match &arg {
             MetaNameValue {
                 path,
-                lit: syn::Lit::Str(s),
+                value:
+                    Expr::Lit(ExprLit {
+                        lit: syn::Lit::Str(s),
+                        ..
+                    }),
                 ..
             } => {
                 let ident = path.get_ident().unwrap();
@@ -146,7 +152,7 @@ fn get_attrs(attr: Attribute) -> syn::Result<HashMap<String, String>> {
 
 fn parse_custom_attributes(attrs: Vec<Attribute>) -> syn::Result<HashMap<String, String>> {
     for attr in attrs {
-        if attr.path.is_ident(STARLARK_DOCS_ATTRS) {
+        if attr.path().is_ident(STARLARK_DOCS_ATTRS) {
             return get_attrs(attr);
         }
     }

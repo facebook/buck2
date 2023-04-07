@@ -32,7 +32,7 @@ use syn::GenericArgument;
 use syn::GenericParam;
 use syn::Generics;
 use syn::Lifetime;
-use syn::LifetimeDef;
+use syn::LifetimeParam;
 use syn::PathArguments;
 use syn::ReturnType;
 use syn::Type;
@@ -42,7 +42,7 @@ use crate::for_each_field::for_each_field;
 
 pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
-    let tick_v = GenericParam::Lifetime(LifetimeDef::new(Lifetime::new("'v", Span::call_site())));
+    let tick_v = GenericParam::Lifetime(LifetimeParam::new(Lifetime::new("'v", Span::call_site())));
 
     let bound: TypeParamBound = parse_quote!(starlark::values::Trace<'v>);
     let mut has_tick_v = false;
@@ -90,7 +90,7 @@ fn is_ignore(attrs: &[Attribute]) -> bool {
     syn::custom_keyword!(unsafe_ignore);
 
     attrs.iter().any(|a| {
-        a.path.is_ident("trace")
+        a.path().is_ident("trace")
             && a.parse_args_with(|input: ParseStream| {
                 let ignore = input.parse::<Option<unsafe_ignore>>()?.is_some();
                 Ok(ignore)
