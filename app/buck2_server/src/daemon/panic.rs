@@ -21,7 +21,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 use once_cell::sync::OnceCell;
 
 use crate::daemon::dice_dump::tar_dice_dump;

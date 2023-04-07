@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::manifold;
 use crate::subscribers::event_log::read::EventLogPathBuf;

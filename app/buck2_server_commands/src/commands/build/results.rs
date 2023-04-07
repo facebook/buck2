@@ -191,8 +191,8 @@ pub mod build_report {
     use buck2_core::provider::label::NonDefaultProvidersName;
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::TargetLabel;
-    use buck2_events::trace::TraceId;
     use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+    use buck2_wrapper_common::invocation_id::TraceId;
     use derivative::Derivative;
     use dupe::Dupe;
     use itertools::Itertools;

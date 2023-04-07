@@ -42,6 +42,7 @@ buck2_execute = { workspace = true }
 buck2_forkserver = { workspace = true }
 buck2_forkserver_proto = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

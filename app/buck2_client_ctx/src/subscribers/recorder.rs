@@ -36,8 +36,8 @@ mod imp {
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
     use buck2_events::sink::scribe::ThriftScribeSink;
-    use buck2_events::trace::TraceId;
     use buck2_events::BuckEvent;
+    use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
     use futures::FutureExt;
     use termwiz::istty::IsTty;

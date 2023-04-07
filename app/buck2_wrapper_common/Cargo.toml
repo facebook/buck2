@@ -10,4 +10,11 @@ meaning code changes here are not "atomically" updated.
 """
 
 [dependencies]
+allocative = { workspace = true }
+dupe = { workspace = true }
+serde = { workspace = true }
 sysinfo = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

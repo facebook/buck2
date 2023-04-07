@@ -6,7 +6,14 @@ oncall("buck2")
 rust_library(
     name = "buck2_wrapper_common",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:serde_json",
+    ],
     deps = [
+        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sysinfo",
+        "fbsource//third-party/rust:uuid",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )

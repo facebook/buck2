@@ -32,13 +32,13 @@ use buck2_data::MercurialInfo;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
 use buck2_util::process::background_command;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use futures::Future;
 use pin_project::pin_project;
 
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
-use crate::trace::TraceId;
 use crate::BuckEvent;
 use crate::ControlEvent;
 use crate::EventSink;

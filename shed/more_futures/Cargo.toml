@@ -15,6 +15,7 @@ tokio = { version = "1.5", features = ["full"]}
 tracing = "0.1.22"
 buck2_events = { workspace = true }
 buck2_data = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 allocative = { workspace = true }
 parking_lot = { workspace = true }
 take_mut = { workspace = true }

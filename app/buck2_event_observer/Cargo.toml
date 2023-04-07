@@ -11,6 +11,7 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_test_api = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 clap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }

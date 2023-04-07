@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 
 /// Information about the current command, such as session or build ids.
 pub struct SessionInfo {

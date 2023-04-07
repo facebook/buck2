@@ -61,6 +61,7 @@ buck2_test_api = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
 buck2_event_observer = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

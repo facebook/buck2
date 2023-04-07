@@ -14,7 +14,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;

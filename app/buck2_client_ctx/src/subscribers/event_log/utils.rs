@@ -10,7 +10,7 @@
 use std::fmt;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use itertools::Itertools;
 use serde::Deserialize;

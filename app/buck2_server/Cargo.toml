@@ -64,6 +64,7 @@ buck2_cli_proto = { workspace = true }
 buck2_subscription_proto = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 host_sharing = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]

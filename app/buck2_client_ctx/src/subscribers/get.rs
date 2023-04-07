@@ -11,7 +11,7 @@ use ::superconsole::Component;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;

@@ -77,6 +77,8 @@ buck2_critical_path = { workspace = true }
 jemallocator = { workspace = true }
 
 [dev-dependencies]
+buck2_wrapper_common = { workspace = true }
+
 maplit = { workspace = true }
 
 [features]

@@ -201,7 +201,7 @@ mod imp {
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
         use buck2_events::sink::scribe;
-        use buck2_events::trace::TraceId;
+        use buck2_wrapper_common::invocation_id::TraceId;
 
         facebook_only();
         if !scribe::is_enabled() {

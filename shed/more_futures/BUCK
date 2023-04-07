@@ -22,6 +22,7 @@ rust_library(
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

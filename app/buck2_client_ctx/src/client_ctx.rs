@@ -18,7 +18,7 @@ use buck2_core::error::BUCK2_HARD_ERROR_ENV_VAR;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_events::trace::TraceId;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Builder;
 

@@ -30,7 +30,6 @@ pub mod metadata;
 pub mod sink;
 pub mod source;
 pub mod span;
-pub mod trace;
 
 use std::num::NonZeroU64;
 use std::str::FromStr;
@@ -41,6 +40,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
+use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
 use serde::Serialize;
@@ -49,7 +49,6 @@ use thiserror::Error;
 use crate::sink::channel::ChannelEventSink;
 use crate::source::ChannelEventSource;
 use crate::span::SpanId;
-use crate::trace::TraceId;
 
 /// An event that can be produced by Buck2. Events are points in time with additional metadata attached to them,
 /// depending on the nature of the event.

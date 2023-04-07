@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
-use buck2_events::trace::TraceId;
 use buck2_events::BuckEvent;
+use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
 use crate::debug_events::DebugEventsState;

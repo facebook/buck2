@@ -17,7 +17,6 @@ sys-info = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }
 crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
 pin-project = { workspace = true }
