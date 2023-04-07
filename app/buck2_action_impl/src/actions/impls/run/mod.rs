@@ -97,18 +97,37 @@ impl Display for MetadataParameter {
 enum LocalPreferenceError {
     #[error("cannot have `local_only = True` and `prefer_local = True` at the same time")]
     LocalOnlyAndPreferLocal,
+    #[error("cannot have `local_only = True` and `prefer_remote = True` at the same time")]
+    LocalOnlyAndPreferRemote,
+    #[error(
+        "cannot have `local_only = True`, `prefer_local = True` and `prefer_remote = True` at the same time"
+    )]
+    LocalOnlyAndPreferLocalAndPreferRemote,
+    #[error("cannot have `prefer_local = True` and `prefer_remote = True` at the same time")]
+    PreferLocalAndPreferRemote,
 }
 
 pub(crate) fn new_executor_preference(
     local_only: bool,
     prefer_local: bool,
+    prefer_remote: bool,
 ) -> anyhow::Result<ExecutorPreference> {
-    match (local_only, prefer_local) {
-        (true, false) => Ok(ExecutorPreference::LocalRequired),
-        (false, true) => Ok(ExecutorPreference::LocalPreferred),
-        (false, false) => Ok(ExecutorPreference::Default),
-        (true, true) => Err(anyhow::anyhow!(
+    match (local_only, prefer_local, prefer_remote) {
+        (true, false, false) => Ok(ExecutorPreference::LocalRequired),
+        (true, false, true) => Err(anyhow::anyhow!(
+            LocalPreferenceError::LocalOnlyAndPreferRemote
+        )),
+        (false, true, false) => Ok(ExecutorPreference::LocalPreferred),
+        (false, true, true) => Err(anyhow::anyhow!(
+            LocalPreferenceError::PreferLocalAndPreferRemote
+        )),
+        (false, false, false) => Ok(ExecutorPreference::Default),
+        (false, false, true) => Ok(ExecutorPreference::RemotePreferred),
+        (true, true, false) => Err(anyhow::anyhow!(
             LocalPreferenceError::LocalOnlyAndPreferLocal
+        )),
+        (true, true, true) => Err(anyhow::anyhow!(
+            LocalPreferenceError::LocalOnlyAndPreferLocalAndPreferRemote
         )),
     }
 }

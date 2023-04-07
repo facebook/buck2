@@ -542,6 +542,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
         #[starlark(require = named, default = false)] local_only: bool,
         #[starlark(require = named, default = false)] prefer_local: bool,
+        #[starlark(require = named, default = false)] prefer_remote: bool,
         #[starlark(require = named, default = false)] always_print_stderr: bool,
         #[starlark(require = named)] weight: Option<i32>,
         #[starlark(require = named)] weight_percentage: Option<i32>,
@@ -602,7 +603,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let executor_preference = new_executor_preference(local_only, prefer_local)?;
+        let executor_preference = new_executor_preference(local_only, prefer_local, prefer_remote)?;
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
