@@ -20,6 +20,7 @@ pub mod last_command_execution_kind;
 pub mod re_state;
 pub mod session_info;
 pub mod span_tracker;
+pub mod starlark_debug;
 pub mod test_state;
 pub mod two_snapshots;
 pub mod unpack_event;

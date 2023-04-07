@@ -290,6 +290,7 @@ impl SuperConsoleState {
             observer.io_state(),
             observer.extra().dice_state(),
             observer.extra().debug_events(),
+            observer.starlark_debugger_state(),
         ]
     }
 }

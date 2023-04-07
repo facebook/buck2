@@ -21,6 +21,7 @@ use crate::io_state::IoState;
 use crate::re_state::ReState;
 use crate::session_info::SessionInfo;
 use crate::span_tracker::BuckEventSpanTracker;
+use crate::starlark_debug::StarlarkDebuggerState;
 use crate::test_state::TestState;
 use crate::two_snapshots::TwoSnapshots;
 
@@ -32,6 +33,7 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     io_state: IoState,
     test_state: TestState,
+    starlark_debugger_state: StarlarkDebuggerState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -53,6 +55,7 @@ where
             },
             io_state: IoState::default(),
             test_state: TestState::default(),
+            starlark_debugger_state: StarlarkDebuggerState::new(),
             extra: E::new(),
         }
     }
@@ -109,6 +112,10 @@ where
                         TestResult(result) => {
                             self.test_state.update(result)?;
                         }
+                        DebugAdapterSnapshot(snapshot) => {
+                            self.starlark_debugger_state
+                                .update(event.timestamp(), snapshot)?;
+                        }
                         _ => {}
                     }
                 }
@@ -143,6 +150,10 @@ where
 
     pub fn io_state(&self) -> &IoState {
         &self.io_state
+    }
+
+    pub fn starlark_debugger_state(&self) -> &StarlarkDebuggerState {
+        &self.starlark_debugger_state
     }
 
     pub fn test_state(&self) -> &TestState {
