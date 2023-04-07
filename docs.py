@@ -14,6 +14,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -71,17 +72,32 @@ def main() -> None:
             "docs/developers/starlark/" + name + ".generated.md", prefix + read_file(x)
         )
 
-    os.mkdir("docs/generated")
-    # Actually generate the docss
-    subprocess.run(
-        buck_command(args)
-        + " docs starlark --format=markdown_files --markdown-files-destination-dir=docs/generated --builtins prelude//docs:rules.bzl",
-        shell=True,
-        check=True,
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        # Actually generate the docss
+        subprocess.run(
+            buck_command(args)
+            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
+            + tmp
+            + " --builtins prelude//docs:rules.bzl",
+            shell=True,
+            check=True,
+        )
 
-    # Random hacks to fix things up
-    shutil.move("docs/generated/native/bxl", "docs/generated/bxl")
+        for orig in Path(tmp).rglob("*.md"):
+            x = os.path.relpath(orig, tmp)
+            name = Path(x).stem
+            if name.endswith(".bzl"):
+                name = name[:-4]
+            prefix = "---\nid: " + name + "\n---\n"
+            if x.startswith("native/bxl/"):
+                dest = x[7:-3]
+            elif x.endswith("/rules.bzl.md"):
+                dest = "rules"
+            else:
+                dest = x[:-3]
+            dest = "docs/api/" + dest + ".generated.md"
+            os.makedirs(Path(dest).parent, exist_ok=True)
+            write_file(dest, prefix + read_file(orig))
 
 
 if __name__ == "__main__":
