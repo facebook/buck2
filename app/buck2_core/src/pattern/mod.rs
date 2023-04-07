@@ -763,8 +763,8 @@ where
     // This allows things of the form `//foo` (having a cell alias) or `:bar` (no cell, no package,
     // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
     // it.
-    let is_absolute = cell_alias.is_some() || pattern.is_adjacent_target();
-    if !relative.allow_relative() && !is_absolute {
+    let is_absolute_or_adjacent = cell_alias.is_some() || pattern.is_adjacent_target();
+    if !relative.allow_relative() && !is_absolute_or_adjacent {
         return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
