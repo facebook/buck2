@@ -22,7 +22,7 @@ pub struct LastLogCommand {
         group = "event_log",
         value_name = "NUMBER"
     )]
-    pub recent: Option<usize>,
+    recent: Option<usize>,
 }
 
 impl LastLogCommand {
