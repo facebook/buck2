@@ -1216,6 +1216,16 @@ mod tests {
             mk_target("root", "package/path", "target"),
             ParsedPattern::parsed_opt_absolute(&resolver(), Some(package.as_ref()), ":target")?
         );
+        // TODO(nga): this does not make sense, added this test to document the current behavior.
+        assert_eq!(
+            mk_target("root", "", "target"),
+            ParsedPattern::parsed_opt_absolute(&resolver(), None, ":target")?
+        );
+        // But this should be fine.
+        assert_eq!(
+            mk_target("cell1", "", "target"),
+            ParsedPattern::parsed_opt_absolute(&resolver(), None, "cell1//:target")?
+        );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
