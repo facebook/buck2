@@ -82,6 +82,7 @@ def main() -> None:
         )
 
         for orig in Path(tmp).rglob("*.md"):
+            src = read_file(orig)
             x = os.path.relpath(orig, tmp)
             name = Path(x).stem
             if name.endswith(".bzl"):
@@ -91,11 +92,13 @@ def main() -> None:
                 dest = x[7:-3]
             elif x.endswith("/rules.bzl.md"):
                 dest = "rules"
+                prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
+                src = "\n".join(src.splitlines()[1:])
             else:
                 dest = x[:-3]
             dest = "docs/api/" + dest + ".generated.md"
             os.makedirs(Path(dest).parent, exist_ok=True)
-            write_file(dest, prefix + read_file(orig))
+            write_file(dest, prefix + src)
 
 
 if __name__ == "__main__":

@@ -177,7 +177,7 @@ const manualSidebar = [
       {
         type: 'doc',
         id: 'api/rules',
-        label: 'Rules API',
+        label: 'Rules',
       },
       {
         type: 'category',
