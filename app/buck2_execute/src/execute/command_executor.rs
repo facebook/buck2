@@ -11,7 +11,6 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::OutputPathsBehavior;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -174,6 +173,8 @@ fn re_create_action(
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
 ) -> anyhow::Result<PreparedAction> {
+    let _ignored = timeout; // TODO (torozco): Fix me.
+
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
@@ -244,10 +245,7 @@ fn re_create_action(
                 .add_protobuf_message(&command, digest_config)
                 .to_grpc(),
         ),
-        timeout: timeout
-            .map(|t| t.try_into())
-            .transpose()
-            .context("Cannot convert timeout to GRPC")?,
+        timeout: None,
         do_not_cache,
         ..Default::default()
     };
