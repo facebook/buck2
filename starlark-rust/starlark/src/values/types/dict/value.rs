@@ -24,10 +24,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use display_container::display_keyed_container;
-use gazebo::cell::ARef;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
 use starlark_map::small_map;
@@ -301,14 +301,20 @@ impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
 }
 
 trait DictLike<'v>: Debug + Allocative {
-    fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>>;
+    type ContentRef<'a>: Deref<Target = SmallMap<Value<'v>, Value<'v>>>
+    where
+        Self: 'a,
+        'v: 'a;
+    fn content<'a>(&'a self) -> Self::ContentRef<'a>;
     fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>;
     fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> anyhow::Result<()>;
 }
 
 impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
-    fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
-        ARef::new_ref(Ref::map(self.borrow(), |x| &x.content))
+    type ContentRef<'a> = Ref<'a, SmallMap<Value<'v>, Value<'v>>> where Self: 'a, 'v: 'a;
+
+    fn content<'a>(&'a self) -> Ref<'a, SmallMap<Value<'v>, Value<'v>>> {
+        Ref::map(self.borrow(), |x| &x.content)
     }
 
     fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
@@ -348,8 +354,10 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 }
 
 impl<'v> DictLike<'v> for FrozenDictData {
-    fn content(&self) -> ARef<SmallMap<Value<'v>, Value<'v>>> {
-        ARef::new_ptr(coerce(&self.content))
+    type ContentRef<'a> = &'a SmallMap<Value<'v>, Value<'v>> where Self: 'a, 'v: 'a;
+
+    fn content<'a>(&'a self) -> &'a SmallMap<Value<'v>, Value<'v>> {
+        coerce(&self.content)
     }
 
     fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
