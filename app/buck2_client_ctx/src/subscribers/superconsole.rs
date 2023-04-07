@@ -56,6 +56,7 @@ use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use crate::subscribers::superconsole::commands::CommandsComponent;
 use crate::subscribers::superconsole::debug_events::DebugEventsComponent;
+use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
 use crate::subscribers::superconsole::dice::DiceComponent;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
@@ -65,6 +66,7 @@ use crate::subscribers::superconsole::timed_list::TimedList;
 mod commands;
 mod common;
 pub(crate) mod debug_events;
+mod debugger;
 pub(crate) mod dice;
 mod io;
 mod re;
@@ -158,6 +160,7 @@ impl StatefulSuperConsole {
         }
         components.push(Box::new(DebugEventsComponent));
         components.push(Box::new(DiceComponent));
+        components.push(Box::new(StarlarkDebuggerComponent));
         components.push(Box::new(CommandsComponent));
         components.push(Box::new(TimedList::new(CUTOFFS, header)));
         let root = Box::new(Split::new(
