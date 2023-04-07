@@ -28,13 +28,13 @@ use allocative::Allocative;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
-use gazebo::transmute;
 use serde::Serialize;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
 use crate::cast;
+use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::values::alloc_value::AllocFrozenStringValue;

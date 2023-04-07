@@ -28,7 +28,6 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::display_keyed_container;
 use gazebo::cell::ARef;
-use gazebo::transmute;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
 use starlark_map::small_map;
@@ -36,6 +35,7 @@ use starlark_map::Equivalent;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::cast::transmute;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::Hashed;

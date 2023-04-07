@@ -21,9 +21,9 @@ use std::marker::PhantomData;
 use dupe::Clone_;
 use dupe::Dupe_;
 use either::Either;
-use gazebo::transmute;
 use thiserror::Error;
 
+use crate::cast::transmute;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::symbol_map::Symbol;

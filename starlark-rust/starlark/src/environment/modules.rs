@@ -28,9 +28,9 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::transmute;
 use itertools::Itertools;
 
+use crate::cast::transmute;
 use crate::collections::Hashed;
 use crate::docs;
 use crate::docs::DocString;

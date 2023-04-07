@@ -25,10 +25,10 @@ use std::ptr;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::transmute;
 
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
+use crate::cast::transmute;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;

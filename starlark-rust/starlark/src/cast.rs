@@ -37,3 +37,13 @@ pub(crate) unsafe fn ptr<From, To>(x: &From) -> &To {
 pub(crate) unsafe fn ptr_lifetime<'a, 'b, T: ?Sized>(x: &'a T) -> &'b T {
     &*(x as *const T)
 }
+
+/// `transmute!(from-type, to-type, value)` will do a [`transmute`](std::mem::transmute),
+/// but the original and result types must be specified.
+macro_rules! transmute {
+    ($from:ty, $to:ty, $e:expr) => {
+        std::mem::transmute::<$from, $to>($e)
+    };
+}
+
+pub(crate) use transmute;

@@ -38,10 +38,10 @@ use std::usize;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
-use gazebo::transmute;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;
+use crate::cast::transmute;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::collections::Hashed;
