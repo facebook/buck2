@@ -15,6 +15,7 @@ use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use buck2_interpreter::starlark_debug::StarlarkDebuggerHandle;
 use dupe::Dupe;
 
+mod error;
 pub mod run;
 
 /// A handle to the debugger server.
