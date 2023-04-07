@@ -581,6 +581,7 @@ impl<'a> FlushingBuckdClient<'a> {
     );
 
     bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspMessage);
+    bidirectional_stream_method!(dap, DapRequest, DapResponse, DapMessage);
     bidirectional_stream_method!(
         subscription,
         SubscriptionRequestWrapper,

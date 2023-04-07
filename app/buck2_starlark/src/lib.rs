@@ -25,8 +25,10 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
+use crate::debug::StarlarkDebugAttachCommand;
 use crate::lint::StarlarkLintCommand;
 
+mod debug;
 mod lint;
 pub mod server;
 mod util;
@@ -36,6 +38,7 @@ mod util;
 pub enum StarlarkCommand {
     #[clap(flatten)]
     Opaque(StarlarkOpaqueCommand),
+    DebugAttach(StarlarkDebugAttachCommand),
 }
 
 // Used for subcommands that follow `buck2 audit`'s "opaque" pattern where the command object is serialized
@@ -136,6 +139,7 @@ impl StarlarkCommand {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),
+            StarlarkCommand::DebugAttach(cmd) => cmd.exec(matches, ctx),
         }
     }
 }

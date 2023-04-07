@@ -9,8 +9,11 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+debugserver-types = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
+futures = { workspace = true }
+once_cell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starlark = { workspace = true }
@@ -22,6 +25,7 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
+buck2_event_observer = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_server_ctx = { workspace = true }

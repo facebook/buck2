@@ -1294,6 +1294,14 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
+    type DapStream = ResponseStream;
+    async fn dap(
+        &self,
+        _req: Request<tonic::Streaming<StreamingRequest>>,
+    ) -> Result<Response<Self::DapStream>, Status> {
+        unimplemented!("coming soon...")
+    }
+
     async fn set_log_filter(
         &self,
         req: Request<SetLogFilterRequest>,

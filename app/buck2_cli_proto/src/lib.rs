@@ -83,6 +83,27 @@ impl From<SubscriptionRequestWrapper> for StreamingRequest {
     }
 }
 
+impl TryFrom<StreamingRequest> for DapRequest {
+    type Error = tonic::Status;
+
+    fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
+        match value.request {
+            Some(streaming_request::Request::Dap(req)) => Ok(req),
+            _ => Err(tonic::Status::invalid_argument(
+                "messages sent by client must be of type `DapRequest`",
+            )),
+        }
+    }
+}
+
+impl From<DapRequest> for StreamingRequest {
+    fn from(request: DapRequest) -> Self {
+        Self {
+            request: Some(streaming_request::Request::Dap(request)),
+        }
+    }
+}
+
 /// Trait for requests that have CommonBuildOptions.
 pub trait HasBuildOptions {
     fn build_options(&self) -> Option<&CommonBuildOptions>;
@@ -283,6 +304,7 @@ result_convert!(InstallResponse);
 result_convert!(MaterializeResponse);
 result_convert!(CleanStaleResponse);
 result_convert!(LspResponse);
+result_convert!(DapResponse);
 result_convert!(AllocativeResponse);
 result_convert!(SubscriptionCommandResponse);
 result_convert!(TraceIoResponse);
@@ -290,6 +312,7 @@ result_convert!(TraceIoResponse);
 partial_result_convert!(StdoutBytes);
 partial_result_convert!(LspMessage);
 partial_result_convert!(SubscriptionResponseWrapper);
+partial_result_convert!(DapMessage);
 
 define_request!(KillRequest);
 define_request!(StatusRequest);

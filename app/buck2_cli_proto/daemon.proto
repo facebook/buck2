@@ -513,7 +513,6 @@ message CommandResult {
     PingResponse ping_response = 4;
     BuildResponse build_response = 5;
     TargetsResponse targets_response = 6;
-    ConfiguredTargetsResponse configured_targets_response = 23;
     CqueryResponse cquery_response = 7;
     UqueryResponse uquery_response = 8;
     TestResponse test_response = 9;
@@ -529,6 +528,8 @@ message CommandResult {
     CleanStaleResponse clean_stale_response = 20;
     SubscriptionCommandResponse subscription_command_response = 21;
     TraceIoResponse trace_io_response = 22;
+    ConfiguredTargetsResponse configured_targets_response = 23;
+    DapResponse dap_response = 24;
     GenericResponse generic_response = 100;
   }
 }
@@ -543,11 +544,16 @@ message LspMessage {
   string lsp_json = 1;
 }
 
+message DapMessage {
+  bytes dap_json = 1;
+}
+
 message PartialResult {
   oneof partial_result {
     StdoutBytes stdout_bytes = 1;
     LspMessage lsp_message = 2;
     SubscriptionResponseWrapper subscription_response_wrapper = 3;
+    DapMessage dap_message = 4;
   }
 }
 
@@ -581,6 +587,7 @@ message StreamingRequest {
     ClientContext context = 1;
     LspRequest lsp = 2;
     SubscriptionRequestWrapper subscription = 3;
+    DapRequest dap = 4;
   }
 }
 
@@ -628,6 +635,19 @@ message LspRequest {
 // Responses to individual LSP requsts are sent back as PartialResult. See
 // LspMessage.
 message LspResponse {}
+
+/// An individual starlark DAP request.
+message DapRequest {
+  // The raw json sent by DAP clients
+  string dap_json = 1;
+}
+
+/// Not used at the moment, but signals that
+/// the starlark DAP server is complete for
+/// this request. Responses to individual
+/// DAP requsts are sent back in the event
+/// stream. See `buck.data.DapResult`
+message DapResponse {}
 
 message BxlProfile {
   string bxl_label = 1;
@@ -802,6 +822,9 @@ service DaemonApi {
   // Starts a subscription
   rpc Subscription(stream StreamingRequest)
       returns (stream MultiCommandProgress);
+
+  // Starts a starlark DAP server.
+  rpc Dap(stream StreamingRequest) returns (stream MultiCommandProgress);
 
   // Update the daemon's log filter.
   rpc SetLogFilter(SetLogFilterRequest) returns (SetLogFilterResponse);
