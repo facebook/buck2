@@ -38,6 +38,7 @@ use std::usize;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
+use gazebo::transmute;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;

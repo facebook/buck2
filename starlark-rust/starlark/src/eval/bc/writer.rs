@@ -19,6 +19,8 @@
 
 use std::cmp;
 
+use gazebo::transmute;
+
 use crate::eval::bc::addr::BcAddr;
 use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::bytecode::Bc;

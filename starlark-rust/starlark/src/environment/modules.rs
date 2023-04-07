@@ -28,6 +28,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use gazebo::transmute;
 use itertools::Itertools;
 
 use crate::collections::Hashed;

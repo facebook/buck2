@@ -41,6 +41,7 @@ use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use either::Either;
+use gazebo::transmute;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;

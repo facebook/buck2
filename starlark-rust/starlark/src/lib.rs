@@ -381,8 +381,6 @@
 #![deny(missing_docs)]
 
 #[macro_use]
-extern crate gazebo;
-#[macro_use]
 mod macros;
 
 pub use starlark_derive::starlark_module;

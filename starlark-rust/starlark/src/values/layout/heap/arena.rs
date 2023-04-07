@@ -39,6 +39,7 @@ use allocative::Visitor;
 use bumpalo::Bump;
 use dupe::Dupe;
 use either::Either;
+use gazebo::transmute;
 use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;

@@ -25,6 +25,7 @@ use std::ptr;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use gazebo::transmute;
 
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;

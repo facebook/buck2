@@ -28,6 +28,7 @@ use allocative::Allocative;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
+use gazebo::transmute;
 use serde::Serialize;
 
 use crate as starlark;

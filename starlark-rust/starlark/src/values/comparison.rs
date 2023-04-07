@@ -18,6 +18,8 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 
+use gazebo::cmp_chain;
+use gazebo::eq_chain;
 use gazebo::prelude::IterExt;
 use itertools::Itertools;
 use starlark_map::Equivalent;

@@ -21,6 +21,7 @@ use std::marker::PhantomData;
 use dupe::Clone_;
 use dupe::Dupe_;
 use either::Either;
+use gazebo::transmute;
 use thiserror::Error;
 
 use crate::coerce::coerce;
