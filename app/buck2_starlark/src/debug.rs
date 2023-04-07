@@ -23,6 +23,10 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::ide_support::ide_message_stream;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
+use buck2_event_observer::unpack_event::unpack_event;
+use buck2_event_observer::unpack_event::UnpackedBuckEvent;
+use buck2_events::BuckEvent;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
 
@@ -126,6 +130,87 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
     fn should_show_waiting_message(&self) -> bool {
         // If we're running the debugger, do not show "Waiting for daemon..." if we do not get any spans.
         false
+    }
+
+    fn extra_subscribers(&self) -> Vec<Box<dyn EventSubscriber>> {
+        /// We add an additional subscriber that converts a handful of informative events
+        /// to DAP "output" events. Without this, at best these would go to stderr, but vscode's
+        /// executable DAP client ignores stderr, so this subscriber allows us to get that information
+        /// into somewhere visible to the user.
+
+        struct ConvertToDap;
+
+        impl ConvertToDap {
+            fn write_console(&self, msg: &str) -> anyhow::Result<()> {
+                let ev = debugserver_types::OutputEvent {
+                    type_: "event".to_owned(),
+                    event: "output".to_owned(),
+                    // All other events are being sent by the debug support in the server and that's
+                    // maintaining the sequence numbers. For us to get the correct sequence number
+                    // here would be tricky. Instead, we just set it to 0 and hope that nobody notices/cares
+                    // that it's out of order/invalid. The alternative would probably be to
+                    // deserialize all events from the server and rewrite their sequence numbers (and
+                    // potentially references to those sequence numbers coming back from the dap client).
+                    seq: 0,
+                    body: debugserver_types::OutputEventBody {
+                        category: None,
+                        column: None,
+                        data: None,
+                        line: None,
+                        output: format!("{}\n", msg),
+                        source: None,
+                        variables_reference: None,
+                    },
+                };
+                send_message_to_dap_client(&serde_json::to_vec(&ev)?)
+            }
+        }
+
+        #[async_trait]
+        impl EventSubscriber for ConvertToDap {
+            async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+                self.write_console(&String::from_utf8_lossy(raw_output))
+            }
+
+            async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+                self.write_console(stderr)
+            }
+
+            async fn handle_events(
+                &mut self,
+                events: &[std::sync::Arc<BuckEvent>],
+            ) -> anyhow::Result<()> {
+                for ev in events {
+                    match unpack_event(ev)? {
+                        UnpackedBuckEvent::Instant(_, _, data) => match data {
+                            buck2_data::instant_event::Data::StructuredError(soft_error) => {
+                                if !soft_error.quiet {
+                                    self.write_console(&format!(
+                                        "soft error: {}",
+                                        &soft_error.payload
+                                    ))?;
+                                }
+                            }
+                            buck2_data::instant_event::Data::ConsoleMessage(message) => {
+                                self.write_console(&message.message)?;
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                }
+                Ok(())
+            }
+
+            async fn handle_error(&mut self, error: &anyhow::Error) -> anyhow::Result<()> {
+                self.write_console(&format!(
+                    "buck2 starlark-attach debugserver error: {}",
+                    error
+                ))
+            }
+        }
+
+        vec![Box::new(ConvertToDap)]
     }
 }
 
