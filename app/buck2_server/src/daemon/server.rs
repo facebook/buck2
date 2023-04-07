@@ -85,6 +85,7 @@ use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::snapshot;
+use crate::starlark_debug::run::run_dap_server_command;
 use crate::streaming_request_handler::StreamingRequestHandler;
 use crate::subscription::run_subscription_server_command;
 use crate::trace_io::trace_io_command;
@@ -1297,9 +1298,19 @@ impl DaemonApi for BuckdServer {
     type DapStream = ResponseStream;
     async fn dap(
         &self,
-        _req: Request<tonic::Streaming<StreamingRequest>>,
+        req: Request<tonic::Streaming<StreamingRequest>>,
     ) -> Result<Response<Self::DapStream>, Status> {
-        unimplemented!("coming soon...")
+        self.run_bidirectional(
+            req,
+            DefaultCommandOptions,
+            |ctx,
+             partial_result_dispatcher,
+             _client_ctx,
+             req: StreamingRequestHandler<DapRequest>| {
+                run_dap_server_command(Box::new(ctx), partial_result_dispatcher, req)
+            },
+        )
+        .await
     }
 
     async fn set_log_filter(

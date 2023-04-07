@@ -567,7 +567,6 @@ message CommandStart {
   oneof data {
     BuildCommandStart build = 20;
     TargetsCommandStart targets = 21;
-    ConfiguredTargetsCommandStart ctargets = 38;
     QueryCommandStart query = 22;
     CQueryCommandStart cquery = 23;
     TestCommandStart test = 24;
@@ -584,6 +583,8 @@ message CommandStart {
     StarlarkCommandStart starlark = 35;
     SubscriptionCommandStart subscribe = 36;
     TraceIoCommandStart trace = 37;
+    ConfiguredTargetsCommandStart ctargets = 38;
+    StarlarkDebugAttachCommandStart starlark_debug_attach = 39;
   }
 }
 
@@ -619,6 +620,8 @@ message BxlCommandStart {
 }
 
 message LspCommandStart {}
+
+message StarlarkDebugAttachCommandStart {}
 
 message TargetsCommandStart {
   // TODO(swgillespie) fill this with useful fields
@@ -674,7 +677,6 @@ message CommandEnd {
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;
-    ConfiguredTargetsCommandEnd ctargets = 38;
     QueryCommandEnd query = 22;
     CQueryCommandEnd cquery = 23;
     TestCommandEnd test = 24;
@@ -691,6 +693,8 @@ message CommandEnd {
     StarlarkCommandEnd starlark = 35;
     SubscriptionCommandEnd subscribe = 36;
     TraceIoCommandEnd trace = 37;
+    ConfiguredTargetsCommandEnd ctargets = 38;
+    StarlarkDebugAttachCommandEnd starlark_debug_attach = 39;
   }
 
   bool is_success = 2;
@@ -737,6 +741,8 @@ message BxlCommandEnd {
 }
 
 message LspCommandEnd {}
+
+message StarlarkDebugAttachCommandEnd {}
 
 message TargetsCommandEnd {
   // TODO(swgillespie) fill this with useful fields

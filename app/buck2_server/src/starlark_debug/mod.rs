@@ -15,6 +15,8 @@ use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use buck2_interpreter::starlark_debug::StarlarkDebuggerHandle;
 use dupe::Dupe;
 
+pub mod run;
+
 /// A handle to the debugger server.
 #[derive(Debug, Clone, Dupe)]
 pub struct BuckStarlarkDebuggerHandle(Arc<HandleData>);
