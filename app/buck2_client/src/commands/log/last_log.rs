@@ -15,13 +15,8 @@ use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_lo
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct LastLogCommand {
-    /// Which recent command to read the event log from.
-    #[clap(
-        long,
-        help = "Find the log from the Nth most recent command (`--recent 0` is the most recent).",
-        group = "event_log",
-        value_name = "NUMBER"
-    )]
+    /// Find the log from the Nth most recent command (`--recent 0` is the most recent).
+    #[clap(long, group = "event_log", value_name = "NUMBER")]
     recent: Option<usize>,
 }
 
