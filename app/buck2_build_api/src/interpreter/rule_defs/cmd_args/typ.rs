@@ -18,8 +18,8 @@ use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
 use derive_more::Display;
 use display_container::display_chain;
-use display_container::display_container;
 use display_container::display_pair;
+use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
@@ -154,7 +154,7 @@ assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 11]);
 
 impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(
+        fmt_container(
             f,
             "cmd_args(",
             ")",
@@ -165,7 +165,7 @@ impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
                         struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
                         impl<'a, V: Display> Display for Wrapper<'a, V> {
                             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                                display_container(f, "[", "]", self.0.iter())
+                                fmt_container(f, "[", "]", self.0.iter())
                             }
                         }
                         display_pair("hidden", "=", Wrapper(hidden))

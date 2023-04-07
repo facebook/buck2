@@ -22,7 +22,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use display_container::display_keyed_container;
+use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::Freeze;
 use starlark_derive::StarlarkDocs;
@@ -93,7 +93,7 @@ unsafe impl<'v> Coerce<StructGen<'v, Value<'v>>> for StructGen<'static, FrozenVa
 
 impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(
+        fmt_keyed_container(
             f,
             "struct(",
             ")",

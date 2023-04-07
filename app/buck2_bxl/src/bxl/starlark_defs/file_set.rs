@@ -18,7 +18,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
-use display_container::display_container;
+use display_container::fmt_container;
 use either::Either;
 use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
@@ -205,7 +205,7 @@ impl StarlarkReadDirSet {
 impl fmt::Display for StarlarkReadDirSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.children() {
-            Ok(children) => display_container(f, "[", "]", children),
+            Ok(children) => fmt_container(f, "[", "]", children),
             Err(e) => write!(f, "<Error: {}>", e),
         }
     }

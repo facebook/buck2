@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
-use display_container::display_keyed_container;
+use display_container::fmt_keyed_container;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
@@ -67,7 +67,7 @@ impl<'v, V: ValueLike<'v>> UserProviderGen<'v, V> {
 
 impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(
+        fmt_keyed_container(
             f,
             &format!("{}(", self.callable.provider_id.name),
             ")",

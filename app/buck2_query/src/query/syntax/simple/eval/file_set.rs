@@ -12,7 +12,7 @@ use std::fmt;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
-use display_container::display_container;
+use display_container::fmt_container;
 use fancy_regex::Regex;
 use indexmap::IndexSet;
 
@@ -32,7 +32,7 @@ pub struct FileSet {
 
 impl fmt::Display for FileSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(f, "[", "]", self.files.iter())
+        fmt_container(f, "[", "]", self.files.iter())
     }
 }
 

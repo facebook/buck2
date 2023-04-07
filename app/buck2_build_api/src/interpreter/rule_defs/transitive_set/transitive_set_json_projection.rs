@@ -14,8 +14,8 @@ use std::iter;
 use allocative::Allocative;
 use anyhow::Context as _;
 use display_container::display_chain;
-use display_container::display_container;
 use display_container::display_pair;
+use display_container::fmt_container;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -59,7 +59,7 @@ pub struct TransitiveSetJsonProjectionGen<V> {
 impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let projection_name = self.projection_name().unwrap_or("<invalid projection>");
-        display_container(
+        fmt_container(
             f,
             "TransitiveSetProjection(",
             ")",

@@ -19,7 +19,7 @@
 //!
 //! impl fmt::Display for MyItems {
 //!     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//!         display_container(f, "{", "}",
+//!         fmt_container(f, "{", "}",
 //!             display_chain(
 //!                 &["magic"],
 //!                 self.0.iter().map(|(k, v)| display_pair(k, "=", v))
@@ -166,7 +166,7 @@ impl<'a, 'b> ContainerDisplayHelper<'a, 'b> {
 }
 
 /// Helper for display implementation of container-y types (like list, tuple).
-pub fn display_container<T: Display, Iter: IntoIterator<Item = T>>(
+pub fn fmt_container<T: Display, Iter: IntoIterator<Item = T>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
@@ -197,15 +197,15 @@ pub fn display_container<T: Display, Iter: IntoIterator<Item = T>>(
 
 /// Helper for display implementation of container-y types (like dict, struct).
 ///
-/// Equivalent to [`display_container`] where the items have [`display_pair`] applied to them.
-pub fn display_keyed_container<K: Display, V: Display, Iter: IntoIterator<Item = (K, V)>>(
+/// Equivalent to [`fmt_container`] where the items have [`display_pair`] applied to them.
+pub fn fmt_keyed_container<K: Display, V: Display, Iter: IntoIterator<Item = (K, V)>>(
     f: &mut fmt::Formatter,
     prefix: &str,
     suffix: &str,
     separator: &str,
     items: Iter,
 ) -> fmt::Result {
-    display_container(
+    fmt_container(
         f,
         prefix,
         suffix,
@@ -240,7 +240,7 @@ mod tests {
         struct Wrapped(Vec<u32>);
         impl fmt::Display for Wrapped {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                display_container(f, "prefix[", "]", self.0.iter())
+                fmt_container(f, "prefix[", "]", self.0.iter())
             }
         }
 
@@ -266,7 +266,7 @@ mod tests {
         struct Wrapped(Vec<(u32, &'static str)>);
         impl fmt::Display for Wrapped {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                display_keyed_container(
+                fmt_keyed_container(
                     f,
                     "prefix[",
                     "]",
@@ -308,7 +308,7 @@ mod tests {
         struct MyItems(Vec<(String, i32)>);
         impl fmt::Display for MyItems {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                display_container(
+                fmt_container(
                     f,
                     "{",
                     "}",

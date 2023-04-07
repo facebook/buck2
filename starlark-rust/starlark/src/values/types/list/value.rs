@@ -26,7 +26,7 @@ use std::fmt::Formatter;
 use std::slice;
 
 use allocative::Allocative;
-use display_container::display_container;
+use display_container::fmt_container;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
@@ -396,7 +396,7 @@ impl<T: Display> Display for ListGen<T> {
 }
 
 pub(crate) fn display_list(xs: &[Value], f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    display_container(f, "[", "]", xs.iter())
+    fmt_container(f, "[", "]", xs.iter())
 }
 
 pub(crate) fn list_methods() -> Option<&'static Methods> {

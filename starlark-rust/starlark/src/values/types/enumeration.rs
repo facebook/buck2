@@ -41,7 +41,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use derivative::Derivative;
-use display_container::display_container;
+use display_container::fmt_container;
 use either::Either;
 use serde::Serialize;
 use starlark_derive::starlark_module;
@@ -106,7 +106,7 @@ pub struct EnumTypeGen<V, Typ: ExportedName> {
 
 impl<V: Display, Typ: ExportedName> Display for EnumTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(f, "enum(", ")", self.elements.iter().map(|(k, _v)| k))
+        fmt_container(f, "enum(", ")", self.elements.iter().map(|(k, _v)| k))
     }
 }
 

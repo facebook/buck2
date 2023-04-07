@@ -27,7 +27,7 @@ use std::hash::Hasher;
 use std::ops::Deref;
 
 use allocative::Allocative;
-use display_container::display_keyed_container;
+use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
 use starlark_map::small_map;
@@ -79,13 +79,13 @@ pub(crate) struct DictGen<T>(pub(crate) T);
 
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(f, "{", "}", ": ", self.0.content().iter())
+        fmt_keyed_container(f, "{", "}", ": ", self.0.content().iter())
     }
 }
 
 impl<'v> Display for Dict<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(f, "{", "}", ": ", self.iter())
+        fmt_keyed_container(f, "{", "}", ": ", self.iter())
     }
 }
 

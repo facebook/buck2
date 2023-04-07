@@ -23,7 +23,7 @@ use std::fmt::Formatter;
 use std::slice;
 
 use allocative::Allocative;
-use display_container::display_container;
+use display_container::fmt_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
@@ -66,7 +66,7 @@ impl<'v, V: ValueLike<'v>> Display for TupleGen<V> {
                 write!(f, "({},)", self.content()[0])
             }
         } else {
-            display_container(f, "(", ")", self.content().iter())
+            fmt_container(f, "(", ")", self.content().iter())
         }
     }
 }

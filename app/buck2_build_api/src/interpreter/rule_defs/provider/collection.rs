@@ -20,7 +20,7 @@ use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
-use display_container::display_container;
+use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
@@ -126,7 +126,7 @@ starlark_complex_value!(pub ProviderCollection);
 
 impl<V: Display> Display for ProviderCollectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(
+        fmt_container(
             f,
             "Providers([",
             "])",

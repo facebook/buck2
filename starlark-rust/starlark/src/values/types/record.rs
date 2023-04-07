@@ -47,7 +47,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use display_container::display_keyed_container;
+use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
@@ -133,7 +133,7 @@ pub struct RecordTypeGen<V, Typ: ExportedName> {
 
 impl<V: Display, Typ: ExportedName> Display for RecordTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(
+        fmt_keyed_container(
             f,
             "record(",
             ")",
@@ -158,7 +158,7 @@ pub struct RecordGen<V> {
 
 impl<'v, V: ValueLike<'v>> Display for RecordGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_keyed_container(f, "record(", ")", "=", self.iter())
+        fmt_keyed_container(f, "record(", ")", "=", self.iter())
     }
 }
 

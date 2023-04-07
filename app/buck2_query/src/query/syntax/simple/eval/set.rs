@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_query::query::environment::LabeledNode;
-use display_container::display_container;
+use display_container::fmt_container;
 use dupe::IterDupedExt;
 use fancy_regex::Regex;
 use indexmap::IndexSet;
@@ -239,6 +239,6 @@ impl<T: QueryTarget> TargetSetExt for TargetSet<T> {
 
 impl<T: QueryTarget> Display for TargetSet<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_container(f, "[", "]", self.targets.iter().map(|t| t.node_ref()))
+        fmt_container(f, "[", "]", self.targets.iter().map(|t| t.node_ref()))
     }
 }

@@ -13,8 +13,8 @@ use std::iter;
 use allocative::Allocative;
 use anyhow::Context as _;
 use display_container::display_chain;
-use display_container::display_container;
 use display_container::display_pair;
+use display_container::fmt_container;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use serde::ser::SerializeMap;
@@ -90,7 +90,7 @@ unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenV
 
 impl<V: fmt::Display> fmt::Display for TransitiveSetGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        display_container(
+        fmt_container(
             f,
             &format!("{}(", self.definition),
             ")",
