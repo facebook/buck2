@@ -91,13 +91,11 @@ fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String>
 }
 
 fn render_property(name: &str, property: &Property) -> String {
-    let mut header = format!("## {}", name);
-    if property.typ.is_some() {
-        header += &format!(
-            " : `{}`",
-            TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
-        );
-    };
+    let prototype = render_code_block(&format!(
+        "{name}: {}",
+        TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
+    ));
+    let header = format!("## {name}\n\n{prototype}");
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
     let details = render_doc_string(DSOpts::Details, &property.docs);
 
@@ -681,14 +679,17 @@ mod test {
         let ds_no_details = sample_ds_no_details();
         let typ = sample_type();
 
-        let expected_no_docs = format!("## foo1 : `{}`", render(&TypeRenderer::Type(&typ)));
+        let expected_no_docs = format!(
+            "## foo1\n\n```python\nfoo1: {}\n```",
+            render(&TypeRenderer::Type(&typ))
+        );
         let expected_no_details = format!(
-            "## foo2 : `{}`\n\n{}",
+            "## foo2\n\n```python\nfoo2: {}\n```\n\n{}",
             render(&TypeRenderer::Type(&typ)),
             render_ds_summary(&ds_no_details)
         );
         let expected_with_docs = format!(
-            "## foo3 : `{}`\n\n{}\n\n{}",
+            "## foo3\n\n```python\nfoo3: {}\n```\n\n{}\n\n{}",
             render(&TypeRenderer::Type(&typ)),
             render_ds_summary(&ds),
             render_ds_details(&ds)
@@ -741,9 +742,13 @@ mod test {
             typ,
         };
 
-        let expected_no_docs = "## foo : `int`";
-        let expected_no_details = format!("## foo : `int`\n\n{}", render_no_details);
-        let expected_with_summary_and_details = format!("## foo : `int`\n\n{}", render_with_both);
+        let expected_no_docs = "## foo\n\n```python\nfoo: int\n```";
+        let expected_no_details = format!(
+            "## foo\n\n```python\nfoo: int\n```\n\n{}",
+            render_no_details
+        );
+        let expected_with_summary_and_details =
+            format!("## foo\n\n```python\nfoo: int\n```\n\n{}", render_with_both);
 
         assert_eq!(expected_no_docs, render_property("foo", &no_docs));
         assert_eq!(expected_no_details, render_property("foo", &no_details));
