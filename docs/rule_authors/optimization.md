@@ -69,7 +69,7 @@ for _package in _recursive_allowlist:
         return True
 ```
 
-The `if` statement is at location 420:9-423:1 and takes 0.27s. The `if` statement runs approximatey 456K times. While looking at the outer statement in the profile (not shown), it can be seen that the `for` loop is only called 3188 times, implying an average of 143 iterations per call. It's possible that this loop could be rewritten as some clever dictionary lookup, perhaps iterating over the path components of `_package`.
+The `if` statement is at location 420:9-423:1 and takes 0.27s. The `if` statement runs approximately 456K times. While looking at the outer statement in the profile (not shown), it can be seen that the `for` loop is only called 3188 times, implying an average of 143 iterations per call. It's possible that this loop could be rewritten as some clever dictionary lookup, perhaps iterating over the path components of `_package`.
 
 Line profiling builds on top of the `before_stmt` hook that is used for debugging. It records the time each statement is entered then blames that statement for all time until the next statement. That means that sometimes, due to statements making function calls, the `return` of the function call may be 'blamed' until the next statement executes. As a result, treat the results with slight caution.
 
@@ -91,7 +91,7 @@ The flame profile provides a list of how time is used based on call stacks (you 
 
 ## Benchmarking
 
-* If you want to do proper statistically relevant A/B testing, use `absh -a testa -b testb` (see [absh](https://github.com/stepancheg/absh) in the GitHUb repository).
+* If you want to do proper statistically relevant A/B testing, use `absh -a testa -b testb` (see [absh](https://github.com/stepancheg/absh) in the GitHub repository).
 * To measure the number of instructions:
   * On Linux, use `perf stat foo`
   * On Mac, use `/usr/bin/time -lp foo`
