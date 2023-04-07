@@ -1,8 +1,0 @@
-[package]
-name = "buck2_killall"
-version = "0.1.0"
-edition = "2021"
-description = "utilities to implement buck2 killall"
-
-[dependencies]
-sysinfo = { workspace = true }

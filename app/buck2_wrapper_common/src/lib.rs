@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+//! Code shared between `buck2_wrapper` and `buck2`.
+//!
+//! Careful! The wrapper is not released as part of the regular buck version bumps,
+//! meaning code changes here are not "atomically" updated.
+
 use std::collections::HashSet;
 
 use sysinfo::Pid;

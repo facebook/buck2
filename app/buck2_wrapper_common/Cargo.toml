@@ -1,0 +1,13 @@
+[package]
+name = "buck2_wrapper_common"
+version = "0.1.0"
+edition = "2021"
+description = """
+Code shared with Meta internal buck2 launcher.
+
+Careful! The wrapper is not released as part of the regular buck version bumps,
+meaning code changes here are not "atomically" updated.
+"""
+
+[dependencies]
+sysinfo = { workspace = true }

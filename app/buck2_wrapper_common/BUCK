@@ -4,7 +4,7 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 oncall("buck2")
 
 rust_library(
-    name = "buck2_killall",
+    name = "buck2_wrapper_common",
     srcs = glob(["src/**/*.rs"]),
     deps = [
         "fbsource//third-party/rust:sysinfo",

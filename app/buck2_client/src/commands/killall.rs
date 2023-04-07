@@ -20,7 +20,7 @@ impl KillallCommand {
         let _log_on_drop =
             try_get_invocation_recorder(&ctx, "killall", std::env::args().collect())?;
 
-        let ok = buck2_killall::killall(|s| {
+        let ok = buck2_wrapper_common::killall(|s| {
             let _ignored = buck2_client_ctx::eprintln!("{}", s);
         });
 

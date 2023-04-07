@@ -52,7 +52,7 @@ members = [
     "app/buck2_server_ctx",
     "app/buck2_util",
     "app/buck2_data",
-    "app/buck2_killall",
+    "app/buck2_wrapper_common",
     # @oss-disable: "buck2_tpx",
     # @oss-disable: "buck2_tpx_cli",
     "app/buck2_build_api",
@@ -303,7 +303,7 @@ buck2_server_ctx = { path = "app/buck2_server_ctx" }
 buck2_util = { path = "app/buck2_util" }
 buck2_re_configuration = { path = "app/buck2_re_configuration" }
 buck2_subscription_proto = { path = "app/buck2_subscription_proto" }
-buck2_killall = { path = "app/buck2_killall" }
+buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 buck2_critical_path = { path = "app/buck2_critical_path" }
 
 [profile.release]
