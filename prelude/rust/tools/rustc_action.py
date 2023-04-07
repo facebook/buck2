@@ -242,16 +242,7 @@ async def main() -> int:
     if DEBUG:
         print(f"args {repr(args)} env {env} crate_map {crate_map}")
 
-    # `tools/build_defs/rustc_plugin_platform.bzl` hardcodes building
-    # proc-macros for x86-64 because we have no way of knowing what
-    # architecture the rustc using them is going to eventually run on.
-    # Since it's possible that we're on Apple Silicon, force rustc
-    # to run under Rosetta so proc-macros are compatible.
-    if sys.platform == "darwin" and platform.machine() == "arm64":
-        rustc_cmd = ["arch", "-x86_64", args.rustc[0]]
-    else:
-        rustc_cmd = args.rustc[:1]
-
+    rustc_cmd = args.rustc[:1]
     rustc_args = args.rustc[1:]
 
     if args.remap_cwd_prefix is not None:
