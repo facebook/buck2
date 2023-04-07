@@ -15,6 +15,8 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::common::ConsoleType;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::PartialResultCtx;
+use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::ide_support::ide_message_stream;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
@@ -56,9 +58,15 @@ impl StreamingCommand for LspCommand {
             }
         });
 
+        let mut partial_result_handler = LspPartialResultHandler;
         reborrow_stream_for_static(
             stream,
-            |stream| async move { buckd.with_flushing().lsp(client_context, stream).await },
+            |stream| async move {
+                buckd
+                    .with_flushing()
+                    .lsp(client_context, stream, &mut partial_result_handler)
+                    .await
+            },
             // The LSP server side does not handle hangups. So, until it does... we never hang up:
             // Err(Status { code: FailedPrecondition, message: "received a message that is not a `StreamingRequest`", source: None })
             || None,
@@ -90,5 +98,23 @@ impl StreamingCommand for LspCommand {
     fn should_show_waiting_message(&self) -> bool {
         // If we're running the LSP, do not show "Waiting for daemon..." if we do not get any spans.
         false
+    }
+}
+
+struct LspPartialResultHandler;
+
+#[async_trait]
+impl PartialResultHandler for LspPartialResultHandler {
+    type PartialResult = buck2_cli_proto::LspMessage;
+
+    async fn handle_partial_result(
+        &mut self,
+        mut ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
+        let lsp_message: lsp_server::Message = serde_json::from_str(&partial_res.lsp_json)?;
+        let mut buffer = Vec::new();
+        lsp_message.write(&mut buffer)?;
+        ctx.stdout(&buffer).await
     }
 }

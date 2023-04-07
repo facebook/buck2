@@ -77,13 +77,15 @@ struct CaptureStdout {
     buf: Vec<u8>,
 }
 
-#[async_trait]
-impl PartialResultHandler for CaptureStdout {
-    type PartialResult = buck2_cli_proto::StdoutBytes;
-
+impl CaptureStdout {
     fn new() -> Self {
         Self { buf: Vec::new() }
     }
+}
+
+#[async_trait]
+impl PartialResultHandler for CaptureStdout {
+    type PartialResult = buck2_cli_proto::StdoutBytes;
 
     async fn handle_partial_result(
         &mut self,

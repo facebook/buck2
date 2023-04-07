@@ -26,7 +26,6 @@ use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use prost::Message;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
 use tonic::Request;
@@ -342,10 +341,6 @@ pub struct NoPartialResultHandler;
 impl PartialResultHandler for NoPartialResultHandler {
     type PartialResult = NoPartialResult;
 
-    fn new() -> Self {
-        Self
-    }
-
     async fn handle_partial_result(
         &mut self,
         _ctx: PartialResultCtx<'_>,
@@ -362,71 +357,12 @@ pub struct StdoutPartialResultHandler;
 impl PartialResultHandler for StdoutPartialResultHandler {
     type PartialResult = buck2_cli_proto::StdoutBytes;
 
-    fn new() -> Self {
-        Self
-    }
-
     async fn handle_partial_result(
         &mut self,
         mut ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> anyhow::Result<()> {
         ctx.stdout(&partial_res.data).await
-    }
-}
-
-/// Receives StdoutBytes, writes them to stdout.
-struct LspPartialResultHandler;
-
-#[async_trait]
-impl PartialResultHandler for LspPartialResultHandler {
-    type PartialResult = buck2_cli_proto::LspMessage;
-
-    fn new() -> Self {
-        Self
-    }
-
-    async fn handle_partial_result(
-        &mut self,
-        mut ctx: PartialResultCtx<'_>,
-        partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
-        let lsp_message: lsp_server::Message = serde_json::from_str(&partial_res.lsp_json)?;
-        let mut buffer = Vec::new();
-        lsp_message.write(&mut buffer)?;
-        ctx.stdout(&buffer).await
-    }
-}
-
-/// Outputs subscription messages.
-struct SubscriptionPartialResultHandler {
-    /// We reuse our output buffer here.
-    buffer: Vec<u8>,
-}
-
-#[async_trait]
-impl PartialResultHandler for SubscriptionPartialResultHandler {
-    type PartialResult = buck2_cli_proto::SubscriptionResponseWrapper;
-
-    fn new() -> Self {
-        Self { buffer: Vec::new() }
-    }
-
-    async fn handle_partial_result(
-        &mut self,
-        mut ctx: PartialResultCtx<'_>,
-        partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
-        let response = partial_res
-            .response
-            .context("Empty `SubscriptionResponseWrapper`")?;
-
-        self.buffer.clear();
-        response
-            .encode_length_delimited(&mut self.buffer)
-            .context("Encoding failed")?;
-
-        ctx.stdout(&self.buffer).await
     }
 }
 
@@ -464,25 +400,25 @@ macro_rules! stream_method {
 
 /// Implement a bi-directional streaming method with full event reporting.
 macro_rules! bidirectional_stream_method {
-    ($method: ident, $req: ty, $res: ty, $handler: ty) => {
-        bidirectional_stream_method!($method, $method, $req, $res, $handler);
+    ($method: ident, $req: ty, $res: ty, $message: ty) => {
+        bidirectional_stream_method!($method, $method, $req, $res, $message);
     };
 
-    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $handler: ty) => {
+    ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $message: ty) => {
         pub async fn $method(
             &mut self,
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
+            handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> anyhow::Result<CommandOutcome<$res>> {
             self.enter()?;
-            let mut handler = <$handler>::new();
             let req = create_client_stream(context, requests);
             let res = self
                 .inner
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$method(d, r)),
                     req,
-                    &mut handler,
+                    handler,
                     None,
                 )
                 .await;
@@ -644,12 +580,12 @@ impl<'a> FlushingBuckdClient<'a> {
         NoPartialResult
     );
 
-    bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspPartialResultHandler);
+    bidirectional_stream_method!(lsp, LspRequest, LspResponse, LspMessage);
     bidirectional_stream_method!(
         subscription,
         SubscriptionRequestWrapper,
         SubscriptionCommandResponse,
-        SubscriptionPartialResultHandler
+        SubscriptionResponseWrapper
     );
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);

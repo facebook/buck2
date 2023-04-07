@@ -15,6 +15,8 @@ use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::common::ConsoleType;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::PartialResultCtx;
+use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::protobuf_util::ProtobufSplitter;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
@@ -84,12 +86,14 @@ impl StreamingCommand for SubscribeCommand {
                 request: Some(request),
             });
 
+        let mut partial_result_handler = SubscriptionPartialResultHandler { buffer: Vec::new() };
+
         reborrow_stream_for_static(
             stream,
             |stream| async move {
                 buckd
                     .with_flushing()
-                    .subscription(client_context, stream)
+                    .subscription(client_context, stream, &mut partial_result_handler)
                     .await
             },
             || {
@@ -122,5 +126,33 @@ impl StreamingCommand for SubscribeCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.config_opts
+    }
+}
+
+/// Outputs subscription messages.
+struct SubscriptionPartialResultHandler {
+    /// We reuse our output buffer here.
+    buffer: Vec<u8>,
+}
+
+#[async_trait]
+impl PartialResultHandler for SubscriptionPartialResultHandler {
+    type PartialResult = buck2_cli_proto::SubscriptionResponseWrapper;
+
+    async fn handle_partial_result(
+        &mut self,
+        mut ctx: PartialResultCtx<'_>,
+        partial_res: Self::PartialResult,
+    ) -> anyhow::Result<()> {
+        let response = partial_res
+            .response
+            .context("Empty `SubscriptionResponseWrapper`")?;
+
+        self.buffer.clear();
+        response
+            .encode_length_delimited(&mut self.buffer)
+            .context("Encoding failed")?;
+
+        ctx.stdout(&self.buffer).await
     }
 }

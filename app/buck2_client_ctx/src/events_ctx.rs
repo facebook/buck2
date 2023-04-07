@@ -75,8 +75,6 @@ pub trait PartialResultHandler {
         Error = buck2_cli_proto::partial_result::PartialResult,
     >;
 
-    fn new() -> Self;
-
     async fn handle_partial_result(
         &mut self,
         ctx: PartialResultCtx<'_>,
