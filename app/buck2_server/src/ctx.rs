@@ -78,6 +78,7 @@ use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
+use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -114,6 +115,8 @@ use crate::dice_tracker::BuckDiceTracker;
 use crate::file_watcher::FileWatcher;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::starlark_debug::create_debugger_handle;
+use crate::starlark_debug::BuckStarlarkDebuggerHandle;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {
@@ -187,6 +190,8 @@ pub struct ServerCommandContext {
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
     pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+
+    debugger_handle: Option<BuckStarlarkDebuggerHandle>,
 
     record_target_call_stacks: bool,
     disable_starlark_types: bool,
@@ -294,6 +299,8 @@ impl ServerCommandContext {
             loaded_cell_configs: AsyncOnceCell::new(),
         });
 
+        let debugger_handle = create_debugger_handle(base_context.events.dupe());
+
         Ok(ServerCommandContext {
             base_context,
             working_dir: working_dir_project_relative.to_buf().into(),
@@ -312,6 +319,7 @@ impl ServerCommandContext {
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
+            debugger_handle,
         })
     }
 
@@ -376,6 +384,7 @@ impl ServerCommandContext {
             upload_all_actions,
             no_remote_cache,
             create_unhashed_symlink_lock,
+            starlark_debugger: self.debugger_handle.dupe(),
         }
     }
 
@@ -465,6 +474,7 @@ struct DiceCommandDataProvider {
     run_action_knobs: RunActionKnobs,
     no_remote_cache: bool,
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
+    starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
 }
 
 #[async_trait]
@@ -552,6 +562,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_build_signals(self.build_signals.dupe());
         data.set_run_action_knobs(self.run_action_knobs.dupe());
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
+        data.set_starlark_debugger_handle(self.starlark_debugger.clone());
         data.spawner = Arc::new(BuckSpawner::default());
 
         let tags = vec![

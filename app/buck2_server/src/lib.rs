@@ -27,6 +27,7 @@ mod materialize;
 mod net_io;
 pub mod profile;
 mod snapshot;
+mod starlark_debug;
 mod streaming_request_handler;
 mod subscription;
 mod trace_io;

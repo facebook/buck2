@@ -33,6 +33,7 @@ pub mod package_imports;
 pub mod parse_import;
 pub mod path;
 pub mod selector;
+pub mod starlark_debug;
 pub mod starlark_profiler;
 pub mod starlark_promise;
 pub mod types;
