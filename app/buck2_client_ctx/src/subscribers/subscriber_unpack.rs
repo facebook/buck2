@@ -127,6 +127,9 @@ pub trait UnpackingEventSubscriber: Send {
             buck2_data::instant_event::Data::ConsolePreferences(preferences) => {
                 self.handle_console_preferences(preferences, event).await
             }
+            buck2_data::instant_event::Data::DebugAdapterSnapshot(snapshot) => {
+                self.handle_debug_adapter_snapshot(snapshot).await
+            }
             _ => Ok(()),
         }
     }
@@ -191,6 +194,13 @@ pub trait UnpackingEventSubscriber: Send {
         _prefs: &buck2_data::ConsolePreferences,
         _event: &BuckEvent,
     ) -> anyhow::Result<()>;
+
+    async fn handle_debug_adapter_snapshot(
+        &mut self,
+        _msg: &buck2_data::DebugAdapterSnapshot,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     /// Give the subscriber a chance to react to errors as we start trying to clean up.
     /// They may return another error, which will be incorporated into the end result.

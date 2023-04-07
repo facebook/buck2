@@ -191,9 +191,32 @@ message InstantEvent {
     // Emitted when the user requests that concurrent commands with different
     // states should be exited immediately
     ExitWhenDifferentState exit_when_different_state = 26;
+
+    // Snapshot of current debug adapter state. Only sent when a debugger is
+    // attached.
+    DebugAdapterSnapshot debug_adapter_snapshot = 27;
   }
 
   reserved 12; // Log
+}
+
+message DebugAdapterStoppedEval {
+  string description = 1;
+  string stopped_at = 2;
+}
+
+message DebugAdapterCommandSnapshot {
+  repeated DebugAdapterStoppedEval stopped_evals = 1;
+}
+
+// The DebugAdapterSnapshot is sent to all commands when a debugger is attached
+// to buck, it contains imformation about the currently paused threads.
+message DebugAdapterSnapshot {
+  // The handle for the command receiving this snapshot, it can be used to
+  // distinguish which of the per-handle snapshots is from this command and
+  // which are from others.
+  uint32 this_handle = 1;
+  map<uint32, DebugAdapterCommandSnapshot> current_handles = 2;
 }
 
 message DiceStateSnapshot {
