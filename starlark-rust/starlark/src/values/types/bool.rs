@@ -80,7 +80,7 @@ impl AllocFrozenValue for bool {
 
 impl StarlarkTypeRepr for bool {
     fn starlark_type_repr() -> String {
-        format!("{}.type", BOOL_TYPE)
+        StarlarkBool::get_type_starlark_repr()
     }
 }
 
@@ -93,6 +93,10 @@ impl UnpackValue<'_> for bool {
 /// Define the bool type
 impl StarlarkValue<'_> for StarlarkBool {
     starlark_type!(BOOL_TYPE);
+
+    fn get_type_starlark_repr() -> String {
+        "bool.type".to_owned()
+    }
 
     fn is_special(_: Private) -> bool
     where
