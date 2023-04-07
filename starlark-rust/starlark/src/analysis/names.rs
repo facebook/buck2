@@ -207,9 +207,8 @@ fn unassigned_variable(codemap: &CodeMap, scope: &Scope, res: &mut Vec<LintT<Nam
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::SliceExt;
-
     use super::*;
+    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::Dialect;
 
     impl NameWarning {

@@ -27,8 +27,6 @@ use std::slice;
 
 use allocative::Allocative;
 use display_container::display_container;
-use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
@@ -41,6 +39,8 @@ use crate::environment::MethodsStatic;
 use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::values::array::Array;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;

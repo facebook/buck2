@@ -23,7 +23,6 @@ use std::mem;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::prelude::SliceExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map::SmallMap;
@@ -37,6 +36,7 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::basic::StarlarkValueBasic;
 use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::DictGen;

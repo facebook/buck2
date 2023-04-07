@@ -51,9 +51,8 @@ impl AstModule {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::SliceExt;
-
     use super::*;
+    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {

@@ -19,8 +19,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use itertools::Itertools;
 use starlark_derive::starlark_module;
 use starlark_derive::NoSerialize;
@@ -36,6 +34,8 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::values::dict::DictRef;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::string::StringValueLike;

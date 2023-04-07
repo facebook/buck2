@@ -156,9 +156,8 @@ fn use_ignored(codemap: &CodeMap, x: &AstStmt, res: &mut Vec<LintT<UnderscoreWar
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::SliceExt;
-
     use super::*;
+    use crate::slice_vec_ext::SliceExt;
     use crate::syntax::Dialect;
 
     impl UnderscoreWarning {

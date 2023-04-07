@@ -25,7 +25,6 @@
 use std::collections::HashMap;
 
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
@@ -42,6 +41,7 @@ use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::eval::Evaluator;
 use crate::eval::ReturnFileLoader;
+use crate::slice_vec_ext::SliceExt;
 use crate::stdlib::PrintHandler;
 use crate::syntax::lexer::Lexer;
 use crate::syntax::lexer::Token;

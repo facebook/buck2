@@ -17,8 +17,6 @@
 
 //! Compile def.
 
-use gazebo::prelude::SliceExt;
-
 use crate::eval::bc::instr_impl::InstrDef;
 use crate::eval::bc::instr_impl::InstrDefData;
 use crate::eval::bc::stack_ptr::BcSlotOut;
@@ -27,6 +25,7 @@ use crate::eval::compiler::def::DefCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::slice_vec_ext::SliceExt;
 
 impl DefCompiled {
     pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {

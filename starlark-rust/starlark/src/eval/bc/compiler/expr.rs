@@ -19,8 +19,6 @@
 
 use std::collections::HashSet;
 
-use gazebo::prelude::SliceExt;
-
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::eval::bc::compiler::if_compiler::write_if_else;
@@ -39,6 +37,7 @@ use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr::MaybeNot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;

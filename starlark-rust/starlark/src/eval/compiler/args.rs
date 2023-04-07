@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::SliceExt;
 use starlark_derive::VisitSpanMut;
 
 use crate::coerce::coerce;
@@ -28,6 +27,7 @@ use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::Arguments;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::ArgumentP;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;

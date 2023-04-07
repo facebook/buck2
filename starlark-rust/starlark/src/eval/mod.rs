@@ -26,7 +26,6 @@ use std::mem;
 use std::time::Instant;
 
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 pub use runtime::arguments::Arguments;
 pub use runtime::before_stmt::BeforeStmtFuncDyn;
 pub use runtime::call_stack::CallStack;
@@ -51,6 +50,7 @@ use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::hint::unlikely;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstModule;
 use crate::syntax::DialectTypes;
 use crate::values::Value;

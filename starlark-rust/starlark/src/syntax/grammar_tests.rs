@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-use gazebo::prelude::SliceExt;
-
 use crate::assert;
 use crate::assert::Assert;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::Stmt;
 
 #[test]

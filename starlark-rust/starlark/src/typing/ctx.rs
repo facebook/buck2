@@ -19,8 +19,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
@@ -31,6 +29,8 @@ use crate::eval::compiler::scope::CstAssign;
 use crate::eval::compiler::scope::CstExpr;
 use crate::eval::compiler::scope::CstPayload;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AstLiteral;

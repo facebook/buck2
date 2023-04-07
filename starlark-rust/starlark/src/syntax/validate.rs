@@ -19,12 +19,12 @@
 
 use std::collections::HashSet;
 
-use gazebo::prelude::VecExt;
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
 use crate::errors::Diagnostic;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Argument;
 use crate::syntax::ast::Assign;
 use crate::syntax::ast::AssignIdentP;

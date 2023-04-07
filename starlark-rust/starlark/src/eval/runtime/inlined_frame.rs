@@ -140,13 +140,12 @@ impl<'f> InlinedFrameAlloc<'f> {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::SliceExt;
-
     use crate::codemap::CodeMap;
     use crate::eval::runtime::frame_span::FrameSpan;
     use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
     use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
     use crate::eval::runtime::inlined_frame::InlinedFrames;
+    use crate::slice_vec_ext::SliceExt;
     use crate::values::FrozenHeap;
 
     #[test]

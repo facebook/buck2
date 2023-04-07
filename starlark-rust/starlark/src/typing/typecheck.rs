@@ -21,7 +21,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
@@ -33,6 +32,7 @@ use crate::eval::compiler::scope::CompilerAstMap;
 use crate::eval::compiler::scope::CstStmt;
 use crate::eval::compiler::scope::Scope;
 use crate::eval::compiler::scope::ScopeData;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::Visibility;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;

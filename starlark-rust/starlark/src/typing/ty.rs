@@ -21,11 +21,11 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use either::Either;
-use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 
 use crate::docs;
 use crate::eval::compiler::scope::CstExpr;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstLiteral;

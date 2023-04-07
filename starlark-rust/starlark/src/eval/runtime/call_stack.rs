@@ -29,13 +29,13 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::errors::Frame;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::hint::unlikely;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::FrozenRef;
 use crate::values::Trace;
 use crate::values::Tracer;

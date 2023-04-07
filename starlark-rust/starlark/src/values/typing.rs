@@ -19,12 +19,12 @@ use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use gazebo::prelude::SliceExt;
 use starlark_derive::Freeze;
 use thiserror::Error;
 
 use crate as starlark;
 use crate::coerce::Coerce;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::list::ListRef;

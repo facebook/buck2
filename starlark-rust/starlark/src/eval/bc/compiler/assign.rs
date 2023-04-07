@@ -17,8 +17,6 @@
 
 //! Compile assignment lhs.
 
-use gazebo::prelude::SliceExt;
-
 use crate::collections::symbol_map::Symbol;
 use crate::eval::bc::compiler::expr::write_n_exprs;
 use crate::eval::bc::instr_impl::InstrSetArrayIndex;
@@ -30,6 +28,7 @@ use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
+use crate::slice_vec_ext::SliceExt;
 
 impl AssignCompiledValue {
     /// After evaluation of `(x, y[z]) = ...`, variables `x`, `y` and `z` as definitely assigned.

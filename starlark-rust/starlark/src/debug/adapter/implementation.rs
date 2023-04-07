@@ -27,7 +27,6 @@ use std::sync::Mutex;
 
 use debugserver_types::*;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
@@ -43,6 +42,7 @@ use crate::debug::Variable;
 use crate::debug::VariablesInfo;
 use crate::eval::BeforeStmtFuncDyn;
 use crate::eval::Evaluator;
+use crate::slice_vec_ext::SliceExt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::Value;

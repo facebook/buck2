@@ -20,12 +20,12 @@ use std::path::Path;
 
 use anyhow::Context;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::ProfileMode;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::AggregateHeapProfileInfo;
 
 #[derive(Debug, thiserror::Error)]

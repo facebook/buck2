@@ -21,7 +21,6 @@ use std::slice;
 use std::time::Instant;
 
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 
 use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;
@@ -30,6 +29,7 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
+use crate::slice_vec_ext::SliceExt;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::Trace;

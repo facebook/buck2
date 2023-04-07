@@ -74,7 +74,6 @@ fn inspect_module_variables<'v>(eval: &Evaluator<'v, '_>) -> SmallMap<String, Va
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::SliceExt;
     use starlark_derive::starlark_module;
 
     use crate as starlark;
@@ -83,6 +82,7 @@ mod tests {
     use crate::collections::SmallMap;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Evaluator;
+    use crate::slice_vec_ext::SliceExt;
     use crate::values::dict::Dict;
 
     #[starlark_module]

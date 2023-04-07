@@ -25,8 +25,6 @@
 
 use std::mem;
 
-use gazebo::prelude::SliceExt;
-use gazebo::prelude::VecExt;
 use starlark_derive::VisitSpanMut;
 use thiserror::Error;
 
@@ -54,6 +52,8 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::slice_vec_ext::SliceExt;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::DefP;

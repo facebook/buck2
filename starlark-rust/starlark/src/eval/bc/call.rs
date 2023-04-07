@@ -22,8 +22,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
-use gazebo::prelude::VecExt;
-
 use crate::coerce::coerce;
 use crate::collections::symbol_map::Symbol;
 use crate::eval::bc::frame::BcFramePtr;
@@ -37,6 +35,7 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::ArgumentsPos;
 use crate::eval::runtime::arguments::ResolvedArgName;
+use crate::slice_vec_ext::VecExt;
 use crate::values::FrozenStringValue;
 
 /// Call arguments.

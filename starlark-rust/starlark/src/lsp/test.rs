@@ -26,7 +26,6 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::RequestId;
@@ -72,6 +71,7 @@ use crate::lsp::server::LspEvalResult;
 use crate::lsp::server::LspServerSettings;
 use crate::lsp::server::LspUrl;
 use crate::lsp::server::StringLiteralResult;
+use crate::slice_vec_ext::VecExt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 
