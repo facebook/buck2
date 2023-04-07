@@ -1254,6 +1254,19 @@ mod tests {
                 );
             }
         );
+        assert_matches!(
+            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+                &resolver(),
+                None,
+                "foo/bar:bar"
+            ),
+            Err(e) => {
+                assert_matches!(
+                    e.downcast_ref::<TargetPatternParseError>(),
+                    Some(TargetPatternParseError::AbsoluteRequired)
+                );
+            }
+        );
 
         Ok(())
     }
