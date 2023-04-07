@@ -17,9 +17,9 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
 use derive_more::Display;
-use display_container::display_chain;
 use display_container::display_pair;
 use display_container::fmt_container;
+use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
@@ -158,9 +158,9 @@ impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
             f,
             "cmd_args(",
             ")",
-            display_chain(
+            iter_display_chain(
                 &self.items,
-                display_chain(
+                iter_display_chain(
                     Some(&self.hidden).filter(|x| !x.is_empty()).map(|hidden| {
                         struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
                         impl<'a, V: Display> Display for Wrapper<'a, V> {

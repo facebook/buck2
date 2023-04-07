@@ -13,9 +13,9 @@ use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use display_container::display_chain;
 use display_container::display_pair;
 use display_container::fmt_container;
+use display_container::iter_display_chain;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -72,7 +72,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
             f,
             "TransitiveSetProjection(",
             ")",
-            display_chain(
+            iter_display_chain(
                 iter::once(projection_name),
                 iter::once(display_pair("transitive_set", "=", &self.transitive_set)),
             ),

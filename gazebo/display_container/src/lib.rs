@@ -20,7 +20,7 @@
 //! impl fmt::Display for MyItems {
 //!     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 //!         fmt_container(f, "{", "}",
-//!             display_chain(
+//!             iter_display_chain(
 //!                 &["magic"],
 //!                 self.0.iter().map(|(k, v)| display_pair(k, "=", v))
 //!             )
@@ -216,7 +216,7 @@ pub fn fmt_keyed_container<K: Display, V: Display, Iter: IntoIterator<Item = (K,
 }
 
 /// Chain two iterators together that produce `Display` items.
-pub fn display_chain<A, B>(first: A, second: B) -> impl Iterator<Item = impl Display>
+pub fn iter_display_chain<A, B>(first: A, second: B) -> impl Iterator<Item = impl Display>
 where
     A: IntoIterator,
     A::Item: Display,
@@ -312,7 +312,7 @@ mod tests {
                     f,
                     "{",
                     "}",
-                    display_chain(
+                    iter_display_chain(
                         &["magic"],
                         self.0.iter().map(|(k, v)| display_pair(k, "=", v)),
                     ),
