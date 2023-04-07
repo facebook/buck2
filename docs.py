@@ -94,8 +94,13 @@ def main() -> None:
                 dest = "rules"
                 prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
                 src = "\n".join(src.splitlines()[1:])
+            elif x.endswith("/function.bzl"):
+                # Uninteresting docs we'd rather not have generated
+                continue
+            elif "/standard/" in x or "/extension/" in x or x.endswith("builtins.md"):
+                dest = "starlark/" + name
             else:
-                dest = x[:-3]
+                dest = "build/" + x[7:-3]
             dest = "docs/api/" + dest + ".generated.md"
             os.makedirs(Path(dest).parent, exist_ok=True)
             write_file(dest, prefix + src)
