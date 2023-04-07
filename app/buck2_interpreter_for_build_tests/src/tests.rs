@@ -28,6 +28,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
@@ -68,6 +69,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
 
     let mut per_transaction_data = UserComputationData::new();
     per_transaction_data.data.set(EventDispatcher::null());
+    per_transaction_data.set_starlark_debugger_handle(None);
     let mut ctx = dice.updater_with_data(per_transaction_data);
 
     let resolver = CellResolver::with_names_and_paths_with_alias(&[(

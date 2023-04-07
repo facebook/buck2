@@ -22,6 +22,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

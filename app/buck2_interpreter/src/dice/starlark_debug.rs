@@ -17,7 +17,7 @@ pub trait HasStarlarkDebugger {
 }
 
 pub trait SetStarlarkDebugger {
-    fn set_starlark_debugger_handle(&mut self, hook: Option<impl StarlarkDebuggerHandle>);
+    fn set_starlark_debugger_handle(&mut self, hook: Option<Box<dyn StarlarkDebuggerHandle>>);
 }
 
 impl HasStarlarkDebugger for DiceComputations {
@@ -32,10 +32,8 @@ impl HasStarlarkDebugger for DiceComputations {
 }
 
 impl SetStarlarkDebugger for UserComputationData {
-    fn set_starlark_debugger_handle(&mut self, hook: Option<impl StarlarkDebuggerHandle>) {
-        self.data.set(StarlarkDebuggerHookHolder {
-            hook: hook.map(|v| Box::new(v) as _),
-        })
+    fn set_starlark_debugger_handle(&mut self, hook: Option<Box<dyn StarlarkDebuggerHandle>>) {
+        self.data.set(StarlarkDebuggerHookHolder { hook })
     }
 }
 

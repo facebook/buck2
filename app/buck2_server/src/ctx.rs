@@ -562,7 +562,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_build_signals(self.build_signals.dupe());
         data.set_run_action_knobs(self.run_action_knobs.dupe());
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
-        data.set_starlark_debugger_handle(self.starlark_debugger.clone());
+        data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.spawner = Arc::new(BuckSpawner::default());
 
         let tags = vec![
