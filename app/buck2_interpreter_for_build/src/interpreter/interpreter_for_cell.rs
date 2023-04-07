@@ -24,6 +24,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
 use buck2_interpreter::file_loader::LoadedModules;
@@ -37,15 +38,12 @@ use buck2_interpreter::path::OwnedStarlarkPath;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::values::list::ListRef;
 use starlark::values::OwnedFrozenValue;
@@ -451,7 +449,7 @@ impl InterpreterForCell {
         root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
-        profiler: &mut StarlarkProfilerOrInstrumentation,
+        eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<PerFileTypeContext> {
         let globals = self.global_state.globals_for_file_type(import.file_type());
         let file_loader =
@@ -470,25 +468,25 @@ impl InterpreterForCell {
         );
         let print = EventDispatcherPrintHandler(get_dispatcher());
         {
-            let mut eval = Evaluator::new(env);
+            let mut eval = eval_provider.make(env)?;
             eval.set_print_handler(&print);
             eval.set_loader(&file_loader);
             eval.extra = Some(&extra);
-            profiler.initialize(&mut eval)?;
             if self.verbose_gc {
                 eval.verbose_gc();
             }
-
-            eval.eval_module(ast, globals)?;
-            profiler
-                .evaluation_complete(&mut eval)
-                .context("Profiler finalization failed")?;
-
-            profiler
-                .visit_frozen_module(None)
-                .context("Profiler heap visitation failed")?;
-        }
-
+            match eval.eval_module(ast, globals) {
+                Ok(_) => {
+                    eval_provider
+                        .evaluation_complete(&mut eval)
+                        .context("Profiler finalization failed")?;
+                    eval_provider
+                        .visit_frozen_module(None)
+                        .context("Profiler heap visitation failed")?
+                }
+                Err(p) => return Err(p),
+            }
+        };
         Ok(extra.additional)
     }
 
@@ -502,7 +500,7 @@ impl InterpreterForCell {
         root_buckconfig: &dyn LegacyBuckConfigView,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
+        eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         self.eval(
@@ -513,9 +511,7 @@ impl InterpreterForCell {
             root_buckconfig,
             loaded_modules,
             PerFileTypeContext::for_module(starlark_path),
-            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                starlark_profiler_instrumentation,
-            ),
+            eval_provider,
         )?;
         env.freeze()
     }
@@ -528,7 +524,7 @@ impl InterpreterForCell {
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
-        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
+        eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<SuperPackage> {
         let env = self.create_env(
             StarlarkPath::PackageFile(package_file_path),
@@ -548,9 +544,7 @@ impl InterpreterForCell {
             root_buckconfig,
             loaded_modules,
             extra_context,
-            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                starlark_profiler_instrumentation,
-            ),
+            eval_provider,
         )?;
 
         let package_values = env
@@ -614,7 +608,7 @@ impl InterpreterForCell {
         package_boundary_exception: bool,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        profiler: &mut StarlarkProfilerOrInstrumentation,
+        eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<EvaluationResult> {
         let (env, internals) = self.create_build_env(
             build_file,
@@ -632,7 +626,7 @@ impl InterpreterForCell {
                 root_buckconfig,
                 loaded_modules,
                 PerFileTypeContext::Build(internals),
-                profiler,
+                eval_provider,
             )?
             .into_build()?;
 

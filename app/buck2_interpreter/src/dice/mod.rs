@@ -17,4 +17,5 @@
 //! onto the dice graph).
 
 pub mod starlark_profiler;
+pub mod starlark_provider;
 pub mod starlark_types;

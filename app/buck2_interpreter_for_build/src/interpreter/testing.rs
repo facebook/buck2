@@ -25,13 +25,13 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::factory::StarlarkPassthroughProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use dupe::Dupe;
@@ -253,13 +253,14 @@ impl Tester {
             .get(self.cell_alias_resolver.resolve_self())
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
+        let mut provider = StarlarkPassthroughProvider;
         let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
             buckconfig,
             root_buckconfig,
             ast,
             loaded_modules.clone(),
-            None,
+            &mut provider,
         )?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::LoadFile(path.clone()),
@@ -301,6 +302,7 @@ impl Tester {
             .get(self.cell_alias_resolver.resolve_self())
             .unwrap();
         let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
+        let mut provider = StarlarkPassthroughProvider;
         let eval_result = interpreter.eval_build_file(
             path,
             buckconfig,
@@ -310,7 +312,7 @@ impl Tester {
             false,
             ast,
             loaded_modules,
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            &mut provider,
         )?;
         Ok(eval_result)
     }

@@ -34,6 +34,7 @@ use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::import_paths::HasImportPaths;
@@ -260,25 +261,35 @@ impl<'c> DiceCalculationDelegate<'c> {
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
 
-        let evaluation = self
-            .configs
-            .eval_module(
-                starlark_file,
-                &buckconfig,
-                &root_buckconfig,
-                ast,
-                loaded_modules.clone(),
+        with_starlark_eval_provider(
+            self.ctx,
+            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                 starlark_profiler_instrumentation,
-            )
-            .with_context(|| {
-                DiceCalculationDelegateError::EvalModuleError(starlark_file.to_string())
-            })?;
+            ),
+            format!("load:{}", &starlark_file),
+            move |provider| {
+                let evaluation = self
+                    .configs
+                    .eval_module(
+                        starlark_file,
+                        &buckconfig,
+                        &root_buckconfig,
+                        ast,
+                        loaded_modules.clone(),
+                        provider,
+                    )
+                    .with_context(|| {
+                        DiceCalculationDelegateError::EvalModuleError(starlark_file.to_string())
+                    })?;
 
-        Ok(LoadedModule::new(
-            OwnedStarlarkModulePath::new(starlark_file),
-            loaded_modules,
-            evaluation,
-        ))
+                Ok(LoadedModule::new(
+                    OwnedStarlarkModulePath::new(starlark_file),
+                    loaded_modules,
+                    evaluation,
+                ))
+            },
+        )
+        .await
     }
 
     /// Eval parent `PACKAGE` file for given `PACKAGE` file.
@@ -336,17 +347,27 @@ impl<'c> DiceCalculationDelegate<'c> {
 
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
-        self.configs
-            .eval_package_file(
-                path,
-                ast,
-                parent,
-                &buckconfig,
-                &root_buckconfig,
-                deps.get_loaded_modules(),
+        with_starlark_eval_provider(
+            self.ctx,
+            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
                 starlark_profiler_instrumentation,
-            )
-            .with_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
+            ),
+            format!("load:{}", path),
+            move |provider| {
+                self.configs
+                    .eval_package_file(
+                        path,
+                        ast,
+                        parent,
+                        &buckconfig,
+                        &root_buckconfig,
+                        deps.get_loaded_modules(),
+                        provider,
+                    )
+                    .with_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
+            },
+        )
+        .await
     }
 
     async fn eval_package_file(&self, path: &PackageFilePath) -> anyhow::Result<SuperPackage> {
@@ -432,7 +453,7 @@ impl<'c> DiceCalculationDelegate<'c> {
     pub async fn eval_build_file(
         &self,
         package: PackageLabel,
-        profiler: &mut StarlarkProfilerOrInstrumentation<'_>,
+        profiler_instrumentation: &mut StarlarkProfilerOrInstrumentation<'_>,
     ) -> anyhow::Result<EvaluationResult> {
         let now = Instant::now();
         let listing = self.resolve_package_listing(package.dupe()).await?;
@@ -456,38 +477,48 @@ impl<'c> DiceCalculationDelegate<'c> {
             cell: cell_str.clone(),
             module_id: module_id.clone(),
         };
-        span(start_event, move || {
-            let result = self
-                .configs
-                .eval_build_file(
-                    &build_file_path,
-                    &buckconfig,
-                    &root_buckconfig,
-                    listing,
-                    super_package,
-                    package_boundary_exception,
-                    ast,
-                    deps.get_loaded_modules(),
-                    profiler,
-                )
-                .with_context(|| DiceCalculationDelegateError::EvalBuildFileError(build_file_path));
-            let error = result.as_ref().err().map(|e| format!("{:#}", e));
+        with_starlark_eval_provider(
+            self.ctx,
+            profiler_instrumentation,
+            format!("load_buildfile:{}", &package),
+            move |provider| {
+                span(start_event, move || {
+                    let result = self
+                        .configs
+                        .eval_build_file(
+                            &build_file_path,
+                            &buckconfig,
+                            &root_buckconfig,
+                            listing,
+                            super_package,
+                            package_boundary_exception,
+                            ast,
+                            deps.get_loaded_modules(),
+                            provider,
+                        )
+                        .with_context(|| {
+                            DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
+                        });
+                    let error = result.as_ref().err().map(|e| format!("{:#}", e));
 
-            if let Ok(res) = result.as_ref() {
-                if let Some(signals) = self.ctx.per_transaction_data().get_load_signals() {
-                    signals.send_load(package, res, now.elapsed());
-                }
-            }
+                    if let Ok(res) = result.as_ref() {
+                        if let Some(signals) = self.ctx.per_transaction_data().get_load_signals() {
+                            signals.send_load(package, res, now.elapsed());
+                        }
+                    }
 
-            (
-                result,
-                buck2_data::LoadBuildFileEnd {
-                    module_id,
-                    cell: cell_str,
-                    error,
-                },
-            )
-        })
+                    (
+                        result,
+                        buck2_data::LoadBuildFileEnd {
+                            module_id,
+                            cell: cell_str,
+                            error,
+                        },
+                    )
+                })
+            },
+        )
+        .await
     }
 }
 
