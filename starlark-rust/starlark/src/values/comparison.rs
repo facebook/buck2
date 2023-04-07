@@ -19,7 +19,6 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use gazebo::cmp_chain;
-use gazebo::eq_chain;
 use gazebo::prelude::IterExt;
 use itertools::Itertools;
 use starlark_map::Equivalent;
@@ -31,10 +30,7 @@ pub(crate) fn equals_slice<E, X1, X2>(
     ys: &[X2],
     f: impl Fn(&X1, &X2) -> Result<bool, E>,
 ) -> Result<bool, E> {
-    Ok(eq_chain! {
-        xs.len() == ys.len(),
-        xs.iter().try_eq_by(ys, f)?,
-    })
+    Ok(xs.len() == ys.len() && xs.iter().try_eq_by(ys, f)?)
 }
 
 pub(crate) fn equals_small_map<E, K1: Eq, K2: Eq, V1, V2>(
@@ -45,12 +41,9 @@ pub(crate) fn equals_small_map<E, K1: Eq, K2: Eq, V1, V2>(
 where
     K1: Equivalent<K2>,
 {
-    Ok(eq_chain! {
-        x.len() == y.len(),
-        x.iter_hashed().try_all(
-            |(xk, xv)| y.get_hashed(xk).map_or(Ok(false), |yv| f(xv, yv))
-        )?,
-    })
+    Ok(x.len() == y.len()
+        && x.iter_hashed()
+            .try_all(|(xk, xv)| y.get_hashed(xk).map_or(Ok(false), |yv| f(xv, yv)))?)
 }
 
 pub(crate) fn compare_slice<E, X1, X2>(
