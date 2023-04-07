@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -30,9 +31,18 @@ mod lint;
 pub mod server;
 mod util;
 
-#[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, clap::Subcommand)]
 #[clap(name = "starlark", about = "Run Starlark operations")]
 pub enum StarlarkCommand {
+    #[clap(flatten)]
+    Opaque(StarlarkOpaqueCommand),
+}
+
+// Used for subcommands that follow `buck2 audit`'s "opaque" pattern where the command object is serialized
+// to the daemon and deserialized there and has a `server_execute()` on the Command object itself (as opposed
+// to using structured endpoints in the daemon protocol).
+#[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
+pub enum StarlarkOpaqueCommand {
     Lint(StarlarkLintCommand),
 }
 
@@ -48,9 +58,8 @@ pub struct StarlarkCommandCommonOptions {
     event_log_opts: CommonDaemonCommandOptions,
 }
 
-/// `buck2 starlark` follows the pattern from `audit`.
 #[async_trait]
-pub trait StarlarkSubcommand: Send + Sync + 'static {
+pub trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
@@ -61,7 +70,7 @@ pub trait StarlarkSubcommand: Send + Sync + 'static {
     fn common_opts(&self) -> &StarlarkCommandCommonOptions;
 }
 
-impl StarlarkCommand {
+impl StarlarkOpaqueCommand {
     pub async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
@@ -72,15 +81,15 @@ impl StarlarkCommand {
             .server_execute(server_ctx, stdout, client_server_ctx)
             .await
     }
-    fn as_subcommand(&self) -> &dyn StarlarkSubcommand {
+    fn as_subcommand(&self) -> &dyn StarlarkOpaqueSubcommand {
         match self {
-            StarlarkCommand::Lint(cmd) => cmd,
+            Self::Lint(cmd) => cmd,
         }
     }
 }
 
 #[async_trait]
-impl StreamingCommand for StarlarkCommand {
+impl StreamingCommand for StarlarkOpaqueCommand {
     const COMMAND_NAME: &'static str = "starlark";
 
     /// Starlark subcommands are all implemented as a generic request to the buckd server that will deserialize the command object.
@@ -93,13 +102,7 @@ impl StreamingCommand for StarlarkCommand {
         let serialized = serde_json::to_string(&self)?;
 
         let config_opts = &self.as_subcommand().common_opts().config_opts;
-
-        let submatches = match matches.subcommand().map(|s| s.1) {
-            Some(submatches) => submatches,
-            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
-        };
-
-        let context = ctx.client_context(config_opts, submatches, self.sanitized_argv())?;
+        let context = ctx.client_context(config_opts, matches, self.sanitized_argv())?;
 
         buckd
             .with_flushing()
@@ -125,5 +128,14 @@ impl StreamingCommand for StarlarkCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.as_subcommand().common_opts().config_opts
+    }
+}
+
+impl StarlarkCommand {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+        let matches = matches.subcommand().expect("subcommand not found").1;
+        match self {
+            StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),
+        }
     }
 }

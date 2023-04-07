@@ -30,7 +30,7 @@ use starlark::syntax::AstModule;
 use crate::util::globals::CachedGlobals;
 use crate::util::paths::starlark_files;
 use crate::StarlarkCommandCommonOptions;
-use crate::StarlarkSubcommand;
+use crate::StarlarkOpaqueSubcommand;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark-lint", about = "Run the Starlark linter.")]
@@ -76,7 +76,7 @@ async fn lint_file(
 }
 
 #[async_trait]
-impl StarlarkSubcommand for StarlarkLintCommand {
+impl StarlarkOpaqueSubcommand for StarlarkLintCommand {
     async fn server_execute(
         &self,
         server_ctx: Box<dyn ServerCommandContextTrait>,
