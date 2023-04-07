@@ -23,7 +23,6 @@ use std::thread;
 
 use debugserver_types::*;
 use dupe::Dupe;
-use gazebo::prelude::*;
 pub(crate) use library::*;
 use serde_json::Map;
 use serde_json::Value;
@@ -192,7 +191,11 @@ impl DebugServer for Backend {
     fn variables(&self, _: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {
         let vars_info = self.adapter.variables()?;
         Ok(VariablesResponseBody {
-            variables: vars_info.locals.into_map(|var| var.to_dap()),
+            variables: vars_info
+                .locals
+                .into_iter()
+                .map(|var| var.to_dap())
+                .collect(),
         })
     }
 
