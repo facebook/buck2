@@ -18,6 +18,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use maplit::hashmap;
 use once_cell::sync::Lazy;
 use thiserror::Error;
 

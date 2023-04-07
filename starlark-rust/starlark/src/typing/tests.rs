@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use maplit::hashmap;
 use once_cell::sync::Lazy;
 
 use crate::stdlib::LibraryExtension;

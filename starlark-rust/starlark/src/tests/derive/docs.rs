@@ -17,6 +17,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
+use maplit::hashmap;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::StarlarkDocs;

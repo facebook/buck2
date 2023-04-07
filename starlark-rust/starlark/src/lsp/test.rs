@@ -55,6 +55,7 @@ use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentItem;
 use lsp_types::Url;
 use lsp_types::VersionedTextDocumentIdentifier;
+use maplit::hashmap;
 use serde::de::DeserializeOwned;
 
 use crate::docs::render_docs_as_code;

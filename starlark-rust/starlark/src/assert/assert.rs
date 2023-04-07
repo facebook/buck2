@@ -26,6 +26,7 @@ use std::collections::HashMap;
 
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use maplit::hashmap;
 use once_cell::sync::Lazy;
 
 use crate as starlark;
