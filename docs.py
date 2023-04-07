@@ -17,6 +17,16 @@ import subprocess
 from pathlib import Path
 
 
+def read_file(path):
+    with open(path, "r") as f:
+        return f.read()
+
+
+def write_file(path, contents):
+    with open(path, "w") as f:
+        f.write(contents)
+
+
 def buck_command(args):
     if args.prod:
         return "buck2"
@@ -50,11 +60,18 @@ def main() -> None:
     # objects, we'll remove old docs
     if os.path.exists("docs/generated"):
         shutil.rmtree("docs/generated")
+    for x in Path("docs").rglob("*.generated.md"):
+        os.remove(x)
 
     # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
-    os.mkdir("docs/generated")
-    shutil.copytree("starlark-rust/docs", "docs/generated/starlark_rust_docs")
+    for x in Path("starlark-rust/docs").glob("*.md"):
+        name = Path(x).stem
+        prefix = "---\nid: " + name + "\n---\n"
+        write_file(
+            "docs/developers/starlark/" + name + ".generated.md", prefix + read_file(x)
+        )
 
+    os.mkdir("docs/generated")
     # Actually generate the docss
     subprocess.run(
         buck_command(args)
