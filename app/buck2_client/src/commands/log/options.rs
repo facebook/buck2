@@ -15,13 +15,13 @@ use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub(crate) struct EventLogOptions {
-    /// A path to an event-log file to read from.
-    #[clap(group = "event_log", value_name = "PATH")]
-    path: Option<PathArg>,
-
     /// Open the event-log file from a recent command.
     #[clap(long, group = "event_log", value_name = "NUMBER")]
     recent: Option<usize>,
+
+    /// A path to an event-log file to read from.
+    #[clap(group = "event_log", value_name = "PATH")]
+    path: Option<PathArg>,
 }
 
 impl EventLogOptions {
