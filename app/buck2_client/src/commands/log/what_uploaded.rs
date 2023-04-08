@@ -12,12 +12,12 @@ use std::collections::HashMap;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
+use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
 /// This command outputs stats about uploads to RE from the selected invocation.

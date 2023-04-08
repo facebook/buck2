@@ -7,14 +7,14 @@
  * of this source tree.
  */
 
-use crate::client_ctx::ClientCommandContext;
-use crate::path_arg::PathArg;
-use crate::subscribers::event_log::file_names::retrieve_nth_recent_log;
-use crate::subscribers::event_log::read::EventLogPathBuf;
+use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::path_arg::PathArg;
+use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_log;
+use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub struct EventLogOptions {
+pub(crate) struct EventLogOptions {
     /// A path to an event-log file to read from.
     #[clap(group = "event_log", value_name = "PATH")]
     path: Option<PathArg>,
@@ -25,7 +25,7 @@ pub struct EventLogOptions {
 }
 
 impl EventLogOptions {
-    pub fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
+    pub(crate) fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
         let path = match &self.path {
             Some(path) => path.resolve(&ctx.working_dir),
             None => retrieve_nth_recent_log(ctx, self.recent.unwrap_or(0))?.into_abs_path_buf(),

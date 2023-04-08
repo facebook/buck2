@@ -16,7 +16,6 @@ use std::time::SystemTimeError;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_client_ctx::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
@@ -32,6 +31,8 @@ use superconsole::Component;
 use superconsole::Direction;
 use tokio::runtime;
 use tokio_stream::StreamExt;
+
+use crate::commands::log::options::EventLogOptions;
 
 /// Show the spans that were open when the log ended
 #[derive(Debug, clap::Parser)]

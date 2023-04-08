@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_data::re_platform::Property;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
@@ -29,6 +28,7 @@ use futures::TryStreamExt;
 use indexmap::IndexMap;
 use tokio::runtime;
 
+use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
 /// This command outputs everything the last invocation of Buck2 ran. Other invocations can be

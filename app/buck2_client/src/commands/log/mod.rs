@@ -9,6 +9,7 @@
 
 pub mod critical_path;
 pub mod last_log;
+pub(crate) mod options;
 pub mod show_log;
 pub mod what_failed;
 pub mod what_materialized;

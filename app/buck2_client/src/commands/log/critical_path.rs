@@ -13,10 +13,11 @@ use std::time::Duration;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use tokio_stream::StreamExt;
+
+use crate::commands::log::options::EventLogOptions;
 
 /// This command outputs stats about uploads to RE from the selected invocation.
 #[derive(Debug, clap::Parser)]

@@ -8,7 +8,6 @@
  */
 
 pub mod file_names;
-pub mod options;
 pub mod read;
 pub mod subscriber;
 pub mod upload;

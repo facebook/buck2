@@ -13,12 +13,12 @@ use std::path::PathBuf;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use tokio::runtime::Runtime;
 
 use crate::commands::debug::ExecFn;
+use crate::commands::log::options::EventLogOptions;
 
 #[derive(Debug, clap::Parser)]
 #[clap(

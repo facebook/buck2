@@ -10,10 +10,10 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::event_log::options::EventLogOptions;
 use tokio::runtime;
 use tokio_stream::StreamExt;
 
+use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
 /// This command outputs materializations from the selected build. The output is a tab-separated
