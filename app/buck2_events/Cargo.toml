@@ -21,6 +21,7 @@ crossbeam-channel = { workspace = true }
 crossbeam-epoch = { workspace = true }
 pin-project = { workspace = true }
 is_proc_translated = { workspace = true }
+uuid = { workspace = true }
 
 fbinit = { workspace = true }
 gazebo = { workspace = true }

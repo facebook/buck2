@@ -7,7 +7,35 @@
  * of this source tree.
  */
 
-use buck2_wrapper_common::invocation_id::TraceId;
 use once_cell::sync::Lazy;
+use uuid::Uuid;
 
-pub static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
+#[derive(derive_more::Display)]
+#[display(fmt = "{}", uuid.hyphenated())]
+pub struct DaemonId {
+    uuid: Uuid,
+}
+
+pub static DAEMON_UUID: Lazy<DaemonId> = Lazy::new(|| DaemonId {
+    uuid: Uuid::new_v4(),
+});
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use uuid::Uuid;
+
+    use crate::daemon_id::DaemonId;
+
+    #[test]
+    fn test_display() {
+        assert_eq!(
+            "5621e477-ca64-4c68-888c-c47bdba0ff77",
+            DaemonId {
+                uuid: Uuid::from_str("5621e477-ca64-4c68-888c-c47bdba0ff77").unwrap()
+            }
+            .to_string()
+        );
+    }
+}
