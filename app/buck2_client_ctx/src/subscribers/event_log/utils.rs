@@ -62,15 +62,13 @@ impl Encoding {
     pub(crate) const PROTO: Encoding = Encoding {
         mode: LogMode::Protobuf,
         compression: Compression::None,
-        // TODO(nga): make `.pb` default in two weeks after D40616394 lands.
-        extensions: &[".proto", ".pb"],
+        extensions: &[".pb", ".proto"],
     };
 
     pub(crate) const PROTO_GZIP: Encoding = Encoding {
         mode: LogMode::Protobuf,
         compression: Compression::Gzip,
-        // TODO(nga): make `.pb.gz` default in two weeks after D40616394 lands.
-        extensions: &[".proto.gz", ".pb.gz"],
+        extensions: &[".pb.gz", ".proto.gz"],
     };
 
     pub(crate) const PROTO_ZSTD: Encoding = Encoding {
