@@ -98,7 +98,8 @@ impl WhatRanCommand {
         let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
-            let log_path = event_log.get(&ctx)?;
+            let log_path = event_log.get(&ctx).await?;
+
             let (invocation, events) = log_path.unpack_stream().await?;
 
             buck2_client_ctx::eprintln!("Showing commands from: {}", invocation)?;

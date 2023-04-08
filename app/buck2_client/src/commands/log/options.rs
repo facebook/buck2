@@ -25,7 +25,7 @@ pub(crate) struct EventLogOptions {
 }
 
 impl EventLogOptions {
-    pub(crate) fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
+    pub(crate) async fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
         let path = match &self.path {
             Some(path) => path.resolve(&ctx.working_dir),
             None => retrieve_nth_recent_log(ctx, self.recent.unwrap_or(0))?.into_abs_path_buf(),

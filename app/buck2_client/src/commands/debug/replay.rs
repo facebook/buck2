@@ -58,8 +58,8 @@ impl ReplayCommand {
         } = self;
 
         let runtime = client_tokio_runtime()?;
-        let (replayer, invocation) =
-            runtime.block_on(Replayer::new(event_log.get(&ctx)?, speed, preload))?;
+        let (replayer, invocation) = runtime
+            .block_on(async { Replayer::new(event_log.get(&ctx).await?, speed, preload).await })?;
 
         let (args, working_dir) = if override_args.is_empty() {
             (

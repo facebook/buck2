@@ -54,8 +54,6 @@ impl WhatUpCommand {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 
-        let log_path = event_log.get(&ctx)?;
-
         // Create space for a very big console
         let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
         components.push(Box::new(TimedList::new(CUTOFFS, String::new())));
@@ -68,6 +66,8 @@ impl WhatUpCommand {
         let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
+            let log_path = event_log.get(&ctx).await?;
+
             // Get events
             let (invocation, mut events) = log_path.unpack_stream().await?;
 

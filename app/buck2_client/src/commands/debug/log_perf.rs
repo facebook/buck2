@@ -33,11 +33,11 @@ impl LogPerfCommand {
             interval,
         } = self;
 
-        let log_path = event_log.get(&ctx)?;
-
         let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
+            let log_path = event_log.get(&ctx).await?;
+
             let mut total_alloc = 0;
 
             let stats = ReaderStats::new();
