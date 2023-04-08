@@ -59,10 +59,10 @@ pub struct Cutoffs {
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
 #[derive(Debug)]
-pub(crate) struct TimedListBody(Box<dyn Component>);
+struct TimedListBody(Box<dyn Component>);
 
 impl TimedListBody {
-    pub(crate) fn new(cutoffs: Cutoffs) -> Self {
+    fn new(cutoffs: Cutoffs) -> Self {
         Self(Box::new(Expanding::new(Box::new(TimedListBodyInner {
             cutoffs,
         }))))
@@ -300,10 +300,10 @@ impl Component for CountComponent {
 
 /// Wrapper component for Header + Count
 #[derive(Debug)]
-pub(crate) struct TimedListHeader(Bordered);
+struct TimedListHeader(Bordered);
 
 impl TimedListHeader {
-    pub(crate) fn new(header: String) -> Self {
+    fn new(header: String) -> Self {
         let info = Box::new(StaticStringComponent { header });
         let count = Box::new(CountComponent);
         let header_split = Box::new(HeaderLineComponent::new(info, count));
