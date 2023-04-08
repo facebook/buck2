@@ -73,7 +73,7 @@ mod re;
 pub mod test;
 pub mod timed_list;
 
-pub const SUPERCONSOLE_WIDTH: usize = 150;
+const SUPERCONSOLE_WIDTH: usize = 150;
 
 pub const CUTOFFS: Cutoffs = Cutoffs {
     inform: Duration::from_secs(4),

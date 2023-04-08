@@ -28,7 +28,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_client_ctx::subscribers::superconsole::SUPERCONSOLE_WIDTH;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
@@ -54,12 +53,6 @@ pub struct RunCommand {
 
     #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
-
-    #[clap(
-        long = "show-delimiter",
-        help = "Display a delimiter between building the binary and running it."
-    )]
-    show_delimiter: bool,
 
     #[clap(
         long = "command-args-file",
@@ -154,14 +147,6 @@ impl StreamingCommand for RunCommand {
         }
         let mut run_args = response.build_targets[0].run_args.clone();
         run_args.extend(self.extra_run_args);
-
-        if self.show_delimiter {
-            buck2_client_ctx::eprintln!(
-                "Running `{}`\n{}",
-                self.target,
-                "=".repeat(SUPERCONSOLE_WIDTH)
-            )?;
-        }
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
