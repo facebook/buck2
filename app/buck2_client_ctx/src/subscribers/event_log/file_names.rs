@@ -96,3 +96,8 @@ pub fn retrieve_nth_recent_log(
 
     Ok(chosen.clone())
 }
+
+pub fn retrieve_all_logs(ctx: &ClientCommandContext) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+    let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
+    get_local_logs(&log_dir)
+}

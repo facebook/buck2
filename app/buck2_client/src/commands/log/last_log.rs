@@ -9,6 +9,7 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::subscribers::event_log::file_names::retrieve_all_logs;
 use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_log;
 
 /// This command outputs the path to a recent log.
@@ -16,15 +17,30 @@ use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_lo
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
 pub struct LastLogCommand {
     /// Find the log from the Nth most recent command (`--recent 0` is the most recent).
-    #[clap(long, group = "event_log", value_name = "NUMBER")]
+    #[clap(
+        long,
+        group = "event_log",
+        value_name = "NUMBER",
+        conflicts_with = "all"
+    )]
     recent: Option<usize>,
+
+    /// List all the logs.
+    #[clap(long, group = "event_log", conflicts_with = "recent")]
+    all: bool,
 }
 
 impl LastLogCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let Self { recent } = self;
-        let path = retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?;
-        buck2_client_ctx::println!("{}", path.display())?;
+        let Self { recent, all } = self;
+        let paths = if all {
+            retrieve_all_logs(&ctx)?
+        } else {
+            vec![retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?]
+        };
+        for path in paths {
+            buck2_client_ctx::println!("{}", path.display())?;
+        }
         ExitResult::success()
     }
 }
