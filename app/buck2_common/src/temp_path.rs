@@ -29,6 +29,10 @@ impl TempPath {
         TempPath::new_in(AbsNormPath::new(&env::temp_dir())?)
     }
 
+    pub fn new_path(path: AbsNormPathBuf) -> TempPath {
+        TempPath { path: Some(path) }
+    }
+
     pub fn new_in(temp_dir: &AbsNormPath) -> anyhow::Result<TempPath> {
         let mut name = String::with_capacity(10);
         for _ in 0..10 {
