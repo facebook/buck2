@@ -139,7 +139,7 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
     struct Msg(Vec<Line>);

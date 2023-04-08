@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![cfg(test)]
+
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -17,9 +19,9 @@ use crate::Line;
 use crate::State;
 
 /// Component that repeats whatever lines are put into it.
-/// Mostly useful for testing purposes.
+/// Used in tests.
 #[derive(Debug)]
-pub struct Echo<Msg> {
+pub(crate) struct Echo<Msg> {
     collapse: bool,
     _state: PhantomData<Msg>,
 }

@@ -35,8 +35,8 @@ impl Component for Blank {
 mod tests {
     use derive_more::AsRef;
 
+    use crate::components::echo::Echo;
     use crate::components::DrawMode;
-    use crate::components::Echo;
     use crate::Component;
     use crate::Dimensions;
     use crate::Line;

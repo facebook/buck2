@@ -134,9 +134,9 @@ mod tests {
 
     use crate::components::alignment::HorizontalAlignmentKind;
     use crate::components::alignment::VerticalAlignmentKind;
+    use crate::components::echo::Echo;
     use crate::components::Aligned;
     use crate::components::DrawMode;
-    use crate::components::Echo;
     use crate::Component;
     use crate::Dimensions;
     use crate::Line;

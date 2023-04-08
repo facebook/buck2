@@ -221,7 +221,7 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
     use crate::testing::frame_contains;
     use crate::testing::test_console;
     use crate::testing::SuperConsoleTestingExt;

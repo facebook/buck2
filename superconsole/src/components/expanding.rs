@@ -51,7 +51,7 @@ impl Component for Expanding {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
     use crate::content::LinesExt;
     use crate::DrawMode;
     use crate::Line;

@@ -89,7 +89,7 @@ impl Component for Padded {
 mod tests {
     use derive_more::AsRef;
 
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
     use crate::components::Padded;
     use crate::Component;
     use crate::Dimensions;

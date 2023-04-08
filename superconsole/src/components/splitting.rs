@@ -189,7 +189,7 @@ mod tests {
 
     use super::Split;
     use super::SplitKind;
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
     use crate::Component;
     use crate::Direction;
     use crate::DrawMode;

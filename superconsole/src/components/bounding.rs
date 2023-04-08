@@ -53,7 +53,7 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::components::Echo;
+    use crate::components::echo::Echo;
     use crate::Line;
     use crate::Span;
 
