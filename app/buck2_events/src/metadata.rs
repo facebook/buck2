@@ -13,11 +13,8 @@ use std::env;
 
 use buck2_core::facebook_only;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
-use once_cell::sync::Lazy;
 
-use crate::TraceId;
-
-pub static DAEMON_UUID: Lazy<TraceId> = Lazy::new(TraceId::new);
+use crate::daemon_id::DAEMON_UUID;
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
 pub fn collect() -> HashMap<String, String> {

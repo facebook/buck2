@@ -25,6 +25,7 @@
 //!  * A **span**, which is a pair of two events that represent a start and stop pair. A span covers a range of time
 //!    points. All events are parented to a span that was currently active at the location the event was emitted.
 
+pub mod daemon_id;
 pub mod dispatch;
 pub mod metadata;
 pub mod sink;

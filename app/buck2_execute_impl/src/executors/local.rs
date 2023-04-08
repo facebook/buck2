@@ -317,7 +317,7 @@ impl LocalExecutor {
             vec![]
         };
 
-        let daemon_uuid: &str = &buck2_events::metadata::DAEMON_UUID.to_string();
+        let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
 
         let iter_env = || {
             tmpdirs

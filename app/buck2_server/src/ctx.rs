@@ -62,6 +62,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::truncate::truncate_container;
+use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -664,7 +665,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
     async fn dice_accessor(&self, _private: PrivateStruct) -> SharedResult<DiceAccessor> {
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
-            uuid == &metadata::DAEMON_UUID.to_string()
+            uuid == &daemon_id::DAEMON_UUID.to_string()
         } else {
             false
         };
