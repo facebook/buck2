@@ -46,7 +46,7 @@ pub enum DrawMode {
 
 /// Components are pluggable drawers that output lines of formatted text.
 /// They are composable (eventually) and re-render in place at each render.
-pub trait Component: Debug + Send + ComponentName {
+pub trait Component: Debug + Send {
     /// This method is to be implemented for components to provide the `draw` method.
     fn draw_unchecked(
         &self,
@@ -65,11 +65,3 @@ pub trait Component: Debug + Send + ComponentName {
         Ok(res)
     }
 }
-
-pub trait ComponentName {
-    fn name(&self) -> &'static str {
-        std::any::type_name::<Self>()
-    }
-}
-
-impl<C: Component + ?Sized> ComponentName for C {}
