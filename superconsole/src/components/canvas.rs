@@ -54,7 +54,7 @@ impl Component for Canvas {
         mode: DrawMode,
     ) -> anyhow::Result<Vec<Line>> {
         let output = self.child.draw(state, dimensions, mode)?;
-        self.set_last_canvas_size(output.len())?;
+        self.len.set(output.len().try_into()?);
         Ok(output)
     }
 }
@@ -82,13 +82,6 @@ impl Canvas {
     pub fn clear(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         self.move_up(writer)?;
         queue!(writer, Clear(ClearType::FromCursorDown),)?;
-
-        Ok(())
-    }
-
-    /// helper method that downcasts a usize canvas size to u16
-    fn set_last_canvas_size(&self, new_size: usize) -> anyhow::Result<()> {
-        self.len.set(new_size.try_into()?);
 
         Ok(())
     }
