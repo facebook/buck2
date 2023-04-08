@@ -120,8 +120,9 @@ pub struct CommonDaemonCommandOptions {
     #[clap(long = NO_EVENT_LOG, hidden = true)]
     pub no_event_log: bool,
 
-    #[clap(long = "--write-build-id")]
-    pub build_id_file: Option<PathArg>,
+    /// Write command invocation id into this file.
+    #[clap(long, value_name = "PATH")]
+    pub(crate) write_build_id: Option<PathArg>,
 }
 
 impl CommonDaemonCommandOptions {
@@ -129,7 +130,7 @@ impl CommonDaemonCommandOptions {
         static DEFAULT: CommonDaemonCommandOptions = CommonDaemonCommandOptions {
             event_log: None,
             no_event_log: false,
-            build_id_file: None,
+            write_build_id: None,
         };
         &DEFAULT
     }

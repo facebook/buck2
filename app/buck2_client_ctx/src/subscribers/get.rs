@@ -147,7 +147,7 @@ pub(crate) fn try_get_build_id_writer(
     opts: &CommonDaemonCommandOptions,
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    if let Some(file_loc) = opts.build_id_file.as_ref() {
+    if let Some(file_loc) = opts.write_build_id.as_ref() {
         Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
         ))))
