@@ -38,4 +38,5 @@ pub mod stream_value;
 pub mod streaming;
 pub mod subscribers;
 pub mod ticker;
+pub mod tokio_runtime_setup;
 pub mod version;

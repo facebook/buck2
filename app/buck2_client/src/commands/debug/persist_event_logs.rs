@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::find_certs;
 use buck2_client_ctx::manifold;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::env_helper::EnvHelper;
 use clap::ArgMatches;
 use tokio::fs::File;
@@ -23,7 +24,6 @@ use tokio::io;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
-use tokio::runtime::Builder;
 
 static UPLOAD_CHUNK_SIZE: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_CHUNK_BYTES");
 static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_S");
@@ -40,10 +40,7 @@ pub struct PersistEventLogsCommand {
 impl PersistEventLogsCommand {
     pub fn exec(self, _matches: &ArgMatches, mut ctx: ClientCommandContext) -> ExitResult {
         buck2_core::facebook_only();
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .context("Error building runtime")?;
+        let runtime = client_tokio_runtime()?;
         let mut stdin = io::BufReader::new(ctx.stdin());
         runtime
             .block_on(self.write(&mut stdin))

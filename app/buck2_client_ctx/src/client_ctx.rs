@@ -20,7 +20,6 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
-use tokio::runtime::Builder;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::cleanup_ctx::AsyncCleanupContextGuard;
@@ -31,6 +30,7 @@ use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::replayer::Replayer;
 use crate::stdin::Stdin;
+use crate::tokio_runtime_setup::client_tokio_runtime;
 
 /// Contains fields that should only created once per proess and not once per command. We don't put
 /// them directly in ClientCommandContext to support Replay.
@@ -89,10 +89,7 @@ impl ClientCommandContext {
         self,
         func: F,
     ) -> <Fut as Future>::Output {
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Should be able to start a runtime");
+        let runtime = client_tokio_runtime().unwrap();
         runtime.block_on(func(self))
     }
 

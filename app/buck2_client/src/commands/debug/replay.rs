@@ -13,9 +13,9 @@ use std::path::PathBuf;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
-use tokio::runtime::Runtime;
 
 use crate::commands::debug::ExecFn;
 use crate::commands::log::options::EventLogOptions;
@@ -57,7 +57,7 @@ impl ReplayCommand {
             mut override_args,
         } = self;
 
-        let runtime = Runtime::new().expect("Should be able to start a runtime");
+        let runtime = client_tokio_runtime()?;
         let (replayer, invocation) =
             runtime.block_on(Replayer::new(event_log.get(&ctx)?, speed, preload))?;
 

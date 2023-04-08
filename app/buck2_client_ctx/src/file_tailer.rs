@@ -17,11 +17,11 @@ use std::time::Duration;
 use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use futures::FutureExt;
-use tokio::runtime;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 use crate::events_ctx::FileTailerEvent;
+use crate::tokio_runtime_setup::client_tokio_runtime;
 
 pub(crate) enum StdoutOrStderr {
     Stdout,
@@ -68,10 +68,7 @@ impl FileTailer {
         // rather than just repeatedly reading the file, but I tried to use each of
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
         let thread = std::thread::spawn(move || {
-            let runtime = runtime::Builder::new_current_thread()
-                .enable_time()
-                .build()
-                .unwrap();
+            let runtime = client_tokio_runtime().unwrap();
             runtime.block_on(async move {
                 let mut interval = tokio::time::interval(Duration::from_millis(200));
                 let mut rx = rx.fuse();

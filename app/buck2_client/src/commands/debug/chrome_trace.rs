@@ -24,6 +24,7 @@ use buck2_client_ctx::stream_value::StreamValue;
 use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_log;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::utils::Invocation;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_event_observer::display;
@@ -33,7 +34,6 @@ use dupe::Dupe;
 use futures::TryStreamExt;
 use serde::Serialize;
 use serde_json::json;
-use tokio::runtime;
 
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
@@ -813,9 +813,7 @@ impl ChromeTraceCommand {
     }
 
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let rt = runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let rt = client_tokio_runtime()?;
 
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),

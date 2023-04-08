@@ -22,6 +22,7 @@ use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
@@ -29,7 +30,6 @@ use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
 use superconsole::Component;
 use superconsole::Direction;
-use tokio::runtime;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -65,9 +65,7 @@ impl WhatUpCommand {
             SplitKind::Adaptive,
         ));
 
-        let rt = runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
             // Get events

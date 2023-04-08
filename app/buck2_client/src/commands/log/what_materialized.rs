@@ -10,7 +10,7 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use tokio::runtime;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -84,9 +84,7 @@ impl WhatMaterializedCommand {
 
         let log_path = event_log.get(&ctx)?;
 
-        let rt = runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
             let (invocation, mut events) = log_path.unpack_stream().await?;

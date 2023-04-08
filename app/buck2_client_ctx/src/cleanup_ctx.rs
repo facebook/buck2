@@ -15,7 +15,8 @@ use std::time::Instant;
 use dupe::Dupe;
 use futures::future;
 use futures::future::BoxFuture;
-use tokio::runtime::Builder;
+
+use crate::tokio_runtime_setup::client_tokio_runtime;
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.
 #[derive(Clone, Dupe)]
@@ -63,10 +64,7 @@ impl AsyncCleanupContextGuard {
 
 impl Drop for AsyncCleanupContextGuard {
     fn drop(&mut self) {
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Should be able to start a runtime");
+        let runtime = client_tokio_runtime().unwrap();
         runtime.block_on(async move {
             let future = self.0.join();
             if tokio::time::timeout(Duration::from_secs(30), future)
