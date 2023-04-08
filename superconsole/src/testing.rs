@@ -12,7 +12,6 @@ use std::any::Any;
 
 use anyhow::Context as _;
 
-use crate::components::Canvas;
 use crate::output::SuperConsoleOutput;
 use crate::superconsole::SuperConsole;
 use crate::Component;
@@ -82,7 +81,7 @@ pub fn test_console(root: Box<dyn Component>) -> SuperConsole {
         height: 80,
     };
     SuperConsole::new_internal(
-        Box::new(Canvas::new(root)),
+        root,
         Some(size),
         Box::new(TestOutput {
             should_render: true,
