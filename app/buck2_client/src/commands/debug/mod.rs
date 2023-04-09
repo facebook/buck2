@@ -62,7 +62,9 @@ mod upload_re_logs;
 pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
-    /// Causes a segfault in the daemon.  Useful to make sure that we're reporting it correctly.
+    /// Causes a segfault in the daemon.
+    ///
+    /// Useful to make sure that we're reporting it correctly.
     SegFault(SegfaultCommand),
     /// Performs a heap dump of the running buck daemon and saves it to disk.
     HeapDump(HeapDumpCommand),
@@ -71,6 +73,7 @@ pub enum DebugCommand {
     /// Dump the DICE graph to a file and saves it to disk.
     DiceDump(DiceDumpCommand),
     /// Replay a previous command by reading off from an event log.
+    ///
     /// This does not interact (or even launch) a daemon.
     /// Rather, it simply reads from a log of saved events and streams them to the CLI.
     Replay(ReplayCommand),
