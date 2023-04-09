@@ -8,6 +8,7 @@ Here is an example of a *fully-qualified* build target:
 
 ```
 //java/com/facebook/share:ui
+```
 
 A fully-qualified build target has three components:
 
