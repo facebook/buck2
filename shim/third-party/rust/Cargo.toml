@@ -1,3 +1,7 @@
+# Definitions of third-party libraries used for buck2 build of buck2.
+# This file is **not** used by cargo build of buck2.
+# See the <project_root>/docs/bootstrapping.md for more details.
+
 [workspace]
 
 [package]
