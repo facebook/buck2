@@ -100,6 +100,7 @@ bytesize = "1.1.0"
 chrono = "0.4.19"
 clap = { version = "3.1.18", features = ["derive", "env"] }
 common-path = "1.0.0"
+compact_str = "0.6.1"
 constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.1", features = [] }
@@ -109,7 +110,6 @@ crossbeam-epoch = "0.9.7"
 crossterm = "0.23"
 csv = "1.1"
 ctor = "0.1.16"
-compact_str = "0.6.1"
 dashmap = "4.0.2"
 debugserver-types = "0.5.0"
 derivative = "2.2"
@@ -132,13 +132,13 @@ glob = "0.3.0"
 globset = "0.4.10"
 hashbrown = { version = "0.12.3", features = ["raw"] }
 hex = "0.4.3"
+hostname = "^0.3"
 http = "0.2"
 httparse = "1.7.1"
 humantime = "2.0.1"
-hostname = "^0.3"
 indent_write = "2.2.0"
-indexmap = { version = "1.9.1", features = ["serde-1"] }
 indenter = "0.3.3"
+indexmap = { version = "1.9.1", features = ["serde-1"] }
 indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
 internment = { version = "0.7", features = ["arc"] }
