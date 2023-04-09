@@ -40,7 +40,7 @@ def _system_cxx_toolchain_impl(ctx):
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
                 linker = RunInfo(args = ["clang++"]),
-                linker_flags = ["-fuse-ld=lld"],
+                linker_flags = ["-fuse-ld=lld"] + ctx.attrs.link_flags,
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 archiver_type = archiver_type,
                 type = linker_type,
@@ -74,13 +74,13 @@ def _system_cxx_toolchain_impl(ctx):
             cxx_compiler_info = CxxCompilerInfo(
                 compiler = RunInfo(args = ["clang++"]),
                 preprocessor_flags = [],
-                compiler_flags = [],
+                compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = ["clang"]),
                 preprocessor_flags = [],
-                compiler_flags = [],
+                compiler_flags = ctx.attrs.c_flags,
                 compiler_type = "clang",  # one of CxxToolProviderType
             ),
             as_compiler_info = CCompilerInfo(
@@ -100,6 +100,9 @@ def _system_cxx_toolchain_impl(ctx):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
+        "c_flags": attrs.list(attrs.string(), default = []),
+        "cxx_flags": attrs.list(attrs.string(), default = []),
+        "link_flags": attrs.list(attrs.string(), default = []),
         "link_style": attrs.string(default = "shared"),
         "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
     },
