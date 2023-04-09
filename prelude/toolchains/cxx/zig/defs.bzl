@@ -16,13 +16,13 @@ The zig cc compiler is based on clang and comes bundled with the standard
 library sources and supports on-the-fly cross-compilation, making it easier to
 define a reproducible build setup and cross-compilation use-cases.
 
-Further details on zig cc are available [here][zig-cc-annoncement]. Note, at
+Further details on zig cc are available [here][zig-cc-announcement]. Note, at
 the time of writing this is still experimental. If this is a problem for your
 use-case then you may wish to rely on a system toolchain or define your own.
 
 The toolchain is not fully hermetic as it still relies on system tools like nm.
 
-[zig-cc-annoncement]: https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html
+[zig-cc-announcement]: https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html
 
 ## Examples
 
@@ -134,7 +134,7 @@ def _get_zig_release(
         ))
     zig_version = releases[version]
     if not platform in zig_version:
-        fail("Unsupported platfrom '{}'. Supported platforms: {}".format(
+        fail("Unsupported platform '{}'. Supported platforms: {}".format(
             platform,
             ", ".join(zig_version.keys()),
         ))

@@ -66,7 +66,7 @@ main([TestInfoFile, "run", OutputDir | Tests]) ->
     end;
 main(_Other) ->
     io:format(
-        "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OuptutDir Tests "
+        "Wrong arguments, should be called with ~n - TestInfoFile list OutputDir ~n - TestInfoFile run OutputDir Tests "
     ),
     erlang:halt(3).
 

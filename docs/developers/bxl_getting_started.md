@@ -15,7 +15,7 @@ def _your_implementation(ctx):
     pass
 
 your_function_name = bxl(
-    impl = _your_implementatation,
+    impl = _your_implementation,
     cli_args = {
         # cli args that you want to receive from the command line
         "bool_arg": cli_args.bool(),

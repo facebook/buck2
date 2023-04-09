@@ -93,7 +93,7 @@ OmnibusSpec = record(
 
 OmnibusPrivateRootProductCause = record(
     category = field(str.type),
-    # Mis-assigned label
+    # Miss-assigned label
     label = field(["label", None], default = None),
     # Its actual disposiiton
     disposition = field([Disposition.type, None], default = None),
@@ -702,7 +702,7 @@ def _create_omnibus(
     if linker_info.type != "darwin":
         global_sym_vers = _create_global_symbols_version_script(
             ctx,
-            # Extract symols from roots...
+            # Extract symbols from roots...
             annotated_root_products.values(),
             # ... and the shared libs from excluded nodes.
             [

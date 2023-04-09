@@ -39,7 +39,7 @@ def _build_multi_toolchain_releases(
         ctx: "context",
         apps: ErlAppDependencies,
         configured_toolchains: ["dependency"]) -> ["provider"]:
-    """build the release for all toolchains with the structur being releases/<toolchain>/<relname>"""
+    """build the release for all toolchains with the structure being releases/<toolchain>/<relname>"""
     all_toolchains = select_toolchains(ctx)
     toolchains = _get_configured_toolchains(all_toolchains, configured_toolchains)
     outputs = {}
@@ -173,7 +173,7 @@ def _build_boot_script(ctx: "context", toolchain: "Toolchain", lib_dir: "artifac
 
     releases_dir = paths.join(build_dir, release_name, "releases", ctx.attrs.version)
 
-    release_resouce = ctx.actions.declare_output(paths.join(releases_dir, "%s.rel" % (release_name,)))
+    release_resource = ctx.actions.declare_output(paths.join(releases_dir, "%s.rel" % (release_name,)))
     start_script = ctx.actions.declare_output(paths.join(releases_dir, "start.script"))
     boot_script = ctx.actions.declare_output(paths.join(releases_dir, "start.boot"))
 
@@ -183,7 +183,7 @@ def _build_boot_script(ctx: "context", toolchain: "Toolchain", lib_dir: "artifac
             toolchain.otp_binaries.escript,
             script,
             spec_file,
-            cmd_args(release_resouce.as_output()).parent(),
+            cmd_args(release_resource.as_output()).parent(),
         ],
     )
     boot_script_build_cmd.hidden(start_script.as_output())
@@ -199,7 +199,7 @@ def _build_boot_script(ctx: "context", toolchain: "Toolchain", lib_dir: "artifac
     return {
         paths.join("releases", ctx.attrs.version, file.basename): file
         for file in [
-            release_resouce,
+            release_resource,
             start_script,
             boot_script,
         ]

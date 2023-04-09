@@ -593,7 +593,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
         // Resolve all the targets in parallel
-        // We have vectors of vectors, so we create a "shape" which has the same shape but with indicies
+        // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
         let mut targets = Vec::new();
         for (promise, xs) in self.entries {

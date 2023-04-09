@@ -35,7 +35,7 @@ message SubscribeToPaths {
   // that the client may obtain those paths via a separate mechanism such as a
   // BXL script.
   //
-  // Regardless of plaform, those paths use forward slashes as delimiters.
+  // Regardless of platform, those paths use forward slashes as delimiters.
   //
   // Note that while requesting notifications for source paths (i.e. paths not
   // under buck-out) is not an error, it will not produce notifications, since
@@ -71,6 +71,6 @@ message Materialized {
   // The path that was materialized. This is a ProjectRelativePath, i.e. a
   // fully-normalized path relative to the project root.
   //
-  // Regardless of plaform, those paths use forward slashes as delimiters.
+  // Regardless of platform, those paths use forward slashes as delimiters.
   string path = 1;
 }

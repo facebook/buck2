@@ -161,7 +161,7 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
     }
 }
 
-// NOTE: This is an enum as opposed to a trait beause of the `C` parameter on (which is required
+// NOTE: This is an enum as opposed to a trait because of the `C` parameter on (which is required
 // because upcasting is not stable).
 #[derive(Display)]
 pub(crate) enum RelativeOrigin<'v> {

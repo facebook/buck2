@@ -223,7 +223,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                 } else if low_pass_filter {
                     jobs.map_local(move |local| {
                         async move {
-                            // Block local until either conditon is met:
+                            // Block local until either condition is met:
                             // - we only have a few actions (that's low_pass_filter)
                             // - the remote executor aborts (that's remote_execution_liveliness_guard)
                             let access = self.low_pass_filter.access(weight);
@@ -310,7 +310,7 @@ impl Drop for ReClaimManager {
 }
 
 struct ReClaimManagerInner {
-    /// Used to control and potentially cancel the execution of local comands.
+    /// Used to control and potentially cancel the execution of local commands.
     local_execution_liveliness_guard: LivelinessGuard,
     claim_manager: Box<dyn ClaimManager>,
 

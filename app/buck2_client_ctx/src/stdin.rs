@@ -87,7 +87,7 @@ impl Stdin {
             var: Condvar::new(),
         });
 
-        // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, sicne
+        // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, since
         // we're on separate threads, give ourselves a bit of buffering.
         let (mut tx, rx) = mpsc::channel(4);
 

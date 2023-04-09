@@ -70,7 +70,7 @@ mod interactive_terminal {
             // - The first buck exits and resets echo.
             // - The second buck exits and resets noecho (since that's what it read)
             //
-            // We check stderr becasue if stderr is a TTY the user will see a bunch of consoles
+            // We check stderr because if stderr is a TTY the user will see a bunch of consoles
             // interleaving and that would probably tell them something's wrong.
             if !nix::unistd::isatty(std::io::stderr().as_raw_fd())
                 .context("Failed to check stderr for TTY")?

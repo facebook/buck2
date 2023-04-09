@@ -26,7 +26,7 @@ def strip_srcs_path(ctx: "context") -> ["string"]:
 
     By default, the short path will list the path of the src file relative to
     cwd. If the module is far away, then all the nested folders are also
-    included. For the symlink dir we create later, we want a directoy of
+    included. For the symlink dir we create later, we want a directory of
     containing just the modules themselves, since the Julia package manager
     won't recursively traverse this directory for nested modules.
 
@@ -52,7 +52,7 @@ def julia_library_impl(ctx: "context") -> ["provider"]:
         JULIA_LOAD_PATH env variable.
     (3) Traverse all the dependencies and build up the JULIA_LOAD_PATH from
         their dependencies (note that Julia packages should form a DAG... but we
-        should still have a check to make sure we don't get caught in an infinte
+        should still have a check to make sure we don't get caught in an infinite
         loop).
     (4) Properly link to any jll libraries that are dependencies.
 

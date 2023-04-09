@@ -39,7 +39,7 @@
 
 % ------------------- Behaviors Callbacks -------------------------
 
-%%% Initialiaze the state of the provider
+%%% Initialize the state of the provider
 -callback init(init_argument_type(), #init_provider_state{}) -> return_type().
 
 %%% Executed before listing and updates the state of the provider

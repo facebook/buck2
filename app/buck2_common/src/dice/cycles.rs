@@ -162,7 +162,7 @@ pub struct StackedDiceCycleDetector {
 
 impl UserCycleDetector for StackedDiceCycleDetector {
     fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>> {
-        // Right now, only one of the inner detectors is allowe to claim a key. We could feasibly change that, but it's a bit trickier.
+        // Right now, only one of the inner detectors is allowed to claim a key. We could feasibly change that, but it's a bit trickier.
         for detector in &self.inner {
             if let Some(v) = detector.start_computing_key(key) {
                 return Some(v);

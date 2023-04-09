@@ -293,7 +293,7 @@ mod tests {
                 .resolve(
                     BuckPath::testing_new(
                         PackageLabel::new(
-                            CellName::testing_new("none_existant"),
+                            CellName::testing_new("none_existent"),
                             CellRelativePath::unchecked_new("baz")
                         ),
                         PackageRelativePathBuf::unchecked_new("fazx".into())

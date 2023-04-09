@@ -102,7 +102,7 @@ def _adjust_mapped_srcs(kwargs):
 
 def _sanitize_env(kwargs):
     # On Windows an env with a newline in it is hard to escape on the command line.
-    # Deal with that by removing the newlines, which are usually in descrptions
+    # Deal with that by removing the newlines, which are usually in descriptions
     # (where they don't matter).
     if "env" in kwargs:
         env = kwargs["env"]

@@ -126,7 +126,7 @@ impl<'v> Display for AnalysisContext<'v> {
     }
 }
 
-/// Simple holder for documetnation from AnalysisContext
+/// Simple holder for documentation from AnalysisContext
 pub struct ContextDocs {
     /// Docs for ctx
     pub context: Option<DocItem>,

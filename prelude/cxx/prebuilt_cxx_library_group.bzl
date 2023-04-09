@@ -153,7 +153,7 @@ def _get_shared_link_args(
 # like `--start-group`/`--end-group`.
 #
 # The link arguments for the various link styles are specified by pair of string
-# arguments with macros referenceing a collection of libraries:
+# arguments with macros referencing a collection of libraries:
 #
 # - For static link styles, the string link args (e.g. specific in `static_link`)
 #   contain macros of the form `$(lib <number>)`, where the number is an index

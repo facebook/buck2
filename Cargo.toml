@@ -311,7 +311,7 @@ buck2_critical_path = { path = "app/buck2_critical_path" }
 incremental = true
 panic = "abort"
 # The line below increases build times from 50s to 84s, with no observed impact on runtime speed.
-# But maybe for some benchmarks it will show more noticable variation.
+# But maybe for some benchmarks it will show more noticeable variation.
 # lto = "thin"
 
 # Use with: --profile=release-symbols -Z unstable-options

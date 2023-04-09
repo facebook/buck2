@@ -18,7 +18,7 @@ For detailed documentation, see the docs in [dice/docs/index.md](dice/docs/index
 2. Update `CHANGELOG.md` with the changes since the last release. [This link](https://github.com/facebookincubator/dice/compare/v0.1.0...main) can help (update to compare against the last release).
 3. Update the version numbers of the two `Cargo.toml` files. Bump them by 0.0.1 if there are no incompatible changes, or 0.1.0 if there are. Bump the dependency in `dice_examples` to point at the latest `dice` version.
 4. Copy the files `CHANGELOG.md`, the two `LICENSE-` files and `README.md` into `dice` subdirectory.
-5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run` in `dice`. We do not publich `dice_examples`
+5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run` in `dice`. We do not publish `dice_examples`
 6. Create a [GitHub release](https://github.com/facebookincubator/dice/releases/new) with `v0.X.Y`, using the `dice` version as the name.
 
 ## License

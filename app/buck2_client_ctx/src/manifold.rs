@@ -305,7 +305,7 @@ pub fn curl_write_command(
         "-X",
         "PUT",
         "-H",
-        "X-Manifold-Obj-Predicate:NoPredicate", // Do not check existance
+        "X-Manifold-Obj-Predicate:NoPredicate", // Do not check existence
     ]);
     if let Some(ttl_s) = ttl_s {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();

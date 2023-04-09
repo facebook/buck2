@@ -128,7 +128,7 @@ enum RunActionError {
     )]
     MetadataEnvVarMissing,
     #[error(
-        "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or ouputs?"
+        "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or outputs?"
     )]
     ArtifactVisitRecursionLimitExceeded,
 }

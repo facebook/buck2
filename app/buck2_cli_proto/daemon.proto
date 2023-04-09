@@ -632,7 +632,7 @@ message LspRequest {
 }
 
 // Signals that the starlark LSP server is complete for / this request.
-// Responses to individual LSP requsts are sent back as PartialResult. See
+// Responses to individual LSP requests are sent back as PartialResult. See
 // LspMessage.
 message LspResponse {}
 
@@ -645,7 +645,7 @@ message DapRequest {
 /// Not used at the moment, but signals that
 /// the starlark DAP server is complete for
 /// this request. Responses to individual
-/// DAP requsts are sent back in the event
+/// DAP requests are sent back in the event
 /// stream. See `buck.data.DapResult`
 message DapResponse {}
 

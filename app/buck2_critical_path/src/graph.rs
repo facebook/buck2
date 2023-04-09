@@ -44,7 +44,7 @@ impl Graph {
             .flat_map(|i| self.iter_edges(i).map(move |j| (i, j)))
     }
 
-    /// Allocate a VertexData with space for each fo the vertices in this graph.
+    /// Allocate a VertexData with space for each of the vertices in this graph.
     pub fn allocate_vertex_data<T>(&self, default: T) -> VertexData<T>
     where
         T: Clone,

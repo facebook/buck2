@@ -321,13 +321,13 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
             {name, FunName} = erlang:fun_info(Fun, name),
             try Fun(Config) of
                 {skipped, Reason} ->
-                    ?LOG_DEBUG("got skip for ~p becasue of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got skip for ~p because of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
                 {failed, Reason} ->
-                    ?LOG_DEBUG("got fail for ~p becasue of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got fail for ~p because of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {fail, {FunName, Id}, Reason}};
                 {skip_and_save, Reason, _} ->
-                    ?LOG_DEBUG("got skip for ~p becasue of: ~p", [Id, Reason]),
+                    ?LOG_DEBUG("got skip for ~p because of: ~p", [Id, Reason]),
                     ParentPid ! {RspRef, {skip, {FunName, Id}, Reason}};
                 Res ->
                     ?LOG_DEBUG("got new result: ~p", [Res]),

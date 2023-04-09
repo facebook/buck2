@@ -49,7 +49,7 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
 enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),
-    #[error("Incorrent number of args to macro `{0}` (had {1} args)")]
+    #[error("Incorrect number of args to macro `{0}` (had {1} args)")]
     InvalidNumberOfArgs(String, usize),
 }
 

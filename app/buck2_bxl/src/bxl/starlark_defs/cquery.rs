@@ -487,7 +487,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkFileSet::from)
     }
 
-    /// The testsof query for lising the tests of the specified targets.
+    /// The testsof query for listing the tests of the specified targets.
     fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: Value<'v>,
@@ -518,7 +518,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// The testsof query for lising the tests of the specified targets. Performs default target platform
+    /// The testsof query for listing the tests of the specified targets. Performs default target platform
     /// resolution under the hood for the tests found.
     fn testsof_with_default_target_platform<'v>(
         this: &StarlarkCQueryCtx<'v>,

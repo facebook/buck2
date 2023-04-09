@@ -39,5 +39,5 @@ Every few months security advisories will arrive about pinned versions of packag
 
 * `npm audit` to see which packages have security updates.
 * `npm audit fix` to fix those issues.
-* Try `npm audit`, if it still has issues run `npm udpate`.
+* Try `npm audit`, if it still has issues run `npm update`.
 * `npm exec vsce package` to confirm everything still works.

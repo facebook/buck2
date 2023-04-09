@@ -246,7 +246,7 @@ def main(argv):
     # 1. A link plan build final_link args. (This one may be able to be removed if we refactor the workflow)
     # 2. A files list (*.final_link_index) used for final link stage which includes all the
     #    files needed. it's based on index.full with some modification, like path updates
-    #    and redundent(added by toolchain) dependencies removing.
+    #    and redundant(added by toolchain) dependencies removing.
     index = {}
     index_files_set = set()
     # TODO(T130322878): since we call linker wrapper twice (in index and in final_link), to avoid these libs get

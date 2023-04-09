@@ -21,7 +21,7 @@ The commands in `setup.sh` assume an [opam](https://opam.ocaml.org/) installatio
 
 Some of these commands are intended to affect the current shell thus `setup.sh` is to be invoked via the `source` builtin e.g `source setup.sh`.
 
-In addition to symlinking the prelude directory [as described above](#add-in-prelude-into-the-project), sourcing `setup.sh` activates the 'default' opam switch and creates symlinks in the 'third-party/opam' directory. These symlinks are neccessary to support building the example OCaml targets. If any of the symlinks are found to already exist, they will not be overwritten.
+In addition to symlinking the prelude directory [as described above](#add-in-prelude-into-the-project), sourcing `setup.sh` activates the 'default' opam switch and creates symlinks in the 'third-party/opam' directory. These symlinks are necessary to support building the example OCaml targets. If any of the symlinks are found to already exist, they will not be overwritten.
 
 ## Sample commands
 

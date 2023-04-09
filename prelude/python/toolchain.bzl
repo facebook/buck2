@@ -7,7 +7,7 @@
 
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 
-# The ways that Python exectuables handle native linkable dependencies.
+# The ways that Python executables handle native linkable dependencies.
 NativeLinkStrategy = enum(
     # Statically links extensions into an embedded python binary
     "native",

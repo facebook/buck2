@@ -143,7 +143,7 @@ def _parse(makefile: str.type) -> [([str.type], [str.type])]:
         result.append((before.split(), after.strip().split()))
     return result
 
-# If 'f.cmi' appears on the LHS of a rule, change occurences of 'f.cmx' to
+# If 'f.cmi' appears on the LHS of a rule, change occurrences of 'f.cmx' to
 # 'f.cmi' in all RHS's in the results of a parsed makefile.
 def _replace_rhs_cmx_with_cmi(contents: [([str.type], [str.type])], p: ([str.type], [str.type])) -> ([str.type], [str.type]):
     def replace_in(p):

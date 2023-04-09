@@ -96,7 +96,7 @@ impl<'a> PartialResultCtx<'a> {
 }
 
 /// Manages incoming event streams from the daemon for the buck2 client and
-/// fowards them to the appropriate subscribers registered on this struct
+/// forwards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx {
     pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,

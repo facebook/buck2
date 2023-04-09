@@ -108,7 +108,7 @@ LinkGroupLibSpec = record(
     # The output name given to the linked shared object.
     name = field(str.type),
     # Used to differentiate normal native shared libs from e.g. Python native
-    # extensions (which are techncially shared libs, but don't set a SONAME
+    # extensions (which are technically shared libs, but don't set a SONAME
     # and aren't managed by `SharedLibraryInfo`s).
     is_shared_lib = field(bool.type, True),
     # Optional linkable root info that should be used to "guide" the link of

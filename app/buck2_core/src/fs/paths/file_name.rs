@@ -119,7 +119,7 @@ impl AsRef<CellRelativePath> for FileName {
 
 impl FileName {
     /// Creates an `FileName` if the given path represents a correct
-    /// platform-indepentent file name, otherwise error.
+    /// platform-independent file name, otherwise error.
     ///
     /// ```
     /// use buck2_core::fs::paths::file_name::FileName;

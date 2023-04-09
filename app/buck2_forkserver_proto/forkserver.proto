@@ -20,7 +20,7 @@ message CommandRequest {
   bytes exe = 1;
   // The arguments to give the executable.
   repeated bytes argv = 2;
-  // The working directory of the commmand as it's being spawned.
+  // The working directory of the command as it's being spawned.
   WorkingDirectory cwd = 5;
   // The max duration this command should be allowed to run for.
   google.protobuf.Duration timeout = 6;

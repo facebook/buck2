@@ -129,7 +129,7 @@ def env_execute(ctx, arguments, environment = {}, **kwargs):
   to "arguments" before calling "ctx.execute".
 
   Variables that aren't explicitly mentioned in "environment"
-  are removed from the environment. This should be preferred to "ctx.execut"e
+  are removed from the environment. This should be preferred to "ctx.execute"
   in most situations.
   """
   env_args = ["env", "-i"]

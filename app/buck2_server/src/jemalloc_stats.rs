@@ -10,7 +10,7 @@
 use buck2_common::memory::allocator_stats;
 
 // TODO(raulgarcia4): Consider moving out this file to buck2_common,
-// similary to what was done with buck2_common::process_stats.
+// similarly to what was done with buck2_common::process_stats.
 pub struct AllocatorStats {
     pub bytes_active: Option<u64>,
     pub bytes_allocated: Option<u64>,

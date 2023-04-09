@@ -417,7 +417,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
                     # Some prebuilt shared libs don't set a SONAME (e.g.
                     # IntelComposerXE), so we can't link them via just the shared
-                    # lib (otherwise, we'll may embed buid-time paths in `DT_NEEDED`
+                    # lib (otherwise, we'll may embed build-time paths in `DT_NEEDED`
                     # tags).
                     if ctx.attrs.link_without_soname:
                         if ctx.attrs.supports_shared_library_interface:
@@ -462,7 +462,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
             default_output = outputs[link_style],
         )]
 
-    # Create the default ouput for the library rule given it's link style and preferred linkage
+    # Create the default output for the library rule given it's link style and preferred linkage
     link_style = get_cxx_toolchain_info(ctx).linker_info.link_style
     actual_link_style = get_actual_link_style(link_style, preferred_linkage)
     output = outputs[actual_link_style]

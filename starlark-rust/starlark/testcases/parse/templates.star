@@ -74,7 +74,7 @@ Args:
   substitutions: a dictionary of key => values that will appear as variables.key
       in the template environment.
   out: the name of the output file to generate.
-  executable: mark the result as excutable if set to True.
+  executable: mark the result as executable if set to True.
 """
 
 def strip_prefix(path, prefixes):

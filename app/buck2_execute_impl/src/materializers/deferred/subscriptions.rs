@@ -101,7 +101,7 @@ impl SubscriptionData {
 pub(super) struct SubscriptionIndex(u64);
 
 impl SubscriptionIndex {
-    /// Increment the current version, return the previous  vlaue
+    /// Increment the current version, return the previous  value
     fn next(&mut self) -> Self {
         let ret = SubscriptionIndex(self.0);
         self.0 += 1;

@@ -88,7 +88,7 @@ def _make_csc_arglist(ctx, output, depinfo, extra_refs=[]):
 
   # /warnaserror
   # TODO(jeremy): /define:name[;name2]
-  # TODO(jeremy): /resource:filename[,identifier[,accesibility-modifier]]
+  # TODO(jeremy): /resource:filename[,identifier[,accessibility-modifier]]
 
   # /main:class
   if hasattr(ctx.attr, "main_class") and ctx.attr.main_class:

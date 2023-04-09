@@ -608,7 +608,7 @@ pub fn expand_selector_for_dependencies(
 ) {
     // Note that we receive the list of paths to take as an input and start from that for the paths
     // to visit. Rhis ensures that if we add symlinks that point into the paths we are about to
-    // take out, we don't bother visiting them individually, since we'll start by visitng the whole
+    // take out, we don't bother visiting them individually, since we'll start by visiting the whole
     // thing.
     let mut paths_to_visit = paths_to_take.clone();
 
@@ -635,7 +635,7 @@ pub fn expand_selector_for_dependencies(
                         e
                     );
                     if cfg!(test) {
-                        panic!("Invald symlink found")
+                        panic!("Invalid symlink found")
                     }
                     return;
                 }

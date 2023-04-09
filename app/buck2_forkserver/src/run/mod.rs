@@ -137,7 +137,7 @@ where
             this.stdio.as_mut().get_pin_mut().notify_interrupt();
         }
 
-        // This stram is also fused, so if it returns None, we'll know it's done for good and we'll
+        // This stream is also fused, so if it returns None, we'll know it's done for good and we'll
         // return the exit status if it's available.
         if let Some(stdio) = futures::ready!(this.stdio.poll_next(cx)) {
             return Poll::Ready(Some(stdio.map(|event| event.into())));
@@ -230,7 +230,7 @@ where
                     .await
                     .context("Failed to cancel status decoder after timeout")?;
 
-                // We just killed the child, so this should finish immediately. We should stil call
+                // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
                 child
                     .wait()
@@ -336,7 +336,7 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
     use winapi::um::winnt::PROCESS_TERMINATE;
 
     let proc_handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
-    // If proc_handle is null, proccess died already.
+    // If proc_handle is null, process died already.
     if proc_handle.is_null() {
         return Ok(());
     }

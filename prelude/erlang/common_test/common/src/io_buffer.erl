@@ -123,7 +123,7 @@ handle_info(_Info, State) ->
 -type request() ::
     {put_chars, unicode:encoding(),
         unicode:latin1_chardata() | unicode:chardata() | unicode:external_chardata()}.
-% Ouptut Requests
+% Output Requests
 % {put_chars, Encoding, Characters}
 % {put_chars, Encoding, Module, Function, Args}
 % Input Requests

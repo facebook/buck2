@@ -313,7 +313,7 @@ async fn get_starlark_profiler_instrumentation_override(
 
 /// Global profiler configuration.
 ///
-/// This funtion is not exposed outside,
+/// This function is not exposed outside,
 /// because accessing full configuration may invalidate too much.
 async fn get_starlark_profiler_configuration(
     ctx: &DiceComputations,

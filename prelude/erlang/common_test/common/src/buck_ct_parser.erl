@@ -8,7 +8,7 @@
 %%% % @format
 %%%-------------------------------------------------------------------
 %%% @doc
-%%% Utilies method to parse string args given to the test binary
+%%% Utilities method to parse string args given to the test binary
 %%% via user input.
 %%% @end
 

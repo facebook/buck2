@@ -272,7 +272,7 @@ impl<'a> Lexer<'a> {
     // String parsing is a hot-spot, so parameterise by a `stop` function which gets
     // specialised for each variant
     fn string(&mut self, triple: bool, raw: bool, mut stop: impl FnMut(char) -> bool) -> Lexeme {
-        // We have seen an openning quote, which is either ' or "
+        // We have seen an opening quote, which is either ' or "
         // If triple is true, it was a triple quote
         // stop lets us know when a string ends.
 
@@ -523,7 +523,7 @@ pub enum Token {
     #[regex("\t+")] // Tabs (might be an error)
     Tabs,
 
-    // Indentation block & meaningfull spaces
+    // Indentation block & meaningful spaces
     Indent, // New indentation block
     Dedent, // Leaving an indentation block
     #[regex(r"(\r)?\n")]

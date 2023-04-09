@@ -26,7 +26,7 @@
 % cth_tpx outcome are skipped failed passed omitted
 outcome_to_result(failed) -> failure;
 outcome_to_result(passed) -> success;
-outcome_to_result(omitted) -> exluded;
+outcome_to_result(omitted) -> excluded;
 outcome_to_result(skipped) -> failure.
 
 % %% See https://www.internalfb.com/code/fbsource/[20c96bf58ffecff08a87b89035518b392985308b]/fbcode/testinfra/tpx/tpx-output/src/buck_junitlike_xml.rs?lines=73%2C80
@@ -41,9 +41,9 @@ format_result(dry_run) -> "DRYRUN".
 write_xml_output(OutputDir, TpxResults, Suite, Exit, Stdout) ->
     TestCase = results_to_test_case(TpxResults, Suite, Exit, Stdout),
     Export = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
-    {ok, OuptutFile} = filename:join(OutputDir, "results.xml"),
-    file:write_file(OuptutFile, Export),
-    {ok, OuptutFile}.
+    {ok, OutputFile} = filename:join(OutputDir, "results.xml"),
+    file:write_file(OutputFile, Export),
+    {ok, OutputFile}.
 
 test_case_to_xml(#test_case{
     name = Name,

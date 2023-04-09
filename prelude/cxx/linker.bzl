@@ -116,7 +116,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo.type, label: "label"
     """
 
     # TODO(T110378119): v1 doesn't use the cell/repo name, so we don't here for
-    # initial compatiblity, but maybe we should?
+    # initial compatibility, but maybe we should?
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name)
 

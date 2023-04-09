@@ -180,7 +180,7 @@ enumerate_tests(Tests) ->
 flatten_enumerated_tests(Tests) ->
     maps:from_list(lists:flatten([SuiteTests || {_, SuiteTests} <- Tests])).
 
--spec run_test(string(), state()) -> {ct_deamon_core:run_result(), state()}.
+-spec run_test(string(), state()) -> {ct_daemon_core:run_result(), state()}.
 run_test(Test, State = #{output_dir := OutputDir, setup := InSetupState}) ->
     #{suite := Suite, name := Name} = ct_daemon_core:from_qualified(Test),
     Spec = test_runner:parse_test_name(Name, Suite),

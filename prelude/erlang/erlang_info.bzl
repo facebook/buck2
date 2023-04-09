@@ -37,7 +37,7 @@ ErlangAppInfo = provider(
             # mapping from module name to beam artifact
             "beams",
 
-            # for tests we need to preseve the private includes
+            # for tests we need to preserve the private includes
             "private_includes",
             # mapping from name to dependency for all Erlang dependencies
             "dependencies",
@@ -81,7 +81,7 @@ ErlangToolchainInfo = provider(
         # this is further split into local and RE
         "otp_binaries",
         # utility scripts
-        # bulding .app file
+        # building .app file
         "app_file_script",
         # building escripts
         "escript_builder",
@@ -89,7 +89,7 @@ ErlangToolchainInfo = provider(
         "dependency_analyzer",
         # trampoline rerouting stdout to stderr
         "erlc_trampoline",
-        # name to parse_transform artifcats mapping for core parse_transforms (that are always used) and
+        # name to parse_transform artifacts mapping for core parse_transforms (that are always used) and
         # user defines ones
         "core_parse_transforms",
         "parse_transforms",

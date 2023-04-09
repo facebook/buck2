@@ -455,7 +455,7 @@ impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
 #[derive(Debug)]
 pub struct CasDownloadInfo {
     pub origin: CasDownloadInfoOrigin,
-    /// RE Use case to use whne downloading this
+    /// RE Use case to use when downloading this
     pub re_use_case: RemoteExecutorUseCase,
 }
 

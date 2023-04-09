@@ -15,7 +15,7 @@ use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
 
-/// Wrapper for `SmallMap` which consideres map equal if iteration order is equal.
+/// Wrapper for `SmallMap` which considers map equal if iteration order is equal.
 #[derive(Debug, Clone, Allocative)]
 pub struct OrderedMap<K, V>(SmallMap<K, V>);
 

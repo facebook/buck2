@@ -192,7 +192,7 @@ _CxxAllLibraryOutputs = record(
 # The output of compiling all the source files in the library, containing
 # the commands use to compile them and all the object file variants.
 _CxxCompiledSourcesOutput = record(
-    # Compile commands used to compile the source files ot generate object files
+    # Compile commands used to compile the source files or generate object files
     compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
@@ -419,7 +419,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         if impl_params.generate_providers.link_style_outputs:
             providers += actual_link_style_providers
 
-    # Create the default ouput for the library rule given it's link style and preferred linkage
+    # Create the default output for the library rule given it's link style and preferred linkage
     default_output = library_outputs.outputs[actual_link_style]
 
     # Define the xcode data sub target
@@ -1015,7 +1015,7 @@ def _static_library(
             # the object code.
             pre_flags = impl_params.extra_exported_link_flags,
             post_flags = post_flags,
-            # Extra linkables are propogated here so they are available to link_groups
+            # Extra linkables are propagated here so they are available to link_groups
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
             external_debug_info = all_external_debug_info,

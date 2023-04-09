@@ -590,7 +590,7 @@ impl<'a> Assert<'a> {
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap_or_else(|e|
                     panic!(
-                        "starlark::assert::lex_tokens, expected lex sucess but failed\nCode: {}\nError: {}",
+                        "starlark::assert::lex_tokens, expected lex success but failed\nCode: {}\nError: {}",
                         program, e
                     )
                 )

@@ -1709,7 +1709,7 @@ A list of colon (:) separated list of directories to include for including in th
 
 ### project_path
 
-You can specify the path where `buck project` will store dynamically generated files (ex. genrule). This is extension to `$GOPATH`, particularly usefuly while working with native go toolchain or IDE's.
+You can specify the path where `buck project` will store dynamically generated files (ex. genrule). This is extension to `$GOPATH`, particularly usefully while working with native go toolchain or IDE's.
 
 ```
 [go]project_path = third-party/go

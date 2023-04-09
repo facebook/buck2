@@ -342,7 +342,7 @@ def find_cc(repository_ctx):
       cc_name = cc_environ
       cc_paren = " (%s)" % cc_environ
   if cc_name.startswith("/"):
-    # Absolute path, maybe we should make this suported by our which function.
+    # Absolute path, maybe we should make this supported by our which function.
     return cc_name
   cc = repository_ctx.which(cc_name)
   if cc == None:

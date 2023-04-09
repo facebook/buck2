@@ -324,7 +324,7 @@ def cxx_link_into_shared_library(
         ctx: "context",
         name: str.type,
         links: [LinkArgs.type] = [],
-        # Wether to embed the library name as the SONAME.
+        # Whether to embed the library name as the SONAME.
         soname: bool.type = True,
         prefer_local: [bool.type, None] = None,
         link_ordering: [LinkOrdering.type, None] = None,

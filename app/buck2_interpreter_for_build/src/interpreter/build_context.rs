@@ -193,7 +193,7 @@ impl<'a> BuildContext<'a> {
 }
 
 /// Arbitrary object made available to the execution context. Converted to
-/// EvalResult at the end of interpeting
+/// EvalResult at the end of interpreting
 impl ModuleInternals {
     /// Try to get this inner context from the `ctx.extra` property.
     pub fn from_context<'a>(ctx: &'a Evaluator, function_name: &str) -> anyhow::Result<&'a Self> {

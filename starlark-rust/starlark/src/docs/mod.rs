@@ -90,7 +90,7 @@ impl DocString {
     }
 
     /// Render the docstring as in `render_as_code`, but surround it in triple quotes,
-    /// a common convetion in starlark docstrings.
+    /// a common convention in starlark docstrings.
     fn render_as_quoted_code(&self) -> String {
         format!("\"\"\"\n{}\n\"\"\"", self.render_as_code())
     }

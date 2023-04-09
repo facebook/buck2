@@ -111,7 +111,7 @@ def _prepare_build_environment(
             fail("invalid dep {}", dep)
 
         # add transitive input mapping
-        # Note: the build will fail if there is ambuigity in the basename
+        # Note: the build will fail if there is ambiguity in the basename
         input_mapping.update(dep_info.input_mapping[toolchain.name])
 
         # collect includes

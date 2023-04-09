@@ -766,7 +766,7 @@ async fn test_target(
     };
 
     // NOTE: We produce the future above, then await it here because Module & TestInfo aren't Sync.
-    // That's OK, because we don't need them across an await point, but we do need to stucture the
+    // That's OK, because we don't need them across an await point, but we do need to structure the
     // code this way for the compiler to see it.
     fut.await
 }

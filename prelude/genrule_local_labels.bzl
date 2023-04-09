@@ -69,7 +69,7 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Yarn installs use a large in-repo yarn repo that's ~6.1GB at the time of
     # writing, and so v1 uses workarounds (D17359502) to avoid the overhead this
-    # would causes.  So, run these rules locally to maintain compatiblity and
+    # would causes.  So, run these rules locally to maintain compatibility and
     # until we have a better yarn solution.
     "yarn_install",
 
@@ -79,7 +79,7 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Third party java artifacts are stored in manifold and therefore can't be accessed from RE worker.
     "third_party_java",
 
-    # The antlir packge-at-build-time rules current rely on tools like hg/git,
+    # The antlir package-at-build-time rules current rely on tools like hg/git,
     # which don't work on RE.
     "antlir_macros",
 
@@ -111,7 +111,7 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Calculates and writes absolute paths in the local filesystem
     "uses_local_filesystem_abspaths",
 
-    # Use local GPUs with latest Nvidia libs which are not avaiable in RE yet
+    # Use local GPUs with latest Nvidia libs which are not available in RE yet
     "uses_lower_locally",
 
     # Uses fbpkg outside of the repo

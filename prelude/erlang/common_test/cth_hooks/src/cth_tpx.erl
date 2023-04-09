@@ -326,7 +326,7 @@ merge_std_out(
     unicode:characters_to_list(InitStdOut ++ MainStdOut ++ EndStdOut).
 
 %% @doc Creates a method_result for a requested method for which no result was registered.
-%% Attemps to locate if one of the inits is responsible for the missing result.
+%% Attempts to locate if one of the inits is responsible for the missing result.
 -spec get_missing_result(list(method_result()), string()) -> method_result().
 get_missing_result(Inits, QualifiedName) ->
     MainResult =
@@ -388,7 +388,7 @@ handle_missing_results([Init | Inits], MainResult) ->
 
 %% A result can be erlang skipped if it is either user skipped or skipped because of an init failure.
 %% Skip is an error state in tpx. If it is user skipped, the test is reported as omitted, which is not an error state.
-%% In the case where it is skipped because of init failure, it is reported as failed with appropriate user messge reporting
+%% In the case where it is skipped because of init failure, it is reported as failed with appropriate user message reporting
 %% to the init to be blamed.
 -spec handle_skipped_result(list(method_result()), method_result()) -> method_result().
 handle_skipped_result([], MainResult) ->

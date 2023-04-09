@@ -178,7 +178,7 @@ mod tests {
     }
 
     #[test]
-    fn test_converstion_to_float() {
+    fn test_conversion_to_float() {
         assert_eq!(Num::Int(0).as_float(), 0.0);
         assert_eq!(Num::Int(i32::MAX).as_float(), i32::MAX as f64);
         assert_eq!(Num::Int(i32::MIN).as_float(), i32::MIN as f64);

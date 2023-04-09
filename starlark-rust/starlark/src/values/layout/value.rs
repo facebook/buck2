@@ -447,7 +447,7 @@ impl<'v> Value<'v> {
     /// Returns an identity for this [`Value`], derived from its pointer. This function is
     /// low-level and provides two guarantees. Those are valid until the next GC:
     ///
-    /// 1. Calling it mulitple times on the same [`Value`]  will return [`ValueIdentity`] that
+    /// 1. Calling it multiple times on the same [`Value`]  will return [`ValueIdentity`] that
     ///    compare equal.
     /// 2. If two [`Value]` have [`ValueIdentity`]  that compare equal, then [`Value::ptr_eq`] and
     ///    [`Value::equals`]  will also consider them to be equal.

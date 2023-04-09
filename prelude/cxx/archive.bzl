@@ -101,6 +101,6 @@ def make_archive(
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.
     # TODO(T110378123): for BSD archiver, split long args over multiple invocations.
     # TODO(T110378100): We need to scrub the static library (timestamps, permissions, etc) as those are
-    # sources of non-determinisim. See `ObjectFileScrubbers.createDateUidGidScrubber()` in Buck v1.
+    # sources of non-determinism. See `ObjectFileScrubbers.createDateUidGidScrubber()` in Buck v1.
 
     return Archive(artifact = archive, external_objects = objects if thin else [])

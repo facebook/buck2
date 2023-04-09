@@ -13,7 +13,7 @@ Example:
 
  $ ./compile_wrapper.py \
        --compiler compile \
-       --assember assemble \
+       --assembler assemble \
        --output srcs.txt src/dir/
 
 """

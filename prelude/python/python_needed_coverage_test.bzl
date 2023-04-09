@@ -21,7 +21,7 @@ def python_needed_coverage_test_impl(ctx: "context") -> ["provider"]:
     test_env = {}
     test_env.update(ctx.attrs.env)
 
-    # Pass in needed coverate flags to the test.
+    # Pass in needed coverage flags to the test.
     needed_coverages = parse_python_needed_coverage_specs(ctx.attrs.needed_coverage)
     test_cmd.append("--collect-coverage")
     test_cmd.append("--coverage-include")

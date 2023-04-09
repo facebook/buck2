@@ -123,7 +123,7 @@ command_description(run, 1) ->
             ]
     };
 command_description(reset, 0) ->
-    #{args => [], desc => ["restarts the test node, enabeling a clean test state"]};
+    #{args => [], desc => ["restarts the test node, enabling a clean test state"]};
 command_description(F, A) ->
     error({help_is_missing, {F, A}}).
 
@@ -183,7 +183,7 @@ run(RegExOrId) ->
             end
     end.
 
-%% @doc restarts the test node, enabeling a clean test state
+%% @doc restarts the test node, enabling a clean test state
 -spec reset() -> ok | {error, debugger_mode}.
 reset() ->
     case is_debug_session() of

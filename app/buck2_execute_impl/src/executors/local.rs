@@ -501,7 +501,7 @@ impl LocalExecutor {
                     CommandExecutionOutput::TestPath { .. } => {
                         // Don't declare those as we don't currently have any form of GC so this
                         // would take up space for nothing, and most importantly, we will never
-                        // need them to be in materializer state for e.g. matching as nothign
+                        // need them to be in materializer state for e.g. matching as nothing
                         // should depend on them.
                     }
                 }
@@ -886,7 +886,7 @@ mod unix {
         args: impl IntoIterator<Item = impl AsRef<OsStr>>,
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
         working_directory: &Path,
-        comand_timeout: Option<Duration>,
+        command_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
@@ -903,7 +903,7 @@ mod unix {
                 path: working_directory.as_os_str().as_bytes().to_vec(),
             }),
             env: vec![],
-            timeout: comand_timeout.try_map(|d| d.try_into())?,
+            timeout: command_timeout.try_map(|d| d.try_into())?,
             enable_miniperf,
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);

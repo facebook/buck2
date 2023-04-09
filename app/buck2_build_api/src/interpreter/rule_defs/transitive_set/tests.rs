@@ -429,7 +429,7 @@ fn test_projection_inputs() -> anyhow::Result<()> {
             proj2 = f2.project_as_args("project")
             proj1 = f1.project_as_args("project")
 
-            # Always just 1 input, no matter the struture.
+            # Always just 1 input, no matter the structure.
             assert_eq(1, len(cmd_args().add(proj2).inputs))
             assert_eq(1, len(cmd_args().add(proj1).inputs))
         "#

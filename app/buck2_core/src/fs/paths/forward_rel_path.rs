@@ -506,7 +506,7 @@ impl ForwardRelativePath {
         ForwardRelativePathBuf::try_from(inner)
     }
 
-    /// Append a relative system path, obtained frome e.g. `read_link`.
+    /// Append a relative system path, obtained from e.g. `read_link`.
     ///
     /// The path will be converted to an internal path (i.e. forward slashes) before joining.
     pub fn join_system(&self, path: &Path) -> anyhow::Result<ForwardRelativePathBuf> {
@@ -597,7 +597,7 @@ impl ForwardRelativePath {
         self.to_buf().into_box()
     }
 
-    /// Return a RelativePath represenation of this ForwardRelativePath.
+    /// Return a RelativePath representation of this ForwardRelativePath.
     #[inline]
     pub fn as_relative_path(&self) -> &RelativePath {
         RelativePath::new(&self.0)

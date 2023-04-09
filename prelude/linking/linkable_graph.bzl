@@ -53,7 +53,7 @@ AnnotatedLinkableRoot = record(
 LinkableNode = record(
     # Attribute labels on the target.
     labels = field([str.type], []),
-    # Prefered linkage for this target.
+    # Preferred linkage for this target.
     preferred_linkage = field(Linkage.type, Linkage("any")),
     # Linkable deps of this target.
     deps = field(["label"], []),

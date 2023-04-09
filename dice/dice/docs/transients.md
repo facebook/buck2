@@ -1,6 +1,6 @@
 # Transient Errors
 
-DICE has a concept of "transient" errors, which are errors that are non-determinstic and should be retried instead of
+DICE has a concept of "transient" errors, which are errors that are non-deterministic and should be retried instead of
 cached.
 These are indicated by `Key::validity(Key::Value)` returning `false`.
 

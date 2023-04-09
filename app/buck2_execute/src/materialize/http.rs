@@ -105,7 +105,7 @@ pub enum HttpError {
 impl HttpError {
     /// Decide whether to retry this HTTP error. If we got a response but the server errored or
     /// told us to come back later, we retry. If we didn't get a response, then we retry only if we
-    /// suceeded in connecting (so as to ensure we don't waste time retrying when the domain
+    /// succeeded in connecting (so as to ensure we don't waste time retrying when the domain
     /// portion of the URL is just wrong or when we don't have the right TLS credentials).
     ///
     /// NOTE: not retrying *any* connect errors may not be ideal, but we dont get access to more

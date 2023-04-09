@@ -78,7 +78,7 @@ do(#{
             error(io_lib:format("could not create escript: ~p", [EscriptError]))
     end,
 
-    %% set exectuable bits (unix only)
+    %% set executable bits (unix only)
     {ok, #file_info{mode = Mode}} = file:read_file_info(EscriptPath),
     ok = file:change_mode(EscriptPath, Mode bor 8#00111).
 

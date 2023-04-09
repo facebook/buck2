@@ -28,7 +28,7 @@
 //! * To define your own Rust data type that can live in a [`Value`] it must implement the [`StarlarkValue`]
 //!   trait.
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
-//!   so may serve as interesting inspiration for writing your own values, in addition to occuring in Starlark programs.
+//!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::Freeze;

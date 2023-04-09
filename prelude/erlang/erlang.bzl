@@ -109,7 +109,7 @@ attributes = {
 # Macros
 
 # Wrapper to generate the erlang_app and erlang_app_include target from a single
-# specification. It also redirects the target from the regular appliction target
+# specification. It also redirects the target from the regular application target
 # to the include-only target for extra_include deps
 def erlang_application(
         erlang_app_rule,

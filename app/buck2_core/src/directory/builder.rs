@@ -52,7 +52,7 @@ pub enum DirectoryMkdirError {
 
 #[derive(Debug, Error)]
 pub enum DirectoryMergeError {
-    #[error("Merge conflicts wiht an existing leaf at path: `{}`", .path)]
+    #[error("Merge conflicts with an existing leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },
 }
 
@@ -102,14 +102,14 @@ where
     /// Insert the entry `val` at `path`.
     ///
     /// If this replaces a portion of the tree, Ok(Some) is returned. For example inserting a file
-    /// at `a/b` when the tree contains `a/b/c` would return a directory containining `c`, which is
+    /// at `a/b` when the tree contains `a/b/c` would return a directory containing `c`, which is
     /// the node that was replaced at `a/b`. No path is returned under those circumstances since
     /// this can only happen at the input path.
     ///
     /// If this would conflict with an existing portion of the tree, Err is returned. This happens
     /// when inserting at a path that traverses through an existing file. For example, inserting at
     /// `a/b/c` when the current directory contains a file at `a/b` will return an error. The error
-    /// indicates the path where the conflict occured.
+    /// indicates the path where the conflict occurred.
     pub fn insert(
         &mut self,
         path: impl IntoFileNameBufIterator,

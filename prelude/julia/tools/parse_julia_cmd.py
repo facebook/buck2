@@ -135,7 +135,7 @@ def build_command(args, lib_dir, depot_dir):
 
 
 def main() -> int:
-    """Sets up the julia enviornment with appropriate library aliases."""
+    """Sets up the julia environment with appropriate library aliases."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default="")
     parser.add_argument("--lib-path", default="")

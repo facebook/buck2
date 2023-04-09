@@ -70,7 +70,7 @@ pub async fn async_unordered_traversal<
     root: RootIter,
     delegate: &mut dyn AsyncTraversalDelegate<T>,
 ) -> anyhow::Result<()> {
-    async_traveral_common(nodes, root, delegate, None, false).await
+    async_traversal_common(nodes, root, delegate, None, false).await
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its
@@ -168,7 +168,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     Ok(())
 }
 
-async fn async_traveral_common<
+async fn async_traversal_common<
     'a,
     T: LabeledNode,
     RootIter: IntoIterator<Item = &'a T::NodeRef>,
@@ -249,7 +249,7 @@ pub async fn async_depth_limited_traversal<
     delegate: &mut dyn AsyncTraversalDelegate<T>,
     max_depth: u32,
 ) -> anyhow::Result<()> {
-    async_traveral_common(nodes, root, delegate, Some(max_depth), true).await
+    async_traversal_common(nodes, root, delegate, Some(max_depth), true).await
 }
 
 /// Implements a depth-first postorder traversal. A node will be visited only after all of its

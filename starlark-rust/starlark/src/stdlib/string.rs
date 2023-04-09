@@ -218,10 +218,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// They are interpreted according to Skylark's [indexing conventions](
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#indexing).
     ///
-    /// This implementation does not count occurence of `sub` in the string `S`
-    /// that overlap other occurence of S (which can happen if some suffix of S
+    /// This implementation does not count occurrence of `sub` in the string `S`
+    /// that overlap other occurrence of S (which can happen if some suffix of S
     /// is a prefix of S). For instance, `"abababa".count("aba")` returns 2
-    /// for `[aba]a[aba]`, not counting the middle occurence: `ab[aba]ba`
+    /// for `[aba]a[aba]`, not counting the middle occurrence: `ab[aba]ba`
     /// (this is following Python behavior).
     ///
     /// Examples:
@@ -793,7 +793,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
 
     /// [string.replace](
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·replace
-    /// ): replace all occurences of a subtring.
+    /// ): replace all occurrences of a substring.
     ///
     /// `S.replace(old, new[, count])` returns a copy of string S with all
     /// occurrences of substring `old` replaced by `new`. If the optional
@@ -1179,7 +1179,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
 
     /// [string.startswith](
     /// https://github.com/google/skylark/blob/3705afa472e466b8b061cce44b47c9ddc6db696d/doc/spec.md#string·startswith
-    /// ): test wether a string starts with a given prefix.
+    /// ): test whether a string starts with a given prefix.
     ///
     /// `S.startswith(suffix)` reports whether the string S has the specified
     /// prefix.

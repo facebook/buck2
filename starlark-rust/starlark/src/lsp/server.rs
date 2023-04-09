@@ -106,7 +106,7 @@ pub enum LspUrlError {
     NotAbsolute(Url),
     /// For some reason the PathBuf/Url in the LspUrl could not be converted back to a URL.
     #[error("`{}` could not be converted back to a URL", .0)]
-    Unparseable(LspUrl),
+    Unparsable(LspUrl),
 }
 
 /// A URL that represents the two types (plus an "Other") of URIs that are supported.
@@ -199,10 +199,10 @@ impl TryFrom<&LspUrl> for Url {
     fn try_from(url: &LspUrl) -> Result<Self, Self::Error> {
         match &url {
             LspUrl::File(p) => {
-                Url::from_file_path(p).map_err(|_| LspUrlError::Unparseable(url.clone()))
+                Url::from_file_path(p).map_err(|_| LspUrlError::Unparsable(url.clone()))
             }
             LspUrl::Starlark(p) => Url::parse(&format!("starlark:{}", p.display()))
-                .map_err(|_| LspUrlError::Unparseable(url.clone())),
+                .map_err(|_| LspUrlError::Unparsable(url.clone())),
             LspUrl::Other(u) => Ok(u.clone()),
         }
     }

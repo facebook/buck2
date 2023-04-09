@@ -94,7 +94,7 @@ handle_info(
 ) ->
     case ExitStatus of
         0 ->
-            ResultMsg = "ct_runner finished successfuly with exit status 0",
+            ResultMsg = "ct_runner finished successfully with exit status 0",
             ?LOG_DEBUG(ResultMsg),
             test_runner:mark_success(ResultMsg);
         _ ->

@@ -84,7 +84,7 @@ pub struct ExternalRunnerTestInfoGen<V> {
     #[provider(field_type = "Vec<bool>")]
     run_from_project_root: V,
 
-    /// Defaul executor to use to run tests.  This is of type CommandExecutorConfig. If none is
+    /// Default executor to use to run tests.  This is of type CommandExecutorConfig. If none is
     /// passed we will default to the execution platform.
     #[provider(field_type = "StarlarkCommandExecutorConfig")]
     default_executor: V,

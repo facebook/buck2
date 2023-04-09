@@ -349,7 +349,7 @@ enum MaterializerCommand<T: 'static> {
     /// list that have been declared but not yet been materialized. When the
     /// materialization starts, a future is sent back through the provided
     /// Sender; this future will be resolved when the materialization
-    /// concludes (whether successfuly or not).
+    /// concludes (whether successfully or not).
     Ensure(
         Vec<ProjectRelativePathBuf>,
         EventDispatcher,
@@ -438,7 +438,7 @@ impl VersionTracker {
         self.0
     }
 
-    /// Increment the current version, return the previous  vlaue
+    /// Increment the current version, return the previous  value
     fn next(&mut self) -> Version {
         let ret = self.current();
         self.0.0 += 1;
@@ -1138,7 +1138,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .tree
                     .invalidate_paths_and_collect_futures(paths, self.sqlite_db.as_mut());
 
-                // TODO: This proably shouldn't return a CleanFuture
+                // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
                         async move { join_all_existing_futs(existing_futs).await.shared_error() }
@@ -1414,7 +1414,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // right now, because the deps are derived from the artifact value and we'll always have
         // declared them before. But, if we have a local action cache and persist that as well as
         // materializer state across restarts, then eventually we could have a match with something
-        // that hasn't had its deps populated yet (sicne the materializer state does not know about
+        // that hasn't had its deps populated yet (since the materializer state does not know about
         // deps).
         if is_match {
             if let Some(deps) = value.deps() {
@@ -1560,7 +1560,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             .rt
             .spawn(async move {
                 // Materialize the deps and this entry. This *must* happen in a try block because we
-                // need to notity the materializer regardless of whether this succeeds or fails.
+                // need to notify the materializer regardless of whether this succeeds or fails.
 
                 let timestamp = Utc::now();
                 let res: Result<(), SharedMaterializingError> = try {

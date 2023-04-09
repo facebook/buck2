@@ -122,7 +122,7 @@ See go/core.rst#go_binary for full documentation.
 
 TODO: This can merge with go_binary when toolchains become optional
 We add a bootstrap parameter that defaults to false, set it to true on "tool" binaries
-and it can pick the boostrap toolchain when it sees it.
+and it can pick the bootstrap toolchain when it sees it.
 """
 
 def gc_linkopts(ctx):

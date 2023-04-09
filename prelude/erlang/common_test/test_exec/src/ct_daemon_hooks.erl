@@ -173,7 +173,7 @@ wrap_init_end(Part, Fun, #{hooks := Hooks}) ->
                     {fail, FailReason} ->
                         {failed, FailReason};
                     _ ->
-                        %% first step of error handeling for the post functions where we set tc_status
+                        %% first step of error handling for the post functions where we set tc_status
                         {PostConfig, Return} =
                             try FunToWrap(PathArg, ConfigArg) of
                                 {skip, SkipReason} ->

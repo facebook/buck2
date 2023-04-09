@@ -22,7 +22,7 @@ pub(crate) async fn spawn(
     args: Vec<String>,
     tpx_args: Vec<String>,
 ) -> anyhow::Result<(Child, TcpStream, TcpStream)> {
-    // Use TCPStream via TCPListner with accept to simulate UnixStream.
+    // Use TCPStream via TCPListener with accept to simulate UnixStream.
     let (executor_addr, executor_tcp_listener) = create_tcp_listener().await?;
     let (orchestrator_addr, orchestrator_tcp_listener) = create_tcp_listener().await?;
 

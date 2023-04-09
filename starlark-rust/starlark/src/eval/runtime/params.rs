@@ -578,7 +578,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
 
         // Now set the kwargs/args slots, if they are requested, and fail it they are absent but used
         // Note that we deliberately give warnings about missing parameters _before_ giving warnings
-        // about unexpected extra parameters, so if a user mis-spells an argument they get a better error.
+        // about unexpected extra parameters, so if a user misspells an argument they get a better error.
         if let Some(args_pos) = self.args {
             slots[args_pos as usize].set(Some(heap.alloc_tuple(&star_args)));
         } else if unlikely(!star_args.is_empty()) {
@@ -756,7 +756,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
     pub fn next<T: UnpackValue<'v>>(&mut self, name: &str) -> anyhow::Result<T> {
         // After ParametersCollect.done() all variables will be Some,
         // apart from those where we called ParametersSpec.optional(),
-        // and for those we chould call next_opt()
+        // and for those we should call next_opt()
 
         // This is definitely not unassigned because ParametersCollect.done checked
         // that.

@@ -78,7 +78,7 @@ impl FileTailer {
                     tokio::select! {
                         _ = interval.tick() => {},
                         _ = &mut rx => {
-                            // This indicates that the FileTailer is being droppped.
+                            // This indicates that the FileTailer is being dropped.
                             // drain any remaining output and return.
                             completing = true;
                         }

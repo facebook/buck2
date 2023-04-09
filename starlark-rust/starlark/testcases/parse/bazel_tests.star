@@ -25,7 +25,7 @@ go_rules_dependencies()
 proto_register_toolchains()
 """
 
-# _bazel_test_script_template is hte template for the bazel invocation script
+# _bazel_test_script_template is the template for the bazel invocation script
 _bazel_test_script_template = """
 echo running in {work_dir}
 unset TEST_TMPDIR

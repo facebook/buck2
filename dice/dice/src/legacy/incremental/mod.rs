@@ -2558,7 +2558,7 @@ mod tests {
         .unwrap()
         .unwrap();
 
-        // Expect to get the output of the second call, sicne the first one was not allowed to
+        // Expect to get the output of the second call, since the first one was not allowed to
         // populate the cache.
         assert!(!val.val(), "got the value from the first call");
     }

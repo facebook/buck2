@@ -924,7 +924,7 @@ where
 
                 if let Some(end) = end {
                     // if there is newer data, we also need to store that at a newer
-                    // key to make it reacheable.
+                    // key to make it reachable.
                     // TODO(bobyf): we probably want a custom versioned map here to
                     // better represent this and reduce complexity
 
@@ -1207,7 +1207,7 @@ impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
     fn build(
         self,
         v_computed: VersionNumber,
-        exising_version: VersionNumber,
+        existing_version: VersionNumber,
         existing_entry: VersionedGraphNode<K>,
         since: VersionNumber,
         hist: CellHistory,
@@ -1265,7 +1265,7 @@ impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
                             res,
                             hist,
                             m_v,
-                            (exising_version, existing_entry),
+                            (existing_version, existing_entry),
                         ))),
                     )
                 }
@@ -1277,7 +1277,7 @@ impl<'a, K: StorageProperties> EntryUpdater<'a, K> {
                     e.res.dupe(),
                     hist,
                     m_v,
-                    (exising_version, existing_entry),
+                    (existing_version, existing_entry),
                 ))),
             ),
         }

@@ -27,7 +27,7 @@
 #         things.add(x)
 #     return things.list()
 
-# Name the record `set_record` to enable users to use `set` to intialize a set.
+# Name the record `set_record` to enable users to use `set` to initialize a set.
 set_record = record(
     _entries = field(dict.type),
     list = field("function"),

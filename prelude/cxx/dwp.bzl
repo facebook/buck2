@@ -24,7 +24,7 @@ def run_dwp_action(
     dwp = get_cxx_toolchain_info(ctx).binary_utilities_info.dwp
 
     # llvm trunk now supports 64-bit debug cu indedx, add --continue-on-cu-index-overflow by default
-    # to supress dwp file overflow warning
+    # to suppress dwp file overflow warning
     args.add("/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"', "")
     args.add(dwp, dwp_output.as_output(), obj)
 
@@ -68,7 +68,7 @@ def dwp(
         referenced_objects,
         output,
         # dwp produces ELF files on the same size scale as the corresponding @obj.
-        # The files are a concatentation of input DWARF debug info.
+        # The files are a concatenation of input DWARF debug info.
         # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
         local_only = link_cxx_binary_locally(ctx),
     )
