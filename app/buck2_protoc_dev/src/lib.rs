@@ -11,6 +11,8 @@ use std::env;
 use std::ffi::OsString;
 use std::io;
 use std::path::Path;
+#[cfg(not(buck2_build))]
+use std::path::PathBuf;
 
 fn get_env(key: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", key);
@@ -18,19 +20,23 @@ fn get_env(key: &str) -> Option<OsString> {
 }
 
 #[cfg(not(buck2_build))]
-fn set_var(var: &str, override_var: &str, path: &Path) {
-    assert!(path.exists(), "Path does not exist: `{}`", path.display());
-
-    let path_buf;
+fn set_var(var: &str, override_var: &str, path: Result<PathBuf, protoc_bin_vendored::Error>) {
     let path = if let Some(override_var_value) = env::var_os(override_var) {
         eprintln!("INFO: Variable ${} is overridden by ${}", var, override_var);
-        path_buf = std::path::PathBuf::from(override_var_value);
-        &path_buf
+        PathBuf::from(override_var_value)
     } else {
-        path
+        match path {
+            Err(e) => {
+                panic!("{var} not available for platform {e:?}, set ${override_var} to override")
+            }
+            Ok(path) => {
+                assert!(path.exists(), "Path does not exist: `{}`", path.display());
+                path
+            }
+        }
     };
 
-    let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
+    let path = dunce::canonicalize(&path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
     env::set_var(var, path);
 }
@@ -50,7 +56,7 @@ fn maybe_set_protoc() {
         set_var(
             "PROTOC",
             "BUCK2_BUILD_PROTOC",
-            &protoc_bin_vendored::protoc_bin_path().unwrap(),
+            protoc_bin_vendored::protoc_bin_path(),
         );
     }
 }
@@ -62,7 +68,7 @@ fn maybe_set_protoc_include() {
         set_var(
             "PROTOC_INCLUDE",
             "BUCK2_BUILD_PROTOC_INCLUDE",
-            &protoc_bin_vendored::include_path().unwrap(),
+            protoc_bin_vendored::include_path(),
         );
     }
 }
