@@ -167,7 +167,7 @@ In summary, a `buck2` project requires:
 1. A `.buckconfig` file in the root which has a `[repositories]` section listing out [cells](https://buck2.build/docs/concepts/glossary/#cell)
 2. A `prelude` directory, which contains a collection of [rules](https://buck2.build/docs/concepts/glossary/#rule) of your choice. `buck2 init` will pull in the [buck2-prelude](https://github.com/facebook/buck2-prelude.git) as a git submodule by default
 3. If using the [buck2-prelude](https://github.com/facebook/buck2-prelude.git), a `toolchains` directory that declares relevant toolchains. We provide some basic toolchains in [prelude/toolchains](https://github.com/facebook/buck2/tree/main/prelude/toolchains)
-4. `BUCK` files that specifiy targets for your project
+4. `BUCK` files that specify targets for your project
 
 `buck2 init --git` will generate all of these with reasonable default values.
 
