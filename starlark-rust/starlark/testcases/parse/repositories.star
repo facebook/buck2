@@ -77,7 +77,7 @@ def go_rules_dependencies():
       name = "io_bazel_rules_go_repository_tools",
   )
 
-  # Proto dependancies
+  # Proto dependencies
   _maybe(go_repository,
       name = "com_github_golang_protobuf",
       importpath = "github.com/golang/protobuf",
@@ -98,7 +98,7 @@ def go_rules_dependencies():
       strip_prefix = "protobuf-3.4.0",
   )
 
-  # GRPC dependancies
+  # GRPC dependencies
   _maybe(go_repository,
       name = "org_golang_x_net",
       commit = "a04bdaca5b32abe1c069418fb7088ae607de5bd0",  # master as of 2017-10-10

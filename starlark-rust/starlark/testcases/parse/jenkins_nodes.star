@@ -51,9 +51,9 @@ def jenkins_nodes(name,
     count: number of production node to create.
     labels: Jenkins node labels to apply to this node (in addition to
       the "install-bazel" label and the `name` itself).
-    prod_args: dictionary of aditional arguments for production only
+    prod_args: dictionary of additional arguments for production only
       nodes that will be passed to `jenkins_node`.
-    staging_args: dictionary of aditional arguments for staging only
+    staging_args: dictionary of additional arguments for staging only
       nodes that will be passed to `jenkins_node`.
     install_bazel: if the "install-bazel" label should be added to labels.
     **kwargs: other arguments to be passed verbatim to `jenkins_node`.

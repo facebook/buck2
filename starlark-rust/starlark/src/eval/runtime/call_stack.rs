@@ -126,7 +126,7 @@ unsafe impl<'v> Trace<'v> for CheapCallStack<'v> {
         for x in used {
             x.function.trace(tracer);
         }
-        // Not required, but since we are chosing not to walk those above
+        // Not required, but since we are choosing not to walk those above
         // the current stack depth, it's good practice to blank those values out
         for x in unused {
             x.function = Value::new_none();

@@ -43,7 +43,7 @@ fn test_frozen_lambda() {
 def my_func(a):
     return lambda b: a + b
 add18 = my_func(18)
-# This test used to fail if a GC happend, so add one
+# This test used to fail if a GC happened, so add one
 garbage_collect()
 "#,
     );

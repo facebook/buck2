@@ -20,7 +20,7 @@ self_extract_binary(
   name = "install.sh",
   launcher = "launcher.sh",
   resources = ["path1/file1", "path2/file2"],
-  flatten_ressources = ["path3/file3"],
+  flatten_resources = ["path3/file3"],
 )
 
 will generate a file 'install.sh' with a header (launcher.sh)

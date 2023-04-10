@@ -106,7 +106,7 @@ pub(crate) struct StmtCompileContext {
     pub(crate) has_return_type: bool,
     /// Insert `BeforeStmt` instruction before statement.
     pub(crate) has_before_stmt: bool,
-    /// Instert bytecode profiling instructions.
+    /// Insert bytecode profiling instructions.
     pub(crate) bc_profile: bool,
     /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
     pub(crate) record_call_enter_exit: bool,

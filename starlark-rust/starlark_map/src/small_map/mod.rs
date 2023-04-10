@@ -57,7 +57,7 @@ const NO_INDEX_THRESHOLD: usize = 32;
 #[cfg(not(rust_nightly))]
 const NO_INDEX_THRESHOLD: usize = 16;
 
-/// An memory-efficient key-value map with determinstic order.
+/// An memory-efficient key-value map with deterministic order.
 ///
 /// Provides the standard container operations, modelled most closely on `indexmap::IndexMap`, plus:
 ///

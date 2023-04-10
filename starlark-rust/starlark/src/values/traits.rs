@@ -558,7 +558,7 @@ pub trait StarlarkValue<'v>:
         None
     }
 
-    /// Substract `other` from the current value.
+    /// Subtract `other` from the current value.
     ///
     /// # Examples
     ///

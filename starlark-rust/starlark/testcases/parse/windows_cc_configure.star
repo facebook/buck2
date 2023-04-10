@@ -351,7 +351,7 @@ def configure_windows_toolchain(repository_ctx):
         "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
     })
     # nvcc will generate some source files under %{nvcc_tmp_dir_name}
-    # The generated files are guranteed to have unique name, so they can share the same tmp directory
+    # The generated files are guaranteed to have unique name, so they can share the same tmp directory
     escaped_cxx_include_directories += [ "cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name ]
     msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
     for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:

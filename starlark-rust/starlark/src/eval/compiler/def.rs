@@ -512,7 +512,7 @@ pub(crate) struct DefGen<V> {
     /// `lambda` functions can be instantiated multiple times.
     pub(crate) def_info: FrozenRef<'static, DefInfo>,
     /// Any variables captured from the outer scope (nested def/lambda).
-    /// Values are either [`Value`] or [`FrozenValu`] pointing respectively to
+    /// Values are either [`Value`] or [`FrozenValue`] pointing respectively to
     /// [`ValueCaptured`] or [`FrozenValueCaptured`].
     captured: Vec<V>,
     // Important to ignore these field as it probably references DefGen in a cycle

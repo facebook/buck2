@@ -26,7 +26,7 @@ def _impl(repository_ctx):
   cpu_value = get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually
-    # autoconfigure this platform too.  Theorically, FreeBSD should be
+    # autoconfigure this platform too.  Theoretically, FreeBSD should be
     # straightforward to add but we cannot run it in a docker container so
     # skipping until we have proper tests for FreeBSD.
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")

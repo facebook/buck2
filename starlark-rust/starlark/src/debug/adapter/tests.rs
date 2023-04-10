@@ -340,7 +340,7 @@ print(x)
             controller.wait_for_eval_stopped(3, TIMEOUT);
             assert_eq!("[3, 3, 4]", adapter.evaluate("y")?.result);
 
-            // step out shoudl get out to the print
+            // step out should get out to the print
             adapter.step(StepKind::Out)?;
             controller.wait_for_eval_stopped(4, TIMEOUT);
             assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
