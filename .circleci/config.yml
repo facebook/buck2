@@ -1,7 +1,3 @@
-aliases:
-  - &is_main_branch
-      equal: [ main, << pipeline.git.branch >> ]
-
 commands:
   print_versions:
     description: Version Info
@@ -93,9 +89,8 @@ jobs:
       - rust/test:
           with_cache: false
 
-  linux-build-example-and-upload-binary:
-    description: |
-      Build the example project and upload buck2 binary for Linux
+  linux-build-examples:
+    description: Build example projects
     docker:
       - image: cimg/rust:1.65.0
     resource_class: xlarge
@@ -119,13 +114,6 @@ jobs:
           command: |
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
-      - when:
-          condition:
-            *is_main_branch
-          steps:
-            - store_artifacts:
-                path: /tmp/artifacts/buck2
-                destination: buck2-linux
 
   macos-build:
     description: |
@@ -139,9 +127,8 @@ jobs:
       - rust/build:
           with_cache: false
 
-  macos-build-example-and-upload-binary:
-    description: |
-      Build the example project and upload buck2 binary for macOS
+  macos-build-examples:
+    description: Build example projects
     macos:
       xcode: 13.4.1
     resource_class: large
@@ -167,13 +154,6 @@ jobs:
           command: |
             cd examples/no_prelude
             /tmp/artifacts/buck2 build //... -v 2
-      - when:
-          condition:
-            *is_main_branch
-          steps:
-            - store_artifacts:
-                path: /tmp/artifacts/buck2
-                destination: buck2-macos
 
   windows-build-and-test:
     description: |
@@ -192,9 +172,8 @@ jobs:
       - rust/build:
           with_cache: false
 
-  windows-build-example-and-upload-binary:
-    description: |
-      Build the example project and upload buck2 binary for Windows
+  windows-build-examples:
+    description: Build example projects
     executor:
       name: win/default
       size: "xlarge"
@@ -220,20 +199,13 @@ jobs:
             # TODO: Fix //cpp on CircleCI, some C++ includes are missing from the system
             /tmp/artifacts/buck2 build //go/... -v 2
             /tmp/artifacts/buck2 build //rust/... -v 2
-      - when:
-          condition:
-            *is_main_branch
-          steps:
-          - store_artifacts:
-              path: C:/tmp/artifacts/buck2.exe
-              destination: buck2-windows.exe
 
 workflows:
   build-test-and-upload:
     jobs:
       - linux-build-and-test
-      - linux-build-example-and-upload-binary
+      - linux-build-examples
       - macos-build
-      - macos-build-example-and-upload-binary
+      - macos-build-examples
       - windows-build-and-test
-      - windows-build-example-and-upload-binary
+      - windows-build-examples
