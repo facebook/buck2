@@ -13,7 +13,7 @@ pub struct Counters {
     pub bytes_recv: u64,
 }
 
-#[cfg(unix)]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod collector {
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -66,8 +66,8 @@ mod collector {
     }
 }
 
-// psutil network stats aren't implemented on windows.
-#[cfg(not(unix))]
+// psutil network stats aren't implemented on windows or other unix-likes.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 mod collector {
     use std::collections::HashMap;
 

@@ -69,7 +69,7 @@ buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 host_sharing = { workspace = true }
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 psutil = { workspace = true }
 
 [dev-dependencies]
