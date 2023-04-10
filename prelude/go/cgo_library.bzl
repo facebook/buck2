@@ -64,6 +64,7 @@ def _cgo(
 
     pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
     pre_args = pre.set.project_as_args("args")
+    pre_include_dirs = pre.set.project_as_args("include_dirs")
 
     gen_dir = "cgo_gen"
 
@@ -96,6 +97,7 @@ def _cgo(
     args.add(cmd_args(go_srcs[0].as_output(), format = "--output={}/.."))
     args.add(cmd_args(cxx_toolchain.c_compiler_info.preprocessor, format = "--cpp={}"))
     args.add(cmd_args(pre_args, format = "--cpp={}"))
+    args.add(cmd_args(pre_include_dirs, format = "--cpp={}"))
     args.add(srcs)
 
     argsfile = ctx.actions.declare_output(paths.join(gen_dir, ".cgo.argsfile"))
