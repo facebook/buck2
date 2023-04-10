@@ -343,6 +343,6 @@ mod tests {
             Span::new_styled_lossy("xxx".to_owned().dark_yellow()),
             Span::new_styled_lossy("     ".to_owned().red()),
         ]);
-        assert_eq!(lhs, rhs);
+        assert_ne!(lhs, rhs);
     }
 }

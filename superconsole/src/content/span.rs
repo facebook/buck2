@@ -22,40 +22,11 @@ use crate::Error;
 
 /// A `Span` is a segment of text that may or may not have [`style`](crate::style) applied to it.
 /// One may think of this as a unit of text.  It must be [`valid`](Span::valid) to be constructed.
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Span {
     pub(crate) content: String,
     pub stylization: ContentStyle,
-}
-
-impl PartialEq for Span {
-    /// Spans are sequences of text with a common styling applied to them.
-    /// In our model here, two spans are considered to be equal
-    /// if they have the same text and the same styling.
-    /// Styling is entirely a function of appearance - if they look the same,
-    /// they have the same styling.
-    /// Our underlying crossterm dep allows for an "unstyled" styling,
-    /// where the text is marked as styled but doesn't actually appear different
-    ///  than if no styling had been applied at all.
-    /// Therefore, spans where there is no styling
-    /// and spans where the styling is empty are visually equivalent.
-    /// Additionally, if the text entirely consists of whitespaces, then foreground styling is ignored when comparing equality.
-    fn eq(&self, other: &Self) -> bool {
-        // this assumes single character content
-        fn stylizations_eq(lhs: &Span, rhs: &Span) -> bool {
-            let ignore_foreground_color = || lhs.is_padding() || rhs.is_padding();
-
-            let lhs = lhs.stylization;
-            let rhs = rhs.stylization;
-            (lhs.foreground_color == rhs.foreground_color || ignore_foreground_color())
-                && lhs.background_color == rhs.background_color
-                && lhs.attributes == rhs.attributes
-        }
-        self.iter()
-            .zip(other.iter())
-            .all(|(lhs, rhs)| lhs.content == rhs.content && stylizations_eq(&lhs, &rhs))
-    }
 }
 
 /// Test whether a char is permissable to be inside a Span.
@@ -76,10 +47,6 @@ impl Span {
     /// This is because the `superconsole` expects content to be mono-spaced and newlines, tabs, etc., violate this.
     pub fn valid(stringlike: &str) -> bool {
         !stringlike.contains(|c: char| !char_valid(c))
-    }
-
-    fn is_padding(&self) -> bool {
-        self.content.as_bytes().iter().all(u8::is_ascii_whitespace)
     }
 
     pub fn sanitized<S: std::fmt::Display>(string: S) -> Self {
@@ -262,7 +229,7 @@ mod tests {
         let lhs = Span::new_styled_lossy("   ".to_owned().red());
         let rhs = Span::new_styled_lossy("   ".to_owned().yellow());
 
-        assert_eq!(lhs, rhs);
+        assert_ne!(lhs, rhs);
 
         let lhs = Span::new_styled_lossy("   ".to_owned().red().on_yellow());
         let rhs = Span::new_styled_lossy("   ".to_owned().yellow().on_green());
