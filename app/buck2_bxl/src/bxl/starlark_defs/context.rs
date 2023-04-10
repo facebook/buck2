@@ -335,12 +335,20 @@ fn register_context(builder: &mut MethodsBuilder) {
                 .await?
                 {
                     TargetExpr::Label(label) => {
-                        let node = ctx
-                            .get_configured_target_node(&label)
-                            .await?
-                            .require_compatible()?;
+                        let set = filter_incompatible(
+                            iter::once(ctx.get_configured_target_node(&label).await?),
+                            this,
+                        )?;
 
-                        node.alloc(eval.heap())
+                        // When a target label is passed in, we should only get one target node.
+                        // filter_incompatible() returns a set, so lets assert the size
+                        assert!(set.len() <= 1);
+
+                        if let Some(node) = set.iter().next() {
+                            node.clone().alloc(eval.heap())
+                        } else {
+                            Value::new_none()
+                        }
                     }
 
                     TargetExpr::Node(node) => node.alloc(eval.heap()),
