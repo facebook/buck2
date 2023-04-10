@@ -51,12 +51,11 @@ fn split_compatible_incompatible(
     Ok((target_set, incompatible_targets))
 }
 
-/// Converts target nodes to a set of compatible configured target nodes.
-pub async fn get_compatible_targets(
+pub async fn get_maybe_compatible_targets(
     ctx: &DiceComputations,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_target_platform: Option<TargetLabel>,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+) -> anyhow::Result<impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>> {
     let mut by_package_futs: Vec<_> = Vec::new();
     for (_package, result) in loaded_targets {
         let targets = result?;
@@ -75,12 +74,23 @@ pub async fn get_compatible_targets(
         }));
     }
 
-    let (compatible_targets, incompatible_targets) = split_compatible_incompatible(
-        futures::future::join_all(by_package_futs)
-            .await
-            .into_iter()
-            .flatten(),
-    )?;
+    Ok(futures::future::join_all(by_package_futs)
+        .await
+        .into_iter()
+        .flatten())
+}
+
+/// Converts target nodes to a set of compatible configured target nodes.
+pub async fn get_compatible_targets(
+    ctx: &DiceComputations,
+    loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+    global_target_platform: Option<TargetLabel>,
+) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    let maybe_compatible_targets =
+        get_maybe_compatible_targets(ctx, loaded_targets, global_target_platform).await?;
+
+    let (compatible_targets, incompatible_targets) =
+        split_compatible_incompatible(maybe_compatible_targets)?;
 
     if !incompatible_targets.is_empty() {
         console_message(IncompatiblePlatformReason::skipping_message_for_multiple(

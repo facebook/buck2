@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::calculation::MissingTargetBehavior;
-use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::configure_targets::get_maybe_compatible_targets;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
@@ -225,14 +225,20 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                     ))))
                 }
                 pattern => {
-                    let loaded_patterns = load_compatible_patterns(
+                    let loaded_patterns =
+                        load_patterns(ctx.async_ctx.0, vec![pattern], MissingTargetBehavior::Fail)
+                            .await?;
+
+                    let maybe_compatible = get_maybe_compatible_targets(
                         ctx.async_ctx.0,
-                        vec![pattern],
+                        loaded_patterns.iter_loaded_targets_by_package(),
                         target_platform.dupe(),
-                        MissingTargetBehavior::Fail,
                     )
-                    .await?;
-                    Ok(Some(Self::TargetSet(Cow::Owned(loaded_patterns))))
+                    .await?
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                    let result = filter_incompatible(maybe_compatible.into_iter(), ctx)?;
+                    Ok(Some(Self::TargetSet(Cow::Owned(result))))
                 }
             }
         } else {
