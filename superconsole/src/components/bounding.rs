@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use crate::content::LinesExt;
 use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
@@ -40,10 +39,9 @@ impl Component for Bounded {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let mut output = self
+        let output = self
             .child
             .draw(state, dimensions.intersect(self.max_size), mode)?;
-        output.shrink_lines_to_dimensions(self.max_size.intersect(dimensions));
         Ok(output)
     }
 }
