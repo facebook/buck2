@@ -22,6 +22,7 @@ use crossterm::terminal::ClearType;
 use crate::components::Blank;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
+use crate::content::LinesExt;
 use crate::Component;
 use crate::Line;
 use crate::State;
@@ -43,17 +44,19 @@ impl Default for Canvas {
     }
 }
 
-impl Component for Canvas {
+impl Canvas {
     /// A passthrough method that resizes the Canvas to reflect the size of the root.
     /// Allows dynamic resizing.
     /// Cuts off any lines that are too for long a single row
-    fn draw_unchecked(
+    pub(crate) fn draw(
         &self,
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Vec<Line>> {
-        let output = self.child.draw(state, dimensions, mode)?;
+        let mut output = self.child.draw(state, dimensions, mode)?;
+        // We don't trust the child to not truncate the result.
+        output.shrink_lines_to_dimensions(dimensions);
         self.len.set(output.len().try_into()?);
         Ok(output)
     }
