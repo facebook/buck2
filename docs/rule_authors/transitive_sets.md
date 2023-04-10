@@ -3,7 +3,7 @@ id: transitive_sets
 title: Transitive Sets
 ---
 
-Transitive sets enable the propogation of data up dependency trees in a manner that is both efficient in Starlark code (low cost of creation, low memory usage) and efficient for execution by Buck (edges can be shared instead of having each action depend directly on all its inputs).
+Transitive sets enable the propagation of data up dependency trees in a manner that is both efficient in Starlark code (low cost of creation, low memory usage) and efficient for execution by Buck (edges can be shared instead of having each action depend directly on all its inputs).
 
 Examples of where transitive sets are useful include:
 
@@ -31,7 +31,7 @@ Sets aren't useful unless you can use their contents!
 
 To use a set in a command line, you use a concept called a 'projection', which defines how to turn individual values found in the set into command line arguments.
 
-To define a projection, you write a function that takes a value of your set and returns a command-line like object (`cmd_args`, `string`, `attr.arg()` attributes, `artifact`, ad so on) or a list of them in whichever way makes sense for your use case.
+To define a projection, you write a function that takes a value of your set and returns a command-line like object (`cmd_args`, `string`, `attr.arg()` attributes, `artifact`, and so on) or a list of them in whichever way makes sense for your use case.
 
 Then, you call `project_as_args` to turn a set into a value suitable for inclusion in a command line. When expanded, this projection will expand like a list of all the node's individual projected values.
 
