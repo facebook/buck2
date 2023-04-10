@@ -10,7 +10,6 @@ anyhow = { workspace = true }
 async-compression = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
-bytes = { workspace = true }
 bytesize = { workspace = true }
 clap = { workspace = true }
 chrono = { workspace = true }
@@ -35,7 +34,6 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
-httparse = { workspace = true }
 walkdir = { workspace = true }
 num_cpus = { workspace = true }
 threadpool = { workspace = true }
