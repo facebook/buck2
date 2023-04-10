@@ -25,7 +25,7 @@ The full regular expression for a fully-qualified build target is as follows:
 ```
 
 In Buck, a *cell* defines a directory tree of one or more Buck packages. For more information about Buck cells and their relationship to packages and projects, see the [Key Concepts](https://buck.build/about/overview.html) topic.
-**NOTE:** All target paths are assumed to start from the root of the Buck project. Buck does not support specifying a target path that starts from a directory below the root. Although the double forward slash (`//`) that prefixes target paths can be ommitted when specifying a target from the command line (see **Pro Tips** below), Buck still assumes that the path is from the root. Buck does support *relative* build paths, but in Buck, that concept refers to specifying build targets *from within* a build file. See **Relative build targets** below for more details.
+**NOTE:** All target paths are assumed to start from the root of the Buck project. Buck does not support specifying a target path that starts from a directory below the root. Although the double forward slash (`//`) that prefixes target paths can be omitted when specifying a target from the command line (see **Pro Tips** below), Buck still assumes that the path is from the root. Buck does support *relative* build paths, but in Buck, that concept refers to specifying build targets *from within* a build file. See **Relative build targets** below for more details.
 
 #### Relative build targets
 
