@@ -234,17 +234,14 @@ impl StatefulSuperConsole {
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            state: SuperConsoleState {
-                current_tick: Tick::now(),
-                time_speed: TimeSpeed::new(replay_speed)?,
-                simple_console: SimpleConsole::with_tty(
-                    trace_id,
-                    isolation_dir,
-                    verbosity,
-                    show_waiting_message,
-                ),
+            state: SuperConsoleState::new(
+                replay_speed,
+                trace_id,
+                isolation_dir,
+                verbosity,
+                show_waiting_message,
                 config,
-            },
+            )?,
             super_console: Some(super_console),
             verbosity,
         })
@@ -276,6 +273,27 @@ impl StatefulSuperConsole {
 }
 
 impl SuperConsoleState {
+    fn new(
+        replay_speed: Option<f64>,
+        trace_id: TraceId,
+        isolation_dir: FileNameBuf,
+        verbosity: Verbosity,
+        show_waiting_message: bool,
+        config: SuperConsoleConfig,
+    ) -> anyhow::Result<SuperConsoleState> {
+        Ok(SuperConsoleState {
+            current_tick: Tick::now(),
+            time_speed: TimeSpeed::new(replay_speed)?,
+            simple_console: SimpleConsole::with_tty(
+                trace_id,
+                isolation_dir,
+                verbosity,
+                show_waiting_message,
+            ),
+            config,
+        })
+    }
+
     // Collect all state to send to super console. Note that the SpanTracker state is held in the
     // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
     pub(crate) fn state(&self) -> superconsole::State {
