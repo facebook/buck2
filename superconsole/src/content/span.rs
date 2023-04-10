@@ -60,12 +60,12 @@ impl PartialEq for Span {
 
 /// Test whether a char is permissable to be inside a Span.
 /// Whitespace is not allowed, except for spaces.
-pub fn char_valid(c: char) -> bool {
+pub(crate) fn char_valid(c: char) -> bool {
     c == ' ' || !c.is_whitespace()
 }
 
 /// Strip invalid characters from the string.
-pub fn sanitize<S: std::fmt::Display>(stringlike: S) -> String {
+pub(crate) fn sanitize<S: std::fmt::Display>(stringlike: S) -> String {
     let mut content = stringlike.to_string();
     content.retain(char_valid);
     content
@@ -180,7 +180,7 @@ impl Span {
     /// Applies the stylization of the `Span` to each `Grapheme`.
     /// Because a `Grapheme` is represented as another string, the sub-`Span` is represented as a `Span`.
     /// This `panics` if it encounters unicode that it doesn't know how to deal with.
-    pub fn iter(&self) -> SpanIterator {
+    pub fn iter(&self) -> impl Iterator<Item = Span> + '_ {
         SpanIterator(&self.stylization, self.content.graphemes(true))
     }
 
@@ -217,7 +217,7 @@ impl TryFrom<StyledContent<String>> for Span {
     }
 }
 
-pub struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>);
+pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>);
 
 impl<'a> Iterator for SpanIterator<'a> {
     type Item = Span;
