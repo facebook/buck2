@@ -30,6 +30,7 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:pretty_assertions",
         "fbsource//third-party/rust:tempfile",
     ],
@@ -48,7 +49,6 @@ rust_library(
         "fbsource//third-party/rust:httparse",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:libc",
-        "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:memmap2",
         "fbsource//third-party/rust:object",
         "fbsource//third-party/rust:once_cell",
