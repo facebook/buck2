@@ -12,6 +12,7 @@ use std::io::Write;
 use std::iter;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -294,6 +295,15 @@ impl SuperConsoleState {
         })
     }
 
+    fn update_event_observer(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> anyhow::Result<()> {
+        self.simple_console
+            .update_event_observer(receive_time, event)
+    }
+
     // Collect all state to send to super console. Note that the SpanTracker state is held in the
     // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
     pub(crate) fn state(&self) -> superconsole::State {
@@ -344,7 +354,6 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                     .await
                     .with_context(|| display::InvalidBuckEvent(event.clone()))?;
                 self.state
-                    .simple_console
                     .update_event_observer(self.state.current_tick.start_time, event)?;
             }
             None => {
