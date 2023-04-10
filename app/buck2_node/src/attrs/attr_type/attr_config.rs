@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+use std::fmt;
+use std::fmt::Display;
+
+use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
@@ -41,18 +45,54 @@ pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
     type TargetType: TargetLabelMaybeConfigured + AttrLike;
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     type SplitTransitionDepType: SplitTransitionDepMaybeConfigured + AttrLike;
-    type ExplicitConfiguredDepType: ExplicitConfiguredDepMaybeConfigured + AttrLike;
+    // Used to encapsulate the type encodings for various attr types.
+    type ExtraTypes: AttrConfigExtraTypes + Display + Allocative;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
 
+/// Needed to support `ExtraTypes` for within `AttrConfig`.
+pub trait AttrConfigExtraTypes {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+}
+
+/// Attribute literal type encoding for ConfiguredAttrs.
+#[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
+pub enum ConfiguredAttrExtraTypes {
+    ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
+}
+
+impl Display for ConfiguredAttrExtraTypes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+        }
+    }
+}
+
+impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        match self {
+            Self::ExplicitConfiguredDep(e) => e.to_json(),
+        }
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        match self {
+            Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
+        }
+    }
+}
+
 impl AttrConfig for ConfiguredAttr {
     type TargetType = ConfiguredTargetLabel;
     type ProvidersType = ConfiguredProvidersLabel;
     type SplitTransitionDepType = ConfiguredSplitTransitionDep;
-    type ExplicitConfiguredDepType = ConfiguredExplicitConfiguredDep;
+    type ExtraTypes = ConfiguredAttrExtraTypes;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         self.0.to_json(ctx)
@@ -63,11 +103,39 @@ impl AttrConfig for ConfiguredAttr {
     }
 }
 
+/// Attribute literal type encoding for CoercedAttrs.
+#[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
+pub enum CoercedAttrExtraTypes {
+    ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
+}
+
+impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
+    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+        match self {
+            Self::ExplicitConfiguredDep(e) => e.to_json(),
+        }
+    }
+
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        match self {
+            Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
+        }
+    }
+}
+
+impl Display for CoercedAttrExtraTypes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+        }
+    }
+}
+
 impl AttrConfig for CoercedAttr {
     type TargetType = TargetLabel;
     type ProvidersType = ProvidersLabel;
     type SplitTransitionDepType = SplitTransitionDep;
-    type ExplicitConfiguredDepType = UnconfiguredExplicitConfiguredDep;
+    type ExtraTypes = CoercedAttrExtraTypes;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         CoercedAttr::to_json(self, ctx)

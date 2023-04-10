@@ -13,6 +13,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 
+use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -32,7 +33,9 @@ impl ExplicitConfiguredDepAttrType {
         dep_attr: &UnconfiguredExplicitConfiguredDep,
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
         let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
-        Ok(AttrLiteral::ExplicitConfiguredDep(Box::new(configured)))
+        Ok(AttrLiteral::Extra(
+            ConfiguredAttrExtraTypes::ExplicitConfiguredDep(Box::new(configured)),
+        ))
     }
 
     fn configure_target_with_platform(

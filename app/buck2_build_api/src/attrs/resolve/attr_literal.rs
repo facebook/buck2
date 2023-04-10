@@ -13,6 +13,7 @@ use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
@@ -165,9 +166,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     which have no corresponding starlark impl"
             )),
             AttrLiteral::ConfigurationDep(d) => ConfigurationDepAttrType::resolve_single(ctx, d),
-            AttrLiteral::ExplicitConfiguredDep(d) => {
-                ExplicitConfiguredDepAttrType::resolve_single(ctx, d)
-            }
             AttrLiteral::SplitTransitionDep(deps) => {
                 SplitTransitionDepAttrType::resolve_single(ctx, deps)
             }
@@ -188,6 +186,11 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 //   But adding it here to preserve exising behavior.
                 a.to_value(pkg, ctx.heap())
             }
+            AttrLiteral::Extra(u) => match u {
+                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
+                    ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
+                }
+            },
         }
     }
 
@@ -216,9 +219,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::None => Ok(NoneType::TYPE),
             AttrLiteral::Dep(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::ConfiguredDep(_) => Ok(Label::get_type_value_static().as_str()),
-            AttrLiteral::ExplicitConfiguredDep(_) => {
-                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-            }
             AttrLiteral::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SplitTransitionDep(_) => Ok(Dict::TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
@@ -228,6 +228,11 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Label(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::OneOf(box l, _) => l.starlark_type(),
             AttrLiteral::Visibility(..) => Ok(ListRef::TYPE),
+            AttrLiteral::Extra(u) => match u {
+                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(_) => {
+                    Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
+                }
+            },
         }
     }
 
@@ -255,7 +260,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::None => Value::new_none(),
             AttrLiteral::Dep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
-            AttrLiteral::ExplicitConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfigurationDep(box c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
             AttrLiteral::SplitTransitionDep(t) => {
                 let mut map = SmallMap::with_capacity(t.deps.len());
@@ -282,6 +286,11 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 VisibilitySpecification::Default => heap.alloc(AllocList::EMPTY),
                 VisibilitySpecification::VisibleTo(specs) => {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+                }
+            },
+            AttrLiteral::Extra(u) => match u {
+                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
+                    heap.alloc(Label::new(d.as_ref().label.clone()))
                 }
             },
         })

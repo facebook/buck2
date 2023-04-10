@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
@@ -72,13 +73,15 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target(platform_string)?;
 
-        Ok(AttrLiteral::ExplicitConfiguredDep(Box::new(
-            UnconfiguredExplicitConfiguredDep {
-                attr_type: self.dupe(),
-                label,
-                platform,
-            },
-        )))
+        Ok(AttrLiteral::Extra(
+            CoercedAttrExtraTypes::ExplicitConfiguredDep(Box::new(
+                UnconfiguredExplicitConfiguredDep {
+                    attr_type: self.dupe(),
+                    label,
+                    platform,
+                },
+            )),
+        ))
     }
 
     fn starlark_type(&self) -> String {
