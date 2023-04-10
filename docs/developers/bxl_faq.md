@@ -21,8 +21,7 @@ Following are some specific recommendations to help decide when to use BXL over 
 
 The entire BXL script is represented as a single node on the DICE graph (Buck2’s internal dependency graph). When the script’s input changes, the entire node is invalidated and needs to be recomputed. For example, if a BXL function calls uquery, then uses the result to do a cquery and then a build, if Buck2 detects that any of the recorded calls to uquery, cquery, and build changes, then the entire BXL script will be reran. The computations themselves (uquery, cquery, and build) will still be incrementally evaluated via DICE, so we are not rerunning _every_ computation entirely within the BXL.
 
-When the BXL script creates artifacts and ensures them, those artifacts are cached separately in an action outside of
-of the BXL execution. This means that the artifacts produced by BXL are cached separately from the BXL script itself, much like the computations within a BXL.
+When the BXL script creates artifacts and ensures them, those artifacts are cached separately in an action outside of the BXL execution. This means that the artifacts produced by BXL are cached separately from the BXL script itself, much like the computations within a BXL.
 
 During 2023, there is a plan to add finer grain incrementality to make better use of DICE’s existing incrementality support.
 
