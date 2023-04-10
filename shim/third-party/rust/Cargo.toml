@@ -94,7 +94,6 @@ internment = { version = "0.7", features = ["arc"] }
 inventory = "0.1.9"
 is_proc_translated = "0.1.1"
 itertools = "0.10.3"
-jemalloc-ctl = "0.3.3"
 jemallocator = { version = "0.3.2", features = ["profiling"] }
 lalrpop = { version = "0.19.7", artifact = "bin" }
 lalrpop-util = "0.19.7"

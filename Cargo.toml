@@ -145,7 +145,6 @@ internment = { version = "0.7", features = ["arc"] }
 inventory = "0.1.9"
 is_proc_translated = "0.1.1"
 itertools = "0.10.3"
-jemalloc-ctl = "0.5.0"
 jemallocator = { version = "0.5.0", features = ["profiling"] }
 libc = "0.2.132"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
