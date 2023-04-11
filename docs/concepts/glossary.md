@@ -18,7 +18,7 @@ The dependency graph of all [actions](#action) belonging to a target: it can be 
 
 #### Artifact
 
-A single input or output of an [action](#action). These are files that participate as inputs or outputs of a build and can be source files or build outputs. For more information, see the [Artifact API](https://buck2.build/docs/generated/native/Artifact/).
+A single input or output of an [action](#action). These are files that participate as inputs or outputs of a build and can be source files or build outputs. For more information, see the [Artifact API](https://buck2.build/docs/api/build/Artifact/).
 
 #### Attribute
 
