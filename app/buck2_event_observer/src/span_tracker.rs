@@ -375,46 +375,7 @@ impl SpanTrackable for Arc<BuckEvent> {
     }
 
     fn is_shown(&self) -> bool {
-        use buck2_data::span_start_event::Data;
-
-        match self.span_start_event().and_then(|span| span.data.as_ref()) {
-            Some(
-                Data::Command(..)
-                | Data::CommandCritical(..)
-                | Data::Materialization(..)
-                | Data::DiceCriticalSection(..),
-            ) => false,
-            Some(
-                Data::ActionExecution(..)
-                | Data::FinalMaterialization(..)
-                | Data::Analysis(..)
-                | Data::Load(..)
-                | Data::LoadPackage(..)
-                | Data::TestDiscovery(..)
-                | Data::TestStart(..)
-                | Data::FileWatcher(..)
-                | Data::SharedTask(..)
-                | Data::CreateOutputSymlinks(..)
-                | Data::InstallEventInfo(..)
-                | Data::DiceStateUpdate(..)
-                | Data::Fake(..)
-                | Data::AnalysisStage(..)
-                | Data::ExecutorStage(..)
-                | Data::MatchDepFiles(..)
-                | Data::CacheUpload(..)
-                | Data::DiceBlockConcurrentCommand(..)
-                | Data::DiceSynchronizeSection(..)
-                | Data::DiceCleanup(..)
-                | Data::ExclusiveCommandWait(..)
-                | Data::DeferredPreparationStage(..)
-                | Data::DynamicLambda(..)
-                | Data::BxlExecution(..)
-                | Data::BxlDiceInvocation(..)
-                | Data::ReUpload(..)
-                | Data::ConnectToInstaller(..),
-            ) => true,
-            None => false,
-        }
+        is_span_shown(self)
     }
 
     fn is_boring(&self) -> bool {
@@ -439,6 +400,49 @@ impl SpanTrackable for Arc<BuckEvent> {
             Some(Data::BxlDiceInvocation(..)) => true,
             _ => false,
         }
+    }
+}
+
+pub fn is_span_shown(event: &BuckEvent) -> bool {
+    use buck2_data::span_start_event::Data;
+
+    match event.span_start_event().and_then(|span| span.data.as_ref()) {
+        Some(
+            Data::Command(..)
+            | Data::CommandCritical(..)
+            | Data::Materialization(..)
+            | Data::DiceCriticalSection(..),
+        ) => false,
+        Some(
+            Data::ActionExecution(..)
+            | Data::FinalMaterialization(..)
+            | Data::Analysis(..)
+            | Data::Load(..)
+            | Data::LoadPackage(..)
+            | Data::TestDiscovery(..)
+            | Data::TestStart(..)
+            | Data::FileWatcher(..)
+            | Data::SharedTask(..)
+            | Data::CreateOutputSymlinks(..)
+            | Data::InstallEventInfo(..)
+            | Data::DiceStateUpdate(..)
+            | Data::Fake(..)
+            | Data::AnalysisStage(..)
+            | Data::ExecutorStage(..)
+            | Data::MatchDepFiles(..)
+            | Data::CacheUpload(..)
+            | Data::DiceBlockConcurrentCommand(..)
+            | Data::DiceSynchronizeSection(..)
+            | Data::DiceCleanup(..)
+            | Data::ExclusiveCommandWait(..)
+            | Data::DeferredPreparationStage(..)
+            | Data::DynamicLambda(..)
+            | Data::BxlExecution(..)
+            | Data::BxlDiceInvocation(..)
+            | Data::ReUpload(..)
+            | Data::ConnectToInstaller(..),
+        ) => true,
+        None => false,
     }
 }
 
