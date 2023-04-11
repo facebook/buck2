@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use derivative::Derivative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
@@ -23,11 +24,15 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
+use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
+use crate::HashMap;
 
 /// Core state is accessed via message passing to a single threaded processor
-#[derive(Debug, VariantName)]
+#[derive(Derivative, VariantName)]
+#[derivative(Debug)]
 pub(crate) enum StateRequest {
     /// Updates the core state with the given set of changes. The new VersionNumber that should be
     /// used is sent back via the channel provided
@@ -67,6 +72,12 @@ pub(crate) enum StateRequest {
     UnstableDropEverything,
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
+    /// Collects the introspectable dice state
+    Introspection {
+        resp: Sender<GraphIntrospectable>,
+        #[derivative(Debug = "ignore")]
+        key_map: HashMap<DiceKey, AnyKey>,
+    },
 }
 
 /// A handle to the core state that allows sending requests

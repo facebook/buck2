@@ -27,7 +27,7 @@ use crate::introspection::graph::VersionNumber;
 use crate::HashMap;
 use crate::HashSet;
 
-pub(crate) struct VersionedGraphIntrospectable {
+pub struct VersionedGraphIntrospectable {
     nodes: HashMap<AnyKey, SerializedGraphNodesForKey>,
     edges: HashMap<AnyKey, Vec<AnyKey>>,
 }

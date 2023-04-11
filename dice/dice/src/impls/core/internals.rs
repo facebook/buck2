@@ -20,8 +20,11 @@ use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
+use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
+use crate::HashMap;
 
 /// Core state of DICE, holding the actual graph and version information
 pub(super) struct CoreState {
@@ -109,6 +112,12 @@ impl CoreState {
             currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
+    }
+
+    pub(super) fn introspection(&self, key_map: HashMap<DiceKey, AnyKey>) -> GraphIntrospectable {
+        let graph = self.graph.introspect(key_map);
+
+        GraphIntrospectable::Modern { graph }
     }
 }
 

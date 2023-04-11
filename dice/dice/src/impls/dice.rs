@@ -24,6 +24,7 @@ use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
+use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
 
 #[derive(Allocative)]
@@ -86,6 +87,18 @@ impl DiceModern {
             .request(StateRequest::Metrics { resp: tx });
 
         rx.await.unwrap()
+    }
+
+    #[allow(unused)]
+    pub fn introspection(&self) -> GraphIntrospectable {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.state_handle.request(StateRequest::Introspection {
+            resp: tx,
+            key_map: self.key_index.introspect(),
+        });
+
+        rx.blocking_recv().unwrap()
     }
 
     pub fn serialize_tsv(

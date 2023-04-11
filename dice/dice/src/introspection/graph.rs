@@ -28,6 +28,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
 
+use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::introspection::serialize_dense_graph;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::legacy::incremental::ErasedEngine;
@@ -41,7 +42,10 @@ pub enum GraphIntrospectable {
         #[derivative(Debug = "ignore")]
         introspectables: LegacyIntrospectable,
     },
-    Modern {},
+    Modern {
+        #[derivative(Debug = "ignore")]
+        graph: VersionedGraphIntrospectable,
+    },
 }
 
 pub struct LegacyIntrospectable(pub(crate) Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>);
@@ -207,7 +211,7 @@ pub(crate) trait EngineForIntrospection {
     fn currently_running_key_count(&self) -> usize;
 }
 
-pub(crate) trait KeyForIntrospection: Display + 'static {
+pub(crate) trait KeyForIntrospection: Display + Send + 'static {
     fn get_key_equality(&self) -> PartialEqAny;
 
     fn hash(&self, state: &mut dyn Hasher);
@@ -221,7 +225,7 @@ pub(crate) trait KeyForIntrospection: Display + 'static {
 
 impl<K> KeyForIntrospection for K
 where
-    K: Clone + Display + Hash + Eq + 'static,
+    K: Clone + Display + Hash + Eq + Send + 'static,
 {
     fn get_key_equality(&self) -> PartialEqAny {
         PartialEqAny::new(self)

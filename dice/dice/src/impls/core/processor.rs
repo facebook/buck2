@@ -81,6 +81,9 @@ impl StateProcessor {
             StateRequest::Metrics { resp } => {
                 let _ignored = resp.send(self.state.metrics());
             }
+            StateRequest::Introspection { resp, key_map } => {
+                let _ignored = resp.send(self.state.introspection(key_map));
+            }
         }
     }
 }

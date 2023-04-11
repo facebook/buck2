@@ -100,7 +100,6 @@ mod introspect {
     use crate::HashMap;
 
     impl DiceKeyIndex {
-        #[allow(unused)] // TODO(bobyf) temporary
         pub(crate) fn introspect(&self) -> HashMap<DiceKey, AnyKey> {
             let mut ret = HashMap::default();
 
