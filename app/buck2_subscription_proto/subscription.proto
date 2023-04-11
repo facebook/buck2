@@ -19,6 +19,7 @@ message SubscriptionRequest {
     Disconnect disconnect = 1;
     SubscribeToPaths subscribe_to_paths = 2;
     UnsubscribeFromPaths unsubscribe_from_paths = 3;
+    SubscribeToActiveCommands subscribe_to_active_commands = 4;
   }
 }
 
@@ -56,12 +57,15 @@ message UnsubscribeFromPaths {
   repeated string paths = 1;
 }
 
+message SubscribeToActiveCommands {}
+
 // Daemon to client interaction in a subscription. This is what the client will
 // receive via the `stdout` of the `subscribe` command.
 message SubscriptionResponse {
   // The actual response. See documentation of the underlying types for details.
   oneof response {
     Materialized materialized = 1;
+    ActiveCommandsSnapshot active_commands_snapshot = 2;
   }
 }
 
@@ -73,4 +77,18 @@ message Materialized {
   //
   // Regardless of platform, those paths use forward slashes as delimiters.
   string path = 1;
+}
+
+message ActiveCommandsSnapshot {
+  repeated ActiveCommand active_commands = 1;
+}
+
+message ActiveCommand {
+  string trace_id = 1;
+  repeated string argv = 2;
+  ActiveCommandStats stats = 3;
+}
+
+message ActiveCommandStats {
+  uint64 open_spans = 1;
 }

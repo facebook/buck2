@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Duration;
+
 use anyhow::Context as _;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
@@ -14,7 +16,9 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::future::FutureExt;
 use gazebo::prelude::*;
+use tokio::time::MissedTickBehavior;
 
+use crate::active_commands;
 use crate::streaming_request_handler::StreamingRequestHandler;
 
 pub(crate) async fn run_subscription_server_command(
@@ -45,6 +49,11 @@ pub(crate) async fn run_subscription_server_command(
                 .await
                 .context("Error creating a materializer subscription")?;
 
+            let mut wants_active_commands = false;
+
+            let mut ticker = tokio::time::interval(Duration::from_secs(1));
+            ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
             loop {
                 futures::select! {
                     message = req.message().fuse() => {
@@ -62,6 +71,9 @@ pub(crate) async fn run_subscription_server_command(
                                 let paths = paths.into_try_map(|path| path.try_into())?;
                                 materializer_subscription.unsubscribe_from_paths(paths);
                             }
+                            Request::SubscribeToActiveCommands(buck2_subscription_proto::SubscribeToActiveCommands {}) => {
+                                wants_active_commands = true;
+                            }
                         }
                     }
                     path = materializer_subscription.next_materialization().fuse() => {
@@ -71,6 +83,16 @@ pub(crate) async fn run_subscription_server_command(
                                 response: Some(buck2_subscription_proto::Materialized { path: path.to_string() }.into())
                             })
                         });
+                    }
+                    _ = ticker.tick().fuse() => {
+                        if wants_active_commands {
+                            let snapshot = active_commands_snapshot();
+                            partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
+                                response: Some(buck2_subscription_proto::SubscriptionResponse {
+                                    response: Some(snapshot.into())
+                                })
+                            });
+                        }
                     }
                 }
             }
@@ -82,4 +104,21 @@ pub(crate) async fn run_subscription_server_command(
         (result, end_event)
     })
     .await
+}
+
+fn active_commands_snapshot() -> buck2_subscription_proto::ActiveCommandsSnapshot {
+    let active_commands = active_commands::active_commands()
+        .iter()
+        .map(
+            |(trace_id, handle)| buck2_subscription_proto::ActiveCommand {
+                trace_id: trace_id.to_string(),
+                argv: handle.state().argv.clone(),
+                stats: Some(buck2_subscription_proto::ActiveCommandStats {
+                    open_spans: handle.state().active_spans(),
+                }),
+            },
+        )
+        .collect();
+
+    buck2_subscription_proto::ActiveCommandsSnapshot { active_commands }
 }

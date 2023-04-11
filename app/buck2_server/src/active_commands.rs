@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 use buck2_cli_proto::ClientContext;
 use buck2_event_observer::span_tracker;
@@ -31,6 +32,10 @@ static ACTIVE_COMMANDS: Lazy<Mutex<HashMap<TraceId, ActiveCommandHandle>>> =
 pub fn try_active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
     // Note that this function is accessed during panic, so have to be super careful
     Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
+}
+
+pub fn active_commands() -> MutexGuard<'static, HashMap<TraceId, ActiveCommandHandle>> {
+    ACTIVE_COMMANDS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Broadcasts an instant event, returns whether any subscribers were connected.
@@ -79,6 +84,10 @@ impl ActiveCommandHandle {
             let _ignored = channel.send(shutdown); // Nothing to do if receiver hung up.
         }
     }
+
+    pub fn state(&self) -> &ActiveCommandState {
+        self.state.as_ref()
+    }
 }
 
 pub struct ActiveCommandDropGuard {
@@ -92,11 +101,17 @@ impl Drop for ActiveCommandDropGuard {
 }
 
 /// A handle to the stats for this command. We use this to broadcast state about this command.
-struct ActiveCommandState {
+pub struct ActiveCommandState {
     #[allow(unused)]
-    argv: Vec<String>,
+    pub argv: Vec<String>,
 
     active_spans: AtomicU64,
+}
+
+impl ActiveCommandState {
+    pub fn active_spans(&self) -> u64 {
+        self.active_spans.load(Ordering::Relaxed)
+    }
 }
 
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
