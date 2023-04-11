@@ -49,11 +49,15 @@ pub fn broadcast_shutdown(shutdown: &buck2_data::DaemonShutdown) {
 /// Allows interactions with commands found via active_commands().
 #[derive(Clone, Dupe)]
 pub struct ActiveCommandHandle {
+    /// A channel to send notifications to this command.
     dispatcher: EventDispatcher,
 
     /// A separate channel to broadcast shutdown events. This is separate from the EventDispatcher
     /// because we want to allow shutdown events to jump the queue.
     daemon_shutdown_channel: Arc<Mutex<Option<oneshot::Sender<buck2_data::DaemonShutdown>>>>,
+
+    /// State for this command. This is used to expose what this command is doing to other clients.
+    state: Arc<ActiveCommandState>,
 }
 
 impl ActiveCommandHandle {
@@ -80,14 +84,22 @@ impl Drop for ActiveCommandDropGuard {
     }
 }
 
+/// A handle to the stats for this command. We use this to broadcast state about this command.
+struct ActiveCommandState {}
+
+/// A wrapper around ActiveCommandState that allows 1 client to write to it.
+pub struct ActiveCommandStateWriter(Arc<ActiveCommandState>);
+
 pub struct ActiveCommand {
     pub guard: ActiveCommandDropGuard,
+    pub state: ActiveCommandStateWriter,
     pub daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
 }
 
 impl ActiveCommand {
     pub fn new(event_dispatcher: &EventDispatcher) -> Self {
         let (sender, receiver) = oneshot::channel();
+        let state = Arc::new(ActiveCommandState {});
 
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
@@ -105,6 +117,7 @@ impl ActiveCommand {
                 ActiveCommandHandle {
                     dispatcher: event_dispatcher.dupe(),
                     daemon_shutdown_channel: Arc::new(Mutex::new(Some(sender))),
+                    state: state.dupe(),
                 },
             );
 
@@ -131,6 +144,7 @@ impl ActiveCommand {
         Self {
             guard: ActiveCommandDropGuard { trace_id },
             daemon_shutdown_channel: receiver,
+            state: ActiveCommandStateWriter(state),
         }
     }
 }

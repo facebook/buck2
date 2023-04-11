@@ -76,6 +76,7 @@ use tonic::Status;
 use tracing::debug_span;
 
 use crate::active_commands::ActiveCommand;
+use crate::active_commands::ActiveCommandStateWriter;
 use crate::clean_stale::clean_stale_command;
 use crate::ctx::ServerCommandContext;
 use crate::daemon::multi_event_stream::MultiEventStream;
@@ -438,6 +439,7 @@ impl BuckdServer {
         let ActiveCommand {
             guard,
             daemon_shutdown_channel,
+            state,
         } = ActiveCommand::new(&dispatch);
         let data = daemon_state.data()?;
 
@@ -448,6 +450,7 @@ impl BuckdServer {
         let resp = streaming(
             req,
             events,
+            state,
             dispatch.dupe(),
             daemon_shutdown_channel,
             move |req| async move {
@@ -608,6 +611,7 @@ impl<T: Stream + Send> Stream for SyncStream<T> {
 
 fn pump_events<E: EventSource>(
     mut events: E,
+    _state: ActiveCommandStateWriter,
     output_send: tokio::sync::mpsc::UnboundedSender<
         Result<buck2_cli_proto::CommandProgress, tonic::Status>,
     >,
@@ -663,6 +667,7 @@ async fn streaming<
 >(
     req: Request<Req>,
     events: E,
+    state: ActiveCommandStateWriter,
     dispatcher: EventDispatcher,
     daemon_shutdown_channel: oneshot::Receiver<buck2_data::DaemonShutdown>,
     func: F,
@@ -706,7 +711,7 @@ where
     let merge_task = thread::Builder::new()
         .name("pump-events".to_owned())
         .spawn(move || {
-            pump_events(events, output_send);
+            pump_events(events, state, output_send);
         });
     let _merge_task = match merge_task {
         Ok(merge_task) => merge_task,
@@ -1156,12 +1161,14 @@ impl DaemonApi for BuckdServer {
         let ActiveCommand {
             guard,
             daemon_shutdown_channel,
+            state,
         } = ActiveCommand::new(&dispatcher);
 
         let this = self.0.dupe();
         Ok(streaming(
             req,
             event_source,
+            state,
             dispatcher.dupe(),
             daemon_shutdown_channel,
             move |req| async move {
