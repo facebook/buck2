@@ -53,6 +53,11 @@ pub struct SubscribeCommand {
     /// Whether to request command snapshots.
     #[clap(long)]
     active_commands: bool,
+
+    /// Whether to get output as JSON. The JSON format is deemed unstable so this should only be
+    /// used for debugging.
+    #[clap(long)]
+    unstable_json: bool,
 }
 
 #[async_trait]
@@ -87,7 +92,10 @@ impl StreamingCommand for SubscribeCommand {
                 }
             });
 
-        let mut partial_result_handler = SubscriptionPartialResultHandler { buffer: Vec::new() };
+        let mut partial_result_handler = SubscriptionPartialResultHandler {
+            buffer: Vec::new(),
+            json: self.unstable_json,
+        };
 
         let stream = if self.active_commands {
             futures::stream::once(futures::future::ready(SubscriptionRequest {
@@ -148,6 +156,7 @@ impl StreamingCommand for SubscribeCommand {
 struct SubscriptionPartialResultHandler {
     /// We reuse our output buffer here.
     buffer: Vec<u8>,
+    json: bool,
 }
 
 #[async_trait]
@@ -164,9 +173,15 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
             .context("Empty `SubscriptionResponseWrapper`")?;
 
         self.buffer.clear();
-        response
-            .encode_length_delimited(&mut self.buffer)
-            .context("Encoding failed")?;
+
+        if self.json {
+            serde_json::to_writer(&mut self.buffer, &response).context("JSON encoding failed")?;
+            self.buffer.push(b'\n');
+        } else {
+            response
+                .encode_length_delimited(&mut self.buffer)
+                .context("Encoding failed")?;
+        }
 
         ctx.stdout(&self.buffer).await
     }
