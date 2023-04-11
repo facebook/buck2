@@ -15,7 +15,7 @@ Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not
 
 The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To add a rule for a language, say `pascal`:
 
-1. Look at [prelude/attributes.bzl](https://github.com/facebook/buck2/blob/main/prelude/attributes.bzl) to see the attributes that are supported in Buck1 and are mirrored into Buck2. If `pascal` was an existing rule, you would see what attributes it takes (often it will be `pascal_libary` and `pascal_binary`).
+1. Look at [prelude/attributes.bzl](https://github.com/facebook/buck2/blob/main/prelude/attributes.bzl) to see the attributes that are supported in Buck1 and are mirrored into Buck2. If `pascal` was an existing rule, you would see what attributes it takes (often it will be `pascal_library` and `pascal_binary`).
 
 2. Create a file at `prelude/pascal.bzl` that will contain your rule implementations. The details are explained later, but a dummy rule looks like the following:
 
