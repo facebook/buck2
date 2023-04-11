@@ -187,11 +187,16 @@ struct CriticalPathNode<TKey: Eq, TValue> {
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display)]
 pub enum NodeKey {
+    #[display(fmt = "ActionKey: {}", .0)]
     ActionKey(ActionKey),
+    #[display(fmt = "TransitiveSetProjection: {}", .0)]
     TransitiveSetProjection(TransitiveSetProjectionKey),
     // NOTE: we do not currently support analysis of anonymous targets or BXL.
+    #[display(fmt = "Analysis: {}", .0)]
     Analysis(ConfiguredTargetLabel),
+    #[display(fmt = "Materialization: {}", .0)]
     Materialization(BuildArtifact),
+    #[display(fmt = "Load: {}", .0)]
     Load(PackageLabel),
 }
 
