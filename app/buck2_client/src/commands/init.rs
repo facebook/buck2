@@ -171,7 +171,7 @@ fn initialize_root_buck(path: &Path, prelude: bool) -> anyhow::Result<()> {
     if prelude {
         writeln!(
             buck,
-            "# A list of available rules and their signatures can be found here: https://buck2.build/docs/generated/starlark/prelude/prelude.bzl"
+            "# A list of available rules and their signatures can be found here: https://buck2.build/docs/api/rules/"
         )?;
         writeln!(buck)?;
         writeln!(buck, "genrule(")?;
@@ -325,7 +325,7 @@ prelude = prelude
         let buck_path = tempdir_path.join("BUCK");
         initialize_root_buck(tempdir_path, true)?;
         let actual_buck = fs_util::read_to_string(buck_path)?;
-        let expected_buck = "# A list of available rules and their signatures can be found here: https://buck2.build/docs/generated/starlark/prelude/prelude.bzl
+        let expected_buck = "# A list of available rules and their signatures can be found here: https://buck2.build/docs/api/rules/
 
 genrule(
     name = \"hello_world\",
