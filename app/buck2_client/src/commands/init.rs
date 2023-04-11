@@ -210,6 +210,14 @@ fn set_up_prelude(path: &Path, git: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn set_up_gitignore(path: &Path) -> anyhow::Result<()> {
+    let mut gitignore = std::fs::File::create(path.join(".gitignore"))?;
+
+    writeln!(gitignore, "buck-out")?;
+
+    Ok(())
+}
+
 fn set_up_project(path: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
     if git {
         if !Command::new("git")
@@ -220,6 +228,8 @@ fn set_up_project(path: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
         {
             return Err(anyhow::anyhow!("Failure when running `git init`."));
         };
+
+        set_up_gitignore(path)?;
     }
 
     if prelude {
