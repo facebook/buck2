@@ -27,8 +27,8 @@ use tokio::sync::oneshot;
 static ACTIVE_COMMANDS: Lazy<Mutex<HashMap<TraceId, ActiveCommandHandle>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-/// Return the active commands, if you know what they are
-pub fn active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
+/// Return the active commands, if you can access them.
+pub fn try_active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
     // Note that this function is accessed during panic, so have to be super careful
     Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
 }
