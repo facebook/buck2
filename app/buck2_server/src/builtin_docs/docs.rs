@@ -112,16 +112,16 @@ fn get_builtin_provider_docs() -> Vec<Doc> {
 
 /// Globals that are in the interpreter, but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
-    let globals = Globals::extended();
     let cleaned_build = match interpreter_state.extension_file_global_env.documentation() {
-        DocItem::Object(mut b_o) => {
+        DocItem::Module(mut b_o) => {
+            let globals = Globals::extended();
             let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
             b_o.members = b_o
                 .members
                 .into_iter()
                 .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
                 .collect();
-            DocItem::Object(b_o)
+            DocItem::Module(b_o)
         }
         item => item,
     };
