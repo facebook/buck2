@@ -35,11 +35,28 @@ APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_ove
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
 
+def _apple_bundle_like_common_attrs():
+    # `apple_bundle()` and `apple_test()` share a common set of extra attrs
+    return {
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
+        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
+        "_bundling_log_file_enabled": attrs.bool(default = False),
+        "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
+        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
+        "_fast_adhoc_signing_enabled": attrs.bool(default = False),
+        "_incremental_bundling_enabled": attrs.bool(default = False),
+        "_profile_bundling_enabled": attrs.bool(default = False),
+        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
+        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
+    }
+
 def apple_test_extra_attrs():
     # To build an `apple_test`, one needs to first build a shared `apple_library` then
     # wrap this test library into an `apple_bundle`. Because of this, `apple_test` has attributes
     # from both `apple_library` and `apple_bundle`.
-    return {
+    attribs = {
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
         # The resulting test bundle should have .xctest extension.
@@ -59,40 +76,20 @@ def apple_test_extra_attrs():
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
-        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
-        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
-        "_bundling_log_file_enabled": attrs.bool(default = False),
-        "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
-        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
-        "_fast_adhoc_signing_enabled": attrs.bool(default = False),
-        "_incremental_bundling_enabled": attrs.bool(default = False),
         "_omnibus_environment": omnibus_environment_attr(),
-        "_profile_bundling_enabled": attrs.bool(default = False),
         APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
     }
+    attribs.update(_apple_bundle_like_common_attrs())
+    return attribs
 
 def apple_bundle_extra_attrs():
-    return {
+    attribs = {
         "resource_group_map": resource_group_map_attr(),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
-        "_apple_xctoolchain": get_apple_xctoolchain_attr(),
-        "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
-        "_bundling_log_file_enabled": attrs.bool(default = False),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
-        "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
-        "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
-        "_fast_adhoc_signing_enabled": attrs.bool(default = False),
-        "_incremental_bundling_enabled": attrs.bool(default = False),
-        "_profile_bundling_enabled": attrs.bool(default = False),
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
-        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
     }
+    attribs.update(_apple_bundle_like_common_attrs())
+    return attribs
