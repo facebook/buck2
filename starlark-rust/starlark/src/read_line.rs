@@ -31,7 +31,7 @@ pub struct ReadLine {
 }
 
 impl ReadLine {
-    pub fn new(histfile_env: &str) -> ReadLine {
+    pub fn new(histfile_env: &str) -> anyhow::Result<ReadLine> {
         let mut editor = Editor::new();
         let histfile = if let Ok(histfile) = env::var(histfile_env) {
             if let Err(e) = editor.load_history(&histfile) {
@@ -44,7 +44,7 @@ impl ReadLine {
         } else {
             None
         };
-        ReadLine { editor, histfile }
+        Ok(ReadLine { editor, histfile })
     }
 
     /// Read line. Return `None` on EOF or interrupt.

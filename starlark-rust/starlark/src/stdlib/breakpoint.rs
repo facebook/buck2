@@ -57,11 +57,11 @@ impl BreakpointConsole for RealBreakpointConsole {
 }
 
 impl RealBreakpointConsole {
-    pub(crate) fn factory() -> Box<dyn Fn() -> Box<dyn BreakpointConsole>> {
+    pub(crate) fn factory() -> Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>> {
         Box::new(|| {
-            Box::new(RealBreakpointConsole {
-                read_line: ReadLine::new("STARLARK_RUST_DEBUGGER_HISTFILE"),
-            })
+            Ok(Box::new(RealBreakpointConsole {
+                read_line: ReadLine::new("STARLARK_RUST_DEBUGGER_HISTFILE")?,
+            }))
         })
     }
 }
@@ -212,7 +212,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
             let mut guard = BREAKPOINT_MUTEX.lock().unwrap();
             if *guard == State::Allow {
                 let mut rl = match &mut eval.breakpoint_handler {
-                    Some(rl) => rl(),
+                    Some(rl) => rl()?,
                     None => return Err(BreakpointError::NoHandler.into()),
                 };
                 rl.println(BREAKPOINT_HIT_MESSAGE);
@@ -296,10 +296,10 @@ mod tests {
                     }
                 }
 
-                Box::new(Handler {
+                Ok(Box::new(Handler {
                     printed_lines: printed_lines.dupe(),
                     called: false,
-                })
+                }))
             }));
         });
         a.pass("x = [1,2,3]; breakpoint()");

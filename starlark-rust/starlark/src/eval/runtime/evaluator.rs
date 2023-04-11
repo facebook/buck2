@@ -150,7 +150,8 @@ pub struct Evaluator<'v, 'a> {
     /// Typically accessed via native functions you also define.
     pub extra: Option<&'a dyn AnyLifetime<'a>>,
     /// Called to perform console IO each time `breakpoint` function is called.
-    pub(crate) breakpoint_handler: Option<Box<dyn Fn() -> Box<dyn BreakpointConsole>>>,
+    pub(crate) breakpoint_handler:
+        Option<Box<dyn Fn() -> anyhow::Result<Box<dyn BreakpointConsole>>>>,
     /// Use in implementation of `print` function.
     pub(crate) print_handler: &'a (dyn PrintHandler + 'a),
     // The Starlark-level call-stack of functions.

@@ -218,7 +218,7 @@ fn drain(xs: impl Iterator<Item = EvalMessage>, json: bool, stats: &mut Stats) {
 }
 
 fn interactive(ctx: &Context) -> anyhow::Result<()> {
-    let mut rl = ReadLine::new("STARLARK_RUST_HISTFILE");
+    let mut rl = ReadLine::new("STARLARK_RUST_HISTFILE")?;
     loop {
         match rl.read_line("$> ")? {
             Some(line) => {
