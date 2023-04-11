@@ -233,8 +233,6 @@ _CxxLibraryParameterizedOutput = record(
     cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
     # LinkableRootInfo provider, same as above.
     linkable_root = field([LinkableRootInfo.type, None], None),
-    # This provider contains exported and propagated preprocessors.
-    propagated_exported_preprocessor_info = field(["CPreprocessorInfo", None], None),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -477,12 +475,16 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.preprocessors:
         providers.append(propagated_preprocessor)
 
+    # Propagated_exported_preprocessor_info is used for pcm compilation, which isn't possible for non-modular targets.
+    propagated_exported_preprocessor_info = propagated_preprocessor if impl_params.rule_type == "apple_library" and ctx.attrs.modular else None
+    additional_providers = impl_params.additional.additional_providers_factory(propagated_exported_preprocessor_info) if impl_params.additional.additional_providers_factory else []
+
     # For v1's `#headers` functionality.
     if impl_params.generate_sub_targets.headers:
-        sub_targets["headers"] = [propagated_preprocessor]
+        sub_targets["headers"] = [propagated_preprocessor] + additional_providers
 
-    for additional_subtarget, additional_providers in impl_params.additional.subtargets.items():
-        sub_targets[additional_subtarget] = additional_providers
+    for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
+        sub_targets[additional_subtarget] = subtarget_providers
 
     # Omnibus root provider.
     linkable_root = None
@@ -648,18 +650,14 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             ),
         )
 
-    # Propagated_exported_preprocessor_info is used for pcm compilation, which isn't possible for non-modular targets.
-    propagated_exported_preprocessor_info = propagated_preprocessor if impl_params.rule_type == "apple_library" and ctx.attrs.modular else None
-
     return _CxxLibraryParameterizedOutput(
         default_output = default_output,
         all_outputs = library_outputs,
         sub_targets = sub_targets,
-        providers = providers,
+        providers = providers + additional_providers,
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
         linkable_root = linkable_root,
-        propagated_exported_preprocessor_info = propagated_exported_preprocessor_info,
     )
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str.type:

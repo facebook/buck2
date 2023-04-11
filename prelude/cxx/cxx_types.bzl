@@ -86,6 +86,8 @@ CxxRuleAdditionalParams = record(
     argsfiles = field([CxxAdditionalArgsfileParams.type], []),
     external_debug_info = field(["transitive_set"], []),
     subtargets = field(dict.type, {}),  # [str.type: ["provider"]]
+    # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
+    additional_providers_factory = field(["function", None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
 )
 
 # Parameters that allows to configure/extend generic implementation of C++ rules.

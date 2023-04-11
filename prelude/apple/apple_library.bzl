@@ -65,7 +65,7 @@ AppleLibraryAdditionalParams = record(
 
 def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
     def get_apple_library_providers(deps_providers) -> ["provider"]:
-        constructor_params, swift_providers, exported_pre = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_library",
@@ -87,23 +87,14 @@ def apple_library_impl(ctx: "context") -> ["promise", ["provider"]]:
 
         output = cxx_library_parameterized(ctx, constructor_params)
 
-        # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
-        # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
-        # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
-        exported_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
-            ctx,
-            output.propagated_exported_preprocessor_info,
-            exported_pre,
-        )
-
-        return output.providers + [resource_graph] + swift_providers + ([exported_swift_pcm_uncompiled_info] if exported_swift_pcm_uncompiled_info else [])
+        return output.providers + [resource_graph]
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list.type = []) -> (CxxRuleConstructorParams.type, ["provider"], [CPreprocessor.type, None]):
+def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", params: AppleLibraryAdditionalParams.type, deps_providers: list.type = []) -> CxxRuleConstructorParams.type:
     cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
     # First create a modulemap if necessary. This is required for importing
@@ -152,6 +143,18 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         ],
     )
 
+    def additional_providers_factory(propagated_exported_preprocessor_info: ["CPreprocessorInfo", None]) -> ["provider"]:
+        # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
+        # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
+        # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
+        swift_pcm_uncompile_info = get_swift_pcm_uncompile_info(
+            ctx,
+            propagated_exported_preprocessor_info,
+            exported_pre,
+        )
+        providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
+        return providers + swift_providers
+
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
     )
@@ -176,6 +179,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             subtargets = {
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
+            additional_providers_factory = additional_providers_factory,
         ),
         link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
@@ -190,7 +194,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         link_postprocessor = get_apple_link_postprocessor(ctx),
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
-    ), swift_providers, exported_pre
+    )
 
 def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
     cxx_srcs = []

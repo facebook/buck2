@@ -44,7 +44,7 @@ def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
             cmd_args(ctx.attrs.bridging_header),
         ] if ctx.attrs.bridging_header else []
 
-        constructor_params, _, _ = apple_library_rule_constructor_params_and_swift_providers(
+        constructor_params = apple_library_rule_constructor_params_and_swift_providers(
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_test",
