@@ -525,7 +525,7 @@ pub(crate) enum InvalidateKind {
 
 // because of rust mut lifetimes, we have to fixup the entries in our map after we drop the
 // references to the nodes we modify. This forces us to express things via these enums
-// that aproximately acts as lambdas
+// that approximately acts as lambdas
 enum MapFixup {
     Reused {
         since: VersionNumber,
@@ -561,7 +561,7 @@ impl MapFixup {
                     VersionedGraphNode::Occupied(occ) => {
                         if let Some(end) = end {
                             // if there is newer data, we also need to store that at a newer
-                            // key to make it reacheable.
+                            // key to make it reachable.
                             // TODO(bobyf): we probably want a custom versioned map here to
                             // better represent this and reduce complexity
 
