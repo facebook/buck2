@@ -408,7 +408,8 @@ impl BuckTestOrchestrator {
 
         request = request
             .with_timeout(timeout)
-            .with_executor_preference(executor_preference);
+            .with_executor_preference(executor_preference)
+            .with_disable_miniperf(true);
         if let Some(requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(requirements);
         }
