@@ -262,6 +262,12 @@ def _get_base_pcm_flags(
     cmd.add(["-sdk", swift_toolchain.sdk_path])
     cmd.add(swift_toolchain.compiler_flags)
 
+    # This allows us to avoid usage of absolute paths in generated PCM modules.
+    cmd.add([
+        "-working-directory",
+        ".",
+    ])
+
     if swift_toolchain.resource_dir:
         cmd.add([
             "-resource-dir",
