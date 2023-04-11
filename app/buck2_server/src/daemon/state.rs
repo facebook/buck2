@@ -28,6 +28,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::quiet_soft_error;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
@@ -519,7 +520,13 @@ impl DaemonState {
         dispatcher: EventDispatcher,
         drop_guard: ActiveCommandDropGuard,
     ) -> SharedResult<BaseServerCommandContext> {
-        check_working_dir::check_working_dir()?;
+        check_working_dir::check_working_dir().map_err(|e| {
+            // Always throw this error, but tag it via soft errors.
+            match quiet_soft_error!("eden_not_connected", e) {
+                Ok(r) => r,
+                Err(e) => e,
+            }
+        })?;
 
         let data = self.data()?;
 
