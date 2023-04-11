@@ -8,11 +8,17 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use buck2_cli_proto::ClientContext;
+use buck2_event_observer::span_tracker;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::span::SpanId;
+use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -89,10 +95,40 @@ impl Drop for ActiveCommandDropGuard {
 struct ActiveCommandState {
     #[allow(unused)]
     argv: Vec<String>,
+
+    active_spans: AtomicU64,
 }
 
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
-pub struct ActiveCommandStateWriter(Arc<ActiveCommandState>);
+pub struct ActiveCommandStateWriter {
+    active_spans: HashSet<SpanId>,
+    shared: Arc<ActiveCommandState>,
+}
+
+impl ActiveCommandStateWriter {
+    fn new(shared: Arc<ActiveCommandState>) -> Self {
+        Self {
+            active_spans: HashSet::new(),
+            shared,
+        }
+    }
+
+    pub fn peek_event(&mut self, buck_event: &BuckEvent) {
+        let span_id = match buck_event.span_id() {
+            Some(id) => id,
+            None => return,
+        };
+
+        if buck_event.span_end_event().is_some() {
+            if self.active_spans.remove(&span_id) {
+                self.shared.active_spans.fetch_sub(1, Ordering::Relaxed);
+            }
+        } else if span_tracker::is_span_shown(buck_event) {
+            self.active_spans.insert(span_id);
+            self.shared.active_spans.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
 
 pub struct ActiveCommand {
     pub guard: ActiveCommandDropGuard,
@@ -106,6 +142,7 @@ impl ActiveCommand {
 
         let state = Arc::new(ActiveCommandState {
             argv: client_ctx.sanitized_argv.clone(),
+            active_spans: AtomicU64::new(0),
         });
 
         let trace_id = event_dispatcher.trace_id().dupe();
@@ -151,7 +188,7 @@ impl ActiveCommand {
         Self {
             guard: ActiveCommandDropGuard { trace_id },
             daemon_shutdown_channel: receiver,
-            state: ActiveCommandStateWriter(state),
+            state: ActiveCommandStateWriter::new(state),
         }
     }
 }

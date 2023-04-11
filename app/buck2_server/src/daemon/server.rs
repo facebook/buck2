@@ -613,7 +613,7 @@ impl<T: Stream + Send> Stream for SyncStream<T> {
 
 fn pump_events<E: EventSource>(
     mut events: E,
-    _state: ActiveCommandStateWriter,
+    mut state: ActiveCommandStateWriter,
     output_send: tokio::sync::mpsc::UnboundedSender<
         Result<buck2_cli_proto::CommandProgress, tonic::Status>,
     >,
@@ -650,6 +650,8 @@ fn pump_events<E: EventSource>(
                 }
             }
             Event::Buck(buck_event) => {
+                state.peek_event(&buck_event);
+
                 // A buck event. These events should be forwarded directly to gRPC.
                 let _ignore = output_send.send(Ok(CommandProgress {
                     progress: Some(command_progress::Progress::Event(buck_event.into())),
