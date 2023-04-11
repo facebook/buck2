@@ -49,6 +49,10 @@ pub struct SubscribeCommand {
 
     #[clap(flatten)]
     event_log_opts: CommonDaemonCommandOptions,
+
+    /// Whether to request command snapshots.
+    #[clap(long)]
+    active_commands: bool,
 }
 
 #[async_trait]
@@ -81,12 +85,23 @@ impl StreamingCommand for SubscribeCommand {
                         request: Some(buck2_subscription_proto::Disconnect {}.into()),
                     }
                 }
-            })
-            .map(|request| buck2_cli_proto::SubscriptionRequestWrapper {
-                request: Some(request),
             });
 
         let mut partial_result_handler = SubscriptionPartialResultHandler { buffer: Vec::new() };
+
+        let stream = if self.active_commands {
+            futures::stream::once(futures::future::ready(SubscriptionRequest {
+                request: Some(buck2_subscription_proto::SubscribeToActiveCommands {}.into()),
+            }))
+            .chain(stream)
+            .left_stream()
+        } else {
+            stream.right_stream()
+        };
+
+        let stream = stream.map(|request| buck2_cli_proto::SubscriptionRequestWrapper {
+            request: Some(request),
+        });
 
         reborrow_stream_for_static(
             stream,
