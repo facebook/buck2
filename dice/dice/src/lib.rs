@@ -253,6 +253,9 @@ pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::api::which::WhichDice;
 use crate::impls::dice::DiceModern;
 use crate::impls::dice::DiceModernDataBuilder;
+use crate::introspection::graph::GraphIntrospectable;
+use crate::introspection::serialize_dense_graph;
+use crate::introspection::serialize_graph;
 use crate::legacy::DiceLegacy;
 use crate::legacy::DiceLegacyDataBuilder;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
@@ -289,23 +292,26 @@ impl DiceImplementation {
         edges: impl Write,
         nodes_currently_running: impl Write,
     ) -> anyhow::Result<()> {
-        match self {
-            DiceImplementation::Legacy(dice) => {
-                dice.serialize_tsv(nodes, edges, nodes_currently_running)
-            }
-            DiceImplementation::Modern(dice) => {
-                dice.serialize_tsv(nodes, edges, nodes_currently_running)
-            }
-        }
+        serialize_graph(
+            &self.to_introspectable(),
+            nodes,
+            edges,
+            nodes_currently_running,
+        )
     }
 
     pub fn serialize_serde<S>(&self, serializer: S) -> Result<(), S::Error>
     where
         S: Serializer,
     {
+        serialize_dense_graph(&self.to_introspectable(), serializer)?;
+        Ok(())
+    }
+
+    fn to_introspectable(&self) -> GraphIntrospectable {
         match self {
-            DiceImplementation::Legacy(dice) => dice.serialize_serde(serializer),
-            DiceImplementation::Modern(dice) => dice.serialize_serde(serializer),
+            DiceImplementation::Legacy(dice) => dice.to_introspectable(),
+            DiceImplementation::Modern(dice) => dice.to_introspectable(),
         }
     }
 

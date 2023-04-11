@@ -9,12 +9,10 @@
 
 use std::fmt::Debug;
 use std::future::Future;
-use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use serde::Serializer;
 
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
@@ -89,8 +87,7 @@ impl DiceModern {
         rx.await.unwrap()
     }
 
-    #[allow(unused)]
-    pub fn introspection(&self) -> GraphIntrospectable {
+    pub fn to_introspectable(&self) -> GraphIntrospectable {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.state_handle.request(StateRequest::Introspection {
@@ -99,22 +96,6 @@ impl DiceModern {
         });
 
         rx.blocking_recv().unwrap()
-    }
-
-    pub fn serialize_tsv(
-        &self,
-        _nodes: impl Write,
-        _edges: impl Write,
-        _nodes_currently_running: impl Write,
-    ) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!("not yet implemented"))
-    }
-
-    pub fn serialize_serde<S>(&self, _serializer: S) -> Result<(), S::Error>
-    where
-        S: Serializer,
-    {
-        Err(serde::ser::Error::custom("not yet implemented"))
     }
 
     /// Note: modern dice does not support cycle detection yet

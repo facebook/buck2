@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::io::Write;
 use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -31,7 +30,6 @@ use key::StoragePropertiesForKey;
 use map::DiceMap;
 use parking_lot::RwLock;
 use projection::ProjectionKeyProperties;
-use serde::Serializer;
 use tokio::sync::watch;
 
 use crate::api::computations::DiceComputations;
@@ -43,8 +41,6 @@ use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::introspection::serialize_dense_graph;
-use crate::introspection::serialize_graph;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::metrics::Metrics;
@@ -203,29 +199,6 @@ impl DiceLegacy {
         debug!(msg = "clearing all Dice state");
         let mut map = self.map.write();
         std::mem::replace(&mut map, DiceMap::new())
-    }
-
-    pub fn serialize_tsv(
-        &self,
-        nodes: impl Write,
-        edges: impl Write,
-        nodes_currently_running: impl Write,
-    ) -> anyhow::Result<()> {
-        serialize_graph(
-            &self.to_introspectable(),
-            nodes,
-            edges,
-            nodes_currently_running,
-        )
-    }
-
-    pub fn serialize_serde<S>(&self, serializer: S) -> Result<(), S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_dense_graph(&self.to_introspectable(), serializer)?;
-
-        Ok(())
     }
 
     pub fn detect_cycles(&self) -> &DetectCycles {
