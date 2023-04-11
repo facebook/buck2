@@ -92,6 +92,38 @@ impl DiceKeyIndex {
     }
 }
 
+mod introspect {
+    use crate::impls::key::DiceKey;
+    use crate::impls::key_index::DiceKeyIndex;
+    use crate::impls::key_index::DiceKeyUnpacked;
+    use crate::introspection::graph::AnyKey;
+    use crate::HashMap;
+
+    impl DiceKeyIndex {
+        #[allow(unused)] // TODO(bobyf) temporary
+        pub(crate) fn introspect(&self) -> HashMap<DiceKey, AnyKey> {
+            let mut ret = HashMap::default();
+
+            for (shard_index, shard) in self.shards.iter().enumerate() {
+                let shard = shard.read();
+
+                for (index_in_shard, key) in shard.values.iter().enumerate() {
+                    ret.insert(
+                        DiceKeyUnpacked {
+                            shard_index: shard_index as u32,
+                            index_in_shard: index_in_shard as u32,
+                        }
+                        .pack(),
+                        key.introspect(),
+                    );
+                }
+            }
+
+            ret
+        }
+    }
+}
+
 struct DiceKeyUnpacked {
     shard_index: u32,
     index_in_shard: u32, // actually u26
