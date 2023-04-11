@@ -22,6 +22,7 @@ prelude.python_bootstrap_library(
     srcs = [
         "makefile_to_dep_file.py",
         "show_headers_to_dep_file.py",
+        "show_includes_to_dep_file.py",
         "dep_file_utils.py",
     ],
     visibility = ["PUBLIC"],

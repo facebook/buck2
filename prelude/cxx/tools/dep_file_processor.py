@@ -8,8 +8,8 @@
 import sys
 
 from makefile_to_dep_file import process_dep_file
-
 from show_headers_to_dep_file import process_show_headers_dep_file
+from show_includes_to_dep_file import process_show_includes_dep_file
 
 
 def main():
@@ -36,6 +36,8 @@ def main():
     dep_tracking_mode = sys.argv[1]
     if dep_tracking_mode == "show_headers":
         process_show_headers_dep_file(sys.argv[3], sys.argv[4:], sys.argv[2])
+    elif dep_tracking_mode == "show_includes":
+        process_show_includes_dep_file(sys.argv[3], sys.argv[4:], sys.argv[2])
     else:
         process_dep_file(sys.argv[2:])
 
