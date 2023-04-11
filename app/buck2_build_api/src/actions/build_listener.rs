@@ -80,7 +80,7 @@ pub struct NodeDuration {
 impl NodeDuration {
     /// Returns the duration we are using in our critical path calculation. This doesn't really
     /// *need* to be a function but right now we use user and want to switch to total so it's
-    /// eaiser to do that if this is in a single function.
+    /// easier to do that if this is in a single function.
     fn critical_path_duration(&self) -> Duration {
         self.user
     }
@@ -608,7 +608,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn process_top_level_target(
         &mut self,
-        _analyis: NodeKey,
+        _analysis: NodeKey,
         _artifacts: impl Iterator<Item = NodeKey>,
     ) {
     }
@@ -872,7 +872,7 @@ impl FromStr for CriticalPathBackendName {
 /// Build listeners in this module operate by creating a matched pair of signal senders and signal receivers. Senders
 /// are Dupe and allow for arbitrarily many writeres. Receivers are not Dupe and are expected to be driven by a single
 /// thread. This implies that, in order for the receiver to function correctly and dispatch to build listeners, it must
-/// be run in a backround task that is periodically polled.
+/// be run in a background task that is periodically polled.
 ///
 /// This function arranges for a background task to be spawned that drives the receiver, while invoking the called
 /// function with a live BuildSignalSender that can be used to send events to the listening receiver. Upon return of

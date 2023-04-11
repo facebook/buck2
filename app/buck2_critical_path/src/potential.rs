@@ -173,7 +173,7 @@ pub fn compute_critical_path_potentials(
     // Now, we know the longest path through each vertex, so what we need to do is find out when
     // that path does not overlap with the critical path. To do this, we're going lay out our
     // computation as a series of items that represent when nodes have their longest path overlap
-    // with the crtical path, relative to each critical path node.
+    // with the critical path, relative to each critical path node.
 
     enum WorkItem {
         NodeValid {

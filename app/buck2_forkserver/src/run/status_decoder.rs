@@ -126,7 +126,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
                     if let Err(e) = execution_stats.as_ref() {
                         // TODO @torozco: report this in the event log? Might be verbose for little
                         // value.
-                        tracing::debug!("Miniperf stats not availble: {}", e);
+                        tracing::debug!("Miniperf stats not available: {}", e);
                     }
 
                     Ok(DecodedStatus::Status {

@@ -21,7 +21,7 @@ use gazebo::variants::UnpackVariants;
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 
-/// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts wil be made available
+/// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts will be made available
 /// to Actions when they execute.
 #[derive(
     Clone,

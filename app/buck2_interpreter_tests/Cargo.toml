@@ -2,7 +2,7 @@
 name = "buck2_interpreter_tests"
 version = "0.1.0"
 edition = "2021"
-description = "Tests for buck2_intepreter"
+description = "Tests for buck2_interpreter"
 
 [dev-dependencies]
 indoc = { workspace = true }

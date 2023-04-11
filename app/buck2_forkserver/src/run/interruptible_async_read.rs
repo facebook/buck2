@@ -92,7 +92,7 @@ mod unix_non_blocking_drainer {
 
     /// Perform sync reads on an existing reader. We use this to bypass Tokio when draining an
     /// InterruptibleAsyncRead after it's been interrupted. This lets us ensure that even if Tokio
-    /// hasn't completed `select()` on the pipe we want to drain, we'll stil get to execute
+    /// hasn't completed `select()` on the pipe we want to drain, we'll still get to execute
     /// `read()` (and potentially get WouldBlock if there is nothing to read and the pipe isn't
     /// ready).
     pub struct UnixNonBlockingDrainer<R> {
@@ -306,7 +306,7 @@ mod tests {
                 *state = StubAsyncReadState::Ready(byte);
             }
 
-            /// Set this to done. Also doens't check that this makes sense.
+            /// Set this to done. Also doesn't check that this makes sense.
             fn done(&self) {
                 let mut state = self.state.lock().unwrap();
                 *state = StubAsyncReadState::Done;

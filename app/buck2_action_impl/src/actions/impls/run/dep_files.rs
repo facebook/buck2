@@ -238,7 +238,7 @@ impl DepFileState {
 }
 
 /// The set of dep files declared by a RunAction, matching tags to their labels. We enforce at
-/// creation time that tags and lables are both unique.
+/// creation time that tags and labels are both unique.
 #[derive(Debug, Allocative)]
 pub(crate) struct RunActionDepFiles {
     pub(crate) labels: HashMap<ArtifactTag, Arc<str>>,
@@ -493,7 +493,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
     }
 
     /// Produce Directories from this set of PartitionedInputs. One directory will be produced for
-    /// each tag (and one for untagged). This wll actually allocate directories (whereas until now
+    /// each tag (and one for untagged). This will actually allocate directories (whereas until now
     /// we only held references to artifacts).
     fn to_directories(
         &self,

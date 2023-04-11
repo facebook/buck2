@@ -84,7 +84,7 @@ mod imp {
 
     pub fn allocator_stats(_: &str) -> anyhow::Result<String> {
         Err(anyhow::anyhow!(
-            "not implemented: alloctor stats  for Cargo builds"
+            "not implemented: allocator stats  for Cargo builds"
         ))
     }
 

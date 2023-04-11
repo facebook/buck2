@@ -1038,7 +1038,7 @@ message ActionExecutionEnd {
   uint64 output_size = 24;
   // The commands executed by this action. These are in the order they were
   // attempted. If a command was executed, the one that should be shown to the
-  // user wil always be last.
+  // user will always be last.
   repeated CommandExecution commands = 25;
   // The outputs produced by this action
   repeated ActionOutput outputs = 26;

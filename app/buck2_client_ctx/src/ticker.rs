@@ -46,7 +46,7 @@ impl Ticker {
 
     fn tick_at(&mut self, current: Instant) -> Tick {
         // For time::interval, the Instant is the target instant for that tick and so it's possible
-        // on the first one for it to actually be ealier than our start time.
+        // on the first one for it to actually be earlier than our start time.
         let elapsed_time = current
             .checked_duration_since(self.start_time)
             .unwrap_or(Duration::ZERO);

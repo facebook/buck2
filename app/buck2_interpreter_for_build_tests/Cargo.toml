@@ -2,7 +2,7 @@
 name = "buck2_interpreter_for_build_tests"
 version = "0.1.0"
 edition = "2021"
-description = "Tests for buck2_intepreter_for_build"
+description = "Tests for buck2_interpreter_for_build"
 
 [dev-dependencies]
 anyhow = { workspace = true }

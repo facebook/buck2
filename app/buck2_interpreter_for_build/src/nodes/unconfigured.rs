@@ -53,7 +53,7 @@ pub trait TargetNodeExt: Sized {
 }
 
 impl TargetNodeExt for TargetNode {
-    /// Extact only the name attribute from rule arguments, ignore the others.
+    /// Extract only the name attribute from rule arguments, ignore the others.
     fn from_params_ignore_attrs_for_profiling<'v>(
         rule: Arc<Rule>,
         package: Arc<Package>,

@@ -50,7 +50,7 @@ where
         let out = futures::future::pending().await;
 
         // We actually can't get here; Note that we actually get his function to return a "R"
-        // because pending() can return whatever we want it to, but that's bcause it can't actually
+        // because pending() can return whatever we want it to, but that's because it can't actually
         // return :)
         drop(tx);
 

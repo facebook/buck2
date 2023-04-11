@@ -41,7 +41,7 @@ enum StarlarkFilesError {
 async fn starlark_file(
     proj_path: ProjectRelativePathBuf,
     // None = this file was given explicitly
-    // Some = it was a directory traveral (and we know its type)
+    // Some = it was a directory traversal (and we know its type)
     recursive: Option<FileType>,
     cell_resolver: &CellResolver,
     fs: &dyn FileOps,

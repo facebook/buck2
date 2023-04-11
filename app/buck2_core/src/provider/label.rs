@@ -80,7 +80,7 @@ pub enum NonDefaultProvidersName {
 ///
 /// A 'ProvidersName' is an optional String label that refers to the specific
 /// set of inner providers of a rule.
-/// It should be non-empty alphanumeric characteres, '/', '.', ',', '-','=',
+/// It should be non-empty alphanumeric characters, '/', '.', ',', '-','=',
 /// and'_' character. All other special characters including spaces are
 /// prohibited.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]

@@ -44,7 +44,7 @@ include_top_level = true
 [vendor]
 # Exclude files listed in the .gitignore in this directory
 gitignore_checksum_exclude = [".gitignore"]
-# Additional globs to ignore (prefer .gitignore for consistentcy with source
+# Additional globs to ignore (prefer .gitignore for consistently with source
 # control)
 checksum_exclude = [
 ]

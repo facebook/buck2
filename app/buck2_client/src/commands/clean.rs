@@ -116,7 +116,7 @@ async fn clean(
 ) -> anyhow::Result<()> {
     let mut paths_to_clean = Vec::new();
     // Try to clean EdenFS based buck-out first. For EdenFS based buck-out, "eden rm"
-    // is effecient. Notice eden rm will remove the buck-out root direcotry,
+    // is efficient. Notice eden rm will remove the buck-out root directory,
     // but for the native fs, the buck-out root directory is kept.
     if let Some(paths) = try_clean_eden_buck_out(&buck_out_dir, lifecycle_lock.is_none()).await? {
         paths_to_clean = paths;

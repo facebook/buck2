@@ -35,7 +35,7 @@ use crate::commands::log::LogCommandOutputFormat;
 /// targeted using the flags.
 ///
 ///
-/// The output is presented as a series of tab-deliminated records with the following structure:
+/// The output is presented as a series of tab-delimited records with the following structure:
 ///
 /// The reason for executing a given command. That's either to build or to test.
 ///
@@ -118,7 +118,7 @@ impl WhatRanCommand {
 }
 
 #[async_trait]
-trait WhatRanComandImplementation: Default {
+trait WhatRanCommandImplementation: Default {
     fn event(
         &mut self,
         event: Box<buck2_data::BuckEvent>,
@@ -161,8 +161,8 @@ impl WhatRanState<u64> for WhatRanImpl {
     }
 }
 
-impl WhatRanComandImplementation for WhatRanImpl {
-    /// Receive a new event. We start by emiting it if it's relevant (since that only takes a
+impl WhatRanCommandImplementation for WhatRanImpl {
+    /// Receive a new event. We start by emitting it if it's relevant (since that only takes a
     /// borrow), and then if it's relevant as a parent, we store it for latter use. Note that in
     /// practice we don't expect the event to be *both* relevant to emit *and* a
     /// WhatRanRelevantAction, but it doesn't hurt to always check both.
@@ -194,7 +194,7 @@ pub struct WhatFailedImpl {
 
 #[allow(clippy::vec_box)]
 struct WhatFailedEntry {
-    /// Knwon to be a WhatRanRelevantAction.
+    /// Known to be a WhatRanRelevantAction.
     event: Box<buck2_data::BuckEvent>,
 
     /// Known to be a CommandReproducer.
@@ -210,8 +210,8 @@ impl WhatRanState<u64> for WhatFailedImpl {
     }
 }
 
-impl WhatRanComandImplementation for WhatFailedImpl {
-    /// Receive a new event. We start by emiting it if it's relevant (since that only takes a
+impl WhatRanCommandImplementation for WhatFailedImpl {
+    /// Receive a new event. We start by emitting it if it's relevant (since that only takes a
     /// borrow), and then if it's relevant as a parent, we store it for latter use. Note that in
     /// practice we don't expect the event to be *both* relevant to emit *and* a
     /// WhatRanRelevantAction, but it doesn't hurt to always check both.

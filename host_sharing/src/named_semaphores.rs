@@ -32,7 +32,7 @@ impl NamedSemaphores {
             //
             // Since a fair semaphore will only ever wake a single waiter, that code path is a bit
             // faster and doesn't require any additional looping. Therefore despite the fact that a
-            // fair and unfair semaphore whould have the same end result, we use a fair semaphore
+            // fair and unfair semaphore would have the same end result, we use a fair semaphore
             // here as a small performance optimization.
             let bucket_semaphore = SharedSemaphore::new(true, SINGLE_WORKER);
             self.buckets

@@ -195,7 +195,7 @@ impl DefaultIoHandler {
                     )
                     .await?;
 
-                    // Check that the size we got was the one that we expected. This isn't stricly
+                    // Check that the size we got was the one that we expected. This isn't strictly
                     // speaking necessary here, but since an invalid size would break actions
                     // running on RE, it's a good idea to catch it here when materializing so that
                     // our test suite can surface bugs when downloading things locally.

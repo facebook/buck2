@@ -239,7 +239,7 @@ pub struct CommandExecutionRequest {
     /// Working directory, relative to the project root.
     working_directory: Option<ProjectRelativePathBuf>,
     /// Whether we should always prefetch stderr when executing. When it's needed, this lets us
-    /// overlap stderr download with output donwloads, which might be marginally useful to improve
+    /// overlap stderr download with output downloads, which might be marginally useful to improve
     /// latency.
     prefetch_lossy_stderr: bool,
     /// Whether to cleanup outputs

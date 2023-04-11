@@ -183,7 +183,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             a @ AttrLiteral::Visibility(_) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
-                //   But adding it here to preserve exising behavior.
+                //   But adding it here to preserve existing behavior.
                 a.to_value(pkg, ctx.heap())
             }
             AttrLiteral::Extra(u) => match u {

@@ -303,7 +303,7 @@ impl<'a> BuckdLifecycle<'a> {
                         .kill()
                         .await
                         .context("Error killing process after buck2 daemon launch timing out")?;
-                    // This should return immeditately as kill() waits for the process to end. We wait here again to fetch the ExitStatus
+                    // This should return immediately as kill() waits for the process to end. We wait here again to fetch the ExitStatus
                     // Signal termination is not considered a success, so wait() results in an appropriate ExitStatus
                     Ok(child.wait().await?)
                 }

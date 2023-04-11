@@ -143,7 +143,7 @@ impl QueryTarget for ActionQueryNode {
 
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath {
-        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicing.
+        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.
         unimplemented!("buildfile not yet implemented in aquery")
     }
 
@@ -260,7 +260,7 @@ impl QueryTarget for ActionQueryNode {
         &self,
         mut _func: F,
     ) -> Result<(), E> {
-        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicing.
+        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.
         unimplemented!("inputs not yet implemented in aquery")
     }
 

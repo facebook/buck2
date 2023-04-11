@@ -121,7 +121,7 @@ impl DaemonShutdown {
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
 
-        // Ignore errrors on shutdown_channel as that would mean we've already started shutdown;
+        // Ignore errors on shutdown_channel as that would mean we've already started shutdown;
         let _ = self.shutdown_channel.unbounded_send(());
         self.delegate
             .force_shutdown_with_timeout(reason.to_string(), timeout);

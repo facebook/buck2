@@ -55,7 +55,7 @@ type LivelinessObserverForGuard = RwLock<LivelinessObserverState>;
 pub struct LivelinessGuard {
     guard: OwnedRwLockWriteGuard<LivelinessObserverState>,
 
-    // A reference to the underyling manager to support `cancel`.
+    // A reference to the underlying manager to support `cancel`.
     manager: Arc<LivelinessObserverForGuard>,
 }
 

@@ -61,7 +61,7 @@ enum CasArtifactActionExecutionError {
     GetDigestExpirationError(FileDigest),
 
     #[error(
-        "The digest `{digest}` was declated to expire after `{declared_expiration}`, but it expires at `{effective_expiration}`"
+        "The digest `{digest}` was declared to expire after `{declared_expiration}`, but it expires at `{effective_expiration}`"
     )]
     InvalidExpiration {
         digest: FileDigest,

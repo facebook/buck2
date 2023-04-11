@@ -71,7 +71,7 @@ pub fn common_helpers(builder: &mut GlobalsBuilder) {
 /// Helpers required to help drive the interpreter
 pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfigs);
 
-/// The same as `run_starlark_test`, but just make sure the parse succeds;
+/// The same as `run_starlark_test`, but just make sure the parse succeeds;
 /// ignore the targets
 pub fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
     let mut tester = Tester::new()?;

@@ -123,7 +123,7 @@ impl CoercedSelector {
 
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
 /// specific types (for example, where we expect target-like things, it has been converted to something like
-/// a TargetLable or ProvidersLabel).
+/// a TargetLabel or ProvidersLabel).
 ///
 /// CoercedAttr  provides support for the `select()` function. All coerced data is
 /// potentially represented by a select that represents possibly different

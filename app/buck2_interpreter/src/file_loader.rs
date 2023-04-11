@@ -115,7 +115,7 @@ impl InterpreterFileLoader {
 }
 
 fn to_diagnostic(err: &anyhow::Error, id: &str) -> anyhow::Error {
-    anyhow::anyhow!("UnkownError in {}: {}", id, err)
+    anyhow::anyhow!("UnknownError in {}: {}", id, err)
 }
 
 impl InterpreterFileLoader {

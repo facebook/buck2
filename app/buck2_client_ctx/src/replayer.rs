@@ -148,7 +148,7 @@ where
         futures::ready!(pending.delay.poll(cx));
 
         // Take the event and remove the Pending entry. This unwrap() is safe since if we have a
-        // reference to this Pending the event cannnot have been taken yet, since we immediately
+        // reference to this Pending the event cannot have been taken yet, since we immediately
         // delete it on the next line.
         let event = pending.event.take().unwrap();
         this.pending.set(None);

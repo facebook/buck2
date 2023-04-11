@@ -20,7 +20,7 @@ def _get_protoc_release(
     protoc_version = releases[version]
     artifact = "protoc-{}-{}.zip".format(version, platform)
     if not artifact in protoc_version:
-        fail("Unsupported platfrom '{}'. Available artifacts: {}".format(
+        fail("Unsupported platform '{}'. Available artifacts: {}".format(
             platform,
             ", ".join(protoc_version.keys()),
         ))

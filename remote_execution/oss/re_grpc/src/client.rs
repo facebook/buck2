@@ -775,7 +775,7 @@ fn with_internal_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::
     msg
 }
 
-/// Replace occurences of $FOO in a string with the value of the env var $FOO.
+/// Replace occurrences of $FOO in a string with the value of the env var $FOO.
 fn substitute_env_vars(s: &str) -> anyhow::Result<String> {
     substitute_env_vars_impl(s, |v| std::env::var(v))
 }

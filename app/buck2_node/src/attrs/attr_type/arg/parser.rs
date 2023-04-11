@@ -236,7 +236,7 @@ fn read_unquoted_arg(input: &str) -> Result<String> {
     }
 }
 
-// A quoted arg is simple, we will read until we find a matchin un-escaped quote.
+// A quoted arg is simple, we will read until we find a matching un-escaped quote.
 fn read_quoted_arg(input: &str, quote: char) -> Result<String> {
     let mut has_escapes = false;
     let mut char_indices = input.char_indices();

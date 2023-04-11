@@ -597,9 +597,9 @@ mod tests {
 
         let configs = &cells.configs_by_name;
 
-        let ohter_config = configs.get(CellName::testing_new("other")).unwrap();
+        let other_config = configs.get(CellName::testing_new("other")).unwrap();
 
-        assert_eq!(ohter_config.get("foo", "bar"), Some("baz"));
+        assert_eq!(other_config.get("foo", "bar"), Some("baz"));
 
         Ok(())
     }

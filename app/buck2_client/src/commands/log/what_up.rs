@@ -40,10 +40,10 @@ pub struct WhatUpCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
 
-    /// Show spans after X amount of miliseconds
+    /// Show spans after X amount of milliseconds
     #[clap(
         long,
-        help = "Print the actions that where open after certain amount of miliseconds",
+        help = "Print the actions that where open after certain amount of milliseconds",
         value_name = "NUMBER"
     )]
     pub after: Option<u64>,

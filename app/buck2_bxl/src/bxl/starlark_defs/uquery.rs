@@ -364,7 +364,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)
     }
 
-    /// The testsof query for lising the tests of the specified targets.
+    /// The testsof query for listing the tests of the specified targets.
     ///
     /// Sample usage:
     /// ```text
