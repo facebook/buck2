@@ -251,6 +251,8 @@ pub struct CommandExecutionRequest {
     /// Whether this command should override the fallback-only behavior on an hybrid executor and
     /// thus always run as if the executor was full-hybrid, assuming it is capable.
     force_full_hybrid_if_capable: bool,
+    /// Whether to disable capturing performance counters for this execution.
+    disable_miniperf: bool,
 }
 
 impl CommandExecutionRequest {
@@ -273,6 +275,7 @@ impl CommandExecutionRequest {
             local_environment_inheritance: None,
             allow_cache_upload: false,
             force_full_hybrid_if_capable: false,
+            disable_miniperf: false,
         }
     }
 
@@ -390,6 +393,15 @@ impl CommandExecutionRequest {
 
     pub fn force_full_hybrid_if_capable(&self) -> bool {
         self.force_full_hybrid_if_capable
+    }
+
+    pub fn with_disable_miniperf(mut self, disable_miniperf: bool) -> Self {
+        self.disable_miniperf = disable_miniperf;
+        self
+    }
+
+    pub fn disable_miniperf(&self) -> bool {
+        self.disable_miniperf
     }
 }
 

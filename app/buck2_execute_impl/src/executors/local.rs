@@ -135,6 +135,7 @@ impl LocalExecutor {
         timeout: Option<Duration>,
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
+        disable_miniperf: bool,
     ) -> impl futures::future::Future<
         Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
     > + Send
@@ -160,14 +161,14 @@ impl LocalExecutor {
                             timeout,
                             env_inheritance,
                             liveliness_observer,
-                            self.knobs.enable_miniperf,
+                            self.knobs.enable_miniperf && !disable_miniperf,
                         )
                         .await
                     }
 
                     #[cfg(not(unix))]
                     {
-                        let _unused = forkserver;
+                        let _unused = (forkserver, disable_miniperf);
                         Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
                     }
                 }
@@ -370,6 +371,7 @@ impl LocalExecutor {
                         request.timeout(),
                         request.local_environment_inheritance(),
                         liveliness_observer,
+                        request.disable_miniperf(),
                     )
                     .await;
 
@@ -1112,6 +1114,7 @@ mod tests {
                 None,
                 None,
                 NoopLivelinessObserver::create(),
+                false,
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
@@ -1147,6 +1150,7 @@ mod tests {
                 None,
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
+                false,
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
