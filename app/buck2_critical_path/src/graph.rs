@@ -341,7 +341,7 @@ mod test {
 
     #[test]
     fn test_topo_sort_empty() {
-        let (graph, _, _) = GraphBuilder::<(), ()>::new().finish();
+        let (graph, _, _) = GraphBuilder::<&'static str, ()>::new().finish();
         assert_eq!(graph.topo_sort().unwrap(), vec![]);
     }
 

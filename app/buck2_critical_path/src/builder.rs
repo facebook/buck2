@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
 use std::hash::Hash;
 
 use starlark_map::small_map::SmallMap;
+use starlark_map::Hashed;
 use thiserror::Error;
 
 use crate::graph::Graph;
@@ -19,9 +21,9 @@ use crate::types::VertexId;
 use crate::types::VertexKeys;
 
 #[derive(Error, Debug)]
-pub enum PushError {
-    #[error("duplicate key")]
-    DuplicateKey,
+pub enum PushError<K: Display> {
+    #[error("duplicate key: {key}")]
+    DuplicateKey { key: K },
 
     #[error("overflow")]
     Overflow,
@@ -36,7 +38,7 @@ pub struct GraphBuilder<K: Hash + Eq, D> {
 
 impl<K, D> GraphBuilder<K, D>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Display,
 {
     pub fn new() -> Self {
         Self {
@@ -52,7 +54,7 @@ where
         key: K,
         deps: impl Iterator<Item = K>,
         data: D,
-    ) -> Result<(), PushError> {
+    ) -> Result<(), PushError<K>> {
         let idx: u32 = self
             .vertices
             .len()
@@ -66,9 +68,13 @@ where
 
         let idx = VertexId::new(idx);
 
-        if self.keys.insert(key, idx).is_some() {
-            return Err(PushError::DuplicateKey);
+        let hashed = Hashed::new(key);
+        if self.keys.contains_key_hashed(hashed.as_ref()) {
+            return Err(PushError::DuplicateKey {
+                key: hashed.into_key(),
+            });
         }
+        self.keys.insert_hashed(hashed, idx);
 
         self.data.push(data);
 
