@@ -425,22 +425,24 @@ impl BuckdServer {
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
+        let client_ctx = req.get_ref().client_context()?;
+
         // This will reset counters incorrectly if commands are running concurrently.
         // This is fine.
         reset_soft_error_counters();
 
-        reload_hard_error_config(&req.get_ref().client_context()?.buck2_hard_error)?;
+        reload_hard_error_config(&client_ctx.buck2_hard_error)?;
 
         OneshotCommandOptions::pre_run(&opts, self)?;
 
         let daemon_state = self.0.daemon_state.dupe();
-        let trace_id = req.get_ref().client_context()?.trace_id.parse()?;
+        let trace_id = client_ctx.trace_id.parse()?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
         let ActiveCommand {
             guard,
             daemon_shutdown_channel,
             state,
-        } = ActiveCommand::new(&dispatch);
+        } = ActiveCommand::new(&dispatch, client_ctx);
         let data = daemon_state.data()?;
 
         dispatch.instant_event(Box::new(
@@ -1148,13 +1150,16 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.check_if_accepting_requests()?;
 
-        let res: anyhow::Result<(_, _)> = try {
-            let trace_id = req.get_ref().client_context()?.trace_id.parse()?;
-            self.0.daemon_state.prepare_events(trace_id).await?
+        let res: anyhow::Result<_> = try {
+            let client_ctx = req.get_ref().client_context()?;
+            let trace_id = client_ctx.trace_id.parse()?;
+            let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
+            let active_command = ActiveCommand::new(&dispatcher, client_ctx);
+            (event_source, dispatcher, active_command)
         };
 
-        let (event_source, dispatcher) = match res {
-            Ok((event_source, dispatcher)) => (event_source, dispatcher),
+        let (event_source, dispatcher, active_command) = match res {
+            Ok(v) => v,
             Err(e) => return Ok(error_to_response_stream(e)),
         };
 
@@ -1162,7 +1167,7 @@ impl DaemonApi for BuckdServer {
             guard,
             daemon_shutdown_channel,
             state,
-        } = ActiveCommand::new(&dispatcher);
+        } = active_command;
 
         let this = self.0.dupe();
         Ok(streaming(

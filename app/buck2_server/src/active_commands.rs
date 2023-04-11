@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use buck2_cli_proto::ClientContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -85,7 +86,10 @@ impl Drop for ActiveCommandDropGuard {
 }
 
 /// A handle to the stats for this command. We use this to broadcast state about this command.
-struct ActiveCommandState {}
+struct ActiveCommandState {
+    #[allow(unused)]
+    argv: Vec<String>,
+}
 
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
 pub struct ActiveCommandStateWriter(Arc<ActiveCommandState>);
@@ -97,9 +101,12 @@ pub struct ActiveCommand {
 }
 
 impl ActiveCommand {
-    pub fn new(event_dispatcher: &EventDispatcher) -> Self {
+    pub fn new(event_dispatcher: &EventDispatcher, client_ctx: &ClientContext) -> Self {
         let (sender, receiver) = oneshot::channel();
-        let state = Arc::new(ActiveCommandState {});
+
+        let state = Arc::new(ActiveCommandState {
+            argv: client_ctx.sanitized_argv.clone(),
+        });
 
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
