@@ -74,6 +74,7 @@ GroupMapping = record(
 
 _VALID_ATTRS = [
     "enable_distributed_thinlto",
+    "enable_if_node_count_exceeds",
     "discard_group",
 ]
 
@@ -81,6 +82,8 @@ _VALID_ATTRS = [
 GroupAttrs = record(
     # Use distributed thinlto to build the link group shared library.
     enable_distributed_thinlto = field(bool.type, False),
+    # Enable this link group if the binary's node count exceeds the given threshold
+    enable_if_node_count_exceeds = field([int.type, None], None),
     # Discard all dependencies in the link group, useful for dropping unused dependencies
     # from the build graph.
     discard_group = field(bool.type, False),
@@ -119,6 +122,7 @@ def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d:
                 fail("invalid attr '{}' for link group '{}' found. Valid attributes are {}.".format(attr, name, _VALID_ATTRS))
         group_attrs = GroupAttrs(
             enable_distributed_thinlto = attrs.get("enable_distributed_thinlto", False),
+            enable_if_node_count_exceeds = attrs.get("enable_if_node_count_exceeds", None),
             discard_group = attrs.get("discard_group", False),
         )
 

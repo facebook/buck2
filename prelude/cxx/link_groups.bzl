@@ -128,6 +128,7 @@ _LinkedLinkGroup = record(
 _LinkedLinkGroups = record(
     libs = field({str.type: _LinkedLinkGroup.type}),
     symbol_ldflags = field([""], []),
+    disabled_link_groups = field([str.type]),
 )
 
 def parse_link_group_definitions(mappings: list.type) -> [Group.type]:
@@ -240,7 +241,8 @@ def get_filtered_labels_to_links_map(
         link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped: bool.type = False,
         is_executable_link: bool.type = False,
-        force_static_follows_dependents: bool.type = True) -> {"label": LinkGroupLinkInfo.type}:
+        force_static_follows_dependents: bool.type = True,
+        disabled_link_groups: [str.type] = []) -> {"label": LinkGroupLinkInfo.type}:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -327,6 +329,8 @@ def get_filtered_labels_to_links_map(
             link_style = LinkStyle("shared"),
         )  # buildifier: disable=uninitialized
 
+    filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL] + disabled_link_groups
+
     for target in linkables:
         node = linkable_graph_node_map[target]
         actual_link_style = get_actual_link_style(link_style, link_group_preferred_linkage.get(target, node.preferred_linkage))
@@ -350,13 +354,13 @@ def get_filtered_labels_to_links_map(
             elif not target_link_group and not link_group:
                 # Ungrouped linkable targets belong to the unlabeled executable
                 add_link(target, actual_link_style)
-            elif is_executable_link and target_link_group == NO_MATCH_LABEL:
-                # Targets labeled NO_MATCH belong to the unlabeled executable
+            elif is_executable_link and (target_link_group == NO_MATCH_LABEL or target_link_group in disabled_link_groups):
+                # Targets labeled NO_MATCH or targets whose link group is disabled belong to the unlabeled executable
                 add_link(target, actual_link_style)
             elif target_link_group == MATCH_ALL_LABEL or target_link_group == link_group:
                 # If this belongs to the match all link group or the group currently being evaluated
                 add_link(target, actual_link_style)
-            elif target_link_group not in (None, NO_MATCH_LABEL, MATCH_ALL_LABEL):
+            elif target_link_group not in filtered_groups:
                 add_link_group(target, target_link_group)
 
     return linkable_map
@@ -696,13 +700,27 @@ def create_link_groups(
         link_group_mappings: [{"label": str.type}, None] = None) -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
+    node_count = len(linkable_graph_node_map)
+    specs = []
+    disabled_link_groups = []
     for link_group_spec in link_group_specs:
-        if link_group_spec.is_shared_lib:
+        if link_group_spec.group.attrs.discard_group:
+            # Don't create a link group for deps that we want to drop
+            continue
+        if not link_group_spec.is_shared_lib:
+            # always add libraries that are not constructed from link groups
+            specs.append(link_group_spec)
+        elif (node_count == 0 or  # avoid creating stub libraries when the link group matches nothing
+              link_group_spec.group.attrs.enable_if_node_count_exceeds == None or
+              link_group_spec.group.attrs.enable_if_node_count_exceeds > node_count):
+            specs.append(link_group_spec)
             link_group_shared_links[link_group_spec.group.name] = _stub_library(
                 ctx = ctx,
                 name = link_group_spec.name,
                 extra_ldflags = linker_flags,
             )
+        else:
+            disabled_link_groups.append(link_group_spec.group.name)
 
     linked_link_groups = {}
     undefined_symfiles = []
@@ -715,13 +733,7 @@ def create_link_groups(
         root_link_group,
     )
 
-    link_groups_created = False
-    for link_group_spec in link_group_specs:
-        if link_group_spec.group.attrs.discard_group:
-            # Don't create a link group for deps that we want to drop
-            continue
-        link_groups_created = True
-
+    for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
         # handle the case when a link group can depend on the executable.
@@ -780,7 +792,7 @@ def create_link_groups(
     # needed by these link groups are pulled in and exported to the dynamic
     # symbol table.
     symbol_ldflags = []
-    if link_group_specs and link_groups_created:
+    if specs:
         symbol_ldflags.extend(
             _symbol_flags_for_link_groups(
                 ctx = ctx,
@@ -792,4 +804,5 @@ def create_link_groups(
     return _LinkedLinkGroups(
         libs = linked_link_groups,
         symbol_ldflags = symbol_ldflags,
+        disabled_link_groups = disabled_link_groups,
     )
