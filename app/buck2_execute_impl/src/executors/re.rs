@@ -16,6 +16,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::soft_error;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -200,6 +201,27 @@ impl ReExecutor {
 
             return ControlFlow::Break(res);
         }
+
+        if let Some(timeout) = request.timeout() {
+            let execution_time = response.timing().execution_time;
+
+            if execution_time > timeout {
+                let res = soft_error!(
+                    "re_timeout_exceeded",
+                    anyhow::anyhow!(
+                        "Command {} exceeded its timeout (ran for {}s, timeout was {}s)",
+                        action.re_action_key(),
+                        execution_time.as_secs(),
+                        timeout.as_secs(),
+                    )
+                );
+
+                if let Err(e) = res {
+                    return ControlFlow::Break(manager.error("re_timeout_exceeded", e));
+                }
+            }
+        }
+
         if action_result.exit_code != 0 {
             return ControlFlow::Break(manager.failure(
                 CommandExecutionKind::Remote {
