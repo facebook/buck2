@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//tests:re_utils.bzl", "get_re_executor_from_props")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def sh_test_impl(ctx: "context") -> ["provider"]:
@@ -40,7 +41,12 @@ def sh_test_impl(ctx: "context") -> ["provider"]:
 
     command = [args] + ctx.attrs.args
 
-    run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or [])
+    # Setup a RE executor based on the `remote_execution` param.
+    re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)
+
+    # We implicitly make the target run from the project root if remote
+    # excution options were specified
+    run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None
 
     # TODO support default info and runinfo properly by writing a sh script that invokes the command properly
 
@@ -52,6 +58,7 @@ def sh_test_impl(ctx: "context") -> ["provider"]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            default_executor = re_executor,
             run_from_project_root = run_from_project_root,
             use_project_relative_paths = run_from_project_root,
         ),
