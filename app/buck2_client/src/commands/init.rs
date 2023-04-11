@@ -118,8 +118,8 @@ fn exec_impl(
     set_up_project(&absolute, git, !cmd.no_prelude)
 }
 
-fn initialize_buckconfig(path: &Path, prelude: bool) -> anyhow::Result<()> {
-    let mut buckconfig = std::fs::File::create(path.join(".buckconfig"))?;
+fn initialize_buckconfig(repo_root: &Path, prelude: bool) -> anyhow::Result<()> {
+    let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[repositories]")?;
     writeln!(buckconfig, "root = .")?;
     writeln!(buckconfig, "prelude = prelude")?;
@@ -142,15 +142,15 @@ fn initialize_buckconfig(path: &Path, prelude: bool) -> anyhow::Result<()> {
         )?;
     } else {
         // For the no-prelude mode, create an empty prelude/prelude.bzl as Buck2 expects one.
-        let prelude_dir = path.join("prelude");
+        let prelude_dir = repo_root.join("prelude");
         fs_util::create_dir(prelude_dir.as_path())?;
         fs_util::create_file(prelude_dir.join("prelude.bzl"))?;
     }
     Ok(())
 }
 
-fn initialize_toolchains_buck(path: &Path) -> anyhow::Result<()> {
-    let mut buck = std::fs::File::create(path.join("BUCK"))?;
+fn initialize_toolchains_buck(repo_root: &Path) -> anyhow::Result<()> {
+    let mut buck = std::fs::File::create(repo_root.join("BUCK"))?;
 
     writeln!(
         buck,
@@ -165,8 +165,8 @@ fn initialize_toolchains_buck(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn initialize_root_buck(path: &Path, prelude: bool) -> anyhow::Result<()> {
-    let mut buck = std::fs::File::create(path.join("BUCK"))?;
+fn initialize_root_buck(repo_root: &Path, prelude: bool) -> anyhow::Result<()> {
+    let mut buck = std::fs::File::create(repo_root.join("BUCK"))?;
 
     if prelude {
         writeln!(
@@ -184,7 +184,7 @@ fn initialize_root_buck(path: &Path, prelude: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn set_up_prelude(path: &Path, git: bool) -> anyhow::Result<()> {
+fn set_up_prelude(repo_root: &Path, git: bool) -> anyhow::Result<()> {
     if git {
         if !Command::new("git")
             .args([
@@ -193,7 +193,7 @@ fn set_up_prelude(path: &Path, git: bool) -> anyhow::Result<()> {
                 "https://github.com/facebook/buck2-prelude.git",
                 "prelude",
             ])
-            .current_dir(path)
+            .current_dir(repo_root)
             .status()?
             .success()
         {
@@ -210,37 +210,47 @@ fn set_up_prelude(path: &Path, git: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn set_up_project(path: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
+fn set_up_gitignore(repo_root: &Path) -> anyhow::Result<()> {
+    let gitignore = repo_root.join(".gitignore");
+    // If .gitignore is empty or doesn't exist, add in buck-out
+    if !gitignore.exists() || fs_util::metadata(&gitignore)?.len() == 0 {
+        fs_util::write(gitignore, "/buck-out\n")?;
+    }
+    Ok(())
+}
+
+fn set_up_project(repo_root: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
     if git {
         if !Command::new("git")
             .arg("init")
-            .current_dir(path)
+            .current_dir(repo_root)
             .status()?
             .success()
         {
             return Err(anyhow::anyhow!("Failure when running `git init`."));
         };
+        set_up_gitignore(repo_root)?;
     }
 
     if prelude {
-        set_up_prelude(path, git)?;
+        set_up_prelude(repo_root, git)?;
     }
 
     // If the project already contains a .buckconfig, leave it alone
-    if path.join(".buckconfig").exists() {
+    if repo_root.join(".buckconfig").exists() {
         return Ok(());
     }
 
-    initialize_buckconfig(path, prelude)?;
+    initialize_buckconfig(repo_root, prelude)?;
     if prelude {
-        let toolchains = path.join("toolchains");
+        let toolchains = repo_root.join("toolchains");
         if !toolchains.exists() {
             fs_util::create_dir(&toolchains)?;
             initialize_toolchains_buck(toolchains.as_path())?;
         }
     }
-    if !path.join("BUCK").exists() {
-        initialize_root_buck(path, prelude)?;
+    if !repo_root.join("BUCK").exists() {
+        initialize_root_buck(repo_root, prelude)?;
     }
     Ok(())
 }
@@ -251,6 +261,7 @@ mod tests {
 
     use crate::commands::init::initialize_buckconfig;
     use crate::commands::init::initialize_root_buck;
+    use crate::commands::init::set_up_gitignore;
     use crate::commands::init::set_up_project;
 
     #[test]
@@ -265,6 +276,37 @@ mod tests {
         assert!(tempdir_path.join("toolchains").exists());
         assert!(tempdir_path.join("toolchains/BUCK").exists());
         assert!(tempdir_path.join("BUCK").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_default_gitignore() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let tempdir_path = tempdir.path();
+        fs_util::create_dir_all(tempdir_path)?;
+
+        // .gitignore does not exist yet
+        set_up_gitignore(tempdir_path)?;
+        let gitignore_path = tempdir_path.join(".gitignore");
+        assert!(gitignore_path.exists());
+        let actual = fs_util::read_to_string(&gitignore_path)?;
+        let expected = "/buck-out\n";
+        assert_eq!(actual, expected);
+
+        // If an empty .buckconfig exists (this is the case we would hit after running `git init`), add `buck-out`
+        fs_util::write(&gitignore_path, "")?;
+        set_up_gitignore(tempdir_path)?;
+        assert!(gitignore_path.exists());
+        let actual = fs_util::read_to_string(&gitignore_path)?;
+        assert_eq!(actual, expected);
+
+        // If a non-empty.buckconfig exists, don't touch it
+        fs_util::write(&gitignore_path, "foo\nbar\n")?;
+        set_up_gitignore(tempdir_path)?;
+        assert!(gitignore_path.exists());
+        let actual = fs_util::read_to_string(&gitignore_path)?;
+        let expected = "foo\nbar\n";
+        assert_eq!(actual, expected);
         Ok(())
     }
 
