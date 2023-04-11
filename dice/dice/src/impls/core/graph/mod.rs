@@ -10,6 +10,8 @@
 //! The versioned dice graph of dependencies
 mod dependencies;
 pub(crate) mod history;
+#[allow(unused)]
+pub(crate) mod introspection;
 mod nodes;
 pub(crate) mod storage;
 pub(crate) mod types;

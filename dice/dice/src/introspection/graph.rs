@@ -132,14 +132,14 @@ impl<'de> Deserialize<'de> for VersionNumber {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum GraphNodeKind {
     Occupied,
     Transient,
     Vacant,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CellHistory {
     pub history: BTreeMap<VersionNumber, HistoryState>,
 }
@@ -165,14 +165,14 @@ impl CellHistory {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum HistoryState {
     Verified,
     Dirty,
     ForceDirty,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SerializedGraphNode {
     pub node_id: NodeID,
     pub kind: GraphNodeKind,
