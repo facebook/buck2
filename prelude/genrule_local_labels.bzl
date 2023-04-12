@@ -49,6 +49,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # Dotslash is not yet supported on RE.
     "uses_dotslash",
 
+    # Some rules apply a patch which is not on RE.
+    "uses_patch",
+
     # Directly uses the smcc binary which is not on RE.
     "uses_smcc",
 
