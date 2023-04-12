@@ -403,6 +403,6 @@ def _remap_headers_to_basename(headers: [CHeader.type]) -> [CHeader.type]:
 def get_flags_for_compiler_type(compiler_type: str.type) -> [str.type]:
     # MSVC requires this flag to enable external headers
     if compiler_type in ["windows"]:
-        return ["/experimental:external"]
+        return ["/experimental:external", "/nologo"]
     else:
         return []
