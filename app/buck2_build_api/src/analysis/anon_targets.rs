@@ -46,6 +46,7 @@ use buck2_interpreter::types::label::Label;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -254,11 +255,15 @@ impl AnonTargetKey {
         }
 
         let ctx = AnonAttrCtx::new();
+        // TODO: refactor these attrs into a separate anon targets attr.
         let a = if let Some(attr_type) = unpack_dep(&attr.0) {
             match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
-                    AttrLiteral::ConfiguredDep(Box::new(DepAttr { attr_type, label }))
+                    AttrLiteral::Extra(CoercedAttrExtraTypes::ConfiguredDep(Box::new(DepAttr {
+                        attr_type,
+                        label,
+                    })))
                 }
                 _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
             }

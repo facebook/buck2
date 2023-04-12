@@ -14,7 +14,9 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
+use serde_json::to_value;
 
+use super::dep::DepAttr;
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
@@ -105,6 +107,7 @@ impl AttrConfig for ConfiguredAttr {
 pub enum CoercedAttrExtraTypes {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<SplitTransitionDep>),
+    ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
@@ -112,6 +115,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
+            Self::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
         }
     }
 
@@ -119,6 +123,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
         match self {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
             Self::SplitTransitionDep(e) => e.any_matches(filter),
+            Self::ConfiguredDep(e) => filter(&e.to_string()),
         }
     }
 }
@@ -128,6 +133,7 @@ impl Display for CoercedAttrExtraTypes {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             Self::SplitTransitionDep(e) => Display::fmt(e, f),
+            Self::ConfiguredDep(e) => write!(f, "\"{}\"", e),
         }
     }
 }

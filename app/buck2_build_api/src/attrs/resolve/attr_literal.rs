@@ -161,10 +161,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::None => Ok(Value::new_none()),
             AttrLiteral::Dep(d) => DepAttrType::resolve_single(ctx, d),
-            AttrLiteral::ConfiguredDep(..) => Err(anyhow::anyhow!(
-                "ConfiguredDep attr type is used only in internal forward rules \
-                    which have no corresponding starlark impl"
-            )),
             AttrLiteral::ConfigurationDep(d) => ConfigurationDepAttrType::resolve_single(ctx, d),
             AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
@@ -218,7 +214,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
             AttrLiteral::Dep(_) => Ok(Label::get_type_value_static().as_str()),
-            AttrLiteral::ConfiguredDep(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
@@ -259,7 +254,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::None => Value::new_none(),
             AttrLiteral::Dep(d) => heap.alloc(Label::new(d.label.clone())),
-            AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfigurationDep(box c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),

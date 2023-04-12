@@ -38,6 +38,7 @@ use once_cell::sync::Lazy;
 use starlark_map::Hashed;
 
 use crate::attrs::attr::Attribute;
+use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
@@ -270,13 +271,15 @@ impl ConfiguredTargetNode {
             ConfiguredTargetNodeData {
                 label: name.dupe(),
                 target_node: TargetNodeOrForward::Forward(
-                    CoercedAttr::Literal(AttrLiteral::ConfiguredDep(Box::new(DepAttr {
-                        attr_type: DepAttrType::new(
-                            ProviderIdSet::EMPTY,
-                            DepAttrTransition::Identity,
-                        ),
-                        label: configured_providers_label,
-                    }))),
+                    CoercedAttr::Literal(AttrLiteral::Extra(CoercedAttrExtraTypes::ConfiguredDep(
+                        Box::new(DepAttr {
+                            attr_type: DepAttrType::new(
+                                ProviderIdSet::EMPTY,
+                                DepAttrTransition::Identity,
+                            ),
+                            label: configured_providers_label,
+                        }),
+                    ))),
                     transitioned_node.dupe(),
                 ),
                 // We have no attributes with selects, so resolved configurations is empty.
