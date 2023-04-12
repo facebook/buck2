@@ -35,7 +35,6 @@ $ ./bin.pex
 """
 
 import argparse
-import errno
 import os
 import platform
 import stat
@@ -58,6 +57,16 @@ def parse_args() -> argparse.Namespace:
         required=True,
         type=Path,
         help="The template file for the .pex bootstrapper script",
+    )
+    parser.add_argument(
+        "--template-interpreter-wrapper",
+        required=True,
+        type=Path,
+        help=(
+            "The template file for the .pex interpreter wrapper script. The "
+            "intepreter wrapper is responsible for loading shared libraries "
+            "transparently."
+        ),
     )
     parser.add_argument(
         "--template-lite",
@@ -109,11 +118,21 @@ def parse_args() -> argparse.Namespace:
         help="Where to write the bootstrapper script to",
     )
     parser.add_argument(
+        "--interpreter-wrapper",
+        type=Path,
+        help="Where to write the interpreter wrapper script to",
+    )
+    parser.add_argument(
         "--native-libs-env-var",
         default=(
             "DYLD_LIBRARY_PATH" if platform.system() == "Darwin" else "LD_LIBRARY_PATH"
         ),
         help="The dynamic loader env used to find native library deps",
+    )
+    parser.add_argument(
+        "--target-platform",
+        default="linux",
+        help="the target platform to build for",
     )
     # Compatibility with existing make_par scripts
     parser.add_argument("--passthrough", action="append", default=[])
@@ -121,36 +140,30 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def write_bootstrapper(args: argparse.Namespace) -> None:
-    """Write the .pex bootstrapper script using a template"""
-
-    template = args.template_lite if args.use_lite else args.template
-    with open(template, "r", encoding="utf8") as fin:
-        data = fin.read()
-
+def _materialize_template(template: str, args: argparse.Namespace) -> str:
     # Because this can be invoked from other directories, find the relative path
     # from this .par to the modules dir, and use that.
     relative_modules_dir = os.path.relpath(args.modules_dir, args.output.parent)
-
-    # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
-    #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
-    #                 OSX just sort of ignores it and tries to run your thing with
-    #                 the current shell. So, we hack in /usr/bin/env in the front
-    #                 for now, and let it do the lifting. OSX: Bringing you the best
-    #                 of 1980s BSD in 2021...
-    #                 Also, make sure we add PYTHON_INTERPRETER_FLAGS back. We had to
-    #                 exclude it for now, because linux doesn't like multiple args
-    #                 after /usr/bin/env
 
     ld_preload = "None"
     if args.preload_libraries:
         ld_preload = repr(":".join(p.name for p in args.preload_libraries))
 
-    new_data = data.replace("<PYTHON>", "/usr/bin/env " + str(args.python))
-    new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
-    # new_data = new_data.replace(
-    #    "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
-    # )
+    data = Path(template).read_text(encoding="utf-8")
+    if args.target_platform != "linux":
+        # So, if arg0 in your shebang is a bash script
+        # (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
+        # OSX just sort of ignores it and tries to run your thing with
+        # the current shell. So, we hack in /usr/bin/env in the front
+        # for now, and let it do the lifting. OSX: Bringing you the best
+        # of 1980s BSD in 2021...
+        new_data = data.replace("<PYTHON>", "/usr/bin/env -S " + str(args.python))
+    else:
+        new_data = data.replace("<PYTHON>", str(args.python))
+
+    new_data = new_data.replace(
+        "<PYTHON_INTERPRETER_FLAGS>", args.python_interpreter_flags
+    )
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
     new_data = new_data.replace("<MAIN_MODULE>", args.entry_point)
 
@@ -159,12 +172,45 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     new_data = new_data.replace("<NATIVE_LIBS_DIR>", repr(relative_modules_dir))
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD_ENV_VAR>", "LD_PRELOAD")
     new_data = new_data.replace("<NATIVE_LIBS_PRELOAD>", ld_preload)
+    if args.interpreter_wrapper is not None:
+        new_data = new_data.replace(
+            "<INTERPRETER_WRAPPER_REL_PATH>", args.interpreter_wrapper.name
+        )
+    return new_data
+
+
+def write_bootstrapper(args: argparse.Namespace) -> None:
+    """Write the .pex bootstrapper script using a template"""
+
+    template = args.template_lite if args.use_lite else args.template
+    materialized_bootstrapper = _materialize_template(template, args)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", encoding="utf8") as fout:
-        fout.write(new_data)
+        fout.write(materialized_bootstrapper)
     mode = os.stat(args.output).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     os.chmod(args.output, mode)
+
+    # use_lite and interpreter_wrapper are mutually exclusive and at least one is required
+    if args.interpreter_wrapper:
+        materialized_interpreter_wrapper = _materialize_template(
+            args.template_interpreter_wrapper, args
+        )
+        interpreter_wrapper = Path(args.interpreter_wrapper)
+        interpreter_wrapper.write_text(
+            materialized_interpreter_wrapper, encoding="utf8"
+        )
+        mode = (
+            os.stat(args.interpreter_wrapper).st_mode
+            | stat.S_IXUSR
+            | stat.S_IXGRP
+            | stat.S_IXOTH
+        )
+        interpreter_wrapper.chmod(mode)
+    elif not args.use_lite:
+        raise AssertionError(
+            "Either --interpreter-wrapper or --use-lite must be specified."
+        )
 
 
 def main() -> None:
