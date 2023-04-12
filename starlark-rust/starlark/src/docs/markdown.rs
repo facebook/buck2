@@ -196,7 +196,7 @@ fn render_object(name: &str, object: &Object) -> String {
     // If this is a native, top level object, render it with a larger
     // header. Sub objects will be listed along side members, so use
     // smaller headers there.
-    let title = format!("# {name}");
+    let title = format!("# `{name}` type");
     let summary = render_doc_string(DSOpts::Combined, &object.docs)
         .map(|s| format!("\n\n{}", s))
         .unwrap_or_default();
@@ -589,19 +589,19 @@ mod test {
         let f1_details = render_function("f1", &f1);
 
         let expected_without_docs_root = format!(
-            "# foo1\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
+            "# `foo1` type\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
         );
         let expected_without_docs_non_root = format!(
-            "# foo2\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
+            "# `foo2` type\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             p1 = p1_details,
             p2 = p2_details,
             f1 = f1_details,
         );
         let expected_with_docs_root = format!(
-            "# foo3\n\n{ds}\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
+            "# `foo3` type\n\n{ds}\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             ds = render_ds_combined(&ds),
             p1 = p1_details,
             p2 = p2_details,
