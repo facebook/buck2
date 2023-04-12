@@ -205,7 +205,7 @@ fn render_object(name: &str, object: &Object) -> String {
         .members
         .iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(name, member)| render_member(name, member))
+        .map(|(child, member)| render_member(&format!("{name}.{child}"), member))
         .collect();
     let members_details = member_details.join("\n\n---\n\n");
 
@@ -584,28 +584,24 @@ mod test {
             },
         };
 
-        let p1_details = render_property("p1", &p1);
-        let p2_details = render_property("p2", &p2);
-        let f1_details = render_function("f1", &f1);
-
         let expected_without_docs_root = format!(
             "# `foo1` type\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
-            p1 = p1_details,
-            p2 = p2_details,
-            f1 = f1_details,
+            p1 = render_property("foo1.p1", &p1),
+            p2 = render_property("foo1.p2", &p2),
+            f1 = render_function("foo1.f1", &f1),
         );
         let expected_without_docs_non_root = format!(
             "# `foo2` type\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
-            p1 = p1_details,
-            p2 = p2_details,
-            f1 = f1_details,
+            p1 = render_property("foo2.p1", &p1),
+            p2 = render_property("foo2.p2", &p2),
+            f1 = render_function("foo2.f1", &f1),
         );
         let expected_with_docs_root = format!(
             "# `foo3` type\n\n{ds}\n\n{f1}\n\n---\n\n{p1}\n\n---\n\n{p2}",
             ds = render_ds_combined(&ds),
-            p1 = p1_details,
-            p2 = p2_details,
-            f1 = f1_details,
+            p1 = render_property("foo3.p1", &p1),
+            p2 = render_property("foo3.p2", &p2),
+            f1 = render_function("foo3.f1", &f1),
         );
 
         let members = smallmap! {
