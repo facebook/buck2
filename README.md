@@ -40,7 +40,7 @@ Frequently used terms and their definitions can be found in the [glossary page](
 
 ## Coding conventions
 
-Beyond the obvious (well-tested, easy to read) we prefer guidelines that are automatically enforced, e.g. through `rust fmt`, Clippy or the custom linter we have written. Some rules:
+Beyond the obvious (well-tested, easy to read) we prefer guidelines that are automatically enforced, e.g. through `rustfmt`, Clippy or the custom linter we have written. Some rules:
 
 * Use the utilities from Gazebo where they are useful, in particular, `dupe`.
 * Prefer `to_owned` to convert `&str` to `String`.
