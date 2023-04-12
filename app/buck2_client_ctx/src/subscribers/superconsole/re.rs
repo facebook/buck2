@@ -16,12 +16,6 @@ use crate::subscribers::superconsole::SuperConsoleConfig;
 #[derive(Debug)]
 pub struct ReHeader;
 
-impl ReHeader {
-    pub fn boxed() -> Box<dyn Component> {
-        Box::new(Self)
-    }
-}
-
 impl Component for ReHeader {
     fn draw_unchecked(
         &self,

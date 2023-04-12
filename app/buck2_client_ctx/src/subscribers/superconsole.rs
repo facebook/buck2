@@ -31,9 +31,7 @@ use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use superconsole::components::splitting::SplitKind;
-use superconsole::components::Bounded;
-use superconsole::components::Split;
+use superconsole::components::DrawVertical;
 use superconsole::style::Attribute;
 use superconsole::style::Color;
 use superconsole::style::ContentStyle;
@@ -41,7 +39,6 @@ use superconsole::style::StyledContent;
 use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
-use superconsole::Direction;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
@@ -143,32 +140,52 @@ impl Default for SuperConsoleConfig {
     }
 }
 
+#[derive(Debug)]
+struct BuckRootComponent {
+    sandwiched: Option<Box<dyn Component>>,
+    timed_list: TimedList,
+}
+
+impl Component for BuckRootComponent {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        // bound all components to our recommended grapheme-width
+        let dimensions = dimensions.intersect(Dimensions {
+            width: SUPERCONSOLE_WIDTH,
+            height: usize::MAX,
+        });
+
+        let mut draw = DrawVertical::new(dimensions);
+        draw.draw(&SessionInfoComponent, state, mode)?;
+        draw.draw(&ReHeader, state, mode)?;
+        draw.draw(&IoHeader, state, mode)?;
+        if let Some(sandwiched) = &self.sandwiched {
+            draw.draw(&**sandwiched, state, mode)?;
+        }
+        draw.draw(&DebugEventsComponent, state, mode)?;
+        draw.draw(&DiceComponent, state, mode)?;
+        draw.draw(&StarlarkDebuggerComponent, state, mode)?;
+        draw.draw(&CommandsComponent, state, mode)?;
+        draw.draw(&self.timed_list, state, mode)?;
+
+        Ok(draw.finish())
+    }
+}
+
 impl StatefulSuperConsole {
     pub(crate) fn default_layout(
         command_name: &str,
         sandwiched: Option<Box<dyn Component>>,
     ) -> Box<dyn Component> {
         let header = format!("Command: `{}`.", command_name);
-        let mut components: Vec<Box<dyn Component>> = vec![
-            Box::new(SessionInfoComponent),
-            ReHeader::boxed(),
-            Box::new(IoHeader),
-        ];
-        if let Some(sandwiched) = sandwiched {
-            components.push(sandwiched);
-        }
-        components.push(Box::new(DebugEventsComponent));
-        components.push(Box::new(DiceComponent));
-        components.push(Box::new(StarlarkDebuggerComponent));
-        components.push(Box::new(CommandsComponent));
-        components.push(Box::new(TimedList::new(CUTOFFS, header)));
-        let root = Box::new(Split::new(
-            components,
-            Direction::Vertical,
-            SplitKind::Adaptive,
-        ));
-        // bound all components to our recommended grapheme-width
-        Box::new(Bounded::new(root, Some(SUPERCONSOLE_WIDTH), None))
+        Box::new(BuckRootComponent {
+            sandwiched,
+            timed_list: TimedList::new(CUTOFFS, header),
+        })
     }
 
     pub fn new_with_root_forced(
