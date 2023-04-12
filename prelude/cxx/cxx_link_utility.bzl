@@ -34,7 +34,7 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         "-Xlinker",
         # A linker map is useful even when the output executable can't be correctly created
         # (e.g. due to relocation overflows). Turn errors into warnings so the
-        # path/to:binary[linker-map] sub-target succesfully runs and produces the linker map file.
+        # path/to:binary[linker-map] sub-target successfully runs and produces the linker map file.
         "-noinhibit-exec",
     ]
     extra_clang_flags = [

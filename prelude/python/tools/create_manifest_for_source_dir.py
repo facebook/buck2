@@ -24,7 +24,7 @@ def main(argv: List[str]) -> None:
     entries = []
     for root, dirs, files in os.walk(args.extracted):
         # Ensure a consistent iteration order.
-        # Sorting dirs in place affects the future interation
+        # Sorting dirs in place affects the future iteration
         # order of os.walk.
         dirs.sort()
         files.sort()

@@ -47,7 +47,7 @@ def constraint_value_impl(ctx):
 #
 # Attributes:
 #  constraint_values: list of constraint values that are set for this platform
-#  deps: a list of platform target dependencies, the constraints from these platforms will be part of this platform (unless overriden)
+#  deps: a list of platform target dependencies, the constraints from these platforms will be part of this platform (unless overridden)
 def platform_impl(ctx):
     subinfos = (
         [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +

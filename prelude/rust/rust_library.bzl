@@ -132,7 +132,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
             {link_style: LinkInfos(default = link) for link_style in LinkStyle},
             exported_deps = [d[MergedLinkInfo] for d in ctx.attrs.deps],
             # TODO(agallagher): This matches v1 behavior, but some of these libs
-            # have prebuilt DSOs which might be usuable.
+            # have prebuilt DSOs which might be usable.
             preferred_linkage = Linkage("static"),
         ),
     )

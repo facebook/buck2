@@ -20,7 +20,7 @@ def check_dependencies(in_deps: ["dependency"], allowlist: "list") -> ["dependen
     check all dependencies for validity and collect only the relevant ones
     fail if an unsupported target type is used as a dependency
 
-    include_only controlls if the check is done against ErlangAppInfo or ErlangAppIncludeInfo
+    include_only controls if the check is done against ErlangAppInfo or ErlangAppIncludeInfo
     """
     out_deps = []
     for dep in in_deps:

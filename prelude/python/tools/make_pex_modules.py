@@ -305,7 +305,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
     for init_py_dir in init_py_paths:
         init_py_path = args.modules_dir / init_py_dir / "__init__.py"
         # We still do this check because python insists on touching some read only
-        # files and blows up somtimes.
+        # files and blows up sometimes.
         if not _lexists(init_py_path):
             init_py_path.touch(exist_ok=True)
 

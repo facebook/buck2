@@ -195,5 +195,5 @@ json_escape_char(C) when C >= 16#20 andalso C =< 16#10FFFF ->
 json_escape_char(C) when C < 16#10000 ->
     io_lib:format("\\u~s", [string:pad(integer_to_list(C, 16), 4, leading, " ")]);
 json_escape_char(_) ->
-    %% TODO: support extendet unicode characters
+    %% TODO: support extended unicode characters
     error(utf8_extended_character_not_supported).

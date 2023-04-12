@@ -82,7 +82,7 @@ format_assert(_Type, _Props) ->
 
 % For this macro to work we expect as local variable
 % Type, Module, Line and Props
--define(FORMAT_ASSSERTION(Format, Expressions, SpecificExpressions),
+-define(FORMAT_ASSERTION(Format, Expressions, SpecificExpressions),
     {ok,
         [print_type_expression(Type, Format, Expressions) ++ print_location(Module, Line)] ++
             SpecificExpressions ++
@@ -122,13 +122,13 @@ format_assert0(
         value := Value
     } = Props
 ) ->
-    % asssertNot as formatted as assert, so we need to debug that here.
+    % assertNot as formatted as assert, so we need to debug that here.
     Type =
         case Expected of
             true -> Type1;
             false -> assertNot
         end,
-    ?FORMAT_ASSSERTION(
+    ?FORMAT_ASSERTION(
         "~s",
         [Expression],
         [
@@ -146,7 +146,7 @@ format_assert0(
         value := Value
     } = Props
 ) ->
-    ?FORMAT_ASSSERTION(
+    ?FORMAT_ASSERTION(
         "~0p, ~s",
         [Expected, Expression],
         [
@@ -161,7 +161,7 @@ format_assert0(
 ) when
     Type =:= assertMatch orelse Type =:= assertNotMatch
 ->
-    ?FORMAT_ASSSERTION(
+    ?FORMAT_ASSERTION(
         "~s, ~s",
         [Pattern, Expression],
         [
@@ -178,7 +178,7 @@ format_assert0(
     assertNotEqual = Type,
     #{line := Line, module := Module, expression := Expression, value := Value} = Props
 ) ->
-    ?FORMAT_ASSSERTION(
+    ?FORMAT_ASSERTION(
         "~p, ~s",
         [Value, Expression],
         [
@@ -206,7 +206,7 @@ format_assert0(
         unrecognized_error ->
             ValueLine;
         _ ->
-            ?FORMAT_ASSSERTION(
+            ?FORMAT_ASSERTION(
                 "~s, ~p",
                 [Pattern, Expression],
                 [
@@ -225,7 +225,7 @@ format_assert0(
         unexpected_exception := {Class, Reason, StackTrace}
     } = Props
 ) ->
-    ?FORMAT_ASSSERTION(
+    ?FORMAT_ASSERTION(
         "~p",
         [Expression],
         [

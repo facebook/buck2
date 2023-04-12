@@ -13,7 +13,7 @@ GoCoverageMode = enum(
     "atomic",
 )
 
-# The result of runnin `go tool cover` on the input sources.
+# The result of running `go tool cover` on the input sources.
 GoCoverResult = record(
     # All sources after annotating non-`_test.go` sources.  This will be a
     # combination of the original `*_test.go` sources and the annotated non-

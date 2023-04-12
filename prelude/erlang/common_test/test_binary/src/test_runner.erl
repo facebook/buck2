@@ -139,7 +139,7 @@ test_run_timeout(#test_env{} = TestEnv, Reason) ->
         TestEnv, Reason, timeout
     ).
 
-%% @doc Provides xml result as specified by the tpx protocol when test succed to ran.
+%% @doc Provides xml result as specified by the tpx protocol when test succeed to ran.
 -spec test_run_succeed(#test_env{}, string()) -> ok.
 test_run_succeed(#test_env{} = TestEnv, Reason) ->
     provide_output_file(TestEnv, Reason, passed).

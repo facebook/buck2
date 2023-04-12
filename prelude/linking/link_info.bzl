@@ -155,7 +155,7 @@ def wrap_link_info(
         external_debug_info = inner.external_debug_info,
     )
 
-# Adds approprate args representing `linkable` to `args`
+# Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]):
     if linkable._type == LinkableType("archive"):
         if linkable.link_whole:
@@ -365,7 +365,7 @@ def create_merged_link_info(
         # linkable input (e.g. so that any unresolved symbols we have are
         # resolved properly when we're linked).
         if actual_link_style != LinkStyle("shared"):
-            # We never want to propogate the linkables used to build a shared library.
+            # We never want to propagate the linkables used to build a shared library.
             #
             # Doing so breaks the encapsulation of what is in linked in the library vs. the main executable.
             framework_linkables.append(frameworks_linkable)

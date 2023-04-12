@@ -18,7 +18,7 @@ def write_overrides_file(ctx: "context"):
     paths of all the libraries relative to the current JSON file, and then pull
     the absolute path of the JSON file during runtime with a python script.
 
-    We populate the JOSN file with the following structure:
+    We populate the JSON file with the following structure:
     [
        ("first_jll", "uuid",
           [

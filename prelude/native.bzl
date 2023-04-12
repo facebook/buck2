@@ -375,7 +375,7 @@ __shimmed_native__ = __struct_to_dict(__internal__)
 __shimmed_native__.update(__rules__)
 __shimmed_native__.update(_user_rules)
 
-# Should come after the rules which are macro overriden
+# Should come after the rules which are macro overridden
 __shimmed_native__.update(__extra_rules__)
 __shimmed_native__.update({"cxx": _cxx, "python": _python})
 

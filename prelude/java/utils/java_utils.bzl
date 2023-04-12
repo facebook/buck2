@@ -57,9 +57,9 @@ def get_java_version_attributes(ctx: "context") -> (int.type, int.type):
 
 def to_java_version(java_version: str.type) -> int.type:
     if java_version.startswith("1."):
-        expect(len(java_version) == 3, "Supported java version number format is 1.X, where X is a single digit numnber, but it was set to {}", java_version)
+        expect(len(java_version) == 3, "Supported java version number format is 1.X, where X is a single digit number, but it was set to {}", java_version)
         java_version_number = int(java_version[2:])
-        expect(java_version_number < 9, "Supported java version number format is 1.X, where X is a single digit numnber that is less than 9, but it was set to {}", java_version)
+        expect(java_version_number < 9, "Supported java version number format is 1.X, where X is a single digit number that is less than 9, but it was set to {}", java_version)
         return java_version_number
     else:
         return int(java_version)

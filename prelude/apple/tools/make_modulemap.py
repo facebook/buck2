@@ -36,7 +36,7 @@ class Module:
         for submodule_name in sorted(self.submodules.keys()):
             submodule = self.submodules[submodule_name]
 
-            # remove any extensions for readibility
+            # remove any extensions for readability
             sanitized_name = os.path.splitext(submodule_name)[0]
 
             # module names can only be ascii or _

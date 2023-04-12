@@ -146,7 +146,7 @@ def process_genrule(
     else:
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
-    # Some custom rules use `process_genrule` but doesn't set this attrbiute.
+    # Some custom rules use `process_genrule` but doesn't set this attribute.
     is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     if is_windows:
         path_sep = "\\"

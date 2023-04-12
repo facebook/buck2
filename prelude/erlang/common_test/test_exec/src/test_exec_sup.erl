@@ -27,7 +27,7 @@ init([#test_env{} = TestEnv]) ->
         {
             #{
                 % strategy doesn't matter as
-                % none of the childs are to be restarted
+                % none of the children are to be restarted
                 strategy => one_for_one,
                 intensity => 0,
                 period => 1,

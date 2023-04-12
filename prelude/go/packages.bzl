@@ -9,7 +9,7 @@ load("@prelude//utils:utils.bzl", "value_or")
 
 def go_attr_pkg_name(ctx: "context") -> str.type:
     """
-    Return the Go package name for the given context corresponing to a rule.
+    Return the Go package name for the given context corresponding to a rule.
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 

@@ -147,7 +147,7 @@ get_otp_app_deps(OTPApps, OTPAppMapping) ->
      || #{"name" := AppName} <- OTPApps
     ],
 
-    InitalAcc = lists:foldl(
+    InitialAcc = lists:foldl(
         fun(UnVersionedSpec = #{"name" := AppName}, Acc) ->
             % get specific version from toolchain
             #{AppName := #{version := AppVersion}} = OTPAppMapping,
@@ -159,7 +159,7 @@ get_otp_app_deps(OTPApps, OTPAppMapping) ->
         OTPApps
     ),
 
-    get_otp_app_deps(lists:flatten(InitialDeps), OTPAppMapping, InitalAcc).
+    get_otp_app_deps(lists:flatten(InitialDeps), OTPAppMapping, InitialAcc).
 
 get_otp_app_deps([], _, Acc) ->
     maps:values(Acc);

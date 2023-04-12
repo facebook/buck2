@@ -38,7 +38,7 @@ run(Args) when is_list(Args) ->
             % process calling it (ct_runner).
             try
                 % We consult all the .app files to load the atoms.
-                % This solution is less than optimal and should be adressed
+                % This solution is less than optimal and should be addressed
                 % T120903856
                 PotentialDotApp = [
                     filename:join(Dep, filename:basename(filename:dirname(Dep)) ++ ".app")
@@ -65,7 +65,7 @@ run(Args) when is_list(Args) ->
                 register(cth_tpx_io_buffer, IoBuffer),
                 %% set global timeout
                 Result = ct:run_test(CtRunArgs),
-                ?LOG_DEBUG("ct_run finshed with result ~p ~n", [Result]),
+                ?LOG_DEBUG("ct_run finished with result ~p ~n", [Result]),
                 Providers2 = [buck_ct_provider:do_post_running(Provider) || Provider <- Providers1],
                 [buck_ct_provider:do_terminate(Provider) || Provider <- Providers2],
                 0

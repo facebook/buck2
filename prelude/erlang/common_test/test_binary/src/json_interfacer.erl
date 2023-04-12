@@ -33,7 +33,7 @@ summary(skipped) -> ?SKIPPED;
 summary(timeout) -> ?TIMEOUT;
 summary(omitted) -> ?OMITTED.
 
--type formated_result() ::
+-type formatted_result() ::
     #{
         name := binary(),
         status := binary(),
@@ -49,11 +49,11 @@ summary(omitted) -> ?OMITTED.
         durationSecs := float()
     }.
 
--type formated_case_result() ::
+-type formatted_case_result() ::
     #{
-        inits := list(formated_result()),
-        main := formated_result(),
-        ends := list(formated_result())
+        inits := list(formatted_result()),
+        main := formatted_result(),
+        ends := list(formatted_result())
     }.
 
 -spec write_json_output(string(), list(cth_tpx:case_result())) -> {ok, file:filename()}.
@@ -66,7 +66,7 @@ write_json_output(OutputDir, TpxResults) ->
 format_json(TpxResults) ->
     jsone:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
 
--spec format_case(list(cth_tpx:case_result())) -> list(formated_case_result()).
+-spec format_case(list(cth_tpx:case_result())) -> list(formatted_case_result()).
 format_case(
     #{
         inits := Inits,
@@ -80,7 +80,7 @@ format_case(
         ends => lists:map(fun(MethodResult) -> format_method_result(MethodResult) end, Ends)
     }.
 
--spec format_method_result(cth_tpx:method_result()) -> formated_result().
+-spec format_method_result(cth_tpx:method_result()) -> formatted_result().
 
 format_method_result(
     #{

@@ -59,7 +59,7 @@ def _cgo(
         own_pre: [CPreprocessor.type],
         inherited_pre: ["CPreprocessorInfo"]) -> (["artifact"], ["artifact"], ["artifact"]):
     """
-    Run `cgo` on `.go` sources to genreate Go, C, and C-Header sources.
+    Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
 
     pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
@@ -119,7 +119,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
     )
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
 
-    # Seprate sources into C++ and CGO sources.
+    # Separate sources into C++ and CGO sources.
     cgo_srcs = []
     cxx_srcs = []
     for src in ctx.attrs.srcs:

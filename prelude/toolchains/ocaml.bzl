@@ -28,7 +28,7 @@ def _system_ocaml_toolchain_impl(_ctx):
             # [Note: What is `binutils_ld`?] in `providers.bzl`.
             binutils_ld = None,
 
-            # `ocamlopt.opt` makes calls to `as`. If this config paramter is
+            # `ocamlopt.opt` makes calls to `as`. If this config parameter is
             # `None` those calls will resolve to whatever `as` is in the
             # environment. If not `None` then the provided value will be what's
             # invoked.
