@@ -17,14 +17,12 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use superconsole::components::bordering::BorderedSpec;
-use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bordered;
+use superconsole::components::DrawVertical;
 use superconsole::components::Expanding;
-use superconsole::components::Split;
 use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
-use superconsole::Direction;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
@@ -335,19 +333,17 @@ impl Component for TimedListHeader {
 /// Component that displays ongoing events and their durations + summary stats.
 #[derive(Debug)]
 pub struct TimedList {
-    child: Split,
+    header: TimedListHeader,
+    body: TimedListBody,
 }
 
 impl TimedList {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
     pub fn new(cutoffs: Cutoffs, header: String) -> Self {
-        let head = Box::new(TimedListHeader::new(header));
-        // Subtract for the header and the padding row above and beneath
-        let body = Box::new(TimedListBody::new(cutoffs));
-
         Self {
-            child: Split::new(vec![head, body], Direction::Vertical, SplitKind::Adaptive),
+            header: TimedListHeader::new(header),
+            body: TimedListBody::new(cutoffs),
         }
     }
 }
@@ -363,7 +359,10 @@ impl Component for TimedList {
 
         match mode {
             DrawMode::Normal if !span_tracker.is_unused() => {
-                self.child.draw(state, dimensions, mode)
+                let mut draw = DrawVertical::new(dimensions);
+                draw.draw(&self.header, state, mode)?;
+                draw.draw(&self.body, state, mode)?;
+                Ok(draw.finish())
             }
             // show a summary at the end
             DrawMode::Final => CountComponent.draw(state, dimensions, DrawMode::Final),
