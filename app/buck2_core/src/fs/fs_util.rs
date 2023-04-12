@@ -56,6 +56,21 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
 fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     use std::io::ErrorKind;
 
+    use anyhow::Context as _;
+
+    fn permission_check(result: io::Result<()>) -> anyhow::Result<()> {
+        match result {
+            // Standard issue on Windows machines, so hint at the resolution, as it is not obvious.
+            // Unfortunately this doesn't have an `ErrorKind`, so have to do it with substring matching.
+            Err(e) if e.to_string().contains("privilege is not held") => Err(anyhow::anyhow!(e)
+                .context(
+                    "Perhaps you need to turn on 'Developer Mode' in Windows to enable symlinks.",
+                )),
+            Err(e) => Err(e.into()),
+            Ok(_) => Ok(()),
+        }
+    }
+
     // If original is a relative path, fix it up to be absolute
     let target_abspath = if original.is_absolute() {
         Cow::Borrowed(original)
@@ -95,15 +110,13 @@ fn symlink_impl(original: &Path, link: &Path) -> anyhow::Result<()> {
     let target_metadata = target_canonical.metadata();
     match target_metadata {
         Ok(meta) if meta.is_dir() => {
-            std::os::windows::fs::symlink_dir(&target_canonical, link)?;
-            Ok(())
+            permission_check(std::os::windows::fs::symlink_dir(&target_canonical, link))
         }
         Err(e) if e.kind() != ErrorKind::NotFound => Err(e.into()),
         _ => {
             // Either file or not existent. Default to file.
             // TODO(T144443238): This will cause issues if the file type turns out to be directory, fix this
-            std::os::windows::fs::symlink_file(&target_canonical, link)?;
-            Ok(())
+            permission_check(std::os::windows::fs::symlink_file(&target_canonical, link))
         }
     }
 }
