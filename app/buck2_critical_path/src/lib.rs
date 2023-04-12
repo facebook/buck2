@@ -16,6 +16,7 @@ mod types;
 mod test_utils;
 
 pub use builder::GraphBuilder;
+pub use builder::PushError;
 pub use graph::Graph;
 pub use graph::GraphVertex;
 pub use potential::compute_critical_path_potentials;

@@ -19,11 +19,13 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::package::PackageLabel;
+use buck2_core::quiet_soft_error;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
+use buck2_critical_path::PushError;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::instant_event;
@@ -687,9 +689,17 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             },
         );
 
+        let res = res.or_else(|err| match err {
+            e @ PushError::Overflow => Err(e.into()),
+            e @ PushError::DuplicateKey { .. } => {
+                quiet_soft_error!("critical_path_duplicate_key", e.into())?;
+                anyhow::Ok(())
+            }
+        });
+
         match res {
             Ok(()) => {}
-            Err(e) => self.builder = Err(e.into()),
+            Err(e) => self.builder = Err(e),
         }
     }
 
