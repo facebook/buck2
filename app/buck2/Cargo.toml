@@ -71,10 +71,6 @@ nix = { workspace = true }
 libc = { workspace = true }
 winapi = { workspace = true }
 
-[dev-dependencies]
-maplit = { workspace = true }
-tempfile = { workspace = true }
-
 [[bin]]
 name = "buck2"
 path = "bin/buck2.rs"
