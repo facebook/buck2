@@ -33,7 +33,6 @@ use itertools::Itertools;
 use crate::cast::transmute;
 use crate::collections::Hashed;
 use crate::docs;
-use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::names::FrozenNames;
@@ -213,7 +212,12 @@ impl FrozenModule {
         let members = self
             .all_items()
             .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)
-            .map(|(k, v)| (k.as_str().to_owned(), DocItem::from_value(v.to_value())))
+            .map(|(k, v)| {
+                (
+                    k.as_str().to_owned(),
+                    docs::Member::from_value(v.to_value()),
+                )
+            })
             .collect();
 
         docs::Module {

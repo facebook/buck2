@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -24,7 +22,6 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::Function;
-use crate::docs::Identifier;
 use crate::docs::Member;
 use crate::docs::Module;
 use crate::docs::Object;
@@ -188,18 +185,7 @@ fn render_module(name: &str, module: &Module) -> String {
 
     for (k, v) in &module.members {
         res.push('\n');
-        res.push_str(
-            &(Doc {
-                id: Identifier {
-                    name: k.clone(),
-                    location: None,
-                },
-                item: v.clone(),
-                custom_attrs: HashMap::new(),
-            }
-            .render_markdown_opt(MarkdownFlavor::DocFile)
-            .unwrap_or_default()),
-        );
+        res.push_str(&render_member(k, v));
         res.push('\n');
     }
 

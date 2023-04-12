@@ -23,6 +23,7 @@ use crate::assert;
 use crate::assert::Assert;
 use crate::docs;
 use crate::docs::DocStringKind;
+use crate::docs::Member;
 use crate::environment::Module;
 use crate::values::Value;
 
@@ -278,7 +279,6 @@ Some extra details can go here,
 
 #[test]
 fn test_module_docs_return() {
-    use crate::docs::DocItem;
     use crate::docs::DocString;
     use crate::docs::Function;
 
@@ -333,7 +333,7 @@ def f1():
     let m2_docs = m2.module_documentation();
     let m3_docs = m3.module_documentation();
 
-    let empty_function = DocItem::Function(Function::default());
+    let empty_function = Member::Function(Function::default());
 
     let expected_m1 = docs::Module {
         docs: DocString::from_docstring(
@@ -345,7 +345,7 @@ Some extra details can go here,
         ),
 
         members: smallmap! {
-            "f1".to_owned() => DocItem::Function(Function {
+            "f1".to_owned() => Member::Function(Function {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
                 ..Default::default()
             }),
@@ -358,7 +358,7 @@ Some extra details can go here,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
         members: smallmap! {
-            "x".to_owned() => DocItem::Property(docs::Property { docs: None, typ: Some(docs::Type { raw_type: "str.type".to_owned() }) }),
+            "x".to_owned() => Member::Property(docs::Property { docs: None, typ: Some(docs::Type { raw_type: "str.type".to_owned() }) }),
             "f1".to_owned() => empty_function.clone(),
         },
     };

@@ -410,7 +410,7 @@ pub struct Module {
     /// a string literal.
     pub docs: Option<DocString>,
     /// A mapping of top level symbols to their documentation, if any.
-    pub members: SmallMap<String, DocItem>,
+    pub members: SmallMap<String, Member>,
 }
 
 impl Module {
@@ -428,7 +428,7 @@ impl Module {
                         name: k.clone(),
                         location: None,
                     },
-                    item: v.clone(),
+                    item: v.clone().to_doc_item(),
                     custom_attrs: HashMap::new(),
                 }
                 .render_as_code()),
@@ -764,6 +764,30 @@ pub enum Member {
     Function(Function),
 }
 
+impl Member {
+    pub(crate) fn from_value(value: Value) -> Self {
+        // If we have a value which is a complex type, the right type to put in the docs is not the type
+        // it represents, but it's just a property we should point at
+        match value.documentation() {
+            Some(DocItem::Function(x)) => Member::Function(x),
+            Some(DocItem::Property(x)) => Member::Property(x),
+            _ => Member::Property(Property {
+                docs: None,
+                typ: Some(Type {
+                    raw_type: value.get_type_starlark_repr(),
+                }),
+            }),
+        }
+    }
+
+    pub fn to_doc_item(self) -> DocItem {
+        match self {
+            Member::Property(x) => DocItem::Property(x),
+            Member::Function(x) => DocItem::Function(x),
+        }
+    }
+}
+
 /// An object with named functions/properties.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Allocative)]
 pub struct Object {
@@ -820,22 +844,6 @@ pub enum DocItem {
     Object(Object),
     Function(Function),
     Property(Property),
-}
-
-impl DocItem {
-    pub(crate) fn from_value(value: Value) -> Self {
-        // If we have a value which is a complex type, the right type to put in the docs is not the type
-        // it represents, but it's just a property we should point at
-        match value.documentation() {
-            Some(x @ (DocItem::Function(_) | DocItem::Property(_))) => x,
-            _ => DocItem::Property(Property {
-                docs: None,
-                typ: Some(Type {
-                    raw_type: value.get_type_starlark_repr(),
-                }),
-            }),
-        }
-    }
 }
 
 /// The main structure that represents the documentation for a given symbol / module.

@@ -51,7 +51,6 @@ use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::Identifier;
-use starlark::docs::Member;
 use starlark::environment::Globals;
 use starlark::values::StarlarkValue;
 
@@ -229,13 +228,7 @@ async fn get_docs_from_module(
                     if !existing_globals.contains(k.as_str())
                         && !module_docs.members.contains_key(&k)
                     {
-                        module_docs.members.insert(
-                            k,
-                            match v {
-                                Member::Property(x) => DocItem::Property(x),
-                                Member::Function(x) => DocItem::Function(x),
-                            },
-                        );
+                        module_docs.members.insert(k, v);
                     }
                 }
             }
@@ -270,7 +263,7 @@ async fn get_docs_from_module(
                     position: None,
                 }),
             },
-            item: d,
+            item: d.to_doc_item(),
             custom_attrs: Default::default(),
         }
     }));
