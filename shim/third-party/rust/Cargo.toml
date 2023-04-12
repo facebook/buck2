@@ -125,10 +125,10 @@ pin-project = "0.4.29"
 plist = "0.5"
 pretty_assertions = "1.2.1"
 proc-macro2 = "1.0"
-prost = "0.11.6"
-prost-build = "0.11.6"
-prost-derive = "0.11.6"
-prost-types = "0.11.6"
+prost = "0.11.9"
+prost-build = "0.11.9"
+prost-derive = "0.11.9"
+prost-types = "0.11.9"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
 quote = "1.0.3"
@@ -192,11 +192,6 @@ zip = "0.5"
 zstd = "=0.11.1"
 
 [patch.crates-io]
-# For https://github.com/tokio-rs/prost/pull/802
-prost = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c66f6baed0b1426ce456fb70d16b1cdb", version = "0.11.6"}
-prost-build = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c66f6baed0b1426ce456fb70d16b1cdb", version = "0.11.6"}
-prost-types = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c66f6baed0b1426ce456fb70d16b1cdb", version = "0.11.6"}
-prost-derive = { git = "https://github.com/krallin/prost.git", rev = "90b7e204c66f6baed0b1426ce456fb70d16b1cdb", version = "0.11.6"}
 # For https://github.com/hyperium/tonic/pull/1252
 tonic = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.3" }
 tonic-build = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.4" }
