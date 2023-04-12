@@ -17,6 +17,7 @@
 
 use dupe::Dupe;
 use itertools::Itertools;
+use starlark_map::small_map::SmallMap;
 
 use crate::docs::Doc;
 use crate::docs::DocItem;
@@ -178,38 +179,47 @@ fn render_function(name: &str, function: &Function) -> String {
     body
 }
 
-/// Render a top level module.
-fn render_module(name: &str, module: &Module) -> String {
-    let docs = render_doc_string(DSOpts::Combined, &module.docs).unwrap_or_default();
-    let mut res = format!("# {}\n\n{}", name, docs);
-
-    for (k, v) in &module.members {
-        res.push('\n');
-        res.push_str(&render_member(k, v));
-        res.push('\n');
-    }
-
-    res
-}
-
-fn render_object(name: &str, object: &Object) -> String {
+fn render_members(
+    name: &str,
+    object: bool,
+    docs: &Option<DocString>,
+    members: &SmallMap<String, Member>,
+) -> String {
     // If this is a native, top level object, render it with a larger
     // header. Sub objects will be listed along side members, so use
     // smaller headers there.
-    let title = format!("# `{name}` type");
-    let summary = render_doc_string(DSOpts::Combined, &object.docs)
+    let title = if object {
+        format!("# `{name}` type")
+    } else {
+        format!("# {name}")
+    };
+    let summary = render_doc_string(DSOpts::Combined, docs)
         .map(|s| format!("\n\n{}", s))
         .unwrap_or_default();
 
-    let member_details: Vec<String> = object
-        .members
+    let prefix = if object {
+        format!("{name}.")
+    } else {
+        String::new()
+    };
+
+    let member_details: Vec<String> = members
         .iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(child, member)| render_member(&format!("{name}.{child}"), member))
+        .map(|(child, member)| render_member(&format!("{prefix}{child}"), member))
         .collect();
     let members_details = member_details.join("\n\n---\n\n");
 
     format!("{title}{summary}\n\n{members_details}")
+}
+
+/// Render a top level module.
+fn render_module(name: &str, module: &Module) -> String {
+    render_members(name, false, &module.docs, &module.members)
+}
+
+fn render_object(name: &str, object: &Object) -> String {
+    render_members(name, true, &object.docs, &object.members)
 }
 
 fn render_doc_item(name: &str, item: &DocItem) -> String {
@@ -552,7 +562,7 @@ mod test {
             custom_attrs: HashMap::default(),
         };
 
-        let expected_doc_without_loc = format!("# some_module\n\n{}", ds_render);
+        let expected_doc_without_loc = format!("# some_module\n\n{}\n\n", ds_render);
         assert_eq!(expected_doc_without_loc, render(&doc_without_loc));
         assert_eq!(expected_doc_without_loc, render(&doc_with_loc));
     }
