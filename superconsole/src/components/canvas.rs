@@ -19,7 +19,6 @@ use crossterm::queue;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 
-use crate::components::Blank;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
@@ -27,20 +26,10 @@ use crate::Lines;
 use crate::State;
 
 /// The root components which manages all other components.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Canvas {
-    child: Box<dyn Component>,
     // used to overwrite previous canvas buffer
     last_lines: Cell<u16>,
-}
-
-impl Default for Canvas {
-    fn default() -> Self {
-        Self {
-            child: Box::new(Blank),
-            last_lines: Cell::default(),
-        }
-    }
 }
 
 impl Canvas {
@@ -49,11 +38,12 @@ impl Canvas {
     /// Cuts off any lines that are too for long a single row
     pub(crate) fn draw(
         &self,
+        root: &dyn Component,
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let mut output = self.child.draw(state, dimensions, mode)?;
+        let mut output = root.draw(state, dimensions, mode)?;
         // We don't trust the child to not truncate the result.
         output.shrink_lines_to_dimensions(dimensions);
         self.last_lines.set(output.len().try_into()?);
@@ -64,9 +54,8 @@ impl Canvas {
 impl Canvas {
     /// Canvas only has a single child.
     /// It essentially functions as a passthrough - an invisible window which handles sizing and re-drawing correctly.
-    pub(crate) fn new(child: Box<dyn Component>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            child,
             ..Default::default()
         }
     }

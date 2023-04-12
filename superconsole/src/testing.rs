@@ -14,7 +14,6 @@ use anyhow::Context as _;
 
 use crate::output::SuperConsoleOutput;
 use crate::superconsole::SuperConsole;
-use crate::Component;
 use crate::Dimensions;
 
 /// An output for testing that doesn't do real I/O.
@@ -75,13 +74,12 @@ impl SuperConsoleTestingExt for SuperConsole {
     }
 }
 
-pub fn test_console(root: Box<dyn Component>) -> SuperConsole {
+pub fn test_console() -> SuperConsole {
     let size = Dimensions {
         width: 80,
         height: 80,
     };
     SuperConsole::new_internal(
-        root,
         Some(size),
         Box::new(TestOutput {
             should_render: true,

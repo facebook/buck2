@@ -70,7 +70,7 @@ fn main() {
     let count = crates.len();
 
     let loading_bar = LoadingBar(crates.clone());
-    let mut superconsole = SuperConsole::new(Box::new(loading_bar)).unwrap();
+    let mut superconsole = SuperConsole::new().unwrap();
 
     for (i, c) in crates.into_iter().enumerate() {
         let building = Span::new_styled("  Compiling ".to_owned().green().bold()).unwrap();
@@ -78,11 +78,13 @@ fn main() {
             building,
             Span::new_unstyled(c).unwrap(),
         ])]));
-        superconsole.render(&superconsole::state!(&i)).unwrap();
+        superconsole
+            .render(&loading_bar, &superconsole::state!(&i))
+            .unwrap();
         sleep(Duration::from_secs_f64(0.2));
     }
 
     superconsole
-        .finalize(&superconsole::state!(&count))
+        .finalize(&loading_bar, &superconsole::state!(&count))
         .unwrap();
 }

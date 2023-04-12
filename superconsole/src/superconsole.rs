@@ -46,10 +46,9 @@ pub struct SuperConsole {
 
 impl SuperConsole {
     /// Build a new SuperConsole with a root component.
-    pub fn new(root: Box<dyn Component>) -> Option<Self> {
+    pub fn new() -> Option<Self> {
         Self::compatible().then(|| {
             Self::new_internal(
-                root,
                 None,
                 Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
             )
@@ -58,21 +57,19 @@ impl SuperConsole {
 
     /// Force a new SuperConsole to be built with a root component, regardless of
     /// whether the tty is compatible
-    pub fn forced_new(root: Box<dyn Component>, fallback_size: Dimensions) -> Self {
+    pub fn forced_new(fallback_size: Dimensions) -> Self {
         Self::new_internal(
-            root,
             Some(fallback_size),
             Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
         )
     }
 
     pub(crate) fn new_internal(
-        root: Box<dyn Component>,
         fallback_size: Option<Dimensions>,
         output: Box<dyn SuperConsoleOutput>,
     ) -> Self {
         Self {
-            root: Canvas::new(root),
+            root: Canvas::new(),
             to_emit: Lines::new(),
             fallback_size,
             output,
@@ -93,7 +90,7 @@ impl SuperConsole {
 
     /// Render at a given tick.  Draws all components and drains the emitted events buffer.
     /// This will produce any pending emitting events above the Canvas and will re-render the drawing area.
-    pub fn render(&mut self, state: &State) -> anyhow::Result<()> {
+    pub fn render(&mut self, root: &dyn Component, state: &State) -> anyhow::Result<()> {
         // `render_general` refuses to drain more than a single frame, so repeat until done.
         // or until the rendered frame is too large to print anything.
         let mut anything_emitted = true;
@@ -104,7 +101,7 @@ impl SuperConsole {
             }
 
             let last_len = self.to_emit.len();
-            self.render_with_mode(state, DrawMode::Normal)?;
+            self.render_with_mode(root, state, DrawMode::Normal)?;
             anything_emitted = last_len == self.to_emit.len();
             has_rendered = true;
         }
@@ -114,14 +111,19 @@ impl SuperConsole {
 
     /// Perform a final render with [`DrawMode::Final`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize(self, state: &State) -> anyhow::Result<()> {
-        self.finalize_with_mode(state, DrawMode::Final)
+    pub fn finalize(self, root: &dyn Component, state: &State) -> anyhow::Result<()> {
+        self.finalize_with_mode(root, state, DrawMode::Final)
     }
 
     /// Perform a final render, using a specified [`DrawMode`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize_with_mode(mut self, state: &State, mode: DrawMode) -> anyhow::Result<()> {
-        self.render_with_mode(state, mode)?;
+    pub fn finalize_with_mode(
+        mut self,
+        root: &dyn Component,
+        state: &State,
+        mode: DrawMode,
+    ) -> anyhow::Result<()> {
+        self.render_with_mode(root, state, mode)?;
         self.output.finalize()
     }
 
@@ -131,9 +133,14 @@ impl SuperConsole {
     ///
     /// Because this re-renders the console, it requires passed state.
     /// Overuse of this method can cause `superconsole` to use significant CPU.
-    pub fn emit_now(&mut self, lines: Lines, state: &State) -> anyhow::Result<()> {
+    pub fn emit_now(
+        &mut self,
+        lines: Lines,
+        root: &dyn Component,
+        state: &State,
+    ) -> anyhow::Result<()> {
         self.emit(lines);
-        self.render(state)
+        self.render(root, state)
     }
 
     /// Queues the passed lines to be drawn on the next render.
@@ -160,7 +167,12 @@ impl SuperConsole {
     }
 
     /// Helper method to share render + finalize behavior by specifying mode.
-    fn render_with_mode(&mut self, state: &State, mode: DrawMode) -> anyhow::Result<()> {
+    fn render_with_mode(
+        &mut self,
+        root: &dyn Component,
+        state: &State,
+        mode: DrawMode,
+    ) -> anyhow::Result<()> {
         // TODO(cjhopman): We may need to try to keep each write call to be under the pipe buffer
         // size so it can be completed in a single syscall otherwise we might see a partially
         // rendered frame.
@@ -169,7 +181,7 @@ impl SuperConsole {
         let size = self.size()?.saturating_sub(1, Direction::Vertical);
         let mut buffer = Vec::new();
 
-        self.render_general(&mut buffer, state, mode, size)?;
+        self.render_general(&mut buffer, root, state, mode, size)?;
         self.output.output(buffer)
     }
 
@@ -177,6 +189,7 @@ impl SuperConsole {
     fn render_general(
         &mut self,
         buffer: &mut Vec<u8>,
+        root: &dyn Component,
         state: &State,
         mode: DrawMode,
         size: Dimensions,
@@ -193,7 +206,7 @@ impl SuperConsole {
         self.root.move_up(buffer)?;
 
         // Pre-draw the frame *and then* start rendering emitted messages.
-        let mut frame = self.root.draw(state, size, mode)?;
+        let mut frame = self.root.draw(root, state, size, mode)?;
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
         let limit = match mode {
@@ -231,8 +244,8 @@ mod tests {
 
     #[test]
     fn test_small_buffer() -> anyhow::Result<()> {
-        let root = Box::new(Echo::<Msg>::new(false));
-        let mut console = test_console(root);
+        let root = Echo::<Msg>::new(false);
+        let mut console = test_console();
         let msg_count = MINIMUM_EMIT + 5;
         console.emit(Lines(vec![vec!["line 1"].try_into()?; msg_count]));
         let msg = Msg(Lines(vec![vec!["line"].try_into()?; msg_count]));
@@ -242,6 +255,7 @@ mod tests {
         // even though the canvas is larger than the tty
         console.render_general(
             &mut buffer,
+            &root,
             &state,
             DrawMode::Normal,
             Dimensions::new(100, 2),
@@ -255,8 +269,8 @@ mod tests {
 
     #[test]
     fn test_huge_buffer() -> anyhow::Result<()> {
-        let root = Box::new(Echo::<Msg>::new(false));
-        let mut console = test_console(root);
+        let root = Echo::<Msg>::new(false);
+        let mut console = test_console();
         console.emit(Lines(vec![
             vec!["line 1"].try_into()?;
             MAX_GRAPHEME_BUFFER * 2
@@ -268,6 +282,7 @@ mod tests {
         // Even though we have more messages than fit on the screen in the `to_emit` buffer
         console.render_general(
             &mut buffer,
+            &root,
             &state,
             DrawMode::Normal,
             Dimensions::new(100, 20),
@@ -282,21 +297,21 @@ mod tests {
     /// Check that no frames are produced when should_render returns false.
     #[test]
     fn test_block_render() -> anyhow::Result<()> {
-        let root = Box::new(Echo::<Msg>::new(false));
-        let mut console = test_console(root);
+        let root = Echo::<Msg>::new(false);
+        let mut console = test_console();
 
         let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
 
-        console.render(&state)?;
+        console.render(&root, &state)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.test_output_mut()?.should_render = false;
-        console.render(&state)?;
+        console.render(&root, &state)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&state)?;
+        console.render(&root, &state)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         Ok(())
@@ -306,20 +321,20 @@ mod tests {
     /// is unblocked.
     #[test]
     fn test_block_lines() -> anyhow::Result<()> {
-        let root = Box::new(Echo::<Msg>::new(false));
-        let mut console = test_console(root);
+        let root = Echo::<Msg>::new(false);
+        let mut console = test_console();
 
         let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&state)?;
+        console.render(&root, &state)?;
         assert_eq!(console.test_output()?.frames.len(), 0);
 
         console.test_output_mut()?.should_render = true;
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render(&state)?;
+        console.render(&root, &state)?;
 
         let frame = console
             .test_output_mut()?
@@ -337,8 +352,8 @@ mod tests {
     /// Check that render_with_mode does not respect should_render.
     #[test]
     fn test_block_finalize() -> anyhow::Result<()> {
-        let root = Box::new(Echo::<Msg>::new(false));
-        let mut console = test_console(root);
+        let root = Echo::<Msg>::new(false);
+        let mut console = test_console();
 
         let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
@@ -346,7 +361,7 @@ mod tests {
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render_with_mode(&state, DrawMode::Final)?;
+        console.render_with_mode(&root, &state, DrawMode::Final)?;
 
         let frame = console
             .test_output_mut()?

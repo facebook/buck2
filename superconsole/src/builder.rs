@@ -10,7 +10,6 @@
 use std::io;
 use std::io::Write;
 
-use crate::components::Component;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::NonBlockingSuperConsoleOutput;
 use crate::output::SuperConsoleOutput;
@@ -50,32 +49,20 @@ impl Builder {
     }
 
     /// Build a new SuperConsole if stderr is a TTY.
-    pub fn build(self, root: Box<dyn Component>) -> anyhow::Result<Option<SuperConsole>> {
+    pub fn build(self) -> anyhow::Result<Option<SuperConsole>> {
         if !SuperConsole::compatible() {
             return Ok(None);
         }
-        Some(self.build_inner(root, None)).transpose()
+        Some(self.build_inner(None)).transpose()
     }
 
     /// Build a new SuperConsole regardless of whether stderr is a TTY.
-    pub fn build_forced(
-        self,
-        root: Box<dyn Component>,
-        fallback_size: Dimensions,
-    ) -> anyhow::Result<SuperConsole> {
-        self.build_inner(root, Some(fallback_size))
+    pub fn build_forced(self, fallback_size: Dimensions) -> anyhow::Result<SuperConsole> {
+        self.build_inner(Some(fallback_size))
     }
 
-    fn build_inner(
-        self,
-        root: Box<dyn Component>,
-        fallback_size: Option<Dimensions>,
-    ) -> anyhow::Result<SuperConsole> {
-        Ok(SuperConsole::new_internal(
-            root,
-            fallback_size,
-            self.output()?,
-        ))
+    fn build_inner(self, fallback_size: Option<Dimensions>) -> anyhow::Result<SuperConsole> {
+        Ok(SuperConsole::new_internal(fallback_size, self.output()?))
     }
 
     fn output(self) -> anyhow::Result<Box<dyn SuperConsoleOutput>> {

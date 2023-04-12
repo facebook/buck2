@@ -70,10 +70,10 @@ impl Component for Greeter {
 
 #[tokio::main]
 async fn main() {
-    let mut console = SuperConsole::new(Box::new(Greeter {
+    let root = Greeter {
         name: "Alex".to_owned(),
-    }))
-    .unwrap();
+    };
+    let mut console = SuperConsole::new().unwrap();
 
     let people = [
         "Joseph", "Janet", "Bob", "Christie", "Raj", "Sasha", "Rayna", "Veronika", "Russel",
@@ -101,12 +101,14 @@ async fn main() {
             .collect::<Vec<_>>();
         let store_name = StoreName(store_names[i].to_owned());
 
-        console.render(&state![&store_name, &customers]).unwrap();
+        console
+            .render(&root, &state![&store_name, &customers])
+            .unwrap();
 
         timer.tick().await;
     }
 
     // view the output before it's collapsed
     tokio::time::sleep(Duration::from_secs(1)).await;
-    console.finalize(&state![]).unwrap();
+    console.finalize(&root, &state![]).unwrap();
 }

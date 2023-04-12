@@ -75,10 +75,10 @@ impl Component for Greeter {
 
 #[tokio::main]
 async fn main() {
-    let mut console = SuperConsole::new(Box::new(Greeter {
+    let root = Greeter {
         name: "Alex".to_owned(),
-    }))
-    .unwrap();
+    };
+    let mut console = SuperConsole::new().unwrap();
 
     let people = [
         "Joseph", "Janet", "Bob", "Christie", "Raj", "Sasha", "Rayna", "Veronika", "Russel",
@@ -107,7 +107,7 @@ async fn main() {
         let store_name = StoreName(store_names[i].to_owned());
         let correct_num = i + 1;
         let cur_state = state!(&store_name, &customers, &correct_num);
-        console.render(&cur_state).unwrap();
+        console.render(&root, &cur_state).unwrap();
 
         last = Some((store_name, customers, correct_num));
 
@@ -116,6 +116,6 @@ async fn main() {
 
     let (store_name, customers, correct_num) = last.unwrap();
     console
-        .finalize(&state!(&store_name, &customers, &correct_num))
+        .finalize(&root, &state!(&store_name, &customers, &correct_num))
         .unwrap();
 }

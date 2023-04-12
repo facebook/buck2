@@ -80,6 +80,7 @@ pub const CUTOFFS: Cutoffs = Cutoffs {
 };
 
 pub struct StatefulSuperConsole {
+    root: Box<dyn Component>,
     state: SuperConsoleState,
     super_console: Option<SuperConsole>,
     verbosity: Verbosity,
@@ -189,8 +190,9 @@ impl StatefulSuperConsole {
             builder.write_to(stream);
         }
         Self::new(
+            root,
             trace_id,
-            builder.build_forced(root, fallback_size)?,
+            builder.build_forced(fallback_size)?,
             verbosity,
             show_waiting_message,
             replay_speed,
@@ -208,9 +210,10 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Option<Self>> {
-        match Self::console_builder().build(root)? {
+        match Self::console_builder().build()? {
             None => Ok(None),
             Some(sc) => Ok(Some(Self::new(
+                root,
                 trace_id,
                 sc,
                 verbosity,
@@ -223,6 +226,7 @@ impl StatefulSuperConsole {
     }
 
     pub(crate) fn new(
+        root: Box<dyn Component>,
         trace_id: TraceId,
         super_console: SuperConsole,
         verbosity: Verbosity,
@@ -232,6 +236,7 @@ impl StatefulSuperConsole {
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
         Ok(Self {
+            root,
             state: SuperConsoleState::new(
                 replay_speed,
                 trace_id,
@@ -264,7 +269,7 @@ impl StatefulSuperConsole {
     /// Fails if there isn't a superconsole.
     pub fn render_final_normal_console(self) -> anyhow::Result<()> {
         match self.super_console {
-            Some(sc) => sc.finalize_with_mode(&self.state.state(), DrawMode::Normal),
+            Some(sc) => sc.finalize_with_mode(&*self.root, &self.state.state(), DrawMode::Normal),
             None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
         }
     }
@@ -439,7 +444,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
         if let Some(super_console) = self.super_console.take() {
-            super_console.finalize(&self.state.state())?;
+            super_console.finalize(&*self.root, &self.state.state())?;
         }
 
         self.state.simple_console.handle_output(raw_output).await
@@ -515,7 +520,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                         super_console.emit(lines);
                     }
                 }
-                super_console.finalize(&self.state.state())
+                super_console.finalize(&*self.root, &self.state.state())
             }
             None => {
                 self.state
@@ -531,7 +536,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         match &mut self.super_console {
             Some(super_console) => {
                 self.state.current_tick = tick.dupe();
-                super_console.render(&self.state.state())
+                super_console.render(&*self.root, &self.state.state())
             }
             None => Ok(()),
         }
@@ -539,7 +544,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
         match self.super_console.take() {
-            Some(super_console) => super_console.finalize(&self.state.state()),
+            Some(super_console) => super_console.finalize(&*self.root, &self.state.state()),
             None => Ok(()),
         }
     }
@@ -938,9 +943,11 @@ mod tests {
         let now = SystemTime::now();
         let tick = Tick::now();
 
+        let root = StatefulSuperConsole::default_layout("build", None);
         let mut console = StatefulSuperConsole::new(
+            root,
             trace_id.dupe(),
-            test_console(StatefulSuperConsole::default_layout("build", None)),
+            test_console(),
             Verbosity::Default,
             true,
             Default::default(),

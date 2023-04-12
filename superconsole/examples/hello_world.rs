@@ -87,14 +87,15 @@ async fn main() {
     let delay = Duration::from_secs(1);
     let mut interval = time::interval(delay);
 
-    let mut renderer = SuperConsole::new(Box::new(Foo::new())).unwrap();
+    let root = Foo::new();
+    let mut renderer = SuperConsole::new().unwrap();
 
     // alternate between re-rendering and updating state
     loop {
         select! {
             _ = interval.tick() => {
                 let time = Instant::now();
-                renderer.render(&state!(&time)).unwrap();
+                renderer.render(&root, &state!(&time)).unwrap();
             }
             word = task_that_takes_some_time() => {
                 renderer.emit(Lines(process_word(word)));
