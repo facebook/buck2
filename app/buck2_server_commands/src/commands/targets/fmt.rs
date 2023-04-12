@@ -121,11 +121,10 @@ impl JsonWriter {
         } else {
             buffer.push_str(",\n");
         }
-        if self.json_lines {
-            write!(buffer, "\"{}\":{}", key, value.as_str()).unwrap();
-        } else {
-            write!(buffer, "    \"{}\": {}", key, value.as_str()).unwrap();
+        if !self.json_lines {
+            buffer.push_str("    ");
         }
+        write!(buffer, "\"{}\":{}", key, value.as_str()).unwrap();
     }
 }
 
