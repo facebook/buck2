@@ -62,9 +62,9 @@ impl SplitKind {
 }
 
 impl InternalSplitKind {
-    pub fn draw(
+    pub fn draw<'a>(
         &self,
-        children: &[Box<dyn Component>],
+        children: impl IntoIterator<Item = &'a dyn Component>,
         direction: Direction,
         state: &State,
         dimensions: Dimensions,
@@ -72,7 +72,7 @@ impl InternalSplitKind {
     ) -> anyhow::Result<Vec<Lines>> {
         match self {
             InternalSplitKind::SizedNormalized(sizes) => children
-                .iter()
+                .into_iter()
                 .zip(sizes.iter())
                 .map(|(child, size)| -> anyhow::Result<_> {
                     // allocate alloted size
@@ -97,7 +97,7 @@ impl InternalSplitKind {
             InternalSplitKind::Adaptive => {
                 let mut available = dimensions;
                 children
-                    .iter()
+                    .into_iter()
                     .map(|child| {
                         let mut output = child.draw(state, available, mode)?;
                         output.shrink_lines_to_dimensions(dimensions);
@@ -148,9 +148,13 @@ impl Component for Split {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let outputs = self
-            .split
-            .draw(&self.children, self.direction, state, dimensions, mode)?;
+        let outputs = self.split.draw(
+            self.children.iter().map(|c| &**c),
+            self.direction,
+            state,
+            dimensions,
+            mode,
+        )?;
 
         Ok(match self.direction {
             Direction::Horizontal => {

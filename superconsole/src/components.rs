@@ -21,6 +21,7 @@ pub use expanding::Expanding;
 pub use padding::Padded;
 pub use splitting::Split;
 
+pub use crate::components::draw_vertical::DrawVertical;
 use crate::Dimensions;
 use crate::Lines;
 use crate::State;
@@ -30,6 +31,7 @@ mod blank;
 pub mod bordering;
 mod bounding;
 mod canvas;
+mod draw_vertical;
 pub(crate) mod echo;
 mod expanding;
 pub mod padding;
