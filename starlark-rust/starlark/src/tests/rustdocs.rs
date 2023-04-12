@@ -122,7 +122,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
     for (name, expected1) in expected.iter() {
         let got1 = got.get(name).unwrap();
         assert_eq!(
-            cleanup_types(&format!("{:?}", expected1.as_ref().unwrap())),
+            cleanup_types(&format!("{:?}", expected1)),
             cleanup_types(&format!("{:?}", got1)),
             "Function {}",
             name

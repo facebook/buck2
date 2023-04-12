@@ -188,21 +188,18 @@ fn render_module(name: &str, module: &Module) -> String {
 
     for (k, v) in &module.members {
         res.push('\n');
-        match v {
-            Some(v) => res.push_str(
-                &(Doc {
-                    id: Identifier {
-                        name: k.clone(),
-                        location: None,
-                    },
-                    item: v.clone(),
-                    custom_attrs: HashMap::new(),
-                }
-                .render_markdown_opt(MarkdownFlavor::DocFile)
-                .unwrap_or_default()),
-            ),
-            None => res.push_str(&format!("{}: UNKNOWN", k)),
-        }
+        res.push_str(
+            &(Doc {
+                id: Identifier {
+                    name: k.clone(),
+                    location: None,
+                },
+                item: v.clone(),
+                custom_attrs: HashMap::new(),
+            }
+            .render_markdown_opt(MarkdownFlavor::DocFile)
+            .unwrap_or_default()),
+        );
         res.push('\n');
     }
 

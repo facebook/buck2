@@ -33,6 +33,7 @@ use itertools::Itertools;
 use crate::cast::transmute;
 use crate::collections::Hashed;
 use crate::docs;
+use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::names::FrozenNames;
@@ -210,13 +211,9 @@ impl FrozenModule {
     /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
     pub fn module_documentation(&self) -> docs::Module {
         let members = self
-            .names()
-            .filter(|n| Module::default_visibility(n) == Visibility::Public)
-            .filter_map(|n| {
-                self.get(&n)
-                    .ok()
-                    .map(|fv| (n.as_str().to_owned(), fv.value().get_ref().documentation()))
-            })
+            .all_items()
+            .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)
+            .map(|(k, v)| (k.as_str().to_owned(), DocItem::from_value(v.to_value())))
             .collect();
 
         docs::Module {

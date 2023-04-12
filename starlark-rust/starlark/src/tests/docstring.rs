@@ -21,7 +21,6 @@ use starlark_map::smallmap;
 
 use crate::assert;
 use crate::assert::Assert;
-use crate::const_frozen_string;
 use crate::docs;
 use crate::docs::DocStringKind;
 use crate::environment::Module;
@@ -334,7 +333,7 @@ def f1():
     let m2_docs = m2.module_documentation();
     let m3_docs = m3.module_documentation();
 
-    let empty_function = Some(DocItem::Function(Function::default()));
+    let empty_function = DocItem::Function(Function::default());
 
     let expected_m1 = docs::Module {
         docs: DocString::from_docstring(
@@ -346,10 +345,10 @@ Some extra details can go here,
         ),
 
         members: smallmap! {
-            "f1".to_owned() => Some(DocItem::Function(Function {
+            "f1".to_owned() => DocItem::Function(Function {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
                 ..Default::default()
-            })),
+            }),
             "f2".to_owned() => empty_function.clone(),
         },
     };
@@ -359,7 +358,7 @@ Some extra details can go here,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
         members: smallmap! {
-            "x".to_owned() => const_frozen_string!("blah").to_value().documentation(),
+            "x".to_owned() => DocItem::Property(docs::Property { docs: None, typ: Some(docs::Type { raw_type: "str.type".to_owned() }) }),
             "f1".to_owned() => empty_function.clone(),
         },
     };

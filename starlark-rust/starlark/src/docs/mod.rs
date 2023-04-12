@@ -46,6 +46,7 @@ use crate::syntax::ast::ExprP;
 use crate::syntax::ast::StmtP;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::Value;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
 /// into a single string, and trim the line endings.
@@ -409,7 +410,7 @@ pub struct Module {
     /// a string literal.
     pub docs: Option<DocString>,
     /// A mapping of top level symbols to their documentation, if any.
-    pub members: SmallMap<String, Option<DocItem>>,
+    pub members: SmallMap<String, DocItem>,
 }
 
 impl Module {
@@ -420,21 +421,19 @@ impl Module {
             .map(DocString::render_as_quoted_code)
             .unwrap_or_default();
         for (k, v) in &self.members {
-            if let Some(v) = v {
-                res.push('\n');
-                res.push_str(
-                    &(Doc {
-                        id: Identifier {
-                            name: k.clone(),
-                            location: None,
-                        },
-                        item: v.clone(),
-                        custom_attrs: HashMap::new(),
-                    }
-                    .render_as_code()),
-                );
-                res.push('\n');
-            }
+            res.push('\n');
+            res.push_str(
+                &(Doc {
+                    id: Identifier {
+                        name: k.clone(),
+                        location: None,
+                    },
+                    item: v.clone(),
+                    custom_attrs: HashMap::new(),
+                }
+                .render_as_code()),
+            );
+            res.push('\n');
         }
         res
     }
@@ -821,6 +820,22 @@ pub enum DocItem {
     Object(Object),
     Function(Function),
     Property(Property),
+}
+
+impl DocItem {
+    pub(crate) fn from_value(value: Value) -> Self {
+        // If we have a value which is a complex type, the right type to put in the docs is not the type
+        // it represents, but it's just a property we should point at
+        match value.documentation() {
+            Some(x @ (DocItem::Function(_) | DocItem::Property(_))) => x,
+            _ => DocItem::Property(Property {
+                docs: None,
+                typ: Some(Type {
+                    raw_type: value.get_type_starlark_repr(),
+                }),
+            }),
+        }
+    }
 }
 
 /// The main structure that represents the documentation for a given symbol / module.

@@ -232,8 +232,8 @@ async fn get_docs_from_module(
                         module_docs.members.insert(
                             k,
                             match v {
-                                Member::Property(x) => Some(DocItem::Property(x)),
-                                Member::Function(x) => Some(DocItem::Function(x)),
+                                Member::Property(x) => DocItem::Property(x),
+                                Member::Function(x) => DocItem::Function(x),
                             },
                         );
                     }
@@ -260,21 +260,19 @@ async fn get_docs_from_module(
             custom_attrs: Default::default(),
         });
     }
-    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
-        d.map(|doc_item| {
-            Doc {
-                // TODO(nmj): Map this back into the codemap to get a line/column
-                id: Identifier {
-                    name: symbol,
-                    location: Some(starlark::docs::Location {
-                        path: import_path_string.clone(),
-                        position: None,
-                    }),
-                },
-                item: doc_item,
-                custom_attrs: Default::default(),
-            }
-        })
+    docs.extend(module_docs.members.into_iter().map(|(symbol, d)| {
+        Doc {
+            // TODO(nmj): Map this back into the codemap to get a line/column
+            id: Identifier {
+                name: symbol,
+                location: Some(starlark::docs::Location {
+                    path: import_path_string.clone(),
+                    position: None,
+                }),
+            },
+            item: d,
+            custom_attrs: Default::default(),
+        }
     }));
 
     Ok(docs)
