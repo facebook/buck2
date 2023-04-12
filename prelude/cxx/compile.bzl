@@ -33,6 +33,7 @@ load(
     "CPreprocessor",  # @unused Used as a type
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_attr_preprocessor_flags",
+    "get_flags_for_compiler_type",
     "cxx_merge_cpreprocessors",
 )
 
@@ -462,6 +463,7 @@ def _mk_argsfile(ctx: "context", compiler_info: "_compiler_info", preprocessor: 
         args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
     args.add(cxx_attr_preprocessor_flags(ctx, ext.value))
+    args.add(get_flags_for_compiler_type(compiler_info.compiler_type))
     args.add(_attr_compiler_flags(ctx, ext.value))
     args.add(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
 

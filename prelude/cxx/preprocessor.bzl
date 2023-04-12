@@ -82,8 +82,8 @@ def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
             args.add(cmd_args(d, format = "-I{}"))
         if pre.system_include_dirs != None:
             for d in pre.system_include_dirs.include_dirs:
-                args.add("-isystem")
-                args.add(d)
+                system_include_args = _format_system_include_arg(d, pre.system_include_dirs.compiler_type)
+                args.add(system_include_args)
     return args
 
 def _cpreprocessor_uses_modules(children: [bool.type], pres: [[CPreprocessor.type], None]):
@@ -160,6 +160,12 @@ def _format_include_arg(flag: str.type, path: "cmd_args", compiler_type: str.typ
         return [cmd_args(path, format = flag + "{}")]
     else:
         return [cmd_args(flag), path]
+
+def _format_system_include_arg(path: "label_relative_path", compiler_type: str.type) -> ["cmd_args"]:
+    if compiler_type == "windows":
+        return [cmd_args(path, format = "/external:I{}")]
+    else:
+        return [cmd_args("-isystem"), cmd_args(path)]
 
 def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLayout.type, extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
     """
@@ -393,3 +399,10 @@ def _remap_headers_to_basename(headers: [CHeader.type]) -> [CHeader.type]:
                 named = False,
             ))
     return remapped_headers
+
+def get_flags_for_compiler_type(compiler_type: str.type) -> [str.type]:
+    # MSVC requires this flag to enable external headers
+    if compiler_type in ["windows"]:
+        return ["/experimental:external"]
+    else:
+        return []
