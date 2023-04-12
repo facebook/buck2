@@ -28,6 +28,13 @@ load(
 )
 load(":platform.bzl", "cxx_by_platform")
 
+SystemIncludeDirs = record(
+    # Compiler type to infer correct include flags
+    compiler_type = field(str.type),
+    #  Directories to be included via [-isystem | /external:I] [arglike things]
+    include_dirs = field(["label_relative_path"]),
+)
+
 CPreprocessor = record(
     # The arguments, [arglike things]
     args = field([""], []),
@@ -38,7 +45,7 @@ CPreprocessor = record(
     # Directories to be included via -I, [arglike things]
     include_dirs = field(["label_relative_path"], []),
     # Directories to be included via -isystem, [arglike things]
-    system_include_dirs = field(["label_relative_path"], []),
+    system_include_dirs = field([SystemIncludeDirs.type, None], None),
     # Whether to compile with modules support
     uses_modules = field(bool.type, False),
     # Modular args to set when modules are in use, [arglike things]
@@ -73,10 +80,10 @@ def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
     for pre in pres:
         for d in pre.include_dirs:
             args.add(cmd_args(d, format = "-I{}"))
-
-        for d in pre.system_include_dirs:
-            args.add("-isystem")
-            args.add(d)
+        if pre.system_include_dirs != None:
+            for d in pre.system_include_dirs.include_dirs:
+                args.add("-isystem")
+                args.add(d)
     return args
 
 def _cpreprocessor_uses_modules(children: [bool.type], pres: [[CPreprocessor.type], None]):
@@ -238,7 +245,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
         headers = exported_headers,
         raw_headers = raw_headers,
         include_dirs = include_dirs,
-        system_include_dirs = system_include_dirs,
+        system_include_dirs = SystemIncludeDirs(compiler_type = compiler_type, include_dirs = system_include_dirs),
         modular_args = modular_args,
         file_prefix_args = file_prefix_args,
     )
