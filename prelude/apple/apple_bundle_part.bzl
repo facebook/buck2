@@ -125,12 +125,18 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     if ctx.attrs._fast_adhoc_signing_enabled:
         command.add("--fast-adhoc-signing")
 
+    env = {}
+    cache_buster = ctx.attrs._bundling_cache_buster
+    if cache_buster:
+        env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
+
     force_local_bundling = codesign_type.value != "skip"
     ctx.actions.run(
         command,
         local_only = force_local_bundling,
         prefer_local = not force_local_bundling,
         category = category,
+        env = env,
         **run_incremental_args
     )
 
