@@ -29,6 +29,7 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::docs;
 use crate::docs::DocItem;
+use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -337,6 +338,17 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
     ) -> anyhow::Result<Value<'v>> {
         let method = self.call(this, eval.heap())?;
         method.invoke(args, eval)
+    }
+
+    fn documentation(&self) -> Option<DocItem> {
+        let ds = self
+            .docstring
+            .as_ref()
+            .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
+        let typ = Some(docs::Type {
+            raw_type: self.typ.to_owned(),
+        });
+        Some(docs::DocItem::Property(docs::Property { docs: ds, typ }))
     }
 }
 

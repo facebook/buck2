@@ -39,7 +39,6 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeMeth;
-use crate::values::layout::value::ValueLike;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::structs::AllocStruct;
 use crate::values::types::function::NativeFunction;
@@ -560,24 +559,11 @@ fn common_documentation<'a>(
     let member_docs = members
         .into_iter()
         .filter_map(|(name, val)| {
-            let m = match val.downcast_ref::<NativeAttribute>() {
-                Some(attr) => {
-                    let ds = attr
-                        .docstring
-                        .as_ref()
-                        .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
-                    let typ = Some(docs::Type {
-                        raw_type: attr.typ.to_owned(),
-                    });
-                    // TODO(nmj): Pull the starlark type up here
-                    Some(docs::Member::Property(docs::Property { docs: ds, typ }))
-                }
-                None => val.to_value().documentation().and_then(|d| match d {
-                    DocItem::Module(_) | DocItem::Object(_) => None,
-                    DocItem::Function(f) => Some(docs::Member::Function(f)),
-                    DocItem::Property(p) => Some(docs::Member::Property(p)),
-                }),
-            };
+            let m = val.to_value().documentation().and_then(|d| match d {
+                DocItem::Module(_) | DocItem::Object(_) => None,
+                DocItem::Function(f) => Some(docs::Member::Function(f)),
+                DocItem::Property(p) => Some(docs::Member::Property(p)),
+            });
             m.map(|member| (name.to_owned(), member))
         })
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
