@@ -419,7 +419,7 @@ def _rust_test_common(ctx, test_binary):
     # Target has a single dependency but no srcs. Build the test binary using
     # the dependency's srcs.
     dep = ctx.attr.deps[0]
-    crate_type = dep.crate_type if hasattr(dep, "crate_type") else "bin"
+    crate_type = getattr(dep, "crate_type", "bin")
     target = struct(name = ctx.label.name,
                     srcs = dep.rust_srcs,
                     deps = dep.rust_deps,
