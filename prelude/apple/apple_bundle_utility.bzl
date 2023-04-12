@@ -5,11 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//utils:utils.bzl", "value_or")
-load(":apple_bundle_types.bzl", "AppleMinDeploymentVersionInfo")
+load("@prelude//utils:utils.bzl", "flatten", "value_or")
+load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_resource_types.bzl", "AppleResourceProcessingOptions")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(":resource_groups.bzl", "ResourceGraph")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
@@ -60,3 +61,25 @@ def get_bundle_min_target_version(ctx: "context") -> str.type:
 def get_bundle_resource_processing_options(ctx: "context") -> AppleResourceProcessingOptions.type:
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
     return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
+
+def get_bundle_infos_from_graph(graph: ResourceGraph.type) -> [AppleBundleLinkerMapInfo.type]:
+    bundle_infos = []
+    for node in graph.nodes.traverse():
+        if not node.resource_spec:
+            continue
+
+        resource_spec = node.resource_spec
+        for artifact in resource_spec.files:
+            if type(artifact) != "dependency":
+                continue
+
+            bundle_info = artifact.get(AppleBundleLinkerMapInfo)
+            if bundle_info:
+                bundle_infos.append(bundle_info)
+
+    return bundle_infos
+
+def merge_bundle_linker_maps_info(infos: [AppleBundleLinkerMapInfo.type]) -> AppleBundleLinkerMapInfo.type:
+    return AppleBundleLinkerMapInfo(
+        linker_maps = flatten([info.linker_maps for info in infos]),
+    )
