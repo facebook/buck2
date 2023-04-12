@@ -45,19 +45,20 @@ load(
     "build_params",
     "output_filename",
 )
+load(":context.bzl", "CompileContext")
 load(
     ":link_info.bzl",
     "attr_crate",
     "inherited_non_rust_shared_libs",
 )
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "ctx_toolchain_info")
 
 def _rust_binary_common(
         ctx: "context",
+        compile_ctx: CompileContext.type,
         default_roots: [str.type],
         extra_flags: [str.type]) -> ([[DefaultInfo.type, RunInfo.type]], "cmd_args"):
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     crate = attr_crate(ctx)
 
@@ -65,7 +66,6 @@ def _rust_binary_common(
     style_param = {}  # style -> param
 
     specified_link_style = LinkStyle(ctx.attrs.link_style or "static_pic")
-    compile_ctx = compile_context(ctx)
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
@@ -206,18 +206,31 @@ def _rust_binary_common(
     return (providers, args)
 
 def rust_binary_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type]]:
-    providers, args = _rust_binary_common(ctx, ["main.rs"], [])
+    compile_ctx = compile_context(ctx)
+
+    providers, args = _rust_binary_common(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        default_roots = ["main.rs"],
+        extra_flags = [],
+    )
 
     return providers + [RunInfo(args = args)]
 
 def rust_test_impl(ctx: "context") -> [[DefaultInfo.type, RunInfo.type, ExternalRunnerTestInfo.type]]:
-    toolchain_info = ctx_toolchain_info(ctx)
+    compile_ctx = compile_context(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     extra_flags = toolchain_info.rustc_test_flags or []
     if ctx.attrs.framework:
         extra_flags += ["--test"]
 
-    providers, args = _rust_binary_common(ctx, ["main.rs", "lib.rs"], extra_flags)
+    providers, args = _rust_binary_common(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        default_roots = ["main.rs", "lib.rs"],
+        extra_flags = extra_flags,
+    )
 
     # Setup a RE executor based on the `remote_execution` param.
     re_executor = get_re_executor_from_props(ctx.attrs.remote_execution)

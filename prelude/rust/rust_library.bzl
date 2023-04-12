@@ -85,7 +85,6 @@ load(
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "ctx_toolchain_info")
 load(":targets.bzl", "targets")
 
 def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
@@ -161,10 +160,9 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def rust_library_impl(ctx: "context") -> ["provider"]:
-    toolchain_info = ctx_toolchain_info(ctx)
-
     crate = attr_crate(ctx)
     compile_ctx = compile_context(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     # Multiple styles and language linkages could generate the same crate types
     # (eg procmacro or using preferred_linkage), so we need to see how many

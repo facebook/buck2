@@ -7,6 +7,7 @@
 
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":build_params.bzl", "CrateType", "Emit")
+load(":rust_toolchain.bzl", "RustToolchainInfo")
 
 # Struct for sharing common args between rustc and rustdoc
 # (rustdoc just relays bunch of the same args to rustc when trying to gen docs)
@@ -22,6 +23,7 @@ CommonArgsInfo = record(
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
+    toolchain_info = field(RustToolchainInfo.type),
     # Symlink root containing all sources.
     symlinked_srcs = field("artifact"),
     # Linker args to pass the linker wrapper to rustc.

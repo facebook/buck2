@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":rust_toolchain.bzl", "ctx_toolchain_info")
+load(":context.bzl", "CompileContext")
 
 # Inputs to the fail filter
 RustFailureFilter = provider(fields = [
@@ -23,11 +23,13 @@ RustFailureFilter = provider(fields = [
 # Either way it streams whatever stderr content there is to stream.
 def failure_filter(
         ctx: "context",
+        compile_ctx: CompileContext.type,
         prefix: str.type,
         predecl_out: ["artifact", None],
         failprov: "RustFailureFilter",
         short_cmd: str.type) -> "artifact":
-    failure_filter_action = ctx_toolchain_info(ctx).failure_filter_action
+    toolchain_info = compile_ctx.toolchain_info
+    failure_filter_action = toolchain_info.failure_filter_action
 
     buildstatus = failprov.buildstatus
     required = failprov.required

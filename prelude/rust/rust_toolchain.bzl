@@ -69,7 +69,7 @@ RustPlatformInfo = provider(fields = [
     "name",
 ])
 
-def ctx_toolchain_info(ctx: "context") -> "RustToolchainInfo":
+def ctx_toolchain_info(ctx: "context") -> RustToolchainInfo.type:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     attrs = dict()

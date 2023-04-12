@@ -62,7 +62,7 @@ load(
     "style_info",
 )
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "ctx_toolchain_info")
+load(":rust_toolchain.bzl", "RustToolchainInfo", "ctx_toolchain_info")
 
 RustcOutput = record(
     outputs = field({Emit.type: "artifact"}),
@@ -70,6 +70,8 @@ RustcOutput = record(
 )
 
 def compile_context(ctx: "context") -> CompileContext.type:
+    toolchain_info = ctx_toolchain_info(ctx)
+
     # Setup source symlink tree.
     srcs = ctx.attrs.srcs
     mapped_srcs = ctx.attrs.mapped_srcs
@@ -78,9 +80,10 @@ def compile_context(ctx: "context") -> CompileContext.type:
     symlinked_srcs = ctx.actions.symlinked_dir("__srcs", symlinks)
 
     linker = _linker_args(ctx)
-    clippy_wrapper = _clippy_wrapper(ctx)
+    clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     return CompileContext(
+        toolchain_info = toolchain_info,
         symlinked_srcs = symlinked_srcs,
         linker_args = linker,
         clippy_wrapper = clippy_wrapper,
@@ -96,7 +99,7 @@ def generate_rustdoc(
         params: BuildParams.type,
         default_roots: [str.type],
         document_private_items: bool.type) -> "artifact":
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     common_args = _compute_common_args(
         ctx = ctx,
@@ -169,7 +172,7 @@ def generate_rustdoc_test(
         library: RustLinkStyleInfo.type,
         params: BuildParams.type,
         default_roots: [str.type]) -> "cmd_args":
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     resources = create_resource_db(
         ctx = ctx,
@@ -303,9 +306,9 @@ def rust_compile(
         predeclared_outputs: {Emit.type: "artifact"} = {},
         extra_flags: [[str.type, "resolved_macro"]] = [],
         is_binary: bool.type = False) -> RustcOutput.type:
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
-    lints, clippy_lints = _lint_flags(ctx)
+    lints, clippy_lints = _lint_flags(compile_ctx)
 
     common_args = _compute_common_args(
         ctx = ctx,
@@ -362,6 +365,7 @@ def rust_compile(
     if toolchain_info.failure_filter:
         outputs, emit_args = _rustc_emits(
             ctx = ctx,
+            compile_ctx = compile_ctx,
             emit = emit,
             predeclared_outputs = {},
             subdir = common_args.subdir,
@@ -371,6 +375,7 @@ def rust_compile(
     else:
         outputs, emit_args = _rustc_emits(
             ctx = ctx,
+            compile_ctx = compile_ctx,
             emit = emit,
             predeclared_outputs = predeclared_outputs,
             subdir = common_args.subdir,
@@ -393,7 +398,15 @@ def rust_compile(
     # Add clippy diagnostic targets for check builds
     if common_args.is_check:
         # We don't really need the outputs from this build, just to keep the artifact accounting straight
-        clippy_out, clippy_emit_args = _rustc_emits(ctx, emit, {}, common_args.subdir + "-clippy", crate, params)
+        clippy_out, clippy_emit_args = _rustc_emits(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = emit,
+            predeclared_outputs = {},
+            subdir = common_args.subdir + "-clippy",
+            crate = crate,
+            params = params,
+        )
         clippy_env = dict()
         if toolchain_info.clippy_toml:
             # Clippy wants to be given a path to a directory containing a
@@ -432,6 +445,7 @@ def rust_compile(
 
             filtered_outputs[emit] = failure_filter(
                 ctx = ctx,
+                compile_ctx = compile_ctx,
                 prefix = "{}/{}".format(common_args.subdir, emit.value),
                 predecl_out = predeclared_outputs.get(emit),
                 failprov = filter_prov,
@@ -449,6 +463,7 @@ def rust_compile(
 # Third return is the mapping from crate names back to targets (needed so that a deps linter knows what deps need fixing)
 def _dependency_args(
         ctx: "context",
+        compile_ctx: CompileContext.type,
         subdir: str.type,
         crate_type: CrateType.type,
         link_style: LinkStyle.type,
@@ -475,7 +490,7 @@ def _dependency_args(
 
         # Use rmeta dependencies whenever possible because they
         # should be cheaper to produce.
-        if is_check or (ctx_toolchain_info(ctx).pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test):
+        if is_check or (compile_ctx.toolchain_info.pipelined and not crate_type_codegen(crate_type) and not is_rustdoc_test):
             artifact = style.rmeta
             transitive_artifacts = style.transitive_rmeta_deps
         else:
@@ -514,8 +529,8 @@ def _lintify(flag: str.type, clippy: bool.type, lints: ["resolved_macro"]) -> "c
         format = "-{}{{}}".format(flag),
     )
 
-def _lint_flags(ctx: "context") -> ("cmd_args", "cmd_args"):
-    toolchain_info = ctx_toolchain_info(ctx)
+def _lint_flags(compile_ctx: CompileContext.type) -> ("cmd_args", "cmd_args"):
+    toolchain_info = compile_ctx.toolchain_info
 
     plain = cmd_args(
         _lintify("A", False, toolchain_info.allow_lints),
@@ -575,6 +590,7 @@ def _compute_common_args(
 
     dependency_args, crate_map = _dependency_args(
         ctx = ctx,
+        compile_ctx = compile_ctx,
         subdir = subdir,
         crate_type = crate_type,
         link_style = link_style,
@@ -594,7 +610,7 @@ def _compute_common_args(
             format = "-Clink-arg={}",
         ))
 
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
     edition = ctx.attrs.edition or toolchain_info.default_edition or \
               fail("missing 'edition' attribute, and there is no 'default_edition' set by the toolchain")
 
@@ -634,9 +650,9 @@ def _compute_common_args(
 # as rustc itself, so explicitly invoke rustc to get the path. This is a
 # (small - ~15ms per invocation) perf hit but only applies when generating
 # specifically requested clippy diagnostics.
-def _clippy_wrapper(ctx: "context") -> "cmd_args":
-    toolchain_info = ctx_toolchain_info(ctx)
-
+def _clippy_wrapper(
+        ctx: "context",
+        toolchain_info: RustToolchainInfo.type) -> "cmd_args":
     clippy_driver = cmd_args(toolchain_info.clippy_driver)
     rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
     if toolchain_info.rustc_target_triple:
@@ -741,12 +757,13 @@ def _crate_root(
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emits(
         ctx: "context",
+        compile_ctx: CompileContext.type,
         emit: Emit.type,
         predeclared_outputs: {Emit.type: "artifact"},
         subdir: str.type,
         crate: str.type,
         params: BuildParams.type) -> ({Emit.type: "artifact"}, "cmd_args"):
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
     crate_type = params.crate_type
 
     # Metadata for pipelining needs has enough info to be used as an input
@@ -833,7 +850,7 @@ def _rustc_invoke(
         is_binary: bool.type,
         crate_map: {str.type: "label"},
         env: {str.type: ["resolved_macro", "artifact"]} = {}) -> ({str.type: "artifact"}, ["artifact", None]):
-    toolchain_info = ctx_toolchain_info(ctx)
+    toolchain_info = compile_ctx.toolchain_info
 
     plain_env, path_env = _process_env(ctx.attrs.env)
 
