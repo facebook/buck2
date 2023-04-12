@@ -124,7 +124,13 @@ impl JsonWriter {
         if !self.json_lines {
             buffer.push_str("    ");
         }
-        write!(buffer, "\"{}\":{}", key, value.as_str()).unwrap();
+        write!(
+            buffer,
+            "{}:{}",
+            serde_json::to_string(key).unwrap(),
+            value.as_str()
+        )
+        .unwrap();
     }
 }
 
