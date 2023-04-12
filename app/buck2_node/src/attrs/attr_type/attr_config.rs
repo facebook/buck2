@@ -14,9 +14,6 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
-use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
-use buck2_core::target::label::TargetLabelMaybeConfigured;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
@@ -42,7 +39,6 @@ use crate::attrs::fmt_context::AttrFmtContext;
 /// There's really just two implementations of this, one for coerced attrs with
 /// unconfigured types and one for configured attrs with the configured types.
 pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
-    type TargetType: TargetLabelMaybeConfigured + AttrLike;
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     // Used to encapsulate the type encodings for various attr types.
     type ExtraTypes: AttrConfigExtraTypes + Display + Allocative;
@@ -92,7 +88,6 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
 }
 
 impl AttrConfig for ConfiguredAttr {
-    type TargetType = ConfiguredTargetLabel;
     type ProvidersType = ConfiguredProvidersLabel;
     type ExtraTypes = ConfiguredAttrExtraTypes;
 
@@ -138,7 +133,6 @@ impl Display for CoercedAttrExtraTypes {
 }
 
 impl AttrConfig for CoercedAttr {
-    type TargetType = TargetLabel;
     type ProvidersType = ProvidersLabel;
     type ExtraTypes = CoercedAttrExtraTypes;
 
