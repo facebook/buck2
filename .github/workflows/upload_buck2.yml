@@ -34,14 +34,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target.os }}
-
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly-2023-01-24
           targets: ${{ matrix.target.triple }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: buck2-upload
+          key: ${{ matrix.target.triple }}
 
       - uses: actions-rs/install@v0.1
         if: matrix.target.cross
