@@ -77,7 +77,7 @@ pub const CUTOFFS: Cutoffs = Cutoffs {
 };
 
 pub struct StatefulSuperConsole {
-    root: Box<dyn Component>,
+    root: BuckRootComponent,
     state: SuperConsoleState,
     super_console: Option<SuperConsole>,
     verbosity: Verbosity,
@@ -141,7 +141,7 @@ impl Default for SuperConsoleConfig {
 }
 
 #[derive(Debug)]
-struct BuckRootComponent {
+pub(crate) struct BuckRootComponent {
     sandwiched: Option<Box<dyn Component>>,
     timed_list: TimedList,
 }
@@ -180,12 +180,12 @@ impl StatefulSuperConsole {
     pub(crate) fn default_layout(
         command_name: &str,
         sandwiched: Option<Box<dyn Component>>,
-    ) -> Box<dyn Component> {
+    ) -> BuckRootComponent {
         let header = format!("Command: `{}`.", command_name);
-        Box::new(BuckRootComponent {
+        BuckRootComponent {
             sandwiched,
             timed_list: TimedList::new(CUTOFFS, header),
-        })
+        }
     }
 
     pub const FALLBACK_SIZE: Dimensions = Dimensions {
@@ -193,9 +193,9 @@ impl StatefulSuperConsole {
         height: 40,
     };
 
-    pub fn new_with_root_forced(
+    pub(crate) fn new_with_root_forced(
         trace_id: TraceId,
-        root: Box<dyn Component>,
+        root: BuckRootComponent,
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
@@ -221,7 +221,7 @@ impl StatefulSuperConsole {
 
     pub(crate) fn new_with_root(
         trace_id: TraceId,
-        root: Box<dyn Component>,
+        root: BuckRootComponent,
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
@@ -244,7 +244,7 @@ impl StatefulSuperConsole {
     }
 
     pub(crate) fn new(
-        root: Box<dyn Component>,
+        root: BuckRootComponent,
         trace_id: TraceId,
         super_console: SuperConsole,
         verbosity: Verbosity,
@@ -287,7 +287,7 @@ impl StatefulSuperConsole {
     /// Fails if there isn't a superconsole.
     pub fn render_final_normal_console(self) -> anyhow::Result<()> {
         match self.super_console {
-            Some(sc) => sc.finalize_with_mode(&*self.root, &self.state.state(), DrawMode::Normal),
+            Some(sc) => sc.finalize_with_mode(&self.root, &self.state.state(), DrawMode::Normal),
             None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
         }
     }
@@ -481,7 +481,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
         if let Some(super_console) = self.super_console.take() {
-            super_console.finalize(&*self.root, &self.state.state())?;
+            super_console.finalize(&self.root, &self.state.state())?;
         }
 
         self.state.simple_console.handle_output(raw_output).await
@@ -546,7 +546,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             Some(mut super_console) => {
                 let lines = Self::render_result_errors(result);
                 super_console.emit(lines);
-                super_console.finalize(&*self.root, &self.state.state())
+                super_console.finalize(&self.root, &self.state.state())
             }
             None => {
                 self.state
@@ -562,7 +562,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         match &mut self.super_console {
             Some(super_console) => {
                 self.state.current_tick = tick.dupe();
-                super_console.render(&*self.root, &self.state.state())
+                super_console.render(&self.root, &self.state.state())
             }
             None => Ok(()),
         }
@@ -570,7 +570,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
         match self.super_console.take() {
-            Some(super_console) => super_console.finalize(&*self.root, &self.state.state()),
+            Some(super_console) => super_console.finalize(&self.root, &self.state.state()),
             None => Ok(()),
         }
     }

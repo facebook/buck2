@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use ::superconsole::Component;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
@@ -23,6 +22,7 @@ use crate::subscribers::re_log::ReLog;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriberAsEventSubscriber;
+use crate::subscribers::superconsole::BuckRootComponent;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -33,7 +33,7 @@ pub(crate) fn get_console_with_root(
     verbosity: Verbosity,
     show_waiting_message: bool,
     replay_speed: Option<f64>,
-    root: Box<dyn Component>,
+    root: BuckRootComponent,
     config: SuperConsoleConfig,
     isolation_dir: FileNameBuf,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
