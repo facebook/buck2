@@ -184,6 +184,23 @@ impl Line {
     pub fn to_unstyled(&self) -> String {
         self.0.iter().map(|span| span.content.as_str()).collect()
     }
+
+    /// Join strings of spans with identical styles.
+    /// Maybe we should do it by default.
+    #[cfg(test)]
+    pub(crate) fn normalize_spans(self) -> Line {
+        let mut result: Vec<Span> = Vec::with_capacity(self.0.len());
+        for span in self.0 {
+            if let Some(last) = result.last_mut() {
+                if last.stylization == span.stylization {
+                    last.content.push_str(&span.content);
+                    continue;
+                }
+            }
+            result.push(span);
+        }
+        Line(result)
+    }
 }
 
 impl FromIterator<Span> for Line {
