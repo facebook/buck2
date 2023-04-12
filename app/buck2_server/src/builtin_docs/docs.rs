@@ -50,7 +50,9 @@ use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocModule;
 use starlark::docs::Identifier;
+use starlark::docs::Location;
 use starlark::environment::Globals;
 use starlark::values::StarlarkValue;
 
@@ -246,7 +248,7 @@ async fn get_docs_from_module(
                     position: None,
                 }),
             },
-            item: DocItem::Module(starlark::docs::Module {
+            item: DocItem::Module(DocModule {
                 docs: Some(module_doc),
                 members: SmallMap::new(),
             }),
@@ -258,7 +260,7 @@ async fn get_docs_from_module(
             // TODO(nmj): Map this back into the codemap to get a line/column
             id: Identifier {
                 name: symbol,
-                location: Some(starlark::docs::Location {
+                location: Some(Location {
                     path: import_path_string.clone(),
                     position: None,
                 }),

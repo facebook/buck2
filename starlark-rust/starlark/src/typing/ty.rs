@@ -22,7 +22,11 @@ use std::fmt::Display;
 
 use either::Either;
 
-use crate::docs;
+use crate::docs::DocFunction;
+use crate::docs::DocMember;
+use crate::docs::DocParam;
+use crate::docs::DocProperty;
+use crate::docs::DocType;
 use crate::eval::compiler::scope::CstExpr;
 use crate::slice_vec_ext::SliceExt;
 use crate::slice_vec_ext::VecExt;
@@ -622,23 +626,23 @@ impl Ty {
         }
     }
 
-    pub(crate) fn from_docs_member(member: &docs::Member) -> Self {
+    pub(crate) fn from_docs_member(member: &DocMember) -> Self {
         match member {
-            docs::Member::Property(x) => Self::from_docs_type(&x.typ),
-            docs::Member::Function(x) => Self::from_docs_function(x),
+            DocMember::Property(x) => Self::from_docs_type(&x.typ),
+            DocMember::Function(x) => Self::from_docs_function(x),
         }
     }
 
-    pub(crate) fn from_docs_property(property: &docs::Property) -> Self {
+    pub(crate) fn from_docs_property(property: &DocProperty) -> Self {
         Self::from_docs_type(&property.typ)
     }
 
-    pub(crate) fn from_docs_function(function: &docs::Function) -> Self {
+    pub(crate) fn from_docs_function(function: &DocFunction) -> Self {
         let mut params = Vec::with_capacity(function.params.len());
         let mut no_args = false;
         for p in &function.params {
             match p {
-                docs::Param::Arg {
+                DocParam::Arg {
                     name,
                     typ,
                     default_value,
@@ -654,17 +658,15 @@ impl Ty {
                     }
                     params.push(r);
                 }
-                docs::Param::NoArgs => no_args = true,
-                docs::Param::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
-                docs::Param::Kwargs { typ, .. } => {
-                    params.push(Param::kwargs(Ty::from_docs_type(typ)))
-                }
+                DocParam::NoArgs => no_args = true,
+                DocParam::Args { typ, .. } => params.push(Param::args(Ty::from_docs_type(typ))),
+                DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),
             }
         }
         Ty::function(params, Self::from_docs_type(&function.ret.typ))
     }
 
-    pub(crate) fn from_docs_type(ty: &Option<docs::Type>) -> Self {
+    pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {
         fn get_expr(x: &AstStmt) -> Option<&AstExpr> {
             match &x.node {
                 StmtP::Statements(x) if x.len() == 1 => get_expr(&x[0]),

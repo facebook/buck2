@@ -23,7 +23,7 @@ use starlark_map::small_map::SmallMap;
 use crate as starlark;
 use crate::assert;
 use crate::docs::DocItem;
-use crate::docs::Member;
+use crate::docs::DocMember;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -101,8 +101,8 @@ def with_arguments(*args, **kwargs) -> int.type: pass
                 .members
                 .into_iter()
                 .filter_map(|(name, member)| match member {
-                    Member::Property(_) => None,
-                    Member::Function(f) => Some((name, DocItem::Function(f))),
+                    DocMember::Property(_) => None,
+                    DocMember::Function(f) => Some((name, DocItem::Function(f))),
                 })
                 .collect(),
             _ => HashMap::new(),
@@ -113,7 +113,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
         x.replace("\\\"int\\\"", "int.type")
             .replace("\\\"bool\\\"", "bool.type")
             .replace("\\\"string\\\"", "str.type")
-            .replace("Some(Type { raw_type: \"\\\"\\\"\" })", "None")
+            .replace("Some(DocType { raw_type: \"\\\"\\\"\" })", "None")
     }
 
     let expected = expected.module_documentation().members;

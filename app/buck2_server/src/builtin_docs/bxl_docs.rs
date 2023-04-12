@@ -15,8 +15,8 @@ use maplit::hashset;
 use once_cell::sync::Lazy;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
-use starlark::docs::Member;
-use starlark::docs::Object;
+use starlark::docs::DocMember;
+use starlark::docs::DocObject;
 use starlark_map::smallmap;
 
 use crate::builtin_docs::docs::builtin_doc;
@@ -46,12 +46,12 @@ pub(crate) fn get_builtin_bxl_docs(
             for member in b_o.members {
                 if BXL_GLOBAL_METHOD_NAME_SET.contains(member.0.as_str()) {
                     match member.1 {
-                        Member::Function(function) => {
+                        DocMember::Function(function) => {
                             // Convert the function to its own object so it gets its own markdown file name.
                             // Otherwise, it will be named `native.md`, which is confusing in static docs.
-                            let doc_item = DocItem::Object(Object {
+                            let doc_item = DocItem::Object(DocObject {
                                 docs: None,
-                                members: smallmap! {member.0.clone() => Member::Function(function)},
+                                members: smallmap! {member.0.clone() => DocMember::Function(function)},
                             });
 
                             docs.push(builtin_doc(member.0.as_str(), "bxl", doc_item));

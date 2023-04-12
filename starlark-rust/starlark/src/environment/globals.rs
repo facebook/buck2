@@ -29,8 +29,10 @@ use crate::collections::symbol_map::Symbol;
 use crate::collections::symbol_map::SymbolMap;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
-use crate::docs;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocModule;
+use crate::docs::DocObject;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::stdlib;
@@ -164,11 +166,11 @@ impl Globals {
 
     /// Get the documentation for both the object itself, and its members. Returned as a `Module`.
     pub fn documentation(&self) -> DocItem {
-        let docs::Object { docs, members } = common_documentation(
+        let DocObject { docs, members } = common_documentation(
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
-        DocItem::Module(docs::Module { docs, members })
+        DocItem::Module(DocModule { docs, members })
     }
 
     /// Get the documentation for each member. Useful when loading a number of objects into
@@ -553,17 +555,17 @@ impl MethodsStatic {
 fn common_documentation<'a>(
     docstring: &Option<String>,
     members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
-) -> docs::Object {
+) -> DocObject {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
     let member_docs = members
         .into_iter()
-        .map(|(name, val)| (name.to_owned(), docs::Member::from_value(val.to_value())))
+        .map(|(name, val)| (name.to_owned(), DocMember::from_value(val.to_value())))
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
         .collect();
 
-    docs::Object {
+    DocObject {
         docs: main_docs,
         members: member_docs,
     }

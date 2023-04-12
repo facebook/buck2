@@ -19,10 +19,13 @@ use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
 use indoc::indoc;
 use serde_json::json;
-use starlark::docs;
+use starlark::docs::DocFunction;
 use starlark::docs::DocItem;
+use starlark::docs::DocParam;
+use starlark::docs::DocReturn;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
+use starlark::docs::DocType;
 
 fn rule_tester() -> Tester {
     let mut tester = Tester::new().unwrap();
@@ -314,11 +317,11 @@ fn returns_documentation() -> anyhow::Result<()> {
         "#
     );
 
-    fn arg(name: &str, type_string: &str, default: Option<&str>) -> docs::Param {
-        docs::Param::Arg {
+    fn arg(name: &str, type_string: &str, default: Option<&str>) -> DocParam {
+        DocParam::Arg {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
-            typ: Some(docs::Type {
+            typ: Some(DocType {
                 raw_type: type_string.to_owned(),
             }),
             default_value: default.map(String::from),
@@ -332,7 +335,7 @@ fn returns_documentation() -> anyhow::Result<()> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, ds)| (i, docs::Type { raw_type: ds }))
+            .map(|(i, ds)| (i, DocType { raw_type: ds }))
             .collect(),
         empty_spec.docstrings(),
     );
@@ -352,15 +355,15 @@ fn returns_documentation() -> anyhow::Result<()> {
         arg("tuple", "(bool.type, str.type)", Some("None")),
     ]);
 
-    let expected_docs = DocItem::Function(docs::Function {
+    let expected_docs = DocItem::Function(DocFunction {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             "Summary for foo_binary\n\nDetails for foo_binary",
         ),
         params,
-        ret: docs::Return {
+        ret: DocReturn {
             docs: None,
-            typ: Some(docs::Type {
+            typ: Some(DocType {
                 raw_type: "None".to_owned(),
             }),
         },

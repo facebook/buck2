@@ -12,10 +12,12 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::docs;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocObject;
+use starlark::docs::DocProperty;
 use starlark::docs::DocString;
-use starlark::docs::Type;
+use starlark::docs::DocType;
 use starlark::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
@@ -40,18 +42,18 @@ pub trait ProviderCallableLike {
         docs: &Option<DocString>,
         fields: &[String],
         field_docs: &[Option<DocString>],
-        field_types: &[Option<Type>],
+        field_types: &[Option<DocType>],
     ) -> Option<DocItem> {
         let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
             .map(|(name, docs, return_type)| {
-                let prop = docs::Member::Property(docs::Property {
+                let prop = DocMember::Property(DocProperty {
                     docs: docs.clone(),
                     typ: return_type.clone(),
                 });
                 (name.to_owned(), prop)
             })
             .collect();
-        Some(DocItem::Object(docs::Object {
+        Some(DocItem::Object(DocObject {
             docs: docs.clone(),
             members,
         }))

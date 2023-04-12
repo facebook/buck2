@@ -27,9 +27,10 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
-use starlark::docs;
+use starlark::docs::DocFunction;
 use starlark::docs::DocItem;
 use starlark::docs::DocStringKind;
+use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
@@ -146,13 +147,13 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
             .starlark_types()
             .into_iter()
             .enumerate()
-            .map(|(i, t)| (i, docs::Type { raw_type: t }))
+            .map(|(i, t)| (i, DocType { raw_type: t }))
             .collect();
         let parameter_docs = self.attributes.docstrings();
-        let function_docs = docs::Function::from_docstring(
+        let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,
             parameters_spec.documentation(parameter_types, parameter_docs),
-            Some(docs::Type {
+            Some(DocType {
                 raw_type: Value::new_none().to_string(),
             }),
             self.docs.as_deref(),

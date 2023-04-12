@@ -31,9 +31,9 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::docs::get_registered_starlark_docs;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::docs::Member;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
@@ -140,7 +140,7 @@ fn test_derive_docs() {
         obj.members
             .iter()
             .find_map(|(name, m)| match m {
-                Member::Property(p) if name == "foo" => Some(p.docs.clone()),
+                DocMember::Property(p) if name == "foo" => Some(p.docs.clone()),
                 _ => None,
             })
             .unwrap()
@@ -169,7 +169,7 @@ fn test_derive_docs_on_complex_values() {
             .members
             .iter()
             .find_map(|(name, m)| match m {
-                Member::Property(p) if name == "foo" => Some(p.docs.clone()),
+                DocMember::Property(p) if name == "foo" => Some(p.docs.clone()),
                 _ => None,
             })
             .unwrap()

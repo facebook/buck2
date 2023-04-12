@@ -38,10 +38,11 @@ use crate::any::ProvidesStaticType;
 use crate::codemap::CodeMap;
 use crate::collections::Hashed;
 use crate::const_frozen_string;
-use crate::docs;
+use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::docs::DocType;
 use crate::environment::FrozenModuleData;
 use crate::environment::Globals;
 use crate::eval::bc::bytecode::Bc;
@@ -566,24 +567,24 @@ impl<'v> Def<'v> {
 
 impl<'v, T1: ValueLike<'v>> DefGen<T1> {
     fn docs(&self) -> Option<DocItem> {
-        let parameter_types: HashMap<usize, docs::Type> = self
+        let parameter_types: HashMap<usize, DocType> = self
             .parameter_types
             .iter()
             .map(|(idx, _, v, _)| {
                 (
                     idx.0 as usize,
-                    docs::Type {
+                    DocType {
                         raw_type: v.to_value().to_repr(),
                     },
                 )
             })
             .collect();
 
-        let return_type = self.return_type.as_ref().map(|r| docs::Type {
+        let return_type = self.return_type.as_ref().map(|r| DocType {
             raw_type: r.0.to_value().to_repr(),
         });
 
-        let function_docs = docs::Function::from_docstring(
+        let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,
             self.parameters
                 .documentation(parameter_types, HashMap::new()),

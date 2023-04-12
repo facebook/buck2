@@ -537,7 +537,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         .filter(|(_, a)| a.pass_style != StarArgPassStyle::Args) // these aren't coerced according to their type (Vec vs tuple)
         .map(|(i, arg)| {
             let typ_str = render_starlark_type(span, &arg.ty, &arg.starlark_type);
-            quote_spanned!(span=> (#i, starlark::docs::Type { raw_type: #typ_str }) )
+            quote_spanned!(span=> (#i, starlark::docs::DocType { raw_type: #typ_str }) )
         })
         .collect();
 
@@ -548,7 +548,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
             let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
-                starlark::docs::Type {
+                starlark::docs::DocType {
                     raw_type: #return_type_str
                 }
             );

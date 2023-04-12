@@ -858,8 +858,8 @@ mod test {
     use lsp_types::Url;
     use maplit::hashmap;
     use starlark::docs::Doc;
+    use starlark::docs::DocFunction;
     use starlark::docs::DocItem;
-    use starlark::docs::Function;
     use starlark::docs::Identifier;
     use starlark::docs::Location;
     use starlark::lsp::server::LspUrl;
@@ -875,7 +875,7 @@ mod test {
                     name: "native_function1".to_owned(),
                     location: None,
                 },
-                item: DocItem::Function(Function::default()),
+                item: DocItem::Function(DocFunction::default()),
                 custom_attrs: Default::default(),
             },
             Doc {
@@ -883,7 +883,7 @@ mod test {
                     name: "native_function2".to_owned(),
                     location: None,
                 },
-                item: DocItem::Function(Function::default()),
+                item: DocItem::Function(DocFunction::default()),
                 custom_attrs: hashmap! { DOCS_DIRECTORY_KEY.to_owned() => "subdir".to_owned() },
             },
             Doc {
@@ -894,7 +894,7 @@ mod test {
                         position: None,
                     }),
                 },
-                item: DocItem::Function(Function::default()),
+                item: DocItem::Function(DocFunction::default()),
                 custom_attrs: Default::default(),
             },
         ];

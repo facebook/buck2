@@ -59,8 +59,8 @@ use serde::de::DeserializeOwned;
 
 use crate::docs::render_docs_as_code;
 use crate::docs::Doc;
+use crate::docs::DocFunction;
 use crate::docs::DocItem;
-use crate::docs::Function;
 use crate::docs::Identifier;
 use crate::docs::Location;
 use crate::errors::EvalMessage;
@@ -299,7 +299,7 @@ impl TestServer {
                         name: "native_function1".to_owned(),
                         location: None,
                     },
-                    item: DocItem::Function(Function::default()),
+                    item: DocItem::Function(DocFunction::default()),
                     custom_attrs: Default::default(),
                 },
                 Doc {
@@ -307,7 +307,7 @@ impl TestServer {
                         name: "native_function2".to_owned(),
                         location: None,
                     },
-                    item: DocItem::Function(Function::default()),
+                    item: DocItem::Function(DocFunction::default()),
                     custom_attrs: Default::default(),
                 },
             ],
@@ -320,7 +320,7 @@ impl TestServer {
                             position: None,
                         }),
                     },
-                    item: DocItem::Function(Function::default()),
+                    item: DocItem::Function(DocFunction::default()),
                     custom_attrs: Default::default(),
                 },
             ]

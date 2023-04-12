@@ -32,8 +32,9 @@ use crate as starlark;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::collections::symbol_map::SymbolMap;
-use crate::docs;
+use crate::docs::DocParam;
 use crate::docs::DocString;
+use crate::docs::DocType;
 use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::FunctionError;
@@ -656,10 +657,10 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     ///                    that parameter
     pub fn documentation(
         &self,
-        mut parameter_types: HashMap<usize, docs::Type>,
+        mut parameter_types: HashMap<usize, DocType>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
-    ) -> Vec<docs::Param> {
-        let mut params: Vec<docs::Param> = self
+    ) -> Vec<DocParam> {
+        let mut params: Vec<DocParam> = self
             .iter_params()
             .enumerate()
             .map(|(i, (name, kind))| {
@@ -667,33 +668,33 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                 let docs = parameter_docs.remove(name).flatten();
                 let name = name.to_owned();
                 match kind {
-                    ParameterKind::Required => docs::Param::Arg {
+                    ParameterKind::Required => DocParam::Arg {
                         name,
                         docs,
                         typ,
                         default_value: None,
                     },
-                    ParameterKind::Optional => docs::Param::Arg {
+                    ParameterKind::Optional => DocParam::Arg {
                         name,
                         docs,
                         typ,
                         default_value: Some("None".to_owned()),
                     },
-                    ParameterKind::Defaulted(v) => docs::Param::Arg {
+                    ParameterKind::Defaulted(v) => DocParam::Arg {
                         name,
                         docs,
                         typ,
                         default_value: Some(v.to_value().to_repr()),
                     },
-                    ParameterKind::Args => docs::Param::Args { name, docs, typ },
-                    ParameterKind::KWargs => docs::Param::Kwargs { name, docs, typ },
+                    ParameterKind::Args => DocParam::Args { name, docs, typ },
+                    ParameterKind::KWargs => DocParam::Kwargs { name, docs, typ },
                 }
             })
             .collect();
 
         // Go back and add the "*" arg if it's present
         if let Some(i) = self.no_args_param_index() {
-            params.insert(i, docs::Param::NoArgs);
+            params.insert(i, DocParam::NoArgs);
         }
 
         params
@@ -770,7 +771,10 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::assert::Assert;
+    use crate::docs::DocParam;
     use crate::docs::DocString;
+    use crate::docs::DocStringKind;
+    use crate::docs::DocType;
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::ParameterKind;
     use crate::eval::ParametersSpec;
@@ -841,24 +845,23 @@ mod tests {
         p.optional("b");
         let p = p.finish();
 
-        use crate::docs;
         let expected = vec![
-            docs::Param::Args {
+            DocParam::Args {
                 name: "*args".to_owned(),
                 docs: None,
                 typ: None,
             },
-            docs::Param::Arg {
+            DocParam::Arg {
                 name: "a".to_owned(),
                 docs: None,
-                typ: Some(docs::Type {
+                typ: Some(DocType {
                     raw_type: "int".to_owned(),
                 }),
                 default_value: Some("None".to_owned()),
             },
-            docs::Param::Arg {
+            DocParam::Arg {
                 name: "b".to_owned(),
-                docs: DocString::from_docstring(docs::DocStringKind::Rust, "param b docs"),
+                docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
                 typ: None,
                 default_value: Some("None".to_owned()),
             },
@@ -866,7 +869,7 @@ mod tests {
         let mut types = HashMap::new();
         types.insert(
             1,
-            docs::Type {
+            DocType {
                 raw_type: "int".to_owned(),
             },
         );
@@ -874,7 +877,7 @@ mod tests {
         docs.insert("a".to_owned(), None);
         docs.insert(
             "b".to_owned(),
-            DocString::from_docstring(docs::DocStringKind::Rust, "param b docs"),
+            DocString::from_docstring(DocStringKind::Rust, "param b docs"),
         );
 
         let params = p.documentation(types, docs);

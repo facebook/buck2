@@ -20,15 +20,15 @@ use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 
 use crate::docs::Doc;
+use crate::docs::DocFunction;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocModule;
+use crate::docs::DocObject;
+use crate::docs::DocParam;
+use crate::docs::DocProperty;
 use crate::docs::DocString;
-use crate::docs::Function;
-use crate::docs::Member;
-use crate::docs::Module;
-use crate::docs::Object;
-use crate::docs::Param;
-use crate::docs::Property;
-use crate::docs::Type;
+use crate::docs::DocType;
 
 /// The style of output that is being generated
 #[derive(Copy, Clone, Dupe)]
@@ -88,7 +88,7 @@ fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String>
     })
 }
 
-fn render_property(name: &str, property: &Property) -> String {
+fn render_property(name: &str, property: &DocProperty) -> String {
     let prototype = render_code_block(&format!(
         "{name}: {}",
         TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
@@ -111,15 +111,15 @@ fn render_property(name: &str, property: &Property) -> String {
 }
 
 /// If there are any parameter docs to render, render them as a list.
-fn render_function_parameters(params: &[Param]) -> Option<String> {
+fn render_function_parameters(params: &[DocParam]) -> Option<String> {
     // Filter out parameters without docs
     let has_docs: Vec<_> = params
         .iter()
         .filter(|p| match p {
-            Param::Arg { docs, .. } => docs.is_some(),
-            Param::NoArgs => false,
-            Param::Args { docs, .. } => docs.is_some(),
-            Param::Kwargs { docs, .. } => docs.is_some(),
+            DocParam::Arg { docs, .. } => docs.is_some(),
+            DocParam::NoArgs => false,
+            DocParam::Args { docs, .. } => docs.is_some(),
+            DocParam::Kwargs { docs, .. } => docs.is_some(),
         })
         .collect();
 
@@ -130,10 +130,10 @@ fn render_function_parameters(params: &[Param]) -> Option<String> {
     let param_list: String = has_docs
         .iter()
         .filter_map(|p| match p {
-            Param::Arg { name, docs, .. } => Some((name, docs)),
-            Param::NoArgs => None,
-            Param::Args { name, docs, .. } => Some((name, docs)),
-            Param::Kwargs { name, docs, .. } => Some((name, docs)),
+            DocParam::Arg { name, docs, .. } => Some((name, docs)),
+            DocParam::NoArgs => None,
+            DocParam::Args { name, docs, .. } => Some((name, docs)),
+            DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
         })
         .map(|(name, docs)| {
             let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
@@ -143,7 +143,7 @@ fn render_function_parameters(params: &[Param]) -> Option<String> {
     Some(param_list)
 }
 
-fn render_function(name: &str, function: &Function) -> String {
+fn render_function(name: &str, function: &DocFunction) -> String {
     let prototype = render_code_block(
         &(TypeRenderer::Function {
             function_name: name,
@@ -183,7 +183,7 @@ fn render_members(
     name: &str,
     object: bool,
     docs: &Option<DocString>,
-    members: &SmallMap<String, Member>,
+    members: &SmallMap<String, DocMember>,
 ) -> String {
     // If this is a native, top level object, render it with a larger
     // header. Sub objects will be listed along side members, so use
@@ -214,11 +214,11 @@ fn render_members(
 }
 
 /// Render a top level module.
-fn render_module(name: &str, module: &Module) -> String {
+fn render_module(name: &str, module: &DocModule) -> String {
     render_members(name, false, &module.docs, &module.members)
 }
 
-fn render_object(name: &str, object: &Object) -> String {
+fn render_object(name: &str, object: &DocObject) -> String {
     render_members(name, true, &object.docs, &object.members)
 }
 
@@ -240,10 +240,10 @@ impl RenderMarkdown for Doc {
     }
 }
 
-fn render_member(name: &str, member: &Member) -> String {
+fn render_member(name: &str, member: &DocMember) -> String {
     match member {
-        Member::Property(p) => render_property(name, p),
-        Member::Function(f) => render_function(name, f),
+        DocMember::Property(p) => render_property(name, p),
+        DocMember::Function(f) => render_function(name, f),
     }
 }
 
@@ -256,25 +256,25 @@ const MAX_ARGS_BEFORE_MULTILINE: usize = 3;
 /// produce a function prototype.
 enum TypeRenderer<'a> {
     /// A general "type".
-    Type(&'a Option<Type>),
+    Type(&'a Option<DocType>),
     /// A function, with some extra formatting options.
     Function {
         /// The function name in the prototype as well.
         function_name: &'a str,
-        f: &'a Function,
+        f: &'a DocFunction,
     },
 }
 
 impl<'a> RenderMarkdown for TypeRenderer<'a> {
     fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        fn raw_type(t: &Option<Type>) -> String {
+        fn raw_type(t: &Option<DocType>) -> String {
             match t {
                 Some(t) if !t.raw_type.is_empty() => t.raw_type.clone(),
                 _ => "\"\"".to_owned(),
             }
         }
 
-        fn raw_type_prefix(prefix: &str, t: &Option<Type>) -> String {
+        fn raw_type_prefix(prefix: &str, t: &Option<DocType>) -> String {
             if t.is_some() {
                 format!("{prefix}{}", raw_type(t))
             } else {
@@ -287,7 +287,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                 TypeRenderer::Type(t) => Some(raw_type(t)),
                 TypeRenderer::Function { function_name, f } => {
                     let mut params = f.params.iter().map(|p| match p {
-                        Param::Arg {
+                        DocParam::Arg {
                             typ,
                             name,
                             default_value,
@@ -299,11 +299,11 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                                 None => format!("{}{}", name, type_string),
                             }
                         }
-                        Param::NoArgs => "*".to_owned(),
-                        Param::Args { typ, name, .. } => {
+                        DocParam::NoArgs => "*".to_owned(),
+                        DocParam::Args { typ, name, .. } => {
                             format!("{}{}", name, raw_type_prefix(": ", typ))
                         }
-                        Param::Kwargs { typ, name, .. } => {
+                        DocParam::Kwargs { typ, name, .. } => {
                             format!("{}{}", name, raw_type_prefix(": ", typ))
                         }
                     });
@@ -339,19 +339,19 @@ mod test {
 
     use super::*;
     use crate::docs::Doc;
+    use crate::docs::DocFunction;
     use crate::docs::DocItem;
+    use crate::docs::DocMember;
+    use crate::docs::DocModule;
+    use crate::docs::DocObject;
+    use crate::docs::DocParam;
+    use crate::docs::DocProperty;
+    use crate::docs::DocReturn;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
-    use crate::docs::Function;
+    use crate::docs::DocType;
     use crate::docs::Identifier;
     use crate::docs::Location;
-    use crate::docs::Member;
-    use crate::docs::Module;
-    use crate::docs::Object;
-    use crate::docs::Param;
-    use crate::docs::Property;
-    use crate::docs::Return;
-    use crate::docs::Type;
 
     fn render(renderer: &dyn RenderMarkdown) -> String {
         renderer
@@ -374,8 +374,8 @@ mod test {
     fn sample_ds_no_details() -> Option<DocString> {
         DocString::from_docstring(DocStringKind::Rust, "Summary")
     }
-    fn sample_type() -> Option<Type> {
-        Some(Type {
+    fn sample_type() -> Option<DocType> {
+        Some(DocType {
             raw_type: "int".to_owned(),
         })
     }
@@ -423,29 +423,29 @@ mod test {
         let ds_no_details = sample_ds_no_details();
         let typ = sample_type();
 
-        fn params(with_docs: bool) -> Vec<Param> {
+        fn params(with_docs: bool) -> Vec<DocParam> {
             let ds = if with_docs { sample_ds() } else { None };
             let typ = sample_type();
             vec![
-                Param::Arg {
+                DocParam::Arg {
                     docs: ds.clone(),
                     typ: typ.clone(),
                     name: "p1".to_owned(),
                     default_value: Some("1".to_owned()),
                 },
-                Param::Arg {
+                DocParam::Arg {
                     docs: ds.clone(),
                     typ: typ.clone(),
                     name: "p2".to_owned(),
                     default_value: None,
                 },
-                Param::NoArgs,
-                Param::Args {
+                DocParam::NoArgs,
+                DocParam::Args {
                     docs: ds.clone(),
                     typ: typ.clone(),
                     name: "*p3".to_owned(),
                 },
-                Param::Kwargs {
+                DocParam::Kwargs {
                     docs: ds,
                     typ,
                     name: "**p4".to_owned(),
@@ -453,40 +453,40 @@ mod test {
             ]
         }
 
-        let f1 = Function {
+        let f1 = DocFunction {
             docs: None,
             params: params(false),
-            ret: Return {
+            ret: DocReturn {
                 typ: typ.clone(),
                 docs: None,
             },
         };
-        let f2 = Function {
+        let f2 = DocFunction {
             docs: ds_no_details.clone(),
             params: params(false),
-            ret: Return {
+            ret: DocReturn {
                 typ: typ.clone(),
                 docs: None,
             },
         };
-        let f3 = Function {
+        let f3 = DocFunction {
             docs: ds.clone(),
             params: params(true),
-            ret: Return {
+            ret: DocReturn {
                 typ: typ.clone(),
                 docs: None,
             },
         };
-        let f4 = Function {
+        let f4 = DocFunction {
             docs: ds.clone(),
             params: params(true),
-            ret: Return {
+            ret: DocReturn {
                 typ,
                 docs: ds.clone(),
             },
         };
 
-        fn prototype(name: &str, f: &Function) -> String {
+        fn prototype(name: &str, f: &DocFunction) -> String {
             render_code_block(&render(&TypeRenderer::Function {
                 function_name: name,
                 f,
@@ -541,7 +541,7 @@ mod test {
                 name: "some_module".to_owned(),
                 location: None,
             },
-            item: DocItem::Module(Module {
+            item: DocItem::Module(DocModule {
                 docs: ds.clone(),
                 members: SmallMap::new(),
             }),
@@ -555,7 +555,7 @@ mod test {
                     position: None,
                 }),
             },
-            item: DocItem::Module(Module {
+            item: DocItem::Module(DocModule {
                 docs: ds,
                 members: SmallMap::new(),
             }),
@@ -572,23 +572,23 @@ mod test {
         let ds = sample_ds();
         let typ = sample_type();
 
-        let p1 = Property {
+        let p1 = DocProperty {
             docs: ds.clone(),
             typ: None,
         };
-        let p2 = Property {
+        let p2 = DocProperty {
             docs: ds.clone(),
             typ: typ.clone(),
         };
-        let f1 = Function {
+        let f1 = DocFunction {
             docs: ds.clone(),
-            params: vec![Param::Arg {
+            params: vec![DocParam::Arg {
                 docs: ds.clone(),
                 typ: typ.clone(),
                 name: "p1".to_owned(),
                 default_value: None,
             }],
-            ret: Return {
+            ret: DocReturn {
                 typ,
                 docs: ds.clone(),
             },
@@ -615,9 +615,9 @@ mod test {
         );
 
         let members = smallmap! {
-            "p1".to_owned() => Member::Property(p1),
-            "p2".to_owned() => Member::Property(p2),
-            "f1".to_owned() => Member::Function(f1),
+            "p1".to_owned() => DocMember::Property(p1),
+            "p2".to_owned() => DocMember::Property(p2),
+            "f1".to_owned() => DocMember::Function(f1),
         };
 
         let without_docs_root = Doc {
@@ -625,7 +625,7 @@ mod test {
                 name: "foo1".to_owned(),
                 location: None,
             },
-            item: DocItem::Object(Object {
+            item: DocItem::Object(DocObject {
                 docs: None,
                 members: members.clone(),
             }),
@@ -639,7 +639,7 @@ mod test {
                     position: None,
                 }),
             },
-            item: DocItem::Object(Object {
+            item: DocItem::Object(DocObject {
                 docs: None,
                 members: members.clone(),
             }),
@@ -650,7 +650,7 @@ mod test {
                 name: "foo3".to_owned(),
                 location: None,
             },
-            item: DocItem::Object(Object { docs: ds, members }),
+            item: DocItem::Object(DocObject { docs: ds, members }),
             custom_attrs: HashMap::default(),
         };
 
@@ -688,7 +688,7 @@ mod test {
             expected_no_docs,
             render_property(
                 "foo1",
-                &Property {
+                &DocProperty {
                     docs: None,
                     typ: typ.clone()
                 }
@@ -698,7 +698,7 @@ mod test {
             expected_no_details,
             render_property(
                 "foo2",
-                &Property {
+                &DocProperty {
                     docs: ds_no_details,
                     typ: typ.clone()
                 }
@@ -706,7 +706,7 @@ mod test {
         );
         assert_eq!(
             expected_with_docs,
-            render_property("foo3", &Property { docs: ds, typ })
+            render_property("foo3", &DocProperty { docs: ds, typ })
         );
     }
 
@@ -718,15 +718,15 @@ mod test {
         let render_with_both = render_ds_combined(&ds_with_both);
         let typ = sample_type();
 
-        let no_docs = Property {
+        let no_docs = DocProperty {
             docs: None,
             typ: typ.clone(),
         };
-        let no_details = Property {
+        let no_details = DocProperty {
             docs: ds_no_details,
             typ: typ.clone(),
         };
-        let with_summary_and_details = Property {
+        let with_summary_and_details = DocProperty {
             docs: ds_with_both,
             typ,
         };

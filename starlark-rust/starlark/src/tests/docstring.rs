@@ -21,21 +21,21 @@ use starlark_map::smallmap;
 
 use crate::assert;
 use crate::assert::Assert;
-use crate::docs;
+use crate::docs::DocFunction;
+use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocModule;
+use crate::docs::DocParam;
+use crate::docs::DocProperty;
+use crate::docs::DocReturn;
+use crate::docs::DocString;
 use crate::docs::DocStringKind;
-use crate::docs::Member;
+use crate::docs::DocType;
 use crate::environment::Module;
 use crate::values::Value;
 
 #[test]
 fn test_def_docstring_parses() -> anyhow::Result<()> {
-    use crate::docs::DocItem;
-    use crate::docs::DocString;
-    use crate::docs::Function;
-    use crate::docs::Param;
-    use crate::docs::Return;
-    use crate::docs::Type;
-
     let fun = assert::pass(
         r#"
 def f1(a, b: "string", c:"int" = 5, *, d:"string" = "some string", **kwargs) -> ["string"]:
@@ -97,44 +97,44 @@ def f4(a: "string") -> "string":
         .get_ref()
         .documentation();
 
-    let expected_f1 = Some(DocItem::Function(Function {
+    let expected_f1 = Some(DocItem::Function(DocFunction {
         docs: DocString::from_docstring(DocStringKind::Starlark, r#"Summary line goes here"#),
         params: vec![
-            Param::Arg {
+            DocParam::Arg {
                 name: "a".to_owned(),
                 docs: DocString::from_docstring(DocStringKind::Starlark, "The docs for a"),
                 typ: None,
                 default_value: None,
             },
-            Param::Arg {
+            DocParam::Arg {
                 name: "b".to_owned(),
                 docs: DocString::from_docstring(DocStringKind::Starlark, "The docs for b"),
-                typ: Some(Type {
+                typ: Some(DocType {
                     raw_type: "\"string\"".to_owned(),
                 }),
                 default_value: None,
             },
-            Param::Arg {
+            DocParam::Arg {
                 name: "c".to_owned(),
                 docs: DocString::from_docstring(
                     DocStringKind::Starlark,
                     "The docs for c, but these\ngo onto two lines",
                 ),
-                typ: Some(Type {
+                typ: Some(DocType {
                     raw_type: "\"int\"".to_owned(),
                 }),
                 default_value: Some("5".to_owned()),
             },
-            Param::NoArgs,
-            Param::Arg {
+            DocParam::NoArgs,
+            DocParam::Arg {
                 name: "d".to_owned(),
                 docs: None,
-                typ: Some(Type {
+                typ: Some(DocType {
                     raw_type: "\"string\"".to_owned(),
                 }),
                 default_value: Some("\"some string\"".to_owned()),
             },
-            Param::Kwargs {
+            DocParam::Kwargs {
                 name: "**kwargs".to_owned(),
                 docs: DocString::from_docstring(
                     DocStringKind::Starlark,
@@ -143,30 +143,30 @@ def f4(a: "string") -> "string":
                 typ: None,
             },
         ],
-        ret: Return {
+        ret: DocReturn {
             docs: DocString::from_docstring(DocStringKind::Starlark, "A string repr of the args"),
-            typ: Some(Type {
+            typ: Some(DocType {
                 raw_type: r#"["string"]"#.to_owned(),
             }),
         },
     }));
 
-    let expected_f2 = Some(DocItem::Function(Function {
+    let expected_f2 = Some(DocItem::Function(DocFunction {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             r#"This is a function with *args, and no return type"#,
         ),
         params: vec![
-            Param::Arg {
+            DocParam::Arg {
                 name: "a".to_owned(),
                 docs: None,
                 typ: None,
                 default_value: None,
             },
-            Param::Args {
+            DocParam::Args {
                 name: "*args".to_owned(),
                 docs: DocString::from_docstring(DocStringKind::Starlark, "Only doc this arg"),
-                typ: Some(Type {
+                typ: Some(DocType {
                     raw_type: "[\"string\"]".to_owned(),
                 }),
             },
@@ -174,40 +174,40 @@ def f4(a: "string") -> "string":
         ..Default::default()
     }));
 
-    let expected_f3 = Some(DocItem::Function(Function {
+    let expected_f3 = Some(DocItem::Function(DocFunction {
         docs: None,
-        params: vec![Param::Arg {
+        params: vec![DocParam::Arg {
             name: "a".to_owned(),
             docs: None,
-            typ: Some(Type {
+            typ: Some(DocType {
                 raw_type: "\"string\"".to_owned(),
             }),
             default_value: None,
         }],
-        ret: Return {
+        ret: DocReturn {
             docs: None,
-            typ: Some(Type {
+            typ: Some(DocType {
                 raw_type: "\"string\"".to_owned(),
             }),
         },
     }));
 
-    let expected_f4 = Some(DocItem::Function(Function {
+    let expected_f4 = Some(DocItem::Function(DocFunction {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             "This is a docstring with no 'Args:' section",
         ),
-        params: vec![Param::Arg {
+        params: vec![DocParam::Arg {
             name: "a".to_owned(),
             docs: None,
-            typ: Some(Type {
+            typ: Some(DocType {
                 raw_type: "\"string\"".to_owned(),
             }),
             default_value: None,
         }],
-        ret: Return {
+        ret: DocReturn {
             docs: None,
-            typ: Some(Type {
+            typ: Some(DocType {
                 raw_type: "\"string\"".to_owned(),
             }),
         },
@@ -223,8 +223,6 @@ def f4(a: "string") -> "string":
 
 #[test]
 fn test_module_docstring_parses() {
-    use crate::docs::DocString;
-
     let m1 = assert::pass_module(
         r#"
 """
@@ -279,8 +277,8 @@ Some extra details can go here,
 
 #[test]
 fn test_module_docs_return() {
+    use crate::docs::DocFunction;
     use crate::docs::DocString;
-    use crate::docs::Function;
 
     let mut a = Assert::new();
     let mod_a = r#"
@@ -333,9 +331,9 @@ def f1():
     let m2_docs = m2.module_documentation();
     let m3_docs = m3.module_documentation();
 
-    let empty_function = Member::Function(Function::default());
+    let empty_function = DocMember::Function(DocFunction::default());
 
-    let expected_m1 = docs::Module {
+    let expected_m1 = DocModule {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             r"This is the summary of the module's docs
@@ -345,7 +343,7 @@ Some extra details can go here,
         ),
 
         members: smallmap! {
-            "f1".to_owned() => Member::Function(Function {
+            "f1".to_owned() => DocMember::Function(DocFunction {
                 docs: DocString::from_docstring(DocStringKind::Starlark, "This is a function summary"),
                 ..Default::default()
             }),
@@ -353,17 +351,17 @@ Some extra details can go here,
         },
     };
 
-    let expected_m2 = docs::Module {
+    let expected_m2 = DocModule {
         docs: None,
         // Note that the "x" value here is the documentation for the string type, not
         // for a SPECIFIC string.
         members: smallmap! {
-            "x".to_owned() => Member::Property(docs::Property { docs: None, typ: Some(docs::Type { raw_type: "str.type".to_owned() }) }),
+            "x".to_owned() => DocMember::Property(DocProperty { docs: None, typ: Some(DocType { raw_type: "str.type".to_owned() }) }),
             "f1".to_owned() => empty_function.clone(),
         },
     };
 
-    let expected_m3 = docs::Module {
+    let expected_m3 = DocModule {
         docs: None,
         members: smallmap! {
             "f1".to_owned() => empty_function,

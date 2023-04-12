@@ -19,10 +19,11 @@ use std::collections::HashMap;
 
 use starlark_map::small_map::SmallMap;
 
-use crate::docs;
 use crate::docs::Doc;
 use crate::docs::DocItem;
-use crate::docs::Member;
+use crate::docs::DocMember;
+use crate::docs::DocModule;
+use crate::docs::DocObject;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -47,7 +48,7 @@ impl OracleDocs {
 
     /// Like [`Self::new`], but adding to an existing oracle (overwriting any duplicates).
     pub fn add_doc(&mut self, doc: &Doc) {
-        fn add_members(me: &mut OracleDocs, doc: &Doc, members: &SmallMap<String, Member>) {
+        fn add_members(me: &mut OracleDocs, doc: &Doc, members: &SmallMap<String, DocMember>) {
             let mut items = HashMap::with_capacity(members.len());
             for (name, member) in members {
                 items.insert(name.clone(), Ty::from_docs_member(member));
@@ -71,7 +72,7 @@ impl OracleDocs {
 
     /// Create a new [`OracleDocs`] given the documentation, usually from
     /// [`Globals::documentation`](crate::environment::Globals::documentation).
-    /// Only produces interesting content if the result is an [`Object`](crate::docs::Object) (which it is for those two).
+    /// Only produces interesting content if the result is an [`Object`](crate::docs::DocObject) (which it is for those two).
     pub fn new_object(docs: &DocItem) -> Self {
         let mut res = Self::default();
         res.add_object(docs);
@@ -81,8 +82,8 @@ impl OracleDocs {
     /// Like [`Self::new_object`], but adding to an existing oracle (overwriting any duplicates).
     pub fn add_object(&mut self, docs: &DocItem) {
         match docs {
-            DocItem::Object(docs::Object { members, .. })
-            | DocItem::Module(docs::Module { members, .. }) => {
+            DocItem::Object(DocObject { members, .. })
+            | DocItem::Module(DocModule { members, .. }) => {
                 for (name, member) in members {
                     self.functions
                         .insert(name.clone(), Ty::from_docs_member(member));

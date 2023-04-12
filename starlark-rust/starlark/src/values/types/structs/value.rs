@@ -35,8 +35,10 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::coerce;
 use crate::coerce::Coerce;
-use crate::docs;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocObject;
+use crate::docs::DocProperty;
 use crate::starlark_complex_value;
 use crate::starlark_type;
 use crate::values::comparison::compare_small_map;
@@ -174,10 +176,10 @@ where
             .map(|(k, v)| {
                 let name = k.as_str().to_owned();
                 match v.to_value().documentation() {
-                    Some(DocItem::Function(f)) => (name, docs::Member::Function(f)),
+                    Some(DocItem::Function(f)) => (name, DocMember::Function(f)),
                     _ => (
                         name,
-                        docs::Member::Property(docs::Property {
+                        DocMember::Property(DocProperty {
                             docs: None,
                             typ: None,
                         }),
@@ -185,7 +187,7 @@ where
                 }
             })
             .collect();
-        Some(DocItem::Object(docs::Object {
+        Some(DocItem::Object(DocObject {
             docs: None,
             members,
         }))
@@ -206,10 +208,16 @@ mod tests {
     use starlark_map::smallmap;
 
     use crate::assert;
-    use crate::docs;
+    use crate::docs::DocFunction;
     use crate::docs::DocItem;
+    use crate::docs::DocMember;
+    use crate::docs::DocObject;
+    use crate::docs::DocParam;
+    use crate::docs::DocProperty;
+    use crate::docs::DocReturn;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
+    use crate::docs::DocType;
 
     #[test]
     fn test_repr() {
@@ -264,28 +272,28 @@ json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
 
     #[test]
     fn test_docs() {
-        let expected = DocItem::Object(docs::Object {
+        let expected = DocItem::Object(DocObject {
             docs: None,
             members: smallmap! {
                 "member".to_owned() =>
-                docs::Member::Property(docs::Property {
+                DocMember::Property(DocProperty {
                     docs: None,
                     typ: None,
                 }),
                 "some_func".to_owned() =>
-                docs::Member::Function(docs::Function {
+                DocMember::Function(DocFunction {
                     docs: DocString::from_docstring(DocStringKind::Starlark, "some_func docs"),
-                    params: vec![docs::Param::Arg {
+                    params: vec![DocParam::Arg {
                         name: "v".to_owned(),
                         docs: None,
-                        typ: Some(docs::Type {
+                        typ: Some(DocType {
                             raw_type: "\"x\"".to_owned(),
                         }),
                         default_value: None,
                     }],
-                    ret: docs::Return {
+                    ret: DocReturn {
                         docs: None,
-                        typ: Some(docs::Type {
+                        typ: Some(DocType {
                             raw_type: "\"y\"".to_owned(),
                         }),
                     },
