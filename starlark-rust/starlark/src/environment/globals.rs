@@ -558,14 +558,7 @@ fn common_documentation<'a>(
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
     let member_docs = members
         .into_iter()
-        .filter_map(|(name, val)| {
-            let m = val.to_value().documentation().and_then(|d| match d {
-                DocItem::Module(_) | DocItem::Object(_) => None,
-                DocItem::Function(f) => Some(docs::Member::Function(f)),
-                DocItem::Property(p) => Some(docs::Member::Property(p)),
-            });
-            m.map(|member| (name.to_owned(), member))
-        })
+        .map(|(name, val)| (name.to_owned(), docs::Member::from_value(val.to_value())))
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
         .collect();
 
