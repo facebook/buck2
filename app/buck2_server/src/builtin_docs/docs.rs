@@ -179,25 +179,10 @@ pub fn get_builtin_docs(
     Ok(all_builtins)
 }
 
-/// Get the documentation for exported symbols in the prelude
-///
-/// Creates top level docs for member functions of "native" too,
-/// presuming that those symbols don't already exist in `existing_globals`
-/// (to avoid re-exporting and overriding the real builtins if there is conflict)
-pub async fn get_prelude_docs(
-    ctx: &DiceTransaction,
-    existing_globals: &HashSet<&str>,
-) -> anyhow::Result<Vec<Doc>> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
-    let prelude_path = prelude_path(cell_alias_resolver)?;
-    let interpreter_calculation = ctx
-        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
-        .await?;
-    let mut prelude_docs = get_docs_from_module(&interpreter_calculation, prelude_path).await?;
-
+/// In the Prelude, all members of "native" are also available at the global scope.
+fn promote_native(mut docs: Vec<Doc>, existing_globals: &HashSet<&str>) -> Vec<Doc> {
     let mut native_reexported = vec![];
-    let top_level_symbols = prelude_docs
+    let top_level_symbols = docs
         .iter()
         .map(|d| (d.id.name.as_str(), d))
         .collect::<HashMap<_, _>>();
@@ -230,8 +215,29 @@ pub async fn get_prelude_docs(
             }
         }
     }
-    prelude_docs.extend(native_reexported);
-    Ok(prelude_docs)
+    docs.extend(native_reexported);
+    docs
+}
+
+/// Get the documentation for exported symbols in the prelude
+///
+/// Creates top level docs for member functions of "native" too,
+/// presuming that those symbols don't already exist in `existing_globals`
+/// (to avoid re-exporting and overriding the real builtins if there is conflict)
+pub async fn get_prelude_docs(
+    ctx: &DiceTransaction,
+    existing_globals: &HashSet<&str>,
+) -> anyhow::Result<Vec<Doc>> {
+    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
+    let prelude_path = prelude_path(cell_alias_resolver)?;
+    let interpreter_calculation = ctx
+        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
+        .await?;
+    Ok(promote_native(
+        get_docs_from_module(&interpreter_calculation, prelude_path).await?,
+        existing_globals,
+    ))
 }
 
 async fn get_docs_from_module(
