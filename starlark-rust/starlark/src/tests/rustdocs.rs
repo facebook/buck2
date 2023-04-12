@@ -97,7 +97,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
 
     fn unpack(x: DocItem) -> HashMap<String, DocItem> {
         match x {
-            DocItem::Object(obj) => obj
+            DocItem::Module(obj) => obj
                 .members
                 .into_iter()
                 .filter_map(|(name, member)| match member {

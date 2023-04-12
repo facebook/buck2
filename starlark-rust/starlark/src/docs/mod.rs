@@ -1053,7 +1053,7 @@ mod tests {
         let string_typ = Some(Type {
             raw_type: "str.type".to_owned(),
         });
-        let expected_object = super::Object {
+        let expected_object = super::Module {
             docs: DocString::from_docstring(
                 DocStringKind::Rust,
                 "These are where the module docs go\n\nThis is what is passed to users for an object, so be careful\nnot to register two modules for a single object.",
@@ -1125,7 +1125,7 @@ mod tests {
                 }),
             },
         };
-        let expected = DocItem::Object(expected_object);
+        let expected = DocItem::Module(expected_object);
 
         assert_eq!(expected, docs);
     }

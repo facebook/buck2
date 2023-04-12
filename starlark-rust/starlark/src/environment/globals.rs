@@ -162,12 +162,13 @@ impl Globals {
             .join("\n")
     }
 
-    /// Get the documentation for both the object itself, and its members. Returned as an `Object`
+    /// Get the documentation for both the object itself, and its members. Returned as a `Module`.
     pub fn documentation(&self) -> DocItem {
-        common_documentation(
+        let docs::Object { docs, members } = common_documentation(
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
-        )
+        );
+        DocItem::Module(docs::Module { docs, members })
     }
 
     /// Get the documentation for each member. Useful when loading a number of objects into
@@ -214,15 +215,15 @@ impl Methods {
             .map(|(k, v)| (k.as_str(), v.to_frozen_value()))
     }
 
-    /// Fetch the documentation.
+    /// Fetch the documentation. Returned as an `Object`.
     pub fn documentation(&self) -> DocItem {
-        common_documentation(
+        DocItem::Object(common_documentation(
             &self.0.docstring,
             self.0
                 .members
                 .iter()
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
-        )
+        ))
     }
 }
 
@@ -552,7 +553,7 @@ impl MethodsStatic {
 fn common_documentation<'a>(
     docstring: &Option<String>,
     members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
-) -> DocItem {
+) -> docs::Object {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
@@ -562,10 +563,10 @@ fn common_documentation<'a>(
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
         .collect();
 
-    DocItem::Object(docs::Object {
+    docs::Object {
         docs: main_docs,
         members: member_docs,
-    })
+    }
 }
 
 #[cfg(test)]
