@@ -46,15 +46,10 @@ prelude.export_file(
     src = "run_inplace.py.in",
 )
 
-prelude.export_file(
-    name = "run_inplace_interpreter_wrapper.py.in",
-    src = "run_inplace_interpreter_wrapper.py.in",
-)
-
 prelude.command_alias(
     name = "make_pex_inplace",
     exe = ":make_pex_inplace.py",
-    args = ["--template", "$(location :run_inplace.py.in)", "--template-lite", "$(location :run_inplace_lite.py.in)", "--template-interpreter-wrapper", "$(location :run_inplace_interpreter_wrapper.py.in)"],
+    args = ["--template", "$(location :run_inplace.py.in)", "--template-lite", "$(location :run_inplace_lite.py.in)"],
     visibility = ["PUBLIC"],
 )
 
