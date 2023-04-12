@@ -10,7 +10,7 @@
 use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// The `Blank` component is a dead-end component that emits nothing.
@@ -26,8 +26,8 @@ impl Component for Blank {
         _state: &State,
         _dimensions: Dimensions,
         _mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
-        Ok(Vec::new())
+    ) -> anyhow::Result<Lines> {
+        Ok(Lines::new())
     }
 }
 
@@ -39,16 +39,16 @@ mod tests {
     use crate::components::DrawMode;
     use crate::Component;
     use crate::Dimensions;
-    use crate::Line;
+    use crate::Lines;
 
     #[derive(AsRef, Debug)]
-    struct EchoMsg(Vec<Line>);
+    struct EchoMsg(Lines);
 
     #[test]
     fn test_echo_empty() {
         let echo: Echo<EchoMsg> = Echo::new(false);
 
-        let test = EchoMsg(vec![]);
+        let test = EchoMsg(Lines::new());
 
         let output = echo
             .draw(
@@ -57,16 +57,16 @@ mod tests {
                 DrawMode::Normal,
             )
             .unwrap();
-        assert_eq!(output, []);
+        assert_eq!(output, Lines::new());
     }
 
     #[test]
     fn test_echo() {
         let echo: Echo<EchoMsg> = Echo::new(false);
-        let output = vec![
+        let output = Lines(vec![
             vec!["Line 1"].try_into().unwrap(),
             vec!["Line 2"].try_into().unwrap(),
-        ];
+        ]);
         let state = EchoMsg(output.clone());
 
         let test_output = echo

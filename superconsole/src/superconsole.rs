@@ -20,7 +20,6 @@ use crate::components::Canvas;
 use crate::components::Component;
 use crate::components::DrawMode;
 use crate::content::Line;
-use crate::content::LinesExt;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::SuperConsoleOutput;
 use crate::Dimensions;
@@ -37,7 +36,7 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 /// Producing output from sources other than SuperConsole while break the TUI.
 pub struct SuperConsole {
     root: Canvas,
-    to_emit: Vec<Line>,
+    to_emit: Lines,
     // A default screen size to use if the size cannot be fetched
     // from the terminal. This generally is only used for testing
     // situations.
@@ -74,7 +73,7 @@ impl SuperConsole {
     ) -> Self {
         Self {
             root: Canvas::new(root),
-            to_emit: Vec::new(),
+            to_emit: Lines::new(),
             fallback_size,
             output,
         }
@@ -140,7 +139,7 @@ impl SuperConsole {
     /// Queues the passed lines to be drawn on the next render.
     /// The lines *will not* appear until the next render is called.
     pub fn emit(&mut self, mut lines: Lines) {
-        self.to_emit.append(&mut lines);
+        self.to_emit.0.append(&mut lines.0);
     }
 
     fn size(&self) -> anyhow::Result<Dimensions> {
@@ -235,8 +234,8 @@ mod tests {
         let root = Box::new(Echo::<Msg>::new(false));
         let mut console = test_console(root);
         let msg_count = MINIMUM_EMIT + 5;
-        console.emit(vec![vec!["line 1"].try_into()?; msg_count]);
-        let msg = Msg(vec![vec!["line"].try_into()?; msg_count]);
+        console.emit(Lines(vec![vec!["line 1"].try_into()?; msg_count]));
+        let msg = Msg(Lines(vec![vec!["line"].try_into()?; msg_count]));
         let state = crate::state![&msg];
         let mut buffer = Vec::new();
 
@@ -258,8 +257,11 @@ mod tests {
     fn test_huge_buffer() -> anyhow::Result<()> {
         let root = Box::new(Echo::<Msg>::new(false));
         let mut console = test_console(root);
-        console.emit(vec![vec!["line 1"].try_into()?; MAX_GRAPHEME_BUFFER * 2]);
-        let msg = Msg(vec![vec!["line"].try_into()?; 1]);
+        console.emit(Lines(vec![
+            vec!["line 1"].try_into()?;
+            MAX_GRAPHEME_BUFFER * 2
+        ]));
+        let msg = Msg(Lines(vec![vec!["line"].try_into()?; 1]));
         let state = crate::state![&msg];
         let mut buffer = Vec::new();
 
@@ -283,7 +285,7 @@ mod tests {
         let root = Box::new(Echo::<Msg>::new(false));
         let mut console = test_console(root);
 
-        let msg = Msg(vec![vec!["state"].try_into()?; 1]);
+        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
 
         console.render(&state)?;
@@ -293,7 +295,7 @@ mod tests {
         console.render(&state)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
-        console.emit(vec![vec!["line 1"].try_into()?]);
+        console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.render(&state)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
@@ -307,16 +309,16 @@ mod tests {
         let root = Box::new(Echo::<Msg>::new(false));
         let mut console = test_console(root);
 
-        let msg = Msg(vec![vec!["state"].try_into()?; 1]);
+        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
 
         console.test_output_mut()?.should_render = false;
-        console.emit(vec![vec!["line 1"].try_into()?]);
+        console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.render(&state)?;
         assert_eq!(console.test_output()?.frames.len(), 0);
 
         console.test_output_mut()?.should_render = true;
-        console.emit(vec![vec!["line 2"].try_into()?]);
+        console.emit(Lines(vec![vec!["line 2"].try_into()?]));
         console.render(&state)?;
 
         let frame = console
@@ -338,12 +340,12 @@ mod tests {
         let root = Box::new(Echo::<Msg>::new(false));
         let mut console = test_console(root);
 
-        let msg = Msg(vec![vec!["state"].try_into()?; 1]);
+        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
         let state = crate::state![&msg];
 
         console.test_output_mut()?.should_render = false;
-        console.emit(vec![vec!["line 1"].try_into()?]);
-        console.emit(vec![vec!["line 2"].try_into()?]);
+        console.emit(Lines(vec![vec!["line 1"].try_into()?]));
+        console.emit(Lines(vec![vec!["line 2"].try_into()?]));
         console.render_with_mode(&state, DrawMode::Final)?;
 
         let frame = console

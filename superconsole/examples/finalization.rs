@@ -16,7 +16,7 @@ use superconsole::components::Component;
 use superconsole::components::DrawMode;
 use superconsole::state;
 use superconsole::Dimensions;
-use superconsole::Line;
+use superconsole::Lines;
 use superconsole::State;
 use superconsole::SuperConsole;
 use tokio::time;
@@ -38,7 +38,7 @@ impl Component for Greeter {
         state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Normal => {
                 // Prints a greeting to the current customer.
@@ -54,7 +54,7 @@ impl Component for Greeter {
                         .unwrap();
                     messages.push(greeting);
                 }
-                messages
+                Lines(messages)
             }
             DrawMode::Final => {
                 // Prints a message about the employee when he or she leaves for the day.
@@ -67,7 +67,7 @@ impl Component for Greeter {
                 let exit_stats =
                     format!("{} greeted {} customers today", self.name, total_customers);
 
-                vec![farewell, vec![exit_stats].try_into().unwrap()]
+                Lines(vec![farewell, vec![exit_stats].try_into().unwrap()])
             }
         })
     }
@@ -100,7 +100,7 @@ async fn main() {
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
     let mut last = None;
     for i in 0..10usize {
-        console.emit(vec![vec![i.to_string()].try_into().unwrap()]);
+        console.emit(Lines(vec![vec![i.to_string()].try_into().unwrap()]));
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))
             .collect::<Vec<_>>();

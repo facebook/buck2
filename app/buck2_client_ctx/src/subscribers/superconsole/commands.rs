@@ -10,6 +10,7 @@
 use buck2_event_observer::action_stats::ActionStats;
 use superconsole::Component;
 use superconsole::Line;
+use superconsole::Lines;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -25,10 +26,10 @@ impl Component for CommandsComponent {
     ) -> anyhow::Result<superconsole::Lines> {
         let config = state.get::<SuperConsoleConfig>()?;
         if !config.enable_commands {
-            return Ok(vec![]);
+            return Ok(Lines::new());
         }
 
         let action_stats = state.get::<ActionStats>()?;
-        Ok(vec![Line::unstyled(&action_stats.to_string())?])
+        Ok(Lines(vec![Line::unstyled(&action_stats.to_string())?]))
     }
 }

@@ -80,7 +80,7 @@ impl Component for TimedListBody {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<superconsole::Line>> {
+    ) -> anyhow::Result<Lines> {
         self.0.draw(state, dimensions, mode)
     }
 }
@@ -294,7 +294,7 @@ impl Component for CountComponent {
                 }
             }
         };
-        Ok(vec![Line::unstyled(&contents)?])
+        Ok(Lines(vec![Line::unstyled(&contents)?]))
     }
 }
 
@@ -367,7 +367,7 @@ impl Component for TimedList {
             }
             // show a summary at the end
             DrawMode::Final => CountComponent.draw(state, dimensions, DrawMode::Final),
-            _ => Ok(vec![]),
+            _ => Ok(Lines::new()),
         }
     }
 }
@@ -473,7 +473,7 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["test", "Jobs: In progress: 2. Finished: 0. C"].try_into()?,
             Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
@@ -486,7 +486,7 @@ mod tests {
                 Span::padding(11),
                 Span::new_unstyled("1.0s".to_owned())?,
             ]),
-        ];
+        ]);
 
         pretty_assertions::assert_eq!(output, expected);
 
@@ -563,7 +563,7 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["test", "Jobs: In progress: 3. Finished: 0. C"].try_into()?,
             Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
@@ -576,7 +576,7 @@ mod tests {
                 Span::padding(6),
                 Span::new_styled("1.0s".to_owned().italic())?,
             ]),
-        ];
+        ]);
 
         pretty_assertions::assert_eq!(output, expected);
 
@@ -669,7 +669,7 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = vec![
+        let expected = Lines(vec![
             vec![
                 "test",
                 "     ",
@@ -686,7 +686,7 @@ mod tests {
                 Span::padding(18),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
             ]),
-        ];
+        ]);
 
         pretty_assertions::assert_eq!(output, expected);
 
@@ -724,7 +724,7 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = vec![
+        let expected = Lines(vec![
             vec![
                 "test",
                 "     ",
@@ -741,7 +741,7 @@ mod tests {
                 Span::padding(14),
                 Span::new_styled("10.0s".to_owned().dark_red())?,
             ]),
-        ];
+        ]);
 
         pretty_assertions::assert_eq!(output, expected);
 

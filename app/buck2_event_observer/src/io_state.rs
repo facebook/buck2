@@ -13,6 +13,7 @@ use buck2_core::io_counters::IoCounterKey;
 use gazebo::prelude::VecExt;
 use superconsole::DrawMode;
 use superconsole::Line;
+use superconsole::Lines;
 
 use crate::humanized_bytes::HumanizedBytes;
 use crate::two_snapshots::TwoSnapshots;
@@ -82,11 +83,7 @@ impl IoState {
         self.two_snapshots.update(timestamp, snapshot);
     }
 
-    fn do_render(
-        &self,
-        snapshot: &buck2_data::Snapshot,
-        width: usize,
-    ) -> anyhow::Result<Vec<Line>> {
+    fn do_render(&self, snapshot: &buck2_data::Snapshot, width: usize) -> anyhow::Result<Lines> {
         let mut lines = Vec::new();
         let mut parts = Vec::new();
         if let Some(buck2_rss) = snapshot.buck2_rss {
@@ -119,7 +116,7 @@ impl IoState {
         }
         lines.extend(words_to_lines(counters, width).into_try_map(|s| Line::unstyled(&s))?);
 
-        Ok(lines)
+        Ok(Lines(lines))
     }
 
     pub fn render(
@@ -127,17 +124,17 @@ impl IoState {
         draw_mode: DrawMode,
         width: usize,
         enabled: bool,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         if !enabled {
-            return Ok(Vec::new());
+            return Ok(Lines::new());
         }
         if let DrawMode::Final = draw_mode {
-            return Ok(Vec::new());
+            return Ok(Lines::new());
         }
         if let Some((_, snapshot)) = &self.two_snapshots.last {
             self.do_render(snapshot, width)
         } else {
-            Ok(Vec::new())
+            Ok(Lines::new())
         }
     }
 }

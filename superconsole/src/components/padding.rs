@@ -10,9 +10,8 @@
 use crate::components::Blank;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
-use crate::content::LinesExt;
 use crate::Component;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// The `Padded` [`Component`](Component) wraps its child by padding left, right, above, and below its content.
@@ -66,14 +65,14 @@ impl Component for Padded {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         let mut output = self.child.draw(state, dimensions, mode)?;
 
         // ordering is important:
         // the top and bottom lines need to be padded horizontally too.
         output.pad_lines_top(self.top);
         // cut off enough space at the bottom for the bottom padding
-        output.truncate(dimensions.height.saturating_sub(self.bottom));
+        output.truncate_lines_bottom(dimensions.height.saturating_sub(self.bottom));
         output.pad_lines_bottom(self.bottom);
 
         output.pad_lines_left(self.left);
@@ -95,10 +94,11 @@ mod tests {
     use crate::Dimensions;
     use crate::DrawMode;
     use crate::Line;
+    use crate::Lines;
     use crate::State;
 
     #[derive(Debug, AsRef)]
-    struct Msg(Vec<Line>);
+    struct Msg(Lines);
 
     #[test]
     fn test_pad_left() {
@@ -108,23 +108,23 @@ mod tests {
             ..Default::default()
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
 
         let drawing = padder
             .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec![" ".repeat(5).as_ref(), "hello world"]
                 .try_into()
                 .unwrap(),
             vec![" ".repeat(5).as_ref(), "ok"].try_into().unwrap(),
             vec![" ".repeat(5)].try_into().unwrap(),
-        ];
+        ]);
         assert_eq!(drawing, expected);
     }
 
@@ -136,21 +136,21 @@ mod tests {
             ..Default::default()
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
 
         let drawing = padder
             .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["hello world", &" ".repeat(4)].try_into().unwrap(),
             vec!["ok", &" ".repeat(4 + 9)].try_into().unwrap(),
             vec![" ".repeat(4 + 11)].try_into().unwrap(),
-        ];
+        ]);
         assert_eq!(drawing, expected);
     }
 
@@ -162,17 +162,17 @@ mod tests {
             ..Default::default()
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
 
         let drawing = padder
             .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             Line::default(),
             Line::default(),
             Line::default(),
@@ -181,7 +181,7 @@ mod tests {
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ];
+        ]);
 
         assert_eq!(drawing, expected);
     }
@@ -194,17 +194,17 @@ mod tests {
             ..Default::default()
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
 
         let drawing = padder
             .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
@@ -213,7 +213,7 @@ mod tests {
             Line::default(),
             Line::default(),
             Line::default(),
-        ];
+        ]);
 
         assert_eq!(drawing, expected);
     }
@@ -225,21 +225,21 @@ mod tests {
             ..Default::default()
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
 
         let drawing = padder
             .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ];
+        ]);
 
         assert_eq!(drawing, expected);
     }
@@ -254,16 +254,16 @@ mod tests {
             bottom: 3,
         };
         let mut state = State::new();
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["ok"].try_into().unwrap(),
             Line::default(),
-        ]);
+        ]));
         state.insert(&msg);
         let drawing = padder
             .draw(&state, Dimensions::new(10, 8), DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             // 5 rows of padding at the top
             vec![" ".repeat(5), " ".repeat(5)].try_into().unwrap(),
             vec![" ".repeat(5), " ".repeat(5)].try_into().unwrap(),
@@ -278,7 +278,7 @@ mod tests {
             vec![" ".repeat(5), " ".repeat(5)].try_into().unwrap(),
             vec![" ".repeat(5), " ".repeat(5)].try_into().unwrap(),
             vec![" ".repeat(5), " ".repeat(5)].try_into().unwrap(),
-        ];
+        ]);
 
         assert_eq!(drawing, expected);
     }

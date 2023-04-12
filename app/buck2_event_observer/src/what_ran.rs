@@ -13,6 +13,7 @@ use std::fmt;
 use buck2_data::re_platform::Property;
 use dupe::Dupe;
 use superconsole::Line;
+use superconsole::Lines;
 use superconsole::SuperConsole;
 
 use crate::display;
@@ -299,7 +300,7 @@ impl WhatRanOutputWriter for SuperConsole {
             repro: command.repro(),
         }
         .to_string();
-        self.emit(vec![Line::sanitized(&msg)]);
+        self.emit(Lines(vec![Line::sanitized(&msg)]));
         Ok(())
     }
 }

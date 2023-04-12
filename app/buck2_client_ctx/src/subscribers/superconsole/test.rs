@@ -34,7 +34,7 @@ impl Component for TestCounterComponent {
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         if matches!(mode, DrawMode::Final) {
-            return Ok(vec![]);
+            return Ok(Lines::new());
         }
 
         let test_state = state.get::<TestState>()?;
@@ -106,7 +106,7 @@ impl Component for TestCounterComponent {
             }
             .to_span()?,
         );
-        Ok(vec![Line(spans)])
+        Ok(Lines(vec![Line(spans)]))
     }
 }
 
@@ -131,7 +131,7 @@ impl Component for TestHeader {
         if session_info.test_session.is_some() {
             self.0.draw_unchecked(state, dimensions, mode)
         } else {
-            Ok(vec![])
+            Ok(Lines::new())
         }
     }
 }

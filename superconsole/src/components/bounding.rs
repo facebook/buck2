@@ -61,7 +61,9 @@ mod tests {
     #[test]
     fn test_no_bounding() -> anyhow::Result<()> {
         let test = Bounded::new(Box::new(Echo::<Msg>::new(false)), Some(40), Some(40));
-        let msg = Msg(vec![Line::from_iter([Span::new_unstyled("hello world")?])]);
+        let msg = Msg(Lines(vec![Line::from_iter([Span::new_unstyled(
+            "hello world",
+        )?])]));
         let output = test.draw(
             &crate::state![&msg],
             Dimensions {
@@ -80,10 +82,10 @@ mod tests {
     #[test]
     fn test_bounding() -> anyhow::Result<()> {
         let test = Bounded::new(Box::new(Echo::<Msg>::new(false)), Some(2), Some(1));
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             Line::from_iter([Span::new_unstyled("hello world")?]),
             Line::from_iter([Span::new_unstyled("hello world")?]),
-        ]);
+        ]));
         let output = test.draw(
             &crate::state![&msg],
             Dimensions {
@@ -92,7 +94,7 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = vec![Line::from_iter([Span::new_unstyled("he")?])];
+        let expected = Lines(vec![Line::from_iter([Span::new_unstyled("he")?])]);
 
         assert_eq!(output, expected);
 

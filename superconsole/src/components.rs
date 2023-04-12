@@ -21,7 +21,6 @@ pub use expanding::Expanding;
 pub use padding::Padded;
 pub use splitting::Split;
 
-use crate::content::LinesExt;
 use crate::Dimensions;
 use crate::Lines;
 use crate::State;

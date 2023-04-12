@@ -13,6 +13,7 @@ use std::time::Duration;
 use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Line;
+use superconsole::Lines;
 use superconsole::Span;
 use superconsole::SuperConsole;
 
@@ -57,7 +58,7 @@ impl<'a> Component for LoadingBar<'a> {
             }
         };
 
-        Ok(vec![res])
+        Ok(Lines(vec![res]))
     }
 }
 
@@ -73,10 +74,10 @@ fn main() {
 
     for (i, c) in crates.into_iter().enumerate() {
         let building = Span::new_styled("  Compiling ".to_owned().green().bold()).unwrap();
-        superconsole.emit(vec![Line::from_iter([
+        superconsole.emit(Lines(vec![Line::from_iter([
             building,
             Span::new_unstyled(c).unwrap(),
-        ])]);
+        ])]));
         superconsole.render(&superconsole::state!(&i)).unwrap();
         sleep(Duration::from_secs_f64(0.2));
     }

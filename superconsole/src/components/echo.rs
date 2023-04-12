@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// Component that repeats whatever lines are put into it.
@@ -35,15 +35,15 @@ impl<Msg> Echo<Msg> {
     }
 }
 
-impl<Msg: AsRef<Vec<Line>> + Send + 'static + Debug> Component for Echo<Msg> {
+impl<Msg: AsRef<Lines> + Send + 'static + Debug> Component for Echo<Msg> {
     fn draw_unchecked(
         &self,
         state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         match mode {
-            DrawMode::Final if self.collapse => Ok(vec![]),
+            DrawMode::Final if self.collapse => Ok(Lines::new()),
             _ => state.get::<Msg>().map(|msg| msg.as_ref().clone()),
         }
     }

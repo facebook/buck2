@@ -36,7 +36,6 @@ use superconsole::components::Bounded;
 use superconsole::components::Split;
 use superconsole::content::colored_lines_from_multiline_string;
 use superconsole::content::lines_from_multiline_string;
-use superconsole::content::LinesExt;
 use superconsole::style::Attribute;
 use superconsole::style::Color;
 use superconsole::style::ContentStyle;
@@ -426,8 +425,9 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         match &mut self.super_console {
             Some(super_console) => {
-                super_console
-                    .emit(display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)));
+                super_console.emit(Lines(
+                    display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
+                ));
                 Ok(())
             }
             None => {
@@ -642,7 +642,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             }
         }
 
-        super_console.emit(lines);
+        super_console.emit(Lines(lines));
 
         Ok(())
     }
@@ -795,7 +795,7 @@ impl Component for SessionInfoComponent {
     ) -> anyhow::Result<Lines> {
         match state.get::<SessionInfo>() {
             Ok(session_info) => {
-                let mut headers = vec![];
+                let mut headers = Lines::new();
                 let mut ids = vec![];
                 if cfg!(fbcode_build) {
                     headers.push(Line::unstyled("Buck UI:")?);
@@ -841,12 +841,14 @@ impl Component for SessionInfoComponent {
                 let max_len = lines.iter().map(|line| line.len()).max().unwrap_or(0);
 
                 Ok(if max_len > dimensions.width {
-                    vec![Line::unstyled("<Terminal too small for build details>")?]
+                    Lines(vec![Line::unstyled(
+                        "<Terminal too small for build details>",
+                    )?])
                 } else {
                     lines
                 })
             }
-            Err(_) => Ok(vec![]),
+            Err(_) => Ok(Lines::new()),
         }
     }
 }

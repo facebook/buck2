@@ -20,6 +20,7 @@ use superconsole::style::Color;
 use superconsole::style::Stylize;
 use superconsole::Dimensions;
 use superconsole::Line;
+use superconsole::Lines;
 use superconsole::Span;
 use superconsole::State;
 use superconsole::SuperConsole;
@@ -43,9 +44,9 @@ impl Component for Greeter {
         state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         Ok(match mode {
-            DrawMode::Final => vec![],
+            DrawMode::Final => Lines::new(),
             DrawMode::Normal => {
                 let store_name = state.get::<StoreName>().unwrap();
                 let customers = state.get::<Vec<CustomerName>>().unwrap();
@@ -61,7 +62,7 @@ impl Component for Greeter {
                     )))?]);
                     messages.push(greeting);
                 }
-                messages
+                Lines(messages)
             }
         })
     }
@@ -94,7 +95,7 @@ async fn main() {
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
     for i in 0usize..10usize {
         let styled = i.to_string().with(Color::Green).on(Color::Black);
-        console.emit(vec![Line(vec![styled.try_into().unwrap()])]);
+        console.emit(Lines(vec![Line(vec![styled.try_into().unwrap()])]));
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))
             .collect::<Vec<_>>();

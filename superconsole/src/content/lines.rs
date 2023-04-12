@@ -27,7 +27,15 @@ use crate::Dimensions;
 use crate::Line;
 use crate::Span;
 
-pub type Lines = Vec<Line>;
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+pub struct Lines(pub Vec<Line>);
+
+// Only needed for tests. TODO(nga): remove it.
+impl AsRef<Lines> for Lines {
+    fn as_ref(&self) -> &Lines {
+        self
+    }
+}
 
 /// Creates an instance of [`Lines`] with a style applied from a single multiline string
 pub fn lines_from_multiline_string(multiline_string: &str, style: ContentStyle) -> Lines {
@@ -126,68 +134,42 @@ pub fn colored_lines_from_multiline_string(multiline_string: &str) -> Lines {
 }
 
 /// Set of helper methods for `Vec<Line>`, that manipulate on each line individually.
-pub trait LinesExt {
+impl Lines {
+    /// Empty lines block.
+    pub fn new() -> Lines {
+        Lines(Vec::new())
+    }
+
+    /// Number of lines.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// No lines.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn push(&mut self, line: Line) {
+        self.0.push(line);
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &Line> {
+        self.0.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = &mut Line> {
+        self.0.iter_mut()
+    }
+
     /// truncates all lines to the same max width.
-    fn truncate_lines(&mut self, max_width: usize);
-
-    /// Returns the max column width of any line
-    fn max_line_length(&self) -> usize;
-
-    /// Given a set of lines, inserts the specified amount of padding to the longest line.
-    /// However, the entire block of lines will remain a rectangle afterwards.
-    /// This means that shorter lines will receive extra paddding such that it has the same length as the longest line
-    fn pad_lines_right(&mut self, amount: usize);
-
-    /// Prepends a fixed `amount` of padding to each row.
-    /// Unlike `pad_lines_right`, this method does not add extra padding to shorter lines.
-    /// The right end of the padding remains ragged.
-    fn pad_lines_left(&mut self, amount: usize);
-
-    /// Adds padding to each line dependent on its length so that each line is the same length.
-    /// The line is left justified always.  This is because right or center aligning lines inherently justifies them.
-    /// Therefore, there is no explicit method for justifying text any other way.
-    fn justify(&mut self);
-
-    /// Given a set of lines, set them all to the exact width
-    fn set_lines_to_exact_width(&mut self, exact_width: usize);
-
-    /// Extends the Lines list by the given length, adding empty lines at the bottom
-    fn pad_lines_bottom(&mut self, num_lines_to_add: usize);
-
-    /// Same functionality as `pad_lines_bottom` but on the top.
-    fn pad_lines_top(&mut self, num_lines_to_add: usize);
-
-    /// Truncates the line list to the given length, removing entries at the end.
-    fn truncate_lines_bottom(&mut self, desired_length: usize);
-
-    /// Sets the line list to the given length, padding or truncating from the bottom.
-    fn set_lines_to_exact_length(&mut self, desired_width: usize);
-
-    /// Truncates columns and rows that do not fit within a bounding box
-    fn shrink_lines_to_dimensions(&mut self, dimensions: Dimensions);
-
-    /// Formats and renders all lines to `stdout`.
-    /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
-    /// If a limit is specified, no more than that amount will be drained.
-    /// The limit is on the number of *lines*, **NOT** the number of *bytes*.
-    /// Care should be taken with calling a limit of 0 - this will cause no lines to render and the buffer to never be drained.
-    fn render(&mut self, writer: &mut Vec<u8>, limit: Option<usize>) -> anyhow::Result<()>;
-
-    /// Returns the maximum line width and the number of lines.
-    /// This corresponds to how much space a justified version of the output would take.
-    fn dimensions(&self) -> anyhow::Result<Dimensions>;
-
-    /// Sets the lines to the exact dimensions specified below, truncating or padding as necessary.
-    fn set_lines_to_exact_dimensions(&mut self, desired_dimensions: Dimensions);
-}
-
-impl LinesExt for Vec<Line> {
-    fn truncate_lines(&mut self, max_width: usize) {
+    pub fn truncate_lines(&mut self, max_width: usize) {
         self.iter_mut()
             .for_each(|line| line.truncate_line(max_width));
     }
 
-    fn max_line_length(&self) -> usize {
+    /// Returns the max column width of any line
+    pub fn max_line_length(&self) -> usize {
         // for each line in the LHS
         self.iter()
             // add the length of each word in the line
@@ -198,7 +180,10 @@ impl LinesExt for Vec<Line> {
             .unwrap_or_default()
     }
 
-    fn pad_lines_right(&mut self, amount: usize) {
+    /// Given a set of lines, inserts the specified amount of padding to the longest line.
+    /// However, the entire block of lines will remain a rectangle afterwards.
+    /// This means that shorter lines will receive extra paddding such that it has the same length as the longest line
+    pub fn pad_lines_right(&mut self, amount: usize) {
         if amount == 0 {
             return;
         }
@@ -210,15 +195,10 @@ impl LinesExt for Vec<Line> {
         }
     }
 
-    fn justify(&mut self) {
-        let longest_len = self.max_line_length();
-        for line in self.iter_mut() {
-            let len = line.len();
-            line.pad_right(longest_len - len);
-        }
-    }
-
-    fn pad_lines_left(&mut self, amount: usize) {
+    /// Prepends a fixed `amount` of padding to each row.
+    /// Unlike `pad_lines_right`, this method does not add extra padding to shorter lines.
+    /// The right end of the padding remains ragged.
+    pub fn pad_lines_left(&mut self, amount: usize) {
         if amount == 0 {
             return;
         }
@@ -228,27 +208,43 @@ impl LinesExt for Vec<Line> {
         });
     }
 
-    fn set_lines_to_exact_width(&mut self, exact_width: usize) {
+    /// Adds padding to each line dependent on its length so that each line is the same length.
+    /// The line is left justified always.  This is because right or center aligning lines inherently justifies them.
+    /// Therefore, there is no explicit method for justifying text any other way.
+    pub fn justify(&mut self) {
+        let longest_len = self.max_line_length();
+        for line in self.iter_mut() {
+            let len = line.len();
+            line.pad_right(longest_len - len);
+        }
+    }
+
+    /// Given a set of lines, set them all to the exact width
+    pub fn set_lines_to_exact_width(&mut self, exact_width: usize) {
         self.iter_mut()
             .for_each(|line| line.to_exact_width(exact_width));
     }
 
-    fn pad_lines_bottom(&mut self, amount: usize) {
+    /// Extends the Lines list by the given length, adding empty lines at the bottom
+    pub fn pad_lines_bottom(&mut self, amount: usize) {
         let mut extender = iter::repeat(Line::default()).take(amount);
-        self.extend(&mut extender);
+        self.0.extend(&mut extender);
     }
 
-    fn pad_lines_top(&mut self, amount: usize) {
+    /// Same functionality as `pad_lines_bottom` but on the top.
+    pub fn pad_lines_top(&mut self, amount: usize) {
         let extender = iter::repeat(Line::default()).take(amount);
 
-        self.splice(0..0, extender);
+        self.0.splice(0..0, extender);
     }
 
-    fn truncate_lines_bottom(&mut self, desired_length: usize) {
-        self.truncate(desired_length);
+    /// Truncates the line list to the given length, removing entries at the end.
+    pub fn truncate_lines_bottom(&mut self, desired_length: usize) {
+        self.0.truncate(desired_length);
     }
 
-    fn set_lines_to_exact_length(&mut self, desired_length: usize) {
+    /// Sets the line list to the given length, padding or truncating from the bottom.
+    pub fn set_lines_to_exact_length(&mut self, desired_length: usize) {
         match self.len().cmp(&desired_length) {
             Ordering::Less => {
                 self.pad_lines_bottom(desired_length - self.len());
@@ -260,32 +256,56 @@ impl LinesExt for Vec<Line> {
         }
     }
 
-    fn shrink_lines_to_dimensions(&mut self, dimensions: Dimensions) {
+    /// Truncates columns and rows that do not fit within a bounding box
+    pub fn shrink_lines_to_dimensions(&mut self, dimensions: Dimensions) {
         self.iter_mut()
             .for_each(|line| line.truncate_line(dimensions.width));
-        self.truncate(dimensions.height);
+        self.truncate_lines_bottom(dimensions.height);
     }
 
-    fn render(&mut self, writer: &mut Vec<u8>, limit: Option<usize>) -> anyhow::Result<()> {
+    /// Formats and renders all lines to `stdout`.
+    /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
+    /// If a limit is specified, no more than that amount will be drained.
+    /// The limit is on the number of *lines*, **NOT** the number of *bytes*.
+    /// Care should be taken with calling a limit of 0 - this will cause no lines to render and the buffer to never be drained.
+    pub fn render(&mut self, writer: &mut Vec<u8>, limit: Option<usize>) -> anyhow::Result<()> {
         let limit = limit.unwrap_or(self.len());
         let amt = cmp::min(limit, self.len());
-        for line in self.drain(..amt) {
+        for line in self.0.drain(..amt) {
             line.render(writer)?;
         }
 
         Ok(())
     }
 
-    fn dimensions(&self) -> anyhow::Result<Dimensions> {
+    /// Returns the maximum line width and the number of lines.
+    /// This corresponds to how much space a justified version of the output would take.
+    pub fn dimensions(&self) -> anyhow::Result<Dimensions> {
         let x = self.max_line_length();
         let y = self.len();
 
         Ok((x, y).into())
     }
 
-    fn set_lines_to_exact_dimensions(&mut self, Dimensions { width, height }: Dimensions) {
+    /// Sets the lines to the exact dimensions specified below, truncating or padding as necessary.
+    pub fn set_lines_to_exact_dimensions(&mut self, Dimensions { width, height }: Dimensions) {
         self.set_lines_to_exact_length(height);
         self.set_lines_to_exact_width(width);
+    }
+}
+
+impl FromIterator<Line> for Lines {
+    fn from_iter<I: IntoIterator<Item = Line>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl IntoIterator for Lines {
+    type Item = Line;
+    type IntoIter = <Vec<Line> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -298,50 +318,50 @@ mod tests {
 
     #[test]
     fn truncate_lines() -> anyhow::Result<()> {
-        let mut test: Vec<Line> = vec![
+        let mut test: Lines = Lines(vec![
             vec!["test", "line"].try_into()?,
             vec!["another one"].try_into()?,
-        ];
+        ]);
 
         let mut new_test = test.clone();
         new_test.truncate_lines(5);
-        test[0] = vec!["test", "l"].try_into()?;
-        test[1] = vec!["anoth"].try_into()?;
+        test.0[0] = vec!["test", "l"].try_into()?;
+        test.0[1] = vec!["anoth"].try_into()?;
         assert_eq!(test, new_test);
 
-        let mut empty = vec![];
+        let mut empty = Lines::new();
         empty.truncate_lines(5);
-        assert_eq!(empty, []);
+        assert_eq!(empty, Lines::new());
 
         Ok(())
     }
 
     #[test]
     fn test_max_line_length() -> anyhow::Result<()> {
-        let test = vec![
+        let test = Lines(vec![
             Line::default(),
             vec!["test", "line"].try_into()?,
             vec!["another one"].try_into()?,
-        ];
+        ]);
 
         assert_eq!(test.max_line_length(), 11);
-        assert_eq!(vec![].max_line_length(), 0);
+        assert_eq!(Lines::new().max_line_length(), 0);
 
         Ok(())
     }
 
     #[test]
     fn test_pad_lines_right() -> anyhow::Result<()> {
-        let mut test = vec![
+        let mut test = Lines(vec![
             vec!["test", "line"].try_into()?, // 8 chars
             vec!["another one"].try_into()?,  // 11 chars
             Line::default(),                  // 0 chars
-        ];
-        let result = vec![
+        ]);
+        let result = Lines(vec![
             vec!["test", "line", &" ".repeat(11 + 3)].try_into()?,
             vec!["another one", &" ".repeat(11)].try_into()?,
             vec![" ".repeat(11 + 11)].try_into()?,
-        ];
+        ]);
         test.pad_lines_right(11);
         assert_eq!(test, result);
 
@@ -350,16 +370,16 @@ mod tests {
 
     #[test]
     fn test_pad_lines_left() -> anyhow::Result<()> {
-        let mut test = vec![
+        let mut test = Lines(vec![
             vec!["test", "line"].try_into()?, // 8 chars
             vec!["another one"].try_into()?,  // 11 chars
             Line::default(),                  // 0 chars
-        ];
-        let result = vec![
+        ]);
+        let result = Lines(vec![
             vec![" ".repeat(11).as_ref(), "test", "line"].try_into()?,
             vec![" ".repeat(11).as_ref(), "another one"].try_into()?,
             vec![" ".repeat(11)].try_into()?,
-        ];
+        ]);
         test.pad_lines_left(11);
         assert_eq!(test, result);
 
@@ -368,15 +388,15 @@ mod tests {
 
     #[test]
     fn test_pad_lines_bottom() -> anyhow::Result<()> {
-        let mut test = vec![vec!["test"].try_into()?, vec!["another"].try_into()?];
+        let mut test = Lines(vec![vec!["test"].try_into()?, vec!["another"].try_into()?]);
         test.pad_lines_bottom(3);
-        let result = vec![
+        let result = Lines(vec![
             vec!["test"].try_into()?,
             vec!["another"].try_into()?,
             Line::default(),
             Line::default(),
             Line::default(),
-        ];
+        ]);
 
         assert_eq!(test, result);
 
@@ -385,15 +405,15 @@ mod tests {
 
     #[test]
     fn test_pad_lines_top() -> anyhow::Result<()> {
-        let mut test = vec![vec!["test"].try_into()?, vec!["another"].try_into()?];
+        let mut test = Lines(vec![vec!["test"].try_into()?, vec!["another"].try_into()?]);
         test.pad_lines_top(3);
-        let result = vec![
+        let result = Lines(vec![
             Line::default(),
             Line::default(),
             Line::default(),
             vec!["test"].try_into()?,
             vec!["another"].try_into()?,
-        ];
+        ]);
 
         assert_eq!(test, result);
 
@@ -402,13 +422,13 @@ mod tests {
 
     #[test]
     fn test_truncate_lines_bottom() -> anyhow::Result<()> {
-        let mut test = vec![
+        let mut test = Lines(vec![
             vec!["test"].try_into()?,
             vec!["another"].try_into()?,
             vec!["one more"].try_into()?,
-        ];
+        ]);
         test.truncate_lines_bottom(1);
-        let output = vec![vec!["test"].try_into()?];
+        let output = Lines(vec![vec!["test"].try_into()?]);
         assert_eq!(test, output);
 
         Ok(())
@@ -416,18 +436,18 @@ mod tests {
 
     #[test]
     fn test_justify() -> anyhow::Result<()> {
-        let mut test = vec![
+        let mut test = Lines(vec![
             vec!["test"].try_into()?,
             Line::default(),
             vec!["ok"].try_into()?,
-        ];
+        ]);
 
         test.justify();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["test"].try_into()?,
             vec![" ".repeat(4)].try_into()?,
             vec!["ok", "  "].try_into()?,
-        ];
+        ]);
 
         assert_eq!(test, expected);
 
@@ -443,7 +463,7 @@ mod tests {
             attributes: Default::default(),
         };
         let test = lines_from_multiline_string(content, style);
-        let expected = vec![
+        let expected = Lines(vec![
             Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
                 "foo bar".to_owned(),
@@ -460,7 +480,7 @@ mod tests {
                 style,
                 "some other line".to_owned(),
             ))]),
-        ];
+        ]);
 
         assert_eq!(test, expected);
     }

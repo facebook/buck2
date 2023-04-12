@@ -9,9 +9,9 @@
 
 use std::cell::Cell;
 
-use crate::content::LinesExt;
 use crate::Component;
 use crate::Dimensions;
+use crate::Lines;
 
 /// A `Component` which refuses to shrink below it's previous maximum size.
 /// Notably, this component implicitly pads to a rectangle for simplicity.
@@ -36,7 +36,7 @@ impl Component for Expanding {
         state: &crate::State,
         dimensions: crate::Dimensions,
         mode: crate::DrawMode,
-    ) -> anyhow::Result<Vec<crate::Line>> {
+    ) -> anyhow::Result<Lines> {
         // Remember the new max at each step and pad out as necessary.
         let mut inner = self.child.draw(state, dimensions, mode)?;
         let cur_max = self.maximum.get();
@@ -52,7 +52,6 @@ impl Component for Expanding {
 mod tests {
     use super::*;
     use crate::components::echo::Echo;
-    use crate::content::LinesExt;
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
@@ -66,7 +65,7 @@ mod tests {
         };
 
         let longest_line: Line = vec!["Hello world"].try_into()?;
-        let msg: Lines = vec![longest_line.clone(), vec!["foobar"].try_into()?];
+        let msg: Lines = Lines(vec![longest_line.clone(), vec!["foobar"].try_into()?]);
         let result = expander.draw(&crate::state![&msg], dims, DrawMode::Normal)?;
         let expected = {
             let mut expected = msg;
@@ -77,7 +76,7 @@ mod tests {
 
         // testing horizontal
         let now_longest: Line = vec!["foobar"].try_into()?;
-        let msg: Lines = vec![vec!["H"].try_into()?, now_longest.clone()];
+        let msg: Lines = Lines(vec![vec!["H"].try_into()?, now_longest.clone()]);
         let result = expander.draw(&crate::state![&msg], dims, DrawMode::Normal)?;
         let expected = {
             let mut expected = msg;
@@ -87,7 +86,7 @@ mod tests {
         assert_eq!(result, expected);
 
         // testing vertical
-        let msg: Lines = vec![now_longest];
+        let msg: Lines = Lines(vec![now_longest]);
         let result = expander.draw(&crate::state![&msg], dims, DrawMode::Normal)?;
         let expected = {
             let mut expected = msg;

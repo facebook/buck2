@@ -9,11 +9,11 @@
 
 use crate::components::alignment::HorizontalAlignmentKind;
 use crate::components::Aligned;
-use crate::content::LinesExt;
 use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Line;
+use crate::Lines;
 use crate::Span;
 use crate::State;
 
@@ -99,7 +99,7 @@ impl Component for Bordered {
         state: &State,
         Dimensions { width, height }: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         // Reserve enough draw space for the walls.
         let opt_len = |opt_word: &Option<Span>| match opt_word {
             Some(word) => word.len(),
@@ -123,11 +123,11 @@ impl Component for Bordered {
         }
         if let Some(top) = &self.border.top {
             let lines = construct_vertical_padding(top.clone(), output.max_line_length());
-            output.splice(0..0, lines.into_iter());
+            output.0.splice(0..0, lines.into_iter());
         }
         if let Some(bottom) = &self.border.bottom {
             let lines = construct_vertical_padding(bottom.clone(), output.max_line_length());
-            output.extend(lines.into_iter());
+            output.0.extend(lines.into_iter());
         }
 
         Ok(output)
@@ -142,18 +142,18 @@ mod tests {
     use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
-    struct Msg(Vec<Line>);
+    struct Msg(Lines);
 
     #[test]
     fn test_basic() -> anyhow::Result<()> {
         let component = Bordered::new(Box::new(Echo::<Msg>::new(true)), BorderedSpec::default());
 
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["Test"].try_into()?,              // 4 chars
             vec!["Longer"].try_into()?,            // 6 chars
             vec!["Even Longer", "ok"].try_into()?, // 13 chars
             Line::default(),
-        ]);
+        ]));
         let output = component.draw(
             &crate::state![&msg],
             Dimensions::new(14, 5),
@@ -161,13 +161,13 @@ mod tests {
         )?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["-".repeat(14)].try_into()?,
             vec!["|", "Test", &" ".repeat(12 - 4), "|"].try_into()?,
             vec!["|", "Longer", &" ".repeat(12 - 6), "|"].try_into()?,
             vec!["|", "Even Longer", "o", "|"].try_into()?,
             vec!["-".repeat(14)].try_into()?,
-        ];
+        ]);
 
         assert_eq!(output, expected);
 
@@ -186,12 +186,12 @@ mod tests {
             },
         );
 
-        let msg = Msg(vec![
+        let msg = Msg(Lines(vec![
             vec!["Test"].try_into()?,              // 4 chars
             vec!["Longer"].try_into()?,            // 6 chars
             vec!["Even Longer", "ok"].try_into()?, // 13 chars
             Line::default(),
-        ]);
+        ]));
         let output = component.draw(
             &crate::state![&msg],
             Dimensions::new(13, 7),
@@ -199,7 +199,7 @@ mod tests {
         )?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["@".repeat(13)].try_into()?,
             vec!["@".repeat(13)].try_into()?,
             vec!["@".repeat(13)].try_into()?,
@@ -207,7 +207,7 @@ mod tests {
             vec!["Longer", &" ".repeat(12 - 6), "|"].try_into()?,
             vec!["Even Longer", "o", "|"].try_into()?,
             vec!["@".repeat(13)].try_into()?,
-        ];
+        ]);
 
         assert_eq!(output, expected);
 
@@ -228,14 +228,14 @@ mod tests {
             },
         );
 
-        let msg = Msg(vec![vec!["Tested"].try_into()?]);
+        let msg = Msg(Lines(vec![vec!["Tested"].try_into()?]));
 
         let output = component.draw(
             &crate::state![&msg],
             Dimensions::new(13, 7),
             DrawMode::Normal,
         )?;
-        let expected = vec![vec!["🦶🦶🦶"].try_into()?, vec!["Tested"].try_into()?];
+        let expected = Lines(vec![vec!["🦶🦶🦶"].try_into()?, vec!["Tested"].try_into()?]);
 
         assert_eq!(output, expected);
         Ok(())

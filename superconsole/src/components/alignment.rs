@@ -13,11 +13,10 @@
 //! Additionally, horizontally left aligned text may be optionally justified.
 
 use crate::components::Blank;
-use crate::content::LinesExt;
 use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// Select the alignment of the vertical content
@@ -84,7 +83,7 @@ impl Component for Aligned {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         let Dimensions { width, height } = dimensions;
         let mut output = self.child.draw(state, dimensions, mode)?;
 
@@ -140,10 +139,11 @@ mod tests {
     use crate::Component;
     use crate::Dimensions;
     use crate::Line;
+    use crate::Lines;
     use crate::State;
 
     #[derive(AsRef, Debug)]
-    struct Msg(Vec<Line>);
+    struct Msg(Lines);
 
     #[test]
     fn test_align_left_unjustified() {
@@ -153,10 +153,10 @@ mod tests {
             HorizontalAlignmentKind::Left(false),
             VerticalAlignmentKind::Top,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["pretty normal test"].try_into().unwrap(),
-        ];
+        ]);
         let msg = Msg(original.clone());
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 20);
@@ -176,24 +176,24 @@ mod tests {
             HorizontalAlignmentKind::Left(true),
             VerticalAlignmentKind::Top,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),        // 11 chars
             vec!["pretty normal test"].try_into().unwrap(), // 18 chars
             vec!["short"].try_into().unwrap(),              // 5 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 20);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["hello world", &" ".repeat(18 - 11)]
                 .try_into()
                 .unwrap(),
             vec!["pretty normal test"].try_into().unwrap(),
             vec!["short", &" ".repeat(18 - 5)].try_into().unwrap(),
-        ];
+        ]);
 
         assert_eq!(actual, expected,);
     }
@@ -206,18 +206,18 @@ mod tests {
             HorizontalAlignmentKind::Center,
             VerticalAlignmentKind::Top,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),          // 11 chars
             vec!["pretty normal testss"].try_into().unwrap(), // 20 chars
             vec!["shorts"].try_into().unwrap(),               // 6 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 20);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec![" ".repeat(4).as_ref(), "hello world", &" ".repeat(5)]
                 .try_into()
                 .unwrap(),
@@ -225,7 +225,7 @@ mod tests {
             vec![" ".repeat(7).as_ref(), "shorts", &" ".repeat(7)]
                 .try_into()
                 .unwrap(),
-        ];
+        ]);
 
         assert_eq!(actual, expected);
     }
@@ -238,24 +238,24 @@ mod tests {
             HorizontalAlignmentKind::Right,
             VerticalAlignmentKind::Top,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),           // 11 chars
             vec!["pretty normal testsss"].try_into().unwrap(), // 21 chars
             vec!["shorts"].try_into().unwrap(),                // 6 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 20);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec![" ".repeat(9).as_ref(), "hello world"]
                 .try_into()
                 .unwrap(),
             vec!["pretty normal testss"].try_into().unwrap(),
             vec![" ".repeat(14).as_ref(), "shorts"].try_into().unwrap(),
-        ];
+        ]);
 
         assert_eq!(actual, expected);
     }
@@ -268,22 +268,22 @@ mod tests {
             HorizontalAlignmentKind::Left(false),
             VerticalAlignmentKind::Top,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),           // 11 chars
             vec!["pretty normal testsss"].try_into().unwrap(), // 21 chars
             vec!["shorts"].try_into().unwrap(),                // 6 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 20);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["pretty normal testss"].try_into().unwrap(),
             vec!["shorts"].try_into().unwrap(),
-        ];
+        ]);
 
         assert_eq!(actual, expected);
     }
@@ -296,18 +296,18 @@ mod tests {
             HorizontalAlignmentKind::Left(false),
             VerticalAlignmentKind::Center,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),           // 11 chars
             vec!["pretty normal testsss"].try_into().unwrap(), // 21 chars
             vec!["shorts"].try_into().unwrap(),                // 6 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 10);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             Line::default(),
             Line::default(),
             Line::default(),
@@ -318,7 +318,7 @@ mod tests {
             Line::default(),
             Line::default(),
             Line::default(),
-        ];
+        ]);
 
         assert_eq!(actual, expected);
     }
@@ -331,18 +331,18 @@ mod tests {
             HorizontalAlignmentKind::Left(false),
             VerticalAlignmentKind::Bottom,
         );
-        let original = vec![
+        let original = Lines(vec![
             vec!["hello world"].try_into().unwrap(),           // 11 chars
             vec!["pretty normal testsss"].try_into().unwrap(), // 21 chars
             vec!["shorts"].try_into().unwrap(),                // 6 chars
-        ];
+        ]);
         let msg = Msg(original);
         state.insert(&msg);
         let dimensions = Dimensions::new(20, 10);
         let actual = component
             .draw(&state, dimensions, DrawMode::Normal)
             .unwrap();
-        let expected = vec![
+        let expected = Lines(vec![
             Line::default(),
             Line::default(),
             Line::default(),
@@ -353,7 +353,7 @@ mod tests {
             vec!["hello world"].try_into().unwrap(),
             vec!["pretty normal testss"].try_into().unwrap(),
             vec!["shorts"].try_into().unwrap(),
-        ];
+        ]);
 
         assert_eq!(actual, expected);
     }

@@ -43,7 +43,7 @@ impl Component for HeaderLineComponent {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<superconsole::Line>> {
+    ) -> anyhow::Result<Lines> {
         self.0.draw(state, dimensions, mode)
     }
 }
@@ -61,6 +61,6 @@ impl Component for StaticStringComponent {
         _dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        Ok(vec![Line::unstyled(&self.header)?])
+        Ok(Lines(vec![Line::unstyled(&self.header)?]))
     }
 }

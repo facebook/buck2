@@ -12,12 +12,11 @@
 
 use itertools::Itertools;
 
-use crate::content::LinesExt;
 use crate::Component;
 use crate::Dimensions;
 use crate::Direction;
 use crate::DrawMode;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// Controls the way the splitter displays its children.
@@ -70,7 +69,7 @@ impl InternalSplitKind {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Vec<Line>>> {
+    ) -> anyhow::Result<Vec<Lines>> {
         match self {
             InternalSplitKind::SizedNormalized(sizes) => children
                 .iter()
@@ -148,7 +147,7 @@ impl Component for Split {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         let outputs = self
             .split
             .draw(&self.children, self.direction, state, dimensions, mode)?;
@@ -194,15 +193,16 @@ mod tests {
     use crate::Direction;
     use crate::DrawMode;
     use crate::Line;
+    use crate::Lines;
     use crate::State;
 
     #[derive(AsRef, Debug)]
-    struct Echo1(Vec<Line>);
+    struct Echo1(Lines);
     #[derive(AsRef, Debug)]
-    struct Echo2(Vec<Line>);
+    struct Echo2(Lines);
 
     #[derive(AsRef, Debug)]
-    struct Echo3(Vec<Line>);
+    struct Echo3(Lines);
 
     fn make_splitter(kind: SplitKind, dimension: Direction) -> Split {
         Split::new(
@@ -224,21 +224,21 @@ mod tests {
             let mut state = State::new();
 
             // left rows all the same length
-            let mut left_msg = vec![
+            let mut left_msg = Lines(vec![
                 vec!["test"].try_into().unwrap(),
                 vec!["ok", "so"].try_into().unwrap(),
                 vec!["sync"].try_into().unwrap(),
-            ];
-            let right_msg = vec![
+            ]);
+            let right_msg = Lines(vec![
                 vec!["xx"].try_into().unwrap(),
                 vec!["yyy"].try_into().unwrap(),
                 vec!["z"].try_into().unwrap(),
-            ];
-            let horizontal = vec![
+            ]);
+            let horizontal = Lines(vec![
                 vec!["test", "xx", " "].try_into().unwrap(),
                 vec!["ok", "so", "yyy"].try_into().unwrap(),
                 vec!["sync", "z", "  "].try_into().unwrap(),
-            ];
+            ]);
 
             let msg1 = Echo1(left_msg.clone());
             let msg2 = Echo2(right_msg);
@@ -251,12 +251,12 @@ mod tests {
             assert_eq!(output, horizontal);
 
             // uneven left row
-            left_msg[0] = vec!["hello world"].try_into().unwrap();
-            let horizontal = vec![
+            left_msg.0[0] = vec!["hello world"].try_into().unwrap();
+            let horizontal = Lines(vec![
                 vec!["hello world", "xx", " "].try_into().unwrap(),
                 vec!["ok", "so", &" ".repeat(7), "yyy"].try_into().unwrap(),
                 vec!["sync", &" ".repeat(7), "z", "  "].try_into().unwrap(),
-            ];
+            ]);
             let msg1 = Echo1(left_msg);
             state.insert(&msg1);
 
@@ -272,17 +272,17 @@ mod tests {
             let mut state = State::new();
 
             // left rows all the same length
-            let mut left_msg = vec![
+            let mut left_msg = Lines(vec![
                 vec!["test"].try_into().unwrap(),
                 vec!["ok", "so"].try_into().unwrap(),
                 vec!["sync"].try_into().unwrap(),
-            ];
-            let right_msg = vec![
+            ]);
+            let right_msg = Lines(vec![
                 vec!["xx"].try_into().unwrap(),
                 vec!["yyy"].try_into().unwrap(),
                 vec!["z"].try_into().unwrap(),
-            ];
-            let horizontal = vec![
+            ]);
+            let horizontal = Lines(vec![
                 vec!["test", &" ".repeat(6), "xx", &" ".repeat(8)]
                     .try_into()
                     .unwrap(),
@@ -292,7 +292,7 @@ mod tests {
                 vec!["sync", &" ".repeat(6), "z", &" ".repeat(9)]
                     .try_into()
                     .unwrap(),
-            ];
+            ]);
 
             let msg1 = Echo1(left_msg.clone());
             let msg2 = Echo2(right_msg);
@@ -305,8 +305,8 @@ mod tests {
             assert_eq!(output, horizontal);
 
             // uneven left row
-            left_msg[0] = vec!["hello worl"].try_into().unwrap();
-            let horizontal = vec![
+            left_msg.0[0] = vec!["hello worl"].try_into().unwrap();
+            let horizontal = Lines(vec![
                 vec!["hello worl", "xx", &" ".repeat(8)].try_into().unwrap(),
                 vec!["ok", "so", &" ".repeat(6), "yyy", &" ".repeat(7)]
                     .try_into()
@@ -314,7 +314,7 @@ mod tests {
                 vec!["sync", &" ".repeat(6), "z", &" ".repeat(9)]
                     .try_into()
                     .unwrap(),
-            ];
+            ]);
             let msg1 = Echo1(left_msg);
             state.insert(&msg1);
 
@@ -335,26 +335,28 @@ mod tests {
                 Direction::Horizontal,
                 SplitKind::Sized(vec![0.25, 0.5, 0.25]),
             );
-            let msg1 = Echo1(vec![
+            let msg1 = Echo1(Lines(vec![
                 vec!["test", "ok"].try_into().unwrap(),
                 vec!["also"].try_into().unwrap(),
-            ]);
-            let msg2 = Echo2(vec![vec!["hola"].try_into().unwrap()]);
-            let msg3 = Echo3(vec![vec!["way way way way too long"].try_into().unwrap()]);
+            ]));
+            let msg2 = Echo2(Lines(vec![vec!["hola"].try_into().unwrap()]));
+            let msg3 = Echo3(Lines(vec![
+                vec!["way way way way too long"].try_into().unwrap(),
+            ]));
             let state = crate::state!(&msg1, &msg2, &msg3);
 
             let output = splitter
                 .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
 
-            let expected = vec![
+            let expected = Lines(vec![
                 vec!["test", "o", "hola", &" ".repeat(6), "way w"]
                     .try_into()
                     .unwrap(),
                 vec!["also", " ", &" ".repeat(10), &" ".repeat(5)]
                     .try_into()
                     .unwrap(),
-            ];
+            ]);
 
             assert_eq!(output, expected);
         }
@@ -369,24 +371,24 @@ mod tests {
             let splitter = make_splitter(SplitKind::Equal, Direction::Vertical);
             let mut state = State::new();
 
-            let top = vec![
+            let top = Lines(vec![
                 vec!["Line 1"].try_into().unwrap(),
                 vec!["Line 2222"].try_into().unwrap(),
-            ];
-            let mut bottom = vec![
+            ]);
+            let mut bottom = Lines(vec![
                 vec!["Line 11"].try_into().unwrap(),
                 vec!["Line 12"].try_into().unwrap(),
                 vec!["Last line just kiddi"].try_into().unwrap(),
-            ];
+            ]);
             let msg1 = Echo1(top.clone());
             let msg2 = Echo2(bottom.clone());
             state.insert(&msg1);
             state.insert(&msg2);
 
             let mut output = top;
-            output.extend(iter::repeat(Line::default()).take(8));
-            output.append(&mut bottom);
-            output.extend(iter::repeat(Line::default()).take(7));
+            output.0.extend(iter::repeat(Line::default()).take(8));
+            output.0.append(&mut bottom.0);
+            output.0.extend(iter::repeat(Line::default()).take(7));
 
             let drawn = splitter
                 .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
@@ -399,20 +401,20 @@ mod tests {
         fn test_adaptive() {
             let splitter = make_splitter(SplitKind::Adaptive, Direction::Vertical);
 
-            let top = vec![
+            let top = Lines(vec![
                 vec!["Line 1"].try_into().unwrap(),
                 vec!["Line 2222"].try_into().unwrap(),
-            ];
-            let mut bottom = vec![
+            ]);
+            let mut bottom = Lines(vec![
                 vec!["Line 11"].try_into().unwrap(),
                 vec!["Line 12"].try_into().unwrap(),
                 vec!["Last line just kiddi"].try_into().unwrap(),
-            ];
+            ]);
             let msg1 = Echo1(top.clone());
             let msg2 = Echo2(bottom.clone());
 
             let mut output = top;
-            output.append(&mut bottom);
+            output.0.append(&mut bottom.0);
 
             let drawn = splitter
                 .draw(
@@ -435,23 +437,23 @@ mod tests {
                 Direction::Vertical,
                 SplitKind::Sized(vec![0.25, 0.5, 0.25]),
             );
-            let msg1 = Echo1(vec![
+            let msg1 = Echo1(Lines(vec![
                 vec!["line1"].try_into().unwrap(),
                 vec!["line2"].try_into().unwrap(),
                 vec!["line3"].try_into().unwrap(),
                 vec!["line4"].try_into().unwrap(),
                 vec!["line5"].try_into().unwrap(),
                 vec!["line6"].try_into().unwrap(),
-            ]);
-            let msg2 = Echo2(vec![vec!["line7"].try_into().unwrap()]);
-            let msg3 = Echo3(vec![vec!["line8"].try_into().unwrap()]);
+            ]));
+            let msg2 = Echo2(Lines(vec![vec!["line7"].try_into().unwrap()]));
+            let msg3 = Echo3(Lines(vec![vec!["line8"].try_into().unwrap()]));
             let state = crate::state!(&msg1, &msg2, &msg3);
 
             let output = splitter
                 .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
 
-            let expected = vec![
+            let expected = Lines(vec![
                 vec!["line1"].try_into().unwrap(),
                 vec!["line2"].try_into().unwrap(),
                 vec!["line3"].try_into().unwrap(),
@@ -472,7 +474,7 @@ mod tests {
                 Line::default(),
                 Line::default(),
                 Line::default(),
-            ];
+            ]);
 
             assert_eq!(output, expected);
         }

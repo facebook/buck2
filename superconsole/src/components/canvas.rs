@@ -22,9 +22,8 @@ use crossterm::terminal::ClearType;
 use crate::components::Blank;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
-use crate::content::LinesExt;
 use crate::Component;
-use crate::Line;
+use crate::Lines;
 use crate::State;
 
 /// The root components which manages all other components.
@@ -32,14 +31,14 @@ use crate::State;
 pub(crate) struct Canvas {
     child: Box<dyn Component>,
     // used to overwrite previous canvas buffer
-    len: Cell<u16>,
+    last_lines: Cell<u16>,
 }
 
 impl Default for Canvas {
     fn default() -> Self {
         Self {
             child: Box::new(Blank),
-            len: Cell::default(),
+            last_lines: Cell::default(),
         }
     }
 }
@@ -53,11 +52,11 @@ impl Canvas {
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         let mut output = self.child.draw(state, dimensions, mode)?;
         // We don't trust the child to not truncate the result.
         output.shrink_lines_to_dimensions(dimensions);
-        self.len.set(output.len().try_into()?);
+        self.last_lines.set(output.len().try_into()?);
         Ok(output)
     }
 }
@@ -75,7 +74,7 @@ impl Canvas {
     /// The first half of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
     pub(crate) fn move_up(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        let len = self.len.take();
+        let len = self.last_lines.take();
         queue!(writer, MoveUp(len), MoveToColumn(0),)?;
 
         Ok(())

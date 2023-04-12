@@ -10,6 +10,7 @@
 use buck2_event_observer::starlark_debug::StarlarkDebuggerState;
 use gazebo::prelude::*;
 use superconsole::Component;
+use superconsole::Lines;
 
 #[derive(Debug)]
 pub(crate) struct StarlarkDebuggerComponent;
@@ -24,7 +25,7 @@ impl Component for StarlarkDebuggerComponent {
         let state = state.get::<StarlarkDebuggerState>()?;
 
         if !state.debugger_attached {
-            return Ok(vec![]);
+            return Ok(Lines::new());
         }
 
         let mut lines: Vec<String> = Vec::new();
@@ -55,6 +56,6 @@ impl Component for StarlarkDebuggerComponent {
 
         lines.push("      *******************************************************".to_owned());
 
-        lines.into_try_map(|v| vec![v].try_into())
+        Ok(Lines(lines.into_try_map(|v| vec![v].try_into())?))
     }
 }

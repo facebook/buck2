@@ -17,6 +17,7 @@ use superconsole::components::DrawMode;
 use superconsole::state;
 use superconsole::Dimensions;
 use superconsole::Line;
+use superconsole::Lines;
 use superconsole::State;
 use superconsole::SuperConsole;
 use tokio::select;
@@ -44,14 +45,14 @@ impl Component for Foo {
         state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Vec<Line>> {
+    ) -> anyhow::Result<Lines> {
         Ok(match mode {
-            DrawMode::Final => vec![],
+            DrawMode::Final => Lines::new(),
             DrawMode::Normal => {
                 let elapsed = state.get::<Instant>().unwrap().duration_since(self.created);
                 let line1 = vec![elapsed.as_secs().to_string()].try_into().unwrap();
                 let line2 = vec!["Hello world!".to_owned()].try_into().unwrap();
-                vec![line1, line2]
+                Lines(vec![line1, line2])
             }
         })
     }
@@ -96,7 +97,7 @@ async fn main() {
                 renderer.render(&state!(&time)).unwrap();
             }
             word = task_that_takes_some_time() => {
-                renderer.emit(process_word(word));
+                renderer.emit(Lines(process_word(word)));
             }
         }
     }

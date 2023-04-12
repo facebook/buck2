@@ -478,12 +478,9 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
     // unless the --print-passing-details is set.
     let mut lines = vec![base];
     if !details.is_empty() {
-        lines.append(&mut lines_from_multiline_string(
-            details,
-            Default::default(),
-        ));
+        lines.append(&mut lines_from_multiline_string(details, Default::default()).0);
     }
-    Ok(Some(lines))
+    Ok(Some(Lines(lines)))
 }
 
 pub struct ActionErrorDisplay<'a> {

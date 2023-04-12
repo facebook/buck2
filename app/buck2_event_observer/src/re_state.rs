@@ -11,6 +11,7 @@ use std::time::SystemTime;
 
 use superconsole::DrawMode;
 use superconsole::Line;
+use superconsole::Lines;
 
 use crate::humanized_bytes::HumanizedBytes;
 use crate::humanized_bytes::HumanizedBytesPerSecond;
@@ -162,15 +163,15 @@ impl ReState {
         Ok(r)
     }
 
-    pub fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Vec<Line>> {
+    pub fn render(&self, detailed: bool, draw_mode: DrawMode) -> anyhow::Result<Lines> {
         let header = match self.render_header(draw_mode) {
             Some(header) => header,
-            None => return Ok(Vec::new()),
+            None => return Ok(Lines::new()),
         };
         let mut lines = vec![Line::unstyled(&header)?];
         if detailed {
             lines.extend(self.render_detailed()?);
         }
-        Ok(lines)
+        Ok(Lines(lines))
     }
 }

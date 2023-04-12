@@ -10,6 +10,7 @@
 use buck2_event_observer::dice_state::DiceState;
 use gazebo::prelude::*;
 use superconsole::Component;
+use superconsole::Lines;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -27,7 +28,7 @@ impl Component for DiceComponent {
         let state = state.get::<DiceState>()?;
 
         if !config.enable_dice {
-            return Ok(vec![]);
+            return Ok(Lines::new());
         }
 
         let mut lines = vec!["Dice Key States".to_owned()];
@@ -52,6 +53,6 @@ impl Component for DiceComponent {
             ));
         }
         lines.push("-".repeat(header_len));
-        lines.into_try_map(|v| vec![v].try_into())
+        Ok(Lines(lines.into_try_map(|v| vec![v].try_into())?))
     }
 }

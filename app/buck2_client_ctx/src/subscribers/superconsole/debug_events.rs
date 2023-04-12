@@ -12,6 +12,7 @@ use std::time::Duration;
 use buck2_event_observer::debug_events::DebugEventsState;
 use gazebo::prelude::*;
 use superconsole::Component;
+use superconsole::Lines;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -29,7 +30,7 @@ impl Component for DebugEventsComponent {
         let state = state.get::<DebugEventsState>()?;
 
         if !config.enable_debug_events {
-            return Ok(vec![]);
+            return Ok(Lines::new());
         }
 
         let mut lines: Vec<String> = Vec::new();
@@ -84,6 +85,6 @@ impl Component for DebugEventsComponent {
             lines.push("-".repeat(header_len));
         }
 
-        lines.into_try_map(|v| vec![v].try_into())
+        Ok(Lines(lines.into_try_map(|v| vec![v].try_into())?))
     }
 }
