@@ -20,6 +20,10 @@ export PATH=$HOME/.cargo/bin:$PATH
 
 With Buck2 installed, you can build projects with `buck2`!
 
+### Windows configuration
+
+Some of our rules use symlinks, which are disabled by default for non-admin Windows users. You can fix that by [enabling Developer Mode](https://pureinfotech.com/enable-developer-mode-windows-11/).
+
 ## Compiling your first project
 
 This section covers the building of a ['hello_world' example project](https://github.com/facebook/buck2/tree/main/examples/hello_world) that contains a simple C++ binary. If you are interested in seeing how other languages can be built, take a look at the [prelude example project](https://github.com/facebook/buck2/tree/main/examples/prelude), which contains Rust, C++, Python, and OCaml targets.
