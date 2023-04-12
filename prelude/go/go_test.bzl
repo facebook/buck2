@@ -38,7 +38,7 @@ def _gen_test_main(
 def go_test_impl(ctx: "context") -> ["provider"]:
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
-    pkg_name = go_attr_pkg_name(ctx) + "_test"
+    pkg_name = go_attr_pkg_name(ctx)
 
     # Copy the srcs, deps and pkg_name from the target library when set. The
     # library code gets compiled together with the tests.
