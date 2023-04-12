@@ -179,46 +179,6 @@ pub fn get_builtin_docs(
     Ok(all_builtins)
 }
 
-/// In the Prelude, all members of "native" are also available at the global scope.
-fn promote_native(mut docs: Vec<Doc>, existing_globals: &HashSet<&str>) -> Vec<Doc> {
-    let mut native_reexported = vec![];
-    let top_level_symbols = docs
-        .iter()
-        .map(|d| (d.id.name.as_str(), d))
-        .collect::<HashMap<_, _>>();
-
-    // All members of "native" are also available at the global scope. However, make sure
-    // that we don't overwrite already existing symbols with potentially less useful
-    // documentation when doing this.
-    if let Some(Doc {
-        id,
-        item: DocItem::Object(o),
-        custom_attrs,
-    }) = top_level_symbols.get("native")
-    {
-        // At the moment there is no top level documentation for a stand alone value, only
-        // functions, objects, and module docs appear at the top level.
-        for (name, member_doc) in &o.members {
-            let found_top_level = top_level_symbols.contains_key(name.as_str());
-            let found_existing = existing_globals.contains(name.as_str());
-            if !found_top_level && !found_existing {
-                if let Member::Function(f) = member_doc {
-                    native_reexported.push(Doc {
-                        id: Identifier {
-                            name: name.clone(),
-                            ..id.clone()
-                        },
-                        item: DocItem::Function(f.clone()),
-                        custom_attrs: custom_attrs.clone(),
-                    });
-                }
-            }
-        }
-    }
-    docs.extend(native_reexported);
-    docs
-}
-
 /// Get the documentation for exported symbols in the prelude
 ///
 /// Creates top level docs for member functions of "native" too,
@@ -234,15 +194,19 @@ pub async fn get_prelude_docs(
     let interpreter_calculation = ctx
         .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
         .await?;
-    Ok(promote_native(
-        get_docs_from_module(&interpreter_calculation, prelude_path).await?,
-        existing_globals,
-    ))
+    get_docs_from_module(
+        &interpreter_calculation,
+        prelude_path,
+        Some(existing_globals),
+    )
+    .await
 }
 
 async fn get_docs_from_module(
     interpreter_calc: &DiceCalculationDelegate<'_>,
     import_path: ImportPath,
+    // If we want to promote `native`, what should we exclude
+    promote_native: Option<&HashSet<&str>>,
 ) -> anyhow::Result<Vec<Doc>> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
@@ -255,7 +219,28 @@ async fn get_docs_from_module(
         .eval_module(StarlarkModulePath::LoadFile(&import_path))
         .await?;
     let frozen_module = module.env();
-    let module_docs = frozen_module.module_documentation();
+    let mut module_docs = frozen_module.module_documentation();
+
+    // For the prelude, we want to promote `native` symbol up one level
+    if let Some(existing_globals) = promote_native {
+        if let Some(native) = frozen_module.get_option("native")? {
+            if let Some(DocItem::Object(native)) = native.value().documentation() {
+                for (k, v) in native.members {
+                    if !existing_globals.contains(k.as_str())
+                        && !module_docs.members.contains_key(&k)
+                    {
+                        module_docs.members.insert(
+                            k,
+                            match v {
+                                Member::Property(x) => Some(DocItem::Property(x)),
+                                Member::Function(x) => Some(DocItem::Function(x)),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     let mut docs = vec![];
 
@@ -372,7 +357,7 @@ async fn docs(
             let interpreter_calc = dice_ctx
                 .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
                 .await?;
-            get_docs_from_module(&interpreter_calc, import_path).await
+            get_docs_from_module(&interpreter_calc, import_path, None).await
         })
         .collect();
 
