@@ -21,7 +21,7 @@ use crate::subscribers::observer::ErrorObserver;
 #[derive(Debug, Clone, Dupe)]
 pub struct Tick {
     /// The time that the ticker was started.
-    pub(crate) start_time: Instant,
+    pub start_time: Instant,
     /// Elapsed time since the ticker was started for this tick.
     pub(crate) elapsed_time: Duration,
 }

@@ -105,8 +105,8 @@ impl TimeSpeed {
     }
 }
 
-pub(crate) struct SuperConsoleState {
-    current_tick: Tick,
+pub struct SuperConsoleState {
+    pub current_tick: Tick,
     time_speed: TimeSpeed,
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
@@ -188,6 +188,11 @@ impl StatefulSuperConsole {
         })
     }
 
+    pub const FALLBACK_SIZE: Dimensions = Dimensions {
+        width: 100,
+        height: 40,
+    };
+
     pub fn new_with_root_forced(
         trace_id: TraceId,
         root: Box<dyn Component>,
@@ -198,10 +203,6 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
-        let fallback_size = ::superconsole::Dimensions {
-            width: 100,
-            height: 40,
-        };
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
             builder.write_to(stream);
@@ -209,7 +210,7 @@ impl StatefulSuperConsole {
         Self::new(
             root,
             trace_id,
-            builder.build_forced(fallback_size)?,
+            builder.build_forced(Self::FALLBACK_SIZE)?,
             verbosity,
             show_waiting_message,
             replay_speed,
@@ -276,7 +277,7 @@ impl StatefulSuperConsole {
     /// events (though we might buffer output), and c) can show an accurate "time elapsed" when the
     /// client returns (if we wait until the client returns to resume, we'll always report that the
     /// command finished "just now", because we'll have some events to catch up on).
-    fn console_builder() -> ::superconsole::Builder {
+    pub fn console_builder() -> ::superconsole::Builder {
         let mut builder = ::superconsole::Builder::new();
         builder.non_blocking();
         builder
@@ -290,10 +291,29 @@ impl StatefulSuperConsole {
             None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
         }
     }
+
+    pub fn render_result_errors(result: &buck2_cli_proto::CommandResult) -> Lines {
+        let mut lines = Lines::new();
+        if let buck2_cli_proto::CommandResult {
+            result: Some(buck2_cli_proto::command_result::Result::Error(e)),
+        } = result
+        {
+            let style = ContentStyle {
+                foreground_color: Some(Color::DarkRed),
+                ..Default::default()
+            };
+            for message in &e.messages {
+                lines
+                    .0
+                    .extend(Lines::from_multiline_string(message, style).0);
+            }
+        }
+        lines
+    }
 }
 
 impl SuperConsoleState {
-    fn new(
+    pub fn new(
         replay_speed: Option<f64>,
         trace_id: TraceId,
         isolation_dir: FileNameBuf,
@@ -314,7 +334,7 @@ impl SuperConsoleState {
         })
     }
 
-    fn update_event_observer(
+    pub fn update_event_observer(
         &mut self,
         receive_time: Instant,
         event: &Arc<BuckEvent>,
@@ -325,7 +345,7 @@ impl SuperConsoleState {
 
     // Collect all state to send to super console. Note that the SpanTracker state is held in the
     // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
-    pub(crate) fn state(&self) -> superconsole::State {
+    pub fn state(&self) -> superconsole::State {
         let observer = self.simple_console.observer();
 
         superconsole::state![
@@ -524,19 +544,8 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         match self.super_console.take() {
             Some(mut super_console) => {
-                if let buck2_cli_proto::CommandResult {
-                    result: Some(buck2_cli_proto::command_result::Result::Error(e)),
-                } = result
-                {
-                    let style = ContentStyle {
-                        foreground_color: Some(Color::DarkRed),
-                        ..Default::default()
-                    };
-                    for message in &e.messages {
-                        let lines = Lines::from_multiline_string(message, style);
-                        super_console.emit(lines);
-                    }
-                }
+                let lines = Self::render_result_errors(result);
+                super_console.emit(lines);
                 super_console.finalize(&*self.root, &self.state.state())
             }
             None => {

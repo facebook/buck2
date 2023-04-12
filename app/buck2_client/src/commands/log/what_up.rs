@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -16,11 +15,11 @@ use std::time::SystemTimeError;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::subscribers::subscriber_unpack::UnpackingEventSubscriber;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
+use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -30,6 +29,7 @@ use superconsole::components::splitting::SplitKind;
 use superconsole::components::Split;
 use superconsole::Component;
 use superconsole::Direction;
+use superconsole::DrawMode;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -57,11 +57,7 @@ impl WhatUpCommand {
         // Create space for a very big console
         let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
         components.push(Box::new(TimedList::new(CUTOFFS, String::new())));
-        let console_root = Box::new(Split::new(
-            components,
-            Direction::Vertical,
-            SplitKind::Adaptive,
-        ));
+        let console_root = Split::new(components, Direction::Vertical, SplitKind::Adaptive);
 
         let rt = client_tokio_runtime()?;
 
@@ -71,22 +67,21 @@ impl WhatUpCommand {
             // Get events
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            //Create new superconsole
-            let mut console = StatefulSuperConsole::new_with_root_forced(
+            let mut super_console = StatefulSuperConsole::console_builder()
+                .build_forced(StatefulSuperConsole::FALLBACK_SIZE)?;
+
+            let mut super_console_state = SuperConsoleState::new(
+                None,
                 invocation.trace_id,
-                console_root,
+                FileNameBuf::unchecked_new("placeholder"),
                 Verbosity::Default,
                 true,
-                None,
-                Some(Box::new(io::stdout())),
                 SuperConsoleConfig {
                     max_lines: 1000000,
                     ..Default::default()
                 },
-                FileNameBuf::unchecked_new("placeholder"),
             )?;
             let mut first_timestamp = None;
-            let mut should_render = true;
             // Ignore any events that are truncated, hence unreadable
             while let Ok(Some(event)) = events.try_next().await {
                 match event {
@@ -105,20 +100,27 @@ impl WhatUpCommand {
                             _ => (),
                         }
 
-                        console.handle_event(&Arc::new(e)).await.unwrap();
+                        super_console_state.update_event_observer(
+                            super_console_state.current_tick.start_time,
+                            &Arc::new(e),
+                        )?;
                     }
                     StreamValue::PartialResult(..) => {}
                     StreamValue::Result(result) => {
-                        console.handle_command_result(&result).await.unwrap();
-                        should_render = false;
+                        let result = StatefulSuperConsole::render_result_errors(&result);
+                        super_console.emit(result);
+                        super_console.finalize(&console_root, &super_console_state.state())?;
+                        buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
+                        return Ok(());
                     }
                 }
             }
-            if should_render {
-                console.render_final_normal_console()?;
-            } else {
-                buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
-            }
+
+            super_console.finalize_with_mode(
+                &console_root,
+                &super_console_state.state(),
+                DrawMode::Normal,
+            )?;
             anyhow::Ok(())
         })?;
 
