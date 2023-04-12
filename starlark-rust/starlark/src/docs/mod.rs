@@ -242,55 +242,6 @@ impl DocString {
         textwrap::dedent(&lines.join("\n")).trim().to_owned()
     }
 
-    /// Parse out parameter docs from an "Args:" section of a docstring
-    ///
-    /// `args_section` should be dedented, and generally should just be the `args` key of
-    /// the `DocString::parse_params()` function call. This is done as a separate function
-    /// to reduce the number of times that sections are parsed out of docstring (e.g. if
-    /// a user wants both the `Args:` and `Returns:` sections)
-    pub fn parse_params(kind: DocStringKind, args_section: &str) -> HashMap<String, String> {
-        static STARLARK_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^(\*{0,2}\w+):\s*(.*)").unwrap());
-        static RUST_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^(?:\* )?`(\w+)`:?\s*(.*)").unwrap());
-
-        static INDENTED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(?:\s|$)").unwrap());
-
-        let arg_re = match kind {
-            DocStringKind::Starlark => &STARLARK_ARG_RE,
-            DocStringKind::Rust => &RUST_ARG_RE,
-        };
-
-        let mut ret = HashMap::new();
-        let mut current_arg = None;
-        let mut current_text = vec![];
-
-        for line in args_section.lines() {
-            if let Some(matches) = arg_re.captures(line) {
-                if let Some(a) = current_arg.take() {
-                    ret.insert(a, Self::join_and_dedent_lines(&current_text));
-                }
-
-                current_arg = Some(matches.get(1).unwrap().as_str().to_owned());
-
-                let doc_match = matches.get(2).unwrap();
-                current_text = vec![format!(
-                    "{}{}",
-                    " ".repeat(doc_match.start()),
-                    doc_match.as_str()
-                )];
-            } else if current_arg.is_some() && INDENTED_RE.is_match(line) {
-                current_text.push(line.to_owned());
-            }
-        }
-
-        if let Some(a) = current_arg.take() {
-            ret.insert(a, Self::join_and_dedent_lines(&current_text));
-        }
-
-        ret
-    }
-
     /// Parse the sections out of a docstring's `details` text, and remove the requested sections from the text.
     ///
     /// "sections" are the various things in doc strings like "Arguments:", "Returns:", etc
