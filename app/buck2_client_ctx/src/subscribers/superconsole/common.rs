@@ -8,19 +8,20 @@
  */
 
 use superconsole::components::alignment::HorizontalAlignmentKind;
-use superconsole::components::splitting::SplitKind;
 use superconsole::components::Aligned;
-use superconsole::components::Split;
+use superconsole::components::DrawHorizontal;
 use superconsole::Component;
 use superconsole::Dimensions;
-use superconsole::Direction;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
 #[derive(Debug)]
-pub(crate) struct HeaderLineComponent(Split);
+pub(crate) struct HeaderLineComponent {
+    lhs: Box<dyn Component>,
+    rhs: Box<dyn Component>,
+}
 
 impl HeaderLineComponent {
     pub(crate) fn new(lhs: Box<dyn Component>, rhs: Box<dyn Component>) -> Self {
@@ -29,11 +30,7 @@ impl HeaderLineComponent {
             horizontal: HorizontalAlignmentKind::Right,
             ..Default::default()
         });
-        Self(Split::new(
-            vec![lhs, rhs],
-            Direction::Horizontal,
-            SplitKind::Adaptive,
-        ))
+        HeaderLineComponent { lhs, rhs }
     }
 }
 
@@ -44,7 +41,10 @@ impl Component for HeaderLineComponent {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        self.0.draw(state, dimensions, mode)
+        let mut draw = DrawHorizontal::new(dimensions);
+        draw.draw(&*self.lhs, state, mode)?;
+        draw.draw(&*self.rhs, state, mode)?;
+        Ok(draw.finish())
     }
 }
 
