@@ -613,8 +613,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_eval(ctx):
-    ///     result = ctx.cquery().eval("inputs(root//bin:the_binary)")
-    ///     ctx.output.print(result)
+    ///     result1 = ctx.cquery().eval("inputs(root//bin:the_binary)")
+    ///     ctx.output.print(result1)
+    ///
+    ///     result2 = ctx.cquery().eval("inputs(%s)", query_args = ["cell//path/to/file:target"])
+    ///     ctx.output.print(result2)
     /// ```
     fn eval<'v>(
         this: &StarlarkCQueryCtx<'v>,
