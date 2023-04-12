@@ -14,6 +14,7 @@ use std::iter;
 use crossterm::style::Attribute;
 use crossterm::style::Attributes;
 use crossterm::style::Color;
+use itertools::Itertools;
 use termwiz::cell::Intensity;
 use termwiz::color::ColorSpec;
 use termwiz::color::RgbColor;
@@ -291,6 +292,34 @@ impl Lines {
     pub fn set_lines_to_exact_dimensions(&mut self, Dimensions { width, height }: Dimensions) {
         self.set_lines_to_exact_length(height);
         self.set_lines_to_exact_width(width);
+    }
+
+    /// Join blocks horizontally, i.e. side by side.
+    pub fn join_horizontally(blocks: Vec<Lines>) -> Lines {
+        if blocks.is_empty() {
+            return Lines::new();
+        }
+
+        // unwrap ok because guaranteed > 0 children from constructor
+        let longest = blocks.iter().map(|output| output.len()).max().unwrap();
+
+        // pad all other outputs to be the same length.  Then, justify them to be uniform blocks.
+        let padded = blocks.into_iter().update(|output| {
+            output.set_lines_to_exact_length(longest);
+            output.justify();
+        });
+
+        // can't do arbitrary zip, so this'll have to do
+        padded
+            .reduce(|mut all, output| {
+                for (all_line, mut output_line) in all.iter_mut().zip(output.into_iter()) {
+                    all_line.0.append(&mut output_line.0);
+                }
+
+                all
+            })
+            // safe to unwrap because at least one child component required
+            .unwrap()
     }
 }
 

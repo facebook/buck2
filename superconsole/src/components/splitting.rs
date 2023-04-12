@@ -10,8 +10,6 @@
 //! Splitting is one of the most primitive building blocks of a fully featured UI.
 //! This module contains components and enums that allow for splits along either dimension.
 
-use itertools::Itertools;
-
 use crate::Component;
 use crate::Dimensions;
 use crate::Direction;
@@ -157,28 +155,7 @@ impl Component for Split {
         )?;
 
         Ok(match self.direction {
-            Direction::Horizontal => {
-                // unwrap ok because guaranteed > 0 children from constructor
-                let longest = outputs.iter().map(|output| output.len()).max().unwrap();
-
-                // pad all other outputs to be the same length.  Then, justify them to be uniform blocks.
-                let padded = outputs.into_iter().update(|output| {
-                    output.set_lines_to_exact_length(longest);
-                    output.justify();
-                });
-
-                // can't do arbitrary zip, so this'll have to do
-                padded
-                    .reduce(|mut all, output| {
-                        for (all_line, mut output_line) in all.iter_mut().zip(output.into_iter()) {
-                            all_line.0.append(&mut output_line.0);
-                        }
-
-                        all
-                    })
-                    // safe to unwrap because at least one child component required
-                    .unwrap()
-            }
+            Direction::Horizontal => Lines::join_horizontally(outputs),
             Direction::Vertical => outputs.into_iter().flatten().collect(),
         })
     }
