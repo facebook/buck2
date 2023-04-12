@@ -18,6 +18,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 
+use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -43,12 +44,12 @@ impl SplitTransitionDepAttrType {
     ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
         let configured_providers =
             ctx.configure_split_transition_target(&dep_attr.label, &dep_attr.transition)?;
-        Ok(AttrLiteral::SplitTransitionDep(Box::new(
-            ConfiguredSplitTransitionDep {
+        Ok(AttrLiteral::Extra(
+            ConfiguredAttrExtraTypes::SplitTransitionDep(Box::new(ConfiguredSplitTransitionDep {
                 deps: configured_providers,
                 required_providers: dep_attr.required_providers.dupe(),
-            },
-        )))
+            })),
+        ))
     }
 }
 

@@ -44,7 +44,6 @@ use crate::attrs::fmt_context::AttrFmtContext;
 pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
     type TargetType: TargetLabelMaybeConfigured + AttrLike;
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
-    type SplitTransitionDepType: SplitTransitionDepMaybeConfigured + AttrLike;
     // Used to encapsulate the type encodings for various attr types.
     type ExtraTypes: AttrConfigExtraTypes + Display + Allocative;
 
@@ -64,12 +63,14 @@ pub trait AttrConfigExtraTypes {
 #[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ConfiguredAttrExtraTypes {
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
+    SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
 }
 
 impl Display for ConfiguredAttrExtraTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+            Self::SplitTransitionDep(e) => Display::fmt(e, f),
         }
     }
 }
@@ -78,12 +79,14 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
     fn to_json(&self) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
+            Self::SplitTransitionDep(e) => e.to_json(),
         }
     }
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            Self::SplitTransitionDep(e) => e.any_matches(filter),
         }
     }
 }
@@ -91,7 +94,6 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
 impl AttrConfig for ConfiguredAttr {
     type TargetType = ConfiguredTargetLabel;
     type ProvidersType = ConfiguredProvidersLabel;
-    type SplitTransitionDepType = ConfiguredSplitTransitionDep;
     type ExtraTypes = ConfiguredAttrExtraTypes;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
@@ -107,18 +109,21 @@ impl AttrConfig for ConfiguredAttr {
 #[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum CoercedAttrExtraTypes {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
+    SplitTransitionDep(Box<SplitTransitionDep>),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
     fn to_json(&self) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
+            Self::SplitTransitionDep(e) => e.to_json(),
         }
     }
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            Self::SplitTransitionDep(e) => e.any_matches(filter),
         }
     }
 }
@@ -127,6 +132,7 @@ impl Display for CoercedAttrExtraTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+            Self::SplitTransitionDep(e) => Display::fmt(e, f),
         }
     }
 }
@@ -134,7 +140,6 @@ impl Display for CoercedAttrExtraTypes {
 impl AttrConfig for CoercedAttr {
     type TargetType = TargetLabel;
     type ProvidersType = ProvidersLabel;
-    type SplitTransitionDepType = SplitTransitionDep;
     type ExtraTypes = CoercedAttrExtraTypes;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {

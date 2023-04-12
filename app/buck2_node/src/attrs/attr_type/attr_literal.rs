@@ -33,7 +33,6 @@ use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -67,7 +66,6 @@ pub enum AttrLiteral<C: AttrConfig> {
     Dep(Box<DepAttr<C::ProvidersType>>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(Box<TargetLabel>),
-    SplitTransitionDep(Box<C::SplitTransitionDepType>),
     Query(Box<QueryAttr<C>>),
     SourceLabel(Box<C::ProvidersType>),
     SourceFile(CoercedPath),
@@ -145,7 +143,6 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::SourceLabel(v) => write!(f, "\"{}\"", v),
             AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
-            AttrLiteral::SplitTransitionDep(d) => Display::fmt(d, f),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AttrLiteral::Visibility(v) => Display::fmt(v, f),
@@ -198,7 +195,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::SourceLabel(s) => Ok(to_value(s.to_string())?),
             AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
             AttrLiteral::ConfigurationDep(l) => Ok(to_value(l.to_string())?),
-            AttrLiteral::SplitTransitionDep(l) => l.to_json(),
             AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
             AttrLiteral::Visibility(v) => Ok(v.to_json()),
@@ -239,7 +235,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
             AttrLiteral::Int(i) => filter(&i.to_string()),
             AttrLiteral::ConfigurationDep(d) => filter(&d.to_string()),
-            AttrLiteral::SplitTransitionDep(d) => d.any_matches(filter),
             AttrLiteral::Label(l) => filter(&l.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
             AttrLiteral::Visibility(v) => match v {
@@ -287,12 +282,6 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dep(dep) => dep.traverse(traversal),
             AttrLiteral::ConfiguredDep(dep) => dep.traverse(traversal),
             AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-            AttrLiteral::SplitTransitionDep(deps) => {
-                for target in deps.deps.values() {
-                    traversal.dep(target)?;
-                }
-                Ok(())
-            }
             AttrLiteral::Query(query) => query.traverse(traversal),
             AttrLiteral::SourceFile(source) => {
                 for x in source.inputs() {
@@ -308,6 +297,12 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Extra(u) => match u {
                 ConfiguredAttrExtraTypes::ExplicitConfiguredDep(dep) => {
                     dep.as_ref().traverse(traversal)
+                }
+                ConfiguredAttrExtraTypes::SplitTransitionDep(deps) => {
+                    for target in deps.deps.values() {
+                        traversal.dep(target)?;
+                    }
+                    Ok(())
                 }
             },
         }
@@ -339,9 +334,6 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Dep(dep) => DepAttrType::configure(ctx, dep)?,
             AttrLiteral::ConfiguredDep(dep) => AttrLiteral::Dep(dep.clone()),
             AttrLiteral::ConfigurationDep(dep) => ConfigurationDepAttrType::configure(ctx, dep)?,
-            AttrLiteral::SplitTransitionDep(dep) => {
-                SplitTransitionDepAttrType::configure(ctx, dep)?
-            }
             AttrLiteral::Query(query) => AttrLiteral::Query(Box::new(query.configure(ctx)?)),
             AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
             AttrLiteral::SourceLabel(box source) => AttrLiteral::SourceLabel(Box::new(
@@ -357,6 +349,9 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Extra(u) => match u {
                 CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => {
                     ExplicitConfiguredDepAttrType::configure(ctx, dep)?
+                }
+                CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
+                    SplitTransitionDepAttrType::configure(ctx, dep)?
                 }
             },
         }))
@@ -389,9 +384,6 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Dep(dep) => dep.traverse(traversal),
             AttrLiteral::ConfigurationDep(dep) => traversal.configuration_dep(dep),
             AttrLiteral::ConfiguredDep(dep) => traversal.dep(dep.label.target().unconfigured()),
-            AttrLiteral::SplitTransitionDep(dep) => {
-                traversal.split_transition_dep(dep.label.target(), &dep.transition)
-            }
             AttrLiteral::Query(query) => query.traverse(traversal),
             AttrLiteral::SourceFile(source) => {
                 for x in source.inputs() {
@@ -406,6 +398,9 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Visibility(..) => Ok(()),
             AttrLiteral::Extra(u) => match u {
                 CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
+                CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
+                    traversal.split_transition_dep(dep.label.target(), &dep.transition)
+                }
             },
         }
     }

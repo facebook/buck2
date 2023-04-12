@@ -166,9 +166,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     which have no corresponding starlark impl"
             )),
             AttrLiteral::ConfigurationDep(d) => ConfigurationDepAttrType::resolve_single(ctx, d),
-            AttrLiteral::SplitTransitionDep(deps) => {
-                SplitTransitionDepAttrType::resolve_single(ctx, deps)
-            }
             AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
@@ -189,6 +186,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Extra(u) => match u {
                 ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
                     ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
+                }
+                ConfiguredAttrExtraTypes::SplitTransitionDep(d) => {
+                    SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
                 }
             },
         }
@@ -220,7 +220,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dep(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::ConfiguredDep(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
-            AttrLiteral::SplitTransitionDep(_) => Ok(Dict::TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
@@ -232,6 +231,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::ExplicitConfiguredDep(_) => {
                     Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
                 }
+                ConfiguredAttrExtraTypes::SplitTransitionDep(_) => Ok(Dict::TYPE),
             },
         }
     }
@@ -261,18 +261,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfiguredDep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::ConfigurationDep(box c) => heap.alloc(StarlarkTargetLabel::new(c.dupe())),
-            AttrLiteral::SplitTransitionDep(t) => {
-                let mut map = SmallMap::with_capacity(t.deps.len());
-
-                for (trans, p) in t.deps.iter() {
-                    map.insert_hashed(
-                        heap.alloc(trans).get_hashed()?,
-                        heap.alloc(Label::new(p.clone())),
-                    );
-                }
-
-                heap.alloc(Dict::new(map))
-            }
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
@@ -291,6 +279,18 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Extra(u) => match u {
                 ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
                     heap.alloc(Label::new(d.as_ref().label.clone()))
+                }
+                ConfiguredAttrExtraTypes::SplitTransitionDep(t) => {
+                    let mut map = SmallMap::with_capacity(t.deps.len());
+
+                    for (trans, p) in t.deps.iter() {
+                        map.insert_hashed(
+                            heap.alloc(trans).get_hashed()?,
+                            heap.alloc(Label::new(p.clone())),
+                        );
+                    }
+
+                    heap.alloc(Dict::new(map))
                 }
             },
         })
