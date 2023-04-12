@@ -16,7 +16,7 @@
  */
 
 //! The server that allows IDEs to evaluate and interpret starlark code according
-//! to the Language Server Protocol <https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/>
+//! to the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
 
 pub mod server;
 #[cfg(all(test, not(windows)))]
