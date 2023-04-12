@@ -477,8 +477,11 @@ fn register_uquery(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_eval(ctx):
-    ///     result = ctx.uquery().eval("inputs(cell//path/to/file:target)")
-    ///     ctx.output.print(result)
+    ///     result1 = ctx.uquery().eval("inputs(cell//path/to/file:target)")
+    ///     ctx.output.print(result1)
+    ///
+    ///     result2 = ctx.uquery().eval("inputs(%s)", query_args = ["cell//path/to/file:target"])
+    ///     ctx.output.print(result2)
     /// ```
     fn eval<'v>(
         this: &StarlarkUQueryCtx<'v>,
@@ -534,7 +537,11 @@ pub(crate) fn unpack_unconfigured_query_args<'v>(
             )),
         })?))
     } else if let Some(set) = <&StarlarkTargetSet<TargetNode>>::unpack_value(query_args) {
-        Ok(Some(set.0.iter_names().map(|e| e.to_string()).collect()))
+        // TODO - we really should change eval_query() to handle this, but escaping the unconfigured target label for now
+        // as a quick solution.
+        Ok(Some(
+            set.0.iter_names().map(|e| format!("\"{}\"", e)).collect(),
+        ))
     } else {
         Ok(None)
     }
