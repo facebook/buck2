@@ -30,7 +30,6 @@ use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
 use dupe::Dupe;
-use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Stylize;
 use superconsole::Line;
 use superconsole::Lines;
@@ -478,7 +477,7 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
     // unless the --print-passing-details is set.
     let mut lines = vec![base];
     if !details.is_empty() {
-        lines.append(&mut lines_from_multiline_string(details, Default::default()).0);
+        lines.append(&mut Lines::from_multiline_string(details, Default::default()).0);
     }
     Ok(Some(Lines(lines)))
 }

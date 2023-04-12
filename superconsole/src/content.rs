@@ -10,8 +10,6 @@
 //! Provides a variety of utilities for working with [`Line`s](Line).
 
 pub use line::Line;
-pub use lines::colored_lines_from_multiline_string;
-pub use lines::lines_from_multiline_string;
 pub use lines::Lines;
 pub use span::Span;
 

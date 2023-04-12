@@ -37,17 +37,6 @@ impl AsRef<Lines> for Lines {
     }
 }
 
-/// Creates an instance of [`Lines`] with a style applied from a single multiline string
-pub fn lines_from_multiline_string(multiline_string: &str, style: ContentStyle) -> Lines {
-    multiline_string
-        .lines()
-        .map(|line| {
-            let styled = StyledContent::new(style, line.to_owned());
-            Line::from_iter([Span::new_styled_lossy(styled)])
-        })
-        .collect()
-}
-
 /// State container that's used to parse strings with ANSI color codes in them.
 #[derive(Default)]
 struct ColoredStringParser {
@@ -119,25 +108,36 @@ impl ColoredStringParser {
     }
 }
 
-/// Takes a multiline string that might contain ANSI color codes, and returns a set of lines
-/// that include spans representing those color codes.
-///
-/// Note that any other types of control characters are omitted, and certain whitespace
-/// characters are also disallowed / replaced.
-pub fn colored_lines_from_multiline_string(multiline_string: &str) -> Lines {
-    let mut parser = termwiz::escape::parser::Parser::new();
-    let mut color_parser = ColoredStringParser::default();
-    multiline_string
-        .lines()
-        .map(|s| color_parser.parse_line(&mut parser, s))
-        .collect()
-}
-
 /// Set of helper methods for `Vec<Line>`, that manipulate on each line individually.
 impl Lines {
     /// Empty lines block.
     pub fn new() -> Lines {
         Lines(Vec::new())
+    }
+
+    /// Creates an instance of [`Lines`] with a style applied from a single multiline string.
+    pub fn from_multiline_string(multiline_string: &str, style: ContentStyle) -> Lines {
+        multiline_string
+            .lines()
+            .map(|line| {
+                let styled = StyledContent::new(style, line.to_owned());
+                Line::from_iter([Span::new_styled_lossy(styled)])
+            })
+            .collect()
+    }
+
+    /// Takes a multiline string that might contain ANSI color codes, and returns a set of lines
+    /// that include spans representing those color codes.
+    ///
+    /// Note that any other types of control characters are omitted, and certain whitespace
+    /// characters are also disallowed / replaced.
+    pub fn from_colored_multiline_string(multiline_string: &str) -> Lines {
+        let mut parser = termwiz::escape::parser::Parser::new();
+        let mut color_parser = ColoredStringParser::default();
+        multiline_string
+            .lines()
+            .map(|s| color_parser.parse_line(&mut parser, s))
+            .collect()
     }
 
     /// Number of lines.
@@ -462,7 +462,7 @@ mod tests {
             background_color: None,
             attributes: Default::default(),
         };
-        let test = lines_from_multiline_string(content, style);
+        let test = Lines::from_multiline_string(content, style);
         let expected = Lines(vec![
             Line::from_iter([Span::new_styled_lossy(StyledContent::new(
                 style,
@@ -599,7 +599,7 @@ strips out {bs}invalid control sequences",
             })
             .collect();
 
-        let lines = colored_lines_from_multiline_string(&test_string);
+        let lines = Lines::from_colored_multiline_string(&test_string);
 
         assert_eq!(expected, lines);
     }

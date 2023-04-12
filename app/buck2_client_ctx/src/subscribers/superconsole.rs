@@ -34,8 +34,6 @@ use gazebo::prelude::*;
 use superconsole::components::splitting::SplitKind;
 use superconsole::components::Bounded;
 use superconsole::components::Split;
-use superconsole::content::colored_lines_from_multiline_string;
-use superconsole::content::lines_from_multiline_string;
 use superconsole::style::Attribute;
 use superconsole::style::Color;
 use superconsole::style::ContentStyle;
@@ -513,7 +511,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                         ..Default::default()
                     };
                     for message in &e.messages {
-                        let lines = lines_from_multiline_string(message, style);
+                        let lines = Lines::from_multiline_string(message, style);
                         super_console.emit(lines);
                     }
                 }
@@ -555,7 +553,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         //            they're just stripped
         match &mut self.super_console {
             Some(super_console) => {
-                super_console.emit(lines_from_multiline_string(
+                super_console.emit(Lines::from_multiline_string(
                     &message.message,
                     ContentStyle::default(),
                 ));
@@ -637,7 +635,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                         ),
                     );
                     lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
-                    lines.extend(colored_lines_from_multiline_string(stderr));
+                    lines.extend(Lines::from_colored_multiline_string(stderr));
                 }
             }
         }
@@ -747,7 +745,7 @@ fn lines_for_command_details(
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(lines_from_multiline_string(
+    lines.extend(Lines::from_multiline_string(
         &command_failed.stdout,
         color(Color::DarkRed),
     ));
@@ -757,7 +755,7 @@ fn lines_for_command_details(
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(colored_lines_from_multiline_string(&command_failed.stderr));
+    lines.extend(Lines::from_colored_multiline_string(&command_failed.stderr));
 }
 
 // Truncates a string to a reasonable number characters, or returns None if it doesn't need truncating.
