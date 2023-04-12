@@ -140,7 +140,7 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
         bundle_destination = apple_bundle_destination_from_resource_destination(spec.destination)
         result += [_process_apple_resource_file_if_needed(
             ctx = ctx,
-            file = x,
+            file = _extract_single_artifact(x),
             destination = bundle_destination,
             destination_relative_path = None,
             codesign_on_copy = spec.codesign_files_on_copy,
@@ -150,6 +150,20 @@ def _copy_resources(ctx: "context", specs: [AppleResourceSpec.type]) -> [AppleBu
         result += _bundle_parts_for_variant_files(ctx, spec)
 
     return result
+
+def _extract_single_artifact(x: ["dependency", "artifact"]) -> "artifact":
+    if type(x) == "artifact":
+        return x
+    else:
+        # Otherwise, this is a dependency, so extract the resource and other
+        # resources from the `DefaultInfo` provider.
+        info = x[DefaultInfo]
+        expect(
+            len(info.default_outputs) == 1,
+            "expected exactly one default output from {} ({})"
+                .format(x, info.default_outputs),
+        )
+        return info.default_outputs[0]
 
 def _copy_first_level_bundles(ctx: "context") -> [AppleBundlePart.type]:
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])

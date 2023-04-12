@@ -17,7 +17,7 @@ AppleResourceDestination = enum(
 
 # Defines _where_ resources need to be placed in an `apple_bundle`
 AppleResourceSpec = record(
-    files = field(["artifact"], []),
+    files = field([["artifact", "dependency"]], []),
     dirs = field(["artifact"], []),
     content_dirs = field(["artifact"], []),
     destination = AppleResourceDestination.type,

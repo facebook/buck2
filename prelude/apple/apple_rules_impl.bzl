@@ -106,6 +106,7 @@ extra_attributes = {
         "codesign_on_copy": attrs.bool(default = False),
         "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
+        "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     },
     "apple_test": apple_test_extra_attrs(),
     "apple_toolchain": {
