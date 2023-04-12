@@ -44,6 +44,7 @@ load(
     "emit_needs_codegen",
     "output_filename",
 )
+load(":context.bzl", "CommonArgsInfo", "CompileContext")
 load(
     ":failure_filter.bzl",
     "RustFailureFilter",
@@ -62,30 +63,6 @@ load(
 )
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "ctx_toolchain_info")
-
-# Struct for sharing common args between rustc and rustdoc
-# (rustdoc just relays bunch of the same args to rustc when trying to gen docs)
-CommonArgsInfo = record(
-    args = field("cmd_args"),
-    subdir = field(str.type),
-    tempfile = field(str.type),
-    short_cmd = field(str.type),
-    is_check = field(bool.type),
-    crate_map = field({str.type: "label"}),
-)
-
-# Compile info which is reusable between multiple compilation command performed
-# by the same rule.
-CompileContext = record(
-    # Symlink root containing all sources.
-    symlinked_srcs = field("artifact"),
-    # Linker args to pass the linker wrapper to rustc.
-    linker_args = field("cmd_args"),
-    # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc)
-    clippy_wrapper = field("cmd_args"),
-    # Memoized common args for reuse
-    common_args = field({(CrateType.type, Emit.type, LinkStyle.type): CommonArgsInfo.type}),
-)
 
 RustcOutput = record(
     outputs = field({Emit.type: "artifact"}),

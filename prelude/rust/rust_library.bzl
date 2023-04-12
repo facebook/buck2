@@ -52,7 +52,6 @@ load(
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     ":build.bzl",
-    "CompileContext",  # @unused Used as a type
     "RustcOutput",  # @unused Used as a type
     "compile_context",
     "generate_rustdoc",
@@ -69,6 +68,10 @@ load(
     "build_params",
     "crate_type_transitive_deps",
     "preferred_rust_binary_build_params",
+)
+load(
+    ":context.bzl",
+    "CompileContext",  # @unused Used as a type
 )
 load(
     ":link_info.bzl",
