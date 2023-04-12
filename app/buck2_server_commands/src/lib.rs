@@ -15,5 +15,5 @@
 
 pub mod commands;
 pub mod dot;
-pub mod json;
+pub(crate) mod json;
 pub mod target_hash;

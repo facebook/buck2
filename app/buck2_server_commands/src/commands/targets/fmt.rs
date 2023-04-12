@@ -29,10 +29,9 @@ use buck2_node::nodes::attributes::TYPE;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_util::indent::indent;
 use gazebo::prelude::SliceExt;
-use itertools::Itertools;
 use regex::RegexSet;
 
-use crate::json::quote_json_string;
+use crate::json::QuotedJson;
 use crate::target_hash::BuckTargetHash;
 
 #[derive(Debug, thiserror::Error)]
@@ -108,7 +107,13 @@ impl JsonWriter {
         }
     }
 
-    pub(crate) fn entry_item(&self, buffer: &mut String, first: &mut bool, key: &str, value: &str) {
+    pub(crate) fn entry_item(
+        &self,
+        buffer: &mut String,
+        first: &mut bool,
+        key: &str,
+        value: QuotedJson,
+    ) {
         if *first {
             *first = false;
         } else if self.json_lines {
@@ -117,9 +122,9 @@ impl JsonWriter {
             buffer.push_str(",\n");
         }
         if self.json_lines {
-            write!(buffer, "\"{}\":{}", key, value).unwrap();
+            write!(buffer, "\"{}\":{}", key, value.as_str()).unwrap();
         } else {
-            write!(buffer, "    \"{}\": {}", key, value).unwrap();
+            write!(buffer, "    \"{}\": {}", key, value.as_str()).unwrap();
         }
     }
 }
@@ -153,55 +158,41 @@ impl TargetFormatter for JsonFormat {
             buffer: &mut String,
             first: &mut bool,
             k: &str,
-            v: impl FnOnce() -> String,
+            v: impl FnOnce() -> QuotedJson,
         ) {
             if let Some(filter) = &this.attributes {
                 if !filter.is_match(k) {
                     return;
                 }
             }
-            this.writer.entry_item(buffer, first, k, &v());
+            this.writer.entry_item(buffer, first, k, v());
         }
 
         print_attr(self, buffer, &mut first, TYPE, || {
-            quote_json_string(&target_info.node.rule_type().to_string())
+            QuotedJson::quote_str(&target_info.node.rule_type().to_string())
         });
         print_attr(self, buffer, &mut first, DEPS, || {
-            format!(
-                "[{}]",
-                target_info
-                    .node
-                    .deps()
-                    .map(|d| quote_json_string(&d.to_string()))
-                    .join(", ")
-            )
+            QuotedJson::list(target_info.node.deps().map(QuotedJson::quote_display))
         });
 
         print_attr(self, buffer, &mut first, INPUTS, || {
-            format!(
-                "[{}]",
-                target_info
-                    .node
-                    .inputs()
-                    .map(|x| quote_json_string(&x.to_string()))
-                    .join(", ")
-            )
+            QuotedJson::list(target_info.node.inputs().map(QuotedJson::quote_display))
         });
 
         if let Some(hash) = target_info.target_hash {
             print_attr(self, buffer, &mut first, TARGET_HASH, || {
-                format!("\"{hash}\"")
+                QuotedJson::quote_display(hash)
             });
         }
         print_attr(self, buffer, &mut first, PACKAGE, || {
-            format!("\"{}\"", target_info.node.label().pkg())
+            QuotedJson::quote_display(target_info.node.label().pkg())
         });
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
             print_attr(self, buffer, &mut first, a.name, || {
-                value_to_json(a.value, target_info.node.label().pkg())
-                    .unwrap()
-                    .to_string()
+                QuotedJson::from_serde_json_value(
+                    value_to_json(a.value, target_info.node.label().pkg()).unwrap(),
+                )
             });
         }
 
@@ -209,7 +200,7 @@ impl TargetFormatter for JsonFormat {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
                     print_attr(self, buffer, &mut first, TARGET_CALL_STACK, || {
-                        quote_json_string(&call_stack)
+                        QuotedJson::quote_str(&call_stack)
                     });
                 }
                 None => {
@@ -234,25 +225,20 @@ impl TargetFormatter for JsonFormat {
                 buffer,
                 &mut first,
                 PACKAGE,
-                &quote_json_string(&package.to_string()),
+                QuotedJson::quote_str(&package.to_string()),
             );
         }
         self.writer.entry_item(
             buffer,
             &mut first,
             "buck.file",
-            &quote_json_string(&source.to_string()),
+            QuotedJson::quote_str(&source.to_string()),
         );
         self.writer.entry_item(
             buffer,
             &mut first,
             "buck.imports",
-            &format!(
-                "[{}]",
-                imports
-                    .map(|d| quote_json_string(&d.path().to_string()))
-                    .join(", ")
-            ),
+            QuotedJson::list(imports.map(|d| QuotedJson::quote_display(d.path()))),
         );
         self.writer.entry_end(buffer, first);
     }
@@ -264,13 +250,13 @@ impl TargetFormatter for JsonFormat {
             buffer,
             &mut first,
             PACKAGE,
-            &quote_json_string(&package.to_string()),
+            QuotedJson::quote_display(package),
         );
         self.writer.entry_item(
             buffer,
             &mut first,
             "buck.error",
-            &quote_json_string(&format!("{:?}", error)),
+            QuotedJson::quote_str(&format!("{:?}", error)),
         );
         self.writer.entry_end(buffer, first);
     }

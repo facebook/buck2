@@ -37,7 +37,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 
 use crate::commands::targets::fmt::JsonWriter;
-use crate::json::quote_json_string;
+use crate::json::QuotedJson;
 
 trait ResolveAliasFormatter {
     /// Before writing anything.
@@ -69,19 +69,19 @@ impl ResolveAliasFormatter for JsonWriter {
     fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String) {
         let mut first = true;
         self.entry_start(buffer);
-        self.entry_item(buffer, &mut first, "alias", &quote_json_string(alias));
+        self.entry_item(buffer, &mut first, "alias", QuotedJson::quote_str(alias));
         // Using a format consistent wit hthe output of `buck2 targets`
         self.entry_item(
             buffer,
             &mut first,
             PACKAGE,
-            &quote_json_string(&label.pkg().to_string()),
+            QuotedJson::quote_display(label.pkg()),
         );
         self.entry_item(
             buffer,
             &mut first,
             "name",
-            &quote_json_string(label.name().as_str()),
+            QuotedJson::quote_display(label.name()),
         );
         self.entry_end(buffer, first);
     }
