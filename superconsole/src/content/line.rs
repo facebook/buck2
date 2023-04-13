@@ -182,7 +182,7 @@ impl Line {
 
     /// Concatenate spans, discarding any styling.
     pub fn to_unstyled(&self) -> String {
-        self.0.iter().map(|span| span.content.as_str()).collect()
+        self.0.iter().map(|span| span.content.as_ref()).collect()
     }
 
     /// Join strings of spans with identical styles.
@@ -193,7 +193,7 @@ impl Line {
         for span in self.0 {
             if let Some(last) = result.last_mut() {
                 if last.stylization == span.stylization {
-                    last.content.push_str(&span.content);
+                    last.content.to_mut().push_str(&span.content);
                     continue;
                 }
             }

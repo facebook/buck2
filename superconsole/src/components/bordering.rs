@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
+
 use crate::components::alignment::HorizontalAlignmentKind;
 use crate::components::alignment::VerticalAlignmentKind;
 use crate::components::Aligned;
@@ -88,7 +90,7 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
         .map(|mut span| {
             // iterator is a single character here, so fill to width.
             // it's possible that a word could be more than a single column, so the number of repetitions must reflect that.
-            span.content = span.content.repeat(width / span.len());
+            span.content = Cow::Owned(span.content.repeat(width / span.len()));
             Line(vec![span])
         })
         .collect()

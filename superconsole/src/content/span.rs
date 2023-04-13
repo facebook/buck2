@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
+
 use crossterm::queue;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -23,7 +25,7 @@ use crate::Error;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Span {
-    pub(crate) content: String,
+    pub(crate) content: Cow<'static, str>,
     pub stylization: ContentStyle,
 }
 
@@ -50,7 +52,7 @@ impl Span {
     pub fn sanitized<S: std::fmt::Display>(string: S) -> Self {
         let content = sanitize(string);
         Span {
-            content,
+            content: Cow::Owned(content),
             stylization: ContentStyle::default(),
         }
     }
@@ -62,7 +64,7 @@ impl Span {
     /// Create an unstyled span with the specified amount of whitespace padding.
     pub fn padding(amount: usize) -> Self {
         Self {
-            content: format!("{:<width$}", "", width = amount),
+            content: Cow::Owned(format!("{:<width$}", "", width = amount)),
             stylization: ContentStyle::default(),
         }
     }
@@ -73,7 +75,7 @@ impl Span {
         let owned = stringlike.to_string();
         if Self::valid(&owned) {
             Ok(Self {
-                content: owned,
+                content: Cow::Owned(owned),
                 stylization: ContentStyle::default(),
             })
         } else {
@@ -84,7 +86,7 @@ impl Span {
     pub fn new_unstyled_lossy<S: std::fmt::Display>(stringlike: S) -> Self {
         let content = sanitize(stringlike);
         Self {
-            content,
+            content: Cow::Owned(content),
             stylization: ContentStyle::default(),
         }
     }
@@ -94,7 +96,7 @@ impl Span {
     pub fn new_styled(content: StyledContent<String>) -> anyhow::Result<Self> {
         if Self::valid(content.content()) {
             Ok(Self {
-                content: content.content().clone(),
+                content: Cow::Owned(content.content().clone()),
                 stylization: *content.style(),
             })
         } else {
@@ -106,7 +108,7 @@ impl Span {
     pub fn new_styled_lossy(span: StyledContent<String>) -> Self {
         let content = sanitize(span.content());
         Self {
-            content,
+            content: Cow::Owned(content),
             stylization: *span.style(),
         }
     }
@@ -191,7 +193,7 @@ impl<'a> Iterator for SpanIterator<'a> {
         let content = self.1.next();
         content.map(|content| Span {
             stylization: *self.0,
-            content: content.to_owned(),
+            content: Cow::Owned(content.to_owned()),
         })
     }
 }
