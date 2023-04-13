@@ -104,7 +104,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
 
-        exec(args, cwd, init, log_reload_handle, None)
+        exec(args, cwd, init, log_reload_handle)
     }
 
     main_with_result(init).report()

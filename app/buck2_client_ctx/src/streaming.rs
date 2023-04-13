@@ -48,7 +48,7 @@ fn default_subscribers<T: StreamingCommand>(
         console_opts.console_type,
         ctx.verbosity,
         show_waiting_message,
-        ctx.replay_speed,
+        None,
         root,
         console_opts.superconsole_config(),
         ctx.paths()?.isolation.clone(),
@@ -149,12 +149,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     },
                 };
 
-                let mut buckd = match (ctx.replayer.take(), ctx.start_in_process_daemon.take()) {
-                    (Some(replayer), _) => {
-                        connect_options.replay(replayer.into_inner(), ctx.paths()?)?
-                    }
-                    (None, None) => ctx.connect_buckd(connect_options).await?,
-                    (None, Some(start_in_process_daemon)) => {
+                let mut buckd = match ctx.start_in_process_daemon.take() {
+                    None => ctx.connect_buckd(connect_options).await?,
+                    Some(start_in_process_daemon) => {
                         // Start in-process daemon, wait until it is ready to accept connections.
                         start_in_process_daemon()?;
 

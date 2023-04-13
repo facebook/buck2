@@ -9,7 +9,6 @@
 
 use std::fs::create_dir_all;
 use std::fs::File;
-use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -44,24 +43,7 @@ use crate::subscribers::observer::ErrorCause;
 pub mod connect;
 pub mod kill;
 
-use crate::replayer::Replayer;
 use crate::startup_deadline::StartupDeadline;
-
-enum ClientKind {
-    Daemon(DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>),
-    Replayer(Pin<Box<Replayer>>),
-}
-
-impl ClientKind {
-    fn daemon_only_mut(
-        &mut self,
-    ) -> &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>> {
-        match self {
-            ClientKind::Daemon(daemon) => daemon,
-            ClientKind::Replayer(_) => panic!("Daemon only command called in replay mode!"),
-        }
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 enum LifecycleError {
@@ -156,7 +138,7 @@ impl Drop for BuckdLifecycleLock {
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
 pub struct BuckdClient {
-    client: ClientKind,
+    client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
@@ -206,23 +188,14 @@ fn grpc_to_stream(
 
 impl BuckdClient {
     fn open_tailers(&mut self) -> anyhow::Result<()> {
-        match &self.client {
-            ClientKind::Daemon(..) => {
-                let tailers = FileTailers::new(&self.daemon_dir)?;
-                self.tailers = Some(tailers);
-            }
-            ClientKind::Replayer(..) => {
-                // Don't open logs if replaying
-            }
-        }
+        let tailers = FileTailers::new(&self.daemon_dir)?;
+        self.tailers = Some(tailers);
 
         Ok(())
     }
 
     /// Some commands stream events back from the server.
     /// For these commands, we want to be able to manipulate CLI state.
-    ///
-    /// This command also does the heavy lifting to substitute the `Replayer` for an actual connection.
     async fn stream<'i, T, Res, Handler, Command>(
         &mut self,
         command: Command,
@@ -244,37 +217,24 @@ impl BuckdClient {
         let Self {
             client, events_ctx, ..
         } = self;
-        match client {
-            ClientKind::Daemon(ref mut daemon) => {
-                let response = command(daemon, Request::new(request))
-                    .await
-                    .context("Error dispatching request");
-                let stream = grpc_to_stream(response);
-                pin_mut!(stream);
-                events_ctx
-                    .unpack_stream(
-                        partial_result_handler,
-                        stream,
-                        self.tailers.take(),
-                        console_interaction,
-                    )
-                    .await
-            }
-            ClientKind::Replayer(ref mut replayer) => {
-                events_ctx
-                    .unpack_stream(
-                        partial_result_handler,
-                        replayer,
-                        self.tailers.take(),
-                        console_interaction,
-                    )
-                    .await
-            }
-        }
+
+        let response = command(client, Request::new(request))
+            .await
+            .context("Error dispatching request");
+        let stream = grpc_to_stream(response);
+        pin_mut!(stream);
+        events_ctx
+            .unpack_stream(
+                partial_result_handler,
+                stream,
+                self.tailers.take(),
+                console_interaction,
+            )
+            .await
     }
 
     pub async fn kill(&mut self, reason: &str) -> anyhow::Result<()> {
-        kill::kill(self.client.daemon_only_mut(), &self.info, reason).await
+        kill::kill(&mut self.client, &self.info, reason).await
     }
 
     pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
@@ -282,9 +242,7 @@ impl BuckdClient {
             .events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
             .unpack_oneshot(&mut self.tailers, || {
-                self.client
-                    .daemon_only_mut()
-                    .status(Request::new(StatusRequest { snapshot }))
+                self.client.status(Request::new(StatusRequest { snapshot }))
             })
             .await;
         // TODO(nmj): We have a number of things that wish to use status() and return an anyhow::Result,
@@ -299,10 +257,7 @@ impl BuckdClient {
     }
 
     pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> anyhow::Result<()> {
-        self.client
-            .daemon_only_mut()
-            .set_log_filter(Request::new(req))
-            .await?;
+        self.client.set_log_filter(Request::new(req)).await?;
 
         Ok(())
     }
@@ -441,10 +396,7 @@ macro_rules! oneshot_method {
                 .inner
                 .events_ctx
                 .unpack_oneshot(&mut self.inner.tailers, || {
-                    self.inner
-                        .client
-                        .daemon_only_mut()
-                        .$method(Request::new(req))
+                    self.inner.client.$method(Request::new(req))
                 })
                 .await;
             self.exit().await?;
@@ -462,12 +414,7 @@ macro_rules! debug_method {
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
         pub async fn $method(&mut self, req: $req) -> anyhow::Result<$res> {
             self.enter()?;
-            let out = self
-                .inner
-                .client
-                .daemon_only_mut()
-                .$method(Request::new(req))
-                .await;
+            let out = self.inner.client.$method(Request::new(req)).await;
             self.exit().await?;
             Ok(out?.into_inner())
         }

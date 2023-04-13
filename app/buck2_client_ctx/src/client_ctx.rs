@@ -28,7 +28,6 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
-use crate::replayer::Replayer;
 use crate::stdin::Stdin;
 use crate::tokio_runtime_setup::client_tokio_runtime;
 
@@ -59,9 +58,7 @@ pub struct ClientCommandContext {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
     pub working_dir: WorkingDir,
-    pub replayer: Option<sync_wrapper::SyncWrapper<Replayer>>,
     pub verbosity: Verbosity,
-    pub replay_speed: Option<f64>,
     pub process_context: ProcessContext,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started

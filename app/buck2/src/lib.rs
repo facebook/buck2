@@ -53,7 +53,6 @@ use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_ctx::ProcessContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -72,7 +71,6 @@ use clap::AppSettings;
 use clap::Parser;
 use dice::DetectCycles;
 use dice::WhichDice;
-use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;
@@ -187,7 +185,6 @@ impl Opt {
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-        replay: Option<(ProcessContext, Replayer, TraceId)>,
         argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
@@ -201,7 +198,6 @@ impl Opt {
             self.common_opts,
             init,
             log_reload_handle,
-            replay,
             argfiles_trace,
         )
     }
@@ -212,7 +208,6 @@ pub fn exec(
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-    replay: Option<(ProcessContext, Replayer, TraceId)>,
 ) -> ExitResult {
     let mut argfile_context = ArgExpansionContext::new(&working_dir);
     let mut expanded_args = expand_argfiles_with_context(args, &mut argfile_context)
@@ -247,7 +242,6 @@ pub fn exec(
         &matches,
         init,
         log_reload_handle,
-        replay,
         argfiles_trace,
     )
 }
@@ -307,7 +301,6 @@ impl CommandKind {
         common_opts: BeforeSubcommandOptions,
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
-        replay: Option<(ProcessContext, Replayer, TraceId)>,
         argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let init_ctx = common_opts.to_server_init_context();
@@ -327,22 +320,9 @@ impl CommandKind {
                 .into();
         }
 
-        let trace_id = match replay.as_ref() {
-            Some((_, _, trace_id)) => trace_id.dupe(),
-            None => TraceId::from_env_or_new()?,
-        };
+        let trace_id = TraceId::from_env_or_new()?;
 
-        let replay_speed = replay.as_ref().map(|(_, r, _)| r.speed());
-
-        let (process_context, _cleanup_drop_guard, replayer) = match replay {
-            Some((pctx, replayer, _)) => {
-                (pctx, None, Some(sync_wrapper::SyncWrapper::new(replayer)))
-            }
-            None => {
-                let (pctx, drop_guard) = ProcessContext::initialize()?;
-                (pctx, Some(drop_guard), None)
-            }
-        };
+        let (process_context, _cleanup_drop_guard) = ProcessContext::initialize()?;
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
@@ -392,8 +372,6 @@ impl CommandKind {
         let command_ctx = ClientCommandContext {
             init,
             paths,
-            replayer,
-            replay_speed,
             verbosity: common_opts.verbosity,
             process_context,
             start_in_process_daemon,
@@ -433,19 +411,7 @@ impl CommandKind {
             CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Debug(cmd) => cmd.exec(
-                matches,
-                command_ctx,
-                |args, cwd, process_context, replayer, trace_id| {
-                    exec(
-                        args,
-                        cwd,
-                        init,
-                        <dyn LogConfigurationReloadHandle>::noop(),
-                        Some((process_context, replayer, trace_id)),
-                    )
-                },
-            ),
+            CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),

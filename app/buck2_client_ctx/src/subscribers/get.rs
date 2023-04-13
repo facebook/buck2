@@ -110,10 +110,6 @@ pub(crate) fn try_get_event_log_subscriber(
     if event_log_opts.no_event_log {
         return Ok(None);
     }
-    if ctx.replayer.is_some() {
-        // We don't want to write logs when replaying command
-        return Ok(None);
-    }
     let logdir = ctx.paths()?.log_dir();
     let log = EventLog::new(
         logdir,
@@ -132,10 +128,6 @@ pub(crate) fn try_get_event_log_subscriber(
 pub(crate) fn try_get_re_log_subscriber(
     ctx: &ClientCommandContext,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    if ctx.replayer.is_some() {
-        // We don't want to upload logs when replaying command
-        return Ok(None);
-    }
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),

@@ -9,12 +9,8 @@
 
 use allocator_stats::AllocatorStatsCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::client_ctx::ProcessContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::streaming::BuckSubcommand;
-use buck2_core::fs::working_dir::WorkingDir;
-use buck2_wrapper_common::invocation_id::TraceId;
 use chrome_trace::ChromeTraceCommand;
 use crash::CrashCommand;
 use dice_dump::DiceDumpCommand;
@@ -111,23 +107,15 @@ pub enum DebugCommand {
     PersistEventLogs(PersistEventLogsCommand),
 }
 
-/// `cli::exec` function.
-pub trait ExecFn = FnOnce(Vec<String>, WorkingDir, ProcessContext, Replayer, TraceId) -> ExitResult;
-
 impl DebugCommand {
-    pub fn exec(
-        self,
-        matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
-        exec: impl ExecFn,
-    ) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Crash(cmd) => cmd.exec(matches, ctx),
             DebugCommand::HeapDump(cmd) => cmd.exec(matches, ctx),
             DebugCommand::AllocatorStats(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Replay(cmd) => cmd.exec(matches, ctx, exec),
+            DebugCommand::Replay(cmd) => cmd.exec(matches, ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
             DebugCommand::ChromeTrace(cmd) => cmd.exec(matches, ctx),
             DebugCommand::SegFault(cmd) => cmd.exec(matches, ctx),

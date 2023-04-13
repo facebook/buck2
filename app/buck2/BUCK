@@ -47,7 +47,6 @@ rust_library(
         "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:sync_wrapper",
         "fbsource//third-party/rust:termimad",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",

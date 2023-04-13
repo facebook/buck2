@@ -41,11 +41,9 @@ use crate::daemon::client::kill;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::BuckdLifecycleLock;
-use crate::daemon::client::ClientKind;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 use crate::daemon_constraints;
 use crate::events_ctx::EventsCtx;
-use crate::replayer::Replayer;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -428,7 +426,7 @@ impl BootstrapBuckdClient {
             client: BuckdClient {
                 info: self.info,
                 daemon_dir: self.daemon_dir,
-                client: ClientKind::Daemon(self.client),
+                client: self.client,
                 events_ctx: EventsCtx::new(subscribers),
                 tailers: None,
             },
@@ -494,29 +492,6 @@ impl BuckdConnectOptions {
     pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
         let client = BootstrapBuckdClient::connect(paths, self.constraints).await?;
         Ok(client.with_subscribers(self.subscribers))
-    }
-
-    pub fn replay(
-        self,
-        replayer: Replayer,
-        paths: &InvocationPaths,
-    ) -> anyhow::Result<BuckdClientConnector> {
-        let fake_info = DaemonProcessInfo {
-            pid: 0,
-            endpoint: "".to_owned(),
-            version: "".to_owned(),
-            auth_token: "".to_owned(),
-        };
-        let events_ctx = EventsCtx::new(self.subscribers);
-        let client = BuckdClient {
-            client: ClientKind::Replayer(Box::pin(replayer)),
-            events_ctx,
-            daemon_dir: paths.daemon_dir()?,
-            info: fake_info,
-            tailers: None,
-        };
-
-        Ok(BuckdClientConnector { client })
     }
 }
 

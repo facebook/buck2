@@ -18,7 +18,6 @@ use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 
-use crate::commands::debug::ExecFn;
 use crate::commands::log::options::EventLogOptions;
 
 #[derive(Debug, clap::Parser)]
@@ -48,12 +47,7 @@ pub struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
-        _exec: impl ExecFn,
-    ) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, mut ctx: ClientCommandContext) -> ExitResult {
         let Self {
             event_log,
             speed,
