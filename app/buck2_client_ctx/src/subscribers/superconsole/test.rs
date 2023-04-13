@@ -23,10 +23,9 @@ use superconsole::State;
 
 use crate::subscribers::superconsole::SessionInfo;
 
-#[derive(Debug)]
 struct TestCounterComponent;
 
-impl Component for TestCounterComponent {
+impl TestCounterComponent {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -111,7 +110,6 @@ impl Component for TestCounterComponent {
 }
 
 /// Draw the test summary line above the `timed_list`
-#[derive(Debug)]
 pub struct TestHeader;
 
 impl Component for TestHeader {
