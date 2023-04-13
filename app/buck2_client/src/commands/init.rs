@@ -118,6 +118,11 @@ fn exec_impl(
     set_up_project(&absolute, git, !cmd.no_prelude)
 }
 
+fn initialize_buckroot(repo_root: &Path) -> anyhow::Result<()> {
+    let _ = std::fs::File::create(repo_root.join(".buckroot"))?;
+    Ok(())
+}
+
 fn initialize_buckconfig(repo_root: &Path, prelude: bool) -> anyhow::Result<()> {
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[repositories]")?;
@@ -242,6 +247,7 @@ fn set_up_project(repo_root: &Path, git: bool, prelude: bool) -> anyhow::Result<
     }
 
     initialize_buckconfig(repo_root, prelude)?;
+    initialize_buckroot(repo_root)?;
     if prelude {
         let toolchains = repo_root.join("toolchains");
         if !toolchains.exists() {
