@@ -54,11 +54,6 @@ impl WhatUpCommand {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 
-        // Create space for a very big console
-        let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
-        components.push(Box::new(TimedList::new(&CUTOFFS, "")));
-        let console_root = Split::new(components, Direction::Vertical, SplitKind::Adaptive);
-
         let rt = client_tokio_runtime()?;
 
         rt.block_on(async move {
@@ -109,7 +104,7 @@ impl WhatUpCommand {
                     StreamValue::Result(result) => {
                         let result = StatefulSuperConsole::render_result_errors(&result);
                         super_console.emit(result);
-                        super_console.finalize(&console_root, &super_console_state.state())?;
+                        super_console.finalize(&Self::component(), &super_console_state.state())?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -117,7 +112,7 @@ impl WhatUpCommand {
             }
 
             super_console.finalize_with_mode(
-                &console_root,
+                &Self::component(),
                 &super_console_state.state(),
                 DrawMode::Normal,
             )?;
@@ -125,6 +120,13 @@ impl WhatUpCommand {
         })?;
 
         ExitResult::success()
+    }
+
+    fn component() -> impl Component {
+        // Create space for a very big console
+        let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
+        components.push(Box::new(TimedList::new(&CUTOFFS, "")));
+        Split::new(components, Direction::Vertical, SplitKind::Adaptive)
     }
 }
 
