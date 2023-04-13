@@ -19,7 +19,6 @@ use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
-use superconsole::State;
 
 use crate::subscribers::superconsole::SessionInfo;
 
@@ -28,15 +27,13 @@ struct TestCounterComponent;
 impl TestCounterComponent {
     fn draw_unchecked(
         &self,
-        state: &State,
+        test_state: &TestState,
         _dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         if matches!(mode, DrawMode::Final) {
             return Ok(Lines::new());
         }
-
-        let test_state = state.get::<TestState>()?;
 
         // TODO(brasselsprouts): use the outer try_into conversion on Lines.
 
@@ -110,18 +107,20 @@ impl TestCounterComponent {
 }
 
 /// Draw the test summary line above the `timed_list`
-pub(crate) struct TestHeader;
+pub(crate) struct TestHeader<'a> {
+    pub(crate) session_info: &'a SessionInfo,
+    pub(crate) test_state: &'a TestState,
+}
 
-impl Component for TestHeader {
+impl<'a> Component for TestHeader<'a> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let session_info = state.get::<SessionInfo>()?;
-        if session_info.test_session.is_some() {
-            TestCounterComponent.draw_unchecked(state, dimensions, mode)
+        if self.session_info.test_session.is_some() {
+            TestCounterComponent.draw_unchecked(self.test_state, dimensions, mode)
         } else {
             Ok(Lines::new())
         }
