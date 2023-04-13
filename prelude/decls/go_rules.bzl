@@ -135,9 +135,6 @@ go_binary = prelude_rule(
     docs = """
         A go\\_binary() rule builds a native executable from the supplied set of Go source files
          and dependencies. The files supplied are expected to be in the main package, implicitly.
-
-
-         Buck currently supports Go version 1.10.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
@@ -207,9 +204,6 @@ go_exported_library = prelude_rule(
     docs = """
         A go\\_exported\\_library() rule builds a C library from the supplied set of Go source files
          and dependencies. This is done via `-buildmode` flag and "//export" annotations in the code.
-
-
-         Buck currently supports Go version 1.10.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
@@ -296,9 +290,6 @@ go_library = prelude_rule(
     docs = """
         A go\\_library() rule builds a native library from the supplied set of Go source files
          and dependencies.
-
-
-         Buck currently supports Go version 1.10.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
@@ -349,9 +340,6 @@ go_test = prelude_rule(
          If your test requires static files you should specify these in
          the **resources** argument. If you do not specify these
          files, they won't be available when your test runs.
-
-
-         Buck currently supports Go version 1.10.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
@@ -480,9 +468,6 @@ prebuilt_go_library = prelude_rule(
     name = "prebuilt_go_library",
     docs = """
         A prebuilt\\_go\\_library() rule provides a native library from the specified file.
-
-
-         Buck currently supports Go version 1.10.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
