@@ -8,9 +8,7 @@
  */
 
 use std::borrow::Cow;
-use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Formatter;
 use std::io::Write;
 use std::iter;
 use std::sync::Arc;
@@ -87,7 +85,7 @@ pub struct StatefulSuperConsole {
     verbosity: Verbosity,
 }
 
-#[derive(Copy, Clone, Dupe)]
+#[derive(Copy, Clone, Dupe, Debug)]
 struct TimeSpeed {
     speed: f64,
 }
@@ -117,6 +115,7 @@ pub struct SuperConsoleState {
     config: SuperConsoleConfig,
 }
 
+#[derive(Clone)]
 pub struct SuperConsoleConfig {
     pub enable_dice: bool,
     pub enable_debug_events: bool,
@@ -148,12 +147,6 @@ pub struct BuckRootComponent {
     header: String,
 }
 
-impl Debug for BuckRootComponent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BuckRootComponent").finish_non_exhaustive()
-    }
-}
-
 impl Component for BuckRootComponent {
     fn draw_unchecked(
         &self,
@@ -161,6 +154,9 @@ impl Component for BuckRootComponent {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
+        // TODO(nga): store reference in self.
+        let super_console_state = state.get::<SuperConsoleState>()?;
+
         // bound all components to our recommended grapheme-width
         let dimensions = dimensions.intersect(Dimensions {
             width: SUPERCONSOLE_WIDTH,
@@ -176,7 +172,11 @@ impl Component for BuckRootComponent {
         draw.draw(&DiceComponent, state, mode)?;
         draw.draw(&StarlarkDebuggerComponent, state, mode)?;
         draw.draw(&CommandsComponent, state, mode)?;
-        draw.draw(&TimedList::new(&CUTOFFS, &self.header), state, mode)?;
+        draw.draw(
+            &TimedList::new(&CUTOFFS, &self.header, super_console_state),
+            state,
+            mode,
+        )?;
 
         Ok(draw.finish())
     }
@@ -349,6 +349,7 @@ impl SuperConsoleState {
         let observer = self.simple_console.observer();
 
         superconsole::state![
+            self,
             &self.config,
             &self.current_tick,
             &self.time_speed,

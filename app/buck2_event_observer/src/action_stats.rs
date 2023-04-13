@@ -9,6 +9,8 @@
 
 use std::fmt;
 
+use dupe::Dupe;
+
 use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::LastCommandExecutionKind;
 
@@ -21,7 +23,7 @@ use crate::last_command_execution_kind::LastCommandExecutionKind;
 /// that had its command run more than once (hence, using fallback to run).
 ///
 /// These stats only track executions/commands.
-#[derive(Default)]
+#[derive(Default, Clone, Dupe)]
 pub struct ActionStats {
     pub local_actions: u64,
     pub remote_actions: u64,

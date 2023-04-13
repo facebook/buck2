@@ -105,7 +105,10 @@ impl WhatUpCommand {
                     StreamValue::Result(result) => {
                         let result = StatefulSuperConsole::render_result_errors(&result);
                         super_console.emit(result);
-                        super_console.finalize(&Self::component(), &super_console_state.state())?;
+                        super_console.finalize(
+                            &Self::component(&super_console_state),
+                            &super_console_state.state(),
+                        )?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -113,7 +116,7 @@ impl WhatUpCommand {
             }
 
             super_console.finalize_with_mode(
-                &Self::component(),
+                &Self::component(&super_console_state),
                 &super_console_state.state(),
                 DrawMode::Normal,
             )?;
@@ -123,10 +126,12 @@ impl WhatUpCommand {
         ExitResult::success()
     }
 
-    fn component() -> impl Component {
-        struct ComponentImpl;
+    fn component<'a>(state: &'a SuperConsoleState) -> impl Component + 'a {
+        struct ComponentImpl<'a> {
+            state: &'a SuperConsoleState,
+        }
 
-        impl Component for ComponentImpl {
+        impl<'a> Component for ComponentImpl<'a> {
             fn draw_unchecked(
                 &self,
                 state: &State,
@@ -135,12 +140,12 @@ impl WhatUpCommand {
             ) -> anyhow::Result<Lines> {
                 let mut draw = DrawVertical::new(dimensions);
                 draw.draw(&SessionInfoComponent, state, mode)?;
-                draw.draw(&TimedList::new(&CUTOFFS, ""), state, mode)?;
+                draw.draw(&TimedList::new(&CUTOFFS, "", self.state), state, mode)?;
                 Ok(draw.finish())
             }
         }
 
-        ComponentImpl
+        ComponentImpl { state }
     }
 }
 

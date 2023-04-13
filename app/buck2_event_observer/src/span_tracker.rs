@@ -39,7 +39,7 @@ pub struct SpanInfo<T: SpanTrackable> {
     pub start: Instant,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Span<T: SpanTrackable> {
     span_id: <T as SpanTrackable>::Id,
     info: SpanInfo<T>,
@@ -130,6 +130,7 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
 /// Invariants:
 ///
 /// - A given Span is never in both roots and boring_roots.
+#[derive(Clone)]
 struct Roots<T: SpanTrackable> {
     roots: LinkedHashMap<<T as SpanTrackable>::Id, ()>,
     boring_roots: LinkedHashMap<<T as SpanTrackable>::Id, ()>,
@@ -233,6 +234,7 @@ impl<T> ExactSizeIterator for ExactSizeIteratorWrapper<T> where T: Iterator {}
 /// child, it'll be found in the `all` map.
 ///
 /// We also keep track of how many roots have ended.
+#[derive(Clone)]
 pub struct SpanTracker<T: SpanTrackable> {
     roots: Roots<T>,
     all: HashMap<<T as SpanTrackable>::Id, Span<T>>,

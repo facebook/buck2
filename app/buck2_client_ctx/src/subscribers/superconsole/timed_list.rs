@@ -11,7 +11,6 @@ use std::fmt::Write;
 use std::time::Duration;
 use std::time::Instant;
 
-use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
@@ -29,12 +28,10 @@ use superconsole::Span;
 use superconsole::State;
 
 use self::table_builder::Table;
-use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
-use crate::subscribers::superconsole::SuperConsoleConfig;
-use crate::subscribers::superconsole::TimeSpeed;
+use crate::subscribers::superconsole::SuperConsoleState;
 
 mod table_builder;
 
@@ -58,11 +55,12 @@ pub struct Cutoffs {
 
 struct TimedListBody<'c> {
     cutoffs: &'c Cutoffs,
+    state: &'c SuperConsoleState,
 }
 
-#[derive(Debug)]
 struct TimedListBodyInner<'c> {
     cutoffs: &'c Cutoffs,
+    state: &'c SuperConsoleState,
 }
 
 impl<'c> Component for TimedListBody<'c> {
@@ -74,6 +72,7 @@ impl<'c> Component for TimedListBody<'c> {
     ) -> anyhow::Result<Lines> {
         TimedListBodyInner {
             cutoffs: self.cutoffs,
+            state: self.state,
         }
         .draw(state, dimensions, mode)
     }
@@ -83,13 +82,12 @@ impl<'c> TimedListBodyInner<'c> {
     /// Render a root  as `root [first child + remaining children]`
     fn draw_root_first_child(
         &self,
-        state: &State,
         root: &BuckEventSpanHandle,
         single_child: BuckEventSpanHandle,
         remaining_children: usize,
         display_platform: bool,
     ) -> anyhow::Result<Row> {
-        let time_speed = state.get::<TimeSpeed>()?;
+        let time_speed = self.state.time_speed;
         let info = root.info();
         let child_info = single_child.info();
 
@@ -135,9 +133,9 @@ impl<'c> TimedListBodyInner<'c> {
         )
     }
 
-    fn draw_root(&self, root: &BuckEventSpanHandle, state: &State) -> anyhow::Result<Vec<Row>> {
-        let time_speed = state.get::<TimeSpeed>()?;
-        let config = state.get::<SuperConsoleConfig>()?;
+    fn draw_root(&self, root: &BuckEventSpanHandle) -> anyhow::Result<Vec<Row>> {
+        let time_speed = self.state.time_speed;
+        let config = &self.state.config;
         let two_lines = config.two_lines;
         let display_platform = config.display_platform;
         let info = root.info();
@@ -146,7 +144,6 @@ impl<'c> TimedListBodyInner<'c> {
 
         match it.next() {
             Some(first) if !two_lines => Ok(vec![self.draw_root_first_child(
-                state,
                 root,
                 first,
                 it.len(),
@@ -180,16 +177,16 @@ impl<'c> TimedListBodyInner<'c> {
 impl<'c> Component for TimedListBodyInner<'c> {
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
+        let config = &self.state.config;
         let max_lines = config.max_lines;
 
-        let spans = state.get::<BuckEventSpanTracker>()?;
+        let spans = self.state.simple_console.observer().spans();
 
-        let time_speed = state.get::<TimeSpeed>()?;
+        let time_speed = self.state.time_speed;
 
         let mut roots = spans.iter_roots();
 
@@ -198,7 +195,7 @@ impl<'c> Component for TimedListBodyInner<'c> {
         let mut first_not_rendered = None;
 
         for root in &mut roots {
-            let rows = self.draw_root(&root, state)?;
+            let rows = self.draw_root(&root)?;
 
             if builder.len() + rows.len() >= max_lines {
                 first_not_rendered = Some(root);
@@ -229,25 +226,26 @@ impl<'c> Component for TimedListBodyInner<'c> {
 }
 
 /// This component is used to display summary counts about the number of jobs.
-#[derive(Debug)]
-struct CountComponent;
+struct CountComponent<'s> {
+    state: &'s SuperConsoleState,
+}
 
-impl Component for CountComponent {
+impl<'s> Component for CountComponent<'s> {
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let spans = state.get::<BuckEventSpanTracker>()?;
-        let action_stats = state.get::<ActionStats>()?;
-        let time_speed = state.get::<TimeSpeed>()?;
+        let spans = self.state.simple_console.observer().spans();
+        let action_stats = self.state.simple_console.observer().action_stats();
+        let time_speed = self.state.time_speed;
 
         let finished = spans.roots_completed();
         let progress = spans.iter_roots().len();
 
         let elapsed = display::duration_as_secs_elapsed(
-            state.get::<Tick>()?.elapsed_time,
+            self.state.current_tick.elapsed_time,
             time_speed.speed(),
         );
 
@@ -293,8 +291,8 @@ impl Component for CountComponent {
 }
 
 /// Wrapper component for Header + Count
-#[derive(Debug)]
 struct TimedListHeader<'s> {
+    state: &'s SuperConsoleState,
     header: &'s str,
 }
 
@@ -308,7 +306,7 @@ impl<'s> Component for TimedListHeader<'s> {
         let info = StaticStringComponent {
             header: self.header,
         };
-        let header_split = HeaderLineComponent::new(info, CountComponent);
+        let header_split = HeaderLineComponent::new(info, CountComponent { state: self.state });
         let header_box = Bordered::new(
             header_split,
             BorderedSpec {
@@ -327,13 +325,18 @@ impl<'s> Component for TimedListHeader<'s> {
 pub struct TimedList<'a> {
     header: &'a str,
     cutoffs: &'a Cutoffs,
+    state: &'a SuperConsoleState,
 }
 
 impl<'a> TimedList<'a> {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
-    pub fn new(cutoffs: &'a Cutoffs, header: &'a str) -> Self {
-        Self { header, cutoffs }
+    pub fn new(cutoffs: &'a Cutoffs, header: &'a str, state: &'a SuperConsoleState) -> Self {
+        Self {
+            header,
+            cutoffs,
+            state,
+        }
     }
 }
 
@@ -344,15 +347,17 @@ impl<'a> Component for TimedList<'a> {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let span_tracker: &BuckEventSpanTracker = state.get()?;
+        let span_tracker: &BuckEventSpanTracker = self.state.simple_console.observer().spans();
 
         match mode {
             DrawMode::Normal if !span_tracker.is_unused() => {
                 let header = TimedListHeader {
                     header: self.header,
+                    state: self.state,
                 };
                 let body = TimedListBody {
                     cutoffs: self.cutoffs,
+                    state: self.state,
                 };
 
                 let mut draw = DrawVertical::new(dimensions);
@@ -361,7 +366,9 @@ impl<'a> Component for TimedList<'a> {
                 Ok(draw.finish())
             }
             // show a summary at the end
-            DrawMode::Final => CountComponent.draw(state, dimensions, DrawMode::Final),
+            DrawMode::Final => {
+                CountComponent { state: self.state }.draw(state, dimensions, DrawMode::Final)
+            }
             _ => Ok(Lines::new()),
         }
     }
@@ -372,15 +379,21 @@ mod tests {
     use std::sync::Arc;
     use std::time::UNIX_EPOCH;
 
+    use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
+    use buck2_event_observer::action_stats::ActionStats;
+    use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::span::SpanId;
     use buck2_events::BuckEvent;
     use buck2_wrapper_common::invocation_id::TraceId;
+    use dupe::Dupe;
     use superconsole::style::style;
 
     use super::*;
     use crate::subscribers::subscriber::Tick;
+    use crate::subscribers::superconsole::SuperConsoleConfig;
+    use crate::subscribers::superconsole::TimeSpeed;
 
     const CUTOFFS: Cutoffs = Cutoffs {
         inform: Duration::from_secs(2),
@@ -414,11 +427,33 @@ mod tests {
             .unwrap()
     }
 
+    fn super_console_state_for_test(
+        span_tracker: BuckEventSpanTracker,
+        action_stats: ActionStats,
+        tick: Tick,
+        time_speed: TimeSpeed,
+        timed_list_state: SuperConsoleConfig,
+    ) -> SuperConsoleState {
+        let mut state = SuperConsoleState::new(
+            None,
+            TraceId::null(),
+            FileNameBuf::unchecked_new("ignore"),
+            Verbosity::Default,
+            false,
+            timed_list_state,
+        )
+        .unwrap();
+        state.simple_console.observer.span_tracker = span_tracker;
+        state.simple_console.observer.action_stats = action_stats;
+        state.current_tick = tick;
+        state.time_speed = time_speed;
+        state
+    }
+
     #[test]
     fn test_normal() -> anyhow::Result<()> {
         let tick = Tick::now();
 
-        let timed_list = TimedList::new(&CUTOFFS, "test");
         let label = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
@@ -460,8 +495,13 @@ mod tests {
             ..Default::default()
         };
 
-        let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
+        let output = TimedList::new(
+            &CUTOFFS,
+            "test",
+            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
+        )
+        .draw(
+            &superconsole::State::new(),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -537,7 +577,6 @@ mod tests {
         }
 
         let time_speed = fake_time_speed();
-        let timed_list = TimedList::new(&CUTOFFS, "test");
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -550,8 +589,13 @@ mod tests {
             ..Default::default()
         };
 
-        let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
+        let output = TimedList::new(
+            &CUTOFFS,
+            "test",
+            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
+        )
+        .draw(
+            &superconsole::State::new(),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -583,8 +627,6 @@ mod tests {
         let tick = Tick::now();
 
         let parent = SpanId::new();
-
-        let timed_list = TimedList::new(&CUTOFFS, "test");
 
         let action = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
@@ -656,8 +698,19 @@ mod tests {
             ..Default::default()
         };
 
-        let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
+        let output = TimedList::new(
+            &CUTOFFS,
+            "test",
+            &super_console_state_for_test(
+                state.clone(),
+                action_stats.dupe(),
+                tick.dupe(),
+                time_speed,
+                timed_list_state.clone(),
+            ),
+        )
+        .draw(
+            &superconsole::State::new(),
             Dimensions {
                 width: 80,
                 height: 10,
@@ -711,8 +764,13 @@ mod tests {
 
         state.start_at(&re_download, fake_time(&tick, 2)).unwrap();
 
-        let output = timed_list.draw(
-            &superconsole::state!(&state, &tick, &time_speed, &action_stats, &timed_list_state),
+        let output = TimedList::new(
+            &CUTOFFS,
+            "test",
+            &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
+        )
+        .draw(
+            &superconsole::State::new(),
             Dimensions {
                 width: 80,
                 height: 10,

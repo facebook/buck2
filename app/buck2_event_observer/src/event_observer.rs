@@ -26,8 +26,8 @@ use crate::test_state::TestState;
 use crate::two_snapshots::TwoSnapshots;
 
 pub struct EventObserver<E> {
-    span_tracker: BuckEventSpanTracker,
-    action_stats: ActionStats,
+    pub span_tracker: BuckEventSpanTracker,
+    pub action_stats: ActionStats,
     re_state: ReState,
     two_snapshots: TwoSnapshots, // NOTE: We got many more copies of this than we should.
     session_info: SessionInfo,

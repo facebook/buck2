@@ -146,7 +146,7 @@ pub(crate) struct SimpleConsole<E> {
     verbosity: Verbosity,
     // Whether to show "Waiting for daemon..." when no root spans are received
     show_waiting_message: bool,
-    observer: EventObserver<E>,
+    pub(crate) observer: EventObserver<E>,
     action_errors: Vec<ActionError>,
     last_print_time: Instant,
     last_had_open_spans: Instant, // Used to detect hangs
