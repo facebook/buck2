@@ -25,11 +25,6 @@ pub(crate) struct HeaderLineComponent {
 
 impl HeaderLineComponent {
     pub(crate) fn new(lhs: Box<dyn Component + Send>, rhs: Box<dyn Component + Send>) -> Self {
-        let rhs = Box::new(Aligned {
-            child: rhs,
-            horizontal: HorizontalAlignmentKind::Right,
-            vertical: VerticalAlignmentKind::Top,
-        });
         HeaderLineComponent { lhs, rhs }
     }
 }
@@ -43,7 +38,15 @@ impl Component for HeaderLineComponent {
     ) -> anyhow::Result<Lines> {
         let mut draw = DrawHorizontal::new(dimensions);
         draw.draw(&*self.lhs, state, mode)?;
-        draw.draw(&*self.rhs, state, mode)?;
+        draw.draw(
+            &Aligned {
+                child: &self.rhs,
+                horizontal: HorizontalAlignmentKind::Right,
+                vertical: VerticalAlignmentKind::Top,
+            },
+            state,
+            mode,
+        )?;
         Ok(draw.finish())
     }
 }
