@@ -258,8 +258,8 @@ mod os_specific {
         };
 
         if result != 0 {
-            // It stores 100 ns intervals, multiple by 100 to get proper nanoseconds.
-            // u64 will run out approximately in the year of 2185 :)
+            // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
+            // proper nanoseconds. The u64 type will overflow around the year 2185.
             let intervals = ((creation_time.dwHighDateTime as u64) << 32)
                 | (creation_time.dwLowDateTime as u64);
             Some(Duration::from_nanos(intervals * 100))
