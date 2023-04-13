@@ -21,8 +21,8 @@ use crate::State;
 ///
 /// Content is truncated preferentially over padding.
 #[derive(Debug)]
-pub struct Padded {
-    pub child: Box<dyn Component>,
+pub struct Padded<C: Component = Box<dyn Component>> {
+    pub child: C,
     pub left: usize,
     pub right: usize,
     pub top: usize,
@@ -41,14 +41,8 @@ impl Default for Padded {
     }
 }
 
-impl Padded {
-    pub fn new(
-        child: Box<dyn Component>,
-        left: usize,
-        right: usize,
-        top: usize,
-        bottom: usize,
-    ) -> Self {
+impl<C: Component> Padded<C> {
+    pub fn new(child: C, left: usize, right: usize, top: usize, bottom: usize) -> Self {
         Self {
             child,
             left,
@@ -59,7 +53,7 @@ impl Padded {
     }
 }
 
-impl Component for Padded {
+impl<C: Component> Component for Padded<C> {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -105,7 +99,9 @@ mod tests {
         let padder = Padded {
             child: Box::new(Echo::<Msg>::new(false)),
             left: 5,
-            ..Default::default()
+            right: 0,
+            top: 0,
+            bottom: 0,
         };
         let mut state = State::new();
         let msg = Msg(Lines(vec![
@@ -133,7 +129,9 @@ mod tests {
         let padder = Padded {
             child: Box::new(Echo::<Msg>::new(false)),
             right: 4,
-            ..Default::default()
+            left: 0,
+            top: 0,
+            bottom: 0,
         };
         let mut state = State::new();
         let msg = Msg(Lines(vec![
@@ -159,7 +157,9 @@ mod tests {
         let padder = Padded {
             child: Box::new(Echo::<Msg>::new(false)),
             top: 5,
-            ..Default::default()
+            bottom: 0,
+            left: 0,
+            right: 0,
         };
         let mut state = State::new();
         let msg = Msg(Lines(vec![
@@ -191,7 +191,9 @@ mod tests {
         let padder = Padded {
             child: Box::new(Echo::<Msg>::new(false)),
             bottom: 5,
-            ..Default::default()
+            top: 0,
+            left: 0,
+            right: 0,
         };
         let mut state = State::new();
         let msg = Msg(Lines(vec![
@@ -222,7 +224,10 @@ mod tests {
     fn test_no_pad() {
         let padder = Padded {
             child: Box::new(Echo::<Msg>::new(false)),
-            ..Default::default()
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
         };
         let mut state = State::new();
         let msg = Msg(Lines(vec![

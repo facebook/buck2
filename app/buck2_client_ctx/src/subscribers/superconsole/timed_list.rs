@@ -305,7 +305,7 @@ impl TimedListHeader {
         let info = Box::new(StaticStringComponent { header });
         let count = Box::new(CountComponent);
         let header_split = Box::new(HeaderLineComponent::new(info, count));
-        let header_box = Bordered::new(
+        let header_box = Bordered::<Box<dyn Component>>::new(
             header_split,
             BorderedSpec {
                 bottom: Some(Span::sanitized("-")),

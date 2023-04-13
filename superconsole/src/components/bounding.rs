@@ -15,13 +15,13 @@ use crate::State;
 
 /// Component that ensures its child component has at most `max_size` render space.
 #[derive(Debug)]
-pub struct Bounded {
-    child: Box<dyn Component>,
+pub struct Bounded<C: Component = Box<dyn Component>> {
+    child: C,
     max_size: Dimensions,
 }
 
-impl Bounded {
-    pub fn new(child: Box<dyn Component>, max_x: Option<usize>, max_y: Option<usize>) -> Self {
+impl<C: Component> Bounded<C> {
+    pub fn new(child: C, max_x: Option<usize>, max_y: Option<usize>) -> Self {
         Self {
             child,
             max_size: Dimensions {
@@ -32,7 +32,7 @@ impl Bounded {
     }
 }
 
-impl Component for Bounded {
+impl<C: Component> Component for Bounded<C> {
     fn draw_unchecked(
         &self,
         state: &State,

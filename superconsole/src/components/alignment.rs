@@ -46,16 +46,16 @@ pub enum HorizontalAlignmentKind {
 /// The [`HorizontalAlignmentKind`](HorizontalAlignmentKind) enum specifies the location relative to the x-axis.
 /// The [`VerticalAlignmentKind`](VerticalAlignmentKind) enum specified the location relative to the y-axis.
 #[derive(Debug)]
-pub struct Aligned {
-    pub child: Box<dyn Component>,
+pub struct Aligned<C: Component = Box<dyn Component>> {
+    pub child: C,
     pub horizontal: HorizontalAlignmentKind,
     pub vertical: VerticalAlignmentKind,
 }
 
-impl Aligned {
+impl<C: Component> Aligned<C> {
     /// Creates a new `Alignment` component with the given alignments.
     pub fn new(
-        child: Box<dyn Component>,
+        child: C,
         horizontal: HorizontalAlignmentKind,
         vertical: VerticalAlignmentKind,
     ) -> Self {
@@ -77,7 +77,7 @@ impl Default for Aligned {
     }
 }
 
-impl Component for Aligned {
+impl<C: Component> Component for Aligned<C> {
     fn draw_unchecked(
         &self,
         state: &State,

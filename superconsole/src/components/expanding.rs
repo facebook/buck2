@@ -16,13 +16,13 @@ use crate::Lines;
 /// A `Component` which refuses to shrink below it's previous maximum size.
 /// Notably, this component implicitly pads to a rectangle for simplicity.
 #[derive(Debug)]
-pub struct Expanding {
-    child: Box<dyn Component>,
+pub struct Expanding<C: Component = Box<dyn Component>> {
+    child: C,
     maximum: Cell<Dimensions>,
 }
 
-impl Expanding {
-    pub fn new(child: Box<dyn Component>) -> Self {
+impl<C: Component> Expanding<C> {
+    pub fn new(child: C) -> Self {
         Self {
             child,
             maximum: Cell::default(),
@@ -30,7 +30,7 @@ impl Expanding {
     }
 }
 
-impl Component for Expanding {
+impl<C: Component> Component for Expanding<C> {
     fn draw_unchecked(
         &self,
         state: &crate::State,

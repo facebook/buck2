@@ -8,6 +8,7 @@
  */
 
 use crate::components::alignment::HorizontalAlignmentKind;
+use crate::components::alignment::VerticalAlignmentKind;
 use crate::components::Aligned;
 use crate::Component;
 use crate::Dimensions;
@@ -35,8 +36,8 @@ use crate::State;
 /// @@@@@@@@@@@@@@@@@@@@@
 /// // rest of the output
 #[derive(Debug)]
-pub struct Bordered {
-    child: Aligned,
+pub struct Bordered<C: Component = Box<dyn Component>> {
+    child: Aligned<C>,
     pub border: BorderedSpec,
 }
 
@@ -66,13 +67,13 @@ impl Default for BorderedSpec {
     }
 }
 
-impl Bordered {
-    pub fn new(child: Box<dyn Component>, border: BorderedSpec) -> Self {
+impl<C: Component> Bordered<C> {
+    pub fn new(child: C, border: BorderedSpec) -> Self {
         Self {
             child: Aligned {
                 child,
                 horizontal: HorizontalAlignmentKind::Left(true),
-                ..Default::default()
+                vertical: VerticalAlignmentKind::Top,
             },
             border,
         }
@@ -93,7 +94,7 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
         .collect()
 }
 
-impl Component for Bordered {
+impl<C: Component> Component for Bordered<C> {
     fn draw_unchecked(
         &self,
         state: &State,
