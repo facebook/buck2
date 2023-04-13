@@ -111,13 +111,8 @@ impl Component for TestCounterComponent {
 }
 
 /// Draw the test summary line above the `timed_list`
-pub struct TestHeader(Box<dyn Component + Send>);
-
-impl TestHeader {
-    pub fn new() -> Self {
-        Self(Box::new(TestCounterComponent))
-    }
-}
+#[derive(Debug)]
+pub struct TestHeader;
 
 impl Component for TestHeader {
     fn draw_unchecked(
@@ -128,7 +123,7 @@ impl Component for TestHeader {
     ) -> anyhow::Result<superconsole::Lines> {
         let session_info = state.get::<SessionInfo>()?;
         if session_info.test_session.is_some() {
-            self.0.draw_unchecked(state, dimensions, mode)
+            TestCounterComponent.draw_unchecked(state, dimensions, mode)
         } else {
             Ok(Lines::new())
         }

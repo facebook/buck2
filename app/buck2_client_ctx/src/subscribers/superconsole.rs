@@ -58,6 +58,7 @@ use crate::subscribers::superconsole::debugger::StarlarkDebuggerComponent;
 use crate::subscribers::superconsole::dice::DiceComponent;
 use crate::subscribers::superconsole::io::IoHeader;
 use crate::subscribers::superconsole::re::ReHeader;
+use crate::subscribers::superconsole::test::TestHeader;
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 use crate::subscribers::superconsole::timed_list::TimedList;
 
@@ -144,7 +145,6 @@ impl Default for SuperConsoleConfig {
 }
 
 pub(crate) struct BuckRootComponent {
-    sandwiched: Option<Box<dyn Component + Send>>,
     timed_list: TimedList,
 }
 
@@ -171,9 +171,7 @@ impl Component for BuckRootComponent {
         draw.draw(&SessionInfoComponent, state, mode)?;
         draw.draw(&ReHeader, state, mode)?;
         draw.draw(&IoHeader, state, mode)?;
-        if let Some(sandwiched) = &self.sandwiched {
-            draw.draw(&**sandwiched, state, mode)?;
-        }
+        draw.draw(&TestHeader, state, mode)?;
         draw.draw(&DebugEventsComponent, state, mode)?;
         draw.draw(&DiceComponent, state, mode)?;
         draw.draw(&StarlarkDebuggerComponent, state, mode)?;
@@ -185,13 +183,9 @@ impl Component for BuckRootComponent {
 }
 
 impl StatefulSuperConsole {
-    pub(crate) fn default_layout(
-        command_name: &str,
-        sandwiched: Option<Box<dyn Component + Send>>,
-    ) -> BuckRootComponent {
+    pub(crate) fn default_layout(command_name: &str) -> BuckRootComponent {
         let header = format!("Command: `{}`.", command_name);
         BuckRootComponent {
-            sandwiched,
             timed_list: TimedList::new(CUTOFFS, header),
         }
     }
@@ -913,7 +907,7 @@ mod tests {
         let trace_id = TraceId::new();
         let mut console = StatefulSuperConsole::new_with_root_forced(
             trace_id.dupe(),
-            StatefulSuperConsole::default_layout("test", None),
+            StatefulSuperConsole::default_layout("test"),
             Verbosity::Default,
             true,
             None,
@@ -977,7 +971,7 @@ mod tests {
         let now = SystemTime::now();
         let tick = Tick::now();
 
-        let root = StatefulSuperConsole::default_layout("build", None);
+        let root = StatefulSuperConsole::default_layout("build");
         let mut console = StatefulSuperConsole::new(
             root,
             trace_id.dupe(),

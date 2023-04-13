@@ -39,8 +39,7 @@ fn default_subscribers<T: StreamingCommand>(
 ) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
-    let root =
-        StatefulSuperConsole::default_layout(T::COMMAND_NAME, cmd.extra_superconsole_component());
+    let root = StatefulSuperConsole::default_layout(T::COMMAND_NAME);
 
     let show_waiting_message = cmd.should_show_waiting_message();
 

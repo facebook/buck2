@@ -24,7 +24,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::StylizedCount;
-use buck2_client_ctx::subscribers::superconsole::test::TestHeader;
 use crossterm::style::Color;
 use gazebo::prelude::*;
 
@@ -255,9 +254,5 @@ impl StreamingCommand for TestCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_opts.config_opts
-    }
-
-    fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component + Send>> {
-        Some(Box::new(TestHeader::new()))
     }
 }
