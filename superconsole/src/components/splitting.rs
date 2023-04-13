@@ -62,9 +62,9 @@ impl SplitKind {
 }
 
 impl InternalSplitKind {
-    pub fn draw<'a>(
+    pub fn draw<'a, C: Component + 'a>(
         &self,
-        children: impl IntoIterator<Item = &'a dyn Component>,
+        children: impl IntoIterator<Item = &'a C>,
         direction: Direction,
         state: &State,
         dimensions: Dimensions,
@@ -116,13 +116,13 @@ impl InternalSplitKind {
 
 /// [`Splits`](SplitKind) along a given [`direction`](crate::Direction) for its child [`components`](Component).
 /// Child components are truncated to the bounds passed to them.
-pub struct Split {
-    children: Vec<Box<dyn Component>>,
+pub struct Split<C = Box<dyn Component>> {
+    children: Vec<C>,
     direction: Direction,
     split: InternalSplitKind,
 }
 
-impl Debug for Split {
+impl<C> Debug for Split<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Split")
             .field("children", &self.children.len())
@@ -132,12 +132,12 @@ impl Debug for Split {
     }
 }
 
-impl Split {
+impl<C: Component> Split<C> {
     /// Preconditions:
     /// * At least one child.
     /// * If Sized, then ratios must sum to approximately 1.
     /// * If Sized, then there must be as many ratios as components
-    pub fn new(children: Vec<Box<dyn Component>>, direction: Direction, split: SplitKind) -> Self {
+    pub fn new(children: Vec<C>, direction: Direction, split: SplitKind) -> Self {
         let split = split.to_internal_split_kind(children.len());
 
         Self {
@@ -148,20 +148,16 @@ impl Split {
     }
 }
 
-impl Component for Split {
+impl<C: Component> Component for Split<C> {
     fn draw_unchecked(
         &self,
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let outputs = self.split.draw(
-            self.children.iter().map(|c| &**c),
-            self.direction,
-            state,
-            dimensions,
-            mode,
-        )?;
+        let outputs = self
+            .split
+            .draw(&self.children, self.direction, state, dimensions, mode)?;
 
         Ok(match self.direction {
             Direction::Horizontal => Lines::join_horizontally(outputs),
@@ -316,7 +312,7 @@ mod tests {
 
         #[test]
         fn test_many_sized() {
-            let splitter = Split::new(
+            let splitter = Split::<Box<dyn Component>>::new(
                 vec![
                     Box::new(Echo::<Echo1>::new(false)),
                     Box::new(Echo::<Echo2>::new(false)),
@@ -418,7 +414,7 @@ mod tests {
 
         #[test]
         fn test_many_sized() {
-            let splitter = Split::new(
+            let splitter = Split::<Box<dyn Component>>::new(
                 vec![
                     Box::new(Echo::<Echo1>::new(false)),
                     Box::new(Echo::<Echo2>::new(false)),
@@ -477,7 +473,7 @@ mod tests {
 
         #[test]
         fn test_no_children() {
-            let lines = Split::new(vec![], Direction::Horizontal, SplitKind::Equal)
+            let lines = Split::<Blank>::new(vec![], Direction::Horizontal, SplitKind::Equal)
                 .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert!(lines.is_empty());
