@@ -8,7 +8,6 @@
  */
 
 use async_trait::async_trait;
-use buck2_cli_proto::daemon_constraints::TraceIoState;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Either;
@@ -21,6 +20,7 @@ use crate::common::CommonDaemonCommandOptions;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
+use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
@@ -99,8 +99,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
         false
     }
 
-    fn trace_io(&self) -> TraceIoState {
-        TraceIoState::Existing
+    fn trace_io(&self) -> DesiredTraceIoState {
+        DesiredTraceIoState::Existing
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions;

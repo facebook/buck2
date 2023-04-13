@@ -27,16 +27,22 @@ message DaemonProcessInfo {
 
 // Controls whether we will use a given daemon or not.
 message DaemonConstraints {
-  enum TraceIoState {
-    DISABLED = 0;
-    ENABLED = 1;
-    EXISTING = 2;
-  }
+  reserved 3;
 
   string version = 1;
   optional string user_version = 2;
-  TraceIoState trace_io_state = 3;
   string daemon_id = 4;
+
+  // This is optional because the daemon might not actually have started
+  // successfully, in which case it'll be null. If that happens, the client
+  // should just proceed with that daemon and they'll get an error later.
+  optional ExtraDaemonConstraints extra = 5;
+}
+
+// This represents additional daemon constraints that we can emit only if the
+// daemon is actually running.
+message ExtraDaemonConstraints {
+  bool trace_io_enabled = 1;
 }
 
 message KillRequest {

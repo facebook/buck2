@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
-use buck2_cli_proto::daemon_constraints::TraceIoState;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
@@ -25,6 +24,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
 use buck2_util::process::async_background_command;
+use dupe::Dupe;
 use futures::future::try_join3;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -70,15 +70,15 @@ impl ConstraintCheckResult {
 pub struct DaemonConstraintsRequest {
     version: String,
     user_version: Option<String>,
-    trace_io_state: TraceIoState,
+    desired_trace_io_state: DesiredTraceIoState,
 }
 
 impl DaemonConstraintsRequest {
-    pub fn new(trace_io_state: TraceIoState) -> anyhow::Result<Self> {
+    pub fn new(desired_trace_io_state: DesiredTraceIoState) -> anyhow::Result<Self> {
         Ok(Self {
             version: daemon_constraints::version(),
             user_version: daemon_constraints::user_version()?,
-            trace_io_state,
+            desired_trace_io_state,
         })
     }
 
@@ -91,22 +91,29 @@ impl DaemonConstraintsRequest {
             return Ok(false);
         }
 
-        // TraceIoState is tri-state logic: enabled, disabled, don't care. They are only
-        // unequal if one value is enabled and the other is disabled.
-        //
-        // This is critical for ensuring the daemon doesn't restart on subsequent
-        // invocations after enabling tracing I/O.
-        let daemon_trace_io_state =
-            TraceIoState::from_i32(daemon.trace_io_state).context("Invalid TraceIoState")?;
+        // At this point, if ExtraDaemonConstraints is missing, we'll reuse the daemon (as that
+        // means it failed to start), if not we proceed to check further constraints.
 
-        match (self.trace_io_state, daemon_trace_io_state) {
-            (TraceIoState::Enabled, TraceIoState::Disabled) => return Ok(false),
-            (TraceIoState::Disabled, TraceIoState::Enabled) => return Ok(false),
+        let extra = match &daemon.extra {
+            Some(e) => e,
+            None => return Ok(true),
+        };
+
+        match (self.desired_trace_io_state, extra.trace_io_enabled) {
+            (DesiredTraceIoState::Enabled, false) => return Ok(false),
+            (DesiredTraceIoState::Disabled, true) => return Ok(false),
             _ => {}
         }
 
         Ok(true)
     }
+}
+
+#[derive(Debug, Clone, Copy, Dupe)]
+pub enum DesiredTraceIoState {
+    Enabled,
+    Disabled,
+    Existing,
 }
 
 pub enum BuckdConnectConstraints {
@@ -140,7 +147,10 @@ impl BuckdConnectConstraints {
 
     pub fn is_trace_io_requested(&self) -> bool {
         if let Self::Constraints(constraints) = self {
-            matches!(constraints.trace_io_state, TraceIoState::Enabled)
+            matches!(
+                constraints.desired_trace_io_state,
+                DesiredTraceIoState::Enabled
+            )
         } else {
             false
         }
@@ -700,57 +710,57 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
 mod tests {
     use super::*;
 
-    fn constraints(state: TraceIoState) -> buck2_cli_proto::DaemonConstraints {
+    fn constraints(trace_io_enabled: bool) -> buck2_cli_proto::DaemonConstraints {
         buck2_cli_proto::DaemonConstraints {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
-            trace_io_state: state.into(),
             daemon_id: "foo".to_owned(),
+            extra: Some(buck2_cli_proto::ExtraDaemonConstraints { trace_io_enabled }),
         }
     }
 
-    fn request(state: TraceIoState) -> BuckdConnectConstraints {
+    fn request(desired_trace_io_state: DesiredTraceIoState) -> BuckdConnectConstraints {
         BuckdConnectConstraints::Constraints(DaemonConstraintsRequest {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
-            trace_io_state: state,
+            desired_trace_io_state,
         })
     }
 
     #[test]
     fn test_constraints_equal_for_existing_only() {
         let req = BuckdConnectConstraints::ExistingOnly;
-        let daemon = constraints(TraceIoState::Enabled);
+        let daemon = constraints(true);
         assert!(req.satisfied(&daemon).unwrap().is_match());
     }
 
     #[test]
     fn test_constraints_equal_for_same_constraints() {
-        let req = request(TraceIoState::Enabled);
-        let daemon = constraints(TraceIoState::Enabled);
+        let req = request(DesiredTraceIoState::Enabled);
+        let daemon = constraints(true);
         assert!(req.satisfied(&daemon).unwrap().is_match());
     }
 
     #[test]
     fn test_constraints_equal_for_trace_io_existing() {
-        let req = request(TraceIoState::Existing);
-        let daemon = constraints(TraceIoState::Enabled);
+        let req = request(DesiredTraceIoState::Existing);
+        let daemon = constraints(true);
         assert!(req.satisfied(&daemon).unwrap().is_match());
     }
 
     #[test]
     fn test_constraints_unequal_for_trace_io() {
-        let req = request(TraceIoState::Disabled);
-        let daemon = constraints(TraceIoState::Enabled);
+        let req = request(DesiredTraceIoState::Disabled);
+        let daemon = constraints(true);
         assert!(!req.satisfied(&daemon).unwrap().is_match());
     }
 
     #[test]
     fn test_trace_io_is_enabled() {
-        let c = request(TraceIoState::Enabled);
+        let c = request(DesiredTraceIoState::Enabled);
         assert!(c.is_trace_io_requested());
 
-        let c = request(TraceIoState::Disabled);
+        let c = request(DesiredTraceIoState::Disabled);
         assert!(!c.is_trace_io_requested());
     }
 }

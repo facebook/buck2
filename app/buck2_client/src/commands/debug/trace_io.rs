@@ -11,7 +11,6 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_cli_proto::daemon_constraints::TraceIoState;
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::TraceIoRequest;
 use buck2_cli_proto::TraceIoResponse;
@@ -20,6 +19,7 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
+use buck2_client_ctx::daemon::client::connect::DesiredTraceIoState;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -145,11 +145,11 @@ impl StreamingCommand for TraceIoCommand {
     }
 
     /// Results in a daemon restart if tracing is not already enabled.
-    fn trace_io(&self) -> TraceIoState {
+    fn trace_io(&self) -> DesiredTraceIoState {
         match self.trace_io_action {
-            Subcommand::Enable => TraceIoState::Enabled,
-            Subcommand::Disable => TraceIoState::Disabled,
-            _ => TraceIoState::Existing,
+            Subcommand::Enable => DesiredTraceIoState::Enabled,
+            Subcommand::Disable => DesiredTraceIoState::Disabled,
+            _ => DesiredTraceIoState::Existing,
         }
     }
 
