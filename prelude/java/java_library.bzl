@@ -636,7 +636,7 @@ def build_java_library(
     )
 
     class_to_srcs = None
-    if outputs != None:
+    if not ctx.attrs._is_building_android_binary and outputs != None:
         class_to_srcs = create_class_to_source_map_from_jar(
             actions = ctx.actions,
             java_toolchain = java_toolchain,
