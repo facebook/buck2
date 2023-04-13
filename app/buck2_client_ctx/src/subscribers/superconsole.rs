@@ -162,7 +162,13 @@ impl<'s> Component for BuckRootComponent<'s> {
         });
 
         let mut draw = DrawVertical::new(dimensions);
-        draw.draw(&SessionInfoComponent, state, mode)?;
+        draw.draw(
+            &SessionInfoComponent {
+                session_info: self.state.session_info(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(&ReHeader, state, mode)?;
         draw.draw(&IoHeader, state, mode)?;
         draw.draw(&TestHeader, state, mode)?;
@@ -363,6 +369,10 @@ impl SuperConsoleState {
             observer.extra().debug_events(),
             observer.starlark_debugger_state(),
         ]
+    }
+
+    pub fn session_info(&self) -> &SessionInfo {
+        self.simple_console.observer.session_info()
     }
 }
 
@@ -837,73 +847,67 @@ fn color(color: Color) -> ContentStyle {
 }
 
 /// This component is used to display session information for a command e.g. RE session ID
-#[derive(Debug)]
-pub struct SessionInfoComponent;
+pub struct SessionInfoComponent<'s> {
+    pub session_info: &'s SessionInfo,
+}
 
-impl Component for SessionInfoComponent {
+impl<'s> Component for SessionInfoComponent<'s> {
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        match state.get::<SessionInfo>() {
-            Ok(session_info) => {
-                let mut headers = Lines::new();
-                let mut ids = vec![];
-                if cfg!(fbcode_build) {
-                    headers.push(Line::unstyled("Buck UI:")?);
-                    ids.push(Span::new_unstyled(format!(
-                        "https://www.internalfb.com/buck2/{}",
-                        session_info.trace_id
-                    ))?);
-                } else {
-                    headers.push(Line::unstyled("Build ID:")?);
-                    ids.push(Span::new_unstyled(&session_info.trace_id)?);
-                }
-                if let Some(buck2_data::TestSessionInfo { info }) = &session_info.test_session {
-                    headers.push(Line::unstyled("Test UI:")?);
-                    ids.push(Span::new_unstyled(info)?);
-                }
-                // pad all headers to the max width.
-                headers.justify();
-                headers.pad_lines_right(1);
-
-                let max_len = headers
-                    .iter()
-                    .zip(ids.iter())
-                    .map(|(header, id)| header.len() + id.len())
-                    .max()
-                    .unwrap_or(0);
-
-                let lines = if max_len > dimensions.width {
-                    headers
-                        .into_iter()
-                        .zip(ids.into_iter())
-                        .flat_map(|(header, id)| {
-                            iter::once(header).chain(iter::once(Line(vec![id])))
-                        })
-                        .collect()
-                } else {
-                    headers
-                        .iter_mut()
-                        .zip(ids.into_iter())
-                        .for_each(|(header, id)| header.0.push(id));
-                    headers
-                };
-
-                let max_len = lines.iter().map(|line| line.len()).max().unwrap_or(0);
-
-                Ok(if max_len > dimensions.width {
-                    Lines(vec![Line::unstyled(
-                        "<Terminal too small for build details>",
-                    )?])
-                } else {
-                    lines
-                })
-            }
-            Err(_) => Ok(Lines::new()),
+        let mut headers = Lines::new();
+        let mut ids = vec![];
+        if cfg!(fbcode_build) {
+            headers.push(Line::unstyled("Buck UI:")?);
+            ids.push(Span::new_unstyled(format!(
+                "https://www.internalfb.com/buck2/{}",
+                self.session_info.trace_id
+            ))?);
+        } else {
+            headers.push(Line::unstyled("Build ID:")?);
+            ids.push(Span::new_unstyled(&self.session_info.trace_id)?);
         }
+        if let Some(buck2_data::TestSessionInfo { info }) = &self.session_info.test_session {
+            headers.push(Line::unstyled("Test UI:")?);
+            ids.push(Span::new_unstyled(info)?);
+        }
+        // pad all headers to the max width.
+        headers.justify();
+        headers.pad_lines_right(1);
+
+        let max_len = headers
+            .iter()
+            .zip(ids.iter())
+            .map(|(header, id)| header.len() + id.len())
+            .max()
+            .unwrap_or(0);
+
+        let lines = if max_len > dimensions.width {
+            headers
+                .into_iter()
+                .zip(ids.into_iter())
+                .flat_map(|(header, id)| iter::once(header).chain(iter::once(Line(vec![id]))))
+                .collect()
+        } else {
+            headers
+                .iter_mut()
+                .zip(ids.into_iter())
+                .for_each(|(header, id)| header.0.push(id));
+            headers
+        };
+
+        let max_len = lines.iter().map(|line| line.len()).max().unwrap_or(0);
+
+        Ok(if max_len > dimensions.width {
+            Lines(vec![Line::unstyled(
+                "<Terminal too small for build details>",
+            )?])
+        } else {
+            lines
+        })
     }
 }
 
@@ -1096,10 +1100,12 @@ mod tests {
                 info: (0..100).map(|_| "a").collect(),
             }),
         };
-        let state = superconsole::state![&info];
 
-        let full = SessionInfoComponent.draw_unchecked(
-            &state,
+        let full = SessionInfoComponent {
+            session_info: &info,
+        }
+        .draw_unchecked(
+            &superconsole::State::new(),
             Dimensions {
                 // Enough to print everything on one line (we need 109 in fbcode and 110 in OSS)
                 width: 110,
@@ -1110,8 +1116,11 @@ mod tests {
 
         assert_eq!(full.len(), 2);
 
-        let multiline = SessionInfoComponent.draw_unchecked(
-            &state,
+        let multiline = SessionInfoComponent {
+            session_info: &info,
+        }
+        .draw_unchecked(
+            &superconsole::State::new(),
             Dimensions {
                 // Just long enough to print each on one line.
                 width: 100,
@@ -1122,8 +1131,11 @@ mod tests {
 
         assert_eq!(multiline.len(), 4);
 
-        let too_small = SessionInfoComponent.draw_unchecked(
-            &state,
+        let too_small = SessionInfoComponent {
+            session_info: &info,
+        }
+        .draw_unchecked(
+            &superconsole::State::new(),
             Dimensions {
                 width: 1,
                 height: 1,

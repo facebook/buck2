@@ -139,7 +139,13 @@ impl WhatUpCommand {
                 mode: DrawMode,
             ) -> anyhow::Result<Lines> {
                 let mut draw = DrawVertical::new(dimensions);
-                draw.draw(&SessionInfoComponent, state, mode)?;
+                draw.draw(
+                    &SessionInfoComponent {
+                        session_info: self.state.session_info(),
+                    },
+                    state,
+                    mode,
+                )?;
                 draw.draw(&TimedList::new(&CUTOFFS, "", self.state), state, mode)?;
                 Ok(draw.finish())
             }
