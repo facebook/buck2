@@ -116,6 +116,7 @@ load(
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
+    "format_system_include_arg",
 )
 
 cxx_link_into_shared_library = _cxx_link_into_shared_library
@@ -340,9 +341,10 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
     inherited_pp_infos = cxx_inherited_preprocessor_infos(exported_first_order_deps)
     generic_exported_pre = cxx_exported_preprocessor_info(ctx, cxx_get_regular_cxx_headers_layout(ctx), [])
     args = cxx_attr_exported_preprocessor_flags(ctx)
+    compiler_type = get_cxx_toolchain_info(ctx).cxx_compiler_info.compiler_type
     if header_dirs != None:
         for x in header_dirs:
-            args += ["-isystem", x]
+            args.append(format_system_include_arg(cmd_args(x), compiler_type))
     specific_exportd_pre = CPreprocessor(args = args)
     providers.append(cxx_merge_cpreprocessors(
         ctx,

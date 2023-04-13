@@ -82,7 +82,7 @@ def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
             args.add(cmd_args(d, format = "-I{}"))
         if pre.system_include_dirs != None:
             for d in pre.system_include_dirs.include_dirs:
-                system_include_args = _format_system_include_arg(d, pre.system_include_dirs.compiler_type)
+                system_include_args = format_system_include_arg(cmd_args(d), pre.system_include_dirs.compiler_type)
                 args.add(system_include_args)
     return args
 
@@ -161,11 +161,11 @@ def _format_include_arg(flag: str.type, path: "cmd_args", compiler_type: str.typ
     else:
         return [cmd_args(flag), path]
 
-def _format_system_include_arg(path: "label_relative_path", compiler_type: str.type) -> ["cmd_args"]:
+def format_system_include_arg(path: "cmd_args", compiler_type: str.type) -> ["cmd_args"]:
     if compiler_type == "windows":
         return [cmd_args(path, format = "/external:I{}")]
     else:
-        return [cmd_args("-isystem"), cmd_args(path)]
+        return [cmd_args("-isystem"), path]
 
 def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLayout.type, extra_preprocessors: [CPreprocessor.type] = []) -> CPreprocessor.type:
     """
