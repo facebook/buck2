@@ -194,7 +194,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             state,
             mode,
         )?;
-        draw.draw(&DiceComponent, state, mode)?;
+        draw.draw(
+            &DiceComponent {
+                super_console_config: &self.state.config,
+                dice_state: self.state.simple_console.observer.extra().dice_state(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(&StarlarkDebuggerComponent, state, mode)?;
         draw.draw(&CommandsComponent, state, mode)?;
         draw.draw(

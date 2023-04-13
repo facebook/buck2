@@ -14,20 +14,19 @@ use superconsole::Lines;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
-#[derive(Debug)]
-pub(crate) struct DiceComponent;
+pub(crate) struct DiceComponent<'s> {
+    pub(crate) super_console_config: &'s SuperConsoleConfig,
+    pub(crate) dice_state: &'s DiceState,
+}
 
-impl Component for DiceComponent {
+impl<'s> Component for DiceComponent<'s> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
-        let state = state.get::<DiceState>()?;
-
-        if !config.enable_dice {
+        if !self.super_console_config.enable_dice {
             return Ok(Lines::new());
         }
 
@@ -37,7 +36,7 @@ impl Component for DiceComponent {
         let header_len = header.len();
         lines.push(header);
         lines.push("-".repeat(header_len));
-        for (k, v) in state.key_states() {
+        for (k, v) in self.dice_state.key_states() {
             // We aren't guaranteed to get a final DiceStateUpdate and so we just assume all dice nodes that we
             // know about finished so that the final rendering doesn't look silly.
             let (pending, finished) = match mode {
