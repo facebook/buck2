@@ -43,6 +43,15 @@ pub(crate) fn sanitize<S: std::fmt::Display>(stringlike: S) -> String {
 }
 
 impl Span {
+    #[inline]
+    // This could be const fn, but `crossterm::Attributes` constructor is not const.
+    pub fn dash() -> Span {
+        Span {
+            content: Cow::Borrowed("-"),
+            stylization: ContentStyle::default(),
+        }
+    }
+
     /// `Spans` are only valid if they do not contain any non whitespace characters other than a space.
     /// This is because the `superconsole` expects content to be mono-spaced and newlines, tabs, etc., violate this.
     pub fn valid(stringlike: &str) -> bool {
