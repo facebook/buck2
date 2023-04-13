@@ -20,9 +20,8 @@ use crate::common::CommonConsoleOptions;
 use crate::common::CommonDaemonCommandOptions;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::BuckdConnectOptions;
-use crate::daemon::client::connect::DaemonConstraintsWrapper;
+use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon_constraints::gen_daemon_constraints;
 use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
@@ -145,9 +144,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     constraints: if T::existing_only() {
                         BuckdConnectConstraints::ExistingOnly
                     } else {
-                        BuckdConnectConstraints::Constraints(DaemonConstraintsWrapper(
-                            gen_daemon_constraints(T::trace_io(&self))?,
-                        ))
+                        BuckdConnectConstraints::Constraints(DaemonConstraintsRequest::new(
+                            T::trace_io(&self),
+                        )?)
                     },
                 };
 

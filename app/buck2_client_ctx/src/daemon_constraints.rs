@@ -14,11 +14,18 @@ use crate::version::BuckVersion;
 pub fn gen_daemon_constraints(
     desired_tracing_state: buck2_cli_proto::daemon_constraints::TraceIoState,
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
-    static SANDCASTLE_ID: EnvHelper<String> = EnvHelper::new("SANDCASTLE_ID");
-
     Ok(buck2_cli_proto::DaemonConstraints {
-        version: BuckVersion::get_unique_id().to_owned(),
-        user_version: SANDCASTLE_ID.get()?.cloned(),
+        version: version(),
+        user_version: user_version()?,
         trace_io_state: desired_tracing_state.into(),
     })
+}
+
+pub fn version() -> String {
+    BuckVersion::get_unique_id().to_owned()
+}
+
+pub fn user_version() -> anyhow::Result<Option<String>> {
+    static SANDCASTLE_ID: EnvHelper<String> = EnvHelper::new("SANDCASTLE_ID");
+    Ok(SANDCASTLE_ID.get()?.cloned())
 }
