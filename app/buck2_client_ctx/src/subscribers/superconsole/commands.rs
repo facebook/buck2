@@ -14,22 +14,22 @@ use superconsole::Lines;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
-#[derive(Debug)]
-pub(crate) struct CommandsComponent;
+pub(crate) struct CommandsComponent<'a> {
+    pub(crate) super_console_config: &'a SuperConsoleConfig,
+    pub(crate) action_stats: &'a ActionStats,
+}
 
-impl Component for CommandsComponent {
+impl<'a> Component for CommandsComponent<'a> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
-        if !config.enable_commands {
+        if !self.super_console_config.enable_commands {
             return Ok(Lines::new());
         }
 
-        let action_stats = state.get::<ActionStats>()?;
-        Ok(Lines(vec![Line::unstyled(&action_stats.to_string())?]))
+        Ok(Lines(vec![Line::unstyled(&self.action_stats.to_string())?]))
     }
 }

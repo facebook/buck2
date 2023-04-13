@@ -213,7 +213,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             state,
             mode,
         )?;
-        draw.draw(&CommandsComponent, state, mode)?;
+        draw.draw(
+            &CommandsComponent {
+                super_console_config: &self.state.config,
+                action_stats: self.state.simple_console.observer.action_stats(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(
             &TimedList::new(&CUTOFFS, self.header, self.state),
             state,
