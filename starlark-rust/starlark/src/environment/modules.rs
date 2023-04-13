@@ -201,11 +201,6 @@ impl FrozenModule {
         self.module.all_items()
     }
 
-    /// Fetch the top-level documentation for the module.
-    pub fn documentation(&self) -> Option<DocString> {
-        self.module.documentation()
-    }
-
     /// The documentation for the module, and all of its top level values
     ///
     /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
@@ -217,7 +212,7 @@ impl FrozenModule {
             .collect();
 
         DocModule {
-            docs: self.documentation(),
+            docs: self.module.documentation(),
             members,
         }
     }
