@@ -201,7 +201,7 @@ jobs:
             /tmp/artifacts/buck2 build //rust/... -v 2
 
 workflows:
-  build-test-and-upload:
+  build-and-test:
     jobs:
       - linux-build-and-test
       - linux-build-examples
