@@ -11,7 +11,7 @@ use buck2_core::env_helper::EnvHelper;
 
 pub(crate) mod build_id_writer;
 pub mod event_log;
-pub(crate) mod get;
+pub mod get;
 pub(crate) mod observer;
 pub mod re_log;
 pub mod recorder;

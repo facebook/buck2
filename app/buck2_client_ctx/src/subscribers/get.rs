@@ -27,7 +27,7 @@ use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
 /// Given a command name and the command arguments, create a default console / superconsole.
-pub(crate) fn get_console_with_root(
+pub fn get_console_with_root(
     trace_id: TraceId,
     console_type: ConsoleType,
     verbosity: Verbosity,

@@ -116,7 +116,7 @@ pub struct FileTailers {
 }
 
 impl EventsCtx {
-    pub(crate) fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),

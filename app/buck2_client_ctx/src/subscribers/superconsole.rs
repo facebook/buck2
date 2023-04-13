@@ -144,7 +144,7 @@ impl Default for SuperConsoleConfig {
     }
 }
 
-pub(crate) struct BuckRootComponent {
+pub struct BuckRootComponent {
     timed_list: TimedList,
 }
 
@@ -183,7 +183,7 @@ impl Component for BuckRootComponent {
 }
 
 impl StatefulSuperConsole {
-    pub(crate) fn default_layout(command_name: &str) -> BuckRootComponent {
+    pub fn default_layout(command_name: &str) -> BuckRootComponent {
         let header = format!("Command: `{}`.", command_name);
         BuckRootComponent {
             timed_list: TimedList::new(CUTOFFS, header),

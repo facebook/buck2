@@ -492,7 +492,7 @@ impl CommonConsoleOptions {
         }
     }
 
-    pub(crate) fn superconsole_config(&self) -> SuperConsoleConfig {
+    pub fn superconsole_config(&self) -> SuperConsoleConfig {
         let mut config = SuperConsoleConfig::default();
         for option in &self.ui {
             match option {
