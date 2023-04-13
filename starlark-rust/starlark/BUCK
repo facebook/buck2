@@ -40,6 +40,7 @@ buck_filegroup(
     name = "testcases",
     srcs = glob([
         "src/tests/bc/golden/*",
+        "src/tests/docs/golden/*",
         "testcases/**",
     ]),
 )
