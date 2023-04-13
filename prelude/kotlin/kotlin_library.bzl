@@ -29,7 +29,7 @@ load(
 )
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params", "create_ksp_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator")
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
@@ -374,6 +374,13 @@ def build_kotlin_library(
                 has_srcs = bool(srcs),
             )
 
+            class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(
+                ctx,
+                outputs = outputs,
+                deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
+            )
+            extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
+
             default_info = get_default_info(outputs, extra_sub_targets = extra_sub_targets)
             return JavaProviders(
                 java_library_info = java_library_info,
@@ -383,7 +390,7 @@ def build_kotlin_library(
                 cxx_resource_info = cxx_resource_info,
                 template_placeholder_info = template_placeholder_info,
                 default_info = default_info,
-                class_to_src_map = None,
+                class_to_src_map = class_to_src_map,
             )
         else:
             fail("unrecognized kotlinc protocol `{}`".format(kotlin_toolchain.kotlinc_protocol))
