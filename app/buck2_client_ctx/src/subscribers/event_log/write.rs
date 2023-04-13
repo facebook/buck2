@@ -284,6 +284,14 @@ async fn open_event_log_for_writing(
             )
         })?;
 
+    get_writer(path, file, trace_id)
+}
+
+fn get_writer(
+    path: EventLogPathBuf,
+    file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
+    trace_id: TraceId,
+) -> Result<NamedEventLogWriter, anyhow::Error> {
     let file = match path.encoding.compression {
         Compression::None => Box::new(file) as EventLogWriter,
         Compression::Gzip => Box::new(GzipEncoder::with_quality(
