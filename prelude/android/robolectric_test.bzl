@@ -82,6 +82,7 @@ def robolectric_test_impl(ctx: "context") -> ["provider"]:
         ctx,
         java_providers.java_library_info,
         java_providers.java_packaging_info,
+        java_providers.class_to_src_map,
         extra_cmds = extra_cmds,
         extra_classpath_entries = extra_classpath_entries,
     )
