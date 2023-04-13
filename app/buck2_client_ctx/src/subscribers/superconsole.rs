@@ -143,7 +143,7 @@ impl Default for SuperConsoleConfig {
     }
 }
 
-pub struct BuckRootComponent {
+struct BuckRootComponent {
     header: String,
 }
 
@@ -183,11 +183,6 @@ impl Component for BuckRootComponent {
 }
 
 impl StatefulSuperConsole {
-    pub fn default_layout(command_name: &str) -> BuckRootComponent {
-        let header = format!("Command: `{}`.", command_name);
-        BuckRootComponent { header }
-    }
-
     pub const FALLBACK_SIZE: Dimensions = Dimensions {
         width: 100,
         height: 40,
@@ -195,7 +190,7 @@ impl StatefulSuperConsole {
 
     pub(crate) fn new_with_root_forced(
         trace_id: TraceId,
-        root: BuckRootComponent,
+        command_name: &str,
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
@@ -208,7 +203,7 @@ impl StatefulSuperConsole {
             builder.write_to(stream);
         }
         Self::new(
-            root,
+            command_name,
             trace_id,
             builder.build_forced(Self::FALLBACK_SIZE)?,
             verbosity,
@@ -221,7 +216,7 @@ impl StatefulSuperConsole {
 
     pub(crate) fn new_with_root(
         trace_id: TraceId,
-        root: BuckRootComponent,
+        command_name: &str,
         verbosity: Verbosity,
         show_waiting_message: bool,
         replay_speed: Option<f64>,
@@ -231,7 +226,7 @@ impl StatefulSuperConsole {
         match Self::console_builder().build()? {
             None => Ok(None),
             Some(sc) => Ok(Some(Self::new(
-                root,
+                command_name,
                 trace_id,
                 sc,
                 verbosity,
@@ -244,7 +239,7 @@ impl StatefulSuperConsole {
     }
 
     pub(crate) fn new(
-        root: BuckRootComponent,
+        command_name: &str,
         trace_id: TraceId,
         super_console: SuperConsole,
         verbosity: Verbosity,
@@ -253,8 +248,9 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
+        let header = format!("Command: `{}`.", command_name);
         Ok(Self {
-            root,
+            root: BuckRootComponent { header },
             state: SuperConsoleState::new(
                 replay_speed,
                 trace_id,
@@ -906,7 +902,7 @@ mod tests {
         let trace_id = TraceId::new();
         let mut console = StatefulSuperConsole::new_with_root_forced(
             trace_id.dupe(),
-            StatefulSuperConsole::default_layout("test"),
+            "test",
             Verbosity::Default,
             true,
             None,
@@ -970,9 +966,8 @@ mod tests {
         let now = SystemTime::now();
         let tick = Tick::now();
 
-        let root = StatefulSuperConsole::default_layout("build");
         let mut console = StatefulSuperConsole::new(
-            root,
+            "build",
             trace_id.dupe(),
             test_console(),
             Verbosity::Default,

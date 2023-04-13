@@ -22,7 +22,6 @@ use crate::subscribers::re_log::ReLog;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber_unpack::UnpackingEventSubscriberAsEventSubscriber;
-use crate::subscribers::superconsole::BuckRootComponent;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -33,7 +32,7 @@ pub fn get_console_with_root(
     verbosity: Verbosity,
     show_waiting_message: bool,
     replay_speed: Option<f64>,
-    root: BuckRootComponent,
+    command_name: &str,
     config: SuperConsoleConfig,
     isolation_dir: FileNameBuf,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
@@ -65,7 +64,7 @@ pub fn get_console_with_root(
         ConsoleType::Super => Ok(Some(Box::new(UnpackingEventSubscriberAsEventSubscriber(
             StatefulSuperConsole::new_with_root_forced(
                 trace_id,
-                root,
+                command_name,
                 verbosity,
                 show_waiting_message,
                 replay_speed,
@@ -77,7 +76,7 @@ pub fn get_console_with_root(
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
                 trace_id.dupe(),
-                root,
+                command_name,
                 verbosity,
                 show_waiting_message,
                 replay_speed,

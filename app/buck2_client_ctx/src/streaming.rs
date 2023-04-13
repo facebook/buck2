@@ -31,7 +31,6 @@ use crate::subscribers::get::try_get_event_log_subscriber;
 use crate::subscribers::get::try_get_re_log_subscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::superconsole::StatefulSuperConsole;
 
 fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
@@ -39,8 +38,6 @@ fn default_subscribers<T: StreamingCommand>(
 ) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
-    let root = StatefulSuperConsole::default_layout(T::COMMAND_NAME);
-
     let show_waiting_message = cmd.should_show_waiting_message();
 
     if let Some(v) = get_console_with_root(
@@ -49,7 +46,7 @@ fn default_subscribers<T: StreamingCommand>(
         ctx.verbosity,
         show_waiting_message,
         None,
-        root,
+        T::COMMAND_NAME,
         console_opts.superconsole_config(),
         ctx.paths()?.isolation.clone(),
     )? {

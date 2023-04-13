@@ -15,7 +15,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
-use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 
 use crate::commands::log::options::EventLogOptions;
@@ -68,7 +67,7 @@ impl ReplayCommand {
                 ctx.verbosity,
                 true,
                 speed,
-                StatefulSuperConsole::default_layout("(replay)"), // Could be better
+                "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 ctx.paths()?.isolation.clone(),
             )?
