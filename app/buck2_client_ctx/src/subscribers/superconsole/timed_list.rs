@@ -324,20 +324,20 @@ impl<'s> Component for TimedListHeader<'s> {
 }
 
 /// Component that displays ongoing events and their durations + summary stats.
-pub struct TimedList {
-    header: String,
-    cutoffs: Cutoffs,
+pub struct TimedList<'a> {
+    header: &'a str,
+    cutoffs: &'a Cutoffs,
 }
 
-impl TimedList {
+impl<'a> TimedList<'a> {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
-    pub fn new(cutoffs: Cutoffs, header: String) -> Self {
+    pub fn new(cutoffs: &'a Cutoffs, header: &'a str) -> Self {
         Self { header, cutoffs }
     }
 }
 
-impl Component for TimedList {
+impl<'a> Component for TimedList<'a> {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -349,10 +349,10 @@ impl Component for TimedList {
         match mode {
             DrawMode::Normal if !span_tracker.is_unused() => {
                 let header = TimedListHeader {
-                    header: &self.header,
+                    header: self.header,
                 };
                 let body = TimedListBody {
-                    cutoffs: &self.cutoffs,
+                    cutoffs: self.cutoffs,
                 };
 
                 let mut draw = DrawVertical::new(dimensions);
@@ -418,7 +418,7 @@ mod tests {
     fn test_normal() -> anyhow::Result<()> {
         let tick = Tick::now();
 
-        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(&CUTOFFS, "test");
         let label = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
@@ -537,7 +537,7 @@ mod tests {
         }
 
         let time_speed = fake_time_speed();
-        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(&CUTOFFS, "test");
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -584,7 +584,7 @@ mod tests {
 
         let parent = SpanId::new();
 
-        let timed_list = TimedList::new(CUTOFFS, "test".to_owned());
+        let timed_list = TimedList::new(&CUTOFFS, "test");
 
         let action = Arc::new(BuckEvent::new(
             UNIX_EPOCH,

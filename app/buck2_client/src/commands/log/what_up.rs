@@ -56,7 +56,7 @@ impl WhatUpCommand {
 
         // Create space for a very big console
         let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
-        components.push(Box::new(TimedList::new(CUTOFFS, String::new())));
+        components.push(Box::new(TimedList::new(&CUTOFFS, "")));
         let console_root = Split::new(components, Direction::Vertical, SplitKind::Adaptive);
 
         let rt = client_tokio_runtime()?;

@@ -145,7 +145,7 @@ impl Default for SuperConsoleConfig {
 }
 
 pub struct BuckRootComponent {
-    timed_list: TimedList,
+    header: String,
 }
 
 impl Debug for BuckRootComponent {
@@ -176,7 +176,7 @@ impl Component for BuckRootComponent {
         draw.draw(&DiceComponent, state, mode)?;
         draw.draw(&StarlarkDebuggerComponent, state, mode)?;
         draw.draw(&CommandsComponent, state, mode)?;
-        draw.draw(&self.timed_list, state, mode)?;
+        draw.draw(&TimedList::new(&CUTOFFS, &self.header), state, mode)?;
 
         Ok(draw.finish())
     }
@@ -185,9 +185,7 @@ impl Component for BuckRootComponent {
 impl StatefulSuperConsole {
     pub fn default_layout(command_name: &str) -> BuckRootComponent {
         let header = format!("Command: `{}`.", command_name);
-        BuckRootComponent {
-            timed_list: TimedList::new(CUTOFFS, header),
-        }
+        BuckRootComponent { header }
     }
 
     pub const FALLBACK_SIZE: Dimensions = Dimensions {
