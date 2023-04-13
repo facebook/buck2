@@ -16,18 +16,19 @@ use superconsole::State;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
-#[derive(Debug)]
-pub(crate) struct IoHeader;
+pub(crate) struct IoHeader<'s> {
+    pub(crate) super_console_config: &'s SuperConsoleConfig,
+    pub(crate) io_state: &'s IoState,
+}
 
-impl Component for IoHeader {
+impl<'s> Component for IoHeader<'s> {
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
-        let io = state.get::<IoState>()?;
-        io.render(mode, dimensions.width, config.enable_io)
+        self.io_state
+            .render(mode, dimensions.width, self.super_console_config.enable_io)
     }
 }

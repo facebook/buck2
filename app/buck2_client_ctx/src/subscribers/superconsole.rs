@@ -177,7 +177,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             state,
             mode,
         )?;
-        draw.draw(&IoHeader, state, mode)?;
+        draw.draw(
+            &IoHeader {
+                super_console_config: &self.state.config,
+                io_state: self.state.simple_console.observer.io_state(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(&TestHeader, state, mode)?;
         draw.draw(&DebugEventsComponent, state, mode)?;
         draw.draw(&DiceComponent, state, mode)?;
