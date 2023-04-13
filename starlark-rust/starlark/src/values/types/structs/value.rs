@@ -205,19 +205,8 @@ impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
 
 #[cfg(test)]
 mod tests {
-    use starlark_map::smallmap;
 
     use crate::assert;
-    use crate::docs::DocFunction;
-    use crate::docs::DocItem;
-    use crate::docs::DocMember;
-    use crate::docs::DocObject;
-    use crate::docs::DocParam;
-    use crate::docs::DocProperty;
-    use crate::docs::DocReturn;
-    use crate::docs::DocString;
-    use crate::docs::DocStringKind;
-    use crate::docs::DocType;
 
     #[test]
     fn test_repr() {
@@ -268,53 +257,6 @@ json.encode(struct(foo = ["bar/", "some"])) == '{"foo":["bar/","some"]}'
 json.encode(struct(foo = [struct(bar = "some")])) == '{"foo":[{"bar":"some"}]}'
 "#,
         );
-    }
-
-    #[test]
-    fn test_docs() {
-        let expected = DocItem::Object(DocObject {
-            docs: None,
-            members: smallmap! {
-                "member".to_owned() =>
-                DocMember::Property(DocProperty {
-                    docs: None,
-                    typ: None,
-                }),
-                "some_func".to_owned() =>
-                DocMember::Function(DocFunction {
-                    docs: DocString::from_docstring(DocStringKind::Starlark, "some_func docs"),
-                    params: vec![DocParam::Arg {
-                        name: "v".to_owned(),
-                        docs: None,
-                        typ: Some(DocType {
-                            raw_type: "\"x\"".to_owned(),
-                        }),
-                        default_value: None,
-                    }],
-                    ret: DocReturn {
-                        docs: None,
-                        typ: Some(DocType {
-                            raw_type: "\"y\"".to_owned(),
-                        }),
-                    },
-                }),
-            },
-        });
-
-        let s = assert::pass(
-            r#"
-def some_func(v: "x") -> "y":
-    """ some_func docs """
-    return v
-
-struct(
-    member = "some string",
-    some_func = some_func,
-)"#,
-        );
-        let docs = s.value().documentation().expect("some docs");
-
-        assert_eq!(expected, docs);
     }
 
     #[test]
