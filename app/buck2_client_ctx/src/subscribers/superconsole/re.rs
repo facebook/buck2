@@ -13,18 +13,19 @@ use superconsole::Component;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
 /// Draw the test summary line above the `timed_list`
-#[derive(Debug)]
-pub struct ReHeader;
+pub(crate) struct ReHeader<'a> {
+    pub(crate) super_console_config: &'a SuperConsoleConfig,
+    pub(crate) re_state: &'a ReState,
+}
 
-impl Component for ReHeader {
+impl<'a> Component for ReHeader<'a> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let config = state.get::<SuperConsoleConfig>()?;
-        let re = state.get::<ReState>()?;
-        re.render(config.enable_detailed_re, mode)
+        self.re_state
+            .render(self.super_console_config.enable_detailed_re, mode)
     }
 }

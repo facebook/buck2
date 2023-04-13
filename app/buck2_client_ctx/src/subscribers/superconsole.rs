@@ -169,7 +169,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             state,
             mode,
         )?;
-        draw.draw(&ReHeader, state, mode)?;
+        draw.draw(
+            &ReHeader {
+                super_console_config: &self.state.config,
+                re_state: self.state.simple_console.observer.re_state(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(&IoHeader, state, mode)?;
         draw.draw(&TestHeader, state, mode)?;
         draw.draw(&DebugEventsComponent, state, mode)?;
