@@ -60,21 +60,29 @@ jobs:
           else
             CARGO=cargo
           fi
-
           $CARGO build --release --bin buck2 --target ${{ matrix.target.triple }}
-          mkdir upload
-          cp target/${{ matrix.target.triple }}/release/buck2* upload/
-
+      - name: Move binary to artifact/ (non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir artifact
+          zstd -z target/${{ matrix.target.triple }}/release/buck2 -o buck2.zst
+      - name: Move binary to artifact/ (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir artifact
+          zstd -z target/${{ matrix.target.triple }}/release/buck2.exe -o buck2.exe.zst
       - name: Upload (non-Windows)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: buck2-${{ matrix.target.triple }}
-          path: upload/buck2
+          name: buck2-${{ matrix.target.triple }}.zst
+          path: buck2.zst
 
       - name: Upload (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: buck2-${{ matrix.target.triple }}
-          path: upload/buck2.exe
+          name: buck2-${{ matrix.target.triple }}.exe.zst
+          path: buck2.exe.zst
