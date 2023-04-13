@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt::Debug;
+
 use superconsole::components::alignment::HorizontalAlignmentKind;
 use superconsole::components::alignment::VerticalAlignmentKind;
 use superconsole::components::Aligned;
@@ -54,17 +56,17 @@ impl<A: Component, B: Component> Component for HeaderLineComponent<A, B> {
 
 /// This component is part of the header line and displays a hardcoded message.
 #[derive(Debug)]
-pub(crate) struct StaticStringComponent {
-    pub header: String,
+pub(crate) struct StaticStringComponent<S: AsRef<str>> {
+    pub header: S,
 }
 
-impl Component for StaticStringComponent {
+impl<S: AsRef<str>> Component for StaticStringComponent<S> {
     fn draw_unchecked(
         &self,
         _state: &State,
         _dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        Ok(Lines(vec![Line::unstyled(&self.header)?]))
+        Ok(Lines(vec![Line::unstyled(self.header.as_ref())?]))
     }
 }
