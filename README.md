@@ -9,6 +9,8 @@ We're keen for you to give Buck2 a go and [let us know](https://github.com/faceb
 
 ## Getting started
 
+You can either download the [latest](https://github.com/facebook/buck2/releases/tag/latest) `buck2` binary, or build from source.
+
 Buck2 is written in Rust, which requires [rustup](https://rustup.rs/) to compile.
 
 You can either build `buck2` from a clone of the Buck2 repo:

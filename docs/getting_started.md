@@ -5,6 +5,8 @@ title: Getting Started
 
 ## Installing Buck2
 
+The latest set of `buck2` executables can be found under the [`latest` release page](https://github.com/facebook/buck2/releases/tag/latest).
+
 To get started, first install [rustup](https://rustup.rs/), then compile the `buck2` executable:
 
 ```bash
