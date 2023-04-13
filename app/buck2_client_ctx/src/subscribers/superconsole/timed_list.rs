@@ -294,17 +294,11 @@ impl Component for CountComponent {
 
 /// Wrapper component for Header + Count
 #[derive(Debug)]
-struct TimedListHeader {
-    header: String,
+struct TimedListHeader<'s> {
+    header: &'s str,
 }
 
-impl TimedListHeader {
-    fn new(header: String) -> Self {
-        TimedListHeader { header }
-    }
-}
-
-impl Component for TimedListHeader {
+impl<'s> Component for TimedListHeader<'s> {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -312,7 +306,7 @@ impl Component for TimedListHeader {
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         let info = StaticStringComponent {
-            header: &self.header,
+            header: self.header,
         };
         let header_split = HeaderLineComponent::new(info, CountComponent);
         let header_box = Bordered::new(
@@ -331,7 +325,7 @@ impl Component for TimedListHeader {
 
 /// Component that displays ongoing events and their durations + summary stats.
 pub struct TimedList {
-    header: TimedListHeader,
+    header: String,
     body: TimedListBody,
 }
 
@@ -340,7 +334,7 @@ impl TimedList {
     /// * `header` is the string displayed at the top of the list.
     pub fn new(cutoffs: Cutoffs, header: String) -> Self {
         Self {
-            header: TimedListHeader::new(header),
+            header,
             body: TimedListBody::new(cutoffs),
         }
     }
@@ -357,8 +351,12 @@ impl Component for TimedList {
 
         match mode {
             DrawMode::Normal if !span_tracker.is_unused() => {
+                let header = TimedListHeader {
+                    header: &self.header,
+                };
+
                 let mut draw = DrawVertical::new(dimensions);
-                draw.draw(&self.header, state, mode)?;
+                draw.draw(&header, state, mode)?;
                 draw.draw(&self.body, state, mode)?;
                 Ok(draw.finish())
             }
