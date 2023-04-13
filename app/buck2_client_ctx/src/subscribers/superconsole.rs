@@ -202,7 +202,17 @@ impl<'s> Component for BuckRootComponent<'s> {
             state,
             mode,
         )?;
-        draw.draw(&StarlarkDebuggerComponent, state, mode)?;
+        draw.draw(
+            &StarlarkDebuggerComponent {
+                starlark_debugger_state: self
+                    .state
+                    .simple_console
+                    .observer
+                    .starlark_debugger_state(),
+            },
+            state,
+            mode,
+        )?;
         draw.draw(&CommandsComponent, state, mode)?;
         draw.draw(
             &TimedList::new(&CUTOFFS, self.header, self.state),

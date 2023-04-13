@@ -13,16 +13,18 @@ use superconsole::Component;
 use superconsole::Lines;
 
 #[derive(Debug)]
-pub(crate) struct StarlarkDebuggerComponent;
+pub(crate) struct StarlarkDebuggerComponent<'s> {
+    pub(crate) starlark_debugger_state: &'s StarlarkDebuggerState,
+}
 
-impl Component for StarlarkDebuggerComponent {
+impl<'s> Component for StarlarkDebuggerComponent<'s> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        let state = state.get::<StarlarkDebuggerState>()?;
+        let state = self.starlark_debugger_state;
 
         if !state.debugger_attached {
             return Ok(Lines::new());
