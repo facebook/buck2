@@ -415,10 +415,6 @@ impl DaemonCommand {
 
             drop(span_guard);
 
-            let extra_daemon_constraints = buck2_cli_proto::ExtraDaemonConstraints {
-                trace_io_enabled: server_init_ctx.enable_trace_io,
-            };
-
             let buckd_server = BuckdServer::run(
                 fb,
                 log_reload_handle,
@@ -426,7 +422,7 @@ impl DaemonCommand {
                 delegate,
                 server_init_ctx,
                 process_info,
-                gen_daemon_constraints(Some(extra_daemon_constraints))?,
+                gen_daemon_constraints(None)?,
                 listener,
                 &BuckdServerDependenciesImpl,
             )

@@ -97,7 +97,7 @@ pub struct DaemonStateData {
     file_watcher: Arc<dyn FileWatcher>,
 
     /// Settled every time we run a command.
-    io: Arc<dyn IoProvider>,
+    pub io: Arc<dyn IoProvider>,
 
     /// The RE connection, managed such that all build commands that are concurrently active uses
     /// the same connection. Once there are no active build commands, the connection will be

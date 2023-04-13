@@ -33,6 +33,7 @@ use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::events::HasEvents;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
+use buck2_common::io::TracingIoProvider;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
@@ -280,7 +281,7 @@ pub(crate) struct BuckdServerData {
     stop_accepting_requests: AtomicBool,
     #[allocative(skip)]
     process_info: DaemonProcessInfo,
-    daemon_constraints: buck2_cli_proto::DaemonConstraints,
+    base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
     start_time: prost_types::Timestamp,
     start_instant: Instant,
     daemon_shutdown: DaemonShutdown,
@@ -308,7 +309,7 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
-        daemon_constraints: buck2_cli_proto::DaemonConstraints,
+        base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: I,
         callbacks: &'static dyn BuckdServerDependencies,
     ) -> anyhow::Result<()>
@@ -327,7 +328,7 @@ impl BuckdServer {
         let api_server = BuckdServer(Arc::new(BuckdServerData {
             stop_accepting_requests: AtomicBool::new(false),
             process_info,
-            daemon_constraints,
+            base_daemon_constraints,
             start_time: prost_types::Timestamp {
                 seconds: now.as_secs() as i64,
                 nanos: now.subsec_nanos() as i32,
@@ -844,13 +845,22 @@ impl DaemonApi for BuckdServer {
                 None
             };
 
+            let extra_constraints = daemon_state.data().as_ref().ok().map(|state| {
+                buck2_cli_proto::ExtraDaemonConstraints {
+                    trace_io_enabled: state.io.as_any().is::<TracingIoProvider>(),
+                }
+            });
+
+            let mut daemon_constraints = self.0.base_daemon_constraints.clone();
+            daemon_constraints.extra = extra_constraints;
+
             let uptime = self.0.start_instant.elapsed();
             let base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
                 start_time: Some(self.0.start_time.clone()),
                 uptime: Some(uptime.try_into()?),
                 snapshot,
-                daemon_constraints: Some(self.0.daemon_constraints.clone()),
+                daemon_constraints: Some(daemon_constraints),
                 ..Default::default()
             };
             Ok(base)
