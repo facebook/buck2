@@ -67,3 +67,26 @@ pub trait Component: Debug + Send {
         Ok(res)
     }
 }
+
+impl Component for Box<dyn Component> {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
+
+// TODO(nga): this is not really needed.
+impl<C: Component> Component for Box<C> {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
