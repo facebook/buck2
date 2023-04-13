@@ -66,6 +66,7 @@ use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::delete_unknown_disk_state;
 use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::disk_state::DiskStateOptions;
+use crate::daemon::disk_state::MaterializerStateIdentity;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
@@ -131,6 +132,9 @@ pub struct DaemonStateData {
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
 
     pub critical_path_backend: CriticalPathBackendName,
+
+    /// A unique identifier for the materializer state.
+    pub materializer_state_identity: Option<MaterializerStateIdentity>,
 }
 
 impl DaemonStateData {
@@ -288,6 +292,11 @@ impl DaemonState {
         )
         .await?;
 
+        let (materializer_db, materializer_state_identity) = match materializer_db {
+            Some((db, id)) => (Some(db), Some(id)),
+            None => (None, None),
+        };
+
         let re_client_manager = Arc::new(ReConnectionManager::new(
             fb,
             false,
@@ -398,6 +407,7 @@ impl DaemonState {
             start_time: std::time::Instant::now(),
             create_unhashed_outputs_lock,
             critical_path_backend,
+            materializer_state_identity,
         }))
     }
 

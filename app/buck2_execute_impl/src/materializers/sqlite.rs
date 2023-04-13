@@ -633,6 +633,10 @@ impl MaterializerStateSqliteDb {
         &self.materializer_state_table
     }
 
+    pub fn created_by_table(&mut self) -> &KeyValueSqliteTable {
+        &self.created_by_table
+    }
+
     pub(crate) fn create_all_tables(&self) -> anyhow::Result<()> {
         self.materializer_state_table.create_table()?;
         self.versions_table.create_table()?;
