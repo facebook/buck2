@@ -33,8 +33,8 @@ load(
     "CPreprocessor",  # @unused Used as a type
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_attr_preprocessor_flags",
-    "get_flags_for_compiler_type",
     "cxx_merge_cpreprocessors",
+    "get_flags_for_compiler_type",
 )
 
 # Supported Cxx file extensions
