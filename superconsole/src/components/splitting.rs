@@ -138,8 +138,6 @@ impl Split {
     /// * If Sized, then ratios must sum to approximately 1.
     /// * If Sized, then there must be as many ratios as components
     pub fn new(children: Vec<Box<dyn Component>>, direction: Direction, split: SplitKind) -> Self {
-        assert!(!children.is_empty(), "Must have at least one child.");
-
         let split = split.to_internal_split_kind(children.len());
 
         Self {
@@ -475,11 +473,14 @@ mod tests {
     mod panics {
         use super::*;
         use crate::components::Blank;
+        use crate::Dimensions;
 
         #[test]
-        #[should_panic(expected = "Must have at least one child.")]
         fn test_no_children() {
-            Split::new(vec![], Direction::Horizontal, SplitKind::Equal);
+            let lines = Split::new(vec![], Direction::Horizontal, SplitKind::Equal)
+                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .unwrap();
+            assert!(lines.is_empty());
         }
 
         #[test]
