@@ -102,20 +102,6 @@ pub fn register_label_function(builder: &mut GlobalsBuilder) {
 /// Global methods on the target set.
 #[starlark_module]
 pub fn register_target_function(builder: &mut GlobalsBuilder) {
-    /// DEPRECATED - use ctarget_set instead.
-    /// Creates an empty target set.
-    ///
-    /// Sample usage:
-    /// ```text
-    /// def _impl_target_set(ctx):
-    ///     targets = target_set()
-    ///     ctx.output.print(type(targets))
-    ///     ctx.output.print(len(targets))
-    /// ```
-    fn target_set() -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(StarlarkTargetSet::from(TargetSet::new()))
-    }
-
     /// Creates an empty target set for configured nodes.
     ///
     /// Sample usage:
