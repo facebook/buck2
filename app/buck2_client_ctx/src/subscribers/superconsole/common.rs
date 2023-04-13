@@ -18,18 +18,19 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
-pub(crate) struct HeaderLineComponent {
-    lhs: Box<dyn Component + Send>,
-    rhs: Box<dyn Component + Send>,
+#[derive(Debug)]
+pub(crate) struct HeaderLineComponent<A: Component, B: Component> {
+    lhs: A,
+    rhs: B,
 }
 
-impl HeaderLineComponent {
-    pub(crate) fn new(lhs: Box<dyn Component + Send>, rhs: Box<dyn Component + Send>) -> Self {
+impl<A: Component, B: Component> HeaderLineComponent<A, B> {
+    pub(crate) fn new(lhs: A, rhs: B) -> Self {
         HeaderLineComponent { lhs, rhs }
     }
 }
 
-impl Component for HeaderLineComponent {
+impl<A: Component, B: Component> Component for HeaderLineComponent<A, B> {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -37,7 +38,7 @@ impl Component for HeaderLineComponent {
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         let mut draw = DrawHorizontal::new(dimensions);
-        draw.draw(&*self.lhs, state, mode)?;
+        draw.draw(&self.lhs, state, mode)?;
         draw.draw(
             &Aligned {
                 child: &self.rhs,
