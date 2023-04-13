@@ -27,8 +27,8 @@ def main(argv):
 
     sources = {}
     for src in args.sources:
-        name, path = src.split("=", 1)
-        base, ext = os.path.splitext(name)
+        path = src
+        base, ext = os.path.splitext(src)
         sources[base] = path
 
     classes = []

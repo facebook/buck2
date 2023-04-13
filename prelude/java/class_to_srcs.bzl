@@ -54,7 +54,7 @@ def create_class_to_source_map_from_jar(
         cmd.add(cmd_args(jar_path, format = "--jar-path={}").ignore_artifacts())
     cmd.add(jar)
     for src in srcs:
-        cmd.add(cmd_args(src, format = "{}={{}}".format(src.short_path)))
+        cmd.add(cmd_args(src))
     actions.run(cmd, category = "class_to_srcs_map")
     return output
 
