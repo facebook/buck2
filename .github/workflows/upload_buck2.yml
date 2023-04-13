@@ -33,23 +33,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly-2023-01-24
           targets: ${{ matrix.target.triple }}
-
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: buck2-upload
           key: ${{ matrix.target.triple }}
-
       - uses: actions-rs/install@v0.1
         if: matrix.target.cross
         with:
           crate: cross
           version: latest
-
       - name: Build
         shell: bash
         env:
@@ -66,23 +62,48 @@ jobs:
         shell: bash
         run: |
           mkdir artifact
-          zstd -z target/${{ matrix.target.triple }}/release/buck2 -o buck2.zst
+          zstd -z target/${{ matrix.target.triple }}/release/buck2 -o artifact/buck2-${{ matrix.target.triple }}.zst
       - name: Move binary to artifact/ (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir artifact
-          zstd -z target/${{ matrix.target.triple }}/release/buck2.exe -o buck2.exe.zst
+          zstd -z target/${{ matrix.target.triple }}/release/buck2.exe -o artifact/buck2-${{ matrix.target.triple }}.exe.zst
       - name: Upload (non-Windows)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: buck2-${{ matrix.target.triple }}.zst
-          path: buck2.zst
+          path: artifact/buck2-${{ matrix.target.triple }}.zst
 
       - name: Upload (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v3
         with:
-          name: buck2-${{ matrix.target.triple }}.exe.zst
-          path: buck2.exe.zst
+          path: artifact/buck2-${{ matrix.target.triple }}.exe.zst
+
+  release:
+    name: Upload Latest Build
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir ${{github.workspace}}/artifacts
+      - uses: actions/download-artifact@v3
+        with:
+          path: ${{github.workspace}}/artifacts
+      - name: Display structure of downloaded files
+        run: |
+          ls -R
+        working-directory: ${{github.workspace}}/artifacts
+      - uses: pyTooling/Actions/releaser@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: 'latest'
+          files: ${{github.workspace}}/artifacts/**/buck2-*.zst
+          rm: true
+      - name: Summary
+        run: |
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          # Latest Build Complete! :rocket:
+          For the public download links of these build artifacts, please see:
+           <https://github.com/facebook/buck2/releases/tag/latest>
+          EOF
