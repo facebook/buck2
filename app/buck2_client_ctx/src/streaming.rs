@@ -111,7 +111,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
     fn common_opts(&self) -> &CommonBuildConfigurationOptions;
 
     /// Allows a command to add additional superconsole components when superconsole is used.
-    fn extra_superconsole_component(&self) -> Option<Box<dyn Component>> {
+    fn extra_superconsole_component(&self) -> Option<Box<dyn Component + Send>> {
         None
     }
 

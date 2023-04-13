@@ -48,7 +48,7 @@ pub enum DrawMode {
 
 /// Components are pluggable drawers that output lines of formatted text.
 /// They are composable (eventually) and re-render in place at each render.
-pub trait Component: Debug + Send {
+pub trait Component: Debug {
     /// This method is to be implemented for components to provide the `draw` method.
     fn draw_unchecked(
         &self,
@@ -69,6 +69,17 @@ pub trait Component: Debug + Send {
 }
 
 impl Component for Box<dyn Component> {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
+
+impl Component for Box<dyn Component + Send> {
     fn draw_unchecked(
         &self,
         state: &State,

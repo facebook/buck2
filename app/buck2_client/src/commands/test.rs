@@ -257,7 +257,7 @@ impl StreamingCommand for TestCommand {
         &self.common_opts.config_opts
     }
 
-    fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component>> {
+    fn extra_superconsole_component(&self) -> Option<Box<dyn superconsole::Component + Send>> {
         Some(Box::new(TestHeader::new()))
     }
 }

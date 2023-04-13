@@ -8,6 +8,7 @@
  */
 
 use superconsole::components::alignment::HorizontalAlignmentKind;
+use superconsole::components::alignment::VerticalAlignmentKind;
 use superconsole::components::Aligned;
 use superconsole::components::DrawHorizontal;
 use superconsole::Component;
@@ -19,16 +20,16 @@ use superconsole::State;
 
 #[derive(Debug)]
 pub(crate) struct HeaderLineComponent {
-    lhs: Box<dyn Component>,
-    rhs: Box<dyn Component>,
+    lhs: Box<dyn Component + Send>,
+    rhs: Box<dyn Component + Send>,
 }
 
 impl HeaderLineComponent {
-    pub(crate) fn new(lhs: Box<dyn Component>, rhs: Box<dyn Component>) -> Self {
+    pub(crate) fn new(lhs: Box<dyn Component + Send>, rhs: Box<dyn Component + Send>) -> Self {
         let rhs = Box::new(Aligned {
             child: rhs,
             horizontal: HorizontalAlignmentKind::Right,
-            ..Default::default()
+            vertical: VerticalAlignmentKind::Top,
         });
         HeaderLineComponent { lhs, rhs }
     }

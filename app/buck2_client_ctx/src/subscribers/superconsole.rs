@@ -142,7 +142,7 @@ impl Default for SuperConsoleConfig {
 
 #[derive(Debug)]
 pub(crate) struct BuckRootComponent {
-    sandwiched: Option<Box<dyn Component>>,
+    sandwiched: Option<Box<dyn Component + Send>>,
     timed_list: TimedList,
 }
 
@@ -179,7 +179,7 @@ impl Component for BuckRootComponent {
 impl StatefulSuperConsole {
     pub(crate) fn default_layout(
         command_name: &str,
-        sandwiched: Option<Box<dyn Component>>,
+        sandwiched: Option<Box<dyn Component + Send>>,
     ) -> BuckRootComponent {
         let header = format!("Command: `{}`.", command_name);
         BuckRootComponent {
