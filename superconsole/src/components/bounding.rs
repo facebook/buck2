@@ -60,34 +60,31 @@ mod tests {
 
     #[test]
     fn test_no_bounding() -> anyhow::Result<()> {
-        let test = Bounded::new(Box::new(Echo::<Msg>::new(false)), Some(40), Some(40));
-        let msg = Msg(Lines(vec![Line::from_iter([Span::new_unstyled(
-            "hello world",
-        )?])]));
+        let msg = Lines(vec![Line::from_iter([Span::new_unstyled("hello world")?])]);
+        let test = Bounded::new(Echo(msg.clone()), Some(40), Some(40));
         let output = test.draw(
-            &crate::state![&msg],
+            &State::new(),
             Dimensions {
                 width: 50,
                 height: 50,
             },
             DrawMode::Normal,
         )?;
-        let expected = msg.0;
 
-        assert_eq!(output, expected);
+        assert_eq!(output, msg);
 
         Ok(())
     }
 
     #[test]
     fn test_bounding() -> anyhow::Result<()> {
-        let test = Bounded::new(Box::new(Echo::<Msg>::new(false)), Some(2), Some(1));
-        let msg = Msg(Lines(vec![
+        let msg = Lines(vec![
             Line::from_iter([Span::new_unstyled("hello world")?]),
             Line::from_iter([Span::new_unstyled("hello world")?]),
-        ]));
+        ]);
+        let test = Bounded::new(Echo(msg), Some(2), Some(1));
         let output = test.draw(
-            &crate::state![&msg],
+            &State::new(),
             Dimensions {
                 width: 50,
                 height: 50,

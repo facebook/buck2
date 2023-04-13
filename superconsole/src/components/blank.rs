@@ -40,41 +40,28 @@ mod tests {
     use crate::Component;
     use crate::Dimensions;
     use crate::Lines;
+    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct EchoMsg(Lines);
 
     #[test]
     fn test_echo_empty() {
-        let echo: Echo<EchoMsg> = Echo::new(false);
-
-        let test = EchoMsg(Lines::new());
-
-        let output = echo
-            .draw(
-                &crate::state!(&test),
-                Dimensions::new(10, 10),
-                DrawMode::Normal,
-            )
+        let output = Echo(Lines::new())
+            .draw(&State::new(), Dimensions::new(10, 10), DrawMode::Normal)
             .unwrap();
         assert_eq!(output, Lines::new());
     }
 
     #[test]
     fn test_echo() {
-        let echo: Echo<EchoMsg> = Echo::new(false);
         let output = Lines(vec![
             vec!["Line 1"].try_into().unwrap(),
             vec!["Line 2"].try_into().unwrap(),
         ]);
-        let state = EchoMsg(output.clone());
 
-        let test_output = echo
-            .draw(
-                &crate::state!(&state),
-                Dimensions::new(10, 10),
-                DrawMode::Final,
-            )
+        let test_output = Echo(output.clone())
+            .draw(&State::new(), Dimensions::new(10, 10), DrawMode::Final)
             .unwrap();
         assert_eq!(output, test_output);
     }

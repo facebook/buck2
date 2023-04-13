@@ -96,23 +96,21 @@ mod tests {
 
     #[test]
     fn test_pad_left() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             left: 5,
             right: 0,
             top: 0,
             bottom: 0,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
 
         let drawing = padder
-            .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec![" ".repeat(5).as_ref(), "hello world"]
@@ -126,23 +124,21 @@ mod tests {
 
     #[test]
     fn test_pad_right() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             right: 4,
             left: 0,
             top: 0,
             bottom: 0,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
 
         let drawing = padder
-            .draw(&state, Dimensions::new(20, 20), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world", &" ".repeat(4)].try_into().unwrap(),
@@ -154,23 +150,21 @@ mod tests {
 
     #[test]
     fn test_pad_top() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             top: 5,
             bottom: 0,
             left: 0,
             right: 0,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
 
         let drawing = padder
-            .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             Line::default(),
@@ -188,23 +182,21 @@ mod tests {
 
     #[test]
     fn test_pad_bottom() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             bottom: 5,
             top: 0,
             left: 0,
             right: 0,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
 
         let drawing = padder
-            .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
@@ -222,23 +214,21 @@ mod tests {
 
     #[test]
     fn test_no_pad() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             top: 0,
             bottom: 0,
             left: 0,
             right: 0,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
 
         let drawing = padder
-            .draw(&state, Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
@@ -251,22 +241,20 @@ mod tests {
 
     #[test]
     fn test_truncated() {
+        let msg = Lines(vec![
+            vec!["hello world"].try_into().unwrap(),
+            vec!["ok"].try_into().unwrap(),
+            Line::default(),
+        ]);
         let padder = Padded {
-            child: Box::new(Echo::<Msg>::new(false)),
+            child: Echo(msg),
             left: 5,
             right: 3,
             top: 3,
             bottom: 3,
         };
-        let mut state = State::new();
-        let msg = Msg(Lines(vec![
-            vec!["hello world"].try_into().unwrap(),
-            vec!["ok"].try_into().unwrap(),
-            Line::default(),
-        ]));
-        state.insert(&msg);
         let drawing = padder
-            .draw(&state, Dimensions::new(10, 8), DrawMode::Normal)
+            .draw(&State::new(), Dimensions::new(10, 8), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             // 5 rows of padding at the top

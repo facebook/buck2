@@ -244,19 +244,18 @@ mod tests {
 
     #[test]
     fn test_small_buffer() -> anyhow::Result<()> {
-        let root = Echo::<Msg>::new(false);
         let mut console = test_console();
         let msg_count = MINIMUM_EMIT + 5;
         console.emit(Lines(vec![vec!["line 1"].try_into()?; msg_count]));
-        let msg = Msg(Lines(vec![vec!["line"].try_into()?; msg_count]));
-        let state = crate::state![&msg];
+        let msg = Lines(vec![vec!["line"].try_into()?; msg_count]);
+        let root = Echo(msg);
         let mut buffer = Vec::new();
 
         // even though the canvas is larger than the tty
         console.render_general(
             &mut buffer,
             &root,
-            &state,
+            &State::new(),
             DrawMode::Normal,
             Dimensions::new(100, 2),
         )?;
@@ -269,21 +268,19 @@ mod tests {
 
     #[test]
     fn test_huge_buffer() -> anyhow::Result<()> {
-        let root = Echo::<Msg>::new(false);
         let mut console = test_console();
         console.emit(Lines(vec![
             vec!["line 1"].try_into()?;
             MAX_GRAPHEME_BUFFER * 2
         ]));
-        let msg = Msg(Lines(vec![vec!["line"].try_into()?; 1]));
-        let state = crate::state![&msg];
+        let root = Echo(Lines(vec![vec!["line"].try_into()?; 1]));
         let mut buffer = Vec::new();
 
         // Even though we have more messages than fit on the screen in the `to_emit` buffer
         console.render_general(
             &mut buffer,
             &root,
-            &state,
+            &State::new(),
             DrawMode::Normal,
             Dimensions::new(100, 20),
         )?;
@@ -297,21 +294,19 @@ mod tests {
     /// Check that no frames are produced when should_render returns false.
     #[test]
     fn test_block_render() -> anyhow::Result<()> {
-        let root = Echo::<Msg>::new(false);
         let mut console = test_console();
 
-        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
-        let state = crate::state![&msg];
+        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
 
-        console.render(&root, &state)?;
+        console.render(&root, &State::new())?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.test_output_mut()?.should_render = false;
-        console.render(&root, &state)?;
+        console.render(&root, &State::new())?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&root, &state)?;
+        console.render(&root, &State::new())?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         Ok(())
@@ -321,20 +316,18 @@ mod tests {
     /// is unblocked.
     #[test]
     fn test_block_lines() -> anyhow::Result<()> {
-        let root = Echo::<Msg>::new(false);
         let mut console = test_console();
 
-        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
-        let state = crate::state![&msg];
+        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&root, &state)?;
+        console.render(&root, &State::new())?;
         assert_eq!(console.test_output()?.frames.len(), 0);
 
         console.test_output_mut()?.should_render = true;
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render(&root, &state)?;
+        console.render(&root, &State::new())?;
 
         let frame = console
             .test_output_mut()?
@@ -352,16 +345,14 @@ mod tests {
     /// Check that render_with_mode does not respect should_render.
     #[test]
     fn test_block_finalize() -> anyhow::Result<()> {
-        let root = Echo::<Msg>::new(false);
         let mut console = test_console();
 
-        let msg = Msg(Lines(vec![vec!["state"].try_into()?; 1]));
-        let state = crate::state![&msg];
+        let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render_with_mode(&root, &state, DrawMode::Final)?;
+        console.render_with_mode(&root, &State::new(), DrawMode::Final)?;
 
         let frame = console
             .test_output_mut()?

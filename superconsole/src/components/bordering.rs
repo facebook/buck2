@@ -149,19 +149,16 @@ mod tests {
 
     #[test]
     fn test_basic() -> anyhow::Result<()> {
-        let component = Bordered::new(Box::new(Echo::<Msg>::new(true)), BorderedSpec::default());
-
-        let msg = Msg(Lines(vec![
+        let msg = Lines(vec![
             vec!["Test"].try_into()?,              // 4 chars
             vec!["Longer"].try_into()?,            // 6 chars
             vec!["Even Longer", "ok"].try_into()?, // 13 chars
             Line::default(),
-        ]));
-        let output = component.draw(
-            &crate::state![&msg],
-            Dimensions::new(14, 5),
-            DrawMode::Normal,
-        )?;
+        ]);
+
+        let component = Bordered::new(Echo(msg), BorderedSpec::default());
+
+        let output = component.draw(&State::new(), Dimensions::new(14, 5), DrawMode::Normal)?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
         let expected = Lines(vec![
@@ -179,8 +176,15 @@ mod tests {
 
     #[test]
     fn test_complex() -> anyhow::Result<()> {
+        let msg = Lines(vec![
+            vec!["Test"].try_into()?,              // 4 chars
+            vec!["Longer"].try_into()?,            // 6 chars
+            vec!["Even Longer", "ok"].try_into()?, // 13 chars
+            Line::default(),
+        ]);
+
         let component = Bordered::new(
-            Box::new(Echo::<Msg>::new(true)),
+            Echo(msg),
             BorderedSpec {
                 top: Some("@@@".try_into()?),
                 left: None,
@@ -189,17 +193,7 @@ mod tests {
             },
         );
 
-        let msg = Msg(Lines(vec![
-            vec!["Test"].try_into()?,              // 4 chars
-            vec!["Longer"].try_into()?,            // 6 chars
-            vec!["Even Longer", "ok"].try_into()?, // 13 chars
-            Line::default(),
-        ]));
-        let output = component.draw(
-            &crate::state![&msg],
-            Dimensions::new(13, 7),
-            DrawMode::Normal,
-        )?;
+        let output = component.draw(&State::new(), Dimensions::new(13, 7), DrawMode::Normal)?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
         let expected = Lines(vec![
@@ -221,8 +215,10 @@ mod tests {
     fn test_multi_width_unicode() -> anyhow::Result<()> {
         let multi_width = "🦶";
 
+        let msg = Lines(vec![vec!["Tested"].try_into()?]);
+
         let component = Bordered::new(
-            Box::new(Echo::<Msg>::new(true)),
+            Echo(msg),
             BorderedSpec {
                 top: Some(multi_width.try_into()?),
                 left: None,
@@ -231,13 +227,7 @@ mod tests {
             },
         );
 
-        let msg = Msg(Lines(vec![vec!["Tested"].try_into()?]));
-
-        let output = component.draw(
-            &crate::state![&msg],
-            Dimensions::new(13, 7),
-            DrawMode::Normal,
-        )?;
+        let output = component.draw(&State::new(), Dimensions::new(13, 7), DrawMode::Normal)?;
         let expected = Lines(vec![vec!["🦶🦶🦶"].try_into()?, vec!["Tested"].try_into()?]);
 
         assert_eq!(output, expected);
