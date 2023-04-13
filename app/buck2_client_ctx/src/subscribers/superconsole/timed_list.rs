@@ -56,7 +56,6 @@ pub struct Cutoffs {
 }
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
-#[derive(Debug)]
 struct TimedListBody(Box<dyn Component + Send>);
 
 impl TimedListBody {
@@ -297,7 +296,6 @@ impl Component for CountComponent {
 }
 
 /// Wrapper component for Header + Count
-#[derive(Debug)]
 struct TimedListHeader(Bordered<Box<dyn Component + Send>>);
 
 impl TimedListHeader {
@@ -331,7 +329,6 @@ impl Component for TimedListHeader {
 }
 
 /// Component that displays ongoing events and their durations + summary stats.
-#[derive(Debug)]
 pub struct TimedList {
     header: TimedListHeader,
     body: TimedListBody,

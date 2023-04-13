@@ -48,7 +48,7 @@ pub enum DrawMode {
 
 /// Components are pluggable drawers that output lines of formatted text.
 /// They are composable (eventually) and re-render in place at each render.
-pub trait Component: Debug {
+pub trait Component {
     /// This method is to be implemented for components to provide the `draw` method.
     fn draw_unchecked(
         &self,

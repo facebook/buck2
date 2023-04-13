@@ -111,7 +111,6 @@ impl Component for TestCounterComponent {
 }
 
 /// Draw the test summary line above the `timed_list`
-#[derive(Debug)]
 pub struct TestHeader(Box<dyn Component + Send>);
 
 impl TestHeader {

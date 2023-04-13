@@ -18,7 +18,6 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::State;
 
-#[derive(Debug)]
 pub(crate) struct HeaderLineComponent {
     lhs: Box<dyn Component + Send>,
     rhs: Box<dyn Component + Send>,

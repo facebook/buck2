@@ -8,6 +8,9 @@
  */
 
 use std::borrow::Cow;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::io::Write;
 use std::iter;
 use std::sync::Arc;
@@ -140,10 +143,15 @@ impl Default for SuperConsoleConfig {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct BuckRootComponent {
     sandwiched: Option<Box<dyn Component + Send>>,
     timed_list: TimedList,
+}
+
+impl Debug for BuckRootComponent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BuckRootComponent").finish_non_exhaustive()
+    }
 }
 
 impl Component for BuckRootComponent {

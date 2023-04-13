@@ -10,6 +10,8 @@
 //! Splitting is one of the most primitive building blocks of a fully featured UI.
 //! This module contains components and enums that allow for splits along either dimension.
 
+use std::fmt::Debug;
+
 use crate::Component;
 use crate::Dimensions;
 use crate::Direction;
@@ -114,11 +116,20 @@ impl InternalSplitKind {
 
 /// [`Splits`](SplitKind) along a given [`direction`](crate::Direction) for its child [`components`](Component).
 /// Child components are truncated to the bounds passed to them.
-#[derive(Debug)]
 pub struct Split {
     children: Vec<Box<dyn Component>>,
     direction: Direction,
     split: InternalSplitKind,
+}
+
+impl Debug for Split {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Split")
+            .field("children", &self.children.len())
+            .field("direction", &self.direction)
+            .field("split", &self.split)
+            .finish()
+    }
 }
 
 impl Split {
