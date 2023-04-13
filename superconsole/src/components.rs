@@ -101,3 +101,36 @@ impl<C: Component> Component for Box<C> {
         (**self).draw_unchecked(state, dimensions, mode)
     }
 }
+
+impl<'a> Component for &'a dyn Component {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
+
+impl<'a> Component for &'a (dyn Component + Send) {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
+
+impl<'a, C: Component> Component for &'a C {
+    fn draw_unchecked(
+        &self,
+        state: &State,
+        dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> anyhow::Result<Lines> {
+        (**self).draw_unchecked(state, dimensions, mode)
+    }
+}
