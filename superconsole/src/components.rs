@@ -17,7 +17,6 @@ pub use blank::Blank;
 pub use bordering::Bordered;
 pub use bounding::Bounded;
 pub(crate) use canvas::Canvas;
-pub use expanding::Expanding;
 pub use padding::Padded;
 pub use splitting::Split;
 
@@ -35,7 +34,6 @@ mod canvas;
 mod draw_horizontal;
 mod draw_vertical;
 pub(crate) mod echo;
-mod expanding;
 pub mod padding;
 pub mod splitting;
 
