@@ -337,7 +337,12 @@ impl DaemonState {
             cells.dupe(),
             ignore_specs,
         )
-        .context("Error creating a FileWatcher")?;
+        .with_context(|| {
+            format!(
+                "Error creating a FileWatcher for project root `{}`",
+                paths.project_root()
+            )
+        })?;
 
         let hash_all_commands = root_config
             .parse::<RolloutPercentage>("buck2", "hash_all_commands")?
