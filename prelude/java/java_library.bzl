@@ -649,7 +649,7 @@ def build_java_library(
     class_to_src_map = create_class_to_source_map_info(
         ctx = ctx,
         mapping = class_to_srcs,
-        deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps + ctx.attrs.provided_deps + provided_deps_query + ctx.attrs.exported_provided_deps,
+        deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
     )
 
     default_info = get_default_info(outputs, sub_targets | extra_sub_targets)
