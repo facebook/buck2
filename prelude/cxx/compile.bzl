@@ -499,7 +499,7 @@ def _attr_compiler_flags(ctx: "context", ext: str.type) -> [""]:
     )
 
 def _get_dep_tracking_mode(toolchain: "provider", file_type: DepFileType.type) -> DepTrackingMode.type:
-    if file_type == DepFileType("cpp"):
+    if file_type == DepFileType("cpp") or file_type == DepFileType("c"):
         return toolchain.cpp_dep_tracking_mode
     elif file_type == DepFileType("cuda"):
         return toolchain.cuda_dep_tracking_mode
