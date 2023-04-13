@@ -139,7 +139,7 @@ struct BeforeSubcommandOptions {
     /// running with the same isolation directory.
     ///
     /// This is an unsupported option used only for development work.
-    #[clap(long, global(true))]
+    #[clap(long, global(true), hidden(true))]
     no_buckd: bool,
 
     /// Print buck wrapper help.
