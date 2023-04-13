@@ -7,6 +7,9 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
+load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
+load("@prelude//apple:resource_groups.bzl", "ResourceGraph", "create_resource_graph")  # @unused `ResourceGraph` used as a type
+load("@prelude//js:js_providers.bzl", "JsBundleInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
 RAM_BUNDLE_TYPES = {
@@ -55,6 +58,27 @@ ASSET_EXTENSIONS = [
 
 # Matches the default value for resolver.platforms in metro-config
 ASSET_PLATFORMS = ["ios", "android", "windows", "web"]
+
+def get_apple_resource_providers_for_js_bundle(ctx: "context", js_bundle_info: JsBundleInfo.type, platform: str.type, skip_resources: bool.type) -> [ResourceGraph.type]:
+    if platform != "ios":
+        return []
+
+    # `skip_resources` controls whether the JS resources should be skipped, not whether
+    # the whole bundle should be skipped as a resource
+    resources_content_dirs = [] if skip_resources else [js_bundle_info.res]
+    resource_spec = AppleResourceSpec(
+        content_dirs = [
+            js_bundle_info.built_js,
+        ] + resources_content_dirs,
+        destination = AppleResourceDestination("resources"),
+    )
+    return [create_resource_graph(
+        ctx = ctx,
+        labels = ctx.attrs.labels,
+        deps = [],
+        exported_deps = [],
+        resource_spec = resource_spec,
+    )]
 
 def _strip_platform_from_asset_name(name: str.type) -> str.type:
     name_without_extension, extension = paths.split_extension(name)

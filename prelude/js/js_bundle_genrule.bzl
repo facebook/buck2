@@ -8,7 +8,7 @@
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
-load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_bundle_name")
+load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name")
 load("@prelude//utils:utils.bzl", "expect")
 
 def _build_js_bundle(
@@ -92,6 +92,8 @@ def _get_extra_providers(
         )
         providers.append(new_android_resource_info)
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], resource_info = new_android_resource_info))
+
+    providers += get_apple_resource_providers_for_js_bundle(ctx, js_bundle_out, ctx.attrs._platform, skip_resources)
 
     return providers
 
