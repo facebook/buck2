@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
@@ -48,17 +49,14 @@ impl dyn FileWatcher {
         };
 
         match root_config.get("buck2", "file_watcher").unwrap_or(default) {
-            "watchman" => Ok(Arc::new(WatchmanFileWatcher::new(
-                project_root.root(),
-                root_config,
-                cells,
-                ignore_specs,
-            )?)),
-            "notify" => Ok(Arc::new(NotifyFileWatcher::new(
-                project_root,
-                cells,
-                ignore_specs,
-            )?)),
+            "watchman" => Ok(Arc::new(
+                WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
+                    .context("Creating watchman file watcher")?,
+            )),
+            "notify" => Ok(Arc::new(
+                NotifyFileWatcher::new(project_root, cells, ignore_specs)
+                    .context("Creating notify file watcher")?,
+            )),
             other => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
         }
     }
