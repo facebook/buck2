@@ -55,31 +55,31 @@ pub struct Cutoffs {
 }
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
-struct TimedListBody(TimedListBodyInner);
 
-impl TimedListBody {
-    fn new(cutoffs: Cutoffs) -> Self {
-        Self(TimedListBodyInner { cutoffs })
-    }
+struct TimedListBody<'c> {
+    cutoffs: &'c Cutoffs,
 }
 
 #[derive(Debug)]
-struct TimedListBodyInner {
-    cutoffs: Cutoffs,
+struct TimedListBodyInner<'c> {
+    cutoffs: &'c Cutoffs,
 }
 
-impl Component for TimedListBody {
+impl<'c> Component for TimedListBody<'c> {
     fn draw_unchecked(
         &self,
         state: &State,
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        self.0.draw(state, dimensions, mode)
+        TimedListBodyInner {
+            cutoffs: self.cutoffs,
+        }
+        .draw(state, dimensions, mode)
     }
 }
 
-impl TimedListBodyInner {
+impl<'c> TimedListBodyInner<'c> {
     /// Render a root  as `root [first child + remaining children]`
     fn draw_root_first_child(
         &self,
@@ -177,7 +177,7 @@ impl TimedListBodyInner {
     }
 }
 
-impl Component for TimedListBodyInner {
+impl<'c> Component for TimedListBodyInner<'c> {
     fn draw_unchecked(
         &self,
         state: &State,
@@ -326,17 +326,14 @@ impl<'s> Component for TimedListHeader<'s> {
 /// Component that displays ongoing events and their durations + summary stats.
 pub struct TimedList {
     header: String,
-    body: TimedListBody,
+    cutoffs: Cutoffs,
 }
 
 impl TimedList {
     /// * `cutoffs` determines durations for warnings, time-outs, and baseline notability.
     /// * `header` is the string displayed at the top of the list.
     pub fn new(cutoffs: Cutoffs, header: String) -> Self {
-        Self {
-            header,
-            body: TimedListBody::new(cutoffs),
-        }
+        Self { header, cutoffs }
     }
 }
 
@@ -354,10 +351,13 @@ impl Component for TimedList {
                 let header = TimedListHeader {
                     header: &self.header,
                 };
+                let body = TimedListBody {
+                    cutoffs: &self.cutoffs,
+                };
 
                 let mut draw = DrawVertical::new(dimensions);
                 draw.draw(&header, state, mode)?;
-                draw.draw(&self.body, state, mode)?;
+                draw.draw(&body, state, mode)?;
                 Ok(draw.finish())
             }
             // show a summary at the end
