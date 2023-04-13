@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Either;
-use superconsole::Component;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonBuildConfigurationOptions;
@@ -104,11 +103,6 @@ pub trait StreamingCommand: Sized + Send + Sync {
     fn event_log_opts(&self) -> &CommonDaemonCommandOptions;
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions;
-
-    /// Allows a command to add additional superconsole components when superconsole is used.
-    fn extra_superconsole_component(&self) -> Option<Box<dyn Component + Send>> {
-        None
-    }
 
     fn extra_subscribers(&self) -> Vec<Box<dyn EventSubscriber>> {
         vec![]

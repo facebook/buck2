@@ -110,7 +110,7 @@ impl TestCounterComponent {
 }
 
 /// Draw the test summary line above the `timed_list`
-pub struct TestHeader;
+pub(crate) struct TestHeader;
 
 impl Component for TestHeader {
     fn draw_unchecked(
