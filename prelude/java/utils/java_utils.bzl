@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//java:class_to_srcs.bzl",
+    "JavaClassToSourceMapInfo",  # @unused Used as a type
+    "create_class_to_source_map_from_jar",
+    "create_class_to_source_map_info",
+)
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -99,3 +105,26 @@ def declare_prefixed_name(name: str.type, prefix: [str.type, None]) -> str.type:
         return name
 
     return "{}_{}".format(prefix, name)
+
+def get_class_to_source_map_info(
+        ctx: "context",
+        outputs: ["JavaCompileOutputs", None],
+        deps: ["dependency"]) -> (JavaClassToSourceMapInfo.type, dict.type):
+    sub_targets = {}
+    class_to_srcs = None
+    if not ctx.attrs._is_building_android_binary and outputs != None:
+        class_to_srcs = create_class_to_source_map_from_jar(
+            actions = ctx.actions,
+            java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+            name = ctx.attrs.name + ".class_to_srcs.json",
+            jar = outputs.classpath_entry.abi,
+            srcs = ctx.attrs.srcs,
+            jar_path = outputs.classpath_entry.full_library,
+        )
+        sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
+    class_to_src_map_info = create_class_to_source_map_info(
+        ctx = ctx,
+        mapping = class_to_srcs,
+        deps = deps,
+    )
+    return (class_to_src_map_info, sub_targets)

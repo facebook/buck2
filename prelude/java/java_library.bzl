@@ -7,7 +7,6 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
-load("@prelude//java:class_to_srcs.bzl", "create_class_to_source_map_from_jar", "create_class_to_source_map_info")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaLibraryInfo",
@@ -25,7 +24,7 @@ load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInf
 load("@prelude//java:javacd_jar_creator.bzl", "create_jar_artifact_javacd")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "create_ap_params")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
-load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
+load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "get_path_separator", "to_java_version")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:utils.bzl", "expect")
 
@@ -635,22 +634,12 @@ def build_java_library(
         has_srcs = has_srcs,
     )
 
-    class_to_srcs = None
-    if not ctx.attrs._is_building_android_binary and outputs != None:
-        class_to_srcs = create_class_to_source_map_from_jar(
-            actions = ctx.actions,
-            java_toolchain = java_toolchain,
-            name = ctx.attrs.name + ".class_to_srcs.json",
-            jar = outputs.classpath_entry.abi,
-            srcs = ctx.attrs.srcs,
-            jar_path = outputs.classpath_entry.full_library,
-        )
-        sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
-    class_to_src_map = create_class_to_source_map_info(
-        ctx = ctx,
-        mapping = class_to_srcs,
+    class_to_src_map, class_to_src_map_sub_targets = get_class_to_source_map_info(
+        ctx,
+        outputs = outputs,
         deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
     )
+    extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
     default_info = get_default_info(outputs, sub_targets | extra_sub_targets)
     return JavaProviders(
