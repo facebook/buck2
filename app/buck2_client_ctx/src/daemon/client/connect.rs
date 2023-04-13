@@ -705,6 +705,7 @@ mod tests {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             trace_io_state: state.into(),
+            daemon_id: "foo".to_owned(),
         }
     }
 

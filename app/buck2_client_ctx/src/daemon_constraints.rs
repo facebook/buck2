@@ -18,6 +18,7 @@ pub fn gen_daemon_constraints(
         version: version(),
         user_version: user_version()?,
         trace_io_state: desired_tracing_state.into(),
+        daemon_id: buck2_events::daemon_id::DAEMON_UUID.to_string(),
     })
 }
 

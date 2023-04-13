@@ -36,6 +36,7 @@ message DaemonConstraints {
   string version = 1;
   optional string user_version = 2;
   TraceIoState trace_io_state = 3;
+  string daemon_id = 4;
 }
 
 message KillRequest {
