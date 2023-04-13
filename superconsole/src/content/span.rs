@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
-
 use crossterm::queue;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -57,8 +55,8 @@ impl Span {
         }
     }
 
-    pub fn content(&self) -> Cow<str> {
-        Cow::from(&self.content)
+    pub fn content(&self) -> &str {
+        &self.content
     }
 
     /// Create an unstyled span with the specified amount of whitespace padding.
