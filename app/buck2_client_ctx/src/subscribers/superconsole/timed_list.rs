@@ -19,7 +19,6 @@ use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use superconsole::components::bordering::BorderedSpec;
 use superconsole::components::Bordered;
 use superconsole::components::DrawVertical;
-use superconsole::components::Expanding;
 use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -56,13 +55,11 @@ pub struct Cutoffs {
 }
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
-struct TimedListBody(Box<dyn Component + Send>);
+struct TimedListBody(TimedListBodyInner);
 
 impl TimedListBody {
     fn new(cutoffs: Cutoffs) -> Self {
-        Self(Box::new(Expanding::new(Box::new(TimedListBodyInner {
-            cutoffs,
-        }))))
+        Self(TimedListBodyInner { cutoffs })
     }
 }
 
