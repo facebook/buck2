@@ -34,6 +34,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 mod golden;
+mod rustdocs;
 
 const STARLARK_CODE: &str = r#"
 """
