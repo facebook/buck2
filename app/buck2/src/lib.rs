@@ -158,10 +158,19 @@ impl BeforeSubcommandOptions {
     }
 }
 
+fn help() -> &'static str {
+    concat!(
+        "A build system\n",
+        "\n",
+        "Documentation: https://buck2.build/docs/\n", // @oss-enable
+        // @oss-disable: "Documentation: https://internalfb.com/intern/staticdocs/buck2/docs/\n",
+    )
+}
+
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "buck2",
-    about = "a build system",
+    about(Some(help())),
     version(BuckVersion::get_version())
 )]
 pub(crate) struct Opt {
