@@ -34,3 +34,4 @@ jobs:
           ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: gh-pages # The branch the action should deploy to.
           FOLDER: website/build # The folder the action should deploy.
+          SINGLE_COMMIT: true # Discard history for the gh-pages branch.
