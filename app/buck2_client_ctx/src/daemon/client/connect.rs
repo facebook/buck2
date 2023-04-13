@@ -715,7 +715,10 @@ mod tests {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             daemon_id: "foo".to_owned(),
-            extra: Some(buck2_cli_proto::ExtraDaemonConstraints { trace_io_enabled }),
+            extra: Some(buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled,
+                materializer_state_identity: None,
+            }),
         }
     }
 

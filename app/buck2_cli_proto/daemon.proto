@@ -43,6 +43,7 @@ message DaemonConstraints {
 // daemon is actually running.
 message ExtraDaemonConstraints {
   bool trace_io_enabled = 1;
+  optional string materializer_state_identity = 2;
 }
 
 message KillRequest {

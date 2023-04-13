@@ -848,6 +848,10 @@ impl DaemonApi for BuckdServer {
             let extra_constraints = daemon_state.data().as_ref().ok().map(|state| {
                 buck2_cli_proto::ExtraDaemonConstraints {
                     trace_io_enabled: state.io.as_any().is::<TracingIoProvider>(),
+                    materializer_state_identity: state
+                        .materializer_state_identity
+                        .as_ref()
+                        .map(|i| i.to_string()),
                 }
             });
 
