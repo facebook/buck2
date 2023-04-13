@@ -50,14 +50,14 @@ pub(crate) struct NamedEventLogWriter {
     trace_id: TraceId,
 }
 
-pub(crate) enum LogFileState {
+pub(crate) enum LogWriterState {
     Unopened(AbsNormPathBuf, Option<AbsPathBuf>),
     Opened(Vec<NamedEventLogWriter>),
     Closed,
 }
 
 pub(crate) struct WriteEventLog {
-    state: LogFileState,
+    state: LogWriterState,
     async_cleanup_context: Option<AsyncCleanupContext>,
     sanitized_argv: Vec<String>,
     command_name: String,
@@ -76,7 +76,7 @@ impl WriteEventLog {
         command_name: String,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            state: LogFileState::Unopened(logdir, extra_path),
+            state: LogWriterState::Unopened(logdir, extra_path),
             async_cleanup_context: Some(async_cleanup_context),
             sanitized_argv,
             command_name,
@@ -102,12 +102,12 @@ impl WriteEventLog {
         I: IntoIterator<Item = &'a T> + Clone + 'a,
     {
         match &mut self.state {
-            LogFileState::Opened(files) => {
-                for f in files.iter_mut() {
+            LogWriterState::Opened(writers) => {
+                for writer in writers.iter_mut() {
                     self.buf.clear();
 
                     for event in events.clone() {
-                        match f.path.encoding.mode {
+                        match writer.path.encoding.mode {
                             LogMode::Json => {
                                 event.serialize_to_json(&mut self.buf)?;
                                 self.buf.push(b'\n');
@@ -118,7 +118,8 @@ impl WriteEventLog {
                         };
                     }
 
-                    f.file
+                    writer
+                        .file
                         .write_all(&self.buf)
                         .await
                         .context("Failed to write event")?;
@@ -130,7 +131,7 @@ impl WriteEventLog {
                 }
                 Ok(())
             }
-            LogFileState::Unopened(..) | LogFileState::Closed => {
+            LogWriterState::Unopened(..) | LogWriterState::Closed => {
                 self.buf.clear();
                 if let Some(event) = events.into_iter().next() {
                     event.serialize_to_json(&mut self.buf)?;
@@ -146,11 +147,11 @@ impl WriteEventLog {
         }
     }
 
-    async fn ensure_log_files_opened(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    async fn ensure_log_writers_opened(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         let (logdir, maybe_extra_path) = match &self.state {
-            LogFileState::Unopened(logdir, extra_path) => (logdir, extra_path),
-            LogFileState::Opened(_) => return Ok(()),
-            LogFileState::Closed => {
+            LogWriterState::Unopened(logdir, extra_path) => (logdir, extra_path),
+            LogWriterState::Opened(_) => return Ok(()),
+            LogWriterState::Closed => {
                 return Err(anyhow::anyhow!("Received events after logs were closed"));
             }
         };
@@ -180,11 +181,11 @@ impl WriteEventLog {
                 .join(get_logfile_name(event, encoding, &self.command_name)?),
             encoding,
         };
-        let mut log_files = vec![open_event_log_for_writing(path, event.trace_id()?).await?];
+        let mut writers = vec![open_event_log_for_writing(path, event.trace_id()?).await?];
 
         // Also open the user's log file, if any as provided, with no encoding.
         if let Some(extra_path) = maybe_extra_path {
-            log_files.push(
+            writers.push(
                 open_event_log_for_writing(
                     EventLogPathBuf::infer_opt(extra_path.clone())?.unwrap_or_else(
                         |NoInference(path)| EventLogPathBuf {
@@ -198,7 +199,7 @@ impl WriteEventLog {
             );
         }
 
-        self.state = LogFileState::Opened(log_files);
+        self.state = LogWriterState::Opened(writers);
         self.log_invocation(event.trace_id()?).await
     }
 
@@ -206,23 +207,23 @@ impl WriteEventLog {
         &mut self,
     ) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
         // Flush all our files before exiting.
-        let mut log_files = match &mut self.state {
-            LogFileState::Opened(files) => std::mem::take(files),
-            LogFileState::Unopened(..) | LogFileState::Closed => {
+        let mut writers = match &mut self.state {
+            LogWriterState::Opened(writers) => std::mem::take(writers),
+            LogWriterState::Unopened(..) | LogWriterState::Closed => {
                 // Nothing to do in this case, though this should be unreachable since we just did
                 // a write_ln.
                 vec![]
             }
         };
 
-        self.state = LogFileState::Closed;
+        self.state = LogWriterState::Closed;
 
         async move {
-            for file in log_files.iter_mut() {
-                file.file.shutdown().await?;
+            for writer in writers.iter_mut() {
+                writer.file.shutdown().await?;
             }
 
-            let log_file_to_upload = match log_files.first() {
+            let log_file_to_upload = match writers.first() {
                 Some(log) => log,
                 None => return Ok(()),
             };
@@ -317,7 +318,7 @@ impl WriteEventLog {
         let mut first = true;
         for event in events {
             if first {
-                self.ensure_log_files_opened(event).await?;
+                self.ensure_log_writers_opened(event).await?;
                 first = false;
             }
 
@@ -336,8 +337,8 @@ impl WriteEventLog {
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         match &self.state {
-            LogFileState::Opened(..) | LogFileState::Closed => {}
-            LogFileState::Unopened(..) => {
+            LogWriterState::Opened(..) | LogWriterState::Closed => {}
+            LogWriterState::Unopened(..) => {
                 // This is a bit wonky. We can receive a CommandResult before we opened log files
                 // if the command crashed before it started. That can happen if the daemon
                 // initialization is what fails, since we need the daemon to initialize in order to
@@ -353,14 +354,14 @@ impl WriteEventLog {
     }
 
     pub(crate) async fn flush_files(&mut self) -> anyhow::Result<()> {
-        let log_files = match &mut self.state {
-            LogFileState::Opened(files) => files,
-            LogFileState::Unopened(..) | LogFileState::Closed => return Ok(()),
+        let writers = match &mut self.state {
+            LogWriterState::Opened(writers) => writers,
+            LogWriterState::Unopened(..) | LogWriterState::Closed => return Ok(()),
         };
 
-        for file in log_files {
-            file.file.flush().await.with_context(|| {
-                format!("Error flushing log file at {}", file.path.path.display())
+        for writer in writers {
+            writer.file.flush().await.with_context(|| {
+                format!("Error flushing log file at {}", writer.path.path.display())
             })?;
         }
 
@@ -437,7 +438,7 @@ mod tests {
     impl WriteEventLog {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
-                state: LogFileState::Opened(vec![
+                state: LogWriterState::Opened(vec![
                     open_event_log_for_writing(log, TraceId::new()).await?,
                 ]),
                 sanitized_argv: vec!["buck2".to_owned()],
