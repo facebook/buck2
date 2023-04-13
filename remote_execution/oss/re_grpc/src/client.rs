@@ -156,11 +156,11 @@ impl REClientBuilder {
             let address = substitute_env_vars(address).context("Invalid address")?;
 
             anyhow::Ok(
-                Channel::from_shared(address)?
+                Channel::from_shared(address.clone())?
                     .tls_config(tls_config.clone())?
                     .connect()
                     .await
-                    .context("Error connecting")?,
+                    .with_context(|| format!("Error connecting to `{}`", address))?,
             )
         };
 
