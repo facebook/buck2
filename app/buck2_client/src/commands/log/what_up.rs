@@ -25,11 +25,12 @@ use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
-use superconsole::components::splitting::SplitKind;
-use superconsole::components::Split;
+use superconsole::components::DrawVertical;
 use superconsole::Component;
-use superconsole::Direction;
+use superconsole::Dimensions;
 use superconsole::DrawMode;
+use superconsole::Lines;
+use superconsole::State;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -123,10 +124,23 @@ impl WhatUpCommand {
     }
 
     fn component() -> impl Component {
-        // Create space for a very big console
-        let mut components: Vec<Box<dyn Component>> = vec![Box::new(SessionInfoComponent)];
-        components.push(Box::new(TimedList::new(&CUTOFFS, "")));
-        Split::new(components, Direction::Vertical, SplitKind::Adaptive)
+        struct ComponentImpl;
+
+        impl Component for ComponentImpl {
+            fn draw_unchecked(
+                &self,
+                state: &State,
+                dimensions: Dimensions,
+                mode: DrawMode,
+            ) -> anyhow::Result<Lines> {
+                let mut draw = DrawVertical::new(dimensions);
+                draw.draw(&SessionInfoComponent, state, mode)?;
+                draw.draw(&TimedList::new(&CUTOFFS, ""), state, mode)?;
+                Ok(draw.finish())
+            }
+        }
+
+        ComponentImpl
     }
 }
 
