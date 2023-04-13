@@ -293,24 +293,14 @@ impl Component for CountComponent {
 }
 
 /// Wrapper component for Header + Count
-struct TimedListHeader(Bordered<Box<dyn Component + Send>>);
+#[derive(Debug)]
+struct TimedListHeader {
+    header: String,
+}
 
 impl TimedListHeader {
     fn new(header: String) -> Self {
-        let info = Box::new(StaticStringComponent { header });
-        let count = Box::new(CountComponent);
-        let header_split = Box::new(HeaderLineComponent::new(info, count));
-        let header_box = Bordered::<Box<dyn Component + Send>>::new(
-            header_split,
-            BorderedSpec {
-                bottom: Some(Span::sanitized("-")),
-                top: None,
-                left: None,
-                right: None,
-            },
-        );
-
-        Self(header_box)
+        TimedListHeader { header }
     }
 }
 
@@ -321,7 +311,21 @@ impl Component for TimedListHeader {
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        self.0.draw(state, dimensions, mode)
+        let info = StaticStringComponent {
+            header: &self.header,
+        };
+        let header_split = HeaderLineComponent::new(info, CountComponent);
+        let header_box = Bordered::new(
+            header_split,
+            BorderedSpec {
+                bottom: Some(Span::dash()),
+                top: None,
+                left: None,
+                right: None,
+            },
+        );
+
+        header_box.draw(state, dimensions, mode)
     }
 }
 
