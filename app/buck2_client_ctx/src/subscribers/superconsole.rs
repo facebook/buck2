@@ -344,7 +344,7 @@ impl StatefulSuperConsole {
                     header: &self.header,
                     state: &self.state,
                 },
-                &self.state.state(),
+                &State::new(),
                 DrawMode::Normal,
             ),
             None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
@@ -400,27 +400,6 @@ impl SuperConsoleState {
     ) -> anyhow::Result<()> {
         self.simple_console
             .update_event_observer(receive_time, event)
-    }
-
-    // Collect all state to send to super console. Note that the SpanTracker state is held in the
-    // SimpleConsole so that if we downgrade to the SimpleConsole, we don't lose tracked spans.
-    pub fn state(&self) -> superconsole::State {
-        let observer = self.simple_console.observer();
-
-        superconsole::state![
-            &self.config,
-            &self.current_tick,
-            &self.time_speed,
-            observer.spans(),
-            observer.action_stats(),
-            observer.test_state(),
-            observer.session_info(),
-            observer.re_state(),
-            observer.io_state(),
-            observer.extra().dice_state(),
-            observer.extra().debug_events(),
-            observer.starlark_debugger_state(),
-        ]
     }
 
     pub fn session_info(&self) -> &SessionInfo {
@@ -549,7 +528,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                     header: &self.header,
                     state: &self.state,
                 },
-                &self.state.state(),
+                &State::new(),
             )?;
         }
 
@@ -620,7 +599,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                         header: &self.header,
                         state: &self.state,
                     },
-                    &self.state.state(),
+                    &State::new(),
                 )
             }
             None => {
@@ -642,7 +621,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                         header: &self.header,
                         state: &self.state,
                     },
-                    &self.state.state(),
+                    &State::new(),
                 )
             }
             None => Ok(()),
@@ -656,7 +635,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                     header: &self.header,
                     state: &self.state,
                 },
-                &self.state.state(),
+                &State::new(),
             ),
             None => Ok(()),
         }

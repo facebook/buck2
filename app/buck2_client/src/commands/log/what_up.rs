@@ -105,10 +105,8 @@ impl WhatUpCommand {
                     StreamValue::Result(result) => {
                         let result = StatefulSuperConsole::render_result_errors(&result);
                         super_console.emit(result);
-                        super_console.finalize(
-                            &Self::component(&super_console_state),
-                            &super_console_state.state(),
-                        )?;
+                        super_console
+                            .finalize(&Self::component(&super_console_state), &State::new())?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -117,7 +115,7 @@ impl WhatUpCommand {
 
             super_console.finalize_with_mode(
                 &Self::component(&super_console_state),
-                &super_console_state.state(),
+                &State::new(),
                 DrawMode::Normal,
             )?;
             anyhow::Ok(())
