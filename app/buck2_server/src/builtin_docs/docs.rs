@@ -220,7 +220,7 @@ async fn get_docs_from_module(
         .eval_module(StarlarkModulePath::LoadFile(&import_path))
         .await?;
     let frozen_module = module.env();
-    let mut module_docs = frozen_module.module_documentation();
+    let mut module_docs = frozen_module.documentation();
 
     // For the prelude, we want to promote `native` symbol up one level
     if let Some(existing_globals) = promote_native {

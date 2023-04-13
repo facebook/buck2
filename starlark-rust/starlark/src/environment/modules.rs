@@ -204,7 +204,7 @@ impl FrozenModule {
     /// The documentation for the module, and all of its top level values
     ///
     /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
-    pub fn module_documentation(&self) -> DocModule {
+    pub fn documentation(&self) -> DocModule {
         let members = self
             .all_items()
             .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)

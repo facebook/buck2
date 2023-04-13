@@ -161,7 +161,7 @@ fn object(builder: &mut MethodsBuilder) {
 fn golden_docs_starlark() {
     let res = docs_golden_test(
         "starlark",
-        DocItem::Module(assert::pass_module(STARLARK_CODE).module_documentation()),
+        DocItem::Module(assert::pass_module(STARLARK_CODE).documentation()),
     );
     assert!(!res.contains("_do_not_export"))
 }

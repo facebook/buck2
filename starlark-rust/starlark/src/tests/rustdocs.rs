@@ -116,7 +116,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
             .replace("Some(DocType { raw_type: \"\\\"\\\"\" })", "None")
     }
 
-    let expected = expected.module_documentation().members;
+    let expected = expected.documentation().members;
     let got = unpack(got.documentation());
     assert_eq!(expected.len(), got.len());
     for (name, expected1) in expected.iter() {
