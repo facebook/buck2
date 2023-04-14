@@ -24,7 +24,7 @@ struct TestCounterComponent;
 
 pub struct TestCounterColumn {
     label: &'static str,
-    color: Color,
+    color: Option<Color>,
     get_from_test_state: fn(&TestState) -> u64,
     get_from_test_statues: fn(
         &buck2_cli_proto::test_response::TestStatuses,
@@ -34,43 +34,43 @@ pub struct TestCounterColumn {
 impl TestCounterColumn {
     pub const LISTING_FAIL: TestCounterColumn = TestCounterColumn {
         label: "Listing Fail",
-        color: Color::Red,
+        color: Some(Color::Red),
         get_from_test_state: |test_state| test_state.listing_failed,
         get_from_test_statues: |test_statuses| &test_statuses.listing_failed,
     };
     const DISCOVERED: TestCounterColumn = TestCounterColumn {
         label: "Discovered",
-        color: Color::White,
+        color: None,
         get_from_test_state: |test_state| test_state.discovered,
         get_from_test_statues: |_test_statuses| &None,
     };
     pub const PASS: TestCounterColumn = TestCounterColumn {
         label: "Pass",
-        color: Color::Green,
+        color: Some(Color::Green),
         get_from_test_state: |test_state| test_state.pass,
         get_from_test_statues: |test_statuses| &test_statuses.passed,
     };
     pub const FAIL: TestCounterColumn = TestCounterColumn {
         label: "Fail",
-        color: Color::Red,
+        color: Some(Color::Red),
         get_from_test_state: |test_state| test_state.fail,
         get_from_test_statues: |test_statuses| &test_statuses.failed,
     };
     pub const FATAL: TestCounterColumn = TestCounterColumn {
         label: "Fatal",
-        color: Color::Red,
+        color: Some(Color::Red),
         get_from_test_state: |test_state| test_state.fatal,
         get_from_test_statues: |test_statuses| &test_statuses.fatals,
     };
     pub const SKIP: TestCounterColumn = TestCounterColumn {
         label: "Skip",
-        color: Color::Yellow,
+        color: Some(Color::Yellow),
         get_from_test_state: |test_state| test_state.skipped,
         get_from_test_statues: |test_statuses| &test_statuses.skipped,
     };
     const TIMEOUT: TestCounterColumn = TestCounterColumn {
         label: "Timeout",
-        color: Color::Yellow,
+        color: Some(Color::Yellow),
         get_from_test_state: |test_state| test_state.timeout,
         get_from_test_statues: |_test_statuses| &None,
     };
@@ -158,7 +158,7 @@ impl<'a> Component for TestHeader<'a> {
 struct StylizedCount {
     label: &'static str,
     count: u64,
-    color: Color,
+    color: Option<Color>,
 }
 
 impl StylizedCount {
@@ -166,7 +166,7 @@ impl StylizedCount {
     fn to_span(&self) -> anyhow::Result<superconsole::Span> {
         let mut style = ContentStyle::default();
         if self.count > 0 {
-            style.foreground_color = Some(self.color);
+            style.foreground_color = self.color;
         }
         style
             .apply(format!("{} {}", self.label, self.count))
