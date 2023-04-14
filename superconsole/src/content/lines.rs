@@ -267,7 +267,7 @@ impl Lines {
         let limit = limit.unwrap_or(self.len());
         let amt = cmp::min(limit, self.len());
         for line in self.0.drain(..amt) {
-            line.render(writer)?;
+            line.render_with_clear_and_nl(writer)?;
         }
 
         Ok(())
