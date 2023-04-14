@@ -131,7 +131,7 @@ def get_bundle_name(ctx: "context", default_bundle_name: str.type) -> str.type:
     if platform in flavors:
         return bundle_name_for_flavor_map[platform]
     else:
-        return default_bundle_name
+        return ctx.attrs.bundle_name if ctx.attrs.bundle_name else default_bundle_name
 
 def run_worker_commands(
         ctx: "context",
