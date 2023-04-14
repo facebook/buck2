@@ -54,6 +54,8 @@ There are three components:
 * `starlark` the library, a library that defines the parser, evaluator and standard library. Projects wishing to embed Starlark in their environment (with additional types, library functions and features) will make use of this library.
 * `starlark` the binary, which provides interactive evaluation, IDE features and linter, exposed through a command line. Useful if you want to use vanilla Starlark (but if you do, consider Python3 instead) or as a test-bed for experimenting. Most projects will end up implementing some of this functionality themselves over the `starlark` library, incorporating their specific extra types etc.
 
+In particular the `starlark` binary _can_ be effectively used as a linter. But for the REPL, evaluator and IDE features the `starlark` binary is only aware of standard Starlark. Most Starlark embeddings supply extra functions and data types to work with domain-specific concerns, and the lack of these bindings will cause the REPL/evaluator to fail if they are used, and will give a subpar IDE experience. In most cases you should write your own binary depending on the `starlark` library, integrating your domain-specific pieces, and then using the bundled LSP functions to produce your own IDE/REPL/evaluator on top of those. You should still be able to use the [VS Code extension](vscode/README.md).
+
 ## Compatibility
 
 In this section we outline where we don't comply with the [Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md).
