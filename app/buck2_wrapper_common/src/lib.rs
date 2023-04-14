@@ -34,7 +34,11 @@ pub fn killall(write: impl Fn(String)) -> bool {
     let mut current_parents = HashSet::new();
     let mut parent = Some(Pid::from_u32(std::process::id()));
     while let Some(pid) = parent {
-        current_parents.insert(pid);
+        // There is a small chance on Windows that the PID of a dead parent
+        // was reused by some of its descendants, and this can create a loop.
+        if !current_parents.insert(pid) {
+            break;
+        }
         parent = system.process(pid).and_then(|p| p.parent());
     }
 
