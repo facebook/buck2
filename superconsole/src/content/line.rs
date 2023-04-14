@@ -147,18 +147,31 @@ impl Line {
 
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
+    // TODO(nga): hide this function from the public API.
     pub fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        for word in &self.0 {
-            word.render(writer)?;
-        }
-
         let mut writer = VecAsFmtWrite(writer);
+
+        for word in &self.0 {
+            word.render(&mut writer)?;
+        }
 
         Clear(ClearType::UntilNewLine).write_ansi(&mut writer)?;
         writeln!(writer)?;
         MoveToColumn(0).write_ansi(&mut writer)?;
 
         Ok(())
+    }
+
+    /// Render the line as a string with ANSI escape codes.
+    ///
+    /// Without trailing newline or an escape sequence to clear the line.
+    pub fn render_line(&self) -> String {
+        let mut result = String::new();
+        for word in &self.0 {
+            word.render(&mut result)
+                .expect("writing to a string should not fail");
+        }
+        result
     }
 
     /// Iterate over the spans in the line.

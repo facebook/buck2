@@ -8,7 +8,7 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Write as _;
+use std::fmt;
 
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -21,8 +21,6 @@ use crossterm::Command;
 use termwiz::cell;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
-
-use crate::vec_as_fmt_write::VecAsFmtWrite;
 
 #[derive(Debug, thiserror::Error)]
 enum SpanError {
@@ -170,12 +168,10 @@ impl Span {
         SpanIterator(&self.style, self.content.graphemes(true))
     }
 
-    pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn render(&self, f: &mut impl fmt::Write) -> fmt::Result {
         if self.is_empty() {
             return Ok(());
         }
-
-        let f = &mut VecAsFmtWrite(writer);
 
         let mut reset_background = false;
         let mut reset_foreground = false;
