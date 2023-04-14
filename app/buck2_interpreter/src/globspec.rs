@@ -163,7 +163,8 @@ impl GlobSpec {
         let options = glob::MatchOptions {
             require_literal_separator: true,
             require_literal_leading_dot: true,
-            ..glob::MatchOptions::default()
+            // FIXME: We should have case sensitive globs
+            case_sensitive: false,
         };
         let include_matches = self.exact_matches.contains(path)
             || self
