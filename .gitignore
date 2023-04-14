@@ -1,6 +1,7 @@
 /target/
 Cargo.lock
 buck-out
+/.direnv
 
 # symlinks
 /examples/prelude/prelude
