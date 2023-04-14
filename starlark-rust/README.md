@@ -45,7 +45,6 @@ This project also has three non-goals:
 
 * We do _not_ aim for API stability between releases, preferring to iterate quickly and refine the API as much as possible. But we do [follow SemVer](https://doc.rust-lang.org/cargo/reference/semver.html).
 * We do _not_ aim for minimal dependencies, preferring to keep one package with lots of power. But if some dependencies prove tricky, we might add feature flags.
-* We do _not_ aim to work with Rust stable, preferring to take advantage of the unstable features in Rust to improve our code as much as possible. We hope that eventually enough features will be stabilised that using stable is reasonable again.
 
 ## Components
 
