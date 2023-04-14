@@ -27,7 +27,7 @@ use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::stdin::Stdin;
-use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs_if_exist;
+use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::read::EventLogSummary;
 use buck2_common::result::ToSharedResultExt;
@@ -491,7 +491,7 @@ async fn maybe_select_invocation(
     if command.no_invocation {
         return Ok(None);
     };
-    let logs = get_local_logs_if_exist(logdir)?;
+    let logs = get_local_logs(logdir)?;
     let mut logs = logs
         .into_iter()
         .rev() // newest first
