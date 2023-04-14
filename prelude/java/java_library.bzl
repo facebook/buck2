@@ -621,6 +621,15 @@ def build_java_library(
 
             sub_targets["nullsafex-json"] = [DefaultInfo(default_output = nullsafe_output)]
 
+    all_generated_sources = list(generated_sources)
+    if outputs and outputs.annotation_processor_output:
+        all_generated_sources.append(outputs.annotation_processor_output)
+
+    if len(all_generated_sources) == 1:
+        extra_sub_targets = extra_sub_targets | {"generated_sources": [
+            DefaultInfo(default_output = all_generated_sources[0]),
+        ]}
+
     java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
         ctx,
         library_output = outputs.classpath_entry if outputs else None,
@@ -630,7 +639,7 @@ def build_java_library(
         exported_provided_deps = ctx.attrs.exported_provided_deps,
         runtime_deps = ctx.attrs.runtime_deps,
         needs_desugar = source_level > 7 or target_level > 7,
-        generated_sources = generated_sources + [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
+        generated_sources = all_generated_sources,
         has_srcs = has_srcs,
     )
 
