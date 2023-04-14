@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::iter;
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
@@ -19,6 +21,7 @@ use syn::GenericParam;
 use syn::Generics;
 use syn::Ident;
 use syn::Index;
+use syn::Type;
 use syn::TypeParamBound;
 use syn::Variant;
 
@@ -134,5 +137,57 @@ pub(crate) fn duplicate_impl(data: &Data, duplicate: &TokenStream) -> TokenStrea
             syn::Error::new_spanned(x.union_token, "Can't derive duplication for unions")
                 .into_compile_error()
         }
+    }
+}
+
+pub(crate) fn extract_all_field_tys<'a>(
+    data: &'a Data,
+) -> Result<Box<dyn Iterator<Item = &'a Type> + 'a>, syn::Error> {
+    match data {
+        Data::Struct(data) => Ok(extract_all_field_tys_struct(data)),
+        Data::Enum(data) => Ok(extract_all_field_tys_enum(data)),
+        Data::Union(x) => Err(syn::Error::new_spanned(
+            x.union_token,
+            "Can't derive duplication for unions",
+        )),
+    }
+}
+
+fn extract_all_field_tys_struct<'a>(
+    data: &'a DataStruct,
+) -> Box<dyn Iterator<Item = &'a Type> + 'a> {
+    match data.fields {
+        Fields::Named(ref fields) => Box::new(fields.named.iter().map(|f| &f.ty)),
+        Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().map(|f| &f.ty)),
+        Fields::Unit => Box::new(iter::empty()),
+    }
+}
+
+fn extract_all_field_tys_variant<'a>(data: &'a Variant) -> Box<dyn Iterator<Item = &'a Type> + 'a> {
+    match data.fields {
+        Fields::Named(ref fields) => Box::new(fields.named.iter().map(|f| &f.ty)),
+        Fields::Unnamed(ref fields) => Box::new(fields.unnamed.iter().map(|f| &f.ty)),
+        Fields::Unit => Box::new(iter::empty()),
+    }
+}
+
+fn extract_all_field_tys_enum<'a>(data: &'a DataEnum) -> Box<dyn Iterator<Item = &'a Type> + 'a> {
+    Box::new(data.variants.iter().flat_map(extract_all_field_tys_variant))
+}
+
+pub(crate) fn check_each_field_impls<'a>(
+    iter: impl IntoIterator<Item = &'a Type>,
+    trait_required: Type,
+) -> TokenStream {
+    let checks = iter.into_iter().map(|ty| {
+        quote! {
+                assert_impl_all::<#ty>();
+        }
+    });
+
+    quote! {
+        fn assert_impl_all<T: ?Sized + #trait_required>() {}
+
+        #(#checks)*
     }
 }

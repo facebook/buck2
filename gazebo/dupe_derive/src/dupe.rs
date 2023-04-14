@@ -11,10 +11,12 @@ use quote::quote;
 use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::DeriveInput;
+use syn::Ident;
 use syn::TypeParamBound;
 
 use crate::util::add_trait_bounds;
-use crate::util::duplicate_impl;
+use crate::util::check_each_field_impls;
+use crate::util::extract_all_field_tys;
 
 pub fn derive_dupe(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     derive_dupe_explicit(input, true)
@@ -30,6 +32,8 @@ fn derive_dupe_explicit(
 ) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
+    let name = &input.ident;
+
     // Add a bound `T: Dupe` to every type parameter T.
     let generics = if with_traits {
         let bound: TypeParamBound = parse_quote!(dupe::Dupe);
@@ -39,15 +43,29 @@ fn derive_dupe_explicit(
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let name = &input.ident;
-    let body = duplicate_impl(&input.data, &quote! { dupe::Dupe::dupe });
-    let gen = quote! {
-        impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
-            #[inline]
-            fn dupe(&self) -> Self {
-                #body
-            }
+    let all_fields = match extract_all_field_tys(&input.data) {
+        Ok(r) => r,
+        Err(e) => {
+            return e.into_compile_error().into();
         }
     };
+    let check_each_field_dupe = check_each_field_impls(all_fields, parse_quote!(dupe::Dupe));
+
+    let check_func_name = Ident::new(
+        &format!("__implicit_dupe_check_for_fields_of_{}", name),
+        name.span(),
+    );
+
+    let gen = quote! {
+        impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
+        }
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        fn #check_func_name #impl_generics (_x: #name #ty_generics) #where_clause {
+            #check_each_field_dupe
+        }
+    };
+
     gen.into()
 }
