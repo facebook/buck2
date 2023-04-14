@@ -189,9 +189,9 @@ impl StreamingCommand for TestCommand {
         //            handle_stdout method, instead of raw buck2_client::println!s here.
         // TODO: also remove the duplicate information when the above is done.
 
-        buck2_client_ctx::print!("Tests finished: ")?;
+        buck2_client_ctx::eprint!("Tests finished: ")?;
         if listing_failed.count > 0 {
-            buck2_client_ctx::print!(
+            buck2_client_ctx::eprint!(
                 "{}. ",
                 StylizedCount {
                     label: "Listing Fail",
@@ -201,7 +201,7 @@ impl StreamingCommand for TestCommand {
                 .to_stdio(),
             )?;
         }
-        buck2_client_ctx::println!(
+        buck2_client_ctx::eprintln!(
             "{}. {}. {}. {}. {} builds failed",
             StylizedCount {
                 label: "Pass",
