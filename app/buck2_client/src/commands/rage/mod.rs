@@ -500,7 +500,7 @@ async fn maybe_select_invocation(
     if logs.is_empty() {
         return Ok(None);
     }
-    let index = log_index(stdin, &mut logs, command).await?;
+    let index = log_index(stdin, &logs, command).await?;
     if index >= logs.len() {
         return Err(RageError::LogNotFoundError.into());
     }
@@ -509,7 +509,7 @@ async fn maybe_select_invocation(
 
 async fn log_index(
     stdin: &mut Stdin,
-    logs: &mut Vec<EventLogPathBuf>,
+    logs: &[EventLogPathBuf],
     command: &RageCommand,
 ) -> Result<usize, anyhow::Error> {
     if let Some(invocation_id) = &command.invocation_id {
@@ -529,7 +529,7 @@ async fn log_index(
         Some(i) => i,
         None => {
             let mut stdin = BufReader::new(stdin);
-            user_prompt_select_log(&mut stdin, &*logs).await?
+            user_prompt_select_log(&mut stdin, logs).await?
         }
     };
     Ok(index)
