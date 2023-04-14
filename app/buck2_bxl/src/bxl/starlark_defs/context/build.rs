@@ -11,10 +11,11 @@
 //! Implements the ability for bxl to build targets
 use allocative::Allocative;
 use buck2_build_api::build::build_configured_label;
-use buck2_build_api::build::MaterializationContext;
+use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use dupe::Dupe;
@@ -136,15 +137,14 @@ pub(crate) fn build<'v>(
     ctx: &'v BxlContext,
     spec: Value<'v>,
     target_platform: Value<'v>,
+    materializations: Materializations,
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
     let build_spec = ProvidersExpr::unpack(spec, target_platform, ctx, eval)?;
 
     // TODO allow bxl writers to specify
-    let materializations = MaterializationContext::Materialize {
-        map: ctx.materializations.dupe(),
-        force: false,
-    };
+    let materializations =
+        ConvertMaterializationContext::with_existing_map(materializations, &ctx.materializations);
 
     let build_result = ctx.async_ctx.via_dice(async move |dice| {
         Ok(futures::future::join_all(build_spec.labels().map(|target| {

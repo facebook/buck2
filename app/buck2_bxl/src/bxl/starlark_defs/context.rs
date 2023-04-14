@@ -23,6 +23,7 @@ use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_build_api::query::dice::DiceQueryDelegate;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
@@ -498,11 +499,18 @@ fn register_context(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         spec: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
+        #[starlark(require = named, default = "default")] materializations: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        Ok(eval
-            .heap()
-            .alloc(Dict::new(build::build(this, spec, target_platform, eval)?)))
+        Ok(eval.heap().alloc(Dict::new(build::build(
+            this,
+            spec,
+            target_platform,
+            Materializations::from_str_name(&materializations.to_uppercase()).ok_or_else(|| {
+                anyhow::anyhow!("Unknown materialization setting `{}`", materializations)
+            })?,
+            eval,
+        )?)))
     }
 
     /// A struct of the command line args as declared using the [`cli_args`] module.
