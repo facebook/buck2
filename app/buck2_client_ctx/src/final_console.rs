@@ -60,13 +60,11 @@ impl FinalConsole {
     }
 
     /// Print a string directly to stderr with no extra formatting
-    #[allow(unused)]
     pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
         crate::eprintln!("{}", message)
     }
 
     /// Print a string directly to stdout with no extra formatting
-    #[allow(unused)]
     pub fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
         crate::println!("{}", message)
     }
