@@ -146,8 +146,8 @@ impl Line {
 
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
-    pub fn render(self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        for word in self.0 {
+    pub fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        for word in &self.0 {
             word.render(writer)?;
         }
         queue!(

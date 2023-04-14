@@ -160,14 +160,14 @@ impl Span {
         SpanIterator(&self.stylization, self.content.graphemes(true))
     }
 
-    pub(crate) fn render(self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         if self.is_empty() {
             return Ok(());
         }
 
         queue!(
             writer,
-            PrintStyledContent(StyledContent::new(self.stylization, self.content))
+            PrintStyledContent(StyledContent::new(self.stylization, self.content.as_ref()))
         )?;
         Ok(())
     }
