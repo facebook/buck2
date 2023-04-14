@@ -23,6 +23,31 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
+    /// The `glob()` function specifies a set of files using patterns. As an example:
+    ///
+    /// ```python
+    /// glob(["foo/**/*.h"])
+    /// ```
+    ///
+    /// This call will match all header files in the `foo` directory, recursively.
+    ///
+    /// You can also pass a named `exclude` parameter to remove files matching a pattern:
+    ///
+    /// ```python
+    /// glob(["foo/**/*.h"], exclude = ["**/config.h"])
+    /// ```
+    ///
+    /// This call will remove all `config.h` files from the initial match.
+    ///
+    /// The `glob()` call is evaluated against the list of files owned by this `BUCK` file.
+    /// A file is owned by whichever `BUCK` file is closest above it - so given `foo/BUCK` and
+    /// `foo/bar/BUCK` the file `foo/file.txt` would be owned by `foo/BUCK` (and available from
+    /// its `glob` results) but the file `foo/bar/file.txt` would be owned by `foo/bar/BUCk`
+    /// and _not_ appear in the glob result of `foo/BUCK`, even if you write `glob(["bar/file.txt"])`.
+    /// As a consequence of this rule, `glob(["../foo.txt"])` will always return an empty list of files.
+    ///
+    /// Currently `glob` is evaluated case-insensitively on all file systems, but we expect
+    /// that to change to case sensitive in the near future.
     fn glob<'v>(
         include: Vec<String>,
         #[starlark(require = named)] exclude: Option<Vec<String>>,
