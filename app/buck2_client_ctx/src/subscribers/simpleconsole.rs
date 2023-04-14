@@ -283,7 +283,7 @@ where
             self.already_raged = true;
             tokio::spawn(call_rage(
                 self.isolation_dir.clone(),
-                self.observer().session_info().trace_id.to_string(),
+                self.observer().session_info().trace_id.dupe(),
             ));
         }
         Ok(())
@@ -657,14 +657,14 @@ mod tests {
     }
 }
 
-async fn call_rage(isolation_dir: FileNameBuf, trace_id: String) {
+async fn call_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
     match call_rage_impl(isolation_dir, trace_id).await {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: String) -> anyhow::Result<()> {
+async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
     let current_exe = std::env::current_exe().context("Not current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
     command
@@ -674,7 +674,7 @@ async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: String) -> anyhow:
         .arg("3600")
         .arg("--no-paste")
         .args(["--origin", "hang-detector"])
-        .args(["--invocation-id", &trace_id]);
+        .args(["--invocation-id", &trace_id.to_string()]);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
