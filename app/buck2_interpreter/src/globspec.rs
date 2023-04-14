@@ -111,11 +111,12 @@ impl GlobSpec {
             require_literal_leading_dot: true,
             ..glob::MatchOptions::default()
         };
-        (self.exact_matches.contains(path)
+        let include_matches = self.exact_matches.contains(path)
             || self
                 .patterns
                 .iter()
-                .any(|p| p.0.matches_with(path, options)))
+                .any(|p| p.0.matches_with(path, options));
+        include_matches
             && !self
                 .excludes
                 .iter()
