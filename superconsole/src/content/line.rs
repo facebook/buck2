@@ -8,18 +8,18 @@
  */
 
 use std::cmp::Ordering;
+use std::fmt::Write as _;
 use std::mem;
 use std::slice;
 use std::vec;
 
 use crossterm::cursor::MoveToColumn;
-use crossterm::style::Print;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
-use crossterm::QueueableCommand;
+use crossterm::Command;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::ansi_support::enable_ansi_support;
+use crate::vec_as_fmt_write::VecAsFmtWrite;
 use crate::Span;
 
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
@@ -148,17 +148,15 @@ impl Line {
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
     pub fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        // This is not very nice side effect.
-        // We have to call this function because `crossterm` does not support
-        // rendering styled content without emitting WinAPI calls when ANSI is not supported.
-        enable_ansi_support()?;
-
         for word in &self.0 {
             word.render(writer)?;
         }
-        writer.queue(Clear(ClearType::UntilNewLine))?;
-        writer.queue(Print("\n"))?;
-        writer.queue(MoveToColumn(0))?;
+
+        let mut writer = VecAsFmtWrite(writer);
+
+        Clear(ClearType::UntilNewLine).write_ansi(&mut writer)?;
+        writeln!(writer)?;
+        MoveToColumn(0).write_ansi(&mut writer)?;
 
         Ok(())
     }
