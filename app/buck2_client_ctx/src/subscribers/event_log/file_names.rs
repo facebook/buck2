@@ -60,10 +60,10 @@ pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf
     Ok(sort_logs(fs_util::read_dir(logdir)?))
 }
 
-pub fn get_local_logs_if_exist(
-    logdir: &AbsNormPath,
-) -> anyhow::Result<Option<Vec<AbsNormPathBuf>>> {
-    Ok(fs_util::read_dir_if_exists(logdir)?.map(sort_logs))
+pub fn get_local_logs_if_exist(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+    Ok(fs_util::read_dir_if_exists(logdir)?
+        .map(sort_logs)
+        .unwrap_or_default())
 }
 
 fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {

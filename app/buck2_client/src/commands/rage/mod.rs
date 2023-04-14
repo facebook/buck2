@@ -491,14 +491,12 @@ async fn maybe_select_invocation(
     if command.no_invocation {
         return Ok(None);
     };
-    let mut logs = match get_local_logs_if_exist(logdir)? {
-        None => return Ok(None),
-        Some(logs) => logs
-            .into_iter()
-            .rev() // newest first
-            .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
-            .collect::<anyhow::Result<Vec<_>>>()?,
-    };
+    let logs = get_local_logs_if_exist(logdir)?;
+    let mut logs = logs
+        .into_iter()
+        .rev() // newest first
+        .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
+        .collect::<anyhow::Result<Vec<_>>>()?;
     if logs.is_empty() {
         return Ok(None);
     }
