@@ -3,7 +3,19 @@ id: test_execution
 title: Test Execution
 ---
 
-Test execution in Buck2 is a collaboration with [Tpx](https://www.internalfb.com/intern/wiki/TAE/tpx/), Meta's internal test runner.
+Test execution in Buck2 is a collaboration with a separate test runner process.
+
+<OssOnly>
+
+In its open-source build, Buck2 ships with a built-in simplistic test runner.
+
+This test runner receives the commands defined by `ExternalRunnerTestInfo` and simply executes them. Exit code zero means the test passed, and one means it failed.
+
+Users can of course develop their own test runners. Look at `fbcode/buck2/app/buck2_test_runner` as a sample. For comparison, here's how it's used at Meta:
+
+</OssOnly>
+
+At Meta, this test runner is <OssOnly>Tpx</OssOnly> <FbInternalOnly>[Tpx](https://www.internalfb.com/intern/wiki/TAE/tpx/)</FbInternalOnly>.
 
 Tpx has a large number of responsibilities when used with Buck2, which can be grouped as follows:
 
@@ -12,10 +24,11 @@ Tpx has a large number of responsibilities when used with Buck2, which can be gr
   * Understands, to an extent, the input formats. For example, given a test case, Tpx can identify what command needs to run to execute just that test.
 * **Orchestration**:
   * Interacts with Test Infra to discover what tests should run, under a number of configurations.
+  * Separates listing of tests (identifying what tests exists in a test target) and execution (running specific tests within that target).
   * Coordinates the execution of tests. For example, it may request retries, or choose to bundle multiple tests in a single execution (or not).
   * Reports test results to Test Infra as well.
 
-In Buck2, rules interact with Tpx via a provider called `ExternalRunnerTestInfo`.
+In Buck2, rules interact with the test runner via a provider called `ExternalRunnerTestInfo`.
 
 ## Anatomy of a test run
 
@@ -23,9 +36,9 @@ When a user runs `buck2 test $targets`:
 
 * Buck2 identifies all matching targets that have an `ExternalRunnerTestInfo`.
 * Buck2 builds all the artifacts referenced by those targets (this will likely change eventually to build them only if they are used).
-* Buck2 then notifies Tpx that those tests exist. Currently, Tpx receives a subset of `ExternalRunnerTestInfo`.
-* Tpx requests command execution from Buck2 to list and execute tests.
-* When it receives command results from Buck2, Tpx may fire off events that the end-user will see (such as test results), log to Test Infra, request further executions, and so on.
+* Buck2 then notifies the test runner that those tests exist. Currently, the test runner receives a subset of `ExternalRunnerTestInfo`.
+* The test runner can request command execution from Buck2 to list and execute tests.
+* When it receives command results from Buck2, the test runner may fire off events that the end-user will see (such as test results), upload logs externally, request further executions, and so on.
 
 :::note
 If more than one target is being built, test building and execution will proceed concurrently.
@@ -35,15 +48,24 @@ If more than one target is being built, test building and execution will proceed
 
 As noted, rules communicate their testing capabilities via `ExternalRunnerTestInfo`. There are a number of fields available on `ExternalRunnerTestInfo` to control how a given target is tested, as detailed in the following sub-sections.
 
-### Fields exposed to Tpx
+### Fields exposed to the test runner
 
-The following list shows what is available in `ExternalRunnerTestInfo`, with which Tpx can interact:
+The following list shows what is available in `ExternalRunnerTestInfo`, with which the test runner can interact:
 
-* `type` - a string key that defines the type of test this is. Tpx uses this internally to choose a translator. Examples include `gtest`, `apple_test`, `custom`. Note that Tpx also allows labels to influence the orchestrator selection.
-* `command` and `env` - respectively, a list and a key-value mapping of arguments. These are the inputs to translation in Tpx. They are not always visible to Tpx (for more details, see [Verbatim arguments and handles](#verbatim-arguments-and-handles), below).
-* `labels` - a set of string labels to pass to Tpx. They have no meaning to Buck2, but some labels have impact on translation in Tpx.
+* `type` - a string key that defines the type of test this is.
+  <FbInternalOnly>
+  Tpx uses this internally to choose a translator. Examples include `gtest`, `apple_test`, `custom`.
+  Note that Tpx also allows labels to influence the orchestrator selection.
+  </FbInternalOnly>
+* `command` and `env` - respectively, a list and a key-value mapping of arguments.
+  <FbInternalOnly>These are the inputs to translation in Tpx.</FbInternalOnly>
+  They are not always visible to the test runner (for more details, see [Verbatim arguments and handles](#verbatim-arguments-and-handles), below).
+* `labels` - a set of string labels to pass to the test runner.
+  <FbInternalOnly>
+  They have no meaning to Buck2, but some labels have impact on translation in Tpx.
+  </FbInternalOnly>
 * `contacts` - a list of contacts for the tests; usually oncalls.
-* `executor_overrides` - a key-value mapping of executor configurations that Tpx can use when requesting execution from Buck2.
+* `executor_overrides` - a key-value mapping of executor configurations that the test runner can use when requesting execution from Buck2.
 
 ### Fields pertinent for Remote Execution
 
@@ -59,7 +81,7 @@ Also note that when `executor_overrides` are set, if an executor override is use
 
 ## Verbatim arguments and handles
 
-As noted above, Tpx only interacts with a subset of arguments provided by rules in `ExternalRunnerTestInfo`. The reason for this is that Tpx doesn't get to access, for example, artifacts, that Buck2 knows about.
+As noted above, the test runner only interacts with a subset of arguments provided by rules in `ExternalRunnerTestInfo`. The reason for this is that the test runner doesn't get to access, for example, artifacts, that Buck2 knows about.
 
 Consider the following example:
 
@@ -68,23 +90,25 @@ binary = ctx.attrs.dep[RunInfo]
 test_info = ExternalRunnerTestInfo(command = [binary, "run-tests"], ...)
 ```
 
-When Buck2 actually runs this command, `binary` is expanded to a path (and possibly to more args). Buck2 would also account for any hidden arguments and make those available where the command is executed. It is important for Buck2 to retain this capability when running with Tpx.
+When Buck2 actually runs this command, `binary` is expanded to a path (and possibly to more args). Buck2 would also account for any hidden arguments and make those available where the command is executed. It is important for Buck2 to retain this capability when running with the test runner.
 
-To that end, all non-trivial arguments present in `command` (and in the values of `env`), such as `cmd_args` or `RunInfo`, are exposed to Tpx as opaque handles, and simple string arguments are passed as-is to Tpx.
+To that end, all non-trivial arguments present in `command` (and in the values of `env`), such as `cmd_args` or `RunInfo`, are exposed to the test runner as opaque handles, and simple string arguments are passed as-is to the test runner.
 
-This means that Tpx would see the command described above as:
+This means that the test runner would see the command described above as:
 
 ```python
 [ArgHandle(index = 0), Verbatim("foobar")]
 ```
 
-When requesting execution from Buck2, Tpx can use the `ArgHandle` and Buck2 will swap it back for the underlying value that was set on the provider.
+When requesting execution from Buck2, the test runner can use the `ArgHandle` and Buck2 will swap it back for the underlying value that was set on the provider.
 
-This allows Tpx to introspect and modify parts of the command lines it receives, as long as it doesn't need to access the actual text value of non-verbatim arguments. Usually, this works out to be sufficient (or can be made sufficient with a bit of refactoring in Tpx).
+This allows the test runner to introspect and modify parts of the command lines it receives, as long as it doesn't need to access the actual text value of non-verbatim arguments. Usually, this works out to be sufficient (or can be made sufficient with a bit of refactoring in the test runner).
 
 ## Execution Configurations
 
 By default, tests execute using the execution configuration of the associated target. This is the execution configuration that would be used for run actions (`ctx.actions.run`) declared in the same target. This is a default that actually makes little sense but works out as long as cross-compiling is not the norm.
+
+<FbInternalOnly>
 
 That said, it's easy to see where this breaks down.
 
@@ -92,9 +116,11 @@ For example:
 
 * For iOS tests, the execution platform for builds needs to be XCode (local or RE Mac).
 * For test listing, XCode is not needed (it's preferable to do it on RE Linux where capacity is cheaper).
-* To run tests, a simulator is required.
+* To run the tests, a simulator is required.
 
-To support this, `ExternalRunnerTestInfo` allows specifying override platforms, which are given a name. Tpx can request execution on them by passing their name when it sends execution requests to Buck2, as shown in the following code:
+</FbInternalOnly>
+
+To support this, `ExternalRunnerTestInfo` allows specifying override platforms, which are given a name. The test runner can request execution on them by passing their name when it sends execution requests to Buck2, as shown in the following code:
 
 ```python
 ExternalRunnerTestInfo(

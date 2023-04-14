@@ -95,6 +95,6 @@ At this point, the build is complete.
 
 If a user ran `buck2 test`, then there is a final transformation for Buck2 to construct a command for TPX to execute the actual test.
 
-### Phase E: Test with TPX
+### Phase E: Execute tests
 
 For more detail on testing, review [Test Execution](/docs/rule_authors/test_execution).
