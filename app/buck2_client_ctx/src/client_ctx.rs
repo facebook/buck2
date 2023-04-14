@@ -75,10 +75,10 @@ impl ClientCommandContext {
         self.init
     }
 
-    pub fn paths(&self) -> SharedResult<&InvocationPaths> {
+    pub fn paths(&self) -> anyhow::Result<&InvocationPaths> {
         match &self.paths {
             Ok(p) => Ok(p),
-            Err(e) => Err(e.dupe()),
+            Err(e) => Err(e.dupe().into()),
         }
     }
 
