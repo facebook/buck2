@@ -7,13 +7,10 @@
  * of this source tree.
  */
 
-use std::fmt;
-
+use anyhow::Context;
 use buck2_event_observer::test_state::TestState;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
-use crossterm::style::ResetColor;
-use crossterm::style::SetForegroundColor;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -25,53 +22,78 @@ use crate::subscribers::superconsole::SessionInfo;
 
 struct TestCounterComponent;
 
-struct TestCounterColumn {
+pub struct TestCounterColumn {
     label: &'static str,
     color: Color,
     get_from_test_state: fn(&TestState) -> u64,
+    get_from_test_statues: fn(
+        &buck2_cli_proto::test_response::TestStatuses,
+    ) -> &Option<buck2_cli_proto::CounterWithExamples>,
 }
 
 impl TestCounterColumn {
-    const LISTING_FAIL: TestCounterColumn = TestCounterColumn {
+    pub const LISTING_FAIL: TestCounterColumn = TestCounterColumn {
         label: "Listing Fail",
         color: Color::Red,
         get_from_test_state: |test_state| test_state.listing_failed,
+        get_from_test_statues: |test_statuses| &test_statuses.listing_failed,
     };
     const DISCOVERED: TestCounterColumn = TestCounterColumn {
         label: "Discovered",
         color: Color::White,
         get_from_test_state: |test_state| test_state.discovered,
+        get_from_test_statues: |_test_statuses| &None,
     };
-    const PASS: TestCounterColumn = TestCounterColumn {
+    pub const PASS: TestCounterColumn = TestCounterColumn {
         label: "Pass",
         color: Color::Green,
         get_from_test_state: |test_state| test_state.pass,
+        get_from_test_statues: |test_statuses| &test_statuses.passed,
     };
-    const FAIL: TestCounterColumn = TestCounterColumn {
+    pub const FAIL: TestCounterColumn = TestCounterColumn {
         label: "Fail",
         color: Color::Red,
         get_from_test_state: |test_state| test_state.fail,
+        get_from_test_statues: |test_statuses| &test_statuses.failed,
     };
-    const FATAL: TestCounterColumn = TestCounterColumn {
+    pub const FATAL: TestCounterColumn = TestCounterColumn {
         label: "Fatal",
         color: Color::Red,
         get_from_test_state: |test_state| test_state.fatal,
+        get_from_test_statues: |test_statuses| &test_statuses.fatals,
     };
-    const SKIP: TestCounterColumn = TestCounterColumn {
+    pub const SKIP: TestCounterColumn = TestCounterColumn {
         label: "Skip",
         color: Color::Yellow,
         get_from_test_state: |test_state| test_state.skipped,
+        get_from_test_statues: |test_statuses| &test_statuses.skipped,
     };
     const TIMEOUT: TestCounterColumn = TestCounterColumn {
         label: "Timeout",
         color: Color::Yellow,
         get_from_test_state: |test_state| test_state.timeout,
+        get_from_test_statues: |_test_statuses| &None,
     };
 
     fn to_span_from_test_state(&self, test_state: &TestState) -> anyhow::Result<Span> {
         StylizedCount {
             label: self.label,
             count: (self.get_from_test_state)(test_state),
+            color: self.color,
+        }
+        .to_span()
+    }
+
+    pub fn to_span_from_test_statuses(
+        &self,
+        test_statuses: &buck2_cli_proto::test_response::TestStatuses,
+    ) -> anyhow::Result<Span> {
+        StylizedCount {
+            label: self.label,
+            count: (self.get_from_test_statues)(test_statuses)
+                .as_ref()
+                .with_context(|| format!("Missing {} in TestStatuses", self.label))?
+                .count,
             color: self.color,
         }
         .to_span()
@@ -133,15 +155,15 @@ impl<'a> Component for TestHeader<'a> {
 }
 
 /// A count that receives color if and only if it's > 0
-pub struct StylizedCount {
-    pub label: &'static str,
-    pub count: u64,
-    pub color: Color,
+struct StylizedCount {
+    label: &'static str,
+    count: u64,
+    color: Color,
 }
 
 impl StylizedCount {
     /// Turn this StylizedCount into a Superconsole Span.
-    pub fn to_span(&self) -> anyhow::Result<superconsole::Span> {
+    fn to_span(&self) -> anyhow::Result<superconsole::Span> {
         let mut style = ContentStyle::default();
         if self.count > 0 {
             style.foreground_color = Some(self.color);
@@ -149,27 +171,5 @@ impl StylizedCount {
         style
             .apply(format!("{} {}", self.label, self.count))
             .try_into()
-    }
-
-    /// Turn this StylizedCount into output suitable for stdio.
-    pub fn to_stdio(&self) -> StylizedCountForStdio<'_> {
-        StylizedCountForStdio { inner: self }
-    }
-}
-
-pub struct StylizedCountForStdio<'a> {
-    inner: &'a StylizedCount,
-}
-
-impl<'a> fmt::Display for StylizedCountForStdio<'a> {
-    fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.inner.count > 0 {
-            write!(w, "{}", SetForegroundColor(self.inner.color))?;
-        }
-
-        write!(w, "{} {}", self.inner.label, self.inner.count)?;
-        write!(w, "{}", ResetColor)?;
-
-        Ok(())
     }
 }

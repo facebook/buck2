@@ -15,6 +15,8 @@ use std::fmt::Arguments;
 use std::io;
 use std::io::Write;
 
+use superconsole::Line;
+
 use crate::exit_result::FailureExitCode;
 
 #[macro_export]
@@ -92,6 +94,11 @@ pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
         .lock()
         .write_all(bytes)
         .map_err(map_stdout_error)
+}
+
+pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
+    let line = line.render_line();
+    crate::eprintln!("{}", line)
 }
 
 pub fn flush() -> anyhow::Result<()> {

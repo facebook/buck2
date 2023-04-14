@@ -22,10 +22,12 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
+use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_client_ctx::subscribers::superconsole::test::StylizedCount;
-use crossterm::style::Color;
+use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use gazebo::prelude::*;
+use superconsole::Line;
+use superconsole::Span;
 
 use crate::commands::build::print_build_result;
 
@@ -169,15 +171,17 @@ impl StreamingCommand for TestCommand {
 
         let statuses = response
             .test_statuses
+            .as_ref()
             .expect("Daemon to not return empty statuses");
 
         let listing_failed = statuses
             .listing_failed
+            .as_ref()
             .context("Missing `listing_failed`")?;
-        let passed = statuses.passed.context("Missing `passed`")?;
-        let failed = statuses.failed.context("Missing `failed`")?;
-        let fatals = statuses.fatals.context("Missing `fatals`")?;
-        let skipped = statuses.skipped.context("Missing `skipped`")?;
+        let passed = statuses.passed.as_ref().context("Missing `passed`")?;
+        let failed = statuses.failed.as_ref().context("Missing `failed`")?;
+        let fatals = statuses.fatals.as_ref().context("Missing `fatals`")?;
+        let skipped = statuses.skipped.as_ref().context("Missing `skipped`")?;
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.error_messages)?;
@@ -189,46 +193,27 @@ impl StreamingCommand for TestCommand {
         //            handle_stdout method, instead of raw buck2_client::println!s here.
         // TODO: also remove the duplicate information when the above is done.
 
-        buck2_client_ctx::eprint!("Tests finished: ")?;
+        let mut line = Line::default();
+        line.push(Span::new_unstyled_lossy("Tests finished: "));
         if listing_failed.count > 0 {
-            buck2_client_ctx::eprint!(
-                "{}. ",
-                StylizedCount {
-                    label: "Listing Fail",
-                    count: listing_failed.count,
-                    color: Color::Red,
-                }
-                .to_stdio(),
-            )?;
+            line.push(TestCounterColumn::LISTING_FAIL.to_span_from_test_statuses(statuses)?);
+            line.push(Span::new_unstyled_lossy(". "));
         }
-        buck2_client_ctx::eprintln!(
-            "{}. {}. {}. {}. {} builds failed",
-            StylizedCount {
-                label: "Pass",
-                count: passed.count,
-                color: Color::Green
-            }
-            .to_stdio(),
-            StylizedCount {
-                label: "Fail",
-                count: failed.count,
-                color: Color::Red
-            }
-            .to_stdio(),
-            StylizedCount {
-                label: "Fatal",
-                count: fatals.count,
-                color: Color::DarkRed
-            }
-            .to_stdio(),
-            StylizedCount {
-                label: "Skip",
-                count: skipped.count,
-                color: Color::Yellow
-            }
-            .to_stdio(),
-            response.error_messages.len(),
-        )?;
+        let columns = [
+            TestCounterColumn::PASS,
+            TestCounterColumn::FAIL,
+            TestCounterColumn::FATAL,
+            TestCounterColumn::SKIP,
+        ];
+        for column in columns {
+            line.push(column.to_span_from_test_statuses(statuses)?);
+            line.push(Span::new_unstyled_lossy(". "));
+        }
+        line.push(Span::new_unstyled_lossy(format!(
+            "{} builds failed",
+            response.error_messages.len()
+        )));
+        eprint_line(&line)?;
 
         print_error_counter(&console, &listing_failed, "LISTINGS FAILED", "⚠")?;
         print_error_counter(&console, &failed, "TESTS FAILED", "✗")?;
