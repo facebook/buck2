@@ -14,7 +14,6 @@ use std::time::Duration;
 use derive_more::Display;
 use superconsole::components::Component;
 use superconsole::components::DrawMode;
-use superconsole::state;
 use superconsole::Dimensions;
 use superconsole::Lines;
 use superconsole::State;
@@ -22,9 +21,11 @@ use superconsole::SuperConsole;
 use tokio::time;
 
 /// A component representing a store greeter.
-#[derive(Debug)]
-struct Greeter {
-    name: String,
+struct Greeter<'a> {
+    name: &'a str,
+    store_name: &'a StoreName,
+    customers: &'a [CustomerName],
+    correct_num: usize,
 }
 
 #[derive(Display)]
@@ -32,18 +33,18 @@ struct StoreName(String);
 #[derive(Display)]
 struct CustomerName(String);
 
-impl Component for Greeter {
+impl<'a> Component for Greeter<'a> {
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Normal => {
                 // Prints a greeting to the current customer.
-                let store_name = state.get::<StoreName>().unwrap();
-                let customers = state.get::<Vec<CustomerName>>().unwrap();
+                let store_name = self.store_name;
+                let customers = self.customers;
                 let identification = vec![format!("Hello my name is {}!", self.name)]
                     .try_into()
                     .unwrap();
@@ -58,8 +59,8 @@ impl Component for Greeter {
             }
             DrawMode::Final => {
                 // Prints a message about the employee when he or she leaves for the day.
-                let store_name = state.get::<StoreName>().unwrap();
-                let total_customers = state.get::<usize>().unwrap();
+                let store_name = self.store_name;
+                let total_customers = self.correct_num;
 
                 let farewell = vec![format!("{} is leaving {}", self.name, store_name)]
                     .try_into()
@@ -75,9 +76,7 @@ impl Component for Greeter {
 
 #[tokio::main]
 async fn main() {
-    let root = Greeter {
-        name: "Alex".to_owned(),
-    };
+    let name = "Alex";
     let mut console = SuperConsole::new().unwrap();
 
     let people = [
@@ -106,8 +105,17 @@ async fn main() {
             .collect::<Vec<_>>();
         let store_name = StoreName(store_names[i].to_owned());
         let correct_num = i + 1;
-        let cur_state = state!(&store_name, &customers, &correct_num);
-        console.render(&root, &cur_state).unwrap();
+        console
+            .render(
+                &Greeter {
+                    name,
+                    store_name: &store_name,
+                    customers: &customers,
+                    correct_num,
+                },
+                &State::new(),
+            )
+            .unwrap();
 
         last = Some((store_name, customers, correct_num));
 
@@ -116,6 +124,14 @@ async fn main() {
 
     let (store_name, customers, correct_num) = last.unwrap();
     console
-        .finalize(&root, &state!(&store_name, &customers, &correct_num))
+        .finalize(
+            &Greeter {
+                name,
+                store_name: &store_name,
+                customers: &customers,
+                correct_num,
+            },
+            &State::new(),
+        )
         .unwrap();
 }
