@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::future::Future;
 use std::hash::Hash;
 use std::str::FromStr;
@@ -213,15 +214,26 @@ pub struct BuildSignalReceiver<T> {
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
     predecessors: &HashMap<TKey, CriticalPathNode<TKey, TValue>>,
-) -> Vec<(&TKey, &TValue, Duration)> {
+) -> anyhow::Result<Vec<(&TKey, &TValue, Duration)>>
+where
+    TKey: Display,
+{
     let mut tail = predecessors
         .iter()
         .max_by_key(|(_key, data)| data.duration)
         .map(|q| q.0);
 
     let mut path = vec![];
+    let mut visited = HashSet::new();
 
     while let Some(v) = tail.take() {
+        if !visited.insert(v) {
+            return Err(anyhow::anyhow!(
+                "Cycle in critical path: visited {} twice",
+                v
+            ));
+        }
+
         tail = predecessors.get(v).and_then(|node| {
             path.push((v, &node.value, node.duration));
             node.prev.as_ref()
@@ -234,7 +246,7 @@ fn extract_critical_path<TKey: Hash + Eq, TValue>(
         path[i].2 = path[i].2.saturating_sub(path[i - 1].2);
     }
 
-    path
+    Ok(path)
 }
 
 impl<T> BuildSignalReceiver<T>
@@ -622,6 +634,7 @@ impl BuildListenerBackend for DefaultBackend {
 
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
+            .context("Error extracting critical path")?
             .into_map(|(key, data, _duration)| (key.dupe(), data.dupe(), None));
 
         Ok(BuildInfo {
@@ -943,7 +956,7 @@ mod tests {
     #[test]
     fn empty_path() {
         let predecessors = CriticalPathMap::new();
-        assert_eq!(extract_critical_path(&predecessors), vec![]);
+        assert_eq!(extract_critical_path(&predecessors).unwrap(), vec![]);
     }
 
     #[test]
@@ -951,7 +964,7 @@ mod tests {
         let mut predecessors = CriticalPathMap::new();
         cp_insert(&mut predecessors, 1, None, Duration::from_secs(3));
         assert_eq!(
-            extract_critical_path(&predecessors),
+            extract_critical_path(&predecessors).unwrap(),
             vec![(&1, &Some(1), Duration::from_secs(3))],
         );
     }
@@ -970,12 +983,20 @@ mod tests {
         cp_insert(&mut predecessors, 3, Some(2), Duration::from_secs(18));
         cp_insert(&mut predecessors, 4, Some(1), Duration::from_secs(14));
         assert_eq!(
-            extract_critical_path(&predecessors),
+            extract_critical_path(&predecessors).unwrap(),
             vec![
                 (&1, &Some(1), Duration::from_secs(5)),
                 (&2, &Some(2), Duration::from_secs(6)),
                 (&3, &Some(3), Duration::from_secs(7)),
             ],
         );
+    }
+
+    #[test]
+    fn cycle_path() {
+        let mut predecessors = HashMap::new();
+        cp_insert(&mut predecessors, 1, Some(2), Duration::from_secs(5));
+        cp_insert(&mut predecessors, 2, Some(1), Duration::from_secs(11));
+        assert!(extract_critical_path(&predecessors).is_err());
     }
 }
