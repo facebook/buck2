@@ -34,6 +34,7 @@ load(
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
+    "LinkGroupLibInfo",
     "gather_link_group_libs",
     "merge_link_group_lib_info",
 )
@@ -481,7 +482,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # For v1's `#headers` functionality.
     if impl_params.generate_sub_targets.headers:
-        sub_targets["headers"] = [propagated_preprocessor] + additional_providers
+        sub_targets["headers"] = [propagated_preprocessor, create_merged_link_info(
+            ctx,
+            preferred_linkage = Linkage("static"),
+            frameworks_linkable = frameworks_linkable,
+        ), LinkGroupLibInfo(libs = {}), SharedLibraryInfo(set = None)] + additional_providers
 
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers

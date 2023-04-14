@@ -33,7 +33,7 @@ load(
 # weight `dependency` type.
 LinkableProviders = record(
     link_group_lib_info = field(LinkGroupLibInfo.type),
-    linkable_graph = field(LinkableGraph.type),
+    linkable_graph = field([LinkableGraph.type, None], None),
     merged_link_info = field(MergedLinkInfo.type),
     shared_library_info = field(SharedLibraryInfo.type),
     linkable_root_info = field([LinkableRootInfo.type, None], None),
@@ -43,7 +43,7 @@ def linkable(dep: "dependency") -> LinkableProviders.type:
     expect(LinkGroupLibInfo in dep, str(dep.label.raw_target()))
     return LinkableProviders(
         shared_library_info = dep[SharedLibraryInfo],
-        linkable_graph = dep[LinkableGraph],
+        linkable_graph = dep.get(LinkableGraph),
         merged_link_info = dep[MergedLinkInfo],
         link_group_lib_info = dep[LinkGroupLibInfo],
         linkable_root_info = dep.get(LinkableRootInfo),

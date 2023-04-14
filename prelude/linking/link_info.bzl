@@ -380,11 +380,12 @@ def create_merged_link_info(
             children.append(dep_info._infos[link_style])
 
         frameworks[link_style] = merge_framework_linkables(framework_linkables)
-        infos[link_style] = ctx.actions.tset(
-            LinkInfosTSet,
-            value = link_infos[actual_link_style],
-            children = children,
-        )
+        if actual_link_style in link_infos:
+            infos[link_style] = ctx.actions.tset(
+                LinkInfosTSet,
+                value = link_infos[actual_link_style],
+                children = children,
+            )
 
     return MergedLinkInfo(_infos = infos, frameworks = frameworks)
 
@@ -396,7 +397,7 @@ def merge_link_infos(
     for link_style in LinkStyle:
         merged[link_style] = ctx.actions.tset(
             LinkInfosTSet,
-            children = [x._infos[link_style] for x in xs],
+            children = filter(None, [x._infos.get(link_style) for x in xs]),
         )
         frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
     return MergedLinkInfo(_infos = merged, frameworks = frameworks)

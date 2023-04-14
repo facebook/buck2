@@ -180,7 +180,7 @@ def linkable_graph(dep: "dependency") -> [LinkableGraph.type, None]:
     """
 
     # We only care about "linkable" deps.
-    if PythonLibraryInfo in dep or MergedLinkInfo not in dep:
+    if PythonLibraryInfo in dep or MergedLinkInfo not in dep or dep.label.sub_target == ["headers"]:
         return None
 
     expect(
