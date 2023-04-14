@@ -53,7 +53,7 @@ impl Component for Table {
             .cloned()
             .map(|row| {
                 let mut label = row.event;
-                let mut time = row.time;
+                let time = row.time;
                 let time_len = time.len();
                 let padding = 1;
                 let maximum_label_width = width.saturating_sub(time_len + padding);
@@ -61,9 +61,9 @@ impl Component for Table {
                 let will_be_truncated = original_label_len > maximum_label_width;
                 if will_be_truncated {
                     // make space for ellipses
-                    let styling = label.0.last().unwrap().stylization;
+                    let styling = label.iter().last().unwrap().stylization;
                     label.truncate_line(maximum_label_width.saturating_sub(3));
-                    label.0.push(Span::new_styled_lossy(StyledContent::new(
+                    label.push(Span::new_styled_lossy(StyledContent::new(
                         styling,
                         "...".to_owned(),
                     )));
@@ -72,7 +72,7 @@ impl Component for Table {
                 // add extra padding to compensate for missing spaces between label and time
                 label.pad_right(width.saturating_sub(time_len + label.len()));
                 let mut combined = label;
-                combined.0.append(&mut time.0);
+                combined.extend(time);
                 combined
             })
             .collect();

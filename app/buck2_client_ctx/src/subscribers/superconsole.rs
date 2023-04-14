@@ -884,13 +884,15 @@ impl<'s> Component for SessionInfoComponent<'s> {
             headers
                 .into_iter()
                 .zip(ids.into_iter())
-                .flat_map(|(header, id)| iter::once(header).chain(iter::once(Line(vec![id]))))
+                .flat_map(|(header, id)| {
+                    iter::once(header).chain(iter::once(Line::from_iter([id])))
+                })
                 .collect()
         } else {
             headers
                 .iter_mut()
                 .zip(ids.into_iter())
-                .for_each(|(header, id)| header.0.push(id));
+                .for_each(|(header, id)| header.push(id));
             headers
         };
 

@@ -102,7 +102,7 @@ impl TestCounterComponent {
             }
             .to_span()?,
         );
-        Ok(Lines(vec![Line(spans)]))
+        Ok(Lines::from_iter([Line::from_iter(spans)]))
     }
 }
 
