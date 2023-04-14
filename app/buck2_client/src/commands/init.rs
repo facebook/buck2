@@ -219,7 +219,14 @@ fn set_up_gitignore(repo_root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn set_up_buckroot(repo_root: &Path) -> anyhow::Result<()> {
+    fs_util::write(repo_root.join(".buckroot"), "")?;
+    Ok(())
+}
+
 fn set_up_project(repo_root: &Path, git: bool, prelude: bool) -> anyhow::Result<()> {
+    set_up_buckroot(repo_root)?;
+
     if git {
         if !Command::new("git")
             .arg("init")
