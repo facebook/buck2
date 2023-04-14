@@ -19,6 +19,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query_parser::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
@@ -57,8 +58,15 @@ impl CqueryEvaluator<'_> {
                             Consider specifying `--target-universe` for this query\n\
                             or using `uquery` instead of `cquery`".to_owned());
                     }
-                    preresolve_literals_and_build_universe(&self.dice_query_delegate, &literals)
+
+                    if query.contains(QUERY_PERCENT_S_PLACEHOLDER) {
+                        preresolve_literals_and_build_universe(&self.dice_query_delegate, &literals)
                         .await?
+                    }
+                    else {
+                        resolve_literals_in_universe(&self.dice_query_delegate, &literals, &literals)
+                            .await?
+                    }
                 }
                 Some(universe) => {
                     resolve_literals_in_universe(&self.dice_query_delegate, &literals, universe)
