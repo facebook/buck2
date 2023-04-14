@@ -84,6 +84,9 @@ impl GlobSpec {
                         || format!("Error creating globspec for `{}`", pattern),
                     )?));
             } else {
+                // TODO(nga): pattern `*/[bc]` is parsed as glob pattern,
+                //   but `a/[bc]` is parsed as exact match?
+                //   Does not look right.
                 exact_matches.insert(pattern.to_owned());
             }
         }
@@ -247,6 +250,15 @@ mod tests {
         // Star-star matches only non-star directories and files.
         assert_eq!(vec!["a", "b/c"], glob("**", &listing));
         assert_eq!(vec![".a", "b/.c"], glob("**/.*", &listing));
+    }
+
+    #[test]
+    fn test_resolve_glob_square_brackets_bug() {
+        let glob = GlobSpec::new(&["*/[bc]"], &[""; 0]).unwrap();
+        assert!(glob.matches("a/b"));
+        let glob = GlobSpec::new(&["a/[bc]"], &[""; 0]).unwrap();
+        // TODO(nga): This is a bug.
+        assert!(!glob.matches("a/b"));
     }
 
     #[test]
