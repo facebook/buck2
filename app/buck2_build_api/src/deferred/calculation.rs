@@ -102,7 +102,7 @@ async fn lookup_deferred_inner(
             Ok(DeferredHolder::Analysis(analysis))
         }
         BaseDeferredKey::BxlLabel(bxl) => {
-            let bxl_result = dice.eval_bxl(bxl.dupe()).await?;
+            let bxl_result = dice.eval_bxl(bxl.dupe()).await?.bxl_result;
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }

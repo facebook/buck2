@@ -12,17 +12,30 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_util::late_binding::LateBinding;
+use dashmap::DashMap;
 use dice::DiceComputations;
+use dupe::Dupe;
 
+use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::bxl::result::BxlResult;
 use crate::bxl::types::BxlKey;
 
 #[async_trait]
 pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
-    async fn eval_bxl(&self, ctx: &DiceComputations, bxl: BxlKey)
-    -> anyhow::Result<Arc<BxlResult>>;
+    async fn eval_bxl(
+        &self,
+        ctx: &DiceComputations,
+        bxl: BxlKey,
+    ) -> anyhow::Result<BxlComputeResult>;
+}
+
+#[derive(Allocative, Clone, Dupe)]
+pub struct BxlComputeResult {
+    pub bxl_result: Arc<BxlResult>,
+    pub materializations: Arc<DashMap<BuildArtifact, ()>>,
 }
 
 /// Dependency injection for BXL.
@@ -34,12 +47,12 @@ pub static BXL_CALCULATION_IMPL: LateBinding<&'static dyn BxlCalculationDyn> =
 
 #[async_trait]
 pub trait BxlCalculation {
-    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<Arc<BxlResult>>;
+    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<BxlComputeResult>;
 }
 
 #[async_trait]
 impl BxlCalculation for DiceComputations {
-    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<Arc<BxlResult>> {
+    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<BxlComputeResult> {
         BXL_CALCULATION_IMPL.get()?.eval_bxl(self, bxl).await
     }
 }

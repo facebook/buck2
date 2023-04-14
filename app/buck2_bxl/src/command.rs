@@ -20,6 +20,7 @@ use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlCalculation;
+use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
@@ -145,18 +146,14 @@ async fn bxl(
             .with_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
-    let bxl_key = BxlKey::new(
-        bxl_label.clone(),
-        bxl_args,
-        global_target_platform,
-        final_artifact_materializations,
-    );
-
-    let materialization_context =
-        ConvertMaterializationContext::from(final_artifact_materializations);
+    let bxl_key = BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
 
     let ctx = &ctx;
-    let result = match ctx.eval_bxl(bxl_key.clone()).await {
+
+    let BxlComputeResult {
+        bxl_result,
+        materializations,
+    } = match ctx.eval_bxl(bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
             if !request.print_stacktrace {
@@ -182,9 +179,18 @@ async fn bxl(
         }
     };
 
-    let build_result = ensure_artifacts(ctx, &materialization_context, &result).await;
-    copy_output(stdout, ctx, result.get_output_loc()).await?;
-    copy_output(server_ctx.stderr()?, ctx, result.get_error_loc()).await?;
+    let materialization_context = ConvertMaterializationContext::with_existing_map(
+        final_artifact_materializations,
+        // Note: even though we have an Arc of the materialization map, we must actually clone the map
+        // so that we don't mutate the materialization state stored when materializing the ensured
+        // artifacts. We need to clone it so that we don't re-materialize what was already done, but
+        // in a separate instance of the map.
+        &Arc::new((*materializations).clone()),
+    );
+
+    let build_result = ensure_artifacts(ctx, &materialization_context, &bxl_result).await;
+    copy_output(stdout, ctx, bxl_result.get_output_loc()).await?;
+    copy_output(server_ctx.stderr()?, ctx, bxl_result.get_error_loc()).await?;
 
     let error_messages = match build_result {
         Ok(_) => vec![],

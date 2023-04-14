@@ -258,6 +258,8 @@ pub enum MaterializationContext {
 
 pub trait ConvertMaterializationContext {
     fn from(self) -> MaterializationContext;
+
+    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext;
 }
 
 impl ConvertMaterializationContext for Materializations {
@@ -270,6 +272,20 @@ impl ConvertMaterializationContext for Materializations {
             },
             Materializations::Materialize => MaterializationContext::Materialize {
                 map: Arc::new(DashMap::new()),
+                force: true,
+            },
+        }
+    }
+
+    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext {
+        match self {
+            Materializations::Skip => MaterializationContext::Skip,
+            Materializations::Default => MaterializationContext::Materialize {
+                map: map.dupe(),
+                force: false,
+            },
+            Materializations::Materialize => MaterializationContext::Materialize {
+                map: map.dupe(),
                 force: true,
             },
         }

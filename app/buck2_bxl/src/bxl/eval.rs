@@ -8,8 +8,10 @@
  */
 
 use std::cell::RefCell;
+use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;
@@ -41,6 +43,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use clap::ErrorKind;
+use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -62,7 +65,11 @@ pub async fn eval(
     ctx: DiceTransaction,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
-) -> anyhow::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> anyhow::Result<(
+    BxlResult,
+    Option<StarlarkProfileDataAndStats>,
+    Arc<DashMap<BuildArtifact, ()>>,
+)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
@@ -142,13 +149,11 @@ pub async fn eval(
 
                 let global_target_platform = key.global_target_platform().clone();
 
-                let (actions_finalizer, ensured_artifacts) = {
+                let (actions_finalizer, ensured_artifacts, materializations) = {
                     let mut eval = Evaluator::new(&env);
                     let bxl_function_name = key.label().name.clone();
                     let frozen_callable = get_bxl_callable(key.label(), &bxl_module)?;
                     eval.set_print_handler(&print);
-
-                    let materializations = *key.materializations();
 
                     let bxl_ctx = BxlContext::new(
                         eval.heap(),
@@ -163,7 +168,6 @@ pub async fn eval(
                         error_file,
                         digest_config,
                         global_target_platform,
-                        materializations,
                     );
                     let bxl_ctx = ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
@@ -188,11 +192,16 @@ pub async fn eval(
                         return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
                     }
 
-                    let (actions, ensured_artifacts) = BxlContext::take_state(bxl_ctx)?;
+                    let (actions, ensured_artifacts, materializations) =
+                        BxlContext::take_state(bxl_ctx)?;
 
                     match actions {
-                        Some(registry) => (Some(registry.finalize(&env)), ensured_artifacts),
-                        None => (None, ensured_artifacts),
+                        Some(registry) => (
+                            Some(registry.finalize(&env)),
+                            ensured_artifacts,
+                            materializations,
+                        ),
+                        None => (None, ensured_artifacts, materializations),
                     }
                 };
 
@@ -235,7 +244,7 @@ pub async fn eval(
 
                 let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
 
-                anyhow::Ok((bxl_result, profile_data))
+                anyhow::Ok((bxl_result, profile_data, materializations))
             }
         }))
         .await

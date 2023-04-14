@@ -13,7 +13,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_cli_proto::build_request::Materializations;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -61,13 +60,11 @@ impl BxlKey {
         spec: BxlFunctionLabel,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
         global_target_platform: Option<TargetLabel>,
-        materializations: Materializations,
     ) -> Self {
         Self(Arc::new(BxlKeyData {
             spec,
             bxl_args,
             global_target_platform,
-            materializations,
         }))
     }
 
@@ -86,10 +83,6 @@ impl BxlKey {
     pub fn global_target_platform(&self) -> &Option<TargetLabel> {
         &self.0.global_target_platform
     }
-
-    pub fn materializations(&self) -> &Materializations {
-        &self.0.materializations
-    }
 }
 
 #[derive(
@@ -100,8 +93,6 @@ struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
     global_target_platform: Option<TargetLabel>,
-    #[allocative(skip)]
-    materializations: Materializations,
 }
 
 fn print_like_args(args: &Arc<OrderedMap<String, CliArgValue>>) -> String {

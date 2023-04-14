@@ -16,6 +16,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use buck2_build_api::bxl::calculation::BxlComputeResult;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::bxl::types::BxlKey;
@@ -28,7 +29,6 @@ mod tests {
     use buck2_build_api::deferred::types::DeferredRegistry;
     use buck2_build_api::deferred::types::DeferredTable;
     use buck2_build_api::deferred::types::DeferredValue;
-    use buck2_cli_proto::build_request::Materializations;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
@@ -79,7 +79,6 @@ mod tests {
             },
             Arc::new(OrderedMap::new()),
             None,
-            Materializations::Skip,
         );
 
         let mut deferred =
@@ -99,19 +98,22 @@ mod tests {
             })
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
-                anyhow::Ok(Arc::new(BxlResult::BuildsArtifacts {
-                    output_loc: BuckOutPath::new(
-                        BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
-                        ForwardRelativePathBuf::unchecked_new("test".to_owned()),
-                    ),
-                    error_loc: BuckOutPath::new(
-                        BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
-                        ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
-                    ),
-                    built: vec![],
-                    artifacts: vec![],
-                    deferred: deferred_result,
-                }))
+                anyhow::Ok(BxlComputeResult {
+                    bxl_result: Arc::new(BxlResult::BuildsArtifacts {
+                        output_loc: BuckOutPath::new(
+                            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+                            ForwardRelativePathBuf::unchecked_new("test".to_owned()),
+                        ),
+                        error_loc: BuckOutPath::new(
+                            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+                            ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
+                        ),
+                        built: vec![],
+                        artifacts: vec![],
+                        deferred: deferred_result,
+                    }),
+                    materializations: Arc::new(Default::default()),
+                })
                 .shared_error(),
             );
 

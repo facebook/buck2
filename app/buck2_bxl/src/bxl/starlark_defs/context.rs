@@ -16,13 +16,13 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_build_api::query::dice::DiceQueryDelegate;
-use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
@@ -37,8 +37,10 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use either::Either;
 use indexmap::IndexSet;
 use itertools::Itertools;
@@ -115,7 +117,11 @@ pub struct BxlContext<'v> {
     pub(crate) output_stream: ValueTyped<'v, OutputStream<'v>>,
     pub(crate) error_stream: ValueTyped<'v, OutputStream<'v>>,
     pub(crate) global_target_platform: Option<TargetLabel>,
-    pub(crate) materializations: Materializations,
+    #[derivative(Debug = "ignore")]
+    #[allocative(skip)]
+    /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
+    /// we can take the internal state without having to clone it.
+    pub(crate) materializations: Arc<DashMap<BuildArtifact, ()>>,
 }
 
 impl<'v> BxlContext<'v> {
@@ -132,7 +138,6 @@ impl<'v> BxlContext<'v> {
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
-        materializations: Materializations,
     ) -> Self {
         Self {
             current_bxl,
@@ -158,7 +163,7 @@ impl<'v> BxlContext<'v> {
                 async_ctx,
             )),
             global_target_platform,
-            materializations,
+            materializations: Arc::new(DashMap::new()),
         }
     }
 
@@ -209,7 +214,11 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(Option<AnalysisRegistry<'v>>, IndexSet<ArtifactGroup>)> {
+    ) -> anyhow::Result<(
+        Option<AnalysisRegistry<'v>>,
+        IndexSet<ArtifactGroup>,
+        Arc<DashMap<BuildArtifact, ()>>,
+    )> {
         let this = value.as_ref();
         Ok((
             this.state.as_ref().state.borrow_mut().take(),
@@ -234,6 +243,7 @@ impl<'v> BxlContext<'v> {
                 })
                 .flatten_ok()
                 .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
+            this.materializations.dupe(),
         ))
     }
 }

@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
+use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
-use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -34,7 +34,7 @@ impl BxlCalculationDyn for BxlCalculationImpl {
         &self,
         ctx: &DiceComputations,
         bxl: BxlKey,
-    ) -> anyhow::Result<Arc<BxlResult>> {
+    ) -> anyhow::Result<BxlComputeResult> {
         ctx.compute(&internal::BxlComputeKey(bxl))
             .await?
             .unshared_error()
@@ -48,7 +48,7 @@ fn set_bxl_calculation_impl() {
 
 #[async_trait]
 impl Key for internal::BxlComputeKey {
-    type Value = SharedResult<Arc<BxlResult>>;
+    type Value = SharedResult<BxlComputeResult>;
 
     async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
         let key = self.0.dupe();
@@ -57,7 +57,10 @@ impl Key for internal::BxlComputeKey {
             eval(ctx, key, profiler)
                 .await
                 .shared_error()
-                .map(|(result, _)| Arc::new(result))
+                .map(|(result, _, materializations)| BxlComputeResult {
+                    bxl_result: Arc::new(result),
+                    materializations,
+                })
         })
         .await
     }

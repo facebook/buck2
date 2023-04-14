@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::bxl::types::BxlKey;
-use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::ProfileRequest;
@@ -106,12 +105,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             target_platform_from_client_context(client_ctx, server_ctx, &ctx)
                                 .await?;
 
-                        let bxl_key = BxlKey::new(
-                            bxl_label.clone(),
-                            bxl_args,
-                            global_target_platform,
-                            Materializations::Skip,
-                        );
+                        let bxl_key =
+                            BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
 
                         eval(
                             ctx,
