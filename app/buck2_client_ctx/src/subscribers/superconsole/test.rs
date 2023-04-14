@@ -19,10 +19,64 @@ use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
+use superconsole::Span;
 
 use crate::subscribers::superconsole::SessionInfo;
 
 struct TestCounterComponent;
+
+struct TestCounterColumn {
+    label: &'static str,
+    color: Color,
+    get_from_test_state: fn(&TestState) -> u64,
+}
+
+impl TestCounterColumn {
+    const LISTING_FAIL: TestCounterColumn = TestCounterColumn {
+        label: "Listing Fail",
+        color: Color::Red,
+        get_from_test_state: |test_state| test_state.listing_failed,
+    };
+    const DISCOVERED: TestCounterColumn = TestCounterColumn {
+        label: "Discovered",
+        color: Color::White,
+        get_from_test_state: |test_state| test_state.discovered,
+    };
+    const PASS: TestCounterColumn = TestCounterColumn {
+        label: "Pass",
+        color: Color::Green,
+        get_from_test_state: |test_state| test_state.pass,
+    };
+    const FAIL: TestCounterColumn = TestCounterColumn {
+        label: "Fail",
+        color: Color::Red,
+        get_from_test_state: |test_state| test_state.fail,
+    };
+    const FATAL: TestCounterColumn = TestCounterColumn {
+        label: "Fatal",
+        color: Color::Red,
+        get_from_test_state: |test_state| test_state.fatal,
+    };
+    const SKIP: TestCounterColumn = TestCounterColumn {
+        label: "Skip",
+        color: Color::Yellow,
+        get_from_test_state: |test_state| test_state.skipped,
+    };
+    const TIMEOUT: TestCounterColumn = TestCounterColumn {
+        label: "Timeout",
+        color: Color::Yellow,
+        get_from_test_state: |test_state| test_state.timeout,
+    };
+
+    fn to_span_from_test_state(&self, test_state: &TestState) -> anyhow::Result<Span> {
+        StylizedCount {
+            label: self.label,
+            count: (self.get_from_test_state)(test_state),
+            color: self.color,
+        }
+        .to_span()
+    }
+}
 
 impl TestCounterComponent {
     fn draw_unchecked(
@@ -39,69 +93,20 @@ impl TestCounterComponent {
 
         let mut spans = Vec::new();
         if test_state.listing_failed > 0 {
-            spans.push(
-                StylizedCount {
-                    label: "Listing Fail",
-                    count: test_state.listing_failed,
-                    color: Color::Red,
-                }
-                .to_span()?,
-            );
+            spans.push(TestCounterColumn::LISTING_FAIL.to_span_from_test_state(test_state)?);
             spans.push(". ".try_into()?);
         }
-        spans.push(
-            StylizedCount {
-                label: "Discovered",
-                count: test_state.discovered,
-                color: Color::White,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::DISCOVERED.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
-        spans.push(
-            StylizedCount {
-                label: "Pass",
-                count: test_state.pass,
-                color: Color::Green,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::PASS.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
-        spans.push(
-            StylizedCount {
-                label: "Fail",
-                count: test_state.fail,
-                color: Color::Red,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::FAIL.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
-        spans.push(
-            StylizedCount {
-                label: "Fatal",
-                count: test_state.fatal,
-                color: Color::DarkRed,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::FATAL.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
-        spans.push(
-            StylizedCount {
-                label: "Skip",
-                count: test_state.not_executed(),
-                color: Color::Cyan,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::SKIP.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
-        spans.push(
-            StylizedCount {
-                label: "Timeout",
-                count: test_state.timeout,
-                color: Color::Yellow,
-            }
-            .to_span()?,
-        );
+        spans.push(TestCounterColumn::TIMEOUT.to_span_from_test_state(test_state)?);
         Ok(Lines::from_iter([Line::from_iter(spans)]))
     }
 }
