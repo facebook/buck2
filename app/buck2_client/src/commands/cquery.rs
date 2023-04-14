@@ -30,6 +30,8 @@ use buck2_query_common::query_args::CommonQueryArgs;
 /// A user can specify a `--target-universe` flag to control how literals are resolved. When
 /// provided, any literals will resolve to all matching targets within the universe (which
 /// includes the targets passed as the universe and all transitive deps of them).
+/// When not provided, we implicitly set the universe to be rooted at every target literal
+/// in the `cquery`.
 ///
 /// Run `buck2 docs cquery` for more documentation about the functions available in cquery
 /// expressions.
@@ -57,7 +59,9 @@ pub struct CqueryCommand {
         use_delimiter = true,
         help = "Comma separated list of targets at which to root the queryable universe.
                 This is useful since targets can exist in multiple configurations. While
-                this argument isn't required, it's recommended for most non-trivial queries."
+                this argument isn't required, it's recommended for most non-trivial queries.
+                In the absence of this argument, buck2 will use the target literals
+                in your cquery expression as the argument to this."
     )]
     target_universe: Vec<String>,
 
