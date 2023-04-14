@@ -16,10 +16,14 @@ cargo +nightly-2023-01-24 install --git https://github.com/facebook/buck2.git bu
 
 The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:
 
+Linux / macOS
 ```sh
 export PATH=$HOME/.cargo/bin:$PATH
 ```
-
+Windows Powershell
+```powershell
+$Env:PATH += ";$HOME\.cargo\bin"
+```
 With Buck2 installed, you can build projects with `buck2`!
 
 ### Windows configuration
