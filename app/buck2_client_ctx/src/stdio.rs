@@ -63,42 +63,39 @@ macro_rules! eprintln {
     };
 }
 
+fn map_stdout_error(err: io::Error) -> anyhow::Error {
+    if err.kind() == io::ErrorKind::BrokenPipe {
+        anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
+    } else {
+        anyhow::Error::new(err)
+    }
+}
+
+fn map_stderr_error(err: io::Error) -> anyhow::Error {
+    if err.kind() == io::ErrorKind::BrokenPipe {
+        anyhow::Error::new(FailureExitCode::StderrBrokenPipe)
+    } else {
+        anyhow::Error::new(err)
+    }
+}
+
 pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
-    print(io::stdout().lock(), fmt, FailureExitCode::StdoutBrokenPipe)
+    io::stdout().lock().write_fmt(fmt).map_err(map_stdout_error)
 }
 
 pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
-    print(io::stderr().lock(), fmt, FailureExitCode::StderrBrokenPipe)
-}
-
-fn print(mut writer: impl Write, fmt: Arguments, err: FailureExitCode) -> anyhow::Result<()> {
-    writer.write_fmt(fmt).map_err(|e| {
-        if e.kind() == io::ErrorKind::BrokenPipe {
-            anyhow::Error::new(err)
-        } else {
-            anyhow::Error::new(e)
-        }
-    })
+    io::stderr().lock().write_fmt(fmt).map_err(map_stderr_error)
 }
 
 pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
-    io::stdout().lock().write_all(bytes).map_err(|e| {
-        if e.kind() == io::ErrorKind::BrokenPipe {
-            anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
-        } else {
-            anyhow::Error::new(e)
-        }
-    })
+    io::stdout()
+        .lock()
+        .write_all(bytes)
+        .map_err(map_stdout_error)
 }
 
 pub fn flush() -> anyhow::Result<()> {
-    io::stdout().flush().map_err(|e| {
-        if e.kind() == io::ErrorKind::BrokenPipe {
-            anyhow::Error::new(FailureExitCode::StdoutBrokenPipe)
-        } else {
-            anyhow::Error::new(e)
-        }
-    })
+    io::stdout().flush().map_err(map_stdout_error)
 }
 
 pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
