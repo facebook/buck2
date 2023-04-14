@@ -361,6 +361,14 @@ def build_kotlin_library(
                 extra_kotlinc_arguments = ctx.attrs.extra_kotlinc_arguments,
             )
 
+            if outputs and outputs.annotation_processor_output:
+                generated_sources = [outputs.annotation_processor_output]
+                extra_sub_targets = extra_sub_targets | {"generated_sources": [
+                    DefaultInfo(default_output = outputs.annotation_processor_output),
+                ]}
+            else:
+                generated_sources = []
+
             java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, template_placeholder_info, intellij_info = create_java_library_providers(
                 ctx,
                 library_output = outputs.classpath_entry if outputs else None,
@@ -370,7 +378,7 @@ def build_kotlin_library(
                 exported_provided_deps = ctx.attrs.exported_provided_deps,
                 runtime_deps = ctx.attrs.runtime_deps,
                 needs_desugar = source_level > 7 or target_level > 7,
-                generated_sources = [outputs.annotation_processor_output] if outputs and outputs.annotation_processor_output else [],
+                generated_sources = generated_sources,
                 has_srcs = bool(srcs),
             )
 
