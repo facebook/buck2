@@ -26,13 +26,13 @@ use starlark::docs::RenderMarkdown;
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub(crate) struct MarkdownFileOptions {
     #[structopt(
-        long = "--markdown-files-destination-dir",
+        long = "markdown-files-destination-dir",
         required_if_eq("format", "markdown_files")
     )]
     destination_dir: Option<PathBuf>,
-    #[structopt(long = "--markdown-files-native-subdir", default_value="native", parse(try_from_str = PathBuf::try_from))]
+    #[structopt(long = "markdown-files-native-subdir", default_value="native", parse(try_from_str = PathBuf::try_from))]
     native_subdir: PathBuf,
-    #[structopt(long = "--markdown-files-starlark-subdir", default_value="starlark", parse(try_from_str = PathBuf::try_from))]
+    #[structopt(long = "markdown-files-starlark-subdir", default_value="starlark", parse(try_from_str = PathBuf::try_from))]
     starlark_subdir: PathBuf,
 }
 

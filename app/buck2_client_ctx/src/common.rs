@@ -403,7 +403,7 @@ impl CommonBuildOptions {
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 pub struct CommonConsoleOptions {
     #[clap(
-        long = "--console",
+        long = "console",
         help = "Which console to use for this command",
         default_value = "auto",
         ignore_case = true,
@@ -423,7 +423,7 @@ pub struct CommonConsoleOptions {
     /// These components can be turned on/off interactively.
     /// Press 'h' for help when superconsole is active.
     #[clap(
-        long = "--ui",
+        long = "ui",
         ignore_case = true,
         multiple = true,
         number_of_values = 1,

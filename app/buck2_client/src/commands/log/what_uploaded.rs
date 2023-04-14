@@ -26,7 +26,7 @@ pub struct WhatUploadedCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
     #[clap(
-        long = "--format",
+        long = "format",
         help = "Which output format to use for this command",
         default_value = "tabulated",
         ignore_case = true,
