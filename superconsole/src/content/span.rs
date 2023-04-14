@@ -13,12 +13,13 @@ use crossterm::style::Color;
 use crossterm::style::ContentStyle;
 use crossterm::style::PrintStyledContent;
 use crossterm::style::StyledContent;
-use crossterm::QueueableCommand;
+use crossterm::Command;
 use termwiz::cell;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::ansi_support::enable_ansi_support;
+use crate::vec_as_fmt_write::VecAsFmtWrite;
 
 #[derive(Debug, thiserror::Error)]
 enum SpanError {
@@ -176,10 +177,8 @@ impl Span {
         // rendering styled content without emitting WinAPI calls when ANSI is not supported.
         enable_ansi_support()?;
 
-        writer.queue(PrintStyledContent(StyledContent::new(
-            self.style,
-            self.content.as_ref(),
-        )))?;
+        PrintStyledContent(StyledContent::new(self.style, self.content.as_ref()))
+            .write_ansi(&mut VecAsFmtWrite(writer))?;
 
         Ok(())
     }

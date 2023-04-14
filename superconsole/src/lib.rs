@@ -41,3 +41,4 @@ pub mod output;
 pub mod style;
 mod superconsole;
 pub mod testing;
+pub(crate) mod vec_as_fmt_write;
