@@ -774,11 +774,7 @@ cxx_test = prelude_rule(
         cxx_common.include_directories_arg() |
         {
             "framework": attrs.option(attrs.enum(CxxTestType), default = None, doc = """
-                The testing framework to build against and run with. We currently support [`gtest`](https://github.com/google/googletest) and [`boost`](http://www.boost.org/doc/libs/1_57_0/libs/test/doc/html/index.html).
- 
-
-                 When set to `gtest`, you must also set `.buckconfig`
-                .
+                Unused.
             """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 A map of environment names and values to set when running the test.
