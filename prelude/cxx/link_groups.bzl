@@ -710,9 +710,9 @@ def create_link_groups(
         if not link_group_spec.is_shared_lib:
             # always add libraries that are not constructed from link groups
             specs.append(link_group_spec)
-        elif (node_count == 0 or  # avoid creating stub libraries when the link group matches nothing
-              link_group_spec.group.attrs.enable_if_node_count_exceeds == None or
-              node_count > link_group_spec.group.attrs.enable_if_node_count_exceeds):
+        elif (node_count != 0 and  # avoid creating stub libraries when the link group matches nothing
+              (link_group_spec.group.attrs.enable_if_node_count_exceeds == None or
+               node_count >= link_group_spec.group.attrs.enable_if_node_count_exceeds)):
             specs.append(link_group_spec)
             link_group_shared_links[link_group_spec.group.name] = _stub_library(
                 ctx = ctx,
