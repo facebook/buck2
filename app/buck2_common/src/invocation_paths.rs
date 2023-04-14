@@ -140,6 +140,11 @@ impl InvocationPaths {
             .join(ForwardRelativePath::unchecked_new("log"))
     }
 
+    pub fn tmp_dir(&self) -> AbsNormPathBuf {
+        self.buck_out_path()
+            .join(ForwardRelativePath::unchecked_new("tmp"))
+    }
+
     pub fn re_logs_dir(&self) -> AbsNormPathBuf {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("re_logs"))

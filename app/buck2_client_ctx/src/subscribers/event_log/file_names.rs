@@ -78,7 +78,7 @@ fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
 }
 
 /// Find log file by trace id. Return `None` if log not found, error on other errors.
-fn find_log_by_trace_id(
+pub fn find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
 ) -> anyhow::Result<Option<AbsNormPathBuf>> {

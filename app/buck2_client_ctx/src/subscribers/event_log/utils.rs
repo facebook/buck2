@@ -31,13 +31,13 @@ pub(crate) enum EventLogErrors {
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct Encoding {
+pub struct Encoding {
     pub(crate) mode: LogMode,
     pub(crate) compression: Compression,
     /// List of extensions used to detect file type.
     ///
     /// The first extension is the default one, used when writing a file.
-    pub(crate) extensions: &'static [&'static str],
+    pub extensions: &'static [&'static str],
 }
 
 impl Encoding {
@@ -71,7 +71,7 @@ impl Encoding {
         extensions: &[".pb.gz", ".proto.gz"],
     };
 
-    pub(crate) const PROTO_ZSTD: Encoding = Encoding {
+    pub const PROTO_ZSTD: Encoding = Encoding {
         mode: LogMode::Protobuf,
         compression: Compression::Zstd,
         extensions: &[".pb.zst"],
