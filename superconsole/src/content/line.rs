@@ -38,12 +38,6 @@ impl PartialEq for Line {
 }
 
 impl Line {
-    /// Constructor.
-    #[allow(clippy::should_implement_trait)] // Because this is not a generic collection.
-    pub fn from_iter<I: IntoIterator<Item = Span>>(iter: I) -> Line {
-        Line(Vec::from_iter(iter))
-    }
-
     pub fn unstyled(text: &str) -> anyhow::Result<Line> {
         Ok(Line::from_iter([Span::new_unstyled(text)?]))
     }
