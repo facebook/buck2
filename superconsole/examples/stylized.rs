@@ -12,9 +12,9 @@
 use std::time::Duration;
 
 use derive_more::Display;
+use superconsole::components::Blank;
 use superconsole::components::Component;
 use superconsole::components::DrawMode;
-use superconsole::state;
 use superconsole::style::style;
 use superconsole::style::Color;
 use superconsole::style::Stylize;
@@ -27,9 +27,10 @@ use superconsole::SuperConsole;
 use tokio::time;
 
 /// A component representing a store greeter.
-#[derive(Debug)]
-struct Greeter {
-    name: String,
+struct Greeter<'a> {
+    name: &'a str,
+    store_name: &'a StoreName,
+    customers: &'a [CustomerName],
 }
 
 #[derive(Display)]
@@ -37,42 +38,35 @@ struct StoreName(String);
 #[derive(Display)]
 struct CustomerName(String);
 
-impl Component for Greeter {
+impl<'a> Component for Greeter<'a> {
     /// Prints a greeting to the current customer.
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         _dimensions: Dimensions,
-        mode: DrawMode,
+        _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        Ok(match mode {
-            DrawMode::Final => Lines::new(),
-            DrawMode::Normal => {
-                let store_name = state.get::<StoreName>().unwrap();
-                let customers = state.get::<Vec<CustomerName>>().unwrap();
-                let identification = Line(vec![
-                    "Hello my name is ".to_owned().italic().try_into()?,
-                    style(self.name.clone()).bold().try_into()?,
-                ]);
-                let mut messages = vec![identification];
-                for customer_name in customers {
-                    let greeting = Line(vec![Span::new_styled(style(format!(
-                        "Welcome to {}, {}!",
-                        store_name, customer_name
-                    )))?]);
-                    messages.push(greeting);
-                }
-                Lines(messages)
-            }
-        })
+        let store_name = self.store_name;
+        let customers = self.customers;
+        let identification = Line(vec![
+            "Hello my name is ".to_owned().italic().try_into()?,
+            style(self.name.to_owned()).bold().try_into()?,
+        ]);
+        let mut messages = vec![identification];
+        for customer_name in customers {
+            let greeting = Line(vec![Span::new_styled(style(format!(
+                "Welcome to {}, {}!",
+                store_name, customer_name
+            )))?]);
+            messages.push(greeting);
+        }
+        Ok(Lines(messages))
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let root = Greeter {
-        name: "Alex".to_owned(),
-    };
+    let name = "Alex";
     let mut console = SuperConsole::new().unwrap();
 
     let people = [
@@ -102,7 +96,14 @@ async fn main() {
         let store_name = StoreName(store_names[i].to_owned());
 
         console
-            .render(&root, &state![&store_name, &customers])
+            .render(
+                &Greeter {
+                    name,
+                    store_name: &store_name,
+                    customers: &customers,
+                },
+                &State::new(),
+            )
             .unwrap();
 
         timer.tick().await;
@@ -110,5 +111,5 @@ async fn main() {
 
     // view the output before it's collapsed
     tokio::time::sleep(Duration::from_secs(1)).await;
-    console.finalize(&root, &state![]).unwrap();
+    console.finalize(&Blank, &State::new()).unwrap();
 }
