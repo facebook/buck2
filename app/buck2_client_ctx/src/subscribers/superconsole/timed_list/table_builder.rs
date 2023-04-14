@@ -61,10 +61,10 @@ impl Component for Table {
                 let will_be_truncated = original_label_len > maximum_label_width;
                 if will_be_truncated {
                     // make space for ellipses
-                    let styling = label.iter().last().unwrap().stylization;
+                    let style = label.iter().last().unwrap().style;
                     label.truncate_line(maximum_label_width.saturating_sub(3));
                     label.push(Span::new_styled_lossy(StyledContent::new(
-                        styling,
+                        style,
                         "...".to_owned(),
                     )));
                 }

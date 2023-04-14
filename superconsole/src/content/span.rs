@@ -26,7 +26,7 @@ use crate::Error;
 #[non_exhaustive]
 pub struct Span {
     pub(crate) content: Cow<'static, str>,
-    pub stylization: ContentStyle,
+    pub style: ContentStyle,
 }
 
 /// Test whether a char is permissable to be inside a Span.
@@ -48,7 +48,7 @@ impl Span {
     pub fn dash() -> Span {
         Span {
             content: Cow::Borrowed("-"),
-            stylization: ContentStyle::default(),
+            style: ContentStyle::default(),
         }
     }
 
@@ -62,7 +62,7 @@ impl Span {
         let content = sanitize(string);
         Span {
             content: Cow::Owned(content),
-            stylization: ContentStyle::default(),
+            style: ContentStyle::default(),
         }
     }
 
@@ -74,7 +74,7 @@ impl Span {
     pub fn padding(amount: usize) -> Self {
         Self {
             content: Cow::Owned(format!("{:<width$}", "", width = amount)),
-            stylization: ContentStyle::default(),
+            style: ContentStyle::default(),
         }
     }
 
@@ -85,7 +85,7 @@ impl Span {
         if Self::valid(&owned) {
             Ok(Self {
                 content: Cow::Owned(owned),
-                stylization: ContentStyle::default(),
+                style: ContentStyle::default(),
             })
         } else {
             Err(Error::InvalidWhitespace(owned).into())
@@ -96,7 +96,7 @@ impl Span {
         let content = sanitize(stringlike);
         Self {
             content: Cow::Owned(content),
-            stylization: ContentStyle::default(),
+            style: ContentStyle::default(),
         }
     }
 
@@ -106,7 +106,7 @@ impl Span {
         if Self::valid(content.content()) {
             Ok(Self {
                 content: Cow::Owned(content.content().clone()),
-                stylization: *content.style(),
+                style: *content.style(),
             })
         } else {
             Err(Error::InvalidWhitespace(content.content().to_owned()).into())
@@ -118,7 +118,7 @@ impl Span {
         let content = sanitize(span.content());
         Self {
             content: Cow::Owned(content),
-            stylization: *span.style(),
+            style: *span.style(),
         }
     }
 
@@ -157,7 +157,7 @@ impl Span {
     /// Because a `Grapheme` is represented as another string, the sub-`Span` is represented as a `Span`.
     /// This `panics` if it encounters unicode that it doesn't know how to deal with.
     pub fn iter(&self) -> impl Iterator<Item = Span> + '_ {
-        SpanIterator(&self.stylization, self.content.graphemes(true))
+        SpanIterator(&self.style, self.content.graphemes(true))
     }
 
     pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
@@ -167,7 +167,7 @@ impl Span {
 
         queue!(
             writer,
-            PrintStyledContent(StyledContent::new(self.stylization, self.content.as_ref()))
+            PrintStyledContent(StyledContent::new(self.style, self.content.as_ref()))
         )?;
         Ok(())
     }
@@ -205,7 +205,7 @@ impl<'a> Iterator for SpanIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let content = self.1.next();
         content.map(|content| Span {
-            stylization: *self.0,
+            style: *self.0,
             content: Cow::Owned(content.to_owned()),
         })
     }

@@ -176,7 +176,7 @@ impl Line {
             return;
         }
         if let Some(last) = self.0.last_mut() {
-            if last.stylization == span.stylization {
+            if last.style == span.style {
                 last.content.to_mut().push_str(&span.content);
                 return;
             }
