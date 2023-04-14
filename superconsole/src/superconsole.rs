@@ -25,7 +25,6 @@ use crate::output::SuperConsoleOutput;
 use crate::Dimensions;
 use crate::Direction;
 use crate::Lines;
-use crate::State;
 
 const MINIMUM_EMIT: usize = 5;
 const MAX_GRAPHEME_BUFFER: usize = 1000000;
@@ -90,7 +89,7 @@ impl SuperConsole {
 
     /// Render at a given tick.  Draws all components and drains the emitted events buffer.
     /// This will produce any pending emitting events above the Canvas and will re-render the drawing area.
-    pub fn render(&mut self, root: &dyn Component, state: &State) -> anyhow::Result<()> {
+    pub fn render(&mut self, root: &dyn Component) -> anyhow::Result<()> {
         // `render_general` refuses to drain more than a single frame, so repeat until done.
         // or until the rendered frame is too large to print anything.
         let mut anything_emitted = true;
@@ -101,7 +100,7 @@ impl SuperConsole {
             }
 
             let last_len = self.to_emit.len();
-            self.render_with_mode(root, state, DrawMode::Normal)?;
+            self.render_with_mode(root, DrawMode::Normal)?;
             anything_emitted = last_len == self.to_emit.len();
             has_rendered = true;
         }
@@ -111,8 +110,8 @@ impl SuperConsole {
 
     /// Perform a final render with [`DrawMode::Final`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize(self, root: &dyn Component, state: &State) -> anyhow::Result<()> {
-        self.finalize_with_mode(root, state, DrawMode::Final)
+    pub fn finalize(self, root: &dyn Component) -> anyhow::Result<()> {
+        self.finalize_with_mode(root, DrawMode::Final)
     }
 
     /// Perform a final render, using a specified [`DrawMode`].
@@ -120,10 +119,10 @@ impl SuperConsole {
     pub fn finalize_with_mode(
         mut self,
         root: &dyn Component,
-        state: &State,
+
         mode: DrawMode,
     ) -> anyhow::Result<()> {
-        self.render_with_mode(root, state, mode)?;
+        self.render_with_mode(root, mode)?;
         self.output.finalize()
     }
 
@@ -133,14 +132,9 @@ impl SuperConsole {
     ///
     /// Because this re-renders the console, it requires passed state.
     /// Overuse of this method can cause `superconsole` to use significant CPU.
-    pub fn emit_now(
-        &mut self,
-        lines: Lines,
-        root: &dyn Component,
-        state: &State,
-    ) -> anyhow::Result<()> {
+    pub fn emit_now(&mut self, lines: Lines, root: &dyn Component) -> anyhow::Result<()> {
         self.emit(lines);
-        self.render(root, state)
+        self.render(root)
     }
 
     /// Queues the passed lines to be drawn on the next render.
@@ -167,12 +161,7 @@ impl SuperConsole {
     }
 
     /// Helper method to share render + finalize behavior by specifying mode.
-    fn render_with_mode(
-        &mut self,
-        root: &dyn Component,
-        state: &State,
-        mode: DrawMode,
-    ) -> anyhow::Result<()> {
+    fn render_with_mode(&mut self, root: &dyn Component, mode: DrawMode) -> anyhow::Result<()> {
         // TODO(cjhopman): We may need to try to keep each write call to be under the pipe buffer
         // size so it can be completed in a single syscall otherwise we might see a partially
         // rendered frame.
@@ -181,7 +170,7 @@ impl SuperConsole {
         let size = self.size()?.saturating_sub(1, Direction::Vertical);
         let mut buffer = Vec::new();
 
-        self.render_general(&mut buffer, root, state, mode, size)?;
+        self.render_general(&mut buffer, root, mode, size)?;
         self.output.output(buffer)
     }
 
@@ -190,7 +179,7 @@ impl SuperConsole {
         &mut self,
         buffer: &mut Vec<u8>,
         root: &dyn Component,
-        state: &State,
+
         mode: DrawMode,
         size: Dimensions,
     ) -> anyhow::Result<()> {
@@ -206,7 +195,7 @@ impl SuperConsole {
         self.root.move_up(buffer)?;
 
         // Pre-draw the frame *and then* start rendering emitted messages.
-        let mut frame = self.root.draw(root, state, size, mode)?;
+        let mut frame = self.root.draw(root, size, mode)?;
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
         let limit = match mode {
@@ -255,7 +244,6 @@ mod tests {
         console.render_general(
             &mut buffer,
             &root,
-            &State::new(),
             DrawMode::Normal,
             Dimensions::new(100, 2),
         )?;
@@ -280,7 +268,6 @@ mod tests {
         console.render_general(
             &mut buffer,
             &root,
-            &State::new(),
             DrawMode::Normal,
             Dimensions::new(100, 20),
         )?;
@@ -298,15 +285,15 @@ mod tests {
 
         let root = Echo(Lines(vec![vec!["state"].try_into()?; 1]));
 
-        console.render(&root, &State::new())?;
+        console.render(&root)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.test_output_mut()?.should_render = false;
-        console.render(&root, &State::new())?;
+        console.render(&root)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&root, &State::new())?;
+        console.render(&root)?;
         assert_eq!(console.test_output()?.frames.len(), 1);
 
         Ok(())
@@ -322,12 +309,12 @@ mod tests {
 
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
-        console.render(&root, &State::new())?;
+        console.render(&root)?;
         assert_eq!(console.test_output()?.frames.len(), 0);
 
         console.test_output_mut()?.should_render = true;
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render(&root, &State::new())?;
+        console.render(&root)?;
 
         let frame = console
             .test_output_mut()?
@@ -352,7 +339,7 @@ mod tests {
         console.test_output_mut()?.should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
-        console.render_with_mode(&root, &State::new(), DrawMode::Final)?;
+        console.render_with_mode(&root, DrawMode::Final)?;
 
         let frame = console
             .test_output_mut()?

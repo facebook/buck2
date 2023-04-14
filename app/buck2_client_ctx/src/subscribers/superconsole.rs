@@ -44,7 +44,6 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
-use superconsole::State;
 pub(crate) use superconsole::SuperConsole;
 
 use crate::subscribers::simpleconsole::SimpleConsole;
@@ -149,12 +148,7 @@ struct BuckRootComponent<'s> {
 }
 
 impl<'s> Component for BuckRootComponent<'s> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         // bound all components to our recommended grapheme-width
         let dimensions = dimensions.intersect(Dimensions {
             width: SUPERCONSOLE_WIDTH,
@@ -166,7 +160,6 @@ impl<'s> Component for BuckRootComponent<'s> {
             &SessionInfoComponent {
                 session_info: self.state.session_info(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -174,7 +167,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                 super_console_config: &self.state.config,
                 re_state: self.state.simple_console.observer.re_state(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -182,7 +174,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                 super_console_config: &self.state.config,
                 io_state: self.state.simple_console.observer.io_state(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -190,7 +181,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                 session_info: self.state.session_info(),
                 test_state: self.state.simple_console.observer.test_state(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -198,7 +188,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                 super_console_config: &self.state.config,
                 debug_events_state: self.state.simple_console.observer.extra().debug_events(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -206,7 +195,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                 super_console_config: &self.state.config,
                 dice_state: self.state.simple_console.observer.extra().dice_state(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -217,7 +205,6 @@ impl<'s> Component for BuckRootComponent<'s> {
                     .observer
                     .starlark_debugger_state(),
             },
-            state,
             mode,
         )?;
         draw.draw(
@@ -225,14 +212,9 @@ impl<'s> Component for BuckRootComponent<'s> {
                 super_console_config: &self.state.config,
                 action_stats: self.state.simple_console.observer.action_stats(),
             },
-            state,
             mode,
         )?;
-        draw.draw(
-            &TimedList::new(&CUTOFFS, self.header, self.state),
-            state,
-            mode,
-        )?;
+        draw.draw(&TimedList::new(&CUTOFFS, self.header, self.state), mode)?;
 
         Ok(draw.finish())
     }
@@ -344,7 +326,6 @@ impl StatefulSuperConsole {
                     header: &self.header,
                     state: &self.state,
                 },
-                &State::new(),
                 DrawMode::Normal,
             ),
             None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
@@ -523,13 +504,10 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
         if let Some(super_console) = self.super_console.take() {
-            super_console.finalize(
-                &BuckRootComponent {
-                    header: &self.header,
-                    state: &self.state,
-                },
-                &State::new(),
-            )?;
+            super_console.finalize(&BuckRootComponent {
+                header: &self.header,
+                state: &self.state,
+            })?;
         }
 
         self.state.simple_console.handle_output(raw_output).await
@@ -594,13 +572,10 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
             Some(mut super_console) => {
                 let lines = Self::render_result_errors(result);
                 super_console.emit(lines);
-                super_console.finalize(
-                    &BuckRootComponent {
-                        header: &self.header,
-                        state: &self.state,
-                    },
-                    &State::new(),
-                )
+                super_console.finalize(&BuckRootComponent {
+                    header: &self.header,
+                    state: &self.state,
+                })
             }
             None => {
                 self.state
@@ -616,13 +591,10 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
         match &mut self.super_console {
             Some(super_console) => {
                 self.state.current_tick = tick.dupe();
-                super_console.render(
-                    &BuckRootComponent {
-                        header: &self.header,
-                        state: &self.state,
-                    },
-                    &State::new(),
-                )
+                super_console.render(&BuckRootComponent {
+                    header: &self.header,
+                    state: &self.state,
+                })
             }
             None => Ok(()),
         }
@@ -630,13 +602,10 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
 
     async fn handle_error(&mut self, _error: &anyhow::Error) -> anyhow::Result<()> {
         match self.super_console.take() {
-            Some(super_console) => super_console.finalize(
-                &BuckRootComponent {
-                    header: &self.header,
-                    state: &self.state,
-                },
-                &State::new(),
-            ),
+            Some(super_console) => super_console.finalize(&BuckRootComponent {
+                header: &self.header,
+                state: &self.state,
+            }),
             None => Ok(()),
         }
     }
@@ -883,12 +852,7 @@ pub struct SessionInfoComponent<'s> {
 }
 
 impl<'s> Component for SessionInfoComponent<'s> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let mut headers = Lines::new();
         let mut ids = vec![];
         if cfg!(fbcode_build) {
@@ -1136,7 +1100,6 @@ mod tests {
             session_info: &info,
         }
         .draw_unchecked(
-            &superconsole::State::new(),
             Dimensions {
                 // Enough to print everything on one line (we need 109 in fbcode and 110 in OSS)
                 width: 110,
@@ -1151,7 +1114,6 @@ mod tests {
             session_info: &info,
         }
         .draw_unchecked(
-            &superconsole::State::new(),
             Dimensions {
                 // Just long enough to print each on one line.
                 width: 100,
@@ -1166,7 +1128,6 @@ mod tests {
             session_info: &info,
         }
         .draw_unchecked(
-            &superconsole::State::new(),
             Dimensions {
                 width: 1,
                 height: 1,

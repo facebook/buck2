@@ -25,7 +25,6 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
-use superconsole::State;
 
 use self::table_builder::Table;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
@@ -64,17 +63,12 @@ struct TimedListBodyInner<'c> {
 }
 
 impl<'c> Component for TimedListBody<'c> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         TimedListBodyInner {
             cutoffs: self.cutoffs,
             state: self.state,
         }
-        .draw(state, dimensions, mode)
+        .draw(dimensions, mode)
     }
 }
 
@@ -175,12 +169,7 @@ impl<'c> TimedListBodyInner<'c> {
 }
 
 impl<'c> Component for TimedListBodyInner<'c> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let config = &self.state.config;
         let max_lines = config.max_lines;
 
@@ -221,7 +210,7 @@ impl<'c> Component for TimedListBodyInner<'c> {
             )?);
         }
 
-        builder.draw(&superconsole::state![], dimensions, mode)
+        builder.draw(dimensions, mode)
     }
 }
 
@@ -231,12 +220,7 @@ struct CountComponent<'s> {
 }
 
 impl<'s> Component for CountComponent<'s> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let spans = self.state.simple_console.observer().spans();
         let action_stats = self.state.simple_console.observer().action_stats();
         let time_speed = self.state.time_speed;
@@ -297,12 +281,7 @@ struct TimedListHeader<'s> {
 }
 
 impl<'s> Component for TimedListHeader<'s> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let info = StaticStringComponent {
             header: self.header,
         };
@@ -317,7 +296,7 @@ impl<'s> Component for TimedListHeader<'s> {
             },
         );
 
-        header_box.draw(state, dimensions, mode)
+        header_box.draw(dimensions, mode)
     }
 }
 
@@ -341,12 +320,7 @@ impl<'a> TimedList<'a> {
 }
 
 impl<'a> Component for TimedList<'a> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let span_tracker: &BuckEventSpanTracker = self.state.simple_console.observer().spans();
 
         match mode {
@@ -361,13 +335,13 @@ impl<'a> Component for TimedList<'a> {
                 };
 
                 let mut draw = DrawVertical::new(dimensions);
-                draw.draw(&header, state, mode)?;
-                draw.draw(&body, state, mode)?;
+                draw.draw(&header, mode)?;
+                draw.draw(&body, mode)?;
                 Ok(draw.finish())
             }
             // show a summary at the end
             DrawMode::Final => {
-                CountComponent { state: self.state }.draw(state, dimensions, DrawMode::Final)
+                CountComponent { state: self.state }.draw(dimensions, DrawMode::Final)
             }
             _ => Ok(Lines::new()),
         }
@@ -501,7 +475,6 @@ mod tests {
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
-            &superconsole::State::new(),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -595,7 +568,6 @@ mod tests {
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
-            &superconsole::State::new(),
             Dimensions {
                 width: 40,
                 height: 10,
@@ -710,7 +682,6 @@ mod tests {
             ),
         )
         .draw(
-            &superconsole::State::new(),
             Dimensions {
                 width: 80,
                 height: 10,
@@ -770,7 +741,6 @@ mod tests {
             &super_console_state_for_test(state, action_stats, tick, time_speed, timed_list_state),
         )
         .draw(
-            &superconsole::State::new(),
             Dimensions {
                 width: 80,
                 height: 10,

@@ -115,7 +115,7 @@ pub(crate) struct TestHeader<'a> {
 impl<'a> Component for TestHeader<'a> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

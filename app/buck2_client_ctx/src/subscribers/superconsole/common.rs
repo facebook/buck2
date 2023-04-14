@@ -18,7 +18,6 @@ use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
-use superconsole::State;
 
 #[derive(Debug)]
 pub(crate) struct HeaderLineComponent<A: Component, B: Component> {
@@ -33,21 +32,15 @@ impl<A: Component, B: Component> HeaderLineComponent<A, B> {
 }
 
 impl<A: Component, B: Component> Component for HeaderLineComponent<A, B> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let mut draw = DrawHorizontal::new(dimensions);
-        draw.draw(&self.lhs, state, mode)?;
+        draw.draw(&self.lhs, mode)?;
         draw.draw(
             &Aligned {
                 child: &self.rhs,
                 horizontal: HorizontalAlignmentKind::Right,
                 vertical: VerticalAlignmentKind::Top,
             },
-            state,
             mode,
         )?;
         Ok(draw.finish())
@@ -61,12 +54,7 @@ pub(crate) struct StaticStringComponent<S: AsRef<str>> {
 }
 
 impl<S: AsRef<str>> Component for StaticStringComponent<S> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(Lines(vec![Line::unstyled(self.header.as_ref())?]))
     }
 }

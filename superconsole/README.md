@@ -20,7 +20,7 @@ Finally, superconsole delineates between rendering logic and program state - eac
 use std::convert::TryInto;
 use superconsole::{
     components::bordering::{Bordered, BorderedSpec},
-    state, Component, Dimensions, DrawMode, Line, State, SuperConsole,
+    Component, Dimensions, DrawMode, Line, State, SuperConsole,
 };
 
 #[derive(Debug)]
@@ -29,7 +29,6 @@ struct HelloWorld;
 impl Component for HelloWorld {
     fn draw_unchecked(
         &self,
-        _state: &State,
         _dimensions: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Vec<Line>> {

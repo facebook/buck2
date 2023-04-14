@@ -23,7 +23,6 @@ use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
-use crate::State;
 
 /// The root components which manages all other components.
 #[derive(Debug, Default)]
@@ -39,11 +38,11 @@ impl Canvas {
     pub(crate) fn draw(
         &self,
         root: &dyn Component,
-        state: &State,
+
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
-        let mut output = root.draw(state, dimensions, mode)?;
+        let mut output = root.draw(dimensions, mode)?;
         // We don't trust the child to not truncate the result.
         output.shrink_lines_to_dimensions(dimensions);
         self.last_lines.set(output.len().try_into()?);

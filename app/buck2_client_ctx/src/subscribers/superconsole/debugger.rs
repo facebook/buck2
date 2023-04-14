@@ -20,7 +20,7 @@ pub(crate) struct StarlarkDebuggerComponent<'s> {
 impl<'s> Component for StarlarkDebuggerComponent<'s> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

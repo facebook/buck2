@@ -11,7 +11,6 @@ use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
-use crate::State;
 
 /// The `Blank` component is a dead-end component that emits nothing.
 /// It can be used for testing purposes or to make a portion of a dividing component empty.
@@ -21,12 +20,7 @@ pub struct Blank;
 
 impl Component for Blank {
     /// Returns the empty vector
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(Lines::new())
     }
 }
@@ -40,7 +34,6 @@ mod tests {
     use crate::Component;
     use crate::Dimensions;
     use crate::Lines;
-    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct EchoMsg(Lines);
@@ -48,7 +41,7 @@ mod tests {
     #[test]
     fn test_echo_empty() {
         let output = Echo(Lines::new())
-            .draw(&State::new(), Dimensions::new(10, 10), DrawMode::Normal)
+            .draw(Dimensions::new(10, 10), DrawMode::Normal)
             .unwrap();
         assert_eq!(output, Lines::new());
     }
@@ -61,7 +54,7 @@ mod tests {
         ]);
 
         let test_output = Echo(output.clone())
-            .draw(&State::new(), Dimensions::new(10, 10), DrawMode::Final)
+            .draw(Dimensions::new(10, 10), DrawMode::Final)
             .unwrap();
         assert_eq!(output, test_output);
     }

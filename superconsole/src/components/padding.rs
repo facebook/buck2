@@ -12,7 +12,6 @@ use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
-use crate::State;
 
 /// The `Padded` [`Component`](Component) wraps its child by padding left, right, above, and below its content.
 /// This can be used to shift the content to a different location and ensure that following content comes after a certain distance.
@@ -54,13 +53,8 @@ impl<C: Component> Padded<C> {
 }
 
 impl<C: Component> Component for Padded<C> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
-        let mut output = self.child.draw(state, dimensions, mode)?;
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+        let mut output = self.child.draw(dimensions, mode)?;
 
         // ordering is important:
         // the top and bottom lines need to be padded horizontally too.
@@ -89,7 +83,6 @@ mod tests {
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
-    use crate::State;
 
     #[derive(Debug, AsRef)]
     struct Msg(Lines);
@@ -110,7 +103,7 @@ mod tests {
         };
 
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+            .draw(Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec![" ".repeat(5).as_ref(), "hello world"]
@@ -138,7 +131,7 @@ mod tests {
         };
 
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+            .draw(Dimensions::new(20, 20), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world", &" ".repeat(4)].try_into().unwrap(),
@@ -164,7 +157,7 @@ mod tests {
         };
 
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             Line::default(),
@@ -196,7 +189,7 @@ mod tests {
         };
 
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
@@ -228,7 +221,7 @@ mod tests {
         };
 
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
+            .draw(Dimensions::new(15, 15), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
@@ -254,7 +247,7 @@ mod tests {
             bottom: 3,
         };
         let drawing = padder
-            .draw(&State::new(), Dimensions::new(10, 8), DrawMode::Normal)
+            .draw(Dimensions::new(10, 8), DrawMode::Normal)
             .unwrap();
         let expected = Lines(vec![
             // 5 rows of padding at the top

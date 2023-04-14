@@ -19,8 +19,6 @@
 //! * In the *emitted* area, lines scroll away above the scratch with various diagnostic output.
 //! Components live in the scratch area.
 //!
-//! [`State`](State) and [`Component`s](Component) are decoupled.  `Component`s are stateless, and `State` is supplied at render time.
-//!
 //! A set of pre-baked composition and testing oriented components are provided in the [`components`](components) module.
 
 pub use components::Component;
@@ -31,7 +29,6 @@ pub use content::Span;
 pub use dimensions::Dimensions;
 pub use dimensions::Direction;
 pub use error::Error;
-pub use state::State;
 
 pub use crate::builder::Builder;
 pub use crate::superconsole::SuperConsole;
@@ -42,7 +39,6 @@ pub mod content;
 mod dimensions;
 mod error;
 pub mod output;
-mod state;
 pub mod style;
 mod superconsole;
 pub mod testing;

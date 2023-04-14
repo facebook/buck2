@@ -29,7 +29,7 @@ struct LoadingBar<'a> {
 impl<'a> Component for LoadingBar<'a> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
@@ -81,24 +81,18 @@ fn main() {
             Span::new_unstyled(c).unwrap(),
         ])]));
         superconsole
-            .render(
-                &LoadingBar {
-                    crates: &crates,
-                    iteration: i,
-                },
-                &superconsole::State::new(),
-            )
+            .render(&LoadingBar {
+                crates: &crates,
+                iteration: i,
+            })
             .unwrap();
         sleep(Duration::from_secs_f64(0.2));
     }
 
     superconsole
-        .finalize(
-            &LoadingBar {
-                crates: &crates,
-                iteration: count,
-            },
-            &superconsole::State::new(),
-        )
+        .finalize(&LoadingBar {
+            crates: &crates,
+            iteration: count,
+        })
         .unwrap();
 }

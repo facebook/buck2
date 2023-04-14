@@ -13,19 +13,13 @@ use crate::components::Dimensions;
 use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
-use crate::State;
 
 /// Component that repeats whatever lines are put into it.
 /// Used in tests.
 pub(crate) struct Echo(pub(crate) Lines);
 
 impl Component for Echo {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(self.0.clone())
     }
 }

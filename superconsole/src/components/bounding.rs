@@ -11,7 +11,6 @@ use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Lines;
-use crate::State;
 
 /// Component that ensures its child component has at most `max_size` render space.
 #[derive(Debug)]
@@ -33,15 +32,8 @@ impl<C: Component> Bounded<C> {
 }
 
 impl<C: Component> Component for Bounded<C> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
-        let output = self
-            .child
-            .draw(state, dimensions.intersect(self.max_size), mode)?;
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+        let output = self.child.draw(dimensions.intersect(self.max_size), mode)?;
         Ok(output)
     }
 }
@@ -63,7 +55,6 @@ mod tests {
         let msg = Lines(vec![Line::from_iter([Span::new_unstyled("hello world")?])]);
         let test = Bounded::new(Echo(msg.clone()), Some(40), Some(40));
         let output = test.draw(
-            &State::new(),
             Dimensions {
                 width: 50,
                 height: 50,
@@ -84,7 +75,6 @@ mod tests {
         ]);
         let test = Bounded::new(Echo(msg), Some(2), Some(1));
         let output = test.draw(
-            &State::new(),
             Dimensions {
                 width: 50,
                 height: 50,

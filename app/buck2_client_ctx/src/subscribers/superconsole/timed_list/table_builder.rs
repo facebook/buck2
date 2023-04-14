@@ -21,7 +21,6 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
-use superconsole::State;
 
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
@@ -44,7 +43,7 @@ impl Component for Table {
     /// Zips together each time and label lines, but gives the times preferential treatment.
     fn draw_unchecked(
         &self,
-        _state: &State,
+
         Dimensions { width, .. }: Dimensions,
         _mode: DrawMode,
     ) -> anyhow::Result<Lines> {
@@ -140,12 +139,7 @@ impl Row {
 struct LinesComponent(Lines);
 
 impl Component for LinesComponent {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(self.0.clone())
     }
 }

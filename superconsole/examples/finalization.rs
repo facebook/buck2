@@ -16,7 +16,6 @@ use superconsole::components::Component;
 use superconsole::components::DrawMode;
 use superconsole::Dimensions;
 use superconsole::Lines;
-use superconsole::State;
 use superconsole::SuperConsole;
 use tokio::time;
 
@@ -34,12 +33,7 @@ struct StoreName(String);
 struct CustomerName(String);
 
 impl<'a> Component for Greeter<'a> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Normal => {
                 // Prints a greeting to the current customer.
@@ -106,15 +100,12 @@ async fn main() {
         let store_name = StoreName(store_names[i].to_owned());
         let correct_num = i + 1;
         console
-            .render(
-                &Greeter {
-                    name,
-                    store_name: &store_name,
-                    customers: &customers,
-                    correct_num,
-                },
-                &State::new(),
-            )
+            .render(&Greeter {
+                name,
+                store_name: &store_name,
+                customers: &customers,
+                correct_num,
+            })
             .unwrap();
 
         last = Some((store_name, customers, correct_num));
@@ -124,14 +115,11 @@ async fn main() {
 
     let (store_name, customers, correct_num) = last.unwrap();
     console
-        .finalize(
-            &Greeter {
-                name,
-                store_name: &store_name,
-                customers: &customers,
-                correct_num,
-            },
-            &State::new(),
-        )
+        .finalize(&Greeter {
+            name,
+            store_name: &store_name,
+            customers: &customers,
+            correct_num,
+        })
         .unwrap();
 }

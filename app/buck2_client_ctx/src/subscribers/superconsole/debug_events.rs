@@ -24,7 +24,7 @@ pub(crate) struct DebugEventsComponent<'s> {
 impl<'s> Component for DebugEventsComponent<'s> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

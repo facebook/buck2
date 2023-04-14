@@ -22,7 +22,6 @@ use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
-use superconsole::State;
 use superconsole::SuperConsole;
 use tokio::time;
 
@@ -40,12 +39,7 @@ struct CustomerName(String);
 
 impl<'a> Component for Greeter<'a> {
     /// Prints a greeting to the current customer.
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let store_name = self.store_name;
         let customers = self.customers;
         let identification = Line(vec![
@@ -96,14 +90,11 @@ async fn main() {
         let store_name = StoreName(store_names[i].to_owned());
 
         console
-            .render(
-                &Greeter {
-                    name,
-                    store_name: &store_name,
-                    customers: &customers,
-                },
-                &State::new(),
-            )
+            .render(&Greeter {
+                name,
+                store_name: &store_name,
+                customers: &customers,
+            })
             .unwrap();
 
         timer.tick().await;
@@ -111,5 +102,5 @@ async fn main() {
 
     // view the output before it's collapsed
     tokio::time::sleep(Duration::from_secs(1)).await;
-    console.finalize(&Blank, &State::new()).unwrap();
+    console.finalize(&Blank).unwrap();
 }

@@ -17,7 +17,6 @@ use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Lines;
-use crate::State;
 
 /// Select the alignment of the vertical content
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -78,14 +77,9 @@ impl Default for Aligned {
 }
 
 impl<C: Component> Component for Aligned<C> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let Dimensions { width, height } = dimensions;
-        let mut output = self.child.draw(state, dimensions, mode)?;
+        let mut output = self.child.draw(dimensions, mode)?;
 
         let number_of_lines = output.len();
         let padding_needed = height.saturating_sub(number_of_lines);
@@ -140,7 +134,6 @@ mod tests {
     use crate::Dimensions;
     use crate::Line;
     use crate::Lines;
-    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct Msg(Lines);
@@ -157,9 +150,7 @@ mod tests {
             VerticalAlignmentKind::Top,
         );
         let dimensions = Dimensions::new(20, 20);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
 
         assert_eq!(actual, original);
     }
@@ -177,9 +168,7 @@ mod tests {
             VerticalAlignmentKind::Top,
         );
         let dimensions = Dimensions::new(20, 20);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             vec!["hello world", &" ".repeat(18 - 11)]
                 .try_into()
@@ -204,9 +193,7 @@ mod tests {
             VerticalAlignmentKind::Top,
         );
         let dimensions = Dimensions::new(20, 20);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             vec![" ".repeat(4).as_ref(), "hello world", &" ".repeat(5)]
                 .try_into()
@@ -233,9 +220,7 @@ mod tests {
             VerticalAlignmentKind::Top,
         );
         let dimensions = Dimensions::new(20, 20);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             vec![" ".repeat(9).as_ref(), "hello world"]
                 .try_into()
@@ -260,9 +245,7 @@ mod tests {
             VerticalAlignmentKind::Top,
         );
         let dimensions = Dimensions::new(20, 20);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             vec!["hello world"].try_into().unwrap(),
             vec!["pretty normal testss"].try_into().unwrap(),
@@ -285,9 +268,7 @@ mod tests {
             VerticalAlignmentKind::Center,
         );
         let dimensions = Dimensions::new(20, 10);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             Line::default(),
             Line::default(),
@@ -317,9 +298,7 @@ mod tests {
             VerticalAlignmentKind::Bottom,
         );
         let dimensions = Dimensions::new(20, 10);
-        let actual = component
-            .draw(&State::new(), dimensions, DrawMode::Normal)
-            .unwrap();
+        let actual = component.draw(dimensions, DrawMode::Normal).unwrap();
         let expected = Lines(vec![
             Line::default(),
             Line::default(),

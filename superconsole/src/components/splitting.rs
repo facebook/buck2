@@ -17,7 +17,6 @@ use crate::Dimensions;
 use crate::Direction;
 use crate::DrawMode;
 use crate::Lines;
-use crate::State;
 
 /// Controls the way the splitter displays its children.
 #[derive(Clone, Debug)]
@@ -66,7 +65,7 @@ impl InternalSplitKind {
         &self,
         children: impl IntoIterator<Item = &'a C>,
         direction: Direction,
-        state: &State,
+
         dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Vec<Lines>> {
@@ -77,7 +76,7 @@ impl InternalSplitKind {
                 .map(|(child, size)| -> anyhow::Result<_> {
                     // allocate alloted size
                     let child_dimension = dimensions.multiply(*size, direction);
-                    let mut output = child.draw(state, child_dimension, mode)?;
+                    let mut output = child.draw(child_dimension, mode)?;
 
                     // bound non-splitting direction, pad splitting direction
                     match direction {
@@ -99,7 +98,7 @@ impl InternalSplitKind {
                 children
                     .into_iter()
                     .map(|child| {
-                        let mut output = child.draw(state, available, mode)?;
+                        let mut output = child.draw(available, mode)?;
                         output.shrink_lines_to_dimensions(dimensions);
 
                         // decrease size by however much was just used
@@ -149,15 +148,10 @@ impl<C: Component> Split<C> {
 }
 
 impl<C: Component> Component for Split<C> {
-    fn draw_unchecked(
-        &self,
-        state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let outputs = self
             .split
-            .draw(&self.children, self.direction, state, dimensions, mode)?;
+            .draw(&self.children, self.direction, dimensions, mode)?;
 
         Ok(match self.direction {
             Direction::Horizontal => Lines::join_horizontally(outputs),
@@ -179,7 +173,6 @@ mod tests {
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
-    use crate::State;
 
     #[derive(AsRef, Debug)]
     struct Echo1(Lines);
@@ -221,7 +214,7 @@ mod tests {
             ]);
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(10, 10), DrawMode::Normal)
+                .draw(Dimensions::new(10, 10), DrawMode::Normal)
                 .unwrap();
             assert_eq!(output, horizontal);
 
@@ -236,7 +229,7 @@ mod tests {
             let splitter = Split::new(vec![Echo(left_msg), Echo(right_msg)], dimension, kind);
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(15, 15), DrawMode::Normal)
+                .draw(Dimensions::new(15, 15), DrawMode::Normal)
                 .unwrap();
             assert_eq!(output, horizontal);
         }
@@ -275,7 +268,7 @@ mod tests {
             ]);
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert_eq!(output, horizontal);
 
@@ -294,7 +287,7 @@ mod tests {
             let splitter = Split::new(vec![Echo(left_msg), Echo(right_msg)], dimension, kind);
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert_eq!(output, horizontal);
         }
@@ -314,7 +307,7 @@ mod tests {
             );
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
 
             let expected = Lines(vec![
@@ -361,7 +354,7 @@ mod tests {
             output.0.extend(iter::repeat(Line::default()).take(7));
 
             let drawn = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
 
             assert_eq!(drawn, output);
@@ -391,7 +384,7 @@ mod tests {
             output.0.append(&mut bottom.0);
 
             let drawn = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert_eq!(drawn, output);
         }
@@ -415,7 +408,7 @@ mod tests {
             );
 
             let output = splitter
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
 
             let expected = Lines(vec![
@@ -453,7 +446,7 @@ mod tests {
         #[test]
         fn test_no_children() {
             let lines = Split::<Blank>::new(vec![], Direction::Horizontal, SplitKind::Equal)
-                .draw(&State::new(), Dimensions::new(20, 20), DrawMode::Normal)
+                .draw(Dimensions::new(20, 20), DrawMode::Normal)
                 .unwrap();
             assert!(lines.is_empty());
         }

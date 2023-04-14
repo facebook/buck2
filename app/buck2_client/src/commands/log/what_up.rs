@@ -30,7 +30,6 @@ use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Lines;
-use superconsole::State;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -105,19 +104,15 @@ impl WhatUpCommand {
                     StreamValue::Result(result) => {
                         let result = StatefulSuperConsole::render_result_errors(&result);
                         super_console.emit(result);
-                        super_console
-                            .finalize(&Self::component(&super_console_state), &State::new())?;
+                        super_console.finalize(&Self::component(&super_console_state))?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
                 }
             }
 
-            super_console.finalize_with_mode(
-                &Self::component(&super_console_state),
-                &State::new(),
-                DrawMode::Normal,
-            )?;
+            super_console
+                .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)?;
             anyhow::Ok(())
         })?;
 
@@ -132,7 +127,6 @@ impl WhatUpCommand {
         impl<'a> Component for ComponentImpl<'a> {
             fn draw_unchecked(
                 &self,
-                state: &State,
                 dimensions: Dimensions,
                 mode: DrawMode,
             ) -> anyhow::Result<Lines> {
@@ -141,10 +135,9 @@ impl WhatUpCommand {
                     &SessionInfoComponent {
                         session_info: self.state.session_info(),
                     },
-                    state,
                     mode,
                 )?;
-                draw.draw(&TimedList::new(&CUTOFFS, "", self.state), state, mode)?;
+                draw.draw(&TimedList::new(&CUTOFFS, "", self.state), mode)?;
                 Ok(draw.finish())
             }
         }

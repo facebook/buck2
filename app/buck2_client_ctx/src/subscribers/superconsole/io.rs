@@ -12,7 +12,6 @@ use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Lines;
-use superconsole::State;
 
 use crate::subscribers::superconsole::SuperConsoleConfig;
 
@@ -22,12 +21,7 @@ pub(crate) struct IoHeader<'s> {
 }
 
 impl<'s> Component for IoHeader<'s> {
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         self.io_state
             .render(mode, dimensions.width, self.super_console_config.enable_io)
     }

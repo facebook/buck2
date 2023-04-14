@@ -21,7 +21,7 @@ pub(crate) struct ReHeader<'a> {
 impl<'a> Component for ReHeader<'a> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

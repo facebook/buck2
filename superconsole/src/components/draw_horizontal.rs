@@ -11,7 +11,6 @@ use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Lines;
-use crate::State;
 
 /// Draw components horizontally, each next component is stacked on the right.
 pub struct DrawHorizontal {
@@ -35,15 +34,9 @@ impl DrawHorizontal {
 
     /// Add another component.
     /// New component `draw` is called with remaining dimensions.
-    pub fn draw(
-        &mut self,
-        component: &dyn Component,
-        state: &State,
-        mode: DrawMode,
-    ) -> anyhow::Result<()> {
+    pub fn draw(&mut self, component: &dyn Component, mode: DrawMode) -> anyhow::Result<()> {
         // We call `draw` even if no space is left, but maybe we should not.
         let output = component.draw(
-            state,
             Dimensions {
                 width: self.rem_width,
                 height: self.dim.height,
@@ -73,7 +66,6 @@ mod tests {
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
-    use crate::State;
 
     #[test]
     fn test_draw_horizontal() {
@@ -85,7 +77,7 @@ mod tests {
         impl Component for C0 {
             fn draw_unchecked(
                 &self,
-                _state: &State,
+
                 dimensions: Dimensions,
                 _mode: DrawMode,
             ) -> anyhow::Result<Lines> {
@@ -107,7 +99,7 @@ mod tests {
         impl Component for C1 {
             fn draw_unchecked(
                 &self,
-                _state: &State,
+
                 dimensions: Dimensions,
                 _mode: DrawMode,
             ) -> anyhow::Result<Lines> {
@@ -129,8 +121,8 @@ mod tests {
             width: 50,
             height: 10,
         });
-        draw.draw(&C0, &State::new(), DrawMode::Normal).unwrap();
-        draw.draw(&C1, &State::new(), DrawMode::Normal).unwrap();
+        draw.draw(&C0, DrawMode::Normal).unwrap();
+        draw.draw(&C1, DrawMode::Normal).unwrap();
         let output = draw.finish().normalize_spans();
         assert_eq!(
             Lines(vec![

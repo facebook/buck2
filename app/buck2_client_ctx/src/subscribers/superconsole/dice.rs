@@ -22,7 +22,7 @@ pub(crate) struct DiceComponent<'s> {
 impl<'s> Component for DiceComponent<'s> {
     fn draw_unchecked(
         &self,
-        _state: &superconsole::State,
+
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

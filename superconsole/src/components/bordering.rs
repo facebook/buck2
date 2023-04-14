@@ -18,7 +18,6 @@ use crate::DrawMode;
 use crate::Line;
 use crate::Lines;
 use crate::Span;
-use crate::State;
 
 /// The `Bordered` component can be used to put borders on all sides of the output of its child.
 /// This is useful for delimiting the boundaries of a component for reading and aesthetic purposes.
@@ -99,7 +98,7 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
 impl<C: Component> Component for Bordered<C> {
     fn draw_unchecked(
         &self,
-        state: &State,
+
         Dimensions { width, height }: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
@@ -114,7 +113,7 @@ impl<C: Component> Component for Bordered<C> {
         };
 
         // The [`Aligned`] box ensures that the child is justified and bounded.
-        let mut output = self.child.draw(state, new_dims, mode)?;
+        let mut output = self.child.draw(new_dims, mode)?;
 
         for line in output.iter_mut() {
             if let Some(left) = &self.border.left {
@@ -158,7 +157,7 @@ mod tests {
 
         let component = Bordered::new(Echo(msg), BorderedSpec::default());
 
-        let output = component.draw(&State::new(), Dimensions::new(14, 5), DrawMode::Normal)?;
+        let output = component.draw(Dimensions::new(14, 5), DrawMode::Normal)?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
         let expected = Lines(vec![
@@ -193,7 +192,7 @@ mod tests {
             },
         );
 
-        let output = component.draw(&State::new(), Dimensions::new(13, 7), DrawMode::Normal)?;
+        let output = component.draw(Dimensions::new(13, 7), DrawMode::Normal)?;
 
         // A single character on the right side of the message gets truncated to make way for side padding
         let expected = Lines(vec![
@@ -227,7 +226,7 @@ mod tests {
             },
         );
 
-        let output = component.draw(&State::new(), Dimensions::new(13, 7), DrawMode::Normal)?;
+        let output = component.draw(Dimensions::new(13, 7), DrawMode::Normal)?;
         let expected = Lines(vec![vec!["🦶🦶🦶"].try_into()?, vec!["Tested"].try_into()?]);
 
         assert_eq!(output, expected);

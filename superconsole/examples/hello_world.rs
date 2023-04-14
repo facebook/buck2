@@ -17,7 +17,6 @@ use superconsole::components::DrawMode;
 use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
-use superconsole::State;
 use superconsole::SuperConsole;
 use tokio::select;
 use tokio::time;
@@ -32,12 +31,7 @@ struct Foo {
 impl Component for Foo {
     /// Draws the number of seconds that have elapsed since the component was created.
     /// On a second line, draws the string "Hello world!".
-    fn draw_unchecked(
-        &self,
-        _state: &State,
-        _dimensions: Dimensions,
-        mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Final => Lines::new(),
             DrawMode::Normal => {
@@ -89,7 +83,7 @@ async fn main() {
                 renderer.render(&Foo {
                     created,
                     now: Instant::now(),
-                }, &State::new()).unwrap();
+                }).unwrap();
             }
             word = task_that_takes_some_time() => {
                 renderer.emit(Lines(process_word(word)));
