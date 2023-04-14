@@ -21,27 +21,30 @@ const CRATES: &str = include_str!("cargo/crates.txt");
 const WIDTH: usize = "=======>                  ".len() - 1;
 
 #[derive(Debug)]
-struct LoadingBar<'a>(pub Vec<&'a str>);
+struct LoadingBar<'a> {
+    crates: &'a [&'a str],
+    iteration: usize,
+}
 
 impl<'a> Component for LoadingBar<'a> {
     fn draw_unchecked(
         &self,
-        state: &superconsole::State,
+        _state: &superconsole::State,
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
         let res = match mode {
             superconsole::DrawMode::Normal => {
                 const BUILDING: &str = "   Building ";
-                let iteration = state.get::<usize>()?;
-                let percentage = *iteration as f64 / self.0.len() as f64;
+                let iteration = self.iteration;
+                let percentage = iteration as f64 / self.crates.len() as f64;
                 let amount = (percentage * WIDTH as f64).ceil() as usize;
 
                 let building = Span::new_styled(BUILDING.to_owned().cyan().bold())?;
                 let loading_bar = format!(
                     "[{test:=>bar_amt$}{test2:padding_amt$}] {}/{}: ...",
                     iteration,
-                    self.0.len(),
+                    self.crates.len(),
                     test = ">",
                     test2 = "",
                     bar_amt = amount,
@@ -69,22 +72,33 @@ fn main() {
         .collect();
     let count = crates.len();
 
-    let loading_bar = LoadingBar(crates.clone());
     let mut superconsole = SuperConsole::new().unwrap();
 
-    for (i, c) in crates.into_iter().enumerate() {
+    for (i, c) in crates.iter().enumerate() {
         let building = Span::new_styled("  Compiling ".to_owned().green().bold()).unwrap();
         superconsole.emit(Lines(vec![Line::from_iter([
             building,
             Span::new_unstyled(c).unwrap(),
         ])]));
         superconsole
-            .render(&loading_bar, &superconsole::state!(&i))
+            .render(
+                &LoadingBar {
+                    crates: &crates,
+                    iteration: i,
+                },
+                &superconsole::State::new(),
+            )
             .unwrap();
         sleep(Duration::from_secs_f64(0.2));
     }
 
     superconsole
-        .finalize(&loading_bar, &superconsole::state!(&count))
+        .finalize(
+            &LoadingBar {
+                crates: &crates,
+                iteration: count,
+            },
+            &superconsole::State::new(),
+        )
         .unwrap();
 }
