@@ -42,13 +42,13 @@ impl<'a> Component for Greeter<'a> {
     fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let store_name = self.store_name;
         let customers = self.customers;
-        let identification = Line(vec![
+        let identification = Line::from_iter([
             "Hello my name is ".to_owned().italic().try_into()?,
             style(self.name.to_owned()).bold().try_into()?,
         ]);
         let mut messages = vec![identification];
         for customer_name in customers {
-            let greeting = Line(vec![Span::new_styled(style(format!(
+            let greeting = Line::from_iter([Span::new_styled(style(format!(
                 "Welcome to {}, {}!",
                 store_name, customer_name
             )))?]);
@@ -83,7 +83,9 @@ async fn main() {
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
     for i in 0usize..10usize {
         let styled = i.to_string().with(Color::Green).on(Color::Black);
-        console.emit(Lines(vec![Line(vec![styled.try_into().unwrap()])]));
+        console.emit(Lines::from_iter([Line::from_iter([styled
+            .try_into()
+            .unwrap()])]));
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))
             .collect::<Vec<_>>();

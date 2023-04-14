@@ -10,6 +10,7 @@
 use std::cmp;
 use std::cmp::Ordering;
 use std::iter;
+use std::mem;
 
 use crossterm::style::Attribute;
 use crossterm::style::Attributes;
@@ -105,7 +106,7 @@ impl ColoredStringParser {
             _ => {}
         });
         self.push_current();
-        Line(std::mem::take(&mut self.spans))
+        Line::from_iter(mem::take(&mut self.spans))
     }
 }
 
@@ -312,8 +313,8 @@ impl Lines {
         // can't do arbitrary zip, so this'll have to do
         padded
             .reduce(|mut all, output| {
-                for (all_line, mut output_line) in all.iter_mut().zip(output.into_iter()) {
-                    all_line.0.append(&mut output_line.0);
+                for (all_line, output_line) in all.iter_mut().zip(output.into_iter()) {
+                    all_line.extend(output_line);
                 }
 
                 all
@@ -523,6 +524,7 @@ mod tests {
         assert_eq!(test, expected);
     }
 
+    #[allow(clippy::from_iter_instead_of_collect)] // More readable this way.
     #[test]
     fn test_colored_from_multiline_string() {
         // Lots of little things we check in here, including that we persist state
@@ -623,17 +625,12 @@ strips out {bs}invalid control sequences",
         let expected: Lines = expected
             .into_iter()
             .map(|spans| {
-                Line(
-                    spans
-                        .iter()
-                        .map(|sc| {
-                            Span::new_styled_lossy(StyledContent::new(
-                                *sc.style(),
-                                (*sc.content()).to_owned(),
-                            ))
-                        })
-                        .collect(),
-                )
+                Line::from_iter(spans.iter().map(|sc| {
+                    Span::new_styled_lossy(StyledContent::new(
+                        *sc.style(),
+                        (*sc.content()).to_owned(),
+                    ))
+                }))
             })
             .collect();
 

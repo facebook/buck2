@@ -90,7 +90,7 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
             // iterator is a single character here, so fill to width.
             // it's possible that a word could be more than a single column, so the number of repetitions must reflect that.
             span.content = Cow::Owned(span.content.repeat(width / span.len()));
-            Line(vec![span])
+            Line::from_iter([span])
         })
         .collect()
 }
@@ -117,10 +117,10 @@ impl<C: Component> Component for Bordered<C> {
 
         for line in output.iter_mut() {
             if let Some(left) = &self.border.left {
-                line.0.insert(0, left.clone());
+                line.push_front(left.clone());
             }
             if let Some(right) = &self.border.right {
-                line.0.push(right.clone());
+                line.push(right.clone());
             }
         }
         if let Some(top) = &self.border.top {

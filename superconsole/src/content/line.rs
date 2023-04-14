@@ -8,6 +8,8 @@
  */
 
 use std::cmp::Ordering;
+use std::slice;
+use std::vec;
 
 use crossterm::cursor::MoveToColumn;
 use crossterm::queue;
@@ -174,9 +176,24 @@ impl Line {
         Ok(())
     }
 
+    /// Iterate over the spans in the line.
+    pub fn iter(&self) -> slice::Iter<Span> {
+        self.0.iter()
+    }
+
     /// Concatenate spans, discarding any styling.
     pub fn to_unstyled(&self) -> String {
         self.0.iter().map(|span| span.content.as_ref()).collect()
+    }
+
+    /// Append a span to the line.
+    pub fn push(&mut self, span: Span) {
+        self.0.push(span);
+    }
+
+    /// Prepend a span to the line.
+    pub fn push_front(&mut self, span: Span) {
+        self.0.insert(0, span);
     }
 
     /// Join strings of spans with identical styles.
@@ -194,6 +211,16 @@ impl Line {
             result.push(span);
         }
         Line(result)
+    }
+}
+
+/// Iterate spans in a line.
+impl IntoIterator for Line {
+    type Item = Span;
+    type IntoIter = vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -222,6 +249,12 @@ impl TryFrom<Vec<&str>> for Line {
             .into_iter()
             .map(Span::new_unstyled)
             .collect::<anyhow::Result<Line>>()
+    }
+}
+
+impl Extend<Span> for Line {
+    fn extend<T: IntoIterator<Item = Span>>(&mut self, iter: T) {
+        self.0.extend(iter)
     }
 }
 
