@@ -72,10 +72,10 @@ fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
         // Return Unix epoch if unable to get creation time.
         if let Ok(metadata) = file.metadata() {
             if let Ok(created) = metadata.created() {
-                return created;
+                return (created, file.file_name());
             }
         }
-        std::time::UNIX_EPOCH
+        (std::time::UNIX_EPOCH, file.file_name())
     });
     logfiles.into_map(|entry| entry.path())
 }
