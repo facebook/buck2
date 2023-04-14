@@ -13,6 +13,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_events::BuckEvent;
+use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
 use futures::StreamExt;
@@ -74,6 +75,26 @@ fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
         (std::time::UNIX_EPOCH, file.file_name())
     });
     logfiles.into_map(|entry| entry.path())
+}
+
+/// Find log file by trace id. Return `None` if log not found, error on other errors.
+fn find_log_by_trace_id(
+    log_dir: &AbsNormPath,
+    trace_id: &TraceId,
+) -> anyhow::Result<Option<AbsNormPathBuf>> {
+    let trace_id = trace_id.to_string();
+    Ok(get_local_logs(log_dir)?.into_iter().rev().find(|log| {
+        let log_name = log.file_name().unwrap();
+        log_name.to_string_lossy().contains(&trace_id)
+    }))
+}
+
+/// Find log file by trace id. Return error if log not found or on other errors.
+pub fn do_find_log_by_trace_id(
+    log_dir: &AbsNormPath,
+    trace_id: &TraceId,
+) -> anyhow::Result<AbsNormPathBuf> {
+    find_log_by_trace_id(log_dir, trace_id)?.context("Error finding log by trace id")
 }
 
 pub fn retrieve_nth_recent_log(

@@ -27,6 +27,7 @@ use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::stdin::Stdin;
+use buck2_client_ctx::subscribers::event_log::file_names::do_find_log_by_trace_id;
 use buck2_client_ctx::subscribers::event_log::file_names::get_local_logs;
 use buck2_client_ctx::subscribers::event_log::read::EventLogPathBuf;
 use buck2_client_ctx::subscribers::event_log::read::EventLogSummary;
@@ -491,6 +492,13 @@ async fn maybe_select_invocation(
     if command.no_invocation {
         return Ok(None);
     };
+
+    if let Some(trace_id) = &command.invocation_id {
+        return Ok(Some(EventLogPathBuf::infer(
+            do_find_log_by_trace_id(logdir, trace_id)?.into_abs_path_buf(),
+        )?));
+    }
+
     let logs = get_local_logs(logdir)?;
     let mut logs = logs
         .into_iter()
@@ -500,7 +508,7 @@ async fn maybe_select_invocation(
     if logs.is_empty() {
         return Ok(None);
     }
-    let index = log_index(stdin, &logs, command).await?;
+    let index = log_index(stdin, &logs, command.invocation_offset).await?;
     if index >= logs.len() {
         return Err(RageError::LogNotFoundError.into());
     }
@@ -510,22 +518,9 @@ async fn maybe_select_invocation(
 async fn log_index(
     stdin: &mut Stdin,
     logs: &[EventLogPathBuf],
-    command: &RageCommand,
+    invocation_offset: Option<usize>,
 ) -> Result<usize, anyhow::Error> {
-    if let Some(invocation_id) = &command.invocation_id {
-        for (index, buf) in logs.iter().enumerate() {
-            if let Some(file_name) = buf.path().file_name() {
-                if file_name
-                    .to_string_lossy()
-                    .contains(&invocation_id.to_string())
-                {
-                    return Ok(index);
-                }
-            }
-        }
-        return Err(RageError::InvalidSelectionError.into()); // couldn't find requested invocation
-    };
-    let index = match command.invocation_offset {
+    let index = match invocation_offset {
         Some(i) => i,
         None => {
             let mut stdin = BufReader::new(stdin);
