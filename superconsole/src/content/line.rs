@@ -19,6 +19,7 @@ use crossterm::terminal::ClearType;
 use crossterm::QueueableCommand;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::ansi_support::enable_ansi_support;
 use crate::Span;
 
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
@@ -147,6 +148,11 @@ impl Line {
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
     pub fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        // This is not very nice side effect.
+        // We have to call this function because `crossterm` does not support
+        // rendering styled content without emitting WinAPI calls when ANSI is not supported.
+        enable_ansi_support()?;
+
         for word in &self.0 {
             word.render(writer)?;
         }
