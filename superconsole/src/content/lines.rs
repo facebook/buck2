@@ -32,13 +32,6 @@ use crate::Span;
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct Lines(pub Vec<Line>);
 
-// Only needed for tests. TODO(nga): remove it.
-impl AsRef<Lines> for Lines {
-    fn as_ref(&self) -> &Lines {
-        self
-    }
-}
-
 /// State container that's used to parse strings with ANSI color codes in them.
 #[derive(Default)]
 struct ColoredStringParser {
