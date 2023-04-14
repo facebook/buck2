@@ -23,7 +23,7 @@ use crate::Span;
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
 /// Since each `Span` denotes a portion of a single line, an ordered collection represents a single line of text.
 #[derive(Default, Clone, Debug, Eq)]
-pub struct Line(pub Vec<Span>);
+pub struct Line(Vec<Span>);
 
 impl PartialEq for Line {
     /// This equality merges spans with the same styles and checks for semantic equality.
