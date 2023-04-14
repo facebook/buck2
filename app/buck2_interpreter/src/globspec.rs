@@ -31,6 +31,8 @@ enum GlobError {
     LeadingSlash(String),
     #[error("Pattern must not end with `/`: `{0}` (this pattern cannot match anything)")]
     TrailingSlash(String),
+    #[error("Pattern must not contain `..`: `{0}` (this pattern cannot match anything)")]
+    DotDot(String),
 }
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
@@ -68,6 +70,10 @@ impl GlobPattern {
                 "glob_trailing_slash",
                 GlobError::TrailingSlash(pattern.to_owned()).into()
             )?;
+        }
+        if pattern.split('/').any(|p| p == "..") {
+            // Please write a test when converting this error to hard error.
+            soft_error!("glob_dot_dot", GlobError::DotDot(pattern.to_owned()).into())?;
         }
         Ok(GlobPattern(parsed_pattern))
     }
