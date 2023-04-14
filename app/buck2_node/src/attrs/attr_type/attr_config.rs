@@ -30,9 +30,10 @@ use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
-/// unconfigured case. For example, a Vec<C::TargetType> where C: AttrConfig, would be
-/// a `Vec<TargetLabel>` in the unconfigured case and a `Vec<ConfiguredTargetLabel>` in the
-/// configured case.
+/// unconfigured case. ExtraTypes contains the specifications for the configured vs
+
+/// unconfigured case. Additional attr types can use ExtraTypes to define additional
+/// attrs without needing to modify the existing ConfiguredAttr or CoercedAttr implementations.
 ///
 /// For attributes, the difference between the coerced value and the configured value is
 /// (1) selects are resolved and (2) configurable things are configured. This trait allows
