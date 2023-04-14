@@ -19,7 +19,12 @@ use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::ansi_support::enable_ansi_support;
-use crate::Error;
+
+#[derive(Debug, thiserror::Error)]
+enum SpanError {
+    #[error("Word {0} contains non-space whitespace")]
+    InvalidWhitespace(String),
+}
 
 /// A `Span` is a segment of text that may or may not have [`style`](crate::style) applied to it.
 /// One may think of this as a unit of text.  It must be [`valid`](Span::valid) to be constructed.
@@ -89,7 +94,7 @@ impl Span {
                 style: ContentStyle::default(),
             })
         } else {
-            Err(Error::InvalidWhitespace(owned).into())
+            Err(SpanError::InvalidWhitespace(owned).into())
         }
     }
 
@@ -110,7 +115,7 @@ impl Span {
                 style: *content.style(),
             })
         } else {
-            Err(Error::InvalidWhitespace(content.content().to_owned()).into())
+            Err(SpanError::InvalidWhitespace(content.content().to_owned()).into())
         }
     }
 
