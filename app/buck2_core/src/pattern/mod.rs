@@ -908,6 +908,7 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::cells::CellAlias;
+    use crate::is_open_source;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;
@@ -1211,6 +1212,10 @@ mod tests {
         // This is hack, but this is temporary code anyway.
         // TODO(nga): remove this hack when `soft_error!` is removed.
         let _lock = crate::error::tests::test_init();
+        if is_open_source() {
+            // We don't allow soft_error in open source code, so skip this test.
+            return Ok(());
+        }
 
         let package = CellPath::new(
             resolver().resolve_self(),

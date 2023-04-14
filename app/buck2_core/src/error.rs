@@ -252,6 +252,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_soft_error() {
+        if is_open_source() {
+            return; // Errors are always hard in open source
+        }
         let _guard = test_init();
 
         let before_error_line = line!();
@@ -271,6 +274,9 @@ pub(crate) mod tests {
 
     #[test]
     fn test_reset_counters() {
+        if is_open_source() {
+            return; // Errors are always hard in open source
+        }
         let _guard = test_init();
 
         assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");
