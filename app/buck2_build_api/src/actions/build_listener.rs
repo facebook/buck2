@@ -214,20 +214,20 @@ pub struct BuildSignalReceiver<T> {
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
     predecessors: &HashMap<TKey, CriticalPathNode<TKey, TValue>>,
 ) -> Vec<(&TKey, &TValue, Duration)> {
-    let terminal = predecessors
+    let mut tail = predecessors
         .iter()
         .max_by_key(|(_key, data)| data.duration)
         .map(|q| q.0);
-    let mut path = itertools::unfold(terminal, |maybe_key| {
-        if maybe_key.is_none() {
-            return None;
-        }
-        let key = maybe_key.unwrap();
-        let next = predecessors.get(key);
-        *maybe_key = next.and_then(|q| (q.prev).as_ref());
-        next.map(|x| (key, &x.value, x.duration))
-    })
-    .collect::<Vec<_>>();
+
+    let mut path = vec![];
+
+    while let Some(v) = tail.take() {
+        tail = predecessors.get(v).and_then(|node| {
+            path.push((v, &node.value, node.duration));
+            node.prev.as_ref()
+        });
+    }
+
     // Take differences of adjacent elements to recover action time from cumulative sum.
     path.reverse();
     for i in (1..path.len()).rev() {
