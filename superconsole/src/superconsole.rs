@@ -11,10 +11,10 @@ use std::cmp;
 use std::env;
 use std::io;
 
-use crossterm::queue;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use crossterm::tty::IsTty;
+use crossterm::QueueableCommand;
 
 use crate::components::Canvas;
 use crate::components::Component;
@@ -210,7 +210,7 @@ impl SuperConsole {
         frame.render(buffer, None)?;
 
         // clear any residue from the previous render.
-        queue!(buffer, Clear(ClearType::FromCursorDown))?;
+        buffer.queue(Clear(ClearType::FromCursorDown))?;
 
         Ok(())
     }

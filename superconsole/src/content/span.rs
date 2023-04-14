@@ -9,11 +9,11 @@
 
 use std::borrow::Cow;
 
-use crossterm::queue;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
 use crossterm::style::PrintStyledContent;
 use crossterm::style::StyledContent;
+use crossterm::QueueableCommand;
 use termwiz::cell;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
@@ -165,10 +165,10 @@ impl Span {
             return Ok(());
         }
 
-        queue!(
-            writer,
-            PrintStyledContent(StyledContent::new(self.style, self.content.as_ref()))
-        )?;
+        writer.queue(PrintStyledContent(StyledContent::new(
+            self.style,
+            self.content.as_ref(),
+        )))?;
         Ok(())
     }
 }

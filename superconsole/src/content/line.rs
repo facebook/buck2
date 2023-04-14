@@ -13,10 +13,10 @@ use std::slice;
 use std::vec;
 
 use crossterm::cursor::MoveToColumn;
-use crossterm::queue;
 use crossterm::style::Print;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
+use crossterm::QueueableCommand;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::Span;
@@ -150,12 +150,9 @@ impl Line {
         for word in &self.0 {
             word.render(writer)?;
         }
-        queue!(
-            writer,
-            Clear(ClearType::UntilNewLine),
-            Print("\n"),
-            MoveToColumn(0),
-        )?;
+        writer.queue(Clear(ClearType::UntilNewLine))?;
+        writer.queue(Print("\n"))?;
+        writer.queue(MoveToColumn(0))?;
 
         Ok(())
     }

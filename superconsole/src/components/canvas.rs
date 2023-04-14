@@ -15,9 +15,9 @@ use std::cell::Cell;
 
 use crossterm::cursor::MoveToColumn;
 use crossterm::cursor::MoveUp;
-use crossterm::queue;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
+use crossterm::QueueableCommand;
 
 use crate::components::Dimensions;
 use crate::components::DrawMode;
@@ -63,7 +63,8 @@ impl Canvas {
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
     pub(crate) fn move_up(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         let len = self.last_lines.take();
-        queue!(writer, MoveUp(len), MoveToColumn(0),)?;
+        writer.queue(MoveUp(len))?;
+        writer.queue(MoveToColumn(0))?;
 
         Ok(())
     }
@@ -71,7 +72,7 @@ impl Canvas {
     /// Clears the canvas.
     pub fn clear(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         self.move_up(writer)?;
-        queue!(writer, Clear(ClearType::FromCursorDown),)?;
+        writer.queue(Clear(ClearType::FromCursorDown))?;
 
         Ok(())
     }
