@@ -8,9 +8,10 @@
 import os
 
 
-def normalize_deps(deps, cwd):
+def normalize_and_write_deps(deps, dst_path):
+    cwd = os.getcwd() + os.sep
+    cwd = cwd.replace("\\", "/")
     normalized_deps = []
-
     for dep in deps:
         # The paths we get sometimes include "../" components, so get rid
         # of those because we want ForwardRelativePath here.
@@ -33,4 +34,8 @@ def normalize_deps(deps, cwd):
                 continue
 
         normalized_deps.append(dep)
-    return normalized_deps
+
+    with open(dst_path, "w") as f:
+        for dep in normalized_deps:
+            f.write(dep)
+            f.write("\n")

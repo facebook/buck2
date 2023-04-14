@@ -8,7 +8,6 @@
 
 # pyre-unsafe
 
-import os
 import sys
 
 from subprocess import PIPE, run
@@ -44,8 +43,6 @@ def parse_into_dep_file(output, dst_path, input_file):
 
     """
 
-    here = os.getcwd() + os.sep
-
     lines = output.splitlines()
 
     deps = []
@@ -58,12 +55,7 @@ def parse_into_dep_file(output, dst_path, input_file):
         print(line, file=sys.stderr)  # This was a warning/error
 
     deps.append(input_file)
-    normalized_deps = dep_file_utils.normalize_deps(deps, here)
-
-    with open(dst_path, "w") as f:
-        for dep in normalized_deps:
-            f.write(dep)
-            f.write("\n")
+    dep_file_utils.normalize_and_write_deps(deps, dst_path)
 
 
 def remove_leading_dots(s):

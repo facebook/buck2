@@ -20,7 +20,6 @@ def rewrite_dep_file(src_path, dst_path):
     Convert a makefile to a depfile suitable for use by Buck2. The files we
     rewrite look like P488268797.
     """
-    here = os.getcwd().replace("\\", "/") + "/"
 
     with open(src_path) as f:
         body = f.read()
@@ -81,13 +80,7 @@ def rewrite_dep_file(src_path, dst_path):
     flush_current_dep()
 
     # Now that we've parsed deps, we need to normalize them.
-
-    normalized_deps = dep_file_utils.normalize_deps(deps, here)
-
-    with open(dst_path, "w") as f:
-        for dep in normalized_deps:
-            f.write(dep)
-            f.write("\n")
+    dep_file_utils.normalize_and_write_deps(deps, dst_path)
 
 
 def process_dep_file(args):

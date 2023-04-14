@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-import os
 import subprocess
 import sys
 
@@ -43,7 +42,6 @@ def rewrite_dep_file_for_msvc(output, dst_path, input_file):
     path/to/dep3.h
 
     """
-    here = os.getcwd() + os.sep
     deps = []
     # First line is the name of the file we're generating deps for.
     # We manually include it later so let's ignore it.
@@ -55,12 +53,7 @@ def rewrite_dep_file_for_msvc(output, dst_path, input_file):
         else:
             print(line, file=sys.stderr)
     deps.append(input_file)
-    normalized_deps = dep_file_utils.normalize_deps(deps, here)
-
-    with open(dst_path, "w") as f:
-        for dep in normalized_deps:
-            f.write(dep)
-            f.write("\n")
+    dep_file_utils.normalize_and_write_deps(deps, dst_path)
 
 
 def parse_stdout_error_output(output):
