@@ -23,7 +23,9 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
-    /// The `glob()` function specifies a set of files using patterns. As an example:
+    /// The `glob()` function specifies a set of files using patterns.
+    ///
+    /// A typical `glob` call looks like:
     ///
     /// ```python
     /// glob(["foo/**/*.h"])
