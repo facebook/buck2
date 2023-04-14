@@ -396,6 +396,14 @@ impl SpanTrackable for Arc<BuckEvent> {
                             _ => false,
                         }
                     }
+                    Some(Stage::Re(stage)) => {
+                        use buck2_data::re_stage::Stage;
+
+                        match stage.stage.as_ref() {
+                            Some(Stage::Queue(..)) => true,
+                            _ => false,
+                        }
+                    }
                     _ => false,
                 }
             }
