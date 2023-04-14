@@ -260,6 +260,7 @@ def _build_default_info(dependencies: ErlAppDependencies, output_dir: "artifact"
             outputs.append(dep[ErlangAppInfo].app_folder)
         if ErlangTestInfo in dep:
             outputs += dep[DefaultInfo].default_outputs
+            outputs += dep[DefaultInfo].other_outputs
     return DefaultInfo(default_output = output_dir, other_outputs = outputs)
 
 def _write_test_info_file(
@@ -311,7 +312,7 @@ def _build_resource_dir(ctx, resources: "list", target_dir: "string") -> "artifa
     """
     include_symlinks = {}
     for resource in resources:
-        files = resource[DefaultInfo].default_outputs
+        files = resource[DefaultInfo].default_outputs + resource[DefaultInfo].other_outputs
         for file in files:
             include_symlinks[file.short_path] = file
     return ctx.actions.symlinked_dir(

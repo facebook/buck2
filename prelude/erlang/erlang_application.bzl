@@ -201,8 +201,9 @@ def _generate_priv_dir(
     resources = ctx.attrs.resources
     priv_symlinks = {}
     for resource in resources:
-        files = resource[DefaultInfo].default_outputs
-        for file in files:
+        for file in resource[DefaultInfo].default_outputs:
+            priv_symlinks[file.short_path] = file
+        for file in resource[DefaultInfo].other_outputs:
             priv_symlinks[file.short_path] = file
 
     build_environment.priv_dirs[name] = ctx.actions.symlinked_dir(

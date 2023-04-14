@@ -211,7 +211,7 @@ def _build_overlays(ctx: "context", toolchain: "Toolchain") -> {"string": "artif
     installed = {}
     for target, deps in ctx.attrs.overlays.items():
         for dep in deps:
-            for artifact in dep[DefaultInfo].default_outputs:
+            for artifact in dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs:
                 build_path = paths.normalize(paths.join(build_dir, release_name, target, artifact.basename))
                 link_path = paths.normalize(paths.join(target, artifact.basename))
                 if link_path in installed:

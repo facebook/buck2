@@ -68,7 +68,7 @@ def erlang_escript_impl(ctx: "context") -> ["provider"]:
 
     # additional resources
     for res in ctx.attrs.resources:
-        for artifact in res[DefaultInfo].default_outputs:
+        for artifact in res[DefaultInfo].default_outputs + res[DefaultInfo].other_outputs:
             if artifact.short_path in artifacts:
                 fail("multiple artifacts defined for path %s", (artifact.short_path))
             artifacts[artifact.short_path] = artifact

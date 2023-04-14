@@ -67,7 +67,7 @@ def _build_run_info(
 def _shell_config_files(ctx: "context") -> ["artifact"]:
     config_files = []
     for config_dep in ctx.attrs.shell_configs:
-        for artifact in config_dep[DefaultInfo].default_outputs:
+        for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:
             (_, ext) = paths.split_extension(artifact.short_path)
             if ext == ".config":
                 config_files.append(artifact)
