@@ -58,11 +58,7 @@ impl GlobPattern {
             )?;
         }
         if pattern.starts_with('/') {
-            // Please write a test when converting this error to hard error.
-            soft_error!(
-                "glob_leading_slash",
-                GlobError::LeadingSlash(pattern.to_owned()).into()
-            )?;
+            return Err(GlobError::LeadingSlash(pattern.to_owned()).into());
         }
         if pattern.ends_with('/') {
             // Please write a test when converting this error to hard error.
@@ -333,6 +329,12 @@ mod tests {
         test_invalid("a**");
         test_invalid("**a");
         test_invalid(".**");
+    }
+
+    #[test]
+    fn test_leading_slash_in_pattern() {
+        assert!(GlobSpec::new(&["/*"], &[""; 0]).is_err());
+        // TODO(nga): also prohibit `/a` which is handled with different codepath.
     }
 
     #[test]
