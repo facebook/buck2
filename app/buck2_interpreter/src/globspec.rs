@@ -27,6 +27,14 @@ impl Debug for GlobPattern {
     }
 }
 
+impl GlobPattern {
+    fn new(pattern: &str) -> anyhow::Result<GlobPattern> {
+        Ok(GlobPattern(glob::Pattern::new(pattern).with_context(
+            || format!("Error creating globspec for `{}`", pattern),
+        )?))
+    }
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct GlobSpec {
@@ -79,10 +87,7 @@ impl GlobSpec {
         for pattern in patterns {
             let pattern = pattern.as_ref();
             if pattern.contains('*') {
-                glob_patterns
-                    .push(GlobPattern(glob::Pattern::new(pattern).with_context(
-                        || format!("Error creating globspec for `{}`", pattern),
-                    )?));
+                glob_patterns.push(GlobPattern::new(pattern)?);
             } else {
                 // TODO(nga): pattern `*/[bc]` is parsed as glob pattern,
                 //   but `a/[bc]` is parsed as exact match?
@@ -92,10 +97,7 @@ impl GlobSpec {
         }
         for pattern in excludes {
             let pattern = pattern.as_ref();
-            glob_excludes
-                .push(GlobPattern(glob::Pattern::new(pattern).with_context(
-                    || format!("Error creating globspec for `{}`", pattern),
-                )?));
+            glob_excludes.push(GlobPattern::new(pattern)?);
         }
         Ok(Self {
             common_prefix: longest_common_glob_prefix(patterns).to_owned(),
