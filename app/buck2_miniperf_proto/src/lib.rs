@@ -17,7 +17,16 @@ pub struct MiniperfOutput {
     pub counters: Result<MiniperfCounters, String>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Dupe)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Copy,
+    Clone,
+    Dupe,
+    PartialEq,
+    Debug,
+    Default
+)]
 pub struct MiniperfCounters {
     /// Total instructions executed.
     pub user_instructions: MiniperfCounter,
@@ -30,7 +39,16 @@ impl MiniperfOutput {
 }
 
 /// The fields here come straight out of `perf_event_open`. The count is
-#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Dupe)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Copy,
+    Clone,
+    Dupe,
+    PartialEq,
+    Debug,
+    Default
+)]
 pub struct MiniperfCounter {
     /// Value of the counter.
     pub count: u64,
