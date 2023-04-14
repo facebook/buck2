@@ -16,6 +16,7 @@ use crossterm::terminal::ClearType;
 use crossterm::tty::IsTty;
 use crossterm::QueueableCommand;
 
+use crate::ansi_support::enable_ansi_support;
 use crate::components::Canvas;
 use crate::components::Component;
 use crate::components::DrawMode;
@@ -78,7 +79,7 @@ impl SuperConsole {
     pub fn compatible() -> bool {
         // Superconsole only renders on the stderr, so we can display the superconsole
         // even if someone does `command > out.txt`.
-        io::stderr().is_tty() && !Self::is_term_dumb()
+        io::stderr().is_tty() && !Self::is_term_dumb() && enable_ansi_support().is_ok()
     }
 
     fn is_term_dumb() -> bool {

@@ -18,6 +18,7 @@ use termwiz::cell;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::ansi_support::enable_ansi_support;
 use crate::Error;
 
 /// A `Span` is a segment of text that may or may not have [`style`](crate::style) applied to it.
@@ -165,10 +166,16 @@ impl Span {
             return Ok(());
         }
 
+        // This is not very nice side effect.
+        // We have to call this function because `crossterm` does not support
+        // rendering styled content without emitting WinAPI calls when ANSI is not supported.
+        enable_ansi_support()?;
+
         writer.queue(PrintStyledContent(StyledContent::new(
             self.style,
             self.content.as_ref(),
         )))?;
+
         Ok(())
     }
 }

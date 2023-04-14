@@ -33,6 +33,7 @@ pub use error::Error;
 pub use crate::builder::Builder;
 pub use crate::superconsole::SuperConsole;
 
+pub(crate) mod ansi_support;
 pub mod builder;
 pub mod components;
 pub mod content;
