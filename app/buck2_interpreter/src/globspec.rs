@@ -25,6 +25,12 @@ enum GlobError {
         (this pattern cannot match anything)"
     )]
     ExactIncludeMustBeForwardRelativePath(String),
+    #[error("Double slash in pattern: `{0}` (this pattern cannot match anything)")]
+    DoubleSlash(String),
+    #[error("Pattern must not start with `/`: `{0}` (this pattern cannot match anything)")]
+    LeadingSlash(String),
+    #[error("Pattern must not end with `/`: `{0}` (this pattern cannot match anything)")]
+    TrailingSlash(String),
 }
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
@@ -40,9 +46,30 @@ impl Debug for GlobPattern {
 
 impl GlobPattern {
     fn new(pattern: &str) -> anyhow::Result<GlobPattern> {
-        Ok(GlobPattern(glob::Pattern::new(pattern).with_context(
-            || format!("Error creating globspec for `{}`", pattern),
-        )?))
+        let parsed_pattern = glob::Pattern::new(pattern)
+            .with_context(|| format!("Error creating globspec for `{}`", pattern))?;
+        if pattern.contains("//") {
+            // Please write a test when converting this error to hard error.
+            soft_error!(
+                "glob_double_slash",
+                GlobError::DoubleSlash(pattern.to_owned()).into()
+            )?;
+        }
+        if pattern.starts_with('/') {
+            // Please write a test when converting this error to hard error.
+            soft_error!(
+                "glob_leading_slash",
+                GlobError::LeadingSlash(pattern.to_owned()).into()
+            )?;
+        }
+        if pattern.ends_with('/') {
+            // Please write a test when converting this error to hard error.
+            soft_error!(
+                "glob_trailing_slash",
+                GlobError::TrailingSlash(pattern.to_owned()).into()
+            )?;
+        }
+        Ok(GlobPattern(parsed_pattern))
     }
 }
 
