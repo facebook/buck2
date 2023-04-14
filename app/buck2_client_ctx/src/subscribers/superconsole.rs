@@ -317,21 +317,6 @@ impl StatefulSuperConsole {
         builder
     }
 
-    /// Render the console for a final time, but use the Normal draw mode.
-    /// Fails if there isn't a superconsole.
-    pub fn render_final_normal_console(self) -> anyhow::Result<()> {
-        match self.super_console {
-            Some(sc) => sc.finalize_with_mode(
-                &BuckRootComponent {
-                    header: &self.header,
-                    state: &self.state,
-                },
-                DrawMode::Normal,
-            ),
-            None => Err(anyhow::anyhow!("Cannot render non-existent superconsole")),
-        }
-    }
-
     pub fn render_result_errors(result: &buck2_cli_proto::CommandResult) -> Lines {
         let mut lines = Lines::new();
         if let buck2_cli_proto::CommandResult {
