@@ -817,7 +817,9 @@ impl ChromeTraceCommand {
 
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),
-            None => retrieve_nth_recent_log(&ctx, self.recent.unwrap_or(0))?.into_abs_path_buf(),
+            None => retrieve_nth_recent_log(&ctx, self.recent.unwrap_or(0))?
+                .path()
+                .to_owned(),
         };
 
         let trace_path = self.trace_path.resolve(&ctx.working_dir);

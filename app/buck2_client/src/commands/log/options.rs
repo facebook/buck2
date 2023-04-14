@@ -58,20 +58,19 @@ pub(crate) struct EventLogOptions {
 
 impl EventLogOptions {
     pub(crate) async fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
-        let path = if let Some(path) = &self.path {
-            path.resolve(&ctx.working_dir)
+        if let Some(path) = &self.path {
+            EventLogPathBuf::infer(path.resolve(&ctx.working_dir))
         } else if let Some(id) = &self.trace_id {
             if let Some(log_path) = find_log_by_trace_id(&ctx.paths()?.log_dir(), id)? {
-                log_path.into_abs_path_buf()
+                Ok(log_path)
             } else if self.allow_remote {
-                self.download_remote_id(id, ctx).await?
+                EventLogPathBuf::infer(self.download_remote_id(id, ctx).await?)
             } else {
                 return Err(EventLogOptionsError::LogNotFoundLocally(id.dupe()).into());
             }
         } else {
-            retrieve_nth_recent_log(ctx, self.recent.unwrap_or(0))?.into_abs_path_buf()
-        };
-        EventLogPathBuf::infer(path)
+            retrieve_nth_recent_log(ctx, self.recent.unwrap_or(0))
+        }
     }
 
     fn random_string() -> String {

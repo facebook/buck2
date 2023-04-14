@@ -494,17 +494,14 @@ async fn maybe_select_invocation(
     };
 
     if let Some(trace_id) = &command.invocation_id {
-        return Ok(Some(EventLogPathBuf::infer(
-            do_find_log_by_trace_id(logdir, trace_id)?.into_abs_path_buf(),
-        )?));
+        return Ok(Some(do_find_log_by_trace_id(logdir, trace_id)?));
     }
 
     let logs = get_local_logs(logdir)?;
     let mut logs = logs
         .into_iter()
         .rev() // newest first
-        .map(|log_path| EventLogPathBuf::infer(log_path.into_abs_path_buf()))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
     if logs.is_empty() {
         return Ok(None);
     }

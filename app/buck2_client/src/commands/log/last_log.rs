@@ -39,7 +39,7 @@ impl LastLogCommand {
             vec![retrieve_nth_recent_log(&ctx, recent.unwrap_or(0))?]
         };
         for path in paths {
-            buck2_client_ctx::println!("{}", path.display())?;
+            buck2_client_ctx::println!("{}", path.path().display())?;
         }
         ExitResult::success()
     }

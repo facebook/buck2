@@ -20,6 +20,7 @@ use futures::StreamExt;
 use gazebo::prelude::VecExt;
 
 use crate::client_ctx::ClientCommandContext;
+use crate::subscribers::event_log::read::EventLogPathBuf;
 use crate::subscribers::event_log::utils::Encoding;
 use crate::subscribers::event_log::utils::EventLogErrors;
 
@@ -45,7 +46,7 @@ pub(crate) fn get_logfile_name(
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
     const N_LOGS_RETAINED: usize = 10;
 
-    if let Ok(logfiles) = get_local_logs(logdir) {
+    if let Ok(logfiles) = get_files_in_log_dir(logdir) {
         futures::stream::iter(logfiles.into_iter().rev().skip(N_LOGS_RETAINED - 1))
             .then(async move |file| {
                 // The oldest logs might be open from another concurrent build, so suppress error.
@@ -56,11 +57,19 @@ pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
     }
 }
 
-/// List logs in logdir, ordered from oldest to newest.
-pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+/// List files in logdir, ordered from oldest to newest.
+fn get_files_in_log_dir(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf>> {
     Ok(fs_util::read_dir_if_exists(logdir)?
         .map(sort_logs)
         .unwrap_or_default())
+}
+
+/// List logs in logdir, ordered from oldest to newest.
+pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<EventLogPathBuf>> {
+    Ok(get_files_in_log_dir(logdir)?
+        .into_iter()
+        .filter_map(|path| EventLogPathBuf::infer(path.into_abs_path_buf()).ok())
+        .collect())
 }
 
 fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
@@ -81,10 +90,10 @@ fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
 pub fn find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
-) -> anyhow::Result<Option<AbsNormPathBuf>> {
+) -> anyhow::Result<Option<EventLogPathBuf>> {
     let trace_id = trace_id.to_string();
     Ok(get_local_logs(log_dir)?.into_iter().rev().find(|log| {
-        let log_name = log.file_name().unwrap();
+        let log_name = log.path.file_name().unwrap();
         log_name.to_string_lossy().contains(&trace_id)
     }))
 }
@@ -93,14 +102,14 @@ pub fn find_log_by_trace_id(
 pub fn do_find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
-) -> anyhow::Result<AbsNormPathBuf> {
+) -> anyhow::Result<EventLogPathBuf> {
     find_log_by_trace_id(log_dir, trace_id)?.context("Error finding log by trace id")
 }
 
 pub fn retrieve_nth_recent_log(
     ctx: &ClientCommandContext,
     n: usize,
-) -> anyhow::Result<AbsNormPathBuf> {
+) -> anyhow::Result<EventLogPathBuf> {
     let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
@@ -114,7 +123,7 @@ pub fn retrieve_nth_recent_log(
     Ok(chosen.clone())
 }
 
-pub fn retrieve_all_logs(ctx: &ClientCommandContext) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+pub fn retrieve_all_logs(ctx: &ClientCommandContext) -> anyhow::Result<Vec<EventLogPathBuf>> {
     let log_dir = ctx.paths().context("Error identifying log dir")?.log_dir();
     get_local_logs(&log_dir)
 }
