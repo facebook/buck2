@@ -161,6 +161,10 @@ impl Span {
     }
 
     pub(crate) fn render(self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
         queue!(
             writer,
             PrintStyledContent(StyledContent::new(self.stylization, self.content))
