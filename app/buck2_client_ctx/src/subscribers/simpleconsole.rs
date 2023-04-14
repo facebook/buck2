@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::fmt::Write as _;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -531,13 +532,13 @@ where
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
         if let Some(msg) = display::format_test_result(result)? {
-            let mut buffer: Vec<u8> = Vec::new();
+            let mut buffer = String::new();
 
             for line in msg {
-                line.render(&mut buffer)?;
+                writeln!(buffer, "{}", line.to_unstyled())?;
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
-            echo!("{}", sanitize_output_colors(&buffer))?;
+            echo!("{}", buffer)?;
         }
 
         Ok(())
