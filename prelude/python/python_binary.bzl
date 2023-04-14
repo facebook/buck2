@@ -398,7 +398,7 @@ def convert_python_library_to_executable(
         omnibus_libs = create_omnibus_libraries(
             ctx,
             omnibus_graph,
-            ctx.attrs.linker_flags,
+            python_toolchain.linker_flags + ctx.attrs.linker_flags,
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         )
 
@@ -485,10 +485,13 @@ def convert_python_library_to_executable(
             extension_info.unembeddable_extensions,
         )
 
+        extra_binary_link_flags = []
+
+        extra_binary_link_flags.extend(python_toolchain.binary_linker_flags)
+
         # Set rpaths to find 1) the shared libs dir and the 2) runtime libs dir.
         rpath_ref = get_rpath_origin(get_cxx_toolchain_info(ctx).linker_info.type)
         rpath_ldflag = "-Wl,-rpath,{}/".format(rpath_ref)
-        extra_binary_link_flags = []
         if package_style == PackageStyle("standalone"):
             extra_binary_link_flags.append(rpath_ldflag + "../..")
             extra_binary_link_flags.append(rpath_ldflag + "../lib")
@@ -502,6 +505,7 @@ def convert_python_library_to_executable(
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = cxx_executable_srcs,
             extra_binary_link_flags = extra_binary_link_flags,
+            extra_link_flags = python_toolchain.linker_flags,
             extra_preprocessors = extra_preprocessors,
             extra_preprocessors_info = inherited_preprocessor_info,
             extra_link_deps = link_deps,

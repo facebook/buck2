@@ -40,6 +40,8 @@ PythonToolchainInfo = provider(fields = [
     "interpreter",
     "version",
     "native_link_strategy",
+    "linker_flags",
+    "binary_linker_flags",
     "generate_static_extension_info",
     "parse_imports",
     "traverse_dep_manifest",
