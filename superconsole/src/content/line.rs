@@ -8,6 +8,7 @@
  */
 
 use std::cmp::Ordering;
+use std::mem;
 use std::slice;
 use std::vec;
 
@@ -22,22 +23,13 @@ use crate::Span;
 
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
 /// Since each `Span` denotes a portion of a single line, an ordered collection represents a single line of text.
-#[derive(Default, Clone, Debug, Eq)]
-pub struct Line(Vec<Span>);
-
-impl PartialEq for Line {
-    /// This equality merges spans with the same styles and checks for semantic equality.
-    /// Semantic equality includes things like:
-    /// - Spaces with different foreground colors appear the same.
-    /// - Spans which are unstyled vs have idempotent styling.
-    /// - Visually identical lines which are chunked into Spans differently.
-    fn eq(&self, other: &Self) -> bool {
-        // iterate grapheme by grapheme
-        let lhs = self.0.iter().flat_map(Span::iter);
-        let rhs = other.0.iter().flat_map(Span::iter);
-        lhs.eq(rhs)
-    }
-}
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+pub struct Line(
+    /// Sequence is normalized.
+    /// * All spans are non-empty.
+    /// * Adjacent spans have different styles.
+    Vec<Span>,
+);
 
 impl Line {
     pub fn unstyled(text: &str) -> anyhow::Result<Line> {
@@ -61,20 +53,12 @@ impl Line {
     /// This adds a new unstyled word consisting entirely of the appropriate number of spaces.
     /// If no padding is requested, then no word is added.
     pub fn pad_right(&mut self, amount: usize) {
-        if amount == 0 {
-            return;
-        }
-
-        self.0.push(Span::padding(amount));
+        self.push(Span::padding(amount));
     }
 
     /// Same behavior as pad right, but the pad is on the left
     pub fn pad_left(&mut self, amount: usize) {
-        if amount == 0 {
-            return;
-        }
-
-        self.0.insert(0, Span::padding(amount));
+        self.push_front(Span::padding(amount));
     }
 
     /// Truncates the right side of the line until it is no longer than `max_width`.
@@ -134,7 +118,7 @@ impl Line {
             if start != 0 || end != len {
                 span.content = chars.skip(start).take(end - start).collect();
             }
-            self.0.push(span);
+            self.push(span);
 
             width -= end - start;
             start = 0;
@@ -188,29 +172,23 @@ impl Line {
 
     /// Append a span to the line.
     pub fn push(&mut self, span: Span) {
+        if span.is_empty() {
+            return;
+        }
+        if let Some(last) = self.0.last_mut() {
+            if last.stylization == span.stylization {
+                last.content.to_mut().push_str(&span.content);
+                return;
+            }
+        }
         self.0.push(span);
     }
 
     /// Prepend a span to the line.
     pub fn push_front(&mut self, span: Span) {
-        self.0.insert(0, span);
-    }
-
-    /// Join strings of spans with identical styles.
-    /// Maybe we should do it by default.
-    #[cfg(test)]
-    pub(crate) fn normalize_spans(self) -> Line {
-        let mut result: Vec<Span> = Vec::with_capacity(self.0.len());
-        for span in self.0 {
-            if let Some(last) = result.last_mut() {
-                if last.stylization == span.stylization {
-                    last.content.to_mut().push_str(&span.content);
-                    continue;
-                }
-            }
-            result.push(span);
-        }
-        Line(result)
+        let this = mem::take(self);
+        self.push(span);
+        self.extend(this);
     }
 }
 
@@ -226,7 +204,9 @@ impl IntoIterator for Line {
 
 impl FromIterator<Span> for Line {
     fn from_iter<T: IntoIterator<Item = Span>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
+        let mut line = Line::default();
+        line.extend(iter);
+        line
     }
 }
 
@@ -254,22 +234,24 @@ impl TryFrom<Vec<&str>> for Line {
 
 impl Extend<Span> for Line {
     fn extend<T: IntoIterator<Item = Span>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        for span in iter {
+            self.push(span);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crossterm::style::Stylize;
+    use crossterm::style::Color;
 
     use super::*;
 
     #[test]
     fn test_words_len() {
-        let normal = Line(vec![
-            "test".try_into().unwrap(),
-            "hello".try_into().unwrap(),
-            "world".try_into().unwrap(),
+        let normal = Line::from_iter([
+            Span::new_colored("test", Color::Black).unwrap(),
+            Span::new_colored("hello", Color::Blue).unwrap(),
+            Span::new_colored("world", Color::Black).unwrap(),
         ]);
 
         assert_eq!(normal.len(), 14);
@@ -279,35 +261,41 @@ mod tests {
 
     #[test]
     fn test_pad_line_right() {
-        let mut test = Line(vec!["test".try_into().unwrap(), "ok".try_into().unwrap()]);
+        let mut test = Line::from_iter([
+            Span::new_colored("test", Color::DarkBlue).unwrap(),
+            Span::new_colored("ok", Color::DarkCyan).unwrap(),
+        ]);
         let mut new_test: Line = test.clone();
-        test.0.push(" ".repeat(4).try_into().unwrap());
+        test.push(" ".repeat(4).try_into().unwrap());
         new_test.pad_right(4);
         assert_eq!(test, new_test);
 
         new_test.pad_right(6);
-        test.0.push(" ".repeat(6).try_into().unwrap());
+        test.push(" ".repeat(6).try_into().unwrap());
         assert_eq!(test, new_test);
 
         new_test.pad_right(10);
-        test.0.push(" ".repeat(10).try_into().unwrap());
+        test.push(" ".repeat(10).try_into().unwrap());
         assert_eq!(test, new_test);
     }
 
     #[test]
     fn test_pad_line_left() -> anyhow::Result<()> {
-        let mut test: Line = Line(vec!["test".try_into()?, "ok".try_into()?]);
+        let mut test: Line = Line::from_iter([
+            Span::new_colored("test", Color::DarkCyan).unwrap(),
+            Span::new_colored("ok", Color::Cyan).unwrap(),
+        ]);
         let mut new_test: Line = test.clone();
-        test.0.insert(0, " ".repeat(4).try_into()?);
+        test.push_front(" ".repeat(4).try_into()?);
         new_test.pad_left(4);
         assert_eq!(test, new_test);
 
         new_test.pad_left(6);
-        test.0.insert(0, " ".repeat(6).try_into()?);
+        test.push_front(" ".repeat(6).try_into()?);
         assert_eq!(test, new_test);
 
         new_test.pad_left(10);
-        test.0.insert(0, " ".repeat(10).try_into()?);
+        test.push_front(" ".repeat(10).try_into()?);
         assert_eq!(test, new_test);
 
         Ok(())
@@ -315,7 +303,10 @@ mod tests {
 
     #[test]
     fn test_truncate_line() -> anyhow::Result<()> {
-        let mut test: Line = vec!["test", "ok"].try_into()?;
+        let mut test: Line = Line::from_iter([
+            Span::new_colored("test", Color::Blue).unwrap(),
+            Span::new_colored("ok", Color::Red).unwrap(),
+        ]);
         let mut new_test: Line = test.clone();
         test.truncate_line(10);
         assert_eq!(test, new_test);
@@ -324,11 +315,12 @@ mod tests {
         assert_eq!(test, new_test);
 
         new_test.truncate_line(5);
-        test.0[1] = "o".try_into()?;
+        test.0.pop().unwrap();
+        test.push(Span::new_colored("o", Color::Red).unwrap());
         assert_eq!(test, new_test);
 
         new_test.truncate_line(4);
-        test.0.remove(1);
+        test.0.pop().unwrap();
         assert_eq!(test, new_test);
 
         new_test.truncate_line(0);
@@ -363,30 +355,32 @@ mod tests {
     }
 
     #[test]
-    fn test_equality() {
-        let lhs = Line(vec![
-            Span::new_styled_lossy("te".to_owned().dark_yellow()),
-            Span::new_styled_lossy("st".to_owned().dark_yellow()),
-            Span::new_styled_lossy("world".to_owned().dark_red()),
-        ]);
-        let rhs = Line(vec![
-            Span::new_styled_lossy("test".to_owned().dark_yellow()),
-            Span::new_styled_lossy("world".to_owned().dark_red()),
+    fn test_push_collapses() {
+        let mut line = Line::default();
+        line.push(Span::new_colored("ab", Color::Cyan).unwrap());
+        line.push(Span::new_colored("c", Color::Cyan).unwrap());
+        line.push(Span::new_colored("d", Color::Red).unwrap());
+
+        let expected = Line::from_iter([
+            Span::new_colored("abc", Color::Cyan).unwrap(),
+            Span::new_colored("d", Color::Red).unwrap(),
         ]);
 
-        assert_eq!(lhs, rhs);
+        assert_eq!(expected, line);
     }
 
     #[test]
-    fn test_equality_unequal() {
-        let lhs = Line(vec![Span::new_styled_lossy(
-            "     xxx     ".to_owned().dark_yellow(),
-        )]);
-        let rhs = Line(vec![
-            Span::new_styled_lossy("     ".to_owned().black()),
-            Span::new_styled_lossy("xxx".to_owned().dark_yellow()),
-            Span::new_styled_lossy("     ".to_owned().red()),
+    fn test_push_front() {
+        let mut line = Line::default();
+        line.push_front(Span::new_colored("d", Color::Cyan).unwrap());
+        line.push_front(Span::new_colored("c", Color::Cyan).unwrap());
+        line.push_front(Span::new_colored("ab", Color::Red).unwrap());
+
+        let expected = Line::from_iter([
+            Span::new_colored("ab", Color::Red).unwrap(),
+            Span::new_colored("cd", Color::Cyan).unwrap(),
         ]);
-        assert_ne!(lhs, rhs);
+
+        assert_eq!(expected, line);
     }
 }

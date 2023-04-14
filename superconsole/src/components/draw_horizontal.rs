@@ -123,14 +123,13 @@ mod tests {
         });
         draw.draw(&C0, DrawMode::Normal).unwrap();
         draw.draw(&C1, DrawMode::Normal).unwrap();
-        let output = draw.finish().normalize_spans();
         assert_eq!(
             Lines(vec![
                 Line::sanitized("quickbrown "),
                 Line::sanitized("fox  jumped"),
                 Line::sanitized("over       "),
             ]),
-            output
+            draw.finish(),
         );
     }
 }

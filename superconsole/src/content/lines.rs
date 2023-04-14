@@ -322,15 +322,6 @@ impl Lines {
             // safe to unwrap because at least one child component required
             .unwrap()
     }
-
-    #[cfg(test)]
-    pub(crate) fn normalize_spans(self) -> Lines {
-        Lines(
-            self.into_iter()
-                .map(|line| line.normalize_spans())
-                .collect(),
-        )
-    }
 }
 
 impl FromIterator<Line> for Lines {
