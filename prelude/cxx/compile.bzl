@@ -208,7 +208,9 @@ def create_compile_cmds(
     argsfile_by_ext = {}
 
     for src in srcs_with_flags:
-        ext = CxxExtension(src.file.extension)
+        # If we have a header_only library we'll send the header files through this path,
+        # and want them to appear as though they are C++ files.
+        ext = CxxExtension(".cpp" if header_only else src.file.extension)
 
         # Deduplicate shared arguments to save memory. If we compile multiple files
         # of the same extension they will have some of the same flags. Save on
