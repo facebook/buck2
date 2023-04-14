@@ -188,7 +188,7 @@ pub struct RageCommand {
     invocation_offset: Option<usize>,
     /// Select invocation directly using the invocation's UUID
     #[clap(long, group = "invocation")]
-    invocation_id: Option<String>,
+    invocation_id: Option<TraceId>,
     /// Collect rage report about buck2 in general, not about specific invocation
     #[clap(long, group = "invocation")]
     no_invocation: bool,
@@ -517,7 +517,10 @@ async fn log_index(
     if let Some(invocation_id) = &command.invocation_id {
         for (index, buf) in logs.iter().enumerate() {
             if let Some(file_name) = buf.path().file_name() {
-                if file_name.to_string_lossy().contains(invocation_id) {
+                if file_name
+                    .to_string_lossy()
+                    .contains(&invocation_id.to_string())
+                {
                     return Ok(index);
                 }
             }
