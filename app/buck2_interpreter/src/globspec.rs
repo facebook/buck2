@@ -13,8 +13,19 @@ use std::fmt::Debug;
 
 use anyhow::Context;
 use buck2_common::package_listing::file_listing::PackageFileListing;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_core::soft_error;
 use derivative::Derivative;
+
+#[derive(Debug, thiserror::Error)]
+enum GlobError {
+    #[error(
+        "Exact pattern must be valid forward relative path: `{0}` \
+        (this pattern cannot match anything)"
+    )]
+    ExactIncludeMustBeForwardRelativePath(String),
+}
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
 /// details we don't care about, so create `GlobPattern` so we can have a
@@ -92,6 +103,14 @@ impl GlobSpec {
                 // TODO(nga): pattern `*/[bc]` is parsed as glob pattern,
                 //   but `a/[bc]` is parsed as exact match?
                 //   Does not look right.
+
+                if ForwardRelativePath::new(&pattern).is_err() {
+                    // Please write a test when this error is converted to hard error.
+                    soft_error!(
+                        "glob_exact_pattern_not_forward_relative_path",
+                        GlobError::ExactIncludeMustBeForwardRelativePath(pattern.to_owned()).into()
+                    )?;
+                }
                 exact_matches.insert(pattern.to_owned());
             }
         }
