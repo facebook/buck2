@@ -8,10 +8,14 @@
  */
 
 use std::borrow::Cow;
+use std::fmt::Write as _;
 
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
-use crossterm::style::PrintStyledContent;
+use crossterm::style::ResetColor;
+use crossterm::style::SetAttributes;
+use crossterm::style::SetBackgroundColor;
+use crossterm::style::SetForegroundColor;
 use crossterm::style::StyledContent;
 use crossterm::Command;
 use termwiz::cell;
@@ -177,8 +181,37 @@ impl Span {
         // rendering styled content without emitting WinAPI calls when ANSI is not supported.
         enable_ansi_support()?;
 
-        PrintStyledContent(StyledContent::new(self.style, self.content.as_ref()))
-            .write_ansi(&mut VecAsFmtWrite(writer))?;
+        let f = &mut VecAsFmtWrite(writer);
+
+        let mut reset_background = false;
+        let mut reset_foreground = false;
+        let mut reset = false;
+
+        if let Some(bg) = self.style.background_color {
+            SetBackgroundColor(bg).write_ansi(f)?;
+            reset_background = true;
+        }
+        if let Some(fg) = self.style.foreground_color {
+            SetForegroundColor(fg).write_ansi(f)?;
+            reset_foreground = true;
+        }
+        if !self.style.attributes.is_empty() {
+            SetAttributes(self.style.attributes).write_ansi(f)?;
+            reset = true;
+        }
+
+        write!(f, "{}", self.content)?;
+
+        if reset {
+            ResetColor.write_ansi(f)?;
+        } else {
+            if reset_background {
+                SetBackgroundColor(Color::Reset).write_ansi(f)?;
+            }
+            if reset_foreground {
+                SetForegroundColor(Color::Reset).write_ansi(f)?;
+            }
+        }
 
         Ok(())
     }
