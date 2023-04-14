@@ -14,7 +14,6 @@ use std::time::Instant;
 
 use superconsole::components::Component;
 use superconsole::components::DrawMode;
-use superconsole::state;
 use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
@@ -27,14 +26,7 @@ use tokio::time;
 #[derive(Debug)]
 struct Foo {
     created: Instant,
-}
-
-impl Foo {
-    fn new() -> Self {
-        Self {
-            created: Instant::now(),
-        }
-    }
+    now: Instant,
 }
 
 impl Component for Foo {
@@ -42,14 +34,14 @@ impl Component for Foo {
     /// On a second line, draws the string "Hello world!".
     fn draw_unchecked(
         &self,
-        state: &State,
+        _state: &State,
         _dimensions: Dimensions,
         mode: DrawMode,
     ) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Final => Lines::new(),
             DrawMode::Normal => {
-                let elapsed = state.get::<Instant>().unwrap().duration_since(self.created);
+                let elapsed = self.now.duration_since(self.created);
                 let line1 = vec![elapsed.as_secs().to_string()].try_into().unwrap();
                 let line2 = vec!["Hello world!".to_owned()].try_into().unwrap();
                 Lines(vec![line1, line2])
@@ -87,15 +79,17 @@ async fn main() {
     let delay = Duration::from_secs(1);
     let mut interval = time::interval(delay);
 
-    let root = Foo::new();
+    let created = Instant::now();
     let mut renderer = SuperConsole::new().unwrap();
 
     // alternate between re-rendering and updating state
     loop {
         select! {
             _ = interval.tick() => {
-                let time = Instant::now();
-                renderer.render(&root, &state!(&time)).unwrap();
+                renderer.render(&Foo {
+                    created,
+                    now: Instant::now(),
+                }, &State::new()).unwrap();
             }
             word = task_that_takes_some_time() => {
                 renderer.emit(Lines(process_word(word)));
