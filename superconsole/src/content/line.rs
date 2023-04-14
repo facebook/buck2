@@ -147,8 +147,7 @@ impl Line {
 
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
-    // TODO(nga): hide this function from the public API.
-    pub fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn render(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
         let mut writer = VecAsFmtWrite(writer);
 
         for word in &self.0 {
