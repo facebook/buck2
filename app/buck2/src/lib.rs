@@ -266,6 +266,7 @@ pub(crate) enum CommandKind {
     Kill(KillCommand),
     Killall(KillallCommand),
     Root(RootCommand),
+    /// Alias for `uquery`.
     Query(UqueryCommand),
     Run(RunCommand),
     Server(ServerCommand),
