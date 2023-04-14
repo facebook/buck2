@@ -169,7 +169,7 @@ A further advantage of using Python is that these commands can be tested in isol
 
 ## Debugging
 
-The functions `fail` and `print` are your friends. To get started, a `buck2 build fbcode//buck2/tests/targets/rules/pascal:` builds everything or `buck2 run fbcode//buck2/tests/targets/rules/pascal:my_binary` runs a specific binary that returns a `RunInfo`.
+The functions `fail`, `print` and `pprint` are your friends. To get started, a `buck2 build fbcode//buck2/tests/targets/rules/pascal:` builds everything or `buck2 run fbcode//buck2/tests/targets/rules/pascal:my_binary` runs a specific binary that returns a `RunInfo`.
 
 ## Testing Rules
 
