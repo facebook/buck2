@@ -19,6 +19,7 @@ use once_cell::sync::OnceCell;
 use starlark_map::small_set::SmallSet;
 
 use crate::env_helper::EnvHelper;
+use crate::is_open_source;
 
 type SoftErrorHandler = Box<
     dyn Fn(&'static str, &anyhow::Error, (&'static str, u32, u32), bool) + Send + Sync + 'static,
@@ -101,6 +102,12 @@ pub fn handle_soft_error(
     loc: (&'static str, u32, u32),
     quiet: bool,
 ) -> anyhow::Result<anyhow::Error> {
+    if is_open_source() {
+        // We don't log these, and we have no legacy users, and they might not upgrade that often,
+        // so lets just break open source things immediately.
+        return Err(err);
+    }
+
     once.call_once(|| {
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
