@@ -130,6 +130,8 @@ pub(crate) enum Compression {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Invocation {
     pub command_line_args: Vec<String>,
+    /// This is `String` not `AbsPathBuf` because event log is cross-platform
+    /// and `AbsPathBuf` is not.
     pub working_dir: String,
     #[serde(default = "TraceId::null")]
     pub trace_id: TraceId,
