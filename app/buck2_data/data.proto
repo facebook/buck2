@@ -1352,7 +1352,7 @@ message RemoteCommand {
   google.protobuf.Duration queue_time = 3;
 }
 
-// A representation of an invocation
+// Header in binary event log.
 message Invocation {
   repeated string command_line_args = 1;
   string working_dir = 2;
@@ -1384,6 +1384,7 @@ message TypedMetadata {
   map<string, string> strings = 2;
 }
 
+// Record event sent directly to scribe.
 message InvocationRecord {
   reserved 22, 36;
 
