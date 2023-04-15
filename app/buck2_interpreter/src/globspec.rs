@@ -134,11 +134,10 @@ impl GlobSpec {
                 //   Does not look right.
 
                 if ForwardRelativePath::new(&pattern).is_err() {
-                    // Please write a test when this error is converted to hard error.
-                    soft_error!(
-                        "glob_exact_pattern_not_forward_relative_path",
-                        GlobError::ExactIncludeMustBeForwardRelativePath(pattern.to_owned()).into()
-                    )?;
+                    return Err(GlobError::ExactIncludeMustBeForwardRelativePath(
+                        pattern.to_owned(),
+                    )
+                    .into());
                 }
                 exact_matches.insert(pattern.to_owned());
             }
@@ -334,7 +333,7 @@ mod tests {
     #[test]
     fn test_leading_slash_in_pattern() {
         assert!(GlobSpec::new(&["/*"], &[""; 0]).is_err());
-        // TODO(nga): also prohibit `/a` which is handled with different codepath.
+        assert!(GlobSpec::new(&["/a"], &[""; 0]).is_err());
     }
 
     #[test]
