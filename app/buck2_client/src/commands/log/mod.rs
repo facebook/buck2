@@ -7,15 +7,15 @@
  * of this source tree.
  */
 
-pub mod critical_path;
-pub mod last_log;
+mod critical_path;
+pub(crate) mod last_log;
 pub(crate) mod options;
-pub mod show_log;
-pub mod what_failed;
-pub mod what_materialized;
-pub mod what_ran;
-pub mod what_up;
-pub mod what_uploaded;
+mod show_log;
+mod what_failed;
+mod what_materialized;
+pub(crate) mod what_ran;
+mod what_up;
+mod what_uploaded;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
