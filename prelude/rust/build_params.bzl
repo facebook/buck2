@@ -328,7 +328,7 @@ def preferred_rust_binary_build_params(
     build_kind_key = {
         "any": _BINARY_SHARED,
         "shared": _BINARY_SHARED,
-        "static": _BINARY_NON_PIE,
+        "static": _BINARY_PIE,
     }[preferred_linkage.value]
 
     flags, reloc_model = _get_flags(build_kind_key, target_os_type)
