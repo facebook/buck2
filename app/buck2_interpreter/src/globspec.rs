@@ -53,11 +53,7 @@ impl GlobPattern {
         let parsed_pattern = glob::Pattern::new(pattern)
             .with_context(|| format!("Error creating globspec for `{}`", pattern))?;
         if pattern.contains("//") {
-            // Please write a test when converting this error to hard error.
-            soft_error!(
-                "glob_double_slash",
-                GlobError::DoubleSlash(pattern.to_owned()).into()
-            )?;
+            return Err(GlobError::DoubleSlash(pattern.to_owned()).into());
         }
         if pattern.starts_with('/') {
             return Err(GlobError::LeadingSlash(pattern.to_owned()).into());
@@ -348,6 +344,13 @@ mod tests {
         assert!(GlobSpec::new(&["../*"], &[""; 0]).is_err());
         assert!(GlobSpec::new(&["a/../*"], &[""; 0]).is_err());
         assert!(GlobSpec::new(&["*/../b"], &[""; 0]).is_err());
+    }
+
+    #[test]
+    fn test_double_slash_in_pattern() {
+        assert!(GlobSpec::new(&["//"], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["a//**"], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["a/*//b"], &[""; 0]).is_err());
     }
 
     #[test]
