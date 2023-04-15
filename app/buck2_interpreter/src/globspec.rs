@@ -67,9 +67,9 @@ impl GlobPattern {
                 GlobError::TrailingSlash(pattern.to_owned()).into()
             )?;
         }
+        // TODO(nga): also ban single dot.
         if pattern.split('/').any(|p| p == "..") {
-            // Please write a test when converting this error to hard error.
-            soft_error!("glob_dot_dot", GlobError::DotDot(pattern.to_owned()).into())?;
+            return Err(GlobError::DotDot(pattern.to_owned()).into());
         }
         Ok(GlobPattern(parsed_pattern))
     }
@@ -334,6 +334,14 @@ mod tests {
     fn test_leading_slash_in_pattern() {
         assert!(GlobSpec::new(&["/*"], &[""; 0]).is_err());
         assert!(GlobSpec::new(&["/a"], &[""; 0]).is_err());
+    }
+
+    #[test]
+    fn test_dot_dot_in_pattern() {
+        assert!(GlobSpec::new(&[".."], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["../*"], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["a/../*"], &[""; 0]).is_err());
+        assert!(GlobSpec::new(&["*/../b"], &[""; 0]).is_err());
     }
 
     #[test]
