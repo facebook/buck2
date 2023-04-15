@@ -33,6 +33,8 @@ enum GlobError {
     TrailingSlash(String),
     #[error("Pattern must not contain `..`: `{0}` (this pattern cannot match anything)")]
     DotDot(String),
+    #[error("Pattern must not contain `.`: `{0}` (this pattern cannot match anything)")]
+    Dot(String),
 }
 
 /// The default Debug for Pattern is horribly verbose with lots of internal
@@ -70,6 +72,10 @@ impl GlobPattern {
         // TODO(nga): also ban single dot.
         if pattern.split('/').any(|p| p == "..") {
             return Err(GlobError::DotDot(pattern.to_owned()).into());
+        }
+        if pattern.split('/').any(|p| p == ".") {
+            // Please write a test when converting this error to hard error.
+            soft_error!("glob_dot", GlobError::Dot(pattern.to_owned()).into())?;
         }
         Ok(GlobPattern(parsed_pattern))
     }
