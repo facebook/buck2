@@ -75,6 +75,7 @@ load(
 )
 load(
     ":link_info.bzl",
+    "DEFAULT_STATIC_LINK_STYLE",
     "RustLinkInfo",
     "RustLinkStyleInfo",
     "attr_crate",
@@ -190,7 +191,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         else:
             fail("Unhandled lang {}".format(lang))
 
-    static_library_params = lang_style_param[(LinkageLang("rust"), LinkStyle("static_pic"))]
+    static_library_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LINK_STYLE)]
     default_roots = ["lib.rs"]
     rustdoc = generate_rustdoc(
         ctx = ctx,
@@ -224,7 +225,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         emit = Emit("expand"),
         crate = crate,
         params = static_library_params,
-        link_style = LinkStyle("static_pic"),
+        link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
     )
 
@@ -234,7 +235,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         emit = Emit("save-analysis"),
         crate = crate,
         params = static_library_params,
-        link_style = LinkStyle("static_pic"),
+        link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
     )
 

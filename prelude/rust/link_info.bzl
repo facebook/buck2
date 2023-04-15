@@ -21,6 +21,9 @@ load(
 load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load("@prelude//utils:utils.bzl", "flatten")
 
+# Link style for targets which do not set an explicit `link_style` attribute.
+DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
+
 # Override dylib crates to static_pic, so that Rust code is always
 # statically linked.
 # In v1 we always linked Rust deps statically, even for "shared" link style
@@ -59,7 +62,7 @@ RustLinkStyleInfo = record(
 
 def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
     if FORCE_RLIB and link_style == LinkStyle("shared"):
-        link_style = LinkStyle("static_pic")
+        link_style = DEFAULT_STATIC_LINK_STYLE
 
     return info.styles[link_style]
 

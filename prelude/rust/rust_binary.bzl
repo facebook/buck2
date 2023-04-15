@@ -48,6 +48,7 @@ load(
 load(":context.bzl", "CompileContext")
 load(
     ":link_info.bzl",
+    "DEFAULT_STATIC_LINK_STYLE",
     "attr_crate",
     "inherited_non_rust_shared_libs",
 )
@@ -65,7 +66,7 @@ def _rust_binary_common(
     styles = {}
     style_param = {}  # style -> param
 
-    specified_link_style = LinkStyle(ctx.attrs.link_style or "static_pic")
+    specified_link_style = LinkStyle(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STYLE
 
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
@@ -153,8 +154,8 @@ def _rust_binary_common(
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         crate = crate,
-        params = style_param[LinkStyle("static_pic")],
-        link_style = LinkStyle("static_pic"),
+        params = style_param[DEFAULT_STATIC_LINK_STYLE],
+        link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
@@ -164,8 +165,8 @@ def _rust_binary_common(
         compile_ctx = compile_ctx,
         emit = Emit("save-analysis"),
         crate = crate,
-        params = style_param[LinkStyle("static_pic")],
-        link_style = LinkStyle("static_pic"),
+        params = style_param[DEFAULT_STATIC_LINK_STYLE],
+        link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
         extra_flags = extra_flags,
     )
@@ -176,7 +177,7 @@ def _rust_binary_common(
             ctx = ctx,
             compile_ctx = compile_ctx,
             crate = crate,
-            params = style_param[LinkStyle("static_pic")],
+            params = style_param[DEFAULT_STATIC_LINK_STYLE],
             default_roots = default_roots,
             document_private_items = True,
         )),
