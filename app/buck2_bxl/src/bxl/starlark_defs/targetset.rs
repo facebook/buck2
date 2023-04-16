@@ -41,6 +41,17 @@ unsafe impl<Node: QueryTarget> ProvidesStaticType for StarlarkTargetSet<Node> {
     type StaticType = Self;
 }
 
+impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {
+    pub(crate) fn iter<'a, 'v>(&'a self, heap: &'v Heap) -> impl Iterator<Item = Value<'v>> + 'a
+    where
+        'v: 'a,
+    {
+        self.0
+            .iter()
+            .map(|target_node| target_node.dupe().alloc(heap))
+    }
+}
+
 impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
     type Frozen = StarlarkTargetSet<Node>;
 
@@ -79,11 +90,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     where
         'v: 'a,
     {
-        Ok(Box::new(
-            self.0
-                .iter()
-                .map(|target_node| target_node.dupe().alloc(heap)),
-        ))
+        Ok(Box::new(self.iter(heap)))
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

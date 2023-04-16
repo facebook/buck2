@@ -26,7 +26,6 @@ use dupe::Dupe;
 use itertools::Either;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
-use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -148,10 +147,10 @@ impl ProvidersExpr {
         Ok(Some(Self::Iterable(
             #[allow(clippy::manual_map)] // `if else if` looks better here
             if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-                Some(Either::Left(s.iterate(eval.heap())?))
+                Some(Either::Left(Either::Left(s.iter(eval.heap()))))
             } else if let Some(s) = value.downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>()
             {
-                Some(Either::Left(s.iterate(eval.heap())?))
+                Some(Either::Left(Either::Right(s.iter(eval.heap()))))
             } else if let Some(iterable) = ListRef::from_value(value) {
                 Some(Either::Right(iterable.iter()))
             } else {

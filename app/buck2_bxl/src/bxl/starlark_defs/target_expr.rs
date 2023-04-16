@@ -37,7 +37,6 @@ use futures::TryFutureExt;
 use starlark::collections::SmallSet;
 use starlark::eval::Evaluator;
 use starlark::values::list::ListRef;
-use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
@@ -276,7 +275,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
 
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Some(Either::Left(s.iterate(eval.heap())?))
+            Some(Either::Left(s.iter(eval.heap())))
         } else if let Some(iterable) = ListRef::from_value(value) {
             Some(Either::Right(iterable.iter()))
         } else {
@@ -388,7 +387,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
 
         #[allow(clippy::manual_map)] // `if else if` looks better here
         let items = if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
-            Some(Either::Left(s.iterate(eval.heap())?))
+            Some(Either::Left(s.iter(eval.heap())))
         } else if let Some(iterable) = ListRef::from_value(value) {
             Some(Either::Right(iterable.iter()))
         } else {
