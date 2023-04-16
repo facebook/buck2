@@ -75,21 +75,21 @@ def _system_cxx_toolchain_impl(ctx):
                 compiler = RunInfo(args = [ctx.attrs.cxx_compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,  # one of CxxToolProviderType
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,  # one of CxxToolProviderType
             ),
             as_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,  # one of CxxToolProviderType
             ),
             asm_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,  # one of CxxToolProviderType
             ),
             header_mode = HeaderMode("symlink_tree_only"),
         ),
@@ -107,6 +107,7 @@ system_cxx_toolchain = rule(
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.string(default = "clang++"),
+        "compiler_type": attrs.string(default = "clang"),
         "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
     },
     is_toolchain_rule = True,
