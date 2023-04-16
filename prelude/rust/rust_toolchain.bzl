@@ -60,6 +60,9 @@ _rust_toolchain_attrs = {
     # URL prefix (e.g. /path/to/docs) where crates' docs are hosted. Used for
     # linking types in signatures to their definition in another crate.
     "extern_html_root_url_prefix": None,
+    # Utilities used for building flagfiles containing dynamic crate names
+    "concat_tool": None,
+    "transitive_dependency_symlinks_tool": None,
 }
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs.keys())

@@ -75,6 +75,7 @@ load(
 )
 load(
     ":link_info.bzl",
+    "CrateName",  # @unused Used as a type
     "DEFAULT_STATIC_LINK_STYLE",
     "RustLinkInfo",
     "RustLinkStyleInfo",
@@ -161,7 +162,6 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
     return providers
 
 def rust_library_impl(ctx: "context") -> ["provider"]:
-    crate = attr_crate(ctx)
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
 
@@ -196,7 +196,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
     rustdoc = generate_rustdoc(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        crate = crate,
         params = static_library_params,
         default_roots = default_roots,
         document_private_items = False,
@@ -212,7 +211,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            crate = crate,
             link_style = rustdoc_test_params.dep_link_style,
             library = rust_param_artifact[static_library_params],
             params = rustdoc_test_params,
@@ -223,7 +221,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
-        crate = crate,
         params = static_library_params,
         link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
@@ -233,7 +230,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("save-analysis"),
-        crate = crate,
         params = static_library_params,
         link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
@@ -326,8 +322,6 @@ def _build_library_artifacts(
     Generate the actual actions to build various output artifacts. Given the set
     parameters we need, return a mapping to the linkable and metadata artifacts.
     """
-    crate = attr_crate(ctx)
-
     param_artifact = {}
 
     for params, langs in param_lang.items():
@@ -340,7 +334,6 @@ def _build_library_artifacts(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
-            crate = crate,
             params = params,
             link_style = link_style,
             default_roots = ["lib.rs"],
@@ -601,7 +594,7 @@ def _native_providers(
     return providers
 
 # Compute transitive deps. Caller decides whether this is necessary.
-def _compute_transitive_deps(ctx: "context", link_style: LinkStyle.type) -> ({"artifact": None}, {"artifact": None}):
+def _compute_transitive_deps(ctx: "context", link_style: LinkStyle.type) -> ({"artifact": CrateName.type}, {"artifact": CrateName.type}):
     transitive_deps = {}
     transitive_rmeta_deps = {}
     for dep in resolve_deps(ctx):
@@ -610,10 +603,10 @@ def _compute_transitive_deps(ctx: "context", link_style: LinkStyle.type) -> ({"a
             continue
 
         style = style_info(info, link_style)
-        transitive_deps[style.rlib] = None
+        transitive_deps[style.rlib] = info.crate
         transitive_deps.update(style.transitive_deps)
 
-        transitive_rmeta_deps[style.rmeta] = None
+        transitive_rmeta_deps[style.rmeta] = info.crate
         transitive_rmeta_deps.update(style.transitive_rmeta_deps)
 
     return (transitive_deps, transitive_rmeta_deps)

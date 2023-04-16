@@ -17,3 +17,15 @@ prelude.python_bootstrap_binary(
     main = "failure_filter_action.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "concat",
+    main = "concat.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "transitive_dependency_symlinks",
+    main = "transitive_dependency_symlinks.py",
+    visibility = ["PUBLIC"],
+)

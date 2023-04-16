@@ -45,6 +45,7 @@ load(
     "output_filename",
 )
 load(":context.bzl", "CommonArgsInfo", "CompileContext")
+load(":extern.bzl", "crate_map_arg", "extern_arg")
 load(
     ":failure_filter.bzl",
     "RustFailureFilter",
@@ -52,8 +53,11 @@ load(
 )
 load(
     ":link_info.bzl",
+    "CrateName",  #@unused Used as a type
     "RustLinkInfo",
     "RustLinkStyleInfo",
+    "attr_crate",
+    "attr_simple_crate_for_filenames",
     "cxx_by_platform",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
@@ -88,12 +92,14 @@ def compile_context(ctx: "context") -> CompileContext.type:
         linker_args = linker,
         clippy_wrapper = clippy_wrapper,
         common_args = {},
+        flagfiles_for_extern = {},
+        flagfiles_for_crate_map = {},
+        transitive_dependency_dirs = {},
     )
 
 def generate_rustdoc(
         ctx: "context",
         compile_ctx: CompileContext.type,
-        crate: str.type,
         # link style doesn't matter, but caller should pass in build params
         # with static-pic (to get best cache hits for deps)
         params: BuildParams.type,
@@ -107,7 +113,6 @@ def generate_rustdoc(
         # to make sure we get the rmeta's generated for the crate dependencies,
         # rather than full .rlibs
         emit = Emit("metadata"),
-        crate = crate,
         params = params,
         link_style = params.dep_link_style,
         default_roots = default_roots,
@@ -167,7 +172,6 @@ def generate_rustdoc(
 def generate_rustdoc_test(
         ctx: "context",
         compile_ctx: CompileContext.type,
-        crate: str.type,
         link_style: LinkStyle.type,
         library: RustLinkStyleInfo.type,
         params: BuildParams.type,
@@ -205,7 +209,6 @@ def generate_rustdoc_test(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("link"),
-        crate = crate,
         params = params,
         link_style = params.dep_link_style,
         default_roots = default_roots,
@@ -242,7 +245,7 @@ def generate_rustdoc_test(
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
-        cmd_args("--extern=", crate, "=", library.rlib, delimiter = ""),
+        extern_arg(ctx, compile_ctx, [], attr_crate(ctx), library.rlib),
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
         compile_ctx.linker_args,
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
@@ -263,7 +266,6 @@ def rust_compile_multi(
         ctx: "context",
         compile_ctx: CompileContext.type,
         emits: [Emit.type],
-        crate: str.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
         default_roots: [str.type],
@@ -278,7 +280,6 @@ def rust_compile_multi(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = emit,
-            crate = crate,
             params = params,
             link_style = link_style,
             default_roots = default_roots,
@@ -298,7 +299,6 @@ def rust_compile(
         ctx: "context",
         compile_ctx: CompileContext.type,
         emit: Emit.type,
-        crate: str.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
         default_roots: [str.type],
@@ -314,7 +314,6 @@ def rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = emit,
-        crate = crate,
         params = params,
         link_style = link_style,
         default_roots = default_roots,
@@ -369,7 +368,6 @@ def rust_compile(
             emit = emit,
             predeclared_outputs = {},
             subdir = common_args.subdir,
-            crate = crate,
             params = params,
         )
     else:
@@ -379,7 +377,6 @@ def rust_compile(
             emit = emit,
             predeclared_outputs = predeclared_outputs,
             subdir = common_args.subdir,
-            crate = crate,
             params = params,
         )
 
@@ -404,7 +401,6 @@ def rust_compile(
             emit = emit,
             predeclared_outputs = {},
             subdir = common_args.subdir + "-clippy",
-            crate = crate,
             params = params,
         )
         clippy_env = dict()
@@ -469,13 +465,12 @@ def _dependency_args(
         link_style: LinkStyle.type,
         is_check: bool.type,
         is_rustdoc_test: bool.type,
-        extra_transitive_deps: {"artifact": None}) -> ("cmd_args", {str.type: "label"}):
+        extra_transitive_deps: {"artifact": CrateName.type}) -> ("cmd_args", [(CrateName.type, "label")]):
     args = cmd_args()
     transitive_deps = {}
     deps = []
-    crate_targets = {}
+    crate_targets = []
     for x in resolve_deps(ctx, include_doc_deps = is_rustdoc_test):
-        crate = x.name and normalize_crate(x.name)
         dep = x.dep
 
         deps.append(dep)
@@ -484,7 +479,13 @@ def _dependency_args(
         info = dep.get(RustLinkInfo)
         if info == None:
             continue
-        crate = crate or info.crate
+        if x.name:
+            crate = CrateName(
+                simple = normalize_crate(x.name),
+                dynamic = None,
+            )
+        else:
+            crate = info.crate
 
         style = style_info(info, link_style)
 
@@ -497,31 +498,70 @@ def _dependency_args(
             artifact = style.rlib
             transitive_artifacts = style.transitive_deps
 
-        flags = ""
-        if x.flags != []:
-            flags = ",".join(x.flags) + ":"
-        args.add(cmd_args("--extern=", flags, crate, "=", artifact, delimiter = ""))
-        crate_targets[crate] = dep.label
+        args.add(extern_arg(ctx, compile_ctx, x.flags, crate, artifact))
+        crate_targets.append((crate, dep.label))
 
         # Unwanted transitive_deps have already been excluded
         transitive_deps.update(transitive_artifacts)
 
     transitive_deps.update(extra_transitive_deps)
 
+    dynamic_artifacts = {}
+    simple_artifacts = {}
+    for artifact, crate_name in transitive_deps.items():
+        if crate_name.dynamic:
+            dynamic_artifacts[artifact] = crate_name
+        else:
+            simple_artifacts[artifact] = None
+
+    prefix = "{}-deps{}".format(subdir, "-check" if is_check else "")
+    if simple_artifacts:
+        args.add(simple_symlinked_dirs(ctx, prefix, simple_artifacts))
+    if dynamic_artifacts:
+        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, dynamic_artifacts))
+
+    return (args, crate_targets)
+
+def simple_symlinked_dirs(
+        ctx: "context",
+        prefix: str.type,
+        artifacts: {"artifact": None}) -> "cmd_args":
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
-    for dep in transitive_deps.keys():
+    for dep in artifacts.keys():
         name = dep.basename
         if name in deps_dirs[-1]:
             deps_dirs.append({})
         deps_dirs[-1][name] = dep
 
+    symlinked_dirs = []
     for idx, srcs in enumerate(deps_dirs):
-        deps_dir = "{}-deps{}-{}".format(subdir, ("-check" if is_check else ""), idx)
-        dep_link_dir = ctx.actions.symlinked_dir(deps_dir, srcs)
-        args.add(cmd_args(dep_link_dir, format = "-Ldependency={}"))
+        name = "{}-{}".format(prefix, idx)
+        symlinked_dirs.append(ctx.actions.symlinked_dir(name, srcs))
 
-    return (args, crate_targets)
+    return cmd_args(symlinked_dirs, format = "-Ldependency={}")
+
+def dynamic_symlinked_dirs(
+        ctx: "context",
+        compile_ctx: CompileContext.type,
+        prefix: str.type,
+        artifacts: {"artifact": CrateName.type}) -> "cmd_args":
+    name = "{}-dyn".format(prefix)
+    transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
+    do_symlinks = cmd_args(
+        compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
+        cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+    )
+    for artifact, crate in artifacts.items():
+        relative_path = cmd_args(artifact).relative_to(transitive_dependency_dir.project("i"))
+        do_symlinks.add("--artifact", crate.dynamic, relative_path.ignore_artifacts())
+    ctx.actions.run(
+        do_symlinks,
+        category = "tdep_symlinks",
+        identifier = str(len(compile_ctx.transitive_dependency_dirs)),
+    )
+    compile_ctx.transitive_dependency_dirs[transitive_dependency_dir] = None
+    return cmd_args(transitive_dependency_dir, format = "@{}/dirs").hidden(artifacts.keys())
 
 def _lintify(flag: str.type, clippy: bool.type, lints: ["resolved_macro"]) -> "cmd_args":
     return cmd_args(
@@ -561,12 +601,11 @@ def _compute_common_args(
         ctx: "context",
         compile_ctx: CompileContext.type,
         emit: Emit.type,
-        crate: str.type,
         params: BuildParams.type,
         link_style: LinkStyle.type,
         default_roots: [str.type],
         is_rustdoc_test: bool.type,
-        extra_transitive_deps: {"artifact": None} = {}) -> CommonArgsInfo.type:
+        extra_transitive_deps: {"artifact": CrateName.type} = {}) -> CommonArgsInfo.type:
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, link_style, is_rustdoc_test)
@@ -579,12 +618,12 @@ def _compute_common_args(
         subdir = "{}-rustdoc-test".format(subdir)
 
     # Included in tempfiles
-    tempfile = "{}-{}".format(crate, emit.value)
+    tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
 
     srcs = ctx.attrs.srcs
     mapped_srcs = ctx.attrs.mapped_srcs
     all_srcs = map(lambda s: s.short_path, srcs) + mapped_srcs.values()
-    crate_root = ctx.attrs.crate_root or _crate_root(all_srcs, crate, default_roots)
+    crate_root = ctx.attrs.crate_root or _crate_root(ctx, all_srcs, default_roots)
 
     is_check = not emit_needs_codegen(emit)
 
@@ -614,9 +653,15 @@ def _compute_common_args(
     edition = ctx.attrs.edition or toolchain_info.default_edition or \
               fail("missing 'edition' attribute, and there is no 'default_edition' set by the toolchain")
 
+    crate = attr_crate(ctx)
+    if crate.dynamic:
+        crate_name_arg = cmd_args("--crate-name", cmd_args("@", crate.dynamic, delimiter = ""))
+    else:
+        crate_name_arg = cmd_args("--crate-name=", crate.simple, delimiter = "")
+
     args = cmd_args(
         cmd_args(compile_ctx.symlinked_srcs, "/", crate_root, delimiter = ""),
-        "--crate-name={}".format(crate),
+        crate_name_arg,
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
         "--edition={}".format(edition),
@@ -739,11 +784,14 @@ def _metadata(label: "label") -> (str.type, str.type):
     return (label, "0" * (8 - len(h)) + h)
 
 def _crate_root(
+        ctx: "context",
         srcs: [str.type],
-        crate: str.type,
         default_roots: [str.type]) -> str.type:
     candidates = set()
-    crate_with_suffix = crate + ".rs"
+    if getattr(ctx.attrs, "crate_dynamic", None):
+        crate_with_suffix = None
+    else:
+        crate_with_suffix = attr_crate(ctx).simple + ".rs"
     for src in srcs:
         filename = src.split("/")[-1]
         if filename in default_roots or filename == crate_with_suffix:
@@ -761,9 +809,9 @@ def _rustc_emits(
         emit: Emit.type,
         predeclared_outputs: {Emit.type: "artifact"},
         subdir: str.type,
-        crate: str.type,
         params: BuildParams.type) -> ({Emit.type: "artifact"}, "cmd_args"):
     toolchain_info = compile_ctx.toolchain_info
+    simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
 
     # Metadata for pipelining needs has enough info to be used as an input
@@ -782,15 +830,15 @@ def _rustc_emits(
         output = predeclared_outputs[emit]
     else:
         if emit == Emit("save-analysis"):
-            filename = "{}/save-analysis/{}{}.json".format(subdir, params.prefix, crate)
+            filename = "{}/save-analysis/{}{}.json".format(subdir, params.prefix, simple_crate)
         else:
             extra_hash = "-" + _metadata(ctx.label)[1]
             emit_args.add("-Cextra-filename={}".format(extra_hash))
             if pipeline_meta:
                 # Make sure hollow rlibs are distinct from real ones
-                filename = subdir + "/hollow/" + output_filename(crate, Emit("link"), params, extra_hash)
+                filename = subdir + "/hollow/" + output_filename(simple_crate, Emit("link"), params, extra_hash)
             else:
-                filename = subdir + "/" + output_filename(crate, emit, params, extra_hash)
+                filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
 
         output = ctx.actions.declare_output(filename)
 
@@ -825,7 +873,7 @@ def _rustc_emits(
 
     if emit not in (Emit("expand"), Emit("save-analysis")):
         # Strip file extension from directory name.
-        base, _ext = paths.split_extension(output_filename(crate, emit, params))
+        base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
         extra_dir = subdir + "/extras/" + base
         extra_out = ctx.actions.declare_output(extra_dir, dir = True)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
@@ -848,7 +896,7 @@ def _rustc_invoke(
         outputs: ["artifact"],
         short_cmd: str.type,
         is_binary: bool.type,
-        crate_map: {str.type: "label"},
+        crate_map: [(CrateName.type, "label")],
         env: {str.type: ["resolved_macro", "artifact"]} = {}) -> ({str.type: "artifact"}, ["artifact", None]):
     toolchain_info = compile_ctx.toolchain_info
 
@@ -871,8 +919,8 @@ def _rustc_invoke(
         "--buck-target={}".format(ctx.label.raw_target()),
     )
 
-    for k, v in crate_map.items():
-        compile_cmd.add(cmd_args("--crate-map=", k, "=", str(v.raw_target()), delimiter = ""))
+    for k, v in crate_map:
+        compile_cmd.add(crate_map_arg(ctx, compile_ctx, k, v))
     for k, v in plain_env.items():
         compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():

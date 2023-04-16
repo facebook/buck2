@@ -46,18 +46,23 @@ RustLinkInfo = provider(fields = [
     "non_rust_shared_libs",
 ])
 
+CrateName = record(
+    simple = field(str.type),
+    dynamic = field(["artifact", None]),
+)
+
 # Information which is keyed on link_style
 RustLinkStyleInfo = record(
     # Path to library or binary
     rlib = field("artifact"),
     # Transitive dependencies which are relevant to consumer
     # This is a dict from artifact to None (we don't have sets)
-    transitive_deps = field({"artifact": None}),
+    transitive_deps = field({"artifact": CrateName.type}),
 
     # Path for library metadata (used for check or pipelining)
     rmeta = field("artifact"),
     # Transitive rmeta deps
-    transitive_rmeta_deps = field({"artifact": None}),
+    transitive_rmeta_deps = field({"artifact": CrateName.type}),
 )
 
 def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkStyleInfo.type:
@@ -204,5 +209,37 @@ def inherited_non_rust_shared_libs(
     infos.extend([d.non_rust_shared_libs for d in _rust_link_infos(ctx, include_doc_deps)])
     return infos
 
-def attr_crate(ctx: "context") -> str.type:
-    return ctx.attrs.crate or normalize_crate(ctx.label.name)
+def attr_simple_crate_for_filenames(ctx: "context") -> str.type:
+    """
+    A "good enough" identifier to use in filenames. Buck wants to have filenames
+    of artifacts figured out before we begin building them. Normally we want a
+    crate foo to produce artifact libfoo.rlib; but if crate_dynamic is being
+    used, the true crate name is not known until later. In this situation we use
+    the rule's name in place of the true crate name in filenames.
+
+    # produces libordinary.rlib
+    rust_library(
+        name = "ordinary",
+        crate = "ordinary",
+    )
+
+    # produces libthrift_generated.rlib
+    rust_library(
+        name = "thrift-generated",
+        crate_dynamic = ":get-namespace-from-thrift-file",
+    )
+    """
+    return normalize_crate(ctx.attrs.crate or ctx.label.name)
+
+def attr_crate(ctx: "context") -> CrateName.type:
+    """
+    The true user-facing name of the crate, which may only be known at build
+    time, not during analysis.
+    """
+    dynamic = getattr(ctx.attrs, "crate_dynamic", None)
+    if dynamic:
+        dynamic = dynamic.get(DefaultInfo).default_outputs[0]
+    return CrateName(
+        simple = ctx.attrs.crate or normalize_crate(ctx.label.name),
+        dynamic = dynamic,
+    )

@@ -7,6 +7,7 @@
 
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":build_params.bzl", "CrateType", "Emit")
+load(":link_info.bzl", "CrateName")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 
 # Struct for sharing common args between rustc and rustdoc
@@ -17,7 +18,16 @@ CommonArgsInfo = record(
     tempfile = field(str.type),
     short_cmd = field(str.type),
     is_check = field(bool.type),
-    crate_map = field({str.type: "label"}),
+    crate_map = field([(CrateName.type, "label")]),
+)
+
+ExternArg = record(
+    flags = str.type,
+    lib = field("artifact"),
+)
+
+CrateMapArg = record(
+    label = field("label"),
 )
 
 # Compile info which is reusable between multiple compilation command performed
@@ -32,4 +42,7 @@ CompileContext = record(
     clippy_wrapper = field("cmd_args"),
     # Memoized common args for reuse.
     common_args = field({(CrateType.type, Emit.type, LinkStyle.type): CommonArgsInfo.type}),
+    flagfiles_for_extern = field({ExternArg.type: "artifact"}),
+    flagfiles_for_crate_map = field({CrateMapArg.type: "artifact"}),
+    transitive_dependency_dirs = field({"artifact": None}),
 )

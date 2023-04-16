@@ -33,6 +33,7 @@ def _system_rust_toolchain_impl(ctx):
         RustToolchainInfo(
             clippy_driver = "clippy-driver",
             compiler = "rustc",
+            concat_tool = ctx.attrs.concat_tool[RunInfo],
             default_edition = ctx.attrs.default_edition,
             extern_html_root_url_prefix = ctx.attrs.extern_html_root_url_prefix,
             failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
@@ -42,6 +43,7 @@ def _system_rust_toolchain_impl(ctx):
             rustdoc = "rustdoc",
             rustdoc_flags = ctx.attrs.rustdoc_flags,
             rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
+            transitive_dependency_symlinks_tool = ctx.attrs.transitive_dependency_symlinks_tool[RunInfo],
         ),
         RustPlatformInfo(
             name = "x86_64",
@@ -51,6 +53,7 @@ def _system_rust_toolchain_impl(ctx):
 system_rust_toolchain = rule(
     impl = _system_rust_toolchain_impl,
     attrs = {
+        "concat_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:concat")),
         "default_edition": attrs.option(attrs.string(), default = None),
         "extern_html_root_url_prefix": attrs.option(attrs.string(), default = None),
         "failure_filter_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:failure_filter_action")),
@@ -59,6 +62,7 @@ system_rust_toolchain = rule(
         "rustc_target_triple": attrs.string(default = _DEFAULT_TRIPLE),
         "rustdoc_flags": attrs.list(attrs.string(), default = []),
         "rustdoc_test_with_resources": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustdoc_test_with_resources")),
+        "transitive_dependency_symlinks_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:transitive_dependency_symlinks")),
     },
     is_toolchain_rule = True,
 )

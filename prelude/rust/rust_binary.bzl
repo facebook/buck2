@@ -49,7 +49,7 @@ load(":context.bzl", "CompileContext")
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STYLE",
-    "attr_crate",
+    "attr_simple_crate_for_filenames",
     "inherited_non_rust_shared_libs",
 )
 load(":resources.bzl", "rust_attr_resources")
@@ -61,7 +61,7 @@ def _rust_binary_common(
         extra_flags: [str.type]) -> ([[DefaultInfo.type, RunInfo.type]], "cmd_args"):
     toolchain_info = compile_ctx.toolchain_info
 
-    crate = attr_crate(ctx)
+    simple_crate = attr_simple_crate_for_filenames(ctx)
 
     styles = {}
     style_param = {}  # style -> param
@@ -88,7 +88,7 @@ def _rust_binary_common(
             target_os_type = target_os_type,
         )
         style_param[link_style] = params
-        name = link_style.value + "/" + output_filename(crate, Emit("link"), params)
+        name = link_style.value + "/" + output_filename(simple_crate, Emit("link"), params)
         output = ctx.actions.declare_output(name)
 
         # Gather and setup symlink tree of transitive shared library deps.
@@ -118,7 +118,6 @@ def _rust_binary_common(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emits = [Emit("link"), Emit("metadata")],
-            crate = crate,
             params = params,
             link_style = link_style,
             default_roots = default_roots,
@@ -153,7 +152,6 @@ def _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
-        crate = crate,
         params = style_param[DEFAULT_STATIC_LINK_STYLE],
         link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
@@ -164,7 +162,6 @@ def _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("save-analysis"),
-        crate = crate,
         params = style_param[DEFAULT_STATIC_LINK_STYLE],
         link_style = DEFAULT_STATIC_LINK_STYLE,
         default_roots = default_roots,
@@ -176,7 +173,6 @@ def _rust_binary_common(
         ("doc", generate_rustdoc(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            crate = crate,
             params = style_param[DEFAULT_STATIC_LINK_STYLE],
             default_roots = default_roots,
             document_private_items = True,

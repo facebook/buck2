@@ -216,6 +216,7 @@ rust_library = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "coverage": attrs.bool(default = False),
+            "crate_dynamic": attrs.option(attrs.dep(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "doc_deps": attrs.list(attrs.dep(), default = []),
