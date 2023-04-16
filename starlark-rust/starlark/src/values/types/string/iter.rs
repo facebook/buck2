@@ -47,26 +47,26 @@ use crate::values::ValueLike;
 )]
 #[display(fmt = "iterator")]
 #[repr(C)]
-struct StringIteratorGen<'v, V: ValueLike<'v>> {
+struct StringIterableGen<'v, V: ValueLike<'v>> {
     string: V::String,
     produce_char: bool, // if not char, then int
 }
 
 pub(crate) fn iterate_chars<'v>(string: StringValue<'v>, heap: &'v Heap) -> Value<'v> {
-    heap.alloc_complex(StringIteratorGen::<'v, Value<'v>> {
+    heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
         string,
         produce_char: true,
     })
 }
 
 pub(crate) fn iterate_codepoints<'v>(string: StringValue<'v>, heap: &'v Heap) -> Value<'v> {
-    heap.alloc_complex(StringIteratorGen::<'v, Value<'v>> {
+    heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
         string,
         produce_char: false,
     })
 }
 
-impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIteratorGen<'v, V>
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
     Self: ProvidesStaticType,
 {
