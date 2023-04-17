@@ -128,6 +128,7 @@ def cxx_link(
 
     external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
+        _label = ctx.label,
         artifacts = external_debug_artifacts,
         children = external_debug_infos,
     )

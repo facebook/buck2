@@ -513,6 +513,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                     )],
                     external_debug_info = maybe_external_debug_info(
                         actions = ctx.actions,
+                        _label = ctx.label,
                         artifacts = (
                             compiled_srcs.pic_external_debug_info +
                             (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])
@@ -773,6 +774,7 @@ def _form_library_outputs(
                     objects_have_external_debug_info = compiled_srcs.pic_objects_have_external_debug_info if pic else compiled_srcs.objects_have_external_debug_info,
                     external_debug_info = maybe_external_debug_info(
                         ctx.actions,
+                        _label = ctx.label,
                         artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
                         children = impl_params.additional.external_debug_info,
                     ),
@@ -805,6 +807,7 @@ def _form_library_outputs(
                     external_debug_artifacts.extend(impl_params.extra_link_input)
                 external_debug_info = maybe_external_debug_info(
                     actions = ctx.actions,
+                    _label = ctx.label,
                     artifacts = external_debug_artifacts,
                     children = impl_params.additional.external_debug_info,
                 )
@@ -1001,6 +1004,7 @@ def _static_library(
 
     all_external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
+        _label = ctx.label,
         artifacts = object_external_debug_info,
         children = [external_debug_info],
     )

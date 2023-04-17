@@ -114,7 +114,7 @@ def create_manifest_for_extensions(
     manifest.artifacts.extend(
         project_external_debug_info(
             ctx.actions,
-            _label = ctx.label,
+            label = ctx.label,
             infos = [lib.external_debug_info for lib, _ in extensions.values()],
         ),
     )

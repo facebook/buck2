@@ -398,7 +398,7 @@ def _pex_modules_common_args(
             dwp +
             project_external_debug_info(
                 ctx.actions,
-                _label = ctx.label,
+                label = ctx.label,
                 infos = [lib.external_debug_info for lib in shared_libraries.values()],
             ))
     return (cmd, deps)

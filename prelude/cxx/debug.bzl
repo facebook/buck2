@@ -31,6 +31,7 @@ ExternalDebugInfoTSet = transitive_set(args_projections = {
 
 def maybe_external_debug_info(
         actions: "actions",
+        _label: "label",  # @unused Used in future diffs.
         artifacts: ["artifact"] = [],
         children: [[ExternalDebugInfoTSet.type, None]] = []) -> [ExternalDebugInfoTSet.type, None]:
     # As a convenience for our callers, filter our `None` children.
@@ -50,7 +51,7 @@ def maybe_external_debug_info(
 
 def project_external_debug_info(
         actions: "actions",
-        _label: "label",  # @unused Used in future diffs.
+        label: "label",
         infos: [[ExternalDebugInfoTSet.type, None]] = []) -> ["transitive_set_args_projection"]:
     """
     Helper to project a list of optional tsets.
@@ -58,6 +59,7 @@ def project_external_debug_info(
 
     info = maybe_external_debug_info(
         actions = actions,
+        _label = label,
         children = infos,
     )
 

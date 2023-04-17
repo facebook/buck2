@@ -54,7 +54,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
 
     external_debug_info = project_external_debug_info(
         actions = ctx.actions,
-        _label = ctx.label,
+        label = ctx.label,
         infos = [cxx_output.external_debug_info],
     )
     dsym_artifact = get_apple_dsym(
