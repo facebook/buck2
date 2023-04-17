@@ -55,6 +55,7 @@ use tonic::transport::channel::ClientTlsConfig;
 use tonic::transport::Certificate;
 use tonic::transport::Channel;
 use tonic::transport::Identity;
+use tonic::transport::Uri;
 
 use crate::error::*;
 use crate::metadata::*;
@@ -154,10 +155,21 @@ impl REClientBuilder {
         let create_channel = |address: Option<String>| async move {
             let address = address.as_ref().context("No address")?;
             let address = substitute_env_vars(address).context("Invalid address")?;
+            let uri: Uri = address.parse().context("Invalid address")?;
+
+            let uses_tls = match uri.scheme_str() {
+                Some("grpc") | Some("http") => false,
+                Some("grpcs") | Some("https") => true,
+                _ => return Err(anyhow::anyhow!("Invalid scheme")),
+            };
+
+            let mut channel = Channel::builder(uri);
+            if uses_tls {
+                channel = channel.tls_config(tls_config.clone())?;
+            }
 
             anyhow::Ok(
-                Channel::from_shared(address.clone())?
-                    .tls_config(tls_config.clone())?
+                channel
                     .connect()
                     .await
                     .with_context(|| format!("Error connecting to `{}`", address))?,
