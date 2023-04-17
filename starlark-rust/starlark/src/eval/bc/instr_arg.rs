@@ -39,7 +39,6 @@ use crate::eval::bc::native_function::BcNativeFunction;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
-use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlot;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
@@ -273,19 +272,6 @@ impl BcInstrArg for BcAddrOffset {
     fn visit_jump_addr(param: &Self, consumer: &mut dyn FnMut(BcAddrOffset)) {
         consumer(*param);
     }
-}
-
-impl BcInstrArg for BcAddr {
-    fn fmt_append(
-        param: &Self,
-        _ip: BcAddr,
-        _end_arg: Option<&BcInstrEndArg>,
-        f: &mut dyn Write,
-    ) -> fmt::Result {
-        write!(f, " {}", param.0)
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
 }
 
 impl BcInstrArg for FrozenValue {
@@ -556,19 +542,6 @@ impl BcInstrArg for KnownMethod {
         f: &mut dyn Write,
     ) -> fmt::Result {
         write!(f, " <m>")
-    }
-
-    fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
-}
-
-impl BcInstrArg for Vec<(BcAddr, BcInstrSlowArg)> {
-    fn fmt_append(
-        _param: &Self,
-        _ip: BcAddr,
-        _end_arg: Option<&BcInstrEndArg>,
-        f: &mut dyn Write,
-    ) -> fmt::Result {
-        write!(f, " args")
     }
 
     fn visit_jump_addr(_param: &Self, _consumer: &mut dyn FnMut(BcAddrOffset)) {}
