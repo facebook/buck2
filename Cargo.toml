@@ -70,6 +70,7 @@ members = [
     "gazebo/display_container",
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
+    "integrations/rust-project",
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
     "starlark-rust/starlark",
