@@ -18,7 +18,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::cas_digest::CasDigestConfig;
-use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
@@ -292,7 +292,7 @@ pub fn re_tree_to_directory(
     /// but the pointers are hashes, so we need to first see a hash before we can work out what
     /// hashing mechanism to use here.
     struct DirMap<'a> {
-        by_kind: SmallMap<DigestAlgorithmKind, HashMap<FileDigest, &'a RE::Directory>>,
+        by_kind: SmallMap<DigestAlgorithm, HashMap<FileDigest, &'a RE::Directory>>,
         directories: &'a [RE::Directory],
     }
 
@@ -304,9 +304,7 @@ pub fn re_tree_to_directory(
             }
         }
 
-        fn get(&mut self, digest: &FileDigest) -> Option<&'a RE::Directory> {
-            let algo = digest.raw_digest().algorithm();
-
+        fn get(&mut self, algo: DigestAlgorithm, digest: &FileDigest) -> Option<&'a RE::Directory> {
             let map = self.by_kind.entry(algo).or_insert_with(|| {
                 self.directories
                     .iter()
@@ -318,7 +316,7 @@ pub fn re_tree_to_directory(
         }
     }
 
-    fn from_proto_message<M: prost::Message>(m: &M, algo: DigestAlgorithmKind) -> FileDigest {
+    fn from_proto_message<M: prost::Message>(m: &M, algo: DigestAlgorithm) -> FileDigest {
         let mut m_encoded = Vec::new();
         m.encode(&mut m_encoded)
             .unwrap_or_else(|e| unreachable!("Protobuf messages are always encodeable: {}", e));
@@ -384,8 +382,9 @@ pub fn re_tree_to_directory(
                 }
                 Some(d) => d,
             };
-            let child_digest = FileDigest::from_grpc(child_digest, digest_config)?;
-            let child_re_dir = match dirmap.get(&child_digest) {
+            let (child_digest, child_digest_algo) =
+                FileDigest::from_grpc_with_algo(child_digest, digest_config)?;
+            let child_re_dir = match dirmap.get(child_digest_algo, &child_digest) {
                 None => {
                     return Err(DirectoryReConversionError::IncompleteTreeChildrenList {
                         name: dir_node.name.clone(),

@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::actions::build_listener::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -57,6 +58,7 @@ use buck2_server_ctx::concurrency::ParallelInvocation;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
+use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 use tokio::sync::Mutex;
 
@@ -202,6 +204,15 @@ impl DaemonState {
                     vec![DigestAlgorithmKind::Sha256]
                 } else {
                     vec![DigestAlgorithmKind::Sha1]
+                }
+            })
+            .into_map(|d| {
+                // This looks rather dumb at the moment; This will become less dumb once we add
+                // Keyed Blake3 support.
+                match d {
+                    DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
+                    DigestAlgorithmKind::Sha256 => DigestAlgorithm::Sha256,
+                    DigestAlgorithmKind::Blake3 => DigestAlgorithm::Blake3,
                 }
             });
 

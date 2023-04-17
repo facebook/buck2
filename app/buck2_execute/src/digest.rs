@@ -11,6 +11,7 @@ use std::fmt;
 
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::CasDigestParseError;
+use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::TrackedCasDigest;
 use remote_execution::Digest;
 use remote_execution::TDigest;
@@ -30,8 +31,24 @@ pub enum DigestConversionError {
 }
 
 pub trait CasDigestFromReExt: Sized {
-    fn from_re(x: &TDigest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
-    fn from_grpc(x: &Digest, digest_config: DigestConfig) -> Result<Self, DigestConversionError>;
+    fn from_re_with_algo(
+        x: &TDigest,
+        digest_config: DigestConfig,
+    ) -> Result<(Self, DigestAlgorithm), DigestConversionError>;
+
+    /// Parse a digest and return the algorithm it used
+    fn from_grpc_with_algo(
+        x: &Digest,
+        digest_config: DigestConfig,
+    ) -> Result<(Self, DigestAlgorithm), DigestConversionError>;
+
+    fn from_re(x: &TDigest, digest_config: DigestConfig) -> Result<Self, DigestConversionError> {
+        Self::from_re_with_algo(x, digest_config).map(|(d, _a)| d)
+    }
+
+    fn from_grpc(x: &Digest, digest_config: DigestConfig) -> Result<Self, DigestConversionError> {
+        Self::from_grpc_with_algo(x, digest_config).map(|(d, _a)| d)
+    }
 }
 
 pub trait CasDigestToReExt {
@@ -40,32 +57,31 @@ pub trait CasDigestToReExt {
 }
 
 impl<Kind> CasDigestFromReExt for CasDigest<Kind> {
-    fn from_re(
+    fn from_re_with_algo(
         digest: &TDigest,
         digest_config: DigestConfig,
-    ) -> Result<Self, DigestConversionError> {
-        Ok(Self::new(
+    ) -> Result<(Self, DigestAlgorithm), DigestConversionError> {
+        let (ret, algo) =
             Self::parse_digest_without_size(&digest.hash, digest_config.cas_digest_config())
                 .map_err(|error| DigestConversionError::ParseError {
                     digest: digest.to_string(),
                     error,
-                })?,
-            digest.size_in_bytes as u64,
-        ))
+                })?;
+        Ok((Self::new(ret, digest.size_in_bytes as u64), algo))
     }
 
-    fn from_grpc(
+    fn from_grpc_with_algo(
         digest: &Digest,
         digest_config: DigestConfig,
-    ) -> Result<Self, DigestConversionError> {
-        Ok(Self::new(
+    ) -> Result<(Self, DigestAlgorithm), DigestConversionError> {
+        let (ret, algo) =
             Self::parse_digest_without_size(&digest.hash, digest_config.cas_digest_config())
                 .map_err(|error| DigestConversionError::ParseError {
                     digest: format!("{}:{}", digest.hash, digest.size_bytes),
                     error,
-                })?,
-            digest.size_bytes as u64,
-        ))
+                })?;
+
+        Ok((Self::new(ret, digest.size_bytes as u64), algo))
     }
 }
 

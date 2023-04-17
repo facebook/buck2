@@ -95,6 +95,10 @@ impl fmt::Display for RawDigest {
     }
 }
 
+/// The kind of digest algorithm associated with a digest. This tells you what kind of digest it
+/// is, but it might not be sufficient in order to actually recreate the digest. For example, this
+/// could contain keyed digests, but then you wouldn't have the key. We use this to store our
+/// digest kind when it's informative-only, like in our materializer state on disk.
 #[derive(
     Debug,
     Display,
@@ -141,6 +145,24 @@ impl std::str::FromStr for DigestAlgorithmKind {
     }
 }
 
+/// An actual digest algorithm you can use to hash data.
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Hash, Allocative)]
+pub enum DigestAlgorithm {
+    Sha1,
+    Sha256,
+    Blake3,
+}
+
+impl DigestAlgorithm {
+    fn kind(self) -> DigestAlgorithmKind {
+        match self {
+            Self::Sha1 => DigestAlgorithmKind::Sha1,
+            Self::Sha256 => DigestAlgorithmKind::Sha256,
+            Self::Blake3 => DigestAlgorithmKind::Blake3,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
 pub struct CasDigestConfig {
     inner: &'static CasDigestConfigInner,
@@ -149,14 +171,14 @@ pub struct CasDigestConfig {
 impl CasDigestConfig {
     pub fn testing_default() -> Self {
         static COMPAT: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha1]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
 
         Self { inner: &COMPAT }
     }
 
     /// We just Box::leak this since we create one per daemon and as a result just use
     /// CasDigestConfig as a pointer.
-    pub fn leak_new(algorithms: Vec<DigestAlgorithmKind>) -> Result<Self, CasDigestConfigError> {
+    pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
         let inner = Box::leak(Box::new(CasDigestConfigInner::new(algorithms)?));
         Ok(Self { inner })
     }
@@ -167,35 +189,35 @@ impl CasDigestConfig {
         self.inner.empty_file_digest.dupe()
     }
 
-    pub fn preferred_algorithm(self) -> DigestAlgorithmKind {
+    pub fn preferred_algorithm(self) -> DigestAlgorithm {
         self.inner.preferred_algorithm
     }
 
-    pub fn digest160(self) -> Option<DigestAlgorithmKind> {
+    pub fn digest160(self) -> Option<DigestAlgorithm> {
         self.inner.digest160
     }
 
-    pub fn digest256(self) -> Option<DigestAlgorithmKind> {
+    pub fn digest256(self) -> Option<DigestAlgorithm> {
         self.inner.digest256
     }
 
     pub fn allows_sha1(self) -> bool {
-        self.inner.digest160 == Some(DigestAlgorithmKind::Sha1)
+        self.inner.digest160 == Some(DigestAlgorithm::Sha1)
     }
 }
 
 #[derive(Debug, Allocative, Hash, Eq, PartialEq)]
 struct CasDigestConfigInner {
-    preferred_algorithm: DigestAlgorithmKind,
-    digest160: Option<DigestAlgorithmKind>,
-    digest256: Option<DigestAlgorithmKind>,
+    preferred_algorithm: DigestAlgorithm,
+    digest160: Option<DigestAlgorithm>,
+    digest256: Option<DigestAlgorithm>,
     empty_file_digest: crate::file_ops::TrackedFileDigest,
 }
 
 impl CasDigestConfigInner {
     /// Initialize a CasDigestConfigInner. The algorithms should be listed in decreasing order of
     /// preference.
-    fn new(algorithms: Vec<DigestAlgorithmKind>) -> Result<Self, CasDigestConfigError> {
+    fn new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
         let preferred_algorithm = *algorithms
             .first()
             .ok_or(CasDigestConfigError::NotConfigured)?;
@@ -205,9 +227,9 @@ impl CasDigestConfigInner {
 
         for algo in algorithms {
             let slot = match algo {
-                DigestAlgorithmKind::Sha1 => &mut digest160,
-                DigestAlgorithmKind::Sha256 => &mut digest256,
-                DigestAlgorithmKind::Blake3 => &mut digest256,
+                DigestAlgorithm::Sha1 => &mut digest160,
+                DigestAlgorithm::Sha256 => &mut digest256,
+                DigestAlgorithm::Blake3 => &mut digest256,
             };
 
             if let Some(slot) = &slot {
@@ -237,8 +259,8 @@ impl CasDigestConfigInner {
 pub enum CasDigestConfigError {
     #[error("At least one algorithm must be enabled")]
     NotConfigured,
-    #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0, .1)]
-    Conflict(DigestAlgorithmKind, DigestAlgorithmKind),
+    #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0.kind(), .1.kind())]
+    Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
 pub struct Digester<Kind> {
@@ -382,21 +404,24 @@ impl<Kind> CasDigest<Kind> {
         TinyDigest { of: self }
     }
 
-    pub fn parse_digest(s: &str, config: CasDigestConfig) -> Result<Self, CasDigestParseError> {
+    pub fn parse_digest(
+        s: &str,
+        config: CasDigestConfig,
+    ) -> Result<(Self, DigestAlgorithm), CasDigestParseError> {
         let (digest, size) = s
             .split_once(':')
             .ok_or(CasDigestParseError::MissingSizeSeparator)?;
 
-        let digest = CasDigest::<Kind>::parse_digest_without_size(digest, config)?;
+        let (digest, algo) = CasDigest::<Kind>::parse_digest_without_size(digest, config)?;
         let size = size.parse().map_err(CasDigestParseError::InvalidSize)?;
 
-        Ok(Self::new(digest, size))
+        Ok((Self::new(digest, size), algo))
     }
 
     pub fn parse_digest_without_size(
         data: &str,
         config: CasDigestConfig,
-    ) -> Result<RawDigest, CasDigestParseError> {
+    ) -> Result<(RawDigest, DigestAlgorithm), CasDigestParseError> {
         let algo = if data.len() == 40 {
             config.digest160()
         } else if data.len() == 64 {
@@ -407,11 +432,13 @@ impl<Kind> CasDigest<Kind> {
 
         let algo = algo.ok_or(CasDigestParseError::UnsupportedDigest(data.len()))?;
 
-        match algo {
+        let digest = match algo.kind() {
             DigestAlgorithmKind::Sha1 => RawDigest::parse_sha1(data.as_bytes()),
             DigestAlgorithmKind::Sha256 => RawDigest::parse_sha256(data.as_bytes()),
             DigestAlgorithmKind::Blake3 => RawDigest::parse_blake3(data.as_bytes()),
-        }
+        }?;
+
+        Ok((digest, algo))
     }
 
     /// Return the digest of an empty string
@@ -423,16 +450,11 @@ impl<Kind> CasDigest<Kind> {
         Self::digester_for_algorithm(config.preferred_algorithm())
     }
 
-    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithmKind because
-    /// we might need to deal with keyed Blake3.
-    pub fn digester_for_algorithm(algorithm: DigestAlgorithmKind) -> Digester<Kind> {
+    pub fn digester_for_algorithm(algorithm: DigestAlgorithm) -> Digester<Kind> {
         let variant = match algorithm {
-            DigestAlgorithmKind::Sha1 => DigesterVariant::Sha1(Sha1::new()),
-            DigestAlgorithmKind::Sha256 => DigesterVariant::Sha256(Sha256::new()),
-            // NOTE: This is where keying would matter. Note that we don't need to actually
-            // retain the key in RawDigest or DigestAlgorithmKind, since we never actually care
-            // about which hash we have besides debugging purposes.
-            DigestAlgorithmKind::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
+            DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
+            DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
+            DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
         };
 
         Digester {
@@ -446,9 +468,7 @@ impl<Kind> CasDigest<Kind> {
         Self::from_content_for_algorithm(bytes, config.preferred_algorithm())
     }
 
-    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithmKind because
-    /// we might need to deal with keyed Blake3.
-    pub fn from_content_for_algorithm(bytes: &[u8], algorithm: DigestAlgorithmKind) -> Self {
+    pub fn from_content_for_algorithm(bytes: &[u8], algorithm: DigestAlgorithm) -> Self {
         let mut digester = Self::digester_for_algorithm(algorithm);
         digester.update(bytes);
         digester.finalize()
@@ -458,11 +478,9 @@ impl<Kind> CasDigest<Kind> {
         Self::from_reader_for_algorithm(reader, config.preferred_algorithm())
     }
 
-    /// NOTE: Eventually this probably needs to take something that isn't DigestAlgorithmKind because
-    /// we might need to deal with keyed Blake3.
     pub fn from_reader_for_algorithm<R: Read>(
         mut reader: R,
-        algorithm: DigestAlgorithmKind,
+        algorithm: DigestAlgorithm,
     ) -> anyhow::Result<Self> {
         let mut digester = Self::digester_for_algorithm(algorithm);
 
@@ -688,43 +706,40 @@ pub mod testing {
 
     pub fn sha1_sha256() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha1, DigestAlgorithmKind::Sha256])
-                .unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Sha256]).unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha1_blake3() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha1, DigestAlgorithmKind::Blake3])
-                .unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Blake3]).unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha256_sha1() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha256, DigestAlgorithmKind::Sha1])
-                .unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha1]).unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha1() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha1]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha256() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithmKind::Sha256]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256]).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn blake3() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithmKind::Blake3]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3]).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 }
@@ -740,6 +755,7 @@ mod tests {
         assert_eq!(
             CasDigest::<()>::parse_digest(s, config)
                 .unwrap()
+                .0
                 .to_string(),
             s
         );
@@ -750,19 +766,19 @@ mod tests {
         let content = &b"foo"[..];
 
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithmKind::Sha1)
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha1)
                 .unwrap()
                 .to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithmKind::Sha256)
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Sha256)
                 .unwrap()
                 .to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithmKind::Blake3)
+            CasDigest::<()>::from_reader_for_algorithm(content, DigestAlgorithm::Blake3)
                 .unwrap()
                 .to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
@@ -774,17 +790,16 @@ mod tests {
         let content = &b"foo"[..];
 
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithmKind::Sha1)
-                .to_string(),
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha1).to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithmKind::Sha256)
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Sha256)
                 .to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
         );
         assert_eq!(
-            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithmKind::Blake3)
+            CasDigest::<()>::from_content_for_algorithm(content, DigestAlgorithm::Blake3)
                 .to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
@@ -814,7 +829,8 @@ mod tests {
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3",
             testing::sha256_sha1(),
         )
-        .unwrap();
+        .unwrap()
+        .0;
         assert_eq!(sha1.raw_digest().algorithm(), DigestAlgorithmKind::Sha1);
         assert_eq!(
             sha1.to_string(),
@@ -825,7 +841,8 @@ mod tests {
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3",
             testing::sha1_sha256(),
         )
-        .unwrap();
+        .unwrap()
+        .0;
         assert_eq!(sha256.raw_digest().algorithm(), DigestAlgorithmKind::Sha256);
         assert_eq!(
             sha256.to_string(),
@@ -836,7 +853,8 @@ mod tests {
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3",
             testing::sha1_blake3(),
         )
-        .unwrap();
+        .unwrap()
+        .0;
         assert_eq!(blake3.raw_digest().algorithm(), DigestAlgorithmKind::Blake3);
         assert_eq!(
             blake3.to_string(),
@@ -845,7 +863,7 @@ mod tests {
     }
 
     #[test]
-    fn test_digest_algorithm_roundtrip() {
+    fn test_digest_algorithm_kind_roundtrip() {
         for v in [
             DigestAlgorithmKind::Sha1,
             DigestAlgorithmKind::Sha256,

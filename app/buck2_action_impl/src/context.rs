@@ -784,7 +784,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         let mut registry = this.state();
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
-            .with_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?;
+            .with_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?
+            .0;
 
         let use_case = RemoteExecutorUseCase::new(use_case.to_owned());
 
