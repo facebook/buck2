@@ -312,12 +312,12 @@ async fn start_persist_subprocess(
 ) -> anyhow::Result<NamedEventLogWriter> {
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
-    let manifold_path = &format!("flat/{}{}", trace_id, path.extension());
+    let manifold_name = &format!("{}{}", trace_id, path.extension());
     let local_path = &path.path.display().to_string();
     let child = command
         .args(["debug", "persist-event-logs"])
-        .arg(manifold_path)
-        .arg(local_path)
+        .args(["--manifold-name", manifold_name])
+        .args(["--local-path", local_path])
         .stdin(Stdio::piped())
         .spawn()
         .with_context(|| {

@@ -33,7 +33,9 @@ type MyJoinHandle = Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>;
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Command to stream event logs to Manifold")]
 pub struct PersistEventLogsCommand {
-    manifold_path: String,
+    #[clap(long, help = "Name this log will take in Manifold")]
+    manifold_name: String,
+    #[clap(long, help = "Where to write this log to on disk")]
     local_path: String,
 }
 
@@ -54,13 +56,14 @@ impl PersistEventLogsCommand {
         let mut read_position: u64 = 0;
         let mut upload_handle: MyJoinHandle = None;
         let mut first_upload = true;
+        let manifold_path = format!("flat/{}", self.manifold_name);
         poll_and_upload_loop(
             stdin,
             &mut file,
             &mut upload_handle,
             &mut read_position,
             &mut first_upload,
-            &self.manifold_path,
+            &manifold_path,
             upload_chunk_size,
         )
         .await?;
@@ -69,7 +72,7 @@ impl PersistEventLogsCommand {
             upload_handle,
             read_position,
             first_upload,
-            &self.manifold_path,
+            &manifold_path,
             upload_chunk_size,
         )
         .await?;
