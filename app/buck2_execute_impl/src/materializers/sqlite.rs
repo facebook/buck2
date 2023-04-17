@@ -46,7 +46,7 @@ use crate::materializers::deferred::DirectoryMetadata;
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const DB_SCHEMA_VERSION: u64 = 5;
+pub const DB_SCHEMA_VERSION: u64 = 6;
 
 const STATE_TABLE_NAME: &str = "materializer_state";
 
