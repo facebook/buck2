@@ -165,7 +165,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ctx,
                 BuckPath::new(pkg.dupe(), s.path().dupe()),
             )),
-            AttrLiteral::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             AttrLiteral::Arg(arg) => arg.resolve(ctx),
             AttrLiteral::Label(label) => {
                 let label = Label::new(*label.clone());
@@ -188,6 +187,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     ConfigurationDepAttrType::resolve_single(ctx, d)
                 }
                 ConfiguredAttrExtraTypes::Dep(d) => DepAttrType::resolve_single(ctx, d),
+                ConfiguredAttrExtraTypes::SourceLabel(s) => {
+                    SourceAttrType::resolve_single_label(ctx, s)
+                }
             },
         }
     }
@@ -199,7 +201,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
     ) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
-            AttrLiteral::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
+            AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceLabel(src)) => {
+                SourceAttrType::resolve_label(ctx, src)
+            }
             _ => Ok(vec![self.resolve_single(pkg, ctx)?]),
         }
     }
@@ -216,7 +220,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
-            AttrLiteral::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::Label(_) => Ok(Label::get_type_value_static().as_str()),
@@ -231,6 +234,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     Ok(starlark::values::string::STRING_TYPE)
                 }
                 ConfiguredAttrExtraTypes::Dep(_) => Ok(Label::get_type_value_static().as_str()),
+                ConfiguredAttrExtraTypes::SourceLabel(_) => {
+                    Ok(Label::get_type_value_static().as_str())
+                }
             },
         }
     }
@@ -258,7 +264,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::None => Value::new_none(),
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
-            AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),
@@ -292,6 +297,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
                 }
                 ConfiguredAttrExtraTypes::Dep(d) => heap.alloc(Label::new(d.label.clone())),
+                ConfiguredAttrExtraTypes::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             },
         })
     }

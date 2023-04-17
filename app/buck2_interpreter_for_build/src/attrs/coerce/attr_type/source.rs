@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -45,7 +46,9 @@ impl AttrTypeCoerce for SourceAttrType {
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         match ctx.coerce_label(source_label) {
-            Ok(label) => Ok(AttrLiteral::SourceLabel(Box::new(label))),
+            Ok(label) => Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::SourceLabel(
+                Box::new(label),
+            ))),
             Err(label_err) => {
                 match ctx.coerce_path(cleanup_path(source_label), self.allow_directory) {
                     Ok(path) => Ok(AttrLiteral::SourceFile(path)),

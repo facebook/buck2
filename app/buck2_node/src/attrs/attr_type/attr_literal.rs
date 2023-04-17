@@ -61,7 +61,6 @@ pub enum AttrLiteral<C: AttrConfig> {
     Dict(ArcSlice<(C, C)>),
     None,
     Query(Box<QueryAttr<C>>),
-    SourceLabel(Box<C::ProvidersType>),
     SourceFile(CoercedPath),
     Arg(StringWithMacros<C>),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
@@ -131,7 +130,6 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             }
             AttrLiteral::None => write!(f, "None"),
             AttrLiteral::Query(v) => write!(f, "\"{}\"", v.query()),
-            AttrLiteral::SourceLabel(v) => write!(f, "\"{}\"", v),
             AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
             AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
@@ -181,7 +179,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::SourceFile(s) => {
                 Ok(to_value(Self::source_file_display(ctx, s).to_string())?)
             }
-            AttrLiteral::SourceLabel(s) => Ok(to_value(s.to_string())?),
             AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
             AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
@@ -215,7 +212,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
             }
             AttrLiteral::None => Ok(false),
             AttrLiteral::SourceFile(s) => filter(&s.path().to_string()),
-            AttrLiteral::SourceLabel(s) => filter(&s.to_string()),
             AttrLiteral::Query(q) => filter(q.query()),
             AttrLiteral::Arg(a) => filter(&a.to_string()),
             AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
@@ -271,7 +267,6 @@ impl AttrLiteral<ConfiguredAttr> {
                 }
                 Ok(())
             }
-            AttrLiteral::SourceLabel(box dep) => traversal.dep(dep),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
@@ -288,6 +283,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 }
                 ConfiguredAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
                 ConfiguredAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
+                ConfiguredAttrExtraTypes::SourceLabel(dep) => traversal.dep(dep),
             },
         }
     }
@@ -317,9 +313,6 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::None => AttrLiteral::None,
             AttrLiteral::Query(query) => AttrLiteral::Query(Box::new(query.configure(ctx)?)),
             AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
-            AttrLiteral::SourceLabel(box source) => AttrLiteral::SourceLabel(Box::new(
-                source.configure_pair(ctx.cfg().cfg_pair().dupe()),
-            )),
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
             AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
             AttrLiteral::OneOf(l, i) => {
@@ -341,6 +334,11 @@ impl AttrLiteral<CoercedAttr> {
                     ConfigurationDepAttrType::configure(ctx, dep)?
                 }
                 CoercedAttrExtraTypes::Dep(dep) => DepAttrType::configure(ctx, dep)?,
+                CoercedAttrExtraTypes::SourceLabel(source) => {
+                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
+                        source.configure_pair(ctx.cfg().cfg_pair().dupe()),
+                    )))
+                }
             },
         }))
     }
@@ -376,7 +374,6 @@ impl AttrLiteral<CoercedAttr> {
                 }
                 Ok(())
             }
-            AttrLiteral::SourceLabel(box s) => traversal.dep(s.target()),
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
             AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(box l, _) => l.traverse(pkg, traversal),
@@ -391,6 +388,7 @@ impl AttrLiteral<CoercedAttr> {
                 }
                 CoercedAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
                 CoercedAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
+                CoercedAttrExtraTypes::SourceLabel(s) => traversal.dep(s.target()),
             },
         }
     }
