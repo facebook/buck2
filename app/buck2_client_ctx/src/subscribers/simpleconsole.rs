@@ -281,10 +281,10 @@ where
         // When command is stuck we call `rage` to gather debugging information
         if !self.already_raged {
             self.already_raged = true;
-            tokio::spawn(call_rage(
+            call_rage(
                 self.isolation_dir.clone(),
                 self.observer().session_info().trace_id.dupe(),
-            ));
+            );
         }
         Ok(())
     }
@@ -657,16 +657,21 @@ mod tests {
     }
 }
 
-async fn call_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
-    match call_rage_impl(isolation_dir, trace_id).await {
+fn call_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
+    match call_rage_impl(isolation_dir, trace_id) {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
+fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
+    // We just spawn a process here and forget about it.
+    // Spawned process continues running after this function exits.
+    // However, nobody reaps this process, so after termination it lives as zombie
+    // until this process termination.
+    // Since we don't spawn a lot of rage commands, this is fine.
     let current_exe = std::env::current_exe().context("Not current_exe")?;
-    let mut command = buck2_util::process::async_background_command(current_exe);
+    let mut command = buck2_util::process::background_command(current_exe);
     command
         .args(["--isolation-dir", isolation_dir.as_str()])
         .arg("rage")
@@ -679,8 +684,6 @@ async fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn()?
-        .wait()
-        .await?;
+        .spawn()?;
     Ok(())
 }
