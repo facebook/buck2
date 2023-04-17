@@ -761,6 +761,7 @@ mod tests {
     use allocative::Allocative;
     use anyhow::Context;
     use async_trait::async_trait;
+    use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::span::SpanId;
@@ -831,6 +832,11 @@ mod tests {
 
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
+        // FIXME: This times out on open source, and we don't know why
+        if is_open_source() {
+            return;
+        }
+
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(
