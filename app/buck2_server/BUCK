@@ -60,6 +60,7 @@ rust_library(
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
+        # @oss-disable: "//blake3:blake3-constants-rust", 
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_api:buck2_build_api",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",

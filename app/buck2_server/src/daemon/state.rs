@@ -206,15 +206,34 @@ impl DaemonState {
                     vec![DigestAlgorithmKind::Sha1]
                 }
             })
-            .into_map(|d| {
-                // This looks rather dumb at the moment; This will become less dumb once we add
-                // Keyed Blake3 support.
-                match d {
+            .into_try_map(|d| {
+                anyhow::Ok(match d {
                     DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
                     DigestAlgorithmKind::Sha256 => DigestAlgorithm::Sha256,
                     DigestAlgorithmKind::Blake3 => DigestAlgorithm::Blake3,
-                }
-            });
+                    DigestAlgorithmKind::Blake3Keyed => {
+                        #[cfg(fbcode_build)]
+                        {
+                            let key = blake3_constants::BLAKE3_HASH_KEY
+                                .as_bytes()
+                                .try_into()
+                                .context("BLAKE3_HASH_KEY is the wrong size")?;
+
+                            DigestAlgorithm::Blake3Keyed { key }
+                        }
+
+                        #[cfg(not(fbcode_build))]
+                        {
+                            // We probably should just add it as a separate buckconfig, there is
+                            // zero reason not to.
+                            return Err(anyhow::anyhow!(
+                                "{} is not supported in the open source build",
+                                d
+                            ));
+                        }
+                    }
+                })
+            })?;
 
         let digest_config =
             DigestConfig::leak_new(digest_algorithms).context("Error initializing DigestConfig")?;

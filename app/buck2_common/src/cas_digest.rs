@@ -45,9 +45,11 @@ pub const BLAKE3_SIZE: usize = 32;
 /// The bytes that make up a file digest.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone)]
 pub enum RawDigest {
+    // TODO: Perhaps this should be represented as a (DigestAlgorithmKind, [0;32])
     Sha1([u8; SHA1_SIZE]),
     Sha256([u8; SHA256_SIZE]),
     Blake3([u8; BLAKE3_SIZE]),
+    Blake3Keyed([u8; BLAKE3_SIZE]),
 }
 
 // We consider copying 20 bytes is cheap enough not to qualify for Dupe
@@ -59,6 +61,7 @@ impl RawDigest {
             Self::Sha1(x) => x,
             Self::Sha256(x) => x,
             Self::Blake3(x) => x,
+            Self::Blake3Keyed(x) => x,
         }
     }
 
@@ -67,6 +70,7 @@ impl RawDigest {
             Self::Sha1(..) => DigestAlgorithmKind::Sha1,
             Self::Sha256(..) => DigestAlgorithmKind::Sha256,
             Self::Blake3(..) => DigestAlgorithmKind::Blake3,
+            Self::Blake3Keyed(..) => DigestAlgorithmKind::Blake3,
         }
     }
 
@@ -86,6 +90,12 @@ impl RawDigest {
         let mut blake3 = [0; BLAKE3_SIZE];
         hex::decode_to_slice(data, &mut blake3).map_err(CasDigestParseError::InvalidBlake3)?;
         Ok(RawDigest::Blake3(blake3))
+    }
+
+    pub fn parse_blake3_keyed(data: &[u8]) -> Result<Self, CasDigestParseError> {
+        let mut blake3 = [0; BLAKE3_SIZE];
+        hex::decode_to_slice(data, &mut blake3).map_err(CasDigestParseError::InvalidBlake3)?;
+        Ok(RawDigest::Blake3Keyed(blake3))
     }
 }
 
@@ -119,6 +129,8 @@ pub enum DigestAlgorithmKind {
     Sha256,
     #[display(fmt = "BLAKE3")]
     Blake3,
+    #[display(fmt = "BLAKE3-KEYED")]
+    Blake3Keyed,
 }
 
 #[derive(Error, Debug)]
@@ -141,6 +153,10 @@ impl std::str::FromStr for DigestAlgorithmKind {
             return Ok(Self::Blake3);
         }
 
+        if s == "BLAKE3-KEYED" {
+            return Ok(Self::Blake3Keyed);
+        }
+
         Err(InvalidDigestAlgorithmKind(s.to_owned()))
     }
 }
@@ -151,6 +167,7 @@ pub enum DigestAlgorithm {
     Sha1,
     Sha256,
     Blake3,
+    Blake3Keyed { key: &'static [u8; 32] },
 }
 
 impl DigestAlgorithm {
@@ -159,6 +176,7 @@ impl DigestAlgorithm {
             Self::Sha1 => DigestAlgorithmKind::Sha1,
             Self::Sha256 => DigestAlgorithmKind::Sha256,
             Self::Blake3 => DigestAlgorithmKind::Blake3,
+            Self::Blake3Keyed { .. } => DigestAlgorithmKind::Blake3Keyed,
         }
     }
 }
@@ -230,6 +248,7 @@ impl CasDigestConfigInner {
                 DigestAlgorithm::Sha1 => &mut digest160,
                 DigestAlgorithm::Sha256 => &mut digest256,
                 DigestAlgorithm::Blake3 => &mut digest256,
+                DigestAlgorithm::Blake3Keyed { .. } => &mut digest256,
             };
 
             if let Some(slot) = &slot {
@@ -272,7 +291,8 @@ pub struct Digester<Kind> {
 enum DigesterVariant {
     Sha1(Sha1),
     Sha256(Sha256),
-    Blake3(Box<blake3::Hasher>), // This is unusually large.
+    Blake3(Box<blake3::Hasher>),      // This is unusually large.
+    Blake3Keyed(Box<blake3::Hasher>), // Same as above
 }
 
 impl<Kind> Digester<Kind> {
@@ -288,6 +308,9 @@ impl<Kind> Digester<Kind> {
             DigesterVariant::Blake3(h) => {
                 h.update(data);
             }
+            DigesterVariant::Blake3Keyed(h) => {
+                h.update(data);
+            }
         };
 
         self.size += data.len() as u64;
@@ -298,6 +321,9 @@ impl<Kind> Digester<Kind> {
             DigesterVariant::Sha1(h) => CasDigest::new_sha1(h.finalize().into(), self.size),
             DigesterVariant::Sha256(h) => CasDigest::new_sha256(h.finalize().into(), self.size),
             DigesterVariant::Blake3(h) => CasDigest::new_blake3(h.finalize().into(), self.size),
+            DigesterVariant::Blake3Keyed(h) => {
+                CasDigest::new_blake3_keyed(h.finalize().into(), self.size)
+            }
         }
     }
 
@@ -306,6 +332,7 @@ impl<Kind> Digester<Kind> {
             DigesterVariant::Sha1(..) => DigestAlgorithmKind::Sha1,
             DigesterVariant::Sha256(..) => DigestAlgorithmKind::Sha256,
             DigesterVariant::Blake3(..) => DigestAlgorithmKind::Blake3,
+            DigesterVariant::Blake3Keyed(..) => DigestAlgorithmKind::Blake3Keyed,
         }
     }
 
@@ -350,6 +377,7 @@ impl<Kind> CasDigest<Kind> {
             DigestAlgorithmKind::Sha1 => Self::new_sha1(digest.try_into()?, size),
             DigestAlgorithmKind::Sha256 => Self::new_sha256(digest.try_into()?, size),
             DigestAlgorithmKind::Blake3 => Self::new_blake3(digest.try_into()?, size),
+            DigestAlgorithmKind::Blake3Keyed => Self::new_blake3_keyed(digest.try_into()?, size),
         })
     }
 
@@ -385,6 +413,16 @@ impl<Kind> CasDigest<Kind> {
             data: CasDigestData {
                 size,
                 digest: RawDigest::Blake3(blake3),
+            },
+            kind: PhantomData,
+        }
+    }
+
+    pub fn new_blake3_keyed(blake3: [u8; BLAKE3_SIZE], size: u64) -> Self {
+        Self {
+            data: CasDigestData {
+                size,
+                digest: RawDigest::Blake3Keyed(blake3),
             },
             kind: PhantomData,
         }
@@ -432,10 +470,11 @@ impl<Kind> CasDigest<Kind> {
 
         let algo = algo.ok_or(CasDigestParseError::UnsupportedDigest(data.len()))?;
 
-        let digest = match algo.kind() {
-            DigestAlgorithmKind::Sha1 => RawDigest::parse_sha1(data.as_bytes()),
-            DigestAlgorithmKind::Sha256 => RawDigest::parse_sha256(data.as_bytes()),
-            DigestAlgorithmKind::Blake3 => RawDigest::parse_blake3(data.as_bytes()),
+        let digest = match algo {
+            DigestAlgorithm::Sha1 => RawDigest::parse_sha1(data.as_bytes()),
+            DigestAlgorithm::Sha256 => RawDigest::parse_sha256(data.as_bytes()),
+            DigestAlgorithm::Blake3 => RawDigest::parse_blake3(data.as_bytes()),
+            DigestAlgorithm::Blake3Keyed { .. } => RawDigest::parse_blake3_keyed(data.as_bytes()),
         }?;
 
         Ok((digest, algo))
@@ -455,6 +494,9 @@ impl<Kind> CasDigest<Kind> {
             DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
             DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
             DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
+            DigestAlgorithm::Blake3Keyed { key } => {
+                DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(key)))
+            }
         };
 
         Digester {
