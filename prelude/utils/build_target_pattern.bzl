@@ -24,6 +24,7 @@ BuildTargetPattern = record(
     path = field(str.type),
     name = field([str.type, None], None),
     matches = field("function"),
+    as_string = field("function"),
 )
 
 def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
@@ -90,6 +91,18 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
         else:
             fail("Unknown build target pattern kind.")
 
-    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches)
+    # buildifier: disable=uninitialized - self is initialized
+    def as_string() -> str.type:
+        normalized_cell = self.cell if self.cell else ""
+        if self.kind == _BuildTargetPatternKind("single"):
+            return "{}//{}:{}".format(normalized_cell, self.path, self.name)
+        elif self.kind == _BuildTargetPatternKind("package"):
+            return "{}//{}:".format(normalized_cell, self.path)
+        elif self.kind == _BuildTargetPatternKind("recursive"):
+            return "{}//{}...".format(normalized_cell, self.path + _PATH_SYMBOL if self.path else "")
+        else:
+            fail("Unknown build target pattern kind.")
+
+    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches, as_string = as_string)
 
     return self
