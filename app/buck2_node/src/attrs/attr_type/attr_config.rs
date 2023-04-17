@@ -67,6 +67,9 @@ pub enum ConfiguredAttrExtraTypes {
     ConfigurationDep(Box<TargetLabel>),
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
     SourceLabel(Box<ConfiguredProvidersLabel>),
+    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
+    // cases that would cause cycles.
+    Label(Box<ConfiguredProvidersLabel>),
 }
 
 impl Display for ConfiguredAttrExtraTypes {
@@ -77,6 +80,7 @@ impl Display for ConfiguredAttrExtraTypes {
             Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
             Self::Dep(e) => write!(f, "\"{}\"", e),
             Self::SourceLabel(e) => write!(f, "\"{}\"", e),
+            Self::Label(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -89,6 +93,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             Self::Dep(e) => Ok(to_value(e.to_string())?),
             Self::SourceLabel(e) => Ok(to_value(e.to_string())?),
+            Self::Label(e) => Ok(to_value(e.to_string())?),
         }
     }
 
@@ -99,6 +104,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::ConfigurationDep(e) => filter(&e.to_string()),
             Self::Dep(e) => filter(&e.to_string()),
             Self::SourceLabel(e) => filter(&e.to_string()),
+            Self::Label(e) => filter(&e.to_string()),
         }
     }
 }
@@ -125,6 +131,9 @@ pub enum CoercedAttrExtraTypes {
     ConfigurationDep(Box<TargetLabel>),
     Dep(Box<DepAttr<ProvidersLabel>>),
     SourceLabel(Box<ProvidersLabel>),
+    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
+    // cases that would cause cycles.
+    Label(Box<ProvidersLabel>),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
@@ -136,6 +145,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             Self::Dep(e) => Ok(to_value(e.to_string())?),
             Self::SourceLabel(e) => Ok(to_value(e.to_string())?),
+            Self::Label(e) => Ok(to_value(e.to_string())?),
         }
     }
 
@@ -147,6 +157,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::ConfigurationDep(e) => filter(&e.to_string()),
             Self::Dep(e) => filter(&e.to_string()),
             Self::SourceLabel(e) => filter(&e.to_string()),
+            Self::Label(e) => filter(&e.to_string()),
         }
     }
 }
@@ -160,6 +171,7 @@ impl Display for CoercedAttrExtraTypes {
             Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
             Self::Dep(e) => write!(f, "\"{}\"", e),
             Self::SourceLabel(e) => write!(f, "\"{}\"", e),
+            Self::Label(e) => write!(f, "\"{}\"", e),
         }
     }
 }

@@ -65,7 +65,6 @@ pub enum AttrLiteral<C: AttrConfig> {
     Arg(StringWithMacros<C>),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
-    Label(Box<C::ProvidersType>),
     OneOf(
         Box<Self>,
         // Index of matched oneof attr type variant.
@@ -132,7 +131,6 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::Query(v) => write!(f, "\"{}\"", v.query()),
             AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::Arg(a) => write!(f, "\"{}\"", a),
-            AttrLiteral::Label(l) => write!(f, "\"{}\"", l),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AttrLiteral::Visibility(v) => Display::fmt(v, f),
             AttrLiteral::Extra(u) => Display::fmt(u, f),
@@ -180,7 +178,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 Ok(to_value(Self::source_file_display(ctx, s).to_string())?)
             }
             AttrLiteral::Arg(a) => Ok(to_value(a.to_string())?),
-            AttrLiteral::Label(l) => Ok(to_value(l.to_string())?),
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
             AttrLiteral::Visibility(v) => Ok(v.to_json()),
             AttrLiteral::Extra(u) => u.to_json(),
@@ -216,7 +213,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Arg(a) => filter(&a.to_string()),
             AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
             AttrLiteral::Int(i) => filter(&i.to_string()),
-            AttrLiteral::Label(l) => filter(&l.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
             AttrLiteral::Visibility(v) => match v {
                 VisibilitySpecification::Public => filter("PUBLIC"),
@@ -268,7 +264,6 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
-            AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
             AttrLiteral::Visibility(..) => Ok(()),
             AttrLiteral::Extra(u) => match u {
@@ -284,6 +279,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
                 ConfiguredAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
                 ConfiguredAttrExtraTypes::SourceLabel(dep) => traversal.dep(dep),
+                ConfiguredAttrExtraTypes::Label(label) => traversal.label(label),
             },
         }
     }
@@ -314,7 +310,6 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Query(query) => AttrLiteral::Query(Box::new(query.configure(ctx)?)),
             AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
             AttrLiteral::Arg(arg) => AttrLiteral::Arg(arg.configure(ctx)?),
-            AttrLiteral::Label(label) => LabelAttrType::configure(ctx, label)?,
             AttrLiteral::OneOf(l, i) => {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
                 AttrLiteral::OneOf(Box::new(configured), *i)
@@ -339,6 +334,7 @@ impl AttrLiteral<CoercedAttr> {
                         source.configure_pair(ctx.cfg().cfg_pair().dupe()),
                     )))
                 }
+                CoercedAttrExtraTypes::Label(label) => LabelAttrType::configure(ctx, label)?,
             },
         }))
     }
@@ -375,7 +371,6 @@ impl AttrLiteral<CoercedAttr> {
                 Ok(())
             }
             AttrLiteral::Arg(arg) => arg.traverse(traversal),
-            AttrLiteral::Label(label) => traversal.label(label),
             AttrLiteral::OneOf(box l, _) => l.traverse(pkg, traversal),
             AttrLiteral::Visibility(..) => Ok(()),
             AttrLiteral::Extra(u) => match u {
@@ -389,6 +384,7 @@ impl AttrLiteral<CoercedAttr> {
                 CoercedAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
                 CoercedAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
                 CoercedAttrExtraTypes::SourceLabel(s) => traversal.dep(s.target()),
+                CoercedAttrExtraTypes::Label(label) => traversal.label(label),
             },
         }
     }

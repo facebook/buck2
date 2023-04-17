@@ -186,8 +186,8 @@ impl TargetNode {
         let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
             self.deps()
                 .map(|t| {
-                    CoercedAttr::new_literal(AttrLiteral::Label(Box::new(
-                        ProvidersLabel::default_for(t.dupe()),
+                    CoercedAttr::new_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Label(
+                        Box::new(ProvidersLabel::default_for(t.dupe())),
                     )))
                 })
                 .collect(),

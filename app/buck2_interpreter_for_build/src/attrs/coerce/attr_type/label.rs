@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::label::LabelAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -31,7 +32,9 @@ impl AttrTypeCoerce for LabelAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::Label(Box::new(label)))
+        Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Label(Box::new(
+            label,
+        ))))
     }
 
     fn starlark_type(&self) -> String {
