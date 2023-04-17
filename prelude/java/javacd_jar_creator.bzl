@@ -15,6 +15,7 @@ load(
     "AbiGenerationMode",  # @unused Used as a type
     "DepFiles",
 )
+load("@prelude//java/utils:java_utils.bzl", "derive_javac")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -185,7 +186,7 @@ def create_jar_artifact_javacd(
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
         cmd = cmd_args([
-            java_toolchain.javac,
+            derive_javac(java_toolchain.javac),
             "--action-id",
             qualified_name,
             "--command-file",
