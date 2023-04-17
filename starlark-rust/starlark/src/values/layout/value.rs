@@ -77,6 +77,7 @@ use crate::values::int::PointerI32;
 use crate::values::layout::avalue::basic_ref;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::StarlarkStrAValue;
+use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
 use crate::values::layout::avalue::VALUE_FALSE;
 use crate::values::layout::avalue::VALUE_NONE;
 use crate::values::layout::avalue::VALUE_TRUE;
@@ -270,6 +271,12 @@ impl<'v> Value<'v> {
     #[inline]
     pub(crate) fn new_empty_string() -> Self {
         FrozenValue::new_empty_string().to_value()
+    }
+
+    /// Create a new empty tuple.
+    #[inline]
+    pub(crate) fn new_empty_tuple() -> Self {
+        FrozenValue::new_empty_tuple().to_value()
     }
 
     /// Turn a [`FrozenValue`] into a [`Value`]. See the safety warnings on
@@ -899,6 +906,12 @@ impl FrozenValue {
     #[inline]
     pub(crate) fn new_empty_string() -> Self {
         VALUE_EMPTY_STRING.unpack()
+    }
+
+    /// Create a new empty tuple.
+    #[inline]
+    pub(crate) fn new_empty_tuple() -> Self {
+        FrozenValue::new_repr(&VALUE_EMPTY_TUPLE)
     }
 
     #[inline]

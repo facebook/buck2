@@ -62,7 +62,6 @@ use crate::values::layout::avalue::tuple_avalue;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::VALUE_EMPTY_ARRAY;
 use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_LIST;
-use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::Reservation;
@@ -312,7 +311,7 @@ impl FrozenHeap {
     /// Allocate a tuple with the given elements on this heap.
     pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
-            return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE);
+            return FrozenValue::new_empty_tuple();
         }
 
         unsafe {
@@ -333,7 +332,7 @@ impl FrozenHeap {
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE);
+                return FrozenValue::new_empty_tuple();
             }
 
             unsafe {
@@ -664,7 +663,7 @@ impl Heap {
     /// Allocate a tuple with the given elements.
     pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
         if elems.is_empty() {
-            return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE).to_value();
+            return Value::new_empty_tuple();
         }
 
         unsafe {
@@ -683,7 +682,7 @@ impl Heap {
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return FrozenValue::new_repr(&VALUE_EMPTY_TUPLE).to_value();
+                return Value::new_empty_tuple();
             }
 
             unsafe {
