@@ -27,7 +27,6 @@ _rust_toolchain_attrs = {
     # Use rmeta for lib->lib dependencies, and only block
     # linking on rlib crates. The hope is that rmeta builds
     # are quick and this increases effective parallelism.
-    # Currently blocked by https://github.com/rust-lang/rust/issues/85401
     "pipelined": False,
     # Filter out failures when we just need diagnostics. That is,
     # a rule which fails with a compilation failure will report
