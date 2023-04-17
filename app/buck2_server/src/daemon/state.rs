@@ -17,7 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::actions::build_listener::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_common::cas_digest::DigestAlgorithm;
+use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::ignores::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -199,9 +199,9 @@ impl DaemonState {
             .parse_list("buck2", "digest_algorithms")?
             .unwrap_or_else(|| {
                 if buck2_core::is_open_source() {
-                    vec![DigestAlgorithm::Sha256]
+                    vec![DigestAlgorithmKind::Sha256]
                 } else {
-                    vec![DigestAlgorithm::Sha1]
+                    vec![DigestAlgorithmKind::Sha1]
                 }
             });
 

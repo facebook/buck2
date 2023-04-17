@@ -14,7 +14,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_common::cas_digest::CasDigestConfig;
-use buck2_common::cas_digest::DigestAlgorithm;
+use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
@@ -296,7 +296,7 @@ async fn copy_and_hash(
     let mut validators = SmallVec::<[_; 2]>::new();
 
     if let Some(sha1) = checksum.sha1() {
-        let validator = if digester.algorithm() == DigestAlgorithm::Sha1 {
+        let validator = if digester.algorithm() == DigestAlgorithmKind::Sha1 {
             Validator::PrimaryDigest
         } else {
             Validator::ExtraDigest(Box::new(Sha1::new()) as _)
@@ -306,7 +306,7 @@ async fn copy_and_hash(
     }
 
     if let Some(sha256) = checksum.sha256() {
-        let validator = if digester.algorithm() == DigestAlgorithm::Sha256 {
+        let validator = if digester.algorithm() == DigestAlgorithmKind::Sha256 {
             Validator::PrimaryDigest
         } else {
             Validator::ExtraDigest(Box::new(Sha256::new()) as _)
