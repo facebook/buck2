@@ -8,6 +8,7 @@
  */
 
 use std::mem;
+use std::process::Stdio;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -43,6 +44,7 @@ use crate::subscribers::event_log::utils::LogMode;
 use crate::subscribers::event_log::utils::NoInference;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
+static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
 
 pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
@@ -52,7 +54,10 @@ pub(crate) struct NamedEventLogWriter {
 
 pub(crate) enum LogWriterState {
     Unopened(AbsNormPathBuf, Option<AbsPathBuf>),
-    Opened(Vec<NamedEventLogWriter>),
+    Opened {
+        needs_upload: bool,
+        writers: Vec<NamedEventLogWriter>,
+    },
     Closed,
 }
 
@@ -102,8 +107,11 @@ impl WriteEventLog {
         I: IntoIterator<Item = &'a T> + Clone + 'a,
     {
         match &mut self.state {
-            LogWriterState::Opened(writers) => {
-                for writer in writers.iter_mut() {
+            LogWriterState::Opened {
+                needs_upload: _,
+                writers,
+            } => {
+                for writer in writers {
                     self.buf.clear();
 
                     for event in events.clone() {
@@ -150,7 +158,7 @@ impl WriteEventLog {
     async fn ensure_log_writers_opened(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
         let (logdir, maybe_extra_path) = match &self.state {
             LogWriterState::Unopened(logdir, extra_path) => (logdir, extra_path),
-            LogWriterState::Opened(_) => return Ok(()),
+            LogWriterState::Opened { .. } => return Ok(()),
             LogWriterState::Closed => {
                 return Err(anyhow::anyhow!("Received events after logs were closed"));
             }
@@ -175,13 +183,22 @@ impl WriteEventLog {
             LogMode::Protobuf => Encoding::PROTO_ZSTD,
         };
 
+        let file_name = &get_logfile_name(event, encoding, &self.command_name)?;
         let path = EventLogPathBuf {
-            path: logdir
-                .as_abs_path()
-                .join(get_logfile_name(event, encoding, &self.command_name)?),
+            path: logdir.as_abs_path().join(file_name),
             encoding,
         };
-        let mut writers = vec![open_event_log_for_writing(path, event.trace_id()?).await?];
+        let (needs_upload, writer) = match use_streaming_uploads()? {
+            true => (
+                false, // Upload is handled in subprocess
+                start_persist_subprocess(path, event.trace_id()?.clone()).await?,
+            ),
+            false => (
+                true,
+                open_event_log_for_writing(path, event.trace_id()?).await?,
+            ),
+        };
+        let mut writers = vec![writer];
 
         // Also open the user's log file, if any as provided, with no encoding.
         if let Some(extra_path) = maybe_extra_path {
@@ -199,35 +216,42 @@ impl WriteEventLog {
             );
         }
 
-        self.state = LogWriterState::Opened(writers);
+        self.state = LogWriterState::Opened {
+            needs_upload,
+            writers,
+        };
         self.log_invocation(event.trace_id()?).await
     }
 
     pub(crate) fn exit(
         &mut self,
     ) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
-        // Flush all our files before exiting.
-        let mut writers = match &mut self.state {
-            LogWriterState::Opened(writers) => std::mem::take(writers),
-            LogWriterState::Unopened(..) | LogWriterState::Closed => {
-                // Nothing to do in this case, though this should be unreachable since we just did
-                // a write_ln.
-                vec![]
-            }
-        };
-
-        self.state = LogWriterState::Closed;
+        // Shut down writers, flush all our files before exiting.
+        let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
 
         async move {
+            let (needs_upload, mut writers) = match state {
+                LogWriterState::Opened {
+                    needs_upload,
+                    writers,
+                } => (needs_upload, writers),
+                LogWriterState::Unopened(..) | LogWriterState::Closed => {
+                    // Nothing to do in this case, though this should be unreachable
+                    // since we just did a write_ln.
+                    return Ok(());
+                }
+            };
             for writer in writers.iter_mut() {
                 writer.file.shutdown().await?;
             }
-
+            if !needs_upload {
+                // The subprocess will handle the uploading
+                return Ok(());
+            }
             let log_file_to_upload = match writers.first() {
                 Some(log) => log,
                 None => return Ok(()),
             };
-
             // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
             // file while we were about to upload it.
             if let Err(e) = log_upload(&log_file_to_upload.path, &log_file_to_upload.trace_id).await
@@ -267,6 +291,35 @@ impl Drop for WriteEventLog {
             None => (),
         }
     }
+}
+
+fn use_streaming_uploads() -> anyhow::Result<bool> {
+    // Implemented in D44934156
+    Ok(USE_STREAMING_UPLOADS.get_copied()?.unwrap_or(false))
+}
+
+async fn start_persist_subprocess(
+    path: EventLogPathBuf,
+    trace_id: TraceId,
+) -> anyhow::Result<NamedEventLogWriter> {
+    let current_exe = std::env::current_exe().context("No current_exe")?;
+    let mut command = buck2_util::process::async_background_command(current_exe);
+    let manifold_path = &format!("flat/{}{}", trace_id, path.extension());
+    let local_path = &path.path.display().to_string();
+    let child = command
+        .args(["debug", "persist-event-logs"])
+        .arg(manifold_path)
+        .arg(local_path)
+        .stdin(Stdio::piped())
+        .spawn()
+        .with_context(|| {
+            format!(
+                "Failed to open event log subprocess for writing at `{}`",
+                path.path.display()
+            )
+        })?;
+    let pipe = child.stdin.expect("stdin was piped");
+    get_writer(path, pipe, trace_id)
 }
 
 async fn open_event_log_for_writing(
@@ -337,7 +390,7 @@ impl WriteEventLog {
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
         match &self.state {
-            LogWriterState::Opened(..) | LogWriterState::Closed => {}
+            LogWriterState::Opened { .. } | LogWriterState::Closed => {}
             LogWriterState::Unopened(..) => {
                 // This is a bit wonky. We can receive a CommandResult before we opened log files
                 // if the command crashed before it started. That can happen if the daemon
@@ -355,7 +408,10 @@ impl WriteEventLog {
 
     pub(crate) async fn flush_files(&mut self) -> anyhow::Result<()> {
         let writers = match &mut self.state {
-            LogWriterState::Opened(writers) => writers,
+            LogWriterState::Opened {
+                needs_upload: _,
+                writers,
+            } => writers,
             LogWriterState::Unopened(..) | LogWriterState::Closed => return Ok(()),
         };
 
@@ -438,9 +494,10 @@ mod tests {
     impl WriteEventLog {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
-                state: LogWriterState::Opened(vec![
-                    open_event_log_for_writing(log, TraceId::new()).await?,
-                ]),
+                state: LogWriterState::Opened {
+                    needs_upload: false,
+                    writers: vec![open_event_log_for_writing(log, TraceId::new()).await?],
+                },
                 sanitized_argv: vec!["buck2".to_owned()],
                 async_cleanup_context: None,
                 command_name: "testtest".to_owned(),
