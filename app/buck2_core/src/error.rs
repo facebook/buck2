@@ -17,6 +17,7 @@ use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use once_cell::sync::OnceCell;
 use starlark_map::small_set::SmallSet;
+use thiserror::Error;
 
 use crate::env_helper::EnvHelper;
 use crate::is_open_source;
@@ -102,6 +103,8 @@ pub fn handle_soft_error(
     loc: (&'static str, u32, u32),
     quiet: bool,
 ) -> anyhow::Result<anyhow::Error> {
+    validate_category(category)?;
+
     if is_open_source() {
         // We don't log these, and we have no legacy users, and they might not upgrade that often,
         // so lets just break open source things immediately.
@@ -204,15 +207,44 @@ impl HardErrorConfigHolder {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Debug)]
 #[error("Invalid hard error config: `{0}`")]
 struct InvalidHardErrorConfig(String);
+
+#[derive(Error, Debug)]
+enum InvalidSoftError {
+    #[error("Invalid category, must be lower_snake_case, got `{0}`")]
+    InvalidCategory(String),
+}
+
+/// A category must be a-z with no consecutive underscores. Or we raise an error.
+fn validate_category(category: &str) -> anyhow::Result<()> {
+    let mut allow_underscore = false;
+    for x in category.chars() {
+        if x.is_ascii_lowercase() {
+            allow_underscore = true;
+        } else if allow_underscore && x == '_' {
+            allow_underscore = false;
+        } else {
+            // Go to the shared error path
+            allow_underscore = false;
+            break;
+        }
+    }
+    if !allow_underscore {
+        Err(InvalidSoftError::InvalidCategory(category.to_owned()).into())
+    } else {
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 pub(crate) mod tests {
     use std::sync::Mutex;
     use std::sync::MutexGuard;
     use std::sync::Once;
+
+    use assert_matches::assert_matches;
 
     use super::*;
     use crate::error::initialize;
@@ -342,5 +374,18 @@ pub(crate) mod tests {
         let c2 = config.config.load();
         let c2 = c2.as_ref().unwrap();
         assert_eq!(**c2, HardErrorConfig::Bool(false));
+    }
+
+    #[test]
+    fn test_validate_category() {
+        assert_matches!(validate_category("valid"), Ok(_));
+        assert_matches!(validate_category("a_valid_category"), Ok(_));
+        assert_matches!(validate_category(""), Err(_));
+        assert_matches!(validate_category("Invalid_because_capital"), Err(_));
+        assert_matches!(validate_category("some_1number"), Err(_));
+        assert_matches!(validate_category("two__underscore"), Err(_));
+        assert_matches!(validate_category("a-dash"), Err(_));
+        assert_matches!(validate_category("_leading_underscore"), Err(_));
+        assert_matches!(validate_category("trailing_underscore_"), Err(_));
     }
 }
