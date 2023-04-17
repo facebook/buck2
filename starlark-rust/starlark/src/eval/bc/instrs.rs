@@ -217,8 +217,8 @@ impl BcInstrs {
         let mut loop_ends = Vec::new();
         let mut jump_targets = HashSet::new();
         for (ptr, ip) in self.iter() {
-            ptr.get_opcode().visit_jump_addr(ptr, &mut |offset| {
-                jump_targets.insert(ip.offset(offset));
+            ptr.get_opcode().visit_jump_addr(ptr, ip, &mut |jump_addr| {
+                jump_targets.insert(jump_addr);
             });
         }
         for (ptr, ip) in self.iter() {
