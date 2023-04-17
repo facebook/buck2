@@ -22,9 +22,8 @@ use thiserror::Error;
 use crate::env_helper::EnvHelper;
 use crate::is_open_source;
 
-type SoftErrorHandler = Box<
-    dyn Fn(&'static str, &anyhow::Error, (&'static str, u32, u32), bool) + Send + Sync + 'static,
->;
+type SoftErrorHandler =
+    Box<dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), bool) + Send + Sync + 'static>;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
@@ -96,7 +95,7 @@ pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {
 // Hidden because an implementation detail of `soft_error!`.
 #[doc(hidden)]
 pub fn handle_soft_error(
-    category: &'static str,
+    category: &str,
     err: anyhow::Error,
     count: &'static AtomicUsize,
     once: &std::sync::Once,
@@ -254,12 +253,7 @@ pub(crate) mod tests {
 
     static RESULT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-    fn mock_handler(
-        category: &'static str,
-        err: &anyhow::Error,
-        loc: (&'static str, u32, u32),
-        quiet: bool,
-    ) {
+    fn mock_handler(category: &str, err: &anyhow::Error, loc: (&str, u32, u32), quiet: bool) {
         RESULT
             .lock()
             .unwrap()
