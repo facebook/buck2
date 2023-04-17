@@ -295,6 +295,10 @@ impl Drop for WriteEventLog {
 }
 
 fn use_streaming_uploads() -> anyhow::Result<bool> {
+    if cfg!(windows) {
+        // TODO T149151673: support windows streaming upload
+        return Ok(false);
+    };
     let mut rng = rand::thread_rng();
     let random_number = rng.gen_range(0..100);
     Ok(USE_STREAMING_UPLOADS
