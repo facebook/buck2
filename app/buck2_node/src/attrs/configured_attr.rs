@@ -18,6 +18,7 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map;
 
+use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -192,7 +193,7 @@ impl ConfiguredAttr {
 
     pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<TargetLabel> {
         match self.0 {
-            AttrLiteral::ConfigurationDep(d) => Ok(*d),
+            AttrLiteral::Extra(ConfiguredAttrExtraTypes::ConfigurationDep(d)) => Ok(*d),
             a => Err(ConfiguredAttrError::ExpectingConfigurationDep(
                 a.as_display_no_ctx().to_string(),
             )

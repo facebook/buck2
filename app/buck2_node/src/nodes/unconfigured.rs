@@ -22,6 +22,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
+use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -201,9 +202,9 @@ impl TargetNode {
                 CoercedAttr::new_literal(AttrLiteral::List(
                     self.get_configuration_deps()
                         .map(|t| {
-                            CoercedAttr::new_literal(AttrLiteral::ConfigurationDep(Box::new(
-                                t.dupe(),
-                            )))
+                            CoercedAttr::new_literal(AttrLiteral::Extra(
+                                CoercedAttrExtraTypes::ConfigurationDep(Box::new(t.dupe())),
+                            ))
                         })
                         .collect(),
                 )),

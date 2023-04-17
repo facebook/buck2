@@ -9,6 +9,7 @@
 
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -35,7 +36,9 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
 
         let (label, name) = label.into_parts();
         match name {
-            ProvidersName::Default => Ok(AttrLiteral::ConfigurationDep(Box::new(label))),
+            ProvidersName::Default => Ok(AttrLiteral::Extra(
+                CoercedAttrExtraTypes::ConfigurationDep(Box::new(label)),
+            )),
             _ => Err(CoercionError::UnexpectedSubTarget(ProvidersLabel::new(label, name)).into()),
         }
     }
