@@ -19,9 +19,7 @@ use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::compiler::if_compiler::write_if_else;
 use crate::eval::bc::compiler::if_compiler::write_if_then;
 use crate::eval::bc::instr_impl::InstrBeforeStmt;
-use crate::eval::bc::instr_impl::InstrBreak;
 use crate::eval::bc::instr_impl::InstrCheckType;
-use crate::eval::bc::instr_impl::InstrContinue;
 use crate::eval::bc::instr_impl::InstrPossibleGc;
 use crate::eval::bc::instr_impl::InstrReturn;
 use crate::eval::bc::instr_impl::InstrReturnCheckType;
@@ -255,10 +253,10 @@ impl IrSpanned<StmtCompiled> {
                 write_for(over, assign, span, bc, |bc| body.write_bc(compiler, bc));
             }
             StmtCompiled::Break => {
-                bc.write_instr::<InstrBreak>(span, ());
+                bc.write_break(span);
             }
             StmtCompiled::Continue => {
-                bc.write_instr::<InstrContinue>(span, ());
+                bc.write_continue(span);
             }
         }
     }

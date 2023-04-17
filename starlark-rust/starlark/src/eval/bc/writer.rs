@@ -26,6 +26,7 @@ use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::definitely_assigned::BcDefinitelyAssigned;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::InstrBr;
+use crate::eval::bc::instr_impl::InstrBreak;
 use crate::eval::bc::instr_impl::InstrConst;
 use crate::eval::bc::instr_impl::InstrContinue;
 use crate::eval::bc::instr_impl::InstrForLoop;
@@ -336,6 +337,14 @@ impl<'f> BcWriter<'f> {
             MaybeNot::Id => self.write_if_else_impl(cond, span, then_block, else_block),
             MaybeNot::Not => self.write_if_else_impl(cond, span, else_block, then_block),
         }
+    }
+
+    pub(crate) fn write_continue(&mut self, span: FrameSpan) {
+        self.write_instr::<InstrContinue>(span, ());
+    }
+
+    pub(crate) fn write_break(&mut self, span: FrameSpan) {
+        self.write_instr::<InstrBreak>(span, ());
     }
 
     /// Write for loop.

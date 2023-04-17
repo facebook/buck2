@@ -22,7 +22,6 @@ use crate::eval::bc::compiler::if_compiler::write_if_then;
 use crate::eval::bc::compiler::stmt::write_for;
 use crate::eval::bc::instr_impl::InstrComprDictInsert;
 use crate::eval::bc::instr_impl::InstrComprListAppend;
-use crate::eval::bc::instr_impl::InstrContinue;
 use crate::eval::bc::instr_impl::InstrDictNew;
 use crate::eval::bc::instr_impl::InstrListNew;
 use crate::eval::bc::stack_ptr::BcSlotOut;
@@ -41,14 +40,7 @@ impl ClauseCompiled {
     ) {
         write_for(&self.over, &self.var, self.over.span, bc, |bc| {
             for c in &self.ifs {
-                write_if_then(
-                    c,
-                    MaybeNot::Not,
-                    |bc| {
-                        bc.write_instr::<InstrContinue>(c.span, ());
-                    },
-                    bc,
-                );
+                write_if_then(c, MaybeNot::Not, |bc| bc.write_continue(c.span), bc);
             }
 
             match rem.split_last() {
