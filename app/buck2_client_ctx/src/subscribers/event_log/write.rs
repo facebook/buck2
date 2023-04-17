@@ -25,6 +25,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
 use futures::FutureExt;
 use prost::Message;
+use rand::Rng;
 use serde::Serialize;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWrite;
@@ -294,8 +295,11 @@ impl Drop for WriteEventLog {
 }
 
 fn use_streaming_uploads() -> anyhow::Result<bool> {
-    // Implemented in D44934156
-    Ok(USE_STREAMING_UPLOADS.get_copied()?.unwrap_or(false))
+    let mut rng = rand::thread_rng();
+    let random_number = rng.gen_range(0..100);
+    Ok(USE_STREAMING_UPLOADS
+        .get_copied()?
+        .unwrap_or(random_number < 0))
 }
 
 async fn start_persist_subprocess(
