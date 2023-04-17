@@ -200,6 +200,7 @@ def generate_rustdoc_test(
             shared_libs[soname] = shared_lib.lib
     extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
         ctx.actions,
+        ctx.label,
         ctx.attrs._cxx_toolchain[CxxToolchainInfo],
         resources,
         shared_libs,

@@ -56,6 +56,7 @@ def _process_shared_dependencies(ctx: "context", artifact: "artifact", deps: ["d
 
     extra_link_args, runtime_files, _ = executable_shared_lib_arguments(
         ctx.actions,
+        ctx.label,
         ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
         artifact,
         shared_libs,

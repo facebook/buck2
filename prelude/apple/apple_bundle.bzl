@@ -135,6 +135,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(
             other_outputs = project_external_debug_info(
                 actions = ctx.actions,
+                _label = ctx.label,
                 infos = [external_debug_info],
             ),
         ),

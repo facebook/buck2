@@ -50,6 +50,7 @@ def maybe_external_debug_info(
 
 def project_external_debug_info(
         actions: "actions",
+        _label: "label",  # @unused Used in future diffs.
         infos: [[ExternalDebugInfoTSet.type, None]] = []) -> ["transitive_set_args_projection"]:
     """
     Helper to project a list of optional tsets.
