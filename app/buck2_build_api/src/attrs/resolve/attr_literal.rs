@@ -160,7 +160,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(ctx.heap().alloc(Dict::new(res)))
             }
             AttrLiteral::None => Ok(Value::new_none()),
-            AttrLiteral::Dep(d) => DepAttrType::resolve_single(ctx, d),
             AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
@@ -188,6 +187,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::ConfigurationDep(d) => {
                     ConfigurationDepAttrType::resolve_single(ctx, d)
                 }
+                ConfiguredAttrExtraTypes::Dep(d) => DepAttrType::resolve_single(ctx, d),
             },
         }
     }
@@ -215,7 +215,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
-            AttrLiteral::Dep(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
@@ -231,6 +230,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::ConfigurationDep(_) => {
                     Ok(starlark::values::string::STRING_TYPE)
                 }
+                ConfiguredAttrExtraTypes::Dep(_) => Ok(Label::get_type_value_static().as_str()),
             },
         }
     }
@@ -257,7 +257,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 heap.alloc(Dict::new(res))
             }
             AttrLiteral::None => Value::new_none(),
-            AttrLiteral::Dep(d) => heap.alloc(Label::new(d.label.clone())),
             AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
@@ -292,6 +291,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::ConfigurationDep(c) => {
                     heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
                 }
+                ConfiguredAttrExtraTypes::Dep(d) => heap.alloc(Label::new(d.label.clone())),
             },
         })
     }

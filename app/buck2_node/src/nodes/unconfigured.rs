@@ -134,7 +134,7 @@ impl TargetNode {
             Some(v) => match v.value {
                 CoercedAttr::Literal(v) => match v {
                     AttrLiteral::None => None,
-                    AttrLiteral::Dep(t) => Some(t.label.target()),
+                    AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(t)) => Some(t.label.target()),
                     _ => unreachable!("coercer verified the attribute is dep"),
                 },
                 CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {

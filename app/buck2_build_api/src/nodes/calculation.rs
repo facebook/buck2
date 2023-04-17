@@ -877,6 +877,8 @@ mod tests {
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
+    use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
+    use buck2_node::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -933,13 +935,15 @@ mod tests {
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
                 CoercedAttr::from_literal(AttrLiteral::List(ArcSlice::new([
-                    CoercedAttr::from_literal(AttrLiteral::Dep(Box::new(DepAttr {
-                        attr_type: DepAttrType::new(
-                            ProviderIdSet::EMPTY,
-                            DepAttrTransition::Identity,
-                        ),
-                        label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                    }))),
+                    CoercedAttr::from_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(
+                        Box::new(DepAttr {
+                            attr_type: DepAttrType::new(
+                                ProviderIdSet::EMPTY,
+                                DepAttrTransition::Identity,
+                            ),
+                            label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
+                        }),
+                    ))),
                 ]))),
             ),
         ];
@@ -995,11 +999,11 @@ mod tests {
              ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
             "some_deps" =>
              ConfiguredAttr::from_literal(AttrLiteral::List(ArcSlice::new([
-                ConfiguredAttr::from_literal(AttrLiteral::Dep(Box::new(DepAttr {
+                ConfiguredAttr::from_literal(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
-                }))),
+                })))),
             ]))),
         ];
 

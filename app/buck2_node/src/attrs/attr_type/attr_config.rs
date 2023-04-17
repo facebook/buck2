@@ -65,6 +65,7 @@ pub enum ConfiguredAttrExtraTypes {
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
     ConfigurationDep(Box<TargetLabel>),
+    Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
 }
 
 impl Display for ConfiguredAttrExtraTypes {
@@ -73,6 +74,7 @@ impl Display for ConfiguredAttrExtraTypes {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             Self::SplitTransitionDep(e) => Display::fmt(e, f),
             Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            Self::Dep(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -83,6 +85,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
             Self::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
+            Self::Dep(e) => Ok(to_value(e.to_string())?),
         }
     }
 
@@ -91,6 +94,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
             Self::SplitTransitionDep(e) => e.any_matches(filter),
             Self::ConfigurationDep(e) => filter(&e.to_string()),
+            Self::Dep(e) => filter(&e.to_string()),
         }
     }
 }
@@ -115,6 +119,7 @@ pub enum CoercedAttrExtraTypes {
     SplitTransitionDep(Box<SplitTransitionDep>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(Box<TargetLabel>),
+    Dep(Box<DepAttr<ProvidersLabel>>),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
@@ -124,6 +129,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::SplitTransitionDep(e) => e.to_json(),
             Self::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
             Self::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
+            Self::Dep(e) => Ok(to_value(e.to_string())?),
         }
     }
 
@@ -133,6 +139,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::SplitTransitionDep(e) => e.any_matches(filter),
             Self::ConfiguredDep(e) => filter(&e.to_string()),
             Self::ConfigurationDep(e) => filter(&e.to_string()),
+            Self::Dep(e) => filter(&e.to_string()),
         }
     }
 }
@@ -144,6 +151,7 @@ impl Display for CoercedAttrExtraTypes {
             Self::SplitTransitionDep(e) => Display::fmt(e, f),
             Self::ConfiguredDep(e) => write!(f, "\"{}\"", e),
             Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            Self::Dep(e) => write!(f, "\"{}\"", e),
         }
     }
 }

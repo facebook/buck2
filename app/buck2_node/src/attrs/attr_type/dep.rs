@@ -18,6 +18,7 @@ use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use dupe::Dupe;
 use static_assertions::assert_eq_size;
 
+use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
@@ -114,10 +115,12 @@ impl DepAttrType {
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
-        Ok(AttrLiteral::Dep(Box::new(DepAttr {
-            attr_type: dep_attr.attr_type.dupe(),
-            label: configured_label,
-        })))
+        Ok(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(
+            DepAttr {
+                attr_type: dep_attr.attr_type.dupe(),
+                label: configured_label,
+            },
+        ))))
     }
 }
 

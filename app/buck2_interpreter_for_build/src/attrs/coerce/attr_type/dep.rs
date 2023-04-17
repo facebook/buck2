@@ -37,10 +37,12 @@ impl AttrTypeCoerce for DepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::Dep(Box::new(DepAttr {
-            attr_type: self.dupe(),
-            label,
-        })))
+        Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(Box::new(
+            DepAttr {
+                attr_type: self.dupe(),
+                label,
+            },
+        ))))
     }
 
     fn starlark_type(&self) -> String {
