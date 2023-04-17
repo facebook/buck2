@@ -15,12 +15,25 @@
  * limitations under the License.
  */
 
-//! Bytecode generation tests.
+use crate::tests::bc::golden::bc_golden_test;
 
-mod and_or;
-mod compr;
-mod definitely_assigned;
-mod expr;
-mod for_stmt;
-pub(crate) mod golden;
-mod if_stmt;
+#[test]
+fn test_for() {
+    bc_golden_test("for", "def test(x):\n  for i in x:\n    noop(i)");
+}
+
+#[test]
+fn test_for_break() {
+    bc_golden_test(
+        "for_break",
+        "def test(x):\n  for i in x:\n    if i: break\n    noop(i)",
+    );
+}
+
+#[test]
+fn test_for_continue() {
+    bc_golden_test(
+        "for_continue",
+        "def test(x):\n  for i in x:\n    if i: continue\n    noop(i)",
+    );
+}
