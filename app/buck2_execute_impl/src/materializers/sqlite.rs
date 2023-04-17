@@ -440,22 +440,29 @@ impl MaterializerStateSqliteTable {
         if paths.is_empty() {
             return Ok(0);
         }
-        let sql = format!(
-            "DELETE FROM {} WHERE path IN ({})",
-            STATE_TABLE_NAME,
-            // According to rusqlite docs this is the best way to generate the right
-            // number of query placeholders.
-            itertools::repeat_n("?", paths.len()).join(","),
-        );
-        tracing::trace!(sql = %sql, paths = ?paths, "deleting from table");
-        let rows_deleted = self
-            .connection
-            .lock()
-            .execute(
-                &sql,
-                rusqlite::params_from_iter(paths.iter().map(|p| p.as_str())),
-            )
-            .with_context(|| format!("deleting from sqlite table {}", STATE_TABLE_NAME))?;
+
+        let mut rows_deleted = 0;
+
+        for chunk in paths.chunks(100) {
+            let sql = format!(
+                "DELETE FROM {} WHERE path IN ({})",
+                STATE_TABLE_NAME,
+                // According to rusqlite docs this is the best way to generate the right
+                // number of query placeholders.
+                itertools::repeat_n("?", chunk.len()).join(","),
+            );
+
+            tracing::trace!(sql = %sql, chunk = ?chunk, "deleting from table");
+            rows_deleted += self
+                .connection
+                .lock()
+                .execute(
+                    &sql,
+                    rusqlite::params_from_iter(chunk.iter().map(|p| p.as_str())),
+                )
+                .with_context(|| format!("deleting from sqlite table {}", STATE_TABLE_NAME))?;
+        }
+
         Ok(rows_deleted)
     }
 }
@@ -968,6 +975,24 @@ mod tests {
             assert_eq!(&db.created_by_table.read_all()?, &metadatas[2]);
             assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[3]);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete_many() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+
+        let table = MaterializerStateSqliteTable::new(Arc::new(Mutex::new(conn)));
+        table.create_table()?;
+
+        // Sqlite has limits on how many variables you can use at once. Check we don't run into
+        // those.
+        let paths = (0..50000)
+            .map(|i| ProjectRelativePathBuf::unchecked_new(format!("foo/{}", i)))
+            .collect();
+
+        table.delete(paths)?;
 
         Ok(())
     }
