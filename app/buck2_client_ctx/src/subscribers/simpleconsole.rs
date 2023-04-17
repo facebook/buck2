@@ -281,7 +281,7 @@ where
         // When command is stuck we call `rage` to gather debugging information
         if !self.already_raged {
             self.already_raged = true;
-            call_rage(
+            spawn_rage(
                 self.isolation_dir.clone(),
                 self.observer().session_info().trace_id.dupe(),
             );
@@ -657,14 +657,14 @@ mod tests {
     }
 }
 
-fn call_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
-    match call_rage_impl(isolation_dir, trace_id) {
+fn spawn_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
+    match spawn_rage_impl(isolation_dir, trace_id) {
         Ok(_) => {}
         Err(e) => tracing::warn!("Error calling buck2 rage: {:#}", e),
     };
 }
 
-fn call_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
+fn spawn_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
     // We just spawn a process here and forget about it.
     // Spawned process continues running after this function exits.
     // However, nobody reaps this process, so after termination it lives as zombie
