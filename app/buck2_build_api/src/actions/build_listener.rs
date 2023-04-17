@@ -85,7 +85,7 @@ impl NodeDuration {
     /// *need* to be a function but right now we use user and want to switch to total so it's
     /// easier to do that if this is in a single function.
     fn critical_path_duration(&self) -> Duration {
-        self.user
+        self.total
     }
 
     fn zero() -> Self {
@@ -379,7 +379,7 @@ where
             metadata: metadata::collect(),
             num_nodes,
             num_edges,
-            uses_total_duration: false,
+            uses_total_duration: true,
             backend_name: Some(T::name().to_string()),
         });
         Ok(())
