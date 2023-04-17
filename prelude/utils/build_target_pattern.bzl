@@ -23,6 +23,7 @@ BuildTargetPattern = record(
     cell = field([str.type, None], None),
     path = field(str.type),
     name = field([str.type, None], None),
+    matches = field("function"),
 )
 
 def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
@@ -67,25 +68,28 @@ def parse_build_target_pattern(pattern: str.type) -> BuildTargetPattern.type:
     expect(path.find(_TARGET_SYMBOL) < 0, "Invalid build target pattern, `{}` can only appear once: {}".format(_TARGET_SYMBOL, pattern))
     expect(len(path) == 0 or path[-1:] != _PATH_SYMBOL, "Invalid build target pattern, path cannot end with `{}`: {}".format(_PATH_SYMBOL, pattern))
 
-    return BuildTargetPattern(kind = kind, cell = cell, path = path, name = name)
+    # buildifier: disable=uninitialized - self is initialized
+    def matches(label: ["label", "target_label"]) -> bool.type:
+        if self.cell and self.cell != label.cell:
+            return False
 
-def label_matches_build_target_pattern(label: ["label", "target_label"], pattern: BuildTargetPattern.type) -> bool.type:
-    if pattern.cell and pattern.cell != label.cell:
-        return False
-
-    if pattern.kind == _BuildTargetPatternKind("single"):
-        return pattern.path == label.package and pattern.name == label.name
-    elif pattern.kind == _BuildTargetPatternKind("package"):
-        return pattern.path == label.package
-    elif pattern.kind == _BuildTargetPatternKind("recursive"):
-        path_pattern_length = len(pattern.path)
-        if path_pattern_length == 0:
-            # This is a recursive pattern of the cell: cell//...
-            return True
-        elif len(label.package) > path_pattern_length:
-            # pattern cell//package/... matches label cell//package/subpackage:target
-            return label.package.startswith(pattern.path + _PATH_SYMBOL)
+        if self.kind == _BuildTargetPatternKind("single"):
+            return self.path == label.package and self.name == label.name
+        elif self.kind == _BuildTargetPatternKind("package"):
+            return self.path == label.package
+        elif self.kind == _BuildTargetPatternKind("recursive"):
+            path_pattern_length = len(self.path)
+            if path_pattern_length == 0:
+                # This is a recursive pattern of the cell: cell//...
+                return True
+            elif len(label.package) > path_pattern_length:
+                # pattern cell//package/... matches label cell//package/subpackage:target
+                return label.package.startswith(self.path + _PATH_SYMBOL)
+            else:
+                return self.path == label.package
         else:
-            return pattern.path == label.package
-    else:
-        fail("Unknown build target pattern kind.")
+            fail("Unknown build target pattern kind.")
+
+    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches)
+
+    return self

@@ -12,7 +12,6 @@ load(
 load(
     "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",
-    "label_matches_build_target_pattern",
     "parse_build_target_pattern",
 )
 load(
@@ -219,7 +218,7 @@ def _find_targets_in_mapping(
                     return True
             return False
         else:
-            return label_matches_build_target_pattern(target, mapping.build_target_pattern)
+            return mapping.build_target_pattern.matches(target)
 
     def find_matching_targets(node):  # "label" -> ["label"]:
         graph_node = graph_map[node]
