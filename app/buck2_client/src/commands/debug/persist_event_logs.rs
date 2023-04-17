@@ -31,7 +31,7 @@ static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_
 type MyJoinHandle = Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>;
 
 #[derive(Debug, clap::Parser)]
-#[clap(about = "Command to stream event logs to Manifold")]
+#[clap(about = "Command to write event logs to disk and upload them to Manifold in real time")]
 pub struct PersistEventLogsCommand {
     #[clap(long, help = "Name this log will take in Manifold")]
     manifold_name: String,
