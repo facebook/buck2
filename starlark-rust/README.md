@@ -8,7 +8,7 @@
 
 There are several copies of this repo on GitHub, [facebookexperimental/starlark-rust](https://github.com/facebookexperimental/starlark-rust) is the canonical one.
 
-This project provides a Rust implementation of the [Starlark language](https://github.com/bazelbuild/starlark/blob/master/spec.md). Starlark (formerly codenamed Skylark) is a deterministic language inspired by Python3, used for configuration in the build systems [Bazel](https://bazel.build) and [Buck](https://buck.build). This project was originally developed [in this repo](https://github.com/google/starlark-rust), which contains a more extensive history.
+This project provides a Rust implementation of the [Starlark language](https://github.com/bazelbuild/starlark/blob/master/spec.md). Starlark (formerly codenamed Skylark) is a deterministic language inspired by Python3, used for configuration in the build systems [Bazel](https://bazel.build), [Buck](https://buck.build) and [Buck2](https://buck2.build), of which Buck2 depends on this library. This project was originally developed [in this repo](https://github.com/google/starlark-rust), which contains a more extensive history.
 
 There are at least three implementations of Starlark, [one in Java](https://github.com/bazelbuild/starlark), [one in Go](https://github.com/google/starlark-go), and this one in Rust. We mostly follow the Starlark standard. If you are interested in trying out Rust Starlark, you can clone this repo and run:
 
@@ -19,9 +19,7 @@ $> 1+2
 3
 ```
 
-This project was started by [Damien Martin-Guillerez](https://github.com/damienmg).
-Version 0.4.0 of this library changed ownership
-[from Google](https://github.com/google/starlark-rust) to Facebook.
+This project was started by [Damien Martin-Guillerez](https://github.com/damienmg). Version 0.4.0 of this library changed ownership [from Google](https://github.com/google/starlark-rust) to Facebook.
 
 ## Learn More
 
