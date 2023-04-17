@@ -580,7 +580,7 @@ def get_swift_dependency_info(
 
     external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
-        _label = ctx.label,
+        label = ctx.label,
         artifacts = [output_module] if output_module != None else [],
         children = _get_external_debug_info_tsets(all_deps),
     )

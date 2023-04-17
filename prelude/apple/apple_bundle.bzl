@@ -129,7 +129,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
-        _label = ctx.label,
+        label = ctx.label,
         children = [info.external_debug_info for info in debuggable_deps],
     )
     sub_targets[DEBUGINFO_SUBTARGET] = [

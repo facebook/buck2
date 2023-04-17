@@ -22,16 +22,21 @@ SplitDebugMode = enum(
     #"split",
 )
 
-def _artifacts(a: ["artifact"]) -> ["artifact"]:
-    return a
+ExternalDebugInfo = record(
+    label = field("label"),
+    artifacts = field(["artifact"]),
+)
+
+def _get_debug_artifacts(entry: ExternalDebugInfo.type) -> ["artifact"]:
+    return entry.artifacts
 
 ExternalDebugInfoTSet = transitive_set(args_projections = {
-    "external_debug_info": _artifacts,
+    "external_debug_info": _get_debug_artifacts,
 })
 
 def maybe_external_debug_info(
         actions: "actions",
-        _label: "label",  # @unused Used in future diffs.
+        label: "label",
         artifacts: ["artifact"] = [],
         children: [[ExternalDebugInfoTSet.type, None]] = []) -> [ExternalDebugInfoTSet.type, None]:
     # As a convenience for our callers, filter our `None` children.
@@ -44,7 +49,7 @@ def maybe_external_debug_info(
     # We only build a `ExternalDebugInfoTSet` if there's something to package.
     kwargs = {}
     if artifacts:
-        kwargs["value"] = artifacts
+        kwargs["value"] = ExternalDebugInfo(label = label, artifacts = artifacts)
     if children:
         kwargs["children"] = children
     return actions.tset(ExternalDebugInfoTSet, **kwargs)
@@ -59,7 +64,7 @@ def project_external_debug_info(
 
     info = maybe_external_debug_info(
         actions = actions,
-        _label = label,
+        label = label,
         children = infos,
     )
 

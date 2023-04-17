@@ -386,7 +386,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 )],
                 external_debug_info = maybe_external_debug_info(
                     actions = ctx.actions,
-                    _label = ctx.label,
+                    label = ctx.label,
                     artifacts = [out.object for out in cxx_outs if out.object_has_external_debug_info],
                     children = [out.external_debug_info for out in cxx_outs],
                 ),
@@ -513,7 +513,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Provide a debug info target to make sure debug info is materialized.
     external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
-        _label = ctx.label,
+        label = ctx.label,
         children = (
             [binary.external_debug_info] +
             [s.external_debug_info for s in shared_libs.values()]
