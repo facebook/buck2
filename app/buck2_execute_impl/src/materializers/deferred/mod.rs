@@ -69,6 +69,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
+use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe;
@@ -2030,8 +2031,10 @@ fn clean_path<T: IoHandler>(
     .shared()
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct WriteFile {
+    #[derivative(Debug = "ignore")]
     compressed_data: Box<[u8]>,
     decompressed_size: usize,
     is_executable: bool,
