@@ -340,11 +340,11 @@ def _pex_modules_common_args(
 
     if pex_modules.extensions:
         srcs.append(pex_modules.extensions.manifest)
-        src_artifacts.extend([a for a, _ in pex_modules.extensions.artifacts])
+        src_artifacts.extend(pex_modules.extensions.artifacts)
 
     if pex_modules.extra_manifests:
         srcs.append(pex_modules.extra_manifests.manifest)
-        src_artifacts.extend([a for a, _ in pex_modules.extra_manifests.artifacts])
+        src_artifacts.extend(pex_modules.extra_manifests.artifacts)
 
     resources = pex_modules.manifests.resource_manifests()
     resource_artifacts = pex_modules.manifests.resource_artifacts()

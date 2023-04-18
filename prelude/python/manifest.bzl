@@ -16,7 +16,7 @@ ManifestInfo = record(
     # The actual manifest file (in the form of a JSON file).
     manifest = field("artifact"),
     # All artifacts that are referenced in the manifest.
-    artifacts = field([["artifact", "_arglike"]]),
+    artifacts = field([["artifact", "transitive_set_args_projection"]]),
 )
 
 # Parse imports from a *.py file to generate a list of required modules
@@ -63,7 +63,7 @@ def create_manifest_for_entries(
     """
     return ManifestInfo(
         manifest = _write_manifest(ctx, name, entries),
-        artifacts = [(a, dest) for dest, a, _ in entries],
+        artifacts = [a for _, a, _ in entries],
     )
 
 def create_manifest_for_source_map(
@@ -94,9 +94,7 @@ def create_manifest_for_source_dir(
     cmd.add(cmd_args(manifest.as_output(), format = "--output={}"))
     cmd.add(extracted)
     ctx.actions.run(cmd, category = "py_source_manifest", identifier = param)
-
-    # TODO: enumerate directory?
-    return ManifestInfo(manifest = manifest, artifacts = [(extracted, param)])
+    return ManifestInfo(manifest = manifest, artifacts = [extracted])
 
 def create_manifest_for_extensions(
         ctx: "context",
