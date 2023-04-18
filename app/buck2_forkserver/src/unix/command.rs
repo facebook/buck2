@@ -10,6 +10,7 @@
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -22,7 +23,7 @@ use super::service::UnixForkserverService;
 
 pub async fn run_forkserver(
     fd: RawFd,
-    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     state_dir: AbsNormPathBuf,
 ) -> anyhow::Result<()> {
     // SAFETY: At worst, we just read (or close) the wrong FD.

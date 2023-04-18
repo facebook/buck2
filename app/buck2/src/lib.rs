@@ -21,6 +21,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+use std::sync::Arc;
 use std::thread;
 
 use anyhow::Context as _;
@@ -186,7 +187,7 @@ impl Opt {
         working_dir: WorkingDir,
         matches: &clap::ArgMatches,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
         stdin: &mut Stdin,
     ) -> ExitResult {
@@ -211,7 +212,7 @@ pub fn exec(
     args: Vec<String>,
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
-    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     stdin: &mut Stdin,
 ) -> ExitResult {
     let mut argfile_context = ArgExpansionContext::new(&working_dir);
@@ -307,7 +308,7 @@ impl CommandKind {
         matches: &clap::ArgMatches,
         common_opts: BeforeSubcommandOptions,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
         stdin: &mut Stdin,
     ) -> ExitResult {

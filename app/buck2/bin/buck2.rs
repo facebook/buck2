@@ -16,6 +16,7 @@
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use buck2::exec;
 use buck2::panic;
@@ -38,7 +39,7 @@ use fbinit::FacebookInit;
 ))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-fn init_logging(_fb: FacebookInit) -> anyhow::Result<Box<dyn LogConfigurationReloadHandle>> {
+fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
     let handle = match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {

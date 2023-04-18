@@ -12,6 +12,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
@@ -52,7 +53,7 @@ type RunStream =
     Pin<Box<dyn Stream<Item = Result<buck2_forkserver_proto::CommandEvent, Status>> + Send>>;
 
 pub struct UnixForkserverService {
-    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
 
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
@@ -60,7 +61,7 @@ pub struct UnixForkserverService {
 
 impl UnixForkserverService {
     pub fn new(
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;

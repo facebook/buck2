@@ -13,6 +13,7 @@ use std::env;
 use std::fs::File;
 use std::path::PathBuf;
 use std::process;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -270,7 +271,7 @@ impl DaemonCommand {
     fn run(
         &self,
         fb: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         server_init_ctx: BuckdServerInitPreferences,
         in_process: bool,
@@ -502,7 +503,7 @@ impl DaemonCommand {
     pub(crate) fn exec(
         &self,
         init: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         server_init_ctx: BuckdServerInitPreferences,
         in_process: bool,

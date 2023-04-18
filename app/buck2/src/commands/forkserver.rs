@@ -8,6 +8,7 @@
  */
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_core::fs::fs_util;
@@ -35,7 +36,7 @@ impl ForkserverCommand {
         self,
         _matches: &clap::ArgMatches,
         _ctx: ClientCommandContext<'_>,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
         let state_dir = AbsNormPathBuf::try_from(self.state_dir)?;
 

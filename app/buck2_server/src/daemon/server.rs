@@ -291,7 +291,7 @@ pub(crate) struct BuckdServerData {
     #[allocative(skip)]
     callbacks: &'static dyn BuckdServerDependencies,
     #[allocative(skip)]
-    log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
 }
 
 /// The BuckdServer implements the DaemonApi.
@@ -304,7 +304,7 @@ pub struct BuckdServer(Arc<BuckdServerData>);
 impl BuckdServer {
     pub async fn run<I>(
         fb: fbinit::FacebookInit,
-        log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,

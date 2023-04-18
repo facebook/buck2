@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use anyhow::Context as _;
 use tracing_subscriber::filter::Filtered;
 use tracing_subscriber::fmt::MakeWriter;
@@ -20,8 +22,8 @@ pub trait LogConfigurationReloadHandle: Send + Sync + 'static {
 }
 
 impl dyn LogConfigurationReloadHandle {
-    pub fn noop() -> Box<dyn LogConfigurationReloadHandle> {
-        Box::new(NoopLogConfigurationReloadHandle) as _
+    pub fn noop() -> Arc<dyn LogConfigurationReloadHandle> {
+        Arc::new(NoopLogConfigurationReloadHandle) as _
     }
 }
 
@@ -49,7 +51,7 @@ where
 
 pub fn init_tracing_for_writer<W>(
     writer: W,
-) -> anyhow::Result<Box<dyn LogConfigurationReloadHandle>>
+) -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {
@@ -79,5 +81,5 @@ where
 
     tracing_subscriber::registry().with(layer).init();
 
-    Ok(Box::new(handle) as _)
+    Ok(Arc::new(handle) as _)
 }
