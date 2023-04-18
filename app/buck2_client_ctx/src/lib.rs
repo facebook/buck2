@@ -30,6 +30,7 @@ pub mod manifold;
 pub mod path_arg;
 pub mod protobuf_util;
 pub mod replayer;
+pub mod restarter;
 pub mod startup_deadline;
 pub mod stdin;
 pub mod stdio;

@@ -27,6 +27,7 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::tokio_runtime_setup::client_tokio_runtime;
 
@@ -45,6 +46,7 @@ pub struct ClientCommandContext<'a> {
     pub argfiles_trace: Vec<AbsNormPathBuf>,
     pub async_cleanup: AsyncCleanupContext,
     pub stdin: &'a mut Stdin,
+    pub restarter: &'a mut Restarter,
 }
 
 impl<'a> ClientCommandContext<'a> {

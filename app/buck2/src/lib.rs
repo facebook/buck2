@@ -321,7 +321,11 @@ impl CommandKind {
                 .into();
         }
 
-        let trace_id = TraceId::from_env_or_new()?;
+        let trace_id = if process.force_new_trace_id {
+            TraceId::new()
+        } else {
+            TraceId::from_env_or_new()?
+        };
 
         let async_cleanup = AsyncCleanupContextGuard::new();
 
@@ -382,6 +386,7 @@ impl CommandKind {
             argfiles_trace,
             async_cleanup: async_cleanup.ctx().dupe(),
             stdin: process.stdin,
+            restarter: process.restarter,
         };
 
         match self {

@@ -23,7 +23,10 @@ use buck2::panic;
 use buck2::process_context::ProcessContext;
 use buck2::TracingLogFile;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
+use buck2_client_ctx::stdio;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -103,21 +106,42 @@ fn main(init: fbinit::FacebookInit) -> ! {
         panic::initialize(init)?;
         check_cargo();
 
+        static FORCE_WANT_RESTART: EnvHelper<bool> = EnvHelper::new("FORCE_WANT_RESTART");
+
+        let force_want_restart = FORCE_WANT_RESTART.get_copied()?.unwrap_or_default();
+
         let log_reload_handle = init_logging(init)?;
 
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
+        let mut restarter = Restarter::new();
 
-        let process = ProcessContext {
+        let res = exec(ProcessContext {
             init,
             log_reload_handle: &log_reload_handle,
             stdin: &mut stdin,
             working_dir: &cwd,
             args: &args,
-        };
+            restarter: &mut restarter,
+            force_new_trace_id: false,
+        });
 
-        exec(process)
+        let want_restart = force_want_restart || (!res.is_success() && restarter.should_restart());
+
+        if want_restart && !stdio::has_written_to_stdout() {
+            exec(ProcessContext {
+                init,
+                log_reload_handle: &log_reload_handle,
+                stdin: &mut stdin,
+                working_dir: &cwd,
+                args: &args,
+                restarter: &mut restarter,
+                force_new_trace_id: true,
+            })
+        } else {
+            res
+        }
     }
 
     main_with_result(init).report()
