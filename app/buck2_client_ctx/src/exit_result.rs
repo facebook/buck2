@@ -45,6 +45,10 @@ pub struct ExecArgs {
 #[must_use]
 pub struct ExitResult {
     variant: ExitResultVariant,
+
+    /// Some stdout output that should be emitted prior to exiting. This allows commands to buffer
+    /// their final output and choose not to send it if we opt to restart the command.
+    stdout: Vec<u8>,
 }
 
 enum ExitResultVariant {
@@ -69,12 +73,14 @@ impl ExitResult {
     pub fn failure() -> Self {
         Self {
             variant: ExitResultVariant::UncategorizedError,
+            stdout: Vec::new(),
         }
     }
 
     pub fn status(status: u8) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),
+            stdout: Vec::new(),
         }
     }
 
@@ -101,6 +107,7 @@ impl ExitResult {
                 chdir,
                 env,
             }),
+            stdout: Vec::new(),
         }
     }
 
@@ -111,6 +118,7 @@ impl ExitResult {
     pub fn err(err: anyhow::Error) -> Self {
         Self {
             variant: ExitResultVariant::Err(err),
+            stdout: Vec::new(),
         }
     }
 
@@ -146,8 +154,16 @@ impl ExitResult {
         self
     }
 
+    pub fn with_stdout(mut self, stdout: Vec<u8>) -> Self {
+        self.stdout.extend(stdout);
+        self
+    }
+
     pub fn report(self) -> ! {
-        self.variant.report()
+        match crate::stdio::print_bytes(&self.stdout) {
+            Ok(()) => self.variant.report(),
+            Err(e) => ExitResultVariant::Err(e).report(),
+        }
     }
 }
 
