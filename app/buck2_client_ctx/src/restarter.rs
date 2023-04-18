@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::BuckdClientConnector;
 
 /// Monitor the state of our execution and decide whether we should restart the command we just
@@ -44,5 +45,10 @@ impl Restarter {
 
     pub fn should_restart(&self) -> bool {
         self.reject_daemon.is_some() | self.reject_materializer_state.is_some()
+    }
+
+    pub fn apply_to_constraints(&self, req: &mut DaemonConstraintsRequest) {
+        req.reject_daemon = self.reject_daemon.clone();
+        req.reject_materializer_state = self.reject_materializer_state.clone();
     }
 }

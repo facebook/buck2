@@ -129,15 +129,17 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     fn exec<'a>(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'a>) -> ExitResult {
         ctx.with_runtime(async move |mut ctx| {
             let work = async {
+                let constraints = if T::existing_only() {
+                    BuckdConnectConstraints::ExistingOnly
+                } else {
+                    let mut req = DaemonConstraintsRequest::new(T::trace_io(&self))?;
+                    ctx.restarter.apply_to_constraints(&mut req);
+                    BuckdConnectConstraints::Constraints(req)
+                };
+
                 let mut connect_options = BuckdConnectOptions {
                     subscribers: default_subscribers(&self, &ctx)?,
-                    constraints: if T::existing_only() {
-                        BuckdConnectConstraints::ExistingOnly
-                    } else {
-                        BuckdConnectConstraints::Constraints(DaemonConstraintsRequest::new(
-                            T::trace_io(&self),
-                        )?)
-                    },
+                    constraints,
                 };
 
                 let mut buckd = match ctx.start_in_process_daemon.take() {
