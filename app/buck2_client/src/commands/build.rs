@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -304,44 +305,49 @@ impl StreamingCommand for BuildCommand {
 
         print_build_result(&console, &response.error_messages)?;
 
+        let mut stdout = Vec::new();
+
         if !response.serialized_build_report.is_empty() {
-            console.print_stdout(&response.serialized_build_report)?;
+            stdout.extend(response.serialized_build_report.as_bytes());
+            writeln!(&mut stdout)?;
         }
 
-        if !success {
-            return ExitResult::failure();
-        }
+        let res = if success {
+            if let Some(stdout) = &self.output_path {
+                copy_to_out(
+                    &response.build_targets,
+                    ctx.paths()?.project_root(),
+                    &ctx.working_dir,
+                    stdout,
+                )
+                .await
+                .context("Error requesting specific output path for --out")?;
+            }
 
-        if let Some(out) = &self.output_path {
-            copy_to_out(
-                &response.build_targets,
-                ctx.paths()?.project_root(),
-                &ctx.working_dir,
-                out,
-            )
-            .await
-            .context("Error requesting specific output path for --out")?;
-        }
+            if self.show_output
+                || self.show_full_output
+                || self.show_json_output
+                || self.show_full_json_output
+            {
+                print_outputs(
+                    &mut stdout,
+                    response.build_targets,
+                    if self.show_full_output || self.show_full_json_output {
+                        Some(response.project_root)
+                    } else {
+                        None
+                    },
+                    self.show_json_output || self.show_full_json_output,
+                    show_default_other_outputs,
+                )?;
+            }
 
-        if self.show_output
-            || self.show_full_output
-            || self.show_json_output
-            || self.show_full_json_output
-        {
-            print_outputs(
-                &console,
-                response.build_targets,
-                if self.show_full_output || self.show_full_json_output {
-                    Some(response.project_root)
-                } else {
-                    None
-                },
-                self.show_json_output || self.show_full_json_output,
-                show_default_other_outputs,
-            )?;
-        }
+            ExitResult::success()
+        } else {
+            ExitResult::failure()
+        };
 
-        ExitResult::success()
+        res.with_stdout(stdout)
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
@@ -358,7 +364,7 @@ impl StreamingCommand for BuildCommand {
 }
 
 pub(crate) fn print_outputs(
-    console: &FinalConsole,
+    mut out: impl Write,
     targets: Vec<BuildTarget>,
     root_path: Option<String>,
     as_json: bool,
@@ -415,7 +421,7 @@ pub(crate) fn print_outputs(
         if as_json {
             output_map.insert(target.clone(), output);
         } else {
-            console.print_stdout(&format!("{} {}", target, output))?;
+            writeln!(&mut out, "{} {}", target, output)?;
         }
 
         Ok(())
@@ -445,10 +451,8 @@ pub(crate) fn print_outputs(
     }
 
     if as_json {
-        console.print_stdout(
-            &serde_json::to_string_pretty(&output_map)
-                .unwrap_or_else(|_| panic!("Error when converting output map to JSON.")),
-        )?;
+        serde_json::to_writer(&mut out, &output_map)?;
+        writeln!(&mut out)?;
     }
 
     Ok(())

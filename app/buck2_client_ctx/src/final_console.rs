@@ -63,9 +63,4 @@ impl FinalConsole {
     pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
         crate::eprintln!("{}", message)
     }
-
-    /// Print a string directly to stdout with no extra formatting
-    pub fn print_stdout(&self, message: &str) -> anyhow::Result<()> {
-        crate::println!("{}", message)
-    }
 }
