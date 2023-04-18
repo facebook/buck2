@@ -1,0 +1,14 @@
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+digest_algorithms = SHA256
+
+[buck2_re_client]
+action_cache_address = http://localhost:8980
+engine_address = http://localhost:8980
+cas_address = http://localhost:8980
+
+[build]
+  execution_platforms = root//platforms:platforms
