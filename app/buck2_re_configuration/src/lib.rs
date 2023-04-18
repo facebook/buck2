@@ -181,17 +181,37 @@ impl FromStr for HttpHeader {
 
 impl Buck2OssReConfiguration {
     pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        Ok(Self {
-            cas_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?,
-            engine_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
-            action_cache_address: legacy_config
-                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
-            tls_ca_certs: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_ca_certs")?,
-            tls_client_cert: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_client_cert")?,
-            http_headers: legacy_config
-                .parse_list(BUCK2_RE_CLIENT_CFG_SECTION, "http_headers")?
-                .unwrap_or_default(), // Empty list is as good None.
-        })
+        let tls_ca_certs = legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_ca_certs")?;
+        let tls_client_cert =
+            legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls_client_cert")?;
+        let http_headers = legacy_config
+            .parse_list(BUCK2_RE_CLIENT_CFG_SECTION, "http_headers")?
+            .unwrap_or_default(); // Empty list is as good None.
+
+        // if the set the 'address' field, just use that for everything
+        let default_address: Option<String> =
+            legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "address")?;
+
+        match default_address {
+            None => Ok(Self {
+                cas_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?,
+                engine_address: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
+                action_cache_address: legacy_config
+                    .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
+                tls_ca_certs,
+                tls_client_cert,
+                http_headers,
+            }),
+            Some(address) => Ok(Self {
+                cas_address: Some(address.clone()),
+                engine_address: Some(address.clone()),
+                action_cache_address: Some(address.clone()),
+                tls_ca_certs,
+                tls_client_cert,
+                http_headers,
+            }),
+        }
     }
 }
 
