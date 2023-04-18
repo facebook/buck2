@@ -208,7 +208,7 @@ impl Opt {
 }
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
-    let mut argfile_context = ArgExpansionContext::new(&process.working_dir);
+    let mut argfile_context = ArgExpansionContext::new(process.working_dir);
     let mut expanded_args =
         expand_argfiles_with_context(process.args.to_vec(), &mut argfile_context)
             .context("Error expanding argsfiles")?;
