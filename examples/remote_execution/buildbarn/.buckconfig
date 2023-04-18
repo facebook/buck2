@@ -2,14 +2,12 @@
 root = .
 prelude = prelude
 
-[buck2]
-digest_algorithms = SHA256
-
 [buck2_re_client]
-action_cache_address = http://localhost:8980
-engine_address = http://localhost:8980
-cas_address = http://localhost:8980
+action_cache_address = grpc://localhost:8980
+engine_address = grpc://localhost:8980
+cas_address = grpc://localhost:8980
 tls = false
+instance_name = fuse
 
 [build]
   execution_platforms = root//platforms:platforms
