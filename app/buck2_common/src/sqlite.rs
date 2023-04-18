@@ -76,6 +76,19 @@ impl KeyValueSqliteTable {
             .with_context(|| format!("reading from sqlite table {}", self.table_name))?;
         Ok(map)
     }
+
+    pub fn get(&self, key: &str) -> anyhow::Result<Option<String>> {
+        let sql = format!("SELECT value FROM {} WHERE key = ?", self.table_name);
+        tracing::trace!(sql = %sql, key = %key, "read from table");
+        let connection = self.connection.lock();
+        let mut stmt = connection.prepare(&sql)?;
+        let row = stmt
+            .query_map([key], |row| row.get(0))?
+            .next()
+            .transpose()
+            .with_context(|| format!("reading `{}` from sqlite table {}", key, self.table_name))?;
+        Ok(row)
+    }
 }
 
 #[cfg(test)]
@@ -108,5 +121,8 @@ mod tests {
 
         let actual = table.read_all().unwrap();
         assert_eq!(expected, actual);
+
+        assert_eq!(table.get("foo").unwrap().as_deref(), Some("foo"));
+        assert_eq!(table.get("baz").unwrap(), None);
     }
 }

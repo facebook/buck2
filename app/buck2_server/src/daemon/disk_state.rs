@@ -116,10 +116,8 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
 
     let identity = db
         .created_by_table()
-        .read_all()
-        .context("Error reading creation metadata")?
         .get(timestamp_key)
-        .cloned()
+        .context("Error reading creation metadata")?
         .map(MaterializerStateIdentity)
         .with_context(|| format!("disk state is missing `{}`", timestamp_key))?;
 
