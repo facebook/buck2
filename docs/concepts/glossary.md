@@ -30,7 +30,7 @@ A `BUCK` file (the name is configurable, some projects use `TARGETS`) is the mai
 
 #### BXL
 
-BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](https://github.com/facebookexperimental/starlark-rust) (a restricted subset of Python) and give integrators the ability to inspect and interact directly with the buck2 graph.
+BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts are written in [Starlark](#starlark) (a restricted subset of Python) and give integrators the ability to inspect and interact directly with the buck2 graph.
 
 BXL scripts can query the [action graph](#action-graph), [configured graph](#configured-graph), and [unconfigured graph](#unconfigured-graph). They can also create [actions](#action) and trigger builds.
 
@@ -92,13 +92,21 @@ Distributed execution of [actions](#action) on remote workers. It can speed up b
 
 #### Rule
 
-A rule consists of an attribute spec and an implementation, which is a [Starlark](https://github.com/facebookexperimental/starlark-rust) function.
+A rule consists of an attribute spec and an implementation, which is a [Starlark](#starlark) function.
 
 The attribute spec declares what attributes the rule expects to receive. The rule implementation receives the [attributes](#attribute) of a [target](#target) and the [providers](#provider) of its [dependencies](#dependency). It can declare new [actions](#action) and [artifacts](#artifact) and must return [providers](#provider) that can be used to pass data to its dependents or to Buck2 itself.
 
 Rules are instantiated in [BUCK files](#buck-file) to declare targets and set their attributes. The rule implementation is called when Buck2 needs its providers, which can happen when the target is built, or when one of its dependents is.
 
 As an example, the `cxx_binary` rule could be used to create a C++ binary, but `android_binary` rule would be used to create an Android APK
+
+#### Starlark
+
+Starlark is a dialect of Python originally developed by Google for the [Bazel build tool](https://bazel.build/rules/language). It is the configuration language of the Buck2 build system and the language you use in `.bzl` and [`BUCK` files](#buck-file) to define and instantiate [rules](#rule).
+
+There are many reasons why Meta has chosen Starlark, as detailed in [The Rust Starlark library](https://developers.facebook.com/blog/post/2021/04/08/rust-starlark-library/) article.
+
+The Buck2 project maintains and uses an open source [Starlark interpreter in Rust](https://github.com/facebookexperimental/starlark-rust).
 
 #### Target
 
