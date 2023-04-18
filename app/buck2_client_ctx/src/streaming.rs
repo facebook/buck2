@@ -156,12 +156,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     }
                 };
 
-                let mut command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
-
-                if command_result.is_uncategorized() {
-                    command_result =
-                        ExitResult::status(gen_error_exit_code(buckd.collect_error_cause()));
-                }
+                let command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
+                let command_result = command_result
+                    .categorized_or_else(|| gen_error_exit_code(buckd.collect_error_cause()));
 
                 ctx.restarter.observe(&buckd);
 

@@ -136,32 +136,38 @@ fn main(init: fbinit::FacebookInit) -> ! {
             force_new_trace_id: false,
         });
 
-        let want_restart = force_want_restart || (!res.is_success() && restarter.should_restart());
+        let mut restart = |res| {
+            if !force_want_restart && !restarter.should_restart() {
+                tracing::debug!("No restart was requested");
+                return res;
+            }
 
-        if !want_restart {
-            tracing::debug!("No restart was requested");
-            return res;
+            if stdio::has_written_to_stdout() {
+                tracing::debug!("Cannot restart: wrote to stdout");
+                return res;
+            }
+
+            if print_retry().is_err() {
+                tracing::debug!("Cannot restart: warning message cannot be printed");
+                return res;
+            }
+
+            exec(ProcessContext {
+                init,
+                log_reload_handle: &log_reload_handle,
+                stdin: &mut stdin,
+                working_dir: &cwd,
+                args: &args,
+                restarter: &mut restarter,
+                force_new_trace_id: true,
+            })
+        };
+
+        if force_want_restart {
+            restart(res)
+        } else {
+            res.or_else(restart)
         }
-
-        if stdio::has_written_to_stdout() {
-            tracing::debug!("Cannot restart: wrote to stdout");
-            return res;
-        }
-
-        if print_retry().is_err() {
-            tracing::debug!("Cannot restart: warning message cannot be printed");
-            return res;
-        }
-
-        exec(ProcessContext {
-            init,
-            log_reload_handle: &log_reload_handle,
-            stdin: &mut stdin,
-            working_dir: &cwd,
-            args: &args,
-            restarter: &mut restarter,
-            force_new_trace_id: true,
-        })
     }
 
     main_with_result(init).report()

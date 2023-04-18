@@ -42,6 +42,7 @@ pub struct ExecArgs {
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
+#[must_use]
 pub struct ExitResult {
     variant: ExitResultVariant,
 }
@@ -127,15 +128,22 @@ impl ExitResult {
         Self::status(exit_code)
     }
 
-    pub fn is_success(&self) -> bool {
-        if let ExitResultVariant::Status(exit_code) = &self.variant {
-            return *exit_code == 0;
+    /// Return this ExitStatus or call a function to produce a new one.
+    pub fn or_else(self, f: impl FnOnce(Self) -> Self) -> Self {
+        if matches!(self.variant, ExitResultVariant::Status(0)) {
+            return self;
         }
-        false
+
+        f(self)
     }
 
-    pub fn is_uncategorized(&self) -> bool {
-        matches!(self.variant, ExitResultVariant::UncategorizedError)
+    /// Return this ExitStatus if it's not Uncategorized, or produce a new exit code.
+    pub fn categorized_or_else(mut self, f: impl FnOnce() -> u8) -> Self {
+        if matches!(self.variant, ExitResultVariant::UncategorizedError) {
+            self.variant = ExitResultVariant::Status(f());
+        }
+
+        self
     }
 
     pub fn report(self) -> ! {
