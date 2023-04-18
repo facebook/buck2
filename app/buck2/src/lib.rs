@@ -65,7 +65,6 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_starlark::StarlarkCommand;
-use buck2_wrapper_common::invocation_id::TraceId;
 use clap::AppSettings;
 use clap::Parser;
 use dice::DetectCycles;
@@ -321,12 +320,6 @@ impl CommandKind {
                 .into();
         }
 
-        let trace_id = if process.force_new_trace_id {
-            TraceId::new()
-        } else {
-            TraceId::from_env_or_new()?
-        };
-
         let async_cleanup = AsyncCleanupContextGuard::new();
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
@@ -382,7 +375,7 @@ impl CommandKind {
             command_name: self.command_name(),
             working_dir: process.working_dir.clone(),
             sanitized_argv: Vec::new(),
-            trace_id,
+            trace_id: process.trace_id.clone(),
             argfiles_trace,
             async_cleanup: async_cleanup.ctx().dupe(),
             stdin: process.stdin,

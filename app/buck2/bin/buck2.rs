@@ -30,6 +30,7 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_wrapper_common::invocation_id::TraceId;
 use fbinit::FacebookInit;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
@@ -126,6 +127,8 @@ fn main(init: fbinit::FacebookInit) -> ! {
         let mut stdin = Stdin::new()?;
         let mut restarter = Restarter::new();
 
+        let first_trace_id = TraceId::from_env_or_new()?;
+
         let res = exec(ProcessContext {
             init,
             log_reload_handle: &log_reload_handle,
@@ -133,7 +136,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
             working_dir: &cwd,
             args: &args,
             restarter: &mut restarter,
-            force_new_trace_id: false,
+            trace_id: first_trace_id,
         });
 
         let mut restart = |res| {
@@ -159,7 +162,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
                 working_dir: &cwd,
                 args: &args,
                 restarter: &mut restarter,
-                force_new_trace_id: true,
+                trace_id: TraceId::new(),
             })
         };
 
