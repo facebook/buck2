@@ -119,6 +119,7 @@ mod imp {
         daemon_materializer_state_is_corrupted: bool,
         enable_restarter: bool,
         restarted_trace_id: Option<TraceId>,
+        has_command_result: bool,
     }
 
     impl InvocationRecorder {
@@ -205,6 +206,7 @@ mod imp {
                 daemon_materializer_state_is_corrupted: false,
                 enable_restarter: false,
                 restarted_trace_id,
+                has_command_result: false,
             }
         }
 
@@ -330,6 +332,7 @@ mod imp {
                 total_concurrent_commands: self.total_concurrent_commands,
                 exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
+                has_command_result: Some(self.has_command_result),
             };
 
             let event = BuckEvent::new(
@@ -906,6 +909,14 @@ mod imp {
 
         async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
             self.tags.push("console-interaction".to_owned());
+            Ok(())
+        }
+
+        async fn handle_command_result(
+            &mut self,
+            _result: &buck2_cli_proto::CommandResult,
+        ) -> anyhow::Result<()> {
+            self.has_command_result = true;
             Ok(())
         }
 
