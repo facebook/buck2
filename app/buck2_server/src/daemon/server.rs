@@ -46,6 +46,7 @@ use buck2_events::ControlEvent;
 use buck2_events::Event;
 use buck2_events::EventSource;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -135,6 +136,7 @@ pub struct BuckdServerInitPreferences {
     pub detect_cycles: Option<DetectCycles>,
     pub which_dice: Option<WhichDice>,
     pub enable_trace_io: bool,
+    pub reject_materializer_state: Option<MaterializerStateIdentity>,
 }
 
 impl BuckdServerInitPreferences {

@@ -117,6 +117,12 @@ struct BeforeSubcommandOptions {
     #[clap(env("ENABLE_TRACE_IO"), long, hidden(true))]
     enable_trace_io: bool,
 
+    /// If passed a given materializer identity, if the materializer state DB matches that
+    /// identity, the daemon will not use it and will instead create a new empty materializer
+    /// state.
+    #[clap(long, hidden(true))]
+    reject_materializer_state: Option<String>,
+
     /// How verbose buck should be while logging.
     /// Values:
     /// 0 = Quiet, errors only;
@@ -155,6 +161,7 @@ impl BeforeSubcommandOptions {
             detect_cycles: self.detect_cycles,
             which_dice: self.which_dice,
             enable_trace_io: self.enable_trace_io,
+            reject_materializer_state: self.reject_materializer_state.clone().map(|s| s.into()),
         }
     }
 }

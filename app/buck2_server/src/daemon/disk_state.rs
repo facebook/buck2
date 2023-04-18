@@ -27,6 +27,8 @@ use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
 
+use crate::daemon::server::BuckdServerInitPreferences;
+
 #[derive(Allocative)]
 pub struct DiskStateOptions {
     pub sqlite_materializer_state: bool,
@@ -60,6 +62,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     fs: ProjectRoot,
     digest_config: DigestConfig,
+    init_ctx: &BuckdServerInitPreferences,
 ) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
@@ -99,6 +102,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         metadata,
         io_executor,
         digest_config,
+        init_ctx.reject_materializer_state.as_ref(),
     )
     .await?;
 

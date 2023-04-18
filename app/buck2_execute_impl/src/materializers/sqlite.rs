@@ -32,6 +32,7 @@ use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
 use derive_more::Display;
+use derive_more::From;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -43,7 +44,7 @@ use thiserror::Error;
 use crate::materializers::deferred::ArtifactMetadata;
 use crate::materializers::deferred::DirectoryMetadata;
 
-#[derive(Display, Allocative, Clone)]
+#[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
 pub struct MaterializerStateIdentity(String);
 
 /// Hand-maintained schema version for the materializer state sqlite db.
@@ -484,6 +485,9 @@ enum MaterializerStateSqliteDbError {
         found: HashMap<String, String>,
         path: AbsNormPathBuf,
     },
+
+    #[error("Materializer identity was rejected: {}", .identity)]
+    RejectedIdentity { identity: MaterializerStateIdentity },
 }
 
 /// DB that opens the sqlite connection to the materializer state db on disk and
@@ -527,6 +531,7 @@ impl MaterializerStateSqliteDb {
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
         digest_config: DigestConfig,
+        reject_identity: Option<&MaterializerStateIdentity>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         io_executor
             .execute_io_inline(|| {
@@ -535,6 +540,7 @@ impl MaterializerStateSqliteDb {
                     versions,
                     current_instance_metadata,
                     digest_config,
+                    reject_identity,
                 )
             })
             .await
@@ -545,6 +551,7 @@ impl MaterializerStateSqliteDb {
         versions: HashMap<String, String>,
         mut current_instance_metadata: HashMap<String, String>,
         digest_config: DigestConfig,
+        reject_identity: Option<&MaterializerStateIdentity>,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
         let timestamp_on_initialization = Utc::now().to_rfc3339();
         current_instance_metadata.insert(IDENTITY_KEY.to_owned(), timestamp_on_initialization);
@@ -577,9 +584,19 @@ impl MaterializerStateSqliteDb {
                 .last_read_by_table
                 .insert_all(current_instance_metadata.clone())?;
 
-            let state = tables.materializer_state_table.read_all(digest_config)?;
+            let mut db = Self::new(tables)?;
 
-            (Self::new(tables)?, state)
+            if let Some(reject_identity) = reject_identity {
+                if db.identity == *reject_identity {
+                    Err(MaterializerStateSqliteDbError::RejectedIdentity {
+                        identity: db.identity.clone(),
+                    })?;
+                }
+            }
+
+            let state = db.materializer_state_table().read_all(digest_config)?;
+
+            (db, state)
         };
 
         match result {
@@ -877,6 +894,7 @@ mod tests {
         fs: &ProjectRoot,
         versions: HashMap<String, String>,
         metadata: HashMap<String, String>,
+        reject_identity: Option<&MaterializerStateIdentity>,
     ) -> anyhow::Result<(MaterializerStateSqliteDb, anyhow::Result<MaterializerState>)> {
         MaterializerStateSqliteDb::initialize_impl(
             fs.resolve(ProjectRelativePath::unchecked_new(
@@ -885,6 +903,7 @@ mod tests {
             versions,
             metadata,
             DigestConfig::testing_default(),
+            reject_identity,
         )
     }
 
@@ -905,7 +924,7 @@ mod tests {
     fn test_initialize_sqlite_db() -> anyhow::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
             let metadata = buck2_events::metadata::collect();
-            let mut metadatas = vec![metadata; 4];
+            let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
                 metadata.insert("version".to_owned(), i.to_string());
             }
@@ -936,11 +955,15 @@ mod tests {
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();
 
+        let v0 = HashMap::from([("version".to_owned(), "0".to_owned())]);
+        let v1 = HashMap::from([("version".to_owned(), "1".to_owned())]);
+
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "0".to_owned())]),
+                v0.clone(),
                 metadatas[0].clone(),
+                None,
             )
             .unwrap();
             assert_matches!(
@@ -960,12 +983,9 @@ mod tests {
         }
 
         {
-            let (db, loaded_state) = testing_materializer_state_sqlite_db(
-                fs.path(),
-                HashMap::from([("version".to_owned(), "0".to_owned())]),
-                metadatas[1].clone(),
-            )
-            .unwrap();
+            let (db, loaded_state) =
+                testing_materializer_state_sqlite_db(fs.path(), v0, metadatas[1].clone(), None)
+                    .unwrap();
             assert_matches!(
                 loaded_state,
                 Ok(v) => {
@@ -979,8 +999,9 @@ mod tests {
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "1".to_owned())]),
+                v1.clone(),
                 metadatas[2].clone(),
+                None,
             )
             .unwrap();
             assert_matches!(
@@ -1003,11 +1024,12 @@ mod tests {
                 .unwrap();
         }
 
-        {
+        let identity = {
             let (db, loaded_state) = testing_materializer_state_sqlite_db(
                 fs.path(),
-                HashMap::from([("version".to_owned(), "1".to_owned())]),
+                v1.clone(),
                 metadatas[3].clone(),
+                None,
             )
             .unwrap();
             assert_matches!(
@@ -1018,6 +1040,30 @@ mod tests {
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
             assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[3]);
+
+            db.identity
+        };
+
+        {
+            let (db, loaded_state) = testing_materializer_state_sqlite_db(
+                fs.path(),
+                v1,
+                metadatas[4].clone(),
+                Some(&identity),
+            )
+            .unwrap();
+            assert_matches!(
+                loaded_state,
+                Err(e) => {
+                    assert_matches!(
+                        e.downcast_ref::<MaterializerStateSqliteDbError>(),
+                        Some(MaterializerStateSqliteDbError::RejectedIdentity {
+                            ..
+                    }));
+                }
+            );
+            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[4]);
+            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[4]);
         }
 
         Ok(())

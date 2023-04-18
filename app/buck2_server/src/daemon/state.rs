@@ -318,6 +318,7 @@ impl DaemonState {
                 &deferred_materializer_configs,
                 fs,
                 digest_config,
+                &init_ctx,
             ),
         )
         .await?;

@@ -652,6 +652,7 @@ mod tests {
                 detect_cycles: None,
                 which_dice: None,
                 enable_trace_io: false,
+                reject_materializer_state: None,
             },
             process_info.clone(),
             gen_daemon_constraints(None).unwrap(),
