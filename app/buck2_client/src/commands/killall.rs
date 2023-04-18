@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 
@@ -17,8 +18,12 @@ pub struct KillallCommand {}
 
 impl KillallCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let _log_on_drop =
-            try_get_invocation_recorder(&ctx, "killall", std::env::args().collect())?;
+        let _log_on_drop = try_get_invocation_recorder(
+            &ctx,
+            CommonDaemonCommandOptions::default_ref(),
+            "killall",
+            std::env::args().collect(),
+        )?;
 
         let ok = buck2_wrapper_common::killall(|s| {
             let _ignored = buck2_client_ctx::eprintln!("{}", s);

@@ -14,6 +14,7 @@ use std::time::Duration;
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonCommandOptions;
+use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -73,7 +74,12 @@ impl CleanCommand {
             return cmd.exec(matches, ctx);
         }
 
-        let _log_on_drop = try_get_invocation_recorder(&ctx, "clean", std::env::args().collect())?;
+        let _log_on_drop = try_get_invocation_recorder(
+            &ctx,
+            CommonDaemonCommandOptions::default_ref(),
+            "clean",
+            std::env::args().collect(),
+        )?;
 
         ctx.with_runtime(async move |ctx| {
             let buck_out_dir = ctx.paths()?.buck_out_path();

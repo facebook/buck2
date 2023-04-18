@@ -123,6 +123,11 @@ pub struct CommonDaemonCommandOptions {
     /// Write command invocation id into this file.
     #[clap(long, value_name = "PATH")]
     pub(crate) write_build_id: Option<PathArg>,
+
+    /// Write the invocation record (as JSON) to this path. No guarantees whatsoever are made
+    /// regarding the stability of the format.
+    #[clap(long, value_name = "PATH")]
+    pub(crate) unstable_write_invocation_record: Option<PathArg>,
 }
 
 impl CommonDaemonCommandOptions {
@@ -131,6 +136,7 @@ impl CommonDaemonCommandOptions {
             event_log: None,
             no_event_log: false,
             write_build_id: None,
+            unstable_write_invocation_record: None,
         };
         &DEFAULT
     }

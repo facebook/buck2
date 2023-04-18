@@ -15,6 +15,7 @@ use dupe::Dupe;
 
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
+use crate::common::CommonDaemonCommandOptions;
 use crate::subscribers::subscriber::EventSubscriber;
 
 mod imp {
@@ -22,6 +23,7 @@ mod imp {
     use std::collections::HashMap;
     use std::collections::HashSet;
     use std::future::Future;
+    use std::io::Write;
     use std::path::Path;
     use std::sync::Arc;
     use std::time::Duration;
@@ -31,7 +33,9 @@ mod imp {
     use anyhow::Context;
     use async_trait::async_trait;
     use buck2_common::convert::ProstDurationExt;
+    use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_event_observer::action_stats;
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
@@ -51,6 +55,7 @@ mod imp {
     use crate::subscribers::subscriber::EventSubscriber;
 
     pub struct InvocationRecorder {
+        write_to_path: Option<AbsPathBuf>,
         command_name: &'static str,
         cli_args: Vec<String>,
         isolation_dir: String,
@@ -121,6 +126,7 @@ mod imp {
         pub fn new(
             async_cleanup_context: AsyncCleanupContext,
             scribe: Option<Arc<ThriftScribeSink>>,
+            write_to_path: Option<AbsPathBuf>,
             mut command_name: &'static str,
             sanitized_argv: Vec<String>,
             trace_id: TraceId,
@@ -135,6 +141,7 @@ mod imp {
             }
 
             Self {
+                write_to_path,
                 command_name,
                 cli_args: sanitized_argv,
                 isolation_dir,
@@ -325,6 +332,7 @@ mod imp {
                 exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
             };
+
             let event = BuckEvent::new(
                 SystemTime::now(),
                 self.trace_id.dupe(),
@@ -335,6 +343,25 @@ mod imp {
                 }
                 .into(),
             );
+
+            if let Some(path) = &self.write_to_path {
+                let res = (|| {
+                    let out = fs_util::create_file(path).context("Error opening")?;
+                    let mut out = std::io::BufWriter::new(out);
+                    serde_json::to_writer(&mut out, event.event()).context("Error writing")?;
+                    out.flush().context("Error flushing")?;
+                    anyhow::Ok(())
+                })();
+
+                if let Err(e) = &res {
+                    tracing::warn!(
+                        "Failed to write InvocationRecord to `{}`: {:#}",
+                        path.as_path().display(),
+                        e
+                    );
+                }
+            }
+
             if let Some(sink) = &self.scribe {
                 tracing::info!("Recording invocation to Scribe: {:?}", &event);
                 let scribe = sink.dupe();
@@ -943,6 +970,7 @@ mod imp {
 
 pub fn try_get_invocation_recorder(
     ctx: &ClientCommandContext,
+    opts: &CommonDaemonCommandOptions,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
@@ -953,9 +981,15 @@ pub fn try_get_invocation_recorder(
         scribe_sink = Some(std::sync::Arc::new(sink));
     }
 
+    let write_to_path = opts
+        .unstable_write_invocation_record
+        .as_ref()
+        .map(|path| path.resolve(&ctx.working_dir));
+
     let recorder = imp::InvocationRecorder::new(
         ctx.async_cleanup_context().dupe(),
         scribe_sink,
+        write_to_path,
         command_name,
         sanitized_argv,
         ctx.trace_id.dupe(),
