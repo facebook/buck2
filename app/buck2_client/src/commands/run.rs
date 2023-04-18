@@ -143,7 +143,7 @@ impl StreamingCommand for RunCommand {
         // TODO(rafaelc): use absolute paths for artifacts in the cli
         //      we should run the command from the current dir, not the project root
         if response.build_targets.is_empty() || response.build_targets[0].run_args.is_empty() {
-            return ExitResult::Err(RunCommandError::NonBinaryRule(self.target).into());
+            return ExitResult::err(RunCommandError::NonBinaryRule(self.target).into());
         }
         let mut run_args = response.build_targets[0].run_args.clone();
         run_args.extend(self.extra_run_args);
@@ -179,7 +179,7 @@ impl StreamingCommand for RunCommand {
                 buck2_client_ctx::println!("{}", shlex::join(run_args.iter().map(|a| a.as_str())))?;
                 return ExitResult::success();
             } else {
-                return ExitResult::Err(RunCommandError::EmitShellNotSupportedOnWindows.into());
+                return ExitResult::err(RunCommandError::EmitShellNotSupportedOnWindows.into());
             }
         }
 

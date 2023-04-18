@@ -238,7 +238,7 @@ impl StreamingCommand for TargetsCommand {
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
                 (true, true) => {
-                    return ExitResult::Err(anyhow::Error::new(
+                    return ExitResult::err(anyhow::Error::new(
                         TargetsError::IncompatibleArguments,
                     ));
                 }

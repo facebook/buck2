@@ -58,12 +58,12 @@ impl InitCommand {
         let console = self.console_opts.final_console();
 
         match exec_impl(self, ctx, &console) {
-            Ok(_) => ExitResult::Status(0),
+            Ok(_) => ExitResult::status(0),
             Err(e) => {
                 // include the backtrace with the error output
                 // (same behaviour as returning the Error from main)
                 console.print_error(&format!("{:?}", e))?;
-                ExitResult::Status(1)
+                ExitResult::status(1)
             }
         }
     }

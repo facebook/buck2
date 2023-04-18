@@ -158,7 +158,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
                 let mut command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
 
-                if matches!(command_result, ExitResult::UncategorizedError) {
+                if command_result.is_uncategorized() {
                     command_result =
                         ExitResult::status(gen_error_exit_code(buckd.collect_error_cause()));
                 }

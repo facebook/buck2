@@ -55,7 +55,7 @@ impl<R> Try for CommandOutcome<R> {
 
 impl FromResidual<CommandFailure> for ExitResult {
     fn from_residual(_residual: CommandFailure) -> Self {
-        ExitResult::UncategorizedError
+        ExitResult::failure()
     }
 }
 

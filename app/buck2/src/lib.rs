@@ -225,7 +225,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let opt: Opt = Opt::from_clap(&matches);
 
     if opt.common_opts.help_wrapper {
-        return ExitResult::Err(anyhow::anyhow!(
+        return ExitResult::err(anyhow::anyhow!(
             "`--help-wrapper` should have been handled by the wrapper"
         ));
     }

@@ -42,7 +42,11 @@ pub struct ExecArgs {
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
-pub enum ExitResult {
+pub struct ExitResult {
+    variant: ExitResultVariant,
+}
+
+enum ExitResultVariant {
     /// We finished successfully, return the specific exit code.
     Status(u8),
     /// The command failed and it doesn't have a specific exit code yet. This may be updated by
@@ -58,15 +62,19 @@ pub enum ExitResult {
 
 impl ExitResult {
     pub fn success() -> Self {
-        Self::Status(0)
+        Self::status(0)
     }
 
     pub fn failure() -> Self {
-        Self::UncategorizedError
+        Self {
+            variant: ExitResultVariant::UncategorizedError,
+        }
     }
 
     pub fn status(status: u8) -> Self {
-        Self::Status(status)
+        Self {
+            variant: ExitResultVariant::Status(status),
+        }
     }
 
     /// Values out of the range of u8 will have their status information ignored
@@ -85,16 +93,24 @@ impl ExitResult {
         chdir: Option<String>,
         env: Vec<(String, String)>,
     ) -> Self {
-        Self::Exec(ExecArgs {
-            prog,
-            argv,
-            chdir,
-            env,
-        })
+        Self {
+            variant: ExitResultVariant::Exec(ExecArgs {
+                prog,
+                argv,
+                chdir,
+                env,
+            }),
+        }
     }
 
     pub fn bail(msg: impl Display) -> Self {
-        Self::Err(anyhow::anyhow!("Command failed: {}", msg))
+        Self::err(anyhow::anyhow!("Command failed: {}", msg))
+    }
+
+    pub fn err(err: anyhow::Error) -> Self {
+        Self {
+            variant: ExitResultVariant::Err(err),
+        }
     }
 
     pub fn infer(result: &command_result::Result) -> Self {
@@ -112,10 +128,18 @@ impl ExitResult {
     }
 
     pub fn is_success(&self) -> bool {
-        if let ExitResult::Status(exit_code) = self {
+        if let ExitResultVariant::Status(exit_code) = &self.variant {
             return *exit_code == 0;
         }
         false
+    }
+
+    pub fn is_uncategorized(&self) -> bool {
+        matches!(self.variant, ExitResultVariant::UncategorizedError)
+    }
+
+    pub fn report(self) -> ! {
+        self.variant.report()
     }
 }
 
@@ -124,7 +148,7 @@ impl From<anyhow::Result<()>> for ExitResult {
     fn from(e: anyhow::Result<()>) -> Self {
         match e {
             Ok(()) => Self::success(),
-            Err(e) => Self::Err(e),
+            Err(e) => Self::err(e),
         }
     }
 }
@@ -133,21 +157,21 @@ impl From<anyhow::Result<u8>> for ExitResult {
     fn from(e: anyhow::Result<u8>) -> Self {
         match e {
             Ok(code) => Self::status(code),
-            Err(e) => Self::Err(e),
+            Err(e) => Self::err(e),
         }
     }
 }
 
 impl From<FailureExitCode> for ExitResult {
     fn from(e: FailureExitCode) -> Self {
-        Self::Err(e.into())
+        Self::err(e.into())
     }
 }
 
 impl FromResidual<anyhow::Error> for ExitResult {
     #[track_caller]
     fn from_residual(residual: anyhow::Error) -> ExitResult {
-        Self::Err(residual)
+        Self::err(residual)
     }
 }
 
@@ -157,13 +181,13 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
         match residual {
             Ok(infallible) => match infallible {},
             // E -> anyhow::Error -> ExitResult
-            Err(e) => Self::Err(e.into()),
+            Err(e) => Self::err(e.into()),
         }
     }
 }
 
 /// Implementing Termination lets us set the exit code for the process.
-impl ExitResult {
+impl ExitResultVariant {
     pub fn report(self) -> ! {
         // NOTE: We use writeln instead of println so we don't panic if stderr is closed. This
         // ensures we get the desired exit code printed instead of potentially a panic.
