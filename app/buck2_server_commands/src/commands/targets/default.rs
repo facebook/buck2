@@ -145,21 +145,18 @@ pub(crate) async fn targets_batch(
             }
             Err(e) => {
                 stats.errors += 1;
-                if keep_going {
-                    if needs_separator {
-                        formatter.separator(&mut buffer);
-                    }
-                    needs_separator = true;
-                    formatter.package_error(package.dupe(), e.inner(), &mut buffer);
-                    // TODO(nga): When "keep going" and "target name" formatter is used,
-                    //   error is printed nowhere.
-                } else {
-                    writeln!(
-                        server_ctx.stderr()?,
-                        "Error parsing {}\n{:?}",
-                        package,
-                        e.inner()
-                    )?;
+                let mut stderr = String::new();
+
+                if needs_separator {
+                    formatter.separator(&mut buffer);
+                }
+                needs_separator = true;
+                formatter.package_error(package.dupe(), e.inner(), &mut buffer, &mut stderr);
+
+                server_ctx.stderr()?.write_all(stderr.as_bytes())?;
+
+                if !keep_going {
+                    break;
                 }
             }
         }

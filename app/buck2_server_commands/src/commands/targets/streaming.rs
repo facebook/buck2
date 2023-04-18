@@ -63,7 +63,7 @@ pub(crate) async fn targets_streaming(
     struct Res {
         stats: Stats,           // Stats to merge in
         package: PackageLabel,  // The package I was operating on
-        stderr: Option<String>, // Print to stderr (and break)
+        stderr: Option<String>, // Print to stderr (and break unless keep_going is set)
         stdout: String,         // Print to stdout
     }
 
@@ -123,13 +123,9 @@ pub(crate) async fn targets_streaming(
                     }
                     Err(e) => {
                         res.stats.errors += 1;
-                        formatter.package_error(package.dupe(), &e, &mut res.stdout);
-                        if !keep_going {
-                            res.stderr = Some(format!("Error parsing {}\n{:?}", package, e));
-                        } else {
-                            // TODO(nga): When "keep going" and "target name" formatter is used,
-                            //   error is printed nowhere.
-                        }
+                        let mut stderr = String::new();
+                        formatter.package_error(package.dupe(), &e, &mut res.stdout, &mut stderr);
+                        res.stderr = Some(stderr);
                     }
                 }
                 anyhow::Ok(res)
@@ -146,9 +142,11 @@ pub(crate) async fn targets_streaming(
     while let Some(res) = packages.next().await {
         let res = res?;
         stats.merge(&res.stats);
-        if let Some(stderr) = res.stderr {
-            writeln!(server_ctx.stderr()?, "{}", stderr)?;
-            return Err(mk_error(stats.errors));
+        if let Some(stderr) = &res.stderr {
+            server_ctx.stderr()?.write_all(stderr.as_bytes())?;
+            if !keep_going {
+                return Err(mk_error(stats.errors));
+            }
         }
         if !res.stdout.is_empty() {
             if needs_separator {

@@ -62,7 +62,14 @@ pub(crate) trait TargetFormatter: Send + Sync {
         buffer: &mut String,
     ) {
     }
-    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {}
+    fn package_error(
+        &self,
+        package: PackageLabel,
+        error: &anyhow::Error,
+        stdout: &mut String,
+        stderr: &mut String,
+    ) {
+    }
 }
 
 pub(crate) struct JsonWriter {
@@ -248,22 +255,28 @@ impl TargetFormatter for JsonFormat {
         self.writer.entry_end(buffer, first);
     }
 
-    fn package_error(&self, package: PackageLabel, error: &anyhow::Error, buffer: &mut String) {
-        self.writer.entry_start(buffer);
+    fn package_error(
+        &self,
+        package: PackageLabel,
+        error: &anyhow::Error,
+        stdout: &mut String,
+        _stderr: &mut String,
+    ) {
+        self.writer.entry_start(stdout);
         let mut first = true;
         self.writer.entry_item(
-            buffer,
+            stdout,
             &mut first,
             PACKAGE,
             QuotedJson::quote_display(package),
         );
         self.writer.entry_item(
-            buffer,
+            stdout,
             &mut first,
             "buck.error",
             QuotedJson::quote_str(&format!("{:?}", error)),
         );
-        self.writer.entry_end(buffer, first);
+        self.writer.entry_end(stdout, first);
     }
 }
 
@@ -309,6 +322,16 @@ impl TargetFormatter for TargetNameFormat {
         if self.target_call_stacks {
             print_target_call_stack_after_target(buffer, target_info.node.call_stack().as_deref());
         }
+    }
+
+    fn package_error(
+        &self,
+        package: PackageLabel,
+        error: &anyhow::Error,
+        _stdout: &mut String,
+        stderr: &mut String,
+    ) {
+        writeln!(stderr, "Error parsing {}\n{:?}", package, error).unwrap();
     }
 }
 
