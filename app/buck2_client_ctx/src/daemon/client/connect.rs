@@ -48,6 +48,7 @@ use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ConstraintCheckResult {
     Match,
@@ -69,6 +70,8 @@ pub struct DaemonConstraintsRequest {
     version: String,
     user_version: Option<String>,
     desired_trace_io_state: DesiredTraceIoState,
+    pub reject_daemon: Option<String>,
+    pub reject_materializer_state: Option<String>,
 }
 
 impl DaemonConstraintsRequest {
@@ -77,6 +80,8 @@ impl DaemonConstraintsRequest {
             version: daemon_constraints::version(),
             user_version: daemon_constraints::user_version()?,
             desired_trace_io_state,
+            reject_daemon: None,
+            reject_materializer_state: None,
         })
     }
 
@@ -87,6 +92,12 @@ impl DaemonConstraintsRequest {
 
         if self.user_version != daemon.user_version {
             return Ok(false);
+        }
+
+        if let Some(r) = &self.reject_daemon {
+            if *r == daemon.daemon_id {
+                return Ok(false);
+            }
         }
 
         // At this point, if ExtraDaemonConstraints is missing, we'll reuse the daemon (as that
@@ -101,6 +112,16 @@ impl DaemonConstraintsRequest {
             (DesiredTraceIoState::Enabled, false) => return Ok(false),
             (DesiredTraceIoState::Disabled, true) => return Ok(false),
             _ => {}
+        }
+
+        if let Some(r) = &self.reject_materializer_state {
+            if extra
+                .materializer_state_identity
+                .as_ref()
+                .map_or(false, |i| i == r)
+            {
+                return Ok(false);
+            }
         }
 
         Ok(true)
@@ -724,6 +745,8 @@ mod tests {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             desired_trace_io_state,
+            reject_daemon: None,
+            reject_materializer_state: None,
         })
     }
 
@@ -762,5 +785,56 @@ mod tests {
 
         let c = request(DesiredTraceIoState::Disabled);
         assert!(!c.is_trace_io_requested());
+    }
+
+    #[test]
+    fn test_reject_daemon() {
+        let mut req = DaemonConstraintsRequest {
+            version: "foo".to_owned(),
+            user_version: None,
+            desired_trace_io_state: DesiredTraceIoState::Existing,
+            reject_daemon: None,
+            reject_materializer_state: None,
+        };
+
+        let daemon = buck2_cli_proto::DaemonConstraints {
+            version: "foo".to_owned(),
+            user_version: None,
+            daemon_id: "ddd".to_owned(),
+            extra: None,
+        };
+
+        assert!(req.satisfied(&daemon).unwrap());
+        req.reject_daemon = Some("zzz".to_owned());
+        assert!(req.satisfied(&daemon).unwrap());
+        req.reject_daemon = Some("ddd".to_owned());
+        assert!(!req.satisfied(&daemon).unwrap());
+    }
+
+    #[test]
+    fn test_reject_materializer_state() {
+        let mut req = DaemonConstraintsRequest {
+            version: "foo".to_owned(),
+            user_version: None,
+            desired_trace_io_state: DesiredTraceIoState::Existing,
+            reject_daemon: None,
+            reject_materializer_state: None,
+        };
+
+        let daemon = buck2_cli_proto::DaemonConstraints {
+            version: "foo".to_owned(),
+            user_version: None,
+            daemon_id: "ddd".to_owned(),
+            extra: Some(buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled: false,
+                materializer_state_identity: Some("mmm".to_owned()),
+            }),
+        };
+
+        assert!(req.satisfied(&daemon).unwrap());
+        req.reject_materializer_state = Some("zzz".to_owned());
+        assert!(req.satisfied(&daemon).unwrap());
+        req.reject_materializer_state = Some("mmm".to_owned());
+        assert!(!req.satisfied(&daemon).unwrap());
     }
 }
