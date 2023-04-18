@@ -128,23 +128,33 @@ mod state_machine {
     impl IoHandler for StubIoHandler {
         fn write(
             self: &Arc<Self>,
-            path: ProjectRelativePathBuf,
+            _path: ProjectRelativePathBuf,
             _write: Arc<WriteFile>,
             _version: Version,
             _command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
-            self.log.lock().push((Op::Materialize, path));
-            futures::future::ready(Ok(())).boxed()
+            unimplemented!()
         }
 
         fn clean_path(
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
-            _version: Version,
-            _command_sender: MaterializerSender<Self>,
+            version: Version,
+            command_sender: MaterializerSender<Self>,
         ) -> BoxFuture<'static, Result<(), SharedError>> {
-            self.log.lock().push((Op::Clean, path));
-            futures::future::ready(Ok(())).boxed()
+            self.log.lock().push((Op::Clean, path.clone()));
+
+            async move {
+                let _ignored = command_sender.send_low_priority(
+                    LowPriorityMaterializerCommand::CleanupFinished {
+                        path,
+                        version,
+                        result: Ok(()),
+                    },
+                );
+                Ok(())
+            }
+            .boxed()
         }
 
         async fn materialize_entry(
@@ -171,7 +181,7 @@ mod state_machine {
             _min_ttl: Duration,
             _digest_config: DigestConfig,
         ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
-            None
+            unimplemented!()
         }
     }
 
