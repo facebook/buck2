@@ -15,6 +15,7 @@ use crate::daemon::client::BuckdClientConnector;
 pub struct Restarter {
     pub reject_daemon: Option<String>,
     pub reject_materializer_state: Option<String>,
+    pub enable_restarter: bool,
 }
 
 impl Restarter {
@@ -22,6 +23,7 @@ impl Restarter {
         Self {
             reject_daemon: None,
             reject_materializer_state: None,
+            enable_restarter: false,
         }
     }
 
@@ -40,11 +42,16 @@ impl Restarter {
                     .as_ref()
                     .and_then(|e| e.materializer_state_identity.clone());
             }
+
+            if obs.restarter_is_enabled() {
+                self.enable_restarter = true;
+            }
         }
     }
 
     pub fn should_restart(&self) -> bool {
-        self.reject_daemon.is_some() | self.reject_materializer_state.is_some()
+        self.enable_restarter
+            && (self.reject_daemon.is_some() || self.reject_materializer_state.is_some())
     }
 
     pub fn apply_to_constraints(&self, req: &mut DaemonConstraintsRequest) {

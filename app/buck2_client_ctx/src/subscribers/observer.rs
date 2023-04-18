@@ -24,6 +24,10 @@ pub trait ErrorObserver {
     fn daemon_materializer_state_is_corrupted(&self) -> bool {
         false
     }
+
+    fn restarter_is_enabled(&self) -> bool {
+        false
+    }
 }
 
 pub enum ErrorCause {

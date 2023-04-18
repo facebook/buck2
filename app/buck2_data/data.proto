@@ -195,6 +195,10 @@ message InstantEvent {
     // Snapshot of current debug adapter state. Only sent when a debugger is
     // attached.
     DebugAdapterSnapshot debug_adapter_snapshot = 27;
+
+    // This is notionally reading from .buckconfig at startup, but since that's
+    // done by the daemon, it needs to come through this way.
+    RestartConfiguration restart_configuration = 28;
   }
 
   reserved 12; // Log
@@ -1727,3 +1731,7 @@ message NetworkInterfaceStats {
 message TraceIoCommandStart {}
 
 message TraceIoCommandEnd {}
+
+message RestartConfiguration {
+  bool enable_restarter = 1;
+}

@@ -137,6 +137,10 @@ pub struct DaemonStateData {
 
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<MaterializerStateIdentity>,
+
+    /// Whether to enable the restarter. This controls whether the client will attempt to restart
+    /// the daemon when we hit an error.
+    pub enable_restarter: bool,
 }
 
 impl DaemonStateData {
@@ -416,6 +420,11 @@ impl DaemonState {
             .parse("buck2", "critical_path_backend2")?
             .unwrap_or(CriticalPathBackendName::Default);
 
+        let enable_restarter = root_config
+            .parse::<RolloutPercentage>("buck2", "restarter")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
         // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
         // about (potentially kicking off an initial crawl).
 
@@ -441,6 +450,7 @@ impl DaemonState {
             create_unhashed_outputs_lock,
             critical_path_backend,
             materializer_state_identity,
+            enable_restarter,
         }))
     }
 
@@ -563,6 +573,12 @@ impl DaemonState {
         dispatcher: EventDispatcher,
         drop_guard: ActiveCommandDropGuard,
     ) -> SharedResult<BaseServerCommandContext> {
+        let data = self.data();
+
+        dispatcher.instant_event(buck2_data::RestartConfiguration {
+            enable_restarter: data.as_ref().map_or(false, |d| d.enable_restarter),
+        });
+
         check_working_dir::check_working_dir().map_err(|e| {
             // Always throw this error, but tag it via soft errors.
             match quiet_soft_error!("eden_not_connected", e) {
@@ -571,7 +587,7 @@ impl DaemonState {
             }
         })?;
 
-        let data = self.data()?;
+        let data = data?;
 
         let tags = vec![
             format!(

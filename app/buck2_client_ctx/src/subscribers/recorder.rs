@@ -113,6 +113,7 @@ mod imp {
         exit_when_different_state: bool,
         daemon_in_memory_state_is_corrupted: bool,
         daemon_materializer_state_is_corrupted: bool,
+        enable_restarter: bool,
     }
 
     impl InvocationRecorder {
@@ -194,6 +195,7 @@ mod imp {
                 exit_when_different_state: false,
                 daemon_in_memory_state_is_corrupted: false,
                 daemon_materializer_state_is_corrupted: false,
+                enable_restarter: false,
             }
         }
 
@@ -841,6 +843,10 @@ mod imp {
                         buck2_data::instant_event::Data::ExitWhenDifferentState(
                             exit_when_different_state,
                         ) => self.handle_exit_when_different_state(exit_when_different_state),
+                        buck2_data::instant_event::Data::RestartConfiguration(conf) => {
+                            self.enable_restarter = conf.enable_restarter;
+                            Ok(())
+                        }
                         _ => Ok(()),
                     }
                 }
@@ -896,6 +902,10 @@ mod imp {
 
         fn daemon_materializer_state_is_corrupted(&self) -> bool {
             self.daemon_materializer_state_is_corrupted
+        }
+
+        fn restarter_is_enabled(&self) -> bool {
+            self.enable_restarter
         }
     }
 

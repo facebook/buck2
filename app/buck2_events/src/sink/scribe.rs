@@ -416,6 +416,7 @@ mod fbcode {
                     Some(Data::DiceStateSnapshot(..)) => false,
                     Some(Data::DiceEqualityCheck(..)) => false,
                     Some(Data::NoActiveDiceState(..)) => false,
+                    Some(Data::RestartConfiguration(..)) => false,
                     None => false,
                     _ => true,
                 }
