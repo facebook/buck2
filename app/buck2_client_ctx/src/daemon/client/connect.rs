@@ -406,18 +406,6 @@ impl BootstrapBuckdClient {
             )
     }
 
-    fn new(
-        info: DaemonProcessInfo,
-        daemon_dir: DaemonDir,
-        client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
-    ) -> Self {
-        Self {
-            info,
-            daemon_dir,
-            client,
-        }
-    }
-
     pub fn with_subscribers(
         self,
         subscribers: Vec<Box<dyn EventSubscriber>>,
@@ -645,7 +633,11 @@ async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<Boo
 
     let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
 
-    Ok(BootstrapBuckdClient::new(info, daemon_dir.clone(), client))
+    Ok(BootstrapBuckdClient {
+        info,
+        daemon_dir: daemon_dir.clone(),
+        client,
+    })
 }
 
 #[derive(Debug, Error)]
