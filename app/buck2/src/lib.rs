@@ -53,6 +53,7 @@ use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_ctx::ProcessContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -186,6 +187,7 @@ impl Opt {
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
+        stdin: &mut Stdin,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -199,6 +201,7 @@ impl Opt {
             init,
             log_reload_handle,
             argfiles_trace,
+            stdin,
         )
     }
 }
@@ -208,6 +211,7 @@ pub fn exec(
     working_dir: WorkingDir,
     init: fbinit::FacebookInit,
     log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
+    stdin: &mut Stdin,
 ) -> ExitResult {
     let mut argfile_context = ArgExpansionContext::new(&working_dir);
     let mut expanded_args = expand_argfiles_with_context(args, &mut argfile_context)
@@ -243,6 +247,7 @@ pub fn exec(
         init,
         log_reload_handle,
         argfiles_trace,
+        stdin,
     )
 }
 
@@ -303,6 +308,7 @@ impl CommandKind {
         init: fbinit::FacebookInit,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
+        stdin: &mut Stdin,
     ) -> ExitResult {
         let init_ctx = common_opts.to_server_init_context();
         let roots = find_invocation_roots(working_dir.path());
@@ -323,7 +329,7 @@ impl CommandKind {
 
         let trace_id = TraceId::from_env_or_new()?;
 
-        let (process_context, _cleanup_drop_guard) = ProcessContext::initialize()?;
+        let (process_context, _cleanup_drop_guard) = ProcessContext::initialize(stdin)?;
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {

@@ -54,7 +54,7 @@ pub struct InitCommand {
 }
 
 impl InitCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let console = self.console_opts.final_console();
 
         match exec_impl(self, ctx, &console) {
@@ -71,7 +71,7 @@ impl InitCommand {
 
 fn exec_impl(
     cmd: InitCommand,
-    ctx: ClientCommandContext,
+    ctx: ClientCommandContext<'_>,
     console: &FinalConsole,
 ) -> anyhow::Result<()> {
     let path = cmd.path.resolve(&ctx.working_dir);

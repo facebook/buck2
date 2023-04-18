@@ -45,7 +45,7 @@ impl DocsUqueryCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = UqueryEnvironment::describe();
         output(self.docs_options, description)
@@ -56,7 +56,7 @@ impl DocsCqueryCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = CqueryEnvironment::describe();
         output(self.docs_options, description)

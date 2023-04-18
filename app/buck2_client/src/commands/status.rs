@@ -42,7 +42,7 @@ impl StatusCommand {
         format_duration(duration).to_string()
     }
 
-    pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext) -> anyhow::Result<()> {
+    pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())

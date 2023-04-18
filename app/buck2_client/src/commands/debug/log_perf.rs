@@ -27,7 +27,7 @@ pub struct LogPerfCommand {
 }
 
 impl LogPerfCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
             event_log,
             interval,

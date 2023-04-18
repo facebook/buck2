@@ -32,7 +32,7 @@ impl StreamingCommand for CrashCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let _err = buckd
             .with_flushing()

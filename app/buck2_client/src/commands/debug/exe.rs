@@ -17,7 +17,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 pub struct ExeCommand {}
 
 impl ExeCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_client_ctx::println!("{}", env::current_exe()?.display())?;
         ExitResult::success()
     }

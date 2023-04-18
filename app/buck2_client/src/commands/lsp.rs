@@ -43,7 +43,7 @@ impl StreamingCommand for LspCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let client_context =
             ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;

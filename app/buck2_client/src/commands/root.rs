@@ -60,7 +60,7 @@ impl RootCommand {
     pub fn exec(
         self,
         _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         let root = match self.kind {
             RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),

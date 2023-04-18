@@ -21,6 +21,7 @@ use buck2::exec;
 use buck2::panic;
 use buck2::TracingLogFile;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::stdin::Stdin;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -103,8 +104,9 @@ fn main(init: fbinit::FacebookInit) -> ! {
 
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
+        let mut stdin = Stdin::new()?;
 
-        exec(args, cwd, init, log_reload_handle)
+        exec(args, cwd, init, log_reload_handle, &mut stdin)
     }
 
     main_with_result(init).report()

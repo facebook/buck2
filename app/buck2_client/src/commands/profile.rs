@@ -57,7 +57,7 @@ pub enum ProfileOptionsType {
 }
 
 impl ProfileCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let submatches = matches.subcommand().expect("subcommand not found").1;
         match self {
             Self::Analysis(opts) => ProfileSubcommand {
@@ -179,7 +179,7 @@ impl StreamingCommand for ProfileSubcommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(
             &self.profile_common_opts.common_opts.config_opts,

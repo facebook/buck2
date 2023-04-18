@@ -33,33 +33,33 @@ use crate::tokio_runtime_setup::client_tokio_runtime;
 
 /// Contains fields that should only created once per proess and not once per command. We don't put
 /// them directly in ClientCommandContext to support Replay.
-pub struct ProcessContext {
+pub struct ProcessContext<'a> {
     async_cleanup: AsyncCleanupContext,
-    stdin: Stdin,
+    stdin: &'a mut Stdin,
 }
 
-impl ProcessContext {
+impl<'a> ProcessContext<'a> {
     /// NOTE: This returns the AsyncCleanupContextGuard separately since we pass the ProcessContext
     /// down but want to keep the AsyncCleanupContextGuard at the top of the stack.
-    pub fn initialize() -> anyhow::Result<(Self, AsyncCleanupContextGuard)> {
+    pub fn initialize(stdin: &'a mut Stdin) -> anyhow::Result<(Self, AsyncCleanupContextGuard)> {
         let async_cleanup = AsyncCleanupContextGuard::new();
 
         Ok((
             Self {
                 async_cleanup: async_cleanup.ctx().dupe(),
-                stdin: Stdin::new()?,
+                stdin,
             },
             async_cleanup,
         ))
     }
 }
 
-pub struct ClientCommandContext {
+pub struct ClientCommandContext<'a> {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,
-    pub process_context: ProcessContext,
+    pub process_context: ProcessContext<'a>,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
@@ -70,7 +70,7 @@ pub struct ClientCommandContext {
     pub argfiles_trace: Vec<AbsNormPathBuf>,
 }
 
-impl ClientCommandContext {
+impl<'a> ClientCommandContext<'a> {
     pub fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }
@@ -82,16 +82,17 @@ impl ClientCommandContext {
         }
     }
 
-    pub fn with_runtime<Fut: Future, F: FnOnce(ClientCommandContext) -> Fut>(
-        self,
-        func: F,
-    ) -> <Fut as Future>::Output {
+    pub fn with_runtime<Fut, F>(self, func: F) -> <Fut as Future>::Output
+    where
+        Fut: Future + 'a,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+    {
         let runtime = client_tokio_runtime().unwrap();
         runtime.block_on(func(self))
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {
-        &mut self.process_context.stdin
+        self.process_context.stdin
     }
 
     pub async fn connect_buckd(

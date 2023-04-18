@@ -50,7 +50,7 @@ pub struct WhatUpCommand {
 }
 
 impl WhatUpCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 

@@ -100,7 +100,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
@@ -135,7 +135,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
 }
 
 impl StarlarkCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),

@@ -812,7 +812,7 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let rt = client_tokio_runtime()?;
 
         let log = match self.path {

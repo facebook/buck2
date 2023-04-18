@@ -84,7 +84,7 @@ pub struct WhatRanCommandCommon {
 }
 
 impl WhatRanCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
             common:
                 WhatRanCommandCommon {

@@ -56,7 +56,7 @@ impl StreamingCommand for InstallCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(
             &self.common_opts.config_opts,

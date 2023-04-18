@@ -32,7 +32,7 @@ impl StreamingCommand for FlushDepFilesCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> buck2_client_ctx::exit_result::ExitResult {
         buckd
             .with_flushing()

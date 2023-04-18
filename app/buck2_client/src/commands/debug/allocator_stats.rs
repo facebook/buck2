@@ -38,7 +38,7 @@ impl StreamingCommand for AllocatorStatsCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let res = buckd
             .with_flushing()

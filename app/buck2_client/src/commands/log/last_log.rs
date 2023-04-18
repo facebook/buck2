@@ -31,7 +31,7 @@ pub struct LastLogCommand {
 }
 
 impl LastLogCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { recent, all } = self;
         let paths = if all {
             retrieve_all_logs(&ctx)?

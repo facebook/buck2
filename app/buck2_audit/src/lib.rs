@@ -137,7 +137,7 @@ impl StreamingCommand for AuditCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 

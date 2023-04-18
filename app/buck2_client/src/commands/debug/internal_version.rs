@@ -15,7 +15,7 @@ use buck2_client_ctx::version::BuckVersion;
 pub struct InternalVersionCommand {}
 
 impl InternalVersionCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_client_ctx::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
         ExitResult::success()
     }

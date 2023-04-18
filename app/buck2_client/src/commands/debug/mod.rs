@@ -108,7 +108,7 @@ pub enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let matches = matches.subcommand().expect("subcommand not found").1;
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),

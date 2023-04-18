@@ -19,7 +19,7 @@ impl KillCommand {
     pub fn exec(
         self,
         _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             let _log_on_drop =

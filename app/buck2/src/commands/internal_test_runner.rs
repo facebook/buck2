@@ -27,7 +27,7 @@ impl InternalTestRunnerCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         // Internal test runner should only be used in the open source version of Buck2.
         if buck2_core::is_open_source()

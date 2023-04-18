@@ -94,7 +94,7 @@ impl StreamingCommand for CqueryCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;

@@ -62,7 +62,7 @@ the specified duration, without killing the daemon",
 }
 
 impl CleanCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 common_opts: self.common_opts,

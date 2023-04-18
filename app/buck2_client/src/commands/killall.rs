@@ -16,7 +16,7 @@ use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 pub struct KillallCommand {}
 
 impl KillallCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let _log_on_drop =
             try_get_invocation_recorder(&ctx, "killall", std::env::args().collect())?;
 

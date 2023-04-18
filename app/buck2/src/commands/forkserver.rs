@@ -34,7 +34,7 @@ impl ForkserverCommand {
     pub(crate) fn exec(
         self,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext,
+        _ctx: ClientCommandContext<'_>,
         log_reload_handle: Box<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
         let state_dir = AbsNormPathBuf::try_from(self.state_dir)?;

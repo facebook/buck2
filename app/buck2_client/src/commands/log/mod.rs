@@ -68,7 +68,7 @@ pub enum LogCommand {
 }
 
 impl LogCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),

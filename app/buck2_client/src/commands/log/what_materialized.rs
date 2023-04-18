@@ -79,7 +79,7 @@ fn write_output(
 }
 
 impl WhatMaterializedCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log, output } = self;
 
         let rt = client_tokio_runtime()?;

@@ -203,7 +203,7 @@ pub struct RageCommand {
 }
 
 impl RageCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
         ctx.with_runtime(async move |mut ctx| {

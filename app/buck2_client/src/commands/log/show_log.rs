@@ -23,7 +23,7 @@ pub struct ShowLogCommand {
 }
 
 impl ShowLogCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log } = self;
 
         let rt = client_tokio_runtime()?;

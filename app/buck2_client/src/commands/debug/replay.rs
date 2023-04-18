@@ -46,7 +46,11 @@ pub struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, mut ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        mut ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         let Self {
             event_log,
             speed,

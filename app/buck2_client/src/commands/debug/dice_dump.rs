@@ -42,7 +42,7 @@ impl StreamingCommand for DiceDumpCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        ctx: ClientCommandContext,
+        ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let format = if self.serde {
             DiceDumpFormat::Bincode

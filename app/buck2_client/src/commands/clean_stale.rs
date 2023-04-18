@@ -100,7 +100,7 @@ impl StreamingCommand for CleanStaleCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let keep_since_time = match self.keep_since_arg {
             KeepSinceArg::Duration(duration) => {

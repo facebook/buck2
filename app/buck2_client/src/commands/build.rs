@@ -244,7 +244,7 @@ impl StreamingCommand for BuildCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let show_default_other_outputs = false;
         let context = ctx.client_context(

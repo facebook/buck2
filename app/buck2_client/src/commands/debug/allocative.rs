@@ -46,7 +46,7 @@ impl StreamingCommand for AllocativeCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.empty_client_context()?;
         buckd

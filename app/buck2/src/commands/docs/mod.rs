@@ -36,7 +36,11 @@ pub(crate) struct DocsCommand {
 }
 
 impl DocsCommand {
-    pub(crate) fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        matches: &clap::ArgMatches,
+        ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),

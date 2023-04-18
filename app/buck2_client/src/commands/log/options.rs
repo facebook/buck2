@@ -57,7 +57,10 @@ pub(crate) struct EventLogOptions {
 }
 
 impl EventLogOptions {
-    pub(crate) async fn get(&self, ctx: &ClientCommandContext) -> anyhow::Result<EventLogPathBuf> {
+    pub(crate) async fn get(
+        &self,
+        ctx: &ClientCommandContext<'_>,
+    ) -> anyhow::Result<EventLogPathBuf> {
         if let Some(path) = &self.path {
             EventLogPathBuf::infer(path.resolve(&ctx.working_dir))
         } else if let Some(id) = &self.trace_id {
@@ -84,7 +87,7 @@ impl EventLogOptions {
     async fn download_remote_id(
         &self,
         trace_id: &TraceId,
-        ctx: &ClientCommandContext,
+        ctx: &ClientCommandContext<'_>,
     ) -> anyhow::Result<AbsPathBuf> {
         let manifold_file_name = FileNameBuf::try_from(format!(
             "{}{}",

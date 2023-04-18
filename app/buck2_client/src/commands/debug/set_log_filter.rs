@@ -30,7 +30,7 @@ pub struct SetLogFilterCommand {
 }
 
 impl SetLogFilterCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(async move |ctx| {
             let mut buckd = ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())

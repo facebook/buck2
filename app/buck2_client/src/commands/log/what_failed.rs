@@ -24,7 +24,7 @@ pub struct WhatFailedCommand {
 }
 
 impl WhatFailedCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         WhatRanCommand {
             common: self.common,
             failed: true,

@@ -40,7 +40,7 @@ pub struct PersistEventLogsCommand {
 }
 
 impl PersistEventLogsCommand {
-    pub fn exec(self, _matches: &ArgMatches, mut ctx: ClientCommandContext) -> ExitResult {
+    pub fn exec(self, _matches: &ArgMatches, mut ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
         let runtime = client_tokio_runtime()?;
         let mut stdin = io::BufReader::new(ctx.stdin());

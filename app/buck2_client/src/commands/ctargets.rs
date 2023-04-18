@@ -52,7 +52,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &ArgMatches,
-        mut ctx: ClientCommandContext,
+        mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = Some(ctx.client_context(
             &self.common_opts.config_opts,
