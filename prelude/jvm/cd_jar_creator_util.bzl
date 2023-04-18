@@ -416,7 +416,9 @@ def generate_abi_jars(
         class_abi_jar: ["artifact", None],
         class_abi_output_dir: ["artifact", None],
         encode_abi_command: "function",
-        define_action: "function") -> tuple.type:
+        define_action: "function",
+        debug_port: [int.type, None],
+        debug_target: ["label", None]) -> tuple.type:
     class_abi = None
     source_abi = None
     source_only_abi = None
@@ -445,6 +447,8 @@ def generate_abi_jars(
                 source_abi_dir,
                 source_abi_target_type,
                 path_to_class_hashes = None,
+                debug_port = debug_port,
+                debug_target = debug_target,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -470,6 +474,8 @@ def generate_abi_jars(
                 source_only_abi_dir,
                 source_only_abi_target_type,
                 path_to_class_hashes = None,
+                debug_port = debug_port,
+                debug_target = debug_target,
             )
             source_only_abi = source_only_abi_output_paths.jar
 

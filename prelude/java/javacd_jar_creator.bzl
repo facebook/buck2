@@ -170,6 +170,7 @@ def create_jar_artifact_javacd(
         )
 
     # buildifier: disable=uninitialized
+    # buildifier: disable=unused-variable
     def define_javacd_action(
             category_prefix: str.type,
             actions_identifier: [str.type, None],
@@ -180,7 +181,10 @@ def create_jar_artifact_javacd(
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
+            debug_port: [int.type, None],
+            debug_target: [str.type, None],
             is_creating_subtarget: bool.type = False):
+        _unused = (debug_port, debug_target)
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
@@ -255,6 +259,8 @@ def create_jar_artifact_javacd(
         class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
         path_to_class_hashes_out,
+        None,  # debug_port
+        None,  # debug_target
         is_creating_subtarget,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
@@ -272,6 +278,8 @@ def create_jar_artifact_javacd(
             class_abi_output_dir = class_abi_output_dir,
             encode_abi_command = encode_abi_command,
             define_action = define_javacd_action,
+            debug_port = None,
+            debug_target = None,
         )
 
         result = make_compile_outputs(

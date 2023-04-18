@@ -208,17 +208,29 @@ def create_jar_artifact_kotlincd(
             classpath_jars_tag: "artifact_tag",
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
-            path_to_class_hashes: ["artifact", None]):
+            path_to_class_hashes: ["artifact", None],
+            debug_port: [int.type, None],
+            debug_target: ["label", None]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
-        cmd = cmd_args([
-            kotlin_toolchain.kotlinc[RunInfo],
+        cmd = cmd_args()
+        if (debug_port and qualified_name.startswith(base_qualified_name(debug_target))):
+            cmd.add(
+                java_toolchain.java[RunInfo],
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port),
+                "-jar",
+                kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
+            )
+        else:
+            cmd.add(kotlin_toolchain.kotlinc[RunInfo])
+
+        cmd.add(
             "--action-id",
             qualified_name,
             "--command-file",
             proto_with_inputs,
-        ])
+        )
 
         if target_type == TargetType("library") and should_create_class_abi:
             cmd.add(
@@ -285,6 +297,8 @@ def create_jar_artifact_kotlincd(
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         path_to_class_hashes = path_to_class_hashes_out,
+        debug_port = kotlin_toolchain.kotlincd_debug_port,
+        debug_target = kotlin_toolchain.kotlincd_debug_target,
     )
 
     final_jar = prepare_final_jar(
@@ -310,6 +324,8 @@ def create_jar_artifact_kotlincd(
         class_abi_output_dir = class_abi_output_dir,
         encode_abi_command = encode_abi_command,
         define_action = define_kotlincd_action,
+        debug_port = kotlin_toolchain.kotlincd_debug_port,
+        debug_target = kotlin_toolchain.kotlincd_debug_target,
     )
     return make_compile_outputs(
         full_library = final_jar,
