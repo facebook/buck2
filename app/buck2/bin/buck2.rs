@@ -97,6 +97,15 @@ fn check_cargo() {
     }
 }
 
+fn print_retry() -> anyhow::Result<()> {
+    buck2_client_ctx::eprintln!("============================================================")?;
+    buck2_client_ctx::eprintln!("|| Buck2 has detected that it needs to restart to proceed ||")?;
+    buck2_client_ctx::eprintln!("|| Your command will now restart.                         ||")?;
+    buck2_client_ctx::eprintln!("============================================================")?;
+    buck2_client_ctx::eprintln!()?;
+    Ok(())
+}
+
 // As this main() is used as the entry point for the `buck daemon` command,
 // it must be single-threaded. Commands that want to be multi-threaded/async
 // will start up their own tokio runtime.
@@ -129,7 +138,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
 
         let want_restart = force_want_restart || (!res.is_success() && restarter.should_restart());
 
-        if want_restart && !stdio::has_written_to_stdout() {
+        if want_restart && !stdio::has_written_to_stdout() && print_retry().is_ok() {
             exec(ProcessContext {
                 init,
                 log_reload_handle: &log_reload_handle,
