@@ -45,6 +45,13 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     codesign_args = []
     codesign_type = _detect_codesign_type(ctx)
 
+    if ctx.attrs._dry_run_code_signing:
+        codesign_configuration_args = ["--codesign-configuration", "dry-run"]
+    elif ctx.attrs._fast_adhoc_signing_enabled:
+        codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
+    else:
+        codesign_configuration_args = []
+
     if codesign_type.value in ["distribution", "adhoc"]:
         codesign_args = [
             "--codesign",
@@ -122,8 +129,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         bundling_log_output = ctx.actions.declare_output("bundling_log.txt").as_output()
         command.add("--log-file", bundling_log_output)
 
-    if ctx.attrs._fast_adhoc_signing_enabled:
-        command.add("--codesign-configuration", "fast-adhoc")
+    command.add(codesign_configuration_args)
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
