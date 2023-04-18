@@ -8,9 +8,7 @@
  */
 
 use std::path::PathBuf;
-use std::time::Duration;
 
-use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use dupe::Dupe;
 
 use crate::build_count::BuildCountManager;
@@ -39,10 +37,11 @@ mod imp {
     use buck2_event_observer::action_stats;
     use buck2_event_observer::last_command_execution_kind;
     use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
-    use buck2_events::sink::scribe::ThriftScribeSink;
+    use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
     use buck2_events::BuckEvent;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
+    use fbinit::FacebookInit;
     use futures::FutureExt;
     use termwiz::istty::IsTty;
 
@@ -55,13 +54,13 @@ mod imp {
     use crate::subscribers::subscriber::EventSubscriber;
 
     pub struct InvocationRecorder {
+        fb: FacebookInit,
         write_to_path: Option<AbsPathBuf>,
         command_name: &'static str,
         cli_args: Vec<String>,
         isolation_dir: String,
         start_time: Instant,
         async_cleanup_context: AsyncCleanupContext,
-        scribe: Option<Arc<ThriftScribeSink>>,
         build_count_manager: BuildCountManager,
         trace_id: TraceId,
         command_start: Option<buck2_data::CommandStart>,
@@ -124,8 +123,8 @@ mod imp {
 
     impl InvocationRecorder {
         pub fn new(
+            fb: FacebookInit,
             async_cleanup_context: AsyncCleanupContext,
-            scribe: Option<Arc<ThriftScribeSink>>,
             write_to_path: Option<AbsPathBuf>,
             mut command_name: &'static str,
             sanitized_argv: Vec<String>,
@@ -141,13 +140,13 @@ mod imp {
             }
 
             Self {
+                fb,
                 write_to_path,
                 command_name,
                 cli_args: sanitized_argv,
                 isolation_dir,
                 start_time: Instant::now(),
                 async_cleanup_context,
-                scribe,
                 build_count_manager,
                 trace_id,
                 command_start: None,
@@ -362,11 +361,12 @@ mod imp {
                 }
             }
 
-            if let Some(sink) = &self.scribe {
+            if let Ok(Some(scribe_sink)) =
+                new_thrift_scribe_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
+            {
                 tracing::info!("Recording invocation to Scribe: {:?}", &event);
-                let scribe = sink.dupe();
                 Some(async move {
-                    scribe.send_now(event).await;
+                    scribe_sink.send_now(event).await;
                 })
             } else {
                 tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
@@ -974,21 +974,14 @@ pub fn try_get_invocation_recorder(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
-    let mut scribe_sink = None;
-    if let Some(sink) =
-        new_thrift_scribe_sink_if_enabled(ctx.fbinit(), 1, Duration::from_millis(500), 5, None)?
-    {
-        scribe_sink = Some(std::sync::Arc::new(sink));
-    }
-
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()
         .map(|path| path.resolve(&ctx.working_dir));
 
     let recorder = imp::InvocationRecorder::new(
+        ctx.fbinit(),
         ctx.async_cleanup_context().dupe(),
-        scribe_sink,
         write_to_path,
         command_name,
         sanitized_argv,
