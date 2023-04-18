@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::soft_error;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use fancy_regex::Regex;
@@ -14,6 +15,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneType;
+use thiserror::Error;
 use tracing::warn;
 
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -28,6 +30,16 @@ pub mod provider;
 pub mod transition;
 pub mod transitive_set;
 pub mod util;
+
+#[derive(Debug, Error)]
+enum ExtraFunctionErrors {
+    #[error("Error produced by Starlark: {category}: {message}\n{call_stack}")]
+    StarlarkSoftError {
+        category: String,
+        message: String,
+        call_stack: String,
+    },
+}
 
 #[starlark_module]
 fn extra_functions(builder: &mut GlobalsBuilder) {
@@ -51,6 +63,33 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
     /// Produce a warning.
     fn warning(#[starlark(require = pos)] x: &str) -> anyhow::Result<NoneType> {
         warn!("{}", x);
+        Ok(NoneType)
+    }
+
+    /// Produce an error that will become a hard error at some point in the future, but
+    /// for now is a warning which is logged to the server.
+    /// In the open source version of Buck2 tihs function always results in an error.
+    ///
+    /// Called passing a stable key (must be `snake_case`, used for consistent reporting)
+    /// and an arbitrary message (used for debugging). As an example:
+    ///
+    /// ```python
+    /// soft_error("rule_is_too_long", "Length of property exceeds 100 characters in " + repr(ctx.label))
+    /// ```
+    fn soft_error(
+        #[starlark(require = pos)] category: &str,
+        #[starlark(require = pos)] message: String,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<NoneType> {
+        soft_error!(
+            category,
+            ExtraFunctionErrors::StarlarkSoftError {
+                category: category.to_owned(),
+                message,
+                call_stack: eval.call_stack().to_string()
+            }
+            .into()
+        )?;
         Ok(NoneType)
     }
 }
