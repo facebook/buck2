@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use buck2::exec;
 use buck2::panic;
+use buck2::process_context::ProcessContext;
 use buck2::TracingLogFile;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
@@ -101,13 +102,22 @@ fn main(init: fbinit::FacebookInit) -> ! {
     fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
         panic::initialize(init)?;
         check_cargo();
+
         let log_reload_handle = init_logging(init)?;
 
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
 
-        exec(args, cwd, init, log_reload_handle, &mut stdin)
+        let process = ProcessContext {
+            init,
+            log_reload_handle: &log_reload_handle,
+            stdin: &mut stdin,
+            working_dir: &cwd,
+            args: &args,
+        };
+
+        exec(process)
     }
 
     main_with_result(init).report()

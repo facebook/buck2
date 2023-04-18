@@ -21,7 +21,6 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::sync::Arc;
 use std::thread;
 
 use anyhow::Context as _;
@@ -54,7 +53,6 @@ use buck2_client::commands::uquery::UqueryCommand;
 use buck2_client_ctx::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -63,7 +61,6 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
@@ -81,12 +78,14 @@ use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
 use crate::commands::internal_test_runner::InternalTestRunnerCommand;
+use crate::process_context::ProcessContext;
 
 #[macro_use]
 pub mod panic;
 mod check_user_allowed;
 
 pub mod commands;
+pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
@@ -191,12 +190,9 @@ pub(crate) struct Opt {
 impl Opt {
     pub(crate) fn exec(
         self,
-        working_dir: WorkingDir,
+        process: ProcessContext<'_>,
         matches: &clap::ArgMatches,
-        init: fbinit::FacebookInit,
-        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
-        stdin: &mut Stdin,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -204,27 +200,19 @@ impl Opt {
         };
 
         self.cmd.exec(
-            working_dir,
+            process,
             subcommand_matches,
             self.common_opts,
-            init,
-            log_reload_handle,
             argfiles_trace,
-            stdin,
         )
     }
 }
 
-pub fn exec(
-    args: Vec<String>,
-    working_dir: WorkingDir,
-    init: fbinit::FacebookInit,
-    log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
-    stdin: &mut Stdin,
-) -> ExitResult {
-    let mut argfile_context = ArgExpansionContext::new(&working_dir);
-    let mut expanded_args = expand_argfiles_with_context(args, &mut argfile_context)
-        .context("Error expanding argsfiles")?;
+pub fn exec(process: ProcessContext<'_>) -> ExitResult {
+    let mut argfile_context = ArgExpansionContext::new(&process.working_dir);
+    let mut expanded_args =
+        expand_argfiles_with_context(process.args.to_vec(), &mut argfile_context)
+            .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
     static BUCK2_ARG0: EnvHelper<String> = EnvHelper::new("BUCK2_ARG0");
@@ -250,14 +238,7 @@ pub fn exec(
     }
 
     let argfiles_trace = argfile_context.trace();
-    opt.exec(
-        working_dir,
-        &matches,
-        init,
-        log_reload_handle,
-        argfiles_trace,
-        stdin,
-    )
+    opt.exec(process, &matches, argfiles_trace)
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -311,16 +292,13 @@ impl CommandKind {
 
     pub(crate) fn exec(
         self,
-        working_dir: WorkingDir,
+        process: ProcessContext<'_>,
         matches: &clap::ArgMatches,
         common_opts: BeforeSubcommandOptions,
-        init: fbinit::FacebookInit,
-        log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         argfiles_trace: Vec<AbsNormPathBuf>,
-        stdin: &mut Stdin,
     ) -> ExitResult {
         let init_ctx = common_opts.to_server_init_context();
-        let roots = find_invocation_roots(working_dir.path());
+        let roots = find_invocation_roots(process.working_dir.path());
         let paths = roots
             .map(|r| InvocationPaths {
                 roots: r,
@@ -332,7 +310,14 @@ impl CommandKind {
         // want to create threads.
         if let CommandKind::Daemon(cmd) = &self {
             return cmd
-                .exec(init, log_reload_handle, paths?, init_ctx, false, || {})
+                .exec(
+                    process.init,
+                    process.log_reload_handle.dupe(),
+                    paths?,
+                    init_ctx,
+                    false,
+                    || {},
+                )
                 .into();
         }
 
@@ -350,7 +335,7 @@ impl CommandKind {
                     thread::spawn(move || {
                         let tx_clone = tx.clone();
                         let result = DaemonCommand::new_in_process().exec(
-                            init,
+                            process.init,
                             <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
                             init_ctx,
@@ -386,24 +371,24 @@ impl CommandKind {
             };
 
         let command_ctx = ClientCommandContext {
-            init,
+            init: process.init,
             paths,
             verbosity: common_opts.verbosity,
             start_in_process_daemon,
             command_name: self.command_name(),
-            working_dir,
+            working_dir: process.working_dir.clone(),
             sanitized_argv: Vec::new(),
             trace_id,
             argfiles_trace,
             async_cleanup: async_cleanup.ctx().dupe(),
-            stdin,
+            stdin: process.stdin,
         };
 
         match self {
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
-            CommandKind::Forkserver(cmd) => {
-                cmd.exec(matches, command_ctx, log_reload_handle).into()
-            }
+            CommandKind::Forkserver(cmd) => cmd
+                .exec(matches, command_ctx, process.log_reload_handle.dupe())
+                .into(),
             CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
