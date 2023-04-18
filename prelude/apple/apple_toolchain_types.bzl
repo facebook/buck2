@@ -41,4 +41,5 @@ AppleToolsInfo = provider(fields = [
     "make_modulemap",  # "RunInfo"
     "make_vfsoverlay",  # "RunInfo"
     "swift_objc_header_postprocess",  # "RunInfo"
+    "dry_codesign_tool",  # "RunInfo"
 ])

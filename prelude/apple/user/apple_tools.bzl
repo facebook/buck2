@@ -17,6 +17,7 @@ def _impl(ctx: "context") -> ["provider"]:
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
             swift_objc_header_postprocess = ctx.attrs.swift_objc_header_postprocess[RunInfo],
+            dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
         ),
     ]
 
@@ -28,6 +29,7 @@ registration_spec = RuleRegistrationSpec(
     impl = _impl,
     attrs = {
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
+        "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
         "info_plist_processor": attrs.dep(providers = [RunInfo]),
         "make_modulemap": attrs.dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.dep(providers = [RunInfo]),

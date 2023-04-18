@@ -45,8 +45,10 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
     codesign_args = []
     codesign_type = _detect_codesign_type(ctx)
 
+    codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
     if ctx.attrs._dry_run_code_signing:
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
+        codesign_tool = tools.dry_codesign_tool
     elif ctx.attrs._fast_adhoc_signing_enabled:
         codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
     else:
@@ -56,7 +58,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         codesign_args = [
             "--codesign",
             "--codesign-tool",
-            ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign,
+            codesign_tool,
         ]
 
         external_name = get_apple_sdk_name(ctx)
