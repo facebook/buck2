@@ -14,10 +14,23 @@
 use std::fmt::Arguments;
 use std::io;
 use std::io::Write;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use superconsole::Line;
 
 use crate::exit_result::FailureExitCode;
+
+static HAS_WRITTEN_TO_STDOUT: AtomicBool = AtomicBool::new(false);
+
+pub fn has_written_to_stdout() -> bool {
+    HAS_WRITTEN_TO_STDOUT.load(Ordering::Relaxed)
+}
+
+fn stdout() -> io::Stdout {
+    HAS_WRITTEN_TO_STDOUT.store(true, Ordering::Relaxed);
+    io::stdout()
+}
 
 #[macro_export]
 macro_rules! print {
@@ -82,7 +95,7 @@ fn map_stderr_error(err: io::Error) -> anyhow::Error {
 }
 
 pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
-    io::stdout().lock().write_fmt(fmt).map_err(map_stdout_error)
+    stdout().lock().write_fmt(fmt).map_err(map_stdout_error)
 }
 
 pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
@@ -90,10 +103,7 @@ pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
 }
 
 pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
-    io::stdout()
-        .lock()
-        .write_all(bytes)
-        .map_err(map_stdout_error)
+    stdout().lock().write_all(bytes).map_err(map_stdout_error)
 }
 
 pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
@@ -102,7 +112,7 @@ pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
 }
 
 pub fn flush() -> anyhow::Result<()> {
-    io::stdout().flush().map_err(map_stdout_error)
+    stdout().flush().map_err(map_stdout_error)
 }
 
 pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
@@ -110,7 +120,7 @@ where
     E: Into<anyhow::Error>,
     F: FnOnce(&mut dyn Write) -> Result<(), E>,
 {
-    match f(&mut io::stdout().lock()) {
+    match f(&mut stdout().lock()) {
         Ok(_) => Ok(()),
         Err(e) => {
             let e: anyhow::Error = e.into();
