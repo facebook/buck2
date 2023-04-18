@@ -12,9 +12,7 @@ use std::ffi::CString;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
-use std::ops::ControlFlow;
 use std::ops::FromResidual;
-use std::ops::Try;
 use std::process::Command;
 
 use anyhow::Context;
@@ -143,28 +141,6 @@ impl From<anyhow::Result<u8>> for ExitResult {
 impl From<FailureExitCode> for ExitResult {
     fn from(e: FailureExitCode) -> Self {
         Self::Err(e.into())
-    }
-}
-
-/// Implementing Try allows us to use a ExitResult as the outcome of a function and still use
-/// the `?` operator.
-impl Try for ExitResult {
-    type Output = u8;
-    type Residual = anyhow::Error;
-
-    fn from_output(output: Self::Output) -> Self {
-        Self::Status(output)
-    }
-
-    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
-        match self {
-            Self::Status(v) => ControlFlow::Continue(v),
-            Self::UncategorizedError => ControlFlow::Continue(1),
-            Self::Err(v) => ControlFlow::Break(v),
-            // `Exec` doesn't lend itself to a reasonable implementation of Try; it doesn't easily decompose into a
-            // residual or output, and changing the output type would break all call sites of ExitResult.
-            Self::Exec(..) => unimplemented!("Try impl invoked on Exec variant"),
-        }
     }
 }
 
