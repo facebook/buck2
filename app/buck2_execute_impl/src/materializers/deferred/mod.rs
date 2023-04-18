@@ -1142,7 +1142,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
-                        async move { join_all_existing_futs(existing_futs).await.shared_error() }
+                        async move { join_all_existing_futs(existing_futs.shared_error()?).await }
                             .boxed()
                             .shared(),
                     )
@@ -1339,6 +1339,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let existing_futs = self
             .tree
             .invalidate_paths_and_collect_futures(vec![path.to_owned()], self.sqlite_db.as_mut());
+
+        let existing_futs = ExistingFutures(existing_futs);
 
         let method = Arc::from(method);
 
@@ -1671,7 +1673,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         artifact_path.clone(),
                         version,
                         self.command_sender.dupe(),
-                        Vec::new(),
+                        ExistingFutures::empty(),
                         &self.rt,
                     ));
                     info.processing = Processing::Active { future, version };
@@ -1874,7 +1876,7 @@ impl ArtifactTree {
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-    ) -> Vec<(ProjectRelativePathBuf, ProcessingFuture)> {
+    ) -> anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
         let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();
 
@@ -1887,19 +1889,26 @@ impl ArtifactTree {
             }
         }
 
+        #[cfg(test)]
+        {
+            for path in &invalidated_paths {
+                if path.as_str() == "test/invalidate/failure" {
+                    return Err(anyhow::anyhow!("Injected error"));
+                }
+            }
+        }
+
         // We can invalidate the paths here even if materializations are currently running on
         // the underlying nodes, because when materialization finishes we'll check the version
         // number.
         if let Some(sqlite_db) = sqlite_db {
-            if let Err(e) = sqlite_db
+            sqlite_db
                 .materializer_state_table()
                 .delete(invalidated_paths)
-            {
-                quiet_soft_error!("materializer_invalidate_error", e).unwrap();
-            }
+                .context("Error invalidating paths in materializer state")?;
         }
 
-        futs
+        Ok(futs)
     }
 }
 
@@ -2009,7 +2018,7 @@ fn clean_path<T: IoHandler>(
     path: ProjectRelativePathBuf,
     version: Version,
     command_sender: MaterializerSender<T>,
-    existing_futs: Vec<(ProjectRelativePathBuf, ProcessingFuture)>,
+    existing_futs: ExistingFutures,
     rt: &Handle,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
@@ -2019,7 +2028,7 @@ fn clean_path<T: IoHandler>(
     rt.spawn({
         let io = io.dupe();
         async move {
-            join_all_existing_futs(existing_futs).await?;
+            join_all_existing_futs(existing_futs.into_result()?).await?;
             io.clean_path(path, version, command_sender).await
         }
     })
@@ -2029,6 +2038,23 @@ fn clean_path<T: IoHandler>(
     })
     .boxed()
     .shared()
+}
+
+/// A wrapper type around the Result it contains. Used to expose some extra methods.
+struct ExistingFutures(anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>);
+
+impl ExistingFutures {
+    fn is_empty(&self) -> bool {
+        self.0.as_ref().map_or(false, |f| f.is_empty())
+    }
+
+    fn into_result(self) -> anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
+        self.0
+    }
+
+    fn empty() -> Self {
+        Self(Ok(Vec::new()))
+    }
 }
 
 #[derive(Derivative)]

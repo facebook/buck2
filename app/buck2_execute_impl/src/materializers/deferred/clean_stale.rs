@@ -179,7 +179,7 @@ fn gather_clean_futures_for_stale_artifacts(
             let io = io.dupe();
 
             let existing_futs =
-                tree.invalidate_paths_and_collect_futures(vec![path.clone()], Some(sqlite_db));
+                tree.invalidate_paths_and_collect_futures(vec![path.clone()], Some(sqlite_db))?;
 
             cleaning_futs.push(
                 async move {

@@ -89,6 +89,7 @@ fn test_remove_path() {
 mod state_machine {
     use std::path::Path;
 
+    use assert_matches::assert_matches;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use parking_lot::Mutex;
@@ -539,5 +540,38 @@ mod state_machine {
 
         // Expect only one notification
         assert_eq!(paths, vec![path]);
+    }
+
+    #[tokio::test]
+    async fn test_invalidate_error() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let (mut dm, _) = make_processor(digest_config, Default::default());
+
+        let path = make_path("test/invalidate/failure");
+        let value1 = ArtifactValue::file(digest_config.empty_file());
+        let value2 = ArtifactValue::dir(digest_config.empty_directory());
+
+        // Start from having something.
+        dm.declare_existing(&path, value1);
+
+        // This will collect the existing future and invalidate, and then fail in doing so.
+        dm.declare(&path, value2, Box::new(ArtifactMaterializationMethod::Test));
+
+        // Now we check that materialization fails. This needs to wait on the previous clean.
+        let res = dm
+            .materialize_artifact(&path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+
+        assert_matches!(
+            res,
+            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+        );
+
+        // We do not actually get to materializing or cleaning.
+        assert_eq!(dm.io.take_log(), &[]);
+
+        Ok(())
     }
 }
