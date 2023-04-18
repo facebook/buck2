@@ -39,6 +39,7 @@ use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::stream_value::StreamValue;
 use crate::subscribers::observer::ErrorCause;
+use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;
 pub mod kill;
@@ -64,12 +65,21 @@ impl BuckdClientConnector {
         }
     }
 
+    pub fn daemon_constraints(&self) -> &buck2_cli_proto::DaemonConstraints {
+        &self.client.constraints
+    }
+
+    pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
+        self.client
+            .events_ctx
+            .subscribers
+            .iter()
+            .filter_map(|s| s.as_error_observer())
+    }
+
     pub fn collect_error_cause(&self) -> ErrorCause {
-        for s in &self.client.events_ctx.subscribers {
-            if let Some(observer) = s.as_error_observer() {
-                return observer.error_cause();
-                // TODO: handle the situation where multiple observers exist and their causes disagree
-            }
+        if let Some(obs) = self.error_observers().next() {
+            return obs.error_cause();
         }
 
         ErrorCause::Unknown
@@ -139,7 +149,6 @@ impl Drop for BuckdLifecycleLock {
 /// that take more primitive types than the protobuf structure itself.
 pub struct BuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
-    #[allow(unused)]
     constraints: buck2_cli_proto::DaemonConstraints,
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,

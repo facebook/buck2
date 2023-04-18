@@ -161,6 +161,8 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                         ExitResult::status(gen_error_exit_code(buckd.collect_error_cause()));
                 }
 
+                ctx.restarter.observe(&buckd);
+
                 command_result
             };
 

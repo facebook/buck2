@@ -13,6 +13,17 @@ pub trait ErrorObserver {
     fn error_cause(&self) -> ErrorCause {
         ErrorCause::Unknown
     }
+
+    /// Whether this observer thinks that the daemon needs killing to work again.
+    fn daemon_in_memory_state_is_corrupted(&self) -> bool {
+        false
+    }
+
+    /// Whether this observer thinks that the daemon needs to dump its materializer state to work
+    /// again.
+    fn daemon_materializer_state_is_corrupted(&self) -> bool {
+        false
+    }
 }
 
 pub enum ErrorCause {

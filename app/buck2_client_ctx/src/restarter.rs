@@ -7,16 +7,42 @@
  * of this source tree.
  */
 
+use crate::daemon::client::BuckdClientConnector;
+
 /// Monitor the state of our execution and decide whether we should restart the command we just
 /// attempted to execute.
-pub struct Restarter {}
+pub struct Restarter {
+    pub reject_daemon: Option<String>,
+    pub reject_materializer_state: Option<String>,
+}
 
 impl Restarter {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            reject_daemon: None,
+            reject_materializer_state: None,
+        }
+    }
+
+    /// Observe our BuckdClientConnector after execution to decide whether we should be
+    /// restarting.
+    pub fn observe(&mut self, client: &BuckdClientConnector) {
+        for obs in client.error_observers() {
+            if obs.daemon_in_memory_state_is_corrupted() {
+                self.reject_daemon = Some(client.daemon_constraints().daemon_id.clone());
+            }
+
+            if obs.daemon_materializer_state_is_corrupted() {
+                self.reject_materializer_state = client
+                    .daemon_constraints()
+                    .extra
+                    .as_ref()
+                    .and_then(|e| e.materializer_state_identity.clone());
+            }
+        }
     }
 
     pub fn should_restart(&self) -> bool {
-        false
+        self.reject_daemon.is_some() | self.reject_materializer_state.is_some()
     }
 }
