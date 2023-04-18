@@ -26,17 +26,12 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
-use chrono::Utc;
-use derive_more::Display;
 
 #[derive(Allocative)]
 pub struct DiskStateOptions {
     pub sqlite_materializer_state: bool,
     // In future, this will include the config for dep files on disk
 }
-
-#[derive(Display, Allocative)]
-pub struct MaterializerStateIdentity(String);
 
 impl DiskStateOptions {
     pub fn new(
@@ -65,10 +60,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     fs: ProjectRoot,
     digest_config: DigestConfig,
-) -> anyhow::Result<(
-    Option<(MaterializerStateSqliteDb, MaterializerStateIdentity)>,
-    Option<MaterializerState>,
-)> {
+) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
         // Otherwise, artifacts in buck-out will diverge from the state stored in db.
@@ -78,11 +70,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         return Ok((None, None));
     }
 
-    let timestamp_key = "timestamp_on_initialization";
-
-    let mut metadata = buck2_events::metadata::collect();
-    let timestamp_on_initialization = Utc::now().to_rfc3339();
-    metadata.insert(timestamp_key.to_owned(), timestamp_on_initialization);
+    let metadata = buck2_events::metadata::collect();
 
     let mut versions = HashMap::from([
         ("schema_version".to_owned(), DB_SCHEMA_VERSION.to_string()),
@@ -105,7 +93,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
     // TODO(scottcao): Narrow down what metadata we need and and insert them into the
     // metadata table before a feature rollout.
-    let (mut db, load_result) = MaterializerStateSqliteDb::initialize(
+    let (db, load_result) = MaterializerStateSqliteDb::initialize(
         paths.materializer_state_path(),
         versions,
         metadata,
@@ -114,13 +102,6 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     )
     .await?;
 
-    let identity = db
-        .created_by_table()
-        .get(timestamp_key)
-        .context("Error reading creation metadata")?
-        .map(MaterializerStateIdentity)
-        .with_context(|| format!("disk state is missing `{}`", timestamp_key))?;
-
     let materializer_state = match load_result {
         Ok(s) => Some(s),
         // We know path not found or version mismatch is normal, but some sqlite failures
@@ -128,7 +109,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         // errors to log
         Err(_e) => None,
     };
-    Ok((Some((db, identity)), materializer_state))
+    Ok((Some(db), materializer_state))
 }
 
 // Once we start storing disk state in the cache directory, we need to make sure

@@ -47,6 +47,7 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
+use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -68,7 +69,6 @@ use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::delete_unknown_disk_state;
 use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::disk_state::DiskStateOptions;
-use crate::daemon::disk_state::MaterializerStateIdentity;
 use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
@@ -322,10 +322,7 @@ impl DaemonState {
         )
         .await?;
 
-        let (materializer_db, materializer_state_identity) = match materializer_db {
-            Some((db, id)) => (Some(db), Some(id)),
-            None => (None, None),
-        };
+        let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
 
         let re_client_manager = Arc::new(ReConnectionManager::new(
             fb,

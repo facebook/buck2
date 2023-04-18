@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
@@ -30,6 +31,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
+use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -41,6 +43,9 @@ use thiserror::Error;
 use crate::materializers::deferred::ArtifactMetadata;
 use crate::materializers::deferred::DirectoryMetadata;
 
+#[derive(Display, Allocative, Clone)]
+pub struct MaterializerStateIdentity(String);
+
 /// Hand-maintained schema version for the materializer state sqlite db.
 /// PLEASE bump this version if you are making a breaking change to the
 /// materializer state sqlite db schema! If you forget to bump this version,
@@ -49,6 +54,7 @@ use crate::materializers::deferred::DirectoryMetadata;
 pub const DB_SCHEMA_VERSION: u64 = 6;
 
 const STATE_TABLE_NAME: &str = "materializer_state";
+const IDENTITY_KEY: &str = "timestamp_on_initialization";
 
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
@@ -483,63 +489,25 @@ enum MaterializerStateSqliteDbError {
 /// DB that opens the sqlite connection to the materializer state db on disk and
 /// holds all the sqlite tables we need for storing/querying materializer state
 pub struct MaterializerStateSqliteDb {
-    /// Table storing actual materializer state
-    materializer_state_table: MaterializerStateSqliteTable,
-    /// Table for holding any metadata used to check version match. When loading
-    /// from an existing db, we check if the versions from this table match the
-    /// versions this buck2 binary expects. If the versions don't match, we throw
-    /// away the entire db and initialize a new one. If versions do match, then
-    /// we try to read all state from `materializer_state_table`.
-    versions_table: KeyValueSqliteTable,
-    /// Table for logging metadata associated with the buck2 that created the db.
-    created_by_table: KeyValueSqliteTable,
-    /// Table for logging metadata associated with the buck2 that last updated the db.
-    last_read_by_table: KeyValueSqliteTable,
+    tables: MaterializerStateTables,
+    /// A unique ID identifying this particular instance of the database. This will reset when we
+    /// recreate it.
+    identity: MaterializerStateIdentity,
 }
 
 impl MaterializerStateSqliteDb {
-    /// Given path to sqlite DB, opens and returns a new connection to the DB.
-    pub fn open(path: &AbsNormPath) -> anyhow::Result<Self> {
-        let connection = Connection::open(path)?;
-        // TODO: make this work on Windows too
-        if cfg!(unix) {
-            connection.pragma_update(None, "journal_mode", "WAL")?;
-        }
-
-        // Setting synchronous to anything but OFF prevents data corruption in case of power loss,
-        // but for the deferred materializer state, we are rather happy to run the risk of data
-        // corruption (which we recover from by just dropping the state and pretending we have
-        // none), rather than running a `fsync` at any point during a build, which tends to be
-        // *very* slow, because if we do a `fsync` from the deferred materializer, that will tend
-        // to occur after a lot of writes have been done, which means a lot of data needs syncing!
-        //
-        // Note that upon power loss there isn't really a guarantee of ordering of things written
-        // across different files anyway, so we always run some risk of having our state be
-        // incorrect if that happens, unless we fsync after every single write, but, that's
-        // definitely not an option.
-        //
-        // This problem notably manifests itself when routing writes through the deferred
-        // materializer on a benchmark build. This causes the set of operations done by the
-        // deferred materializer to exceed the WAL max size (which is 1000 pages that are 4KB each,
-        // so about 4MB of data), which causes SQLite to write the WAL to the database file, which
-        // is the only circumstance under which SQLite does a `fsync` when WAL is enabled, and then
-        // we completely stall I/O for a little while.
-        connection.pragma_update(None, "synchronous", "OFF")?;
-
-        let connection = Arc::new(Mutex::new(connection));
-        let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
-        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
-        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
-        let last_read_by_table = KeyValueSqliteTable::new("last_read_by".to_owned(), connection);
-        Ok(Self {
-            materializer_state_table,
-            versions_table,
-            created_by_table,
-            last_read_by_table,
-        })
-    }
-
     const DB_FILENAME: &'static str = "db.sqlite";
+
+    fn new(tables: MaterializerStateTables) -> anyhow::Result<Self> {
+        let identity = tables
+            .created_by_table
+            .get(IDENTITY_KEY)
+            .context("Error reading creation metadata")?
+            .map(MaterializerStateIdentity)
+            .with_context(|| format!("Identity key is missing in db: `{}`", IDENTITY_KEY))?;
+
+        Ok(Self { tables, identity })
+    }
 
     /// Given path to the sqlite DB, attempts to read `MaterializerState` from the DB. If we encounter
     /// any failure along the way, such as if the DB path does not exist, the sqlite read fails,
@@ -572,12 +540,15 @@ impl MaterializerStateSqliteDb {
             .await
     }
 
-    pub fn initialize_impl(
+    fn initialize_impl(
         materializer_state_dir: AbsNormPathBuf,
         versions: HashMap<String, String>,
-        current_instance_metadata: HashMap<String, String>,
+        mut current_instance_metadata: HashMap<String, String>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<(Self, anyhow::Result<MaterializerState>)> {
+        let timestamp_on_initialization = Utc::now().to_rfc3339();
+        current_instance_metadata.insert(IDENTITY_KEY.to_owned(), timestamp_on_initialization);
+
         let db_path = materializer_state_dir.join(FileName::unchecked_new(Self::DB_FILENAME));
 
         let result: anyhow::Result<(Self, MaterializerState)> = try {
@@ -588,10 +559,10 @@ impl MaterializerStateSqliteDb {
                 ))?
             }
 
-            let mut db = Self::open(&db_path)?;
+            let tables = MaterializerStateTables::open(&db_path)?;
 
             // First check that versions match
-            let read_versions = db.versions_table.read_all()?;
+            let read_versions = tables.versions_table.read_all()?;
             if read_versions != versions {
                 Err(MaterializerStateSqliteDbError::VersionMismatch {
                     expected: versions.clone(),
@@ -602,12 +573,15 @@ impl MaterializerStateSqliteDb {
 
             // Update "last_read_by" inside of the try block so that
             // just in case it fails, we can create a new db and start over
-            db.last_read_by_table
+            tables
+                .last_read_by_table
                 .insert_all(current_instance_metadata.clone())?;
 
-            let state = db.materializer_state_table().read_all(digest_config)?;
-            (db, state)
+            let state = tables.materializer_state_table.read_all(digest_config)?;
+
+            (Self::new(tables)?, state)
         };
+
         match result {
             Ok((db, state)) => Ok((db, Ok(state))),
             Err(e) => {
@@ -622,29 +596,90 @@ impl MaterializerStateSqliteDb {
                 fs_util::create_dir_all(&materializer_state_dir)?;
 
                 // Initialize a new db
-                let db = Self::open(&db_path)?;
-                db.create_all_tables()?;
-                db.versions_table.insert_all(versions)?;
+                let tables = MaterializerStateTables::open(&db_path)?;
+                tables.create_all_tables()?;
+                tables.versions_table.insert_all(versions)?;
                 // Update both "last_read_by" and "created_by"
-                db.created_by_table
+                tables
+                    .created_by_table
                     .insert_all(current_instance_metadata.clone())?;
-                db.last_read_by_table
+                tables
+                    .last_read_by_table
                     .insert_all(current_instance_metadata)?;
 
-                Ok((db, Err(e)))
+                Ok((Self::new(tables)?, Err(e)))
             }
         }
     }
 
     pub(crate) fn materializer_state_table(&mut self) -> &MaterializerStateSqliteTable {
-        &self.materializer_state_table
+        &self.tables.materializer_state_table
     }
 
-    pub fn created_by_table(&mut self) -> &KeyValueSqliteTable {
-        &self.created_by_table
+    pub fn identity(&self) -> &MaterializerStateIdentity {
+        &self.identity
+    }
+}
+
+struct MaterializerStateTables {
+    /// Table storing actual materializer state
+    materializer_state_table: MaterializerStateSqliteTable,
+    /// Table for holding any metadata used to check version match. When loading
+    /// from an existing db, we check if the versions from this table match the
+    /// versions this buck2 binary expects. If the versions don't match, we throw
+    /// away the entire db and initialize a new one. If versions do match, then
+    /// we try to read all state from `materializer_state_table`.
+    versions_table: KeyValueSqliteTable,
+    /// Table for logging metadata associated with the buck2 that created the db.
+    created_by_table: KeyValueSqliteTable,
+    /// Table for logging metadata associated with the buck2 that last updated the db.
+    last_read_by_table: KeyValueSqliteTable,
+}
+
+impl MaterializerStateTables {
+    /// Given path to sqlite DB, opens and returns a new connection to the DB.
+    fn open(path: &AbsNormPath) -> anyhow::Result<Self> {
+        let connection = Connection::open(path)?;
+        // TODO: make this work on Windows too
+        if cfg!(unix) {
+            connection.pragma_update(None, "journal_mode", "WAL")?;
+        }
+
+        // Setting synchronous to anything but OFF prevents data corruption in case of power loss,
+        // but for the deferred materializer state, we are rather happy to run the risk of data
+        // corruption (which we recover from by just dropping the state and pretending we have
+        // none), rather than running a `fsync` at any point during a build, which tends to be
+        // *very* slow, because if we do a `fsync` from the deferred materializer, that will tend
+        // to occur after a lot of writes have been done, which means a lot of data needs syncing!
+        //
+        // Note that upon power loss there isn't really a guarantee of ordering of things written
+        // across different files anyway, so we always run some risk of having our state be
+        // incorrect if that happens, unless we fsync after every single write, but, that's
+        // definitely not an option.
+        //
+        // This problem notably manifests itself when routing writes through the deferred
+        // materializer on a benchmark build. This causes the set of operations done by the
+        // deferred materializer to exceed the WAL max size (which is 1000 pages that are 4KB each,
+        // so about 4MB of data), which causes SQLite to write the WAL to the database file, which
+        // is the only circumstance under which SQLite does a `fsync` when WAL is enabled, and then
+        // we completely stall I/O for a little while.
+        connection.pragma_update(None, "synchronous", "OFF")?;
+
+        let connection = Arc::new(Mutex::new(connection));
+        let materializer_state_table = MaterializerStateSqliteTable::new(connection.dupe());
+        let versions_table = KeyValueSqliteTable::new("versions".to_owned(), connection.dupe());
+        let created_by_table = KeyValueSqliteTable::new("created_by".to_owned(), connection.dupe());
+        let last_read_by_table = KeyValueSqliteTable::new("last_read_by".to_owned(), connection);
+
+        Ok(Self {
+            materializer_state_table,
+            versions_table,
+            created_by_table,
+            last_read_by_table,
+        })
     }
 
-    pub(crate) fn create_all_tables(&self) -> anyhow::Result<()> {
+    fn create_all_tables(&self) -> anyhow::Result<()> {
         self.materializer_state_table.create_table()?;
         self.versions_table.create_table()?;
         self.created_by_table.create_table()?;
@@ -877,6 +912,15 @@ mod tests {
             metadatas
         }
 
+        fn assert_metadata_matches(
+            mut have: HashMap<String, String>,
+            want: &HashMap<String, String>,
+        ) {
+            // Remove the key we inject (and check it's there).
+            have.remove(IDENTITY_KEY).unwrap();
+            assert_eq!(have, *want);
+        }
+
         let digest_config = DigestConfig::testing_default();
 
         let fs = ProjectRootTemp::new()?;
@@ -907,8 +951,8 @@ mod tests {
                         Some(MaterializerStateSqliteDbError::PathDoesNotExist(_path)));
                 }
             );
-            assert_eq!(&db.created_by_table.read_all()?, &metadatas[0]);
-            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[0]);
+            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
+            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
                 .insert(&path, &artifact_metadata, timestamp)
@@ -928,8 +972,8 @@ mod tests {
                     assert_eq!(v, vec![(path.clone(), (artifact_metadata.clone(), timestamp))]);
                 }
             );
-            assert_eq!(&db.created_by_table.read_all()?, &metadatas[0]);
-            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[1]);
+            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
+            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[1]);
         }
 
         {
@@ -951,8 +995,8 @@ mod tests {
                     }));
                 }
             );
-            assert_eq!(&db.created_by_table.read_all()?, &metadatas[2]);
-            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[2]);
+            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
+            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
                 .insert(&path, &artifact_metadata, timestamp)
@@ -972,8 +1016,8 @@ mod tests {
                     assert_eq!(v, vec![(path, (artifact_metadata, timestamp))]);
                 }
             );
-            assert_eq!(&db.created_by_table.read_all()?, &metadatas[2]);
-            assert_eq!(&db.last_read_by_table.read_all()?, &metadatas[3]);
+            assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
+            assert_metadata_matches(db.tables.last_read_by_table.read_all()?, &metadatas[3]);
         }
 
         Ok(())
