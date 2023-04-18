@@ -171,6 +171,13 @@ impl BuckdConnectConstraints {
             false
         }
     }
+
+    pub fn reject_materializer_state(&self) -> Option<&str> {
+        match self {
+            Self::Constraints(c) => c.reject_materializer_state.as_deref(),
+            Self::ExistingOnly => None,
+        }
+    }
 }
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
@@ -250,6 +257,11 @@ impl<'a> BuckdLifecycle<'a> {
 
         if self.constraints.is_trace_io_requested() {
             args.push("--enable-trace-io");
+        }
+
+        if let Some(r) = self.constraints.reject_materializer_state() {
+            args.push("--reject-materializer-state");
+            args.push(r);
         }
 
         if cfg!(unix) {
