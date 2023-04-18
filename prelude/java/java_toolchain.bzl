@@ -32,6 +32,8 @@ JavaToolchainInfo = provider(
         "jar",
         "jar_builder",
         "java",
+        "javacd_debug_port",
+        "javacd_debug_target",
         "java_for_tests",
         "javac",
         "javac_protocol",

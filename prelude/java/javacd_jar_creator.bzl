@@ -33,6 +33,7 @@ load(
     "prepare_final_jar",
     "setup_dep_files",
 )
+load("@prelude//utils:utils.bzl", "expect")
 
 base_command_params = struct(
     withDownwardApi = True,
@@ -170,7 +171,6 @@ def create_jar_artifact_javacd(
         )
 
     # buildifier: disable=uninitialized
-    # buildifier: disable=unused-variable
     def define_javacd_action(
             category_prefix: str.type,
             actions_identifier: [str.type, None],
@@ -182,21 +182,33 @@ def create_jar_artifact_javacd(
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
             debug_port: [int.type, None],
-            debug_target: [str.type, None],
+            debug_target: ["label", None],
             is_creating_subtarget: bool.type = False):
-        _unused = (debug_port, debug_target)
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
-        cmd = cmd_args([
-            derive_javac(java_toolchain.javac),
+        # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
+        expect(type(java_toolchain.javac) == "dependency", "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
+        cmd = cmd_args()
+        if (debug_port and qualified_name.startswith(base_qualified_name(debug_target))):
+            cmd.add(
+                java_toolchain.java[RunInfo],
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port),
+                "-jar",
+                java_toolchain.javac[DefaultInfo].default_outputs[0],
+            )
+        else:
+            cmd.add(
+                derive_javac(java_toolchain.javac),
+            )
+
+        cmd.add(
             "--action-id",
             qualified_name,
             "--command-file",
             proto_with_inputs,
-        ])
-
+        )
         if target_type == TargetType("library") and should_create_class_abi:
             cmd.add(
                 "--full-library",
@@ -259,8 +271,8 @@ def create_jar_artifact_javacd(
         class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
         path_to_class_hashes_out,
-        None,  # debug_port
-        None,  # debug_target
+        java_toolchain.javacd_debug_port,
+        java_toolchain.javacd_debug_target,
         is_creating_subtarget,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
@@ -278,8 +290,8 @@ def create_jar_artifact_javacd(
             class_abi_output_dir = class_abi_output_dir,
             encode_abi_command = encode_abi_command,
             define_action = define_javacd_action,
-            debug_port = None,
-            debug_target = None,
+            debug_port = java_toolchain.javacd_debug_port,
+            debug_target = java_toolchain.javacd_debug_target,
         )
 
         result = make_compile_outputs(
