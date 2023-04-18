@@ -25,7 +25,7 @@ PythonLibraryManifests = record(
 def _bytecode_artifacts(value: PythonLibraryManifests.type):
     if value.bytecode == None:
         return []
-    return value.bytecode.artifacts
+    return [a for a, _ in value.bytecode.artifacts]
 
 def _bytecode_manifests(value: PythonLibraryManifests.type):
     if value.bytecode == None:
@@ -61,7 +61,7 @@ def _resource_manifests(value: PythonLibraryManifests.type):
 def _resource_artifacts(value: PythonLibraryManifests.type):
     if value.resources == None:
         return []
-    return value.resources[0].artifacts
+    return [a for a, _ in value.resources[0].artifacts]
 
 def _source_manifests(value: PythonLibraryManifests.type):
     if value.srcs == None:
@@ -71,7 +71,7 @@ def _source_manifests(value: PythonLibraryManifests.type):
 def _source_artifacts(value: PythonLibraryManifests.type):
     if value.srcs == None:
         return []
-    return value.srcs.artifacts
+    return [a for a, _ in value.srcs.artifacts]
 
 def _source_type_manifests(value: PythonLibraryManifests.type):
     if value.src_types == None:
@@ -81,7 +81,7 @@ def _source_type_manifests(value: PythonLibraryManifests.type):
 def _source_type_artifacts(value: PythonLibraryManifests.type):
     if value.src_types == None:
         return []
-    return value.src_types.artifacts
+    return [a for a, _ in value.src_types.artifacts]
 
 PythonLibraryManifestsTSet = transitive_set(
     args_projections = {

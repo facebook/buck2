@@ -23,7 +23,7 @@ def compile_manifests(
         cmd.add("--ignore-errors")
     for manifest in manifests:
         cmd.add(manifest.manifest)
-        cmd.hidden(manifest.artifacts)
+        cmd.hidden([a for a, _ in manifest.artifacts])
     ctx.actions.run(
         cmd,
         # On some platforms (e.g. linux), python hash code randomness can cause

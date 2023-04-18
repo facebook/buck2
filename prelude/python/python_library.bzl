@@ -297,7 +297,7 @@ def python_library_impl(ctx: "context") -> ["provider"]:
         bytecode = compile_manifests(ctx, [src_manifest])
         sub_targets["compile"] = [DefaultInfo(default_output = bytecode)]
         bytecode_manifest = create_manifest_for_source_dir(ctx, "bytecode", bytecode)
-        sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = src_manifest.artifacts)]
+        sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
         if python_toolchain.emit_dependency_metadata:
             dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
             sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]

@@ -26,7 +26,7 @@ def create_source_db(
     # Pass manifests for rule's sources.
     if srcs != None:
         cmd.add(cmd_args(srcs.manifest, format = "--sources={}"))
-        artifacts.extend(srcs.artifacts)
+        artifacts.extend([a for a, _ in srcs.artifacts])
 
     # Pass manifests for transitive deps.
     dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
@@ -57,4 +57,4 @@ def create_source_db_no_deps_from_manifest(
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(srcs.manifest)
     ctx.actions.run(cmd, category = "py_source_db")
-    return DefaultInfo(default_output = output, other_outputs = srcs.artifacts)
+    return DefaultInfo(default_output = output, other_outputs = [a for a, _ in srcs.artifacts])
