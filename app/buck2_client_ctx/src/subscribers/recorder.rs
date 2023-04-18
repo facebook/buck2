@@ -111,6 +111,8 @@ mod imp {
         analysis_count: u64,
         total_concurrent_commands: Option<u32>,
         exit_when_different_state: bool,
+        daemon_in_memory_state_is_corrupted: bool,
+        daemon_materializer_state_is_corrupted: bool,
     }
 
     impl InvocationRecorder {
@@ -190,6 +192,8 @@ mod imp {
                 analysis_count: 0,
                 total_concurrent_commands: None,
                 exit_when_different_state: false,
+                daemon_in_memory_state_is_corrupted: false,
+                daemon_materializer_state_is_corrupted: false,
             }
         }
 
@@ -697,7 +701,25 @@ mod imp {
             if let Some(soft_error_category) = err.soft_error_category.as_ref() {
                 self.soft_error_categories
                     .insert(soft_error_category.to_owned());
+
+                for in_memory_category in &[
+                    "cas_missing_fatal",
+                    "eden_not_connected",
+                    "executor_launch_failed",
+                    "bxl_output_missing",
+                ] {
+                    if soft_error_category == in_memory_category {
+                        self.daemon_in_memory_state_is_corrupted = true;
+                    }
+                }
+
+                for materializer_category in &["missing_local_inputs"] {
+                    if soft_error_category == materializer_category {
+                        self.daemon_materializer_state_is_corrupted = true;
+                    }
+                }
             }
+
             Ok(())
         }
 
@@ -866,6 +888,14 @@ mod imp {
             }
 
             ErrorCause::Unknown
+        }
+
+        fn daemon_in_memory_state_is_corrupted(&self) -> bool {
+            self.daemon_in_memory_state_is_corrupted
+        }
+
+        fn daemon_materializer_state_is_corrupted(&self) -> bool {
+            self.daemon_materializer_state_is_corrupted
         }
     }
 
