@@ -177,7 +177,7 @@ fn initialize_root_buck(repo_root: &Path, prelude: bool) -> anyhow::Result<()> {
         writeln!(buck, "genrule(")?;
         writeln!(buck, "    name = \"hello_world\",")?;
         writeln!(buck, "    out = \"out.txt\",")?;
-        writeln!(buck, "    cmd = \"echo BUILT BY BUCK2> $OUT\",")?;
+        writeln!(buck, "    cmd = \"echo BUILT BY BUCK2> ./$OUT\",")?;
         writeln!(buck, ")")?;
     }
     // TODO: Add a doc pointers for rules
@@ -379,7 +379,7 @@ prelude = prelude
 genrule(
     name = \"hello_world\",
     out = \"out.txt\",
-    cmd = \"echo BUILT BY BUCK2> $OUT\",
+    cmd = \"echo BUILT BY BUCK2> ./$OUT\",
 )
 ";
         assert_eq!(actual_buck, expected_buck);
