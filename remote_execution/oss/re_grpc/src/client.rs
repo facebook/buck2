@@ -61,8 +61,6 @@ use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
 
-const INSTANCE_NAME: &str = "";
-
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
         hash: tdigest.hash,
@@ -188,7 +186,7 @@ impl REClientBuilder {
             ),
         };
 
-        Ok(REClient::new(grpc_clients))
+        Ok(REClient::new(opts.instance_name.clone(), grpc_clients))
     }
 }
 
@@ -252,6 +250,7 @@ pub struct REState {
 }
 
 pub struct REClient {
+    instance_name: Option<String>,
     grpc_clients: GRPCClients,
     state: Mutex<REState>,
 }
@@ -264,8 +263,9 @@ impl Drop for REClient {
 }
 
 impl REClient {
-    pub fn new(grpc_clients: GRPCClients) -> Self {
+    pub fn new(instance_name: Option<String>, grpc_clients: GRPCClients) -> Self {
         REClient {
+            instance_name,
             grpc_clients,
             state: Mutex::new(REState::default()),
         }
@@ -281,7 +281,7 @@ impl REClient {
         let res = client
             .get_action_result(with_internal_metadata(
                 GetActionResultRequest {
-                    instance_name: INSTANCE_NAME.into(),
+                    instance_name: self.instance_name.clone().unwrap_or("".to_string()),
                     action_digest: Some(tdigest_to(request.digest)),
                     ..Default::default()
                 },
@@ -316,7 +316,7 @@ impl REClient {
         let action_digest = tdigest_to(execute_request.action_digest.clone());
 
         let request = GExecuteRequest {
-            instance_name: INSTANCE_NAME.into(),
+            instance_name: self.instance_name.clone().unwrap_or("".to_string()),
             skip_cache_lookup: false,
             execution_policy: None,
             results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
@@ -440,7 +440,7 @@ impl REClient {
             })?;
 
         let re_request = BatchUpdateBlobsRequest {
-            instance_name: INSTANCE_NAME.into(),
+            instance_name: self.instance_name.clone().unwrap_or("".to_string()),
             requests: [
                 request
                     .inlined_blobs_with_digest
@@ -507,7 +507,7 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
-        download_impl(request, |re_request| async {
+        download_impl(self.instance_name.clone(), request, |re_request| async {
             let mut client = self.grpc_clients.cas_client.clone();
             Ok(client
                 .batch_read_blobs(with_internal_metadata(re_request, metadata))
@@ -651,7 +651,11 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
     Ok(action_result)
 }
 
-async fn download_impl<F, Fut>(request: DownloadRequest, f: F) -> anyhow::Result<DownloadResponse>
+async fn download_impl<F, Fut>(
+    instance_name: Option<String>,
+    request: DownloadRequest,
+    f: F,
+) -> anyhow::Result<DownloadResponse>
 where
     F: FnOnce(BatchReadBlobsRequest) -> Fut,
     Fut: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
@@ -660,7 +664,7 @@ where
     let file_digests = request.file_digests.unwrap_or_default();
 
     let re_request = BatchReadBlobsRequest {
-        instance_name: INSTANCE_NAME.into(),
+        instance_name: instance_name.clone().unwrap_or("".to_string()),
         digests: file_digests
             .iter()
             .map(|req| &req.named_digest.digest)
@@ -874,7 +878,7 @@ mod tests {
             ],
         };
 
-        download_impl(req, |req| async move {
+        download_impl(None, req, |req| async move {
             assert_eq!(req.digests.len(), 2);
             assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
             assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
@@ -936,7 +940,7 @@ mod tests {
             ],
         };
 
-        let res = download_impl(req, |req| async move {
+        let res = download_impl(None, req, |req| async move {
             assert_eq!(req.digests.len(), 2);
             assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
             assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
@@ -972,7 +976,7 @@ mod tests {
 
         let res = BatchReadBlobsResponse { responses: vec![] };
 
-        let res = download_impl(req, |req| async move {
+        let res = download_impl(None, req, |req| async move {
             assert_eq!(req.digests.len(), 0);
             Ok(res)
         })

@@ -135,6 +135,7 @@ pub struct Buck2OssReConfiguration {
     pub cas_address: Option<String>,
     pub engine_address: Option<String>,
     pub action_cache_address: Option<String>,
+    pub instance_name: Option<String>,
     /// Path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default
     /// bundle will be used.
     ///
@@ -188,6 +189,8 @@ impl Buck2OssReConfiguration {
             .parse_list(BUCK2_RE_CLIENT_CFG_SECTION, "http_headers")?
             .unwrap_or_default(); // Empty list is as good None.
 
+        let instance_name = legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "instance_name")?;
+
         // if the set the 'address' field, just use that for everything
         let default_address: Option<String> =
             legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "address")?;
@@ -199,6 +202,7 @@ impl Buck2OssReConfiguration {
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
                 action_cache_address: legacy_config
                     .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
+                instance_name,
                 tls_ca_certs,
                 tls_client_cert,
                 http_headers,
@@ -207,6 +211,7 @@ impl Buck2OssReConfiguration {
                 cas_address: Some(address.clone()),
                 engine_address: Some(address.clone()),
                 action_cache_address: Some(address.clone()),
+                instance_name,
                 tls_ca_certs,
                 tls_client_cert,
                 http_headers,
