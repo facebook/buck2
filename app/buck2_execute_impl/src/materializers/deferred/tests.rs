@@ -107,6 +107,7 @@ mod state_machine {
     #[derive(Default)]
     struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
+        fail: Mutex<bool>,
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
     }
@@ -116,9 +117,14 @@ mod state_machine {
             std::mem::take(&mut *self.log.lock())
         }
 
+        fn set_fail(&self, fail: bool) {
+            *self.fail.lock() = fail;
+        }
+
         pub fn new(materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>) -> Self {
             Self {
                 log: Default::default(),
+                fail: Default::default(),
                 materialization_config,
             }
         }
@@ -172,7 +178,12 @@ mod state_machine {
                 None => (),
             }
             self.log.lock().push((Op::Materialize, path));
-            Ok(())
+
+            if *self.fail.lock() {
+                Err(anyhow::anyhow!("Injected error").into())
+            } else {
+                Ok(())
+            }
         }
 
         fn create_ttl_refresh(
@@ -581,6 +592,68 @@ mod state_machine {
 
         // We do not actually get to materializing or cleaning.
         assert_eq!(dm.io.take_log(), &[]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_retry() -> anyhow::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let (mut dm, mut channel) = make_processor(digest_config, Default::default());
+
+        let path = make_path("test");
+        let value1 = ArtifactValue::file(digest_config.empty_file());
+
+        // Declare a value.
+        dm.declare(&path, value1, Box::new(ArtifactMaterializationMethod::Test));
+
+        // Make materializations fail
+        dm.io.set_fail(true);
+
+        // Materializing it fails.
+        let res = dm
+            .materialize_artifact(&path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+
+        assert_matches!(
+            res,
+            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+        );
+
+        // Unset fail, but we haven't processed materialization_finished yet so this does nothing.
+        dm.io.set_fail(false);
+
+        // Rejoining the existing future fails.
+        let res = dm
+            .materialize_artifact(&path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+
+        assert_matches!(
+            res,
+            Err(SharedMaterializingError::Error(e)) if format!("{:#}", e).contains("Injected error")
+        );
+
+        // Now process cleanup_finished_vacant and materialization_finished.
+        let mut processed = 0;
+
+        while let Ok(cmd) = channel.low_priority.try_recv() {
+            eprintln!("got cmd = {:?}", cmd);
+            dm.process_one_low_priority_command(cmd);
+            processed += 1;
+        }
+
+        assert_eq!(processed, 2);
+
+        // Materializing works now:
+        let res = dm
+            .materialize_artifact(&path, EventDispatcher::null())
+            .context("Expected a future")?
+            .await;
+
+        assert_matches!(res, Ok(()));
 
         Ok(())
     }
