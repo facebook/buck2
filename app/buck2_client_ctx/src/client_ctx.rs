@@ -22,7 +22,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
 use crate::cleanup_ctx::AsyncCleanupContext;
-use crate::cleanup_ctx::AsyncCleanupContextGuard;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
@@ -31,35 +30,11 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::stdin::Stdin;
 use crate::tokio_runtime_setup::client_tokio_runtime;
 
-/// Contains fields that should only created once per proess and not once per command. We don't put
-/// them directly in ClientCommandContext to support Replay.
-pub struct ProcessContext<'a> {
-    async_cleanup: AsyncCleanupContext,
-    stdin: &'a mut Stdin,
-}
-
-impl<'a> ProcessContext<'a> {
-    /// NOTE: This returns the AsyncCleanupContextGuard separately since we pass the ProcessContext
-    /// down but want to keep the AsyncCleanupContextGuard at the top of the stack.
-    pub fn initialize(stdin: &'a mut Stdin) -> anyhow::Result<(Self, AsyncCleanupContextGuard)> {
-        let async_cleanup = AsyncCleanupContextGuard::new();
-
-        Ok((
-            Self {
-                async_cleanup: async_cleanup.ctx().dupe(),
-                stdin,
-            },
-            async_cleanup,
-        ))
-    }
-}
-
 pub struct ClientCommandContext<'a> {
     pub init: fbinit::FacebookInit,
     pub paths: SharedResult<InvocationPaths>,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,
-    pub process_context: ProcessContext<'a>,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
@@ -68,6 +43,8 @@ pub struct ClientCommandContext<'a> {
     pub sanitized_argv: Vec<String>,
     pub trace_id: TraceId,
     pub argfiles_trace: Vec<AbsNormPathBuf>,
+    pub async_cleanup: AsyncCleanupContext,
+    pub stdin: &'a mut Stdin,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -92,7 +69,7 @@ impl<'a> ClientCommandContext<'a> {
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {
-        self.process_context.stdin
+        self.stdin
     }
 
     pub async fn connect_buckd(
@@ -174,6 +151,6 @@ impl<'a> ClientCommandContext<'a> {
     }
 
     pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
-        &self.process_context.async_cleanup
+        &self.async_cleanup
     }
 }

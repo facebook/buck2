@@ -50,8 +50,8 @@ use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
 use buck2_client::commands::uquery::UqueryCommand;
+use buck2_client_ctx::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::client_ctx::ProcessContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -72,6 +72,7 @@ use clap::AppSettings;
 use clap::Parser;
 use dice::DetectCycles;
 use dice::WhichDice;
+use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::check_user_allowed::check_user_allowed;
@@ -329,7 +330,7 @@ impl CommandKind {
 
         let trace_id = TraceId::from_env_or_new()?;
 
-        let (process_context, _cleanup_drop_guard) = ProcessContext::initialize(stdin)?;
+        let async_cleanup = AsyncCleanupContextGuard::new();
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
@@ -380,13 +381,14 @@ impl CommandKind {
             init,
             paths,
             verbosity: common_opts.verbosity,
-            process_context,
             start_in_process_daemon,
             command_name: self.command_name(),
             working_dir,
             sanitized_argv: Vec::new(),
             trace_id,
             argfiles_trace,
+            async_cleanup: async_cleanup.ctx().dupe(),
+            stdin,
         };
 
         match self {
