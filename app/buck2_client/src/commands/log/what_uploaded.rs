@@ -105,7 +105,10 @@ impl WhatUploadedCommand {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
-            buck2_client_ctx::eprintln!("Showing uploads from: {}", invocation,)?;
+            buck2_client_ctx::eprintln!(
+                "Showing uploads from: {}",
+                invocation.display_command_line()
+            )?;
 
             let mut total_digests_uploaded = 0;
             let mut total_bytes_uploaded = 0;

@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt;
-
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -137,12 +135,8 @@ pub struct Invocation {
     pub trace_id: TraceId,
 }
 
-impl fmt::Display for Invocation {
-    fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            w,
-            "{}",
-            shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
-        )
+impl Invocation {
+    pub fn display_command_line(&self) -> String {
+        shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
     }
 }

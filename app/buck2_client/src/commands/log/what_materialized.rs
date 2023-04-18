@@ -89,7 +89,10 @@ impl WhatMaterializedCommand {
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            buck2_client_ctx::eprintln!("Showing materializations from: {}", invocation,)?;
+            buck2_client_ctx::eprintln!(
+                "Showing materializations from: {}",
+                invocation.display_command_line()
+            )?;
 
             while let Some(event) = events.try_next().await? {
                 match event {

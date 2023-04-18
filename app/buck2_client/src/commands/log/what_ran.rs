@@ -102,7 +102,10 @@ impl WhatRanCommand {
 
             let (invocation, events) = log_path.unpack_stream().await?;
 
-            buck2_client_ctx::eprintln!("Showing commands from: {}", invocation)?;
+            buck2_client_ctx::eprintln!(
+                "Showing commands from: {}",
+                invocation.display_command_line()
+            )?;
 
             if failed {
                 WhatFailedImpl::execute(events, &mut output, &options).await?;

@@ -37,7 +37,10 @@ impl CriticalPathCommand {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
-            buck2_client_ctx::eprintln!("Showing critical path from: {}", invocation)?;
+            buck2_client_ctx::eprintln!(
+                "Showing critical path from: {}",
+                invocation.display_command_line()
+            )?;
 
             while let Some(event) = events.try_next().await? {
                 match event {
