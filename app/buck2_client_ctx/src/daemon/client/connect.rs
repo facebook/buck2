@@ -378,12 +378,45 @@ impl<'a> BuckdLifecycle<'a> {
     }
 }
 
+/// Represents an established connection to the daemon. We then upgrade it into a
+/// BootstrapBuckdClient by querying constraints. This is a separate step so that we retry
+/// establishing the channel but not querying constraints.
+struct BuckdChannel {
+    info: DaemonProcessInfo,
+    daemon_dir: DaemonDir,
+    client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+}
+
+impl BuckdChannel {
+    /// Upgrade this BuckdChannel to a BootstrapBuckdClient.
+    async fn upgrade(self) -> anyhow::Result<BootstrapBuckdClient> {
+        let Self {
+            info,
+            daemon_dir,
+            mut client,
+        } = self;
+
+        let constraints = get_constraints(&mut client)
+            .await
+            .context("Error obtaining daemon constraints")?;
+
+        Ok(BootstrapBuckdClient {
+            info,
+            daemon_dir,
+            client,
+            constraints,
+        })
+    }
+}
+
 /// Client used for connection setup. Can be used to create BuckdClientConnector instances later.
 #[derive(Clone)]
 pub struct BootstrapBuckdClient {
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+    /// The constraints for the daemon we're connected to.
+    constraints: buck2_cli_proto::DaemonConstraints,
 }
 
 impl BootstrapBuckdClient {
@@ -415,6 +448,7 @@ impl BootstrapBuckdClient {
                 info: self.info,
                 daemon_dir: self.daemon_dir,
                 client: self.client,
+                constraints: self.constraints,
                 events_ctx: EventsCtx::new(subscribers),
                 tailers: None,
             },
@@ -428,28 +462,6 @@ impl BootstrapBuckdClient {
             "client expected different buckd constraints",
         )
         .await
-    }
-
-    async fn get_constraints(&mut self) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
-        // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
-        // otherwise we leave them alone.
-        let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
-            .unpack_oneshot(&mut None, || {
-                self.client
-                    .status(tonic::Request::new(buck2_cli_proto::StatusRequest {
-                        snapshot: false,
-                    }))
-            })
-            .await?;
-
-        let status: buck2_cli_proto::StatusResponse = match status {
-            CommandOutcome::Success(r) => Ok(r),
-            CommandOutcome::Failure(_) => {
-                Err(anyhow::anyhow!("Unexpected failure message in status()"))
-            }
-        }?;
-
-        Ok(status.daemon_constraints.unwrap_or_default())
     }
 }
 
@@ -524,12 +536,9 @@ async fn establish_connection_inner(
 
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
-    if let Ok(mut client) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
-        if constraints.existing_only()
-            || constraints
-                .satisfied(&client.get_constraints().await?)?
-                .is_match()
-        {
+    if let Ok(channel) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
+        let mut client = channel.upgrade().await?;
+        if constraints.satisfied(&client.constraints)?.is_match() {
             return Ok(client);
         }
         deadline
@@ -551,7 +560,7 @@ async fn establish_connection_inner(
     // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
     // file to appear, but it's just as easy to just retry the connection itself.
 
-    let mut client = deadline
+    let channel = deadline
         .retrying(
             "connect to buckd after server start",
             Duration::from_millis(5),
@@ -560,11 +569,9 @@ async fn establish_connection_inner(
         )
         .await?;
 
-    if constraints.existing_only() {
-        return Ok(client);
-    }
+    let client = channel.upgrade().await?;
 
-    match constraints.satisfied(&client.get_constraints().await?)? {
+    match constraints.satisfied(&client.constraints)? {
         ConstraintCheckResult::Match => Ok(client),
         ConstraintCheckResult::Mismatch { expected, actual } => {
             Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart { expected, actual }.into())
@@ -584,12 +591,10 @@ async fn try_connect_existing_before_daemon_restart(
     constraints: &BuckdConnectConstraints,
 ) -> anyhow::Result<Option<BootstrapBuckdClient>> {
     match try_connect_existing_impl(&paths.daemon_dir()?).await {
-        Ok(mut client) => {
-            if constraints.existing_only()
-                || constraints
-                    .satisfied(&client.get_constraints().await?)?
-                    .is_match()
-            {
+        Ok(channel) => {
+            let client = channel.upgrade().await?;
+
+            if constraints.satisfied(&client.constraints)?.is_match() {
                 return Ok(Some(client));
             }
             // fallthrough to the more complicated startup case.
@@ -607,7 +612,7 @@ async fn try_connect_existing_before_daemon_restart(
 async fn try_connect_existing(
     daemon_dir: &DaemonDir,
     timeout: &StartupDeadline,
-) -> anyhow::Result<BootstrapBuckdClient> {
+) -> anyhow::Result<BuckdChannel> {
     timeout
         .min(buckd_startup_timeout()?)?
         .run(
@@ -617,7 +622,7 @@ async fn try_connect_existing(
         .await
 }
 
-async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<BootstrapBuckdClient> {
+async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<BuckdChannel> {
     let location = daemon_dir.buckd_info();
     let file = File::open(&location)
         .with_context(|| format!("Trying to open buckd info, `{}`", location.display()))?;
@@ -631,13 +636,38 @@ async fn try_connect_existing_impl(daemon_dir: &DaemonDir) -> anyhow::Result<Boo
 
     let connection_type = ConnectionType::parse(&info.endpoint)?;
 
-    let client = new_daemon_api_client(connection_type, info.auth_token.clone()).await?;
+    let client = new_daemon_api_client(connection_type, info.auth_token.clone())
+        .await
+        .context("Error connecting")?;
 
-    Ok(BootstrapBuckdClient {
+    Ok(BuckdChannel {
         info,
         daemon_dir: daemon_dir.clone(),
         client,
     })
+}
+
+async fn get_constraints(
+    client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
+    // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
+    // otherwise we leave them alone.
+    let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
+        .unpack_oneshot(&mut None, || {
+            client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
+                snapshot: false,
+            }))
+        })
+        .await?;
+
+    let status: buck2_cli_proto::StatusResponse = match status {
+        CommandOutcome::Success(r) => Ok(r),
+        CommandOutcome::Failure(_) => {
+            Err(anyhow::anyhow!("Unexpected failure message in status()"))
+        }
+    }?;
+
+    Ok(status.daemon_constraints.unwrap_or_default())
 }
 
 #[derive(Debug, Error)]

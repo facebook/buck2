@@ -139,6 +139,8 @@ impl Drop for BuckdLifecycleLock {
 /// that take more primitive types than the protobuf structure itself.
 pub struct BuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+    #[allow(unused)]
+    constraints: buck2_cli_proto::DaemonConstraints,
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
