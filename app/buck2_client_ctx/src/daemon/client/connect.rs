@@ -135,6 +135,7 @@ pub enum DesiredTraceIoState {
     Existing,
 }
 
+#[derive(Debug)]
 pub enum BuckdConnectConstraints {
     ExistingOnly,
     Constraints(DaemonConstraintsRequest),
@@ -149,7 +150,16 @@ impl BuckdConnectConstraints {
         match self {
             Self::ExistingOnly => ConstraintCheckResult::Match,
             Self::Constraints(expected) => {
-                if expected.satisfied(daemon) {
+                let satisfied = expected.satisfied(daemon);
+
+                tracing::debug!(
+                    "Matching constraints: {:?} {:?} -> satisfied = {}",
+                    self,
+                    daemon,
+                    satisfied
+                );
+
+                if satisfied {
                     ConstraintCheckResult::Match
                 } else {
                     ConstraintCheckResult::Mismatch {
