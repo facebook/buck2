@@ -123,7 +123,7 @@ def assemble_bundle(ctx: "context", bundle: "artifact", parts: [AppleBundlePart.
         command.add("--log-file", bundling_log_output)
 
     if ctx.attrs._fast_adhoc_signing_enabled:
-        command.add("--fast-adhoc-signing")
+        command.add("--codesign-configuration", "fast-adhoc")
 
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
