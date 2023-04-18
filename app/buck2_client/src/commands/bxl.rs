@@ -70,7 +70,7 @@ impl StreamingCommand for BxlCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context =
             ctx.client_context(&self.common_ops.config_opts, matches, self.sanitized_argv())?;

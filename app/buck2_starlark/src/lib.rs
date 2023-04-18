@@ -100,7 +100,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 

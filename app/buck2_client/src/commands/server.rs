@@ -29,7 +29,7 @@ impl StreamingCommand for ServerCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &ArgMatches,
-        _ctx: ClientCommandContext<'_>,
+        _ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let status = buckd.with_flushing().status(false).await?;
         buck2_client_ctx::println!("buckd.endpoint={}", status.process_info.unwrap().endpoint)?;

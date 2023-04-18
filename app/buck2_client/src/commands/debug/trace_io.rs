@@ -78,7 +78,7 @@ impl TraceIoCommand {
         &self,
         req: TraceIoRequest,
         buckd: &mut BuckdClientConnector,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> anyhow::Result<CommandOutcome<TraceIoResponse>> {
         buckd
             .with_flushing()
@@ -99,7 +99,7 @@ impl StreamingCommand for TraceIoCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(self.common_opts(), matches, self.sanitized_argv())?;
         match &self.trace_io_action {

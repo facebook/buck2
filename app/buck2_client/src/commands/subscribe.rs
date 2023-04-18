@@ -68,7 +68,7 @@ impl StreamingCommand for SubscribeCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let client_context =
             ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;

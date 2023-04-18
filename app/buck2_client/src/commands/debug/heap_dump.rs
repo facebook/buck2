@@ -36,7 +36,7 @@ impl StreamingCommand for HeapDumpCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext<'_>,
+        _ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         buckd
             .with_flushing()

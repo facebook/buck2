@@ -28,7 +28,7 @@ impl StreamingCommand for SegfaultCommand {
         self,
         buckd: &mut BuckdClientConnector,
         _matches: &clap::ArgMatches,
-        _ctx: ClientCommandContext<'_>,
+        _ctx: &mut ClientCommandContext<'_>,
     ) -> buck2_client_ctx::exit_result::ExitResult {
         let _err = buckd.with_flushing().segfault(SegfaultRequest {}).await;
         ExitResult::success()

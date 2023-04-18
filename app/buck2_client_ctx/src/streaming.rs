@@ -85,7 +85,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult;
 
     /// Should we only connect to existing servers (`true`), or spawn a new server if required (`false`).
@@ -154,7 +154,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     }
                 };
 
-                let mut command_result = self.exec_impl(&mut buckd, matches, ctx).await;
+                let mut command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
 
                 if matches!(command_result, ExitResult::UncategorizedError) {
                     command_result =

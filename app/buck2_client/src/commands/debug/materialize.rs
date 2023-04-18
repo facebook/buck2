@@ -41,7 +41,7 @@ impl StreamingCommand for MaterializeCommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(
             &self.common_opts.config_opts,

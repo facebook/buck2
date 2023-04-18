@@ -179,7 +179,7 @@ impl StreamingCommand for ProfileSubcommand {
         self,
         buckd: &mut BuckdClientConnector,
         matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
+        ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(
             &self.profile_common_opts.common_opts.config_opts,
