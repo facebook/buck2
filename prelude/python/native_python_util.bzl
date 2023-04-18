@@ -11,7 +11,14 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
+    "Linkage",
     "ObjectsLinkable",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "DlopenableLibraryInfo",
+    "LinkableGraph",
+    "LinkableRootInfo",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -31,6 +38,8 @@ CxxExtensionLinkInfo = provider(
         "dlopen_deps",  # {"label": LinkableProviders.type}
         # Native python extensions that can't be linked into the main executable.
         "unembeddable_extensions",  # {str.type: LinkableProviders.type}
+        # Native libraries that are only available as shared libs.
+        "shared_only_libs",  # {"label": LinkableProviders.type}
     ],
 )
 
@@ -41,12 +50,33 @@ def merge_cxx_extension_info(
         artifacts: {str.type: "_a"} = {},
         python_module_names: {str.type: str.type} = {},
         unembeddable_extensions: {str.type: LinkableProviders.type} = {},
-        dlopen_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
+        shared_deps: ["dependency"] = []) -> CxxExtensionLinkInfo.type:
     linkable_provider_children = []
     artifacts = dict(artifacts)
     python_module_names = dict(python_module_names)
     unembeddable_extensions = dict(unembeddable_extensions)
-    dlopen_deps = {d.label: linkable(d) for d in dlopen_deps}
+
+    dlopen_deps = {}
+    shared_only_libs = {}
+    for dep in shared_deps:
+        # Libs that should be linked into their own, standalone link groups
+        if DlopenableLibraryInfo in dep:
+            dlopen_deps[dep.label] = linkable(dep)
+            continue
+
+        # Try to detect prebuilt, shared-only libraries.
+        # TODO(agallagher): We need a more general way to support this, which
+        # should *just* use `preferred_linkage` (and so it supports non-prebuilt
+        # libs too), but this will require hoisting the rules first-order deps
+        # up the tree as `dlopen_deps` so that we link them properly.
+        if (
+            LinkableRootInfo not in dep and
+            LinkableGraph in dep and
+            dep[LinkableGraph].nodes.value.linkable != None and
+            dep[LinkableGraph].nodes.value.linkable.preferred_linkage == Linkage("shared")
+        ):
+            shared_only_libs[dep.label] = linkable(dep)
+
     for dep in deps:
         cxx_extension_info = dep.get(CxxExtensionLinkInfo)
         if cxx_extension_info == None:
@@ -56,6 +86,7 @@ def merge_cxx_extension_info(
         python_module_names.update(cxx_extension_info.python_module_names)
         unembeddable_extensions.update(cxx_extension_info.unembeddable_extensions)
         dlopen_deps.update(cxx_extension_info.dlopen_deps)
+        shared_only_libs.update(cxx_extension_info.shared_only_libs)
     linkable_providers_kwargs = {}
     if linkable_providers != None:
         linkable_providers_kwargs["value"] = linkable_providers
@@ -66,6 +97,7 @@ def merge_cxx_extension_info(
         python_module_names = python_module_names,
         unembeddable_extensions = unembeddable_extensions,
         dlopen_deps = dlopen_deps,
+        shared_only_libs = shared_only_libs,
     )
 
 def rewrite_static_symbols(

@@ -50,7 +50,6 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "DlopenableLibraryInfo",
     "LinkableGraph",
     "LinkableGraphTSet",
     "create_linkable_graph",
@@ -444,11 +443,7 @@ def convert_python_library_to_executable(
             ctx.actions,
             deps + executable_deps,
             # Add in dlopen-enabled libs from first-order deps.
-            dlopen_deps = [
-                dep
-                for dep in ctx.attrs.deps + ctx.attrs.preload_deps
-                if DlopenableLibraryInfo in dep
-            ],
+            shared_deps = ctx.attrs.deps + ctx.attrs.preload_deps,
         )
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
@@ -517,7 +512,8 @@ def convert_python_library_to_executable(
             exe_category_suffix = "python_exe",
             extra_link_roots = (
                 extension_info.unembeddable_extensions.values() +
-                extension_info.dlopen_deps.values()
+                extension_info.dlopen_deps.values() +
+                extension_info.shared_only_libs.values()
             ),
         )
 
