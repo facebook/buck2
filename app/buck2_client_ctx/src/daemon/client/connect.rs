@@ -85,18 +85,18 @@ impl DaemonConstraintsRequest {
         })
     }
 
-    fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> anyhow::Result<bool> {
+    fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> bool {
         if self.version != daemon.version {
-            return Ok(false);
+            return false;
         }
 
         if self.user_version != daemon.user_version {
-            return Ok(false);
+            return false;
         }
 
         if let Some(r) = &self.reject_daemon {
             if *r == daemon.daemon_id {
-                return Ok(false);
+                return false;
             }
         }
 
@@ -105,12 +105,12 @@ impl DaemonConstraintsRequest {
 
         let extra = match &daemon.extra {
             Some(e) => e,
-            None => return Ok(true),
+            None => return true,
         };
 
         match (self.desired_trace_io_state, extra.trace_io_enabled) {
-            (DesiredTraceIoState::Enabled, false) => return Ok(false),
-            (DesiredTraceIoState::Disabled, true) => return Ok(false),
+            (DesiredTraceIoState::Enabled, false) => return false,
+            (DesiredTraceIoState::Disabled, true) => return false,
             _ => {}
         }
 
@@ -120,11 +120,11 @@ impl DaemonConstraintsRequest {
                 .as_ref()
                 .map_or(false, |i| i == r)
             {
-                return Ok(false);
+                return false;
             }
         }
 
-        Ok(true)
+        true
     }
 }
 
@@ -145,14 +145,11 @@ impl BuckdConnectConstraints {
         matches!(self, Self::ExistingOnly)
     }
 
-    pub fn satisfied(
-        &self,
-        daemon: &buck2_cli_proto::DaemonConstraints,
-    ) -> anyhow::Result<ConstraintCheckResult> {
-        Ok(match self {
+    pub fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> ConstraintCheckResult {
+        match self {
             Self::ExistingOnly => ConstraintCheckResult::Match,
             Self::Constraints(expected) => {
-                if expected.satisfied(daemon)? {
+                if expected.satisfied(daemon) {
                     ConstraintCheckResult::Match
                 } else {
                     ConstraintCheckResult::Mismatch {
@@ -161,7 +158,7 @@ impl BuckdConnectConstraints {
                     }
                 }
             }
-        })
+        }
     }
 
     pub fn is_trace_io_requested(&self) -> bool {
@@ -559,7 +556,7 @@ async fn establish_connection_inner(
     // starting the server, so we try to connect again while holding the lock.
     if let Ok(channel) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
         let mut client = channel.upgrade().await?;
-        if constraints.satisfied(&client.constraints)?.is_match() {
+        if constraints.satisfied(&client.constraints).is_match() {
             return Ok(client);
         }
         deadline
@@ -592,7 +589,7 @@ async fn establish_connection_inner(
 
     let client = channel.upgrade().await?;
 
-    match constraints.satisfied(&client.constraints)? {
+    match constraints.satisfied(&client.constraints) {
         ConstraintCheckResult::Match => Ok(client),
         ConstraintCheckResult::Mismatch { expected, actual } => {
             Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart { expected, actual }.into())
@@ -615,7 +612,7 @@ async fn try_connect_existing_before_daemon_restart(
         Ok(channel) => {
             let client = channel.upgrade().await?;
 
-            if constraints.satisfied(&client.constraints)?.is_match() {
+            if constraints.satisfied(&client.constraints).is_match() {
                 return Ok(Some(client));
             }
             // fallthrough to the more complicated startup case.
@@ -754,28 +751,28 @@ mod tests {
     fn test_constraints_equal_for_existing_only() {
         let req = BuckdConnectConstraints::ExistingOnly;
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).unwrap().is_match());
+        assert!(req.satisfied(&daemon).is_match());
     }
 
     #[test]
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).unwrap().is_match());
+        assert!(req.satisfied(&daemon).is_match());
     }
 
     #[test]
     fn test_constraints_equal_for_trace_io_existing() {
         let req = request(DesiredTraceIoState::Existing);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).unwrap().is_match());
+        assert!(req.satisfied(&daemon).is_match());
     }
 
     #[test]
     fn test_constraints_unequal_for_trace_io() {
         let req = request(DesiredTraceIoState::Disabled);
         let daemon = constraints(true);
-        assert!(!req.satisfied(&daemon).unwrap().is_match());
+        assert!(!req.satisfied(&daemon).is_match());
     }
 
     #[test]
@@ -804,11 +801,11 @@ mod tests {
             extra: None,
         };
 
-        assert!(req.satisfied(&daemon).unwrap());
+        assert!(req.satisfied(&daemon));
         req.reject_daemon = Some("zzz".to_owned());
-        assert!(req.satisfied(&daemon).unwrap());
+        assert!(req.satisfied(&daemon));
         req.reject_daemon = Some("ddd".to_owned());
-        assert!(!req.satisfied(&daemon).unwrap());
+        assert!(!req.satisfied(&daemon));
     }
 
     #[test]
@@ -831,10 +828,10 @@ mod tests {
             }),
         };
 
-        assert!(req.satisfied(&daemon).unwrap());
+        assert!(req.satisfied(&daemon));
         req.reject_materializer_state = Some("zzz".to_owned());
-        assert!(req.satisfied(&daemon).unwrap());
+        assert!(req.satisfied(&daemon));
         req.reject_materializer_state = Some("mmm".to_owned());
-        assert!(!req.satisfied(&daemon).unwrap());
+        assert!(!req.satisfied(&daemon));
     }
 }
