@@ -246,28 +246,32 @@ impl<'a> BuckdLifecycle<'a> {
     }
 
     async fn start_server(&self) -> anyhow::Result<()> {
+        let mut args = vec!["--isolation-dir", self.paths.isolation.as_str()];
+
+        if self.constraints.is_trace_io_requested() {
+            args.push("--enable-trace-io");
+        }
+
         if cfg!(unix) {
             // On Unix we spawn a process which forks and exits,
             // and here we wait for that spawned process to terminate.
-
-            self.start_server_unix().await
+            self.start_server_unix(args).await
         } else {
             // TODO(nga): pass `RUST_BACKTRACE=1`.
-            // TODO(skarlage): Tracing I/O unsupported on windows
-            spawn_background_process_on_windows(
-                self.paths.project_root().root(),
-                &env::current_exe()?,
-                [
-                    "--isolation-dir",
-                    self.paths.isolation.as_str(),
-                    "daemon",
-                    "--dont-daemonize",
-                ],
-            )
+            self.start_server_windows(args)
         }
     }
 
-    async fn start_server_unix(&self) -> anyhow::Result<()> {
+    fn start_server_windows(&self, mut args: Vec<&str>) -> anyhow::Result<()> {
+        args.extend(["daemon", "--dont-daemonize"]);
+        spawn_background_process_on_windows(
+            self.paths.project_root().root(),
+            &env::current_exe()?,
+            args,
+        )
+    }
+
+    async fn start_server_unix(&self, args: Vec<&str>) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
             t.parse::<u64>()
@@ -279,13 +283,8 @@ impl<'a> BuckdLifecycle<'a> {
         cmd.current_dir(project_dir.root())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            // --isolation-dir is an option on the root `buck` cli, not the subcommand.
-            .arg("--isolation-dir")
-            .arg(self.paths.isolation.as_str());
+            .args(args);
 
-        if self.constraints.is_trace_io_requested() {
-            cmd.arg("--enable-trace-io");
-        }
         cmd.arg("daemon");
 
         static DAEMON_LOG_TO_FILE: EnvHelper<u8> = EnvHelper::<u8>::new("BUCK_DAEMON_LOG_TO_FILE");
