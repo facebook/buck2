@@ -375,11 +375,12 @@ impl CommandKind {
             command_name: self.command_name(),
             working_dir: process.working_dir.clone(),
             sanitized_argv: Vec::new(),
-            trace_id: process.trace_id.clone(),
+            trace_id: process.trace_id.dupe(),
             argfiles_trace,
             async_cleanup: async_cleanup.ctx().dupe(),
             stdin: process.stdin,
             restarter: process.restarter,
+            restarted_trace_id: process.restarted_trace_id.dupe(),
         };
 
         match self {

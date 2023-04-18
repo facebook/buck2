@@ -93,6 +93,7 @@ buck_rust_binary(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
+        "//buck2/gazebo/dupe:dupe",
         "//common/rust/folly/logging:logging",
         "//common/rust/gflags:gflags",
         "//common/rust/shed/fbinit:fbinit",

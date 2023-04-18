@@ -114,6 +114,7 @@ mod imp {
         daemon_in_memory_state_is_corrupted: bool,
         daemon_materializer_state_is_corrupted: bool,
         enable_restarter: bool,
+        restarted_trace_id: Option<TraceId>,
     }
 
     impl InvocationRecorder {
@@ -126,6 +127,7 @@ mod imp {
             isolation_dir: String,
             build_count_manager: BuildCountManager,
             invocation_root_path: AbsNormPathBuf,
+            restarted_trace_id: Option<TraceId>,
         ) -> Self {
             // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
             if command_name == "uquery" {
@@ -196,6 +198,7 @@ mod imp {
                 daemon_in_memory_state_is_corrupted: false,
                 daemon_materializer_state_is_corrupted: false,
                 enable_restarter: false,
+                restarted_trace_id,
             }
         }
 
@@ -320,6 +323,7 @@ mod imp {
                 analysis_count: Some(self.analysis_count),
                 total_concurrent_commands: self.total_concurrent_commands,
                 exit_when_different_state: Some(self.exit_when_different_state),
+                restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
             };
             let event = BuckEvent::new(
                 SystemTime::now(),
@@ -958,6 +962,7 @@ pub fn try_get_invocation_recorder(
         ctx.paths()?.isolation.as_str().to_owned(),
         BuildCountManager::new(ctx.paths()?.build_count_dir()),
         ctx.paths()?.project_root().root().to_buf(),
+        ctx.restarted_trace_id.dupe(),
     );
     Ok(Some(Box::new(recorder) as _))
 }

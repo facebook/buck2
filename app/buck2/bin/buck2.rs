@@ -31,6 +31,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_wrapper_common::invocation_id::TraceId;
+use dupe::Dupe;
 use fbinit::FacebookInit;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
@@ -136,10 +137,11 @@ fn main(init: fbinit::FacebookInit) -> ! {
             working_dir: &cwd,
             args: &args,
             restarter: &mut restarter,
-            trace_id: first_trace_id,
+            trace_id: first_trace_id.dupe(),
+            restarted_trace_id: None,
         });
 
-        let mut restart = |res| {
+        let restart = |res| {
             if !force_want_restart && !restarter.should_restart() {
                 tracing::debug!("No restart was requested");
                 return res;
@@ -163,6 +165,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
                 args: &args,
                 restarter: &mut restarter,
                 trace_id: TraceId::new(),
+                restarted_trace_id: Some(first_trace_id),
             })
         };
 

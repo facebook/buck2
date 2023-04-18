@@ -24,4 +24,6 @@ pub struct ProcessContext<'a> {
     pub args: &'a [String],
     pub restarter: &'a mut Restarter,
     pub trace_id: TraceId,
+    /// An invocation that this invocation is a restart of.
+    pub restarted_trace_id: Option<TraceId>,
 }

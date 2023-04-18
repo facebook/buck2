@@ -47,6 +47,7 @@ pub struct ClientCommandContext<'a> {
     pub async_cleanup: AsyncCleanupContext,
     pub stdin: &'a mut Stdin,
     pub restarter: &'a mut Restarter,
+    pub restarted_trace_id: Option<TraceId>,
 }
 
 impl<'a> ClientCommandContext<'a> {

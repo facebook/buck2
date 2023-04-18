@@ -1499,6 +1499,7 @@ message InvocationRecord {
   // Total concurrent commands.
   optional uint32 total_concurrent_commands = 61;
   optional bool exit_when_different_state = 62;
+  optional string restarted_trace_id = 63;
 }
 
 message CacheUploadStart {
