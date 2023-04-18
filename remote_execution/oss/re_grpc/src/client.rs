@@ -13,11 +13,11 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
-use buck2_core::fs::fs_util;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
 use dupe::Dupe;
 use futures::future::Future;
+use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -25,7 +25,6 @@ use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
-use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
@@ -33,18 +32,19 @@ use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
-use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
-use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tonic::codegen::InterceptedService;
 use tonic::metadata;
@@ -162,10 +162,11 @@ impl REClientBuilder {
             )
         };
 
-        let (cas, execution, action_cache) = futures::future::join3(
+        let (cas, execution, action_cache, bytestream) = futures::future::join4(
             create_channel(opts.cas_address.clone()),
             create_channel(opts.engine_address.clone()),
             create_channel(opts.action_cache_address.clone()),
+            create_channel(opts.bytestream_address.clone()),
         )
         .await;
 
@@ -183,6 +184,10 @@ impl REClientBuilder {
             action_cache_client: ActionCacheClient::with_interceptor(
                 action_cache.context("Error creating ActionCache client")?,
                 interceptor.dupe(),
+            ),
+            bytestream_client: ByteStreamClient::with_interceptor(
+                bytestream.context("Error creating ByteStream client")?,
+                interceptor,
             ),
         };
 
@@ -240,6 +245,7 @@ pub struct GRPCClients {
         ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    bytestream_client: ByteStreamClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
 }
 
 #[derive(Default)]
@@ -422,75 +428,134 @@ impl REClient {
 
     pub async fn upload(
         &self,
-        metadata: RemoteExecutionMetadata,
+        _metadata: RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> anyhow::Result<UploadResponse> {
-        let mut client = self.grpc_clients.cas_client.clone();
+        let mut bs_client = self.grpc_clients.bytestream_client.clone();
 
-        let files_with_digest: Vec<Request> = request
-            .files_with_digest
-            .unwrap_or_default()
-            .into_try_map(|x| {
-                anyhow::Ok(Request {
-                    digest: Some(tdigest_to(x.digest)),
-                    // FIXME: This could do a lot of blocking reads
-                    data: fs_util::read(&x.name)?,
-                    compressor: compressor::Value::Identity as i32,
-                })
-            })?;
+        /* 4MB, with some slop just in case */
+        /* XXX FIXME (aseipp): can this come from grpc transport? CacheCapabilities? */
+        let grpc_msg_limit = (4 * 1000 * 1000) - 4096;
 
-        let re_request = BatchUpdateBlobsRequest {
-            instance_name: self.instance_name.clone().unwrap_or("".to_string()),
-            requests: [
-                request
-                    .inlined_blobs_with_digest
-                    .unwrap_or_default()
-                    .into_map(|x| Request {
-                        digest: Some(tdigest_to(x.digest)),
-                        data: x.blob,
-                        compressor: compressor::Value::Identity as i32,
-                    }),
-                files_with_digest,
-            ]
-            .concat(),
+        let mut blob_hashes = vec![];
+
+        let instance_prefix = if let Some(name) = self.instance_name.clone() {
+            format!("{}/", name)
+        } else {
+            "".to_string()
         };
 
-        let blob_hashes = re_request
-            .requests
-            .iter()
-            .map(|x| x.digest.as_ref().unwrap().hash.clone())
-            .collect::<Vec<String>>();
-        let response = client
-            .batch_update_blobs(with_internal_metadata(re_request, metadata))
-            .await?;
+        // upload inlined blobs
+        let inlined_blobs = request.inlined_blobs_with_digest;
+        for blob in inlined_blobs.unwrap_or_default() {
+            let hash = blob.digest.hash.clone();
+            let size = blob.digest.size_in_bytes;
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let data = blob.blob;
 
-        let failures: Vec<String> = response
-            .get_ref()
-            .responses
-            .iter()
-            .filter_map(|r| {
-                r.status.as_ref().and_then(|s| {
-                    if s.code == (Code::Ok as i32) {
-                        None
-                    } else {
-                        Some(format!(
-                            "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
-                            r.digest.as_ref().map_or("N/A", |d| &d.hash),
-                            s.code,
-                            s.message
-                        ))
+            let resource_name = format!(
+                "{}uploads/{}/blobs/{}/{}",
+                instance_prefix, uuid, hash, size
+            );
+
+            // if it's small enough, upload it in a single call
+            if size <= grpc_msg_limit {
+                let req = stream::once(async move {
+                    WriteRequest {
+                        resource_name: resource_name.clone(),
+                        write_offset: 0,
+                        finish_write: true,
+                        data: data.to_vec(),
                     }
-                })
-            })
-            .collect();
+                });
 
-        if failures.is_empty() {
-            tracing::debug!("uploaded: {:?}", blob_hashes);
-            // TODO(aloiscochard): Add something interesting in UploadResponse?
-            Ok(UploadResponse {})
-        } else {
-            Err(anyhow::anyhow!("Batch upload failed: {:?}", failures))
+                let resp = bs_client.write(req).await?;
+                if resp.into_inner().committed_size != size as i64 {
+                    return Err(anyhow::anyhow!(
+                        "Failed to upload inline blob: invalid committed_size from WriteResponse"
+                    ));
+                }
+
+                blob_hashes.push(hash);
+                continue;
+            }
+
+            // otherwise, calculate how many messages to send by dividing the size by the limit
+            // we need this to figure out which message is the last one
+            let slop = size % grpc_msg_limit;
+            let num_msgs = (size / grpc_msg_limit) + (if slop > 0 { 1 } else { 0 });
+
+            let vs = stream::iter(data).chunks(grpc_msg_limit as usize);
+            let ws = vs.enumerate().map(move |(i, chunk)| WriteRequest {
+                resource_name: resource_name.clone(),
+                write_offset: (i * grpc_msg_limit as usize) as i64,
+                finish_write: i == (num_msgs as usize - 1),
+                data: chunk.to_vec(),
+            });
+
+            let resp = bs_client.write(ws).await?;
+            if resp.into_inner().committed_size != size as i64 {
+                return Err(anyhow::anyhow!(
+                    "Failed to upload inline blob: invalid committed_size from WriteResponse"
+                ));
+            }
+
+            blob_hashes.push(hash);
         }
+
+        // upload files, and chunk WriteRequests into small slices too
+        const BUFFER_SIZE: usize = 512 * 1024; // XXX FIXME (aseipp): use a larger dynamic (4MB?) buffer?
+        let mut buffer = [0u8; BUFFER_SIZE];
+
+        let files_with_digest = request.files_with_digest;
+        for file in files_with_digest.unwrap_or_default() {
+            let hash = file.digest.hash;
+            let size = file.digest.size_in_bytes;
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let name = file.name;
+
+            let mut file = tokio::fs::File::open(name).await?;
+            let mut write_offset = 0;
+
+            let mut rs = Vec::new();
+            loop {
+                let resource_name = format!(
+                    "{}uploads/{}/blobs/{}/{}",
+                    instance_prefix,
+                    uuid,
+                    hash.clone(),
+                    size
+                );
+                let n = file.read(&mut buffer).await?;
+                let data = buffer[..n].to_vec();
+                let finish_write = n == 0;
+
+                rs.push(WriteRequest {
+                    resource_name: resource_name.clone(),
+                    write_offset,
+                    finish_write,
+                    data,
+                });
+
+                write_offset += n as i64;
+                if n == 0 {
+                    break;
+                }
+            }
+            let resp = bs_client.write(stream::iter(rs)).await?;
+
+            if resp.into_inner().committed_size != size as i64 {
+                return Err(anyhow::anyhow!(
+                    "Failed to upload file: invalid committed_size from WriteResponse"
+                ));
+            }
+
+            blob_hashes.push(hash);
+        }
+
+        tracing::debug!("uploaded: {:?}", blob_hashes);
+        // TODO(aloiscochard): Add something interesting in UploadResponse?
+        Ok(UploadResponse {})
     }
 
     pub async fn upload_blob(
