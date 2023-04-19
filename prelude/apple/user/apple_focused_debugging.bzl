@@ -18,32 +18,57 @@ AppleFocusedDebuggingInfo = provider(fields = [
     "exclude_regular_expressions",  # regex
 ])
 
+# The type of focused debugging json input to utilze.
+_FocusedDebuggingJsonTypes = [
+    # Use a targets json file containing all targets to include.
+    "targets",
+    # Use a spec json file specifying the targets to include
+    # and exclude via build target patterns and regular expressions.
+    "spec",
+]
+
+_FocusedDebuggingJsonType = enum(
+    _FocusedDebuggingJsonTypes[0],
+    _FocusedDebuggingJsonTypes[1],
+)
+
 def _impl(ctx: "context") -> ["provider"]:
-    # process inputs and provide them up the graph with typing
-    include_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.include_build_target_patterns]
-    include_regular_expressions = [experimental_regex(expression) for expression in ctx.attrs.include_regular_expressions]
-    exclude_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.exclude_build_target_patterns]
-    exclude_regular_expressions = [experimental_regex(expression) for expression in ctx.attrs.exclude_regular_expressions]
-
-    json_data = {
-        "exclude_build_target_patterns": [pattern.as_string() for pattern in exclude_build_target_patterns],
-        "exclude_regular_expressions": [str(expression) for expression in exclude_regular_expressions],
-        "include_build_target_patterns": [pattern.as_string() for pattern in include_build_target_patterns],
-        "include_regular_expressions": [str(expression) for expression in include_regular_expressions],
-    }
-
+    # We expect the scrubber to be runnable rule. If not, we form a RunInfo
+    # with it's default output.
+    # TODO(T149874673): Look at how we can tighten up this API
     scrubber_run_info = ctx.attrs.scrubber.get(RunInfo)
     if scrubber_run_info == None:
         scrubber_run_info = RunInfo(
             args = ctx.attrs.scrubber[DefaultInfo].default_outputs,
         )
 
-    spec_file = ctx.actions.write_json("focused_debugging_spec.json", json_data)
-    args = cmd_args([
-        scrubber_run_info,
-        "--spec-file",
-        spec_file,
-    ])
+    json_type = _FocusedDebuggingJsonType(ctx.attrs.json_type)
+
+    # process inputs and provide them up the graph with typing
+    include_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.include_build_target_patterns]
+    include_regular_expressions = [experimental_regex(expression) for expression in ctx.attrs.include_regular_expressions]
+    exclude_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.exclude_build_target_patterns]
+    exclude_regular_expressions = [experimental_regex(expression) for expression in ctx.attrs.exclude_regular_expressions]
+
+    args = cmd_args(scrubber_run_info)
+    if json_type == _FocusedDebuggingJsonType("targets"):
+        # If a targets json file is not provided, write an empty json file:
+        targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json({"targets": []})
+        args.add("--targets-file")
+        args.add(targets_json_file)
+    elif json_type == _FocusedDebuggingJsonType("spec"):
+        json_data = {
+            "exclude_build_target_patterns": [pattern.as_string() for pattern in exclude_build_target_patterns],
+            "exclude_regular_expressions": [str(expression) for expression in exclude_regular_expressions],
+            "include_build_target_patterns": [pattern.as_string() for pattern in include_build_target_patterns],
+            "include_regular_expressions": [str(expression) for expression in include_regular_expressions],
+        }
+
+        spec_file = ctx.actions.write_json("focused_debugging_spec.json", json_data)
+        args.add("--spec-file")
+        args.add(spec_file)
+    else:
+        fail("Expected json_type to be either `targets` or `spec`.")
 
     return [
         DefaultInfo(),
@@ -65,7 +90,9 @@ registration_spec = RuleRegistrationSpec(
         "exclude_regular_expressions": attrs.list(attrs.string(), default = []),
         "include_build_target_patterns": attrs.list(attrs.string(), default = []),
         "include_regular_expressions": attrs.list(attrs.string(), default = []),
+        "json_type": attrs.enum(_FocusedDebuggingJsonTypes),
         "scrubber": attrs.dep(),
+        "targets_json_file": attrs.option(attrs.source(), default = None),
     },
 )
 
