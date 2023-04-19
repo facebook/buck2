@@ -56,13 +56,11 @@ impl PersistEventLogsCommand {
         let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
         let mut file = self.create_log_file().await?;
         let mut read_position: u64 = 0;
-        let mut upload_handle: MyJoinHandle = None;
         let mut first_upload = true;
         let manifold_path = format!("flat/{}", self.manifold_name);
         poll_and_upload_loop(
             stdin,
             &mut file,
-            &mut upload_handle,
             &mut read_position,
             &mut first_upload,
             &manifold_path,
@@ -73,7 +71,6 @@ impl PersistEventLogsCommand {
         if !self.no_upload {
             upload_remaining(
                 &mut file,
-                upload_handle,
                 read_position,
                 first_upload,
                 &manifold_path,
@@ -104,7 +101,6 @@ impl PersistEventLogsCommand {
 async fn poll_and_upload_loop(
     mut stdin: impl io::AsyncBufRead + Unpin,
     file: &mut File,
-    upload_handle: &mut MyJoinHandle,
     read_position: &mut u64,
     first_upload: &mut bool,
     manifold_path: &str,
@@ -112,6 +108,7 @@ async fn poll_and_upload_loop(
     should_upload: bool,
 ) -> Result<(), anyhow::Error> {
     let mut write_position: u64 = 0;
+    let mut upload_handle: MyJoinHandle = None;
     loop {
         let mut buf = vec![0; 64 * 1024]; // maximum pipe size in linux
         let bytes_read = stdin.read(&mut buf).await?;
@@ -122,7 +119,7 @@ async fn poll_and_upload_loop(
         write_position += bytes_read as u64;
         let cert = find_certs::find_tls_cert()?;
         if should_upload
-            && should_upload_chunk(*read_position, write_position, &*upload_handle, chunk_size)
+            && should_upload_chunk(*read_position, write_position, &upload_handle, chunk_size)
         {
             file.seek(io::SeekFrom::Start(*read_position))
                 .await
@@ -131,7 +128,7 @@ async fn poll_and_upload_loop(
             // Upload concurrently
             let manifold_path = manifold_path.to_owned();
             if *first_upload {
-                *upload_handle = Some(tokio::spawn(async move {
+                upload_handle = Some(tokio::spawn(async move {
                     if let Err(e) = upload_write(manifold_path, &buf).await {
                         let _res = buck2_core::soft_error!("manifold_write_error", e);
                     }
@@ -140,7 +137,7 @@ async fn poll_and_upload_loop(
                 *first_upload = false;
             } else {
                 let read_position_clone = *read_position;
-                *upload_handle = Some(tokio::spawn(async move {
+                upload_handle = Some(tokio::spawn(async move {
                     if let Err(e) =
                         upload_append(manifold_path, &buf, read_position_clone, &cert).await
                     {
@@ -152,20 +149,19 @@ async fn poll_and_upload_loop(
             *read_position += len as u64;
         }
     }
+    if let Some(handle) = upload_handle {
+        handle.await.context("Error while uploading chunk")??;
+    };
     Ok(())
 }
 
 async fn upload_remaining(
     file: &mut File,
-    last_upload_handle: MyJoinHandle,
     mut read_position: u64,
     mut first_upload: bool,
     manifold_path: &str,
     chunk_size: u64,
 ) -> Result<(), anyhow::Error> {
-    if let Some(handle) = last_upload_handle {
-        handle.await??;
-    };
     file.seek(io::SeekFrom::Start(read_position))
         .await
         .context("Failed to seek log file")?;
