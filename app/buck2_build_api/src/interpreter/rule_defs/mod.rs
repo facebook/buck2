@@ -39,6 +39,10 @@ enum ExtraFunctionErrors {
         message: String,
         call_stack: String,
     },
+    #[error(
+        "soft_error originated from starlark should have category starting with `starlark_`, got: `{0}`"
+    )]
+    InvalidCategory(String),
 }
 
 #[starlark_module]
@@ -68,19 +72,27 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
 
     /// Produce an error that will become a hard error at some point in the future, but
     /// for now is a warning which is logged to the server.
-    /// In the open source version of Buck2 tihs function always results in an error.
+    /// In the open source version of Buck2 this function always results in an error.
     ///
-    /// Called passing a stable key (must be `snake_case`, used for consistent reporting)
-    /// and an arbitrary message (used for debugging). As an example:
+    /// Called passing a stable key (must be `snake_case` and start with `starlark_`,
+    /// used for consistent reporting) and an arbitrary message (used for debugging).
+    ///
+    /// As an example:
     ///
     /// ```python
-    /// soft_error("rule_is_too_long", "Length of property exceeds 100 characters in " + repr(ctx.label))
+    /// soft_error(
+    ///     "starlark_rule_is_too_long",
+    ///     "Length of property exceeds 100 characters in " + repr(ctx.label),
+    /// )
     /// ```
     fn soft_error(
         #[starlark(require = pos)] category: &str,
         #[starlark(require = pos)] message: String,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
+        if !category.starts_with("starlark_") {
+            return Err(ExtraFunctionErrors::InvalidCategory(category.to_owned()).into());
+        }
         soft_error!(
             category,
             ExtraFunctionErrors::StarlarkSoftError {
