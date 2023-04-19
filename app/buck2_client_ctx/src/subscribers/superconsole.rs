@@ -286,7 +286,7 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         isolation_dir: FileNameBuf,
     ) -> anyhow::Result<Self> {
-        let header = format!("Command: `{}`.", command_name);
+        let header = format!("Command: {}.", command_name);
         Ok(Self {
             header,
             state: SuperConsoleState::new(
