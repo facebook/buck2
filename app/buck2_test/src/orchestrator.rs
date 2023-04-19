@@ -211,6 +211,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 inputs,
                 declared_outputs,
                 &fs,
+                Some(timeout),
             )
             .await?;
 
@@ -219,7 +220,6 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 &test_target,
                 metadata,
                 Some(host_sharing_requirements),
-                timeout,
                 supports_re,
                 &executor,
                 execution_request,
@@ -353,6 +353,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 inputs,
                 declared_outputs,
                 &fs,
+                None,
             )
             .await?;
 
@@ -382,7 +383,6 @@ impl BuckTestOrchestrator {
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
         host_sharing_requirements: Option<HostSharingRequirements>,
-        timeout: Duration,
         supports_re: bool,
         executor: &CommandExecutor,
         mut request: CommandExecutionRequest,
@@ -407,7 +407,6 @@ impl BuckTestOrchestrator {
         }
 
         request = request
-            .with_timeout(timeout)
             .with_executor_preference(executor_preference)
             .with_disable_miniperf(true);
         if let Some(requirements) = host_sharing_requirements {
@@ -675,6 +674,7 @@ impl BuckTestOrchestrator {
         cmd_inputs: IndexSet<ArtifactGroup>,
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         fs: &ArtifactFs,
+        timeout: Option<Duration>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -700,6 +700,9 @@ impl BuckTestOrchestrator {
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());
+        if let Some(timeout) = timeout {
+            request = request.with_timeout(timeout)
+        }
         Ok(request)
     }
 }
