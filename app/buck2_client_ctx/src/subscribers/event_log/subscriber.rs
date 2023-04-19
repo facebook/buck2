@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -34,6 +35,7 @@ impl EventLog {
         sanitized_argv: Vec<String>,
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
+        log_size_counter_bytes: Option<Arc<AtomicU64>>,
     ) -> anyhow::Result<EventLog> {
         Ok(Self {
             writer: WriteEventLog::new(
@@ -43,6 +45,7 @@ impl EventLog {
                 sanitized_argv,
                 async_cleanup_context,
                 command_name,
+                log_size_counter_bytes,
             )?,
         })
     }

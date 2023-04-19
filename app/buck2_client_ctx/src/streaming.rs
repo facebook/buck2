@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use dupe::Dupe;
 use futures::future;
@@ -39,6 +42,10 @@ fn default_subscribers<T: StreamingCommand>(
     let mut subscribers = vec![];
     let show_waiting_message = cmd.should_show_waiting_message();
 
+    // Need this to get information from one subscriber (event_log)
+    // and log it in another (invocation_recorder)
+    let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
+
     if let Some(v) = get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
@@ -51,9 +58,12 @@ fn default_subscribers<T: StreamingCommand>(
     )? {
         subscribers.push(v)
     }
-    if let Some(event_log) =
-        try_get_event_log_subscriber(cmd.event_log_opts(), cmd.sanitized_argv(), ctx)?
-    {
+    if let Some(event_log) = try_get_event_log_subscriber(
+        cmd.event_log_opts(),
+        cmd.sanitized_argv(),
+        ctx,
+        log_size_counter_bytes.clone(),
+    )? {
         subscribers.push(event_log)
     }
     if let Some(re_log) = try_get_re_log_subscriber(ctx)? {
@@ -67,6 +77,7 @@ fn default_subscribers<T: StreamingCommand>(
         cmd.event_log_opts(),
         T::COMMAND_NAME,
         cmd.sanitized_argv(),
+        log_size_counter_bytes,
     )? {
         subscribers.push(recorder);
     }

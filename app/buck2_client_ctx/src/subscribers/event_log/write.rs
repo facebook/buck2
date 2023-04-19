@@ -7,9 +7,15 @@
  * of this source tree.
  */
 
+use std::io;
 use std::mem;
+use std::pin::Pin;
 use std::process::Stdio;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 
 use anyhow::Context as _;
 use async_compression::tokio::write::GzipEncoder;
@@ -24,6 +30,7 @@ use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
 use futures::FutureExt;
+use pin_project::pin_project;
 use prost::Message;
 use rand::Rng;
 use serde::Serialize;
@@ -48,6 +55,58 @@ use crate::subscribers::should_upload_log;
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
 
+mod counting_reader {
+    use super::*;
+
+    #[pin_project]
+    pub struct CountingReader<T> {
+        #[pin]
+        pub(super) inner: T,
+        pub(super) stats: Option<Arc<AtomicU64>>,
+    }
+}
+
+use counting_reader::CountingReader;
+
+impl<T> CountingReader<T> {
+    fn new(inner: T, stats: Option<Arc<AtomicU64>>) -> Self {
+        Self { inner, stats }
+    }
+}
+
+impl<T> AsyncWrite for CountingReader<T>
+where
+    T: AsyncWrite,
+{
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let this = self.project();
+        let bytes = futures::ready!(this.inner.poll_write(cx, buf))?;
+        if let Some(stats) = this.stats {
+            stats.fetch_add(bytes as u64, Ordering::Relaxed);
+        }
+
+        Poll::Ready(Ok(bytes))
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
+        self.project().inner.poll_flush(cx)
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::result::Result<(), std::io::Error>> {
+        self.project().inner.poll_shutdown(cx)
+    }
+}
+
 pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
@@ -71,6 +130,7 @@ pub(crate) struct WriteEventLog {
     working_dir: WorkingDir,
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
+    log_size_counter_bytes: Option<Arc<AtomicU64>>,
 }
 
 impl WriteEventLog {
@@ -81,6 +141,7 @@ impl WriteEventLog {
         sanitized_argv: Vec<String>,
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
+        log_size_counter_bytes: Option<Arc<AtomicU64>>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: LogWriterState::Unopened(logdir, extra_path),
@@ -89,6 +150,7 @@ impl WriteEventLog {
             command_name,
             working_dir,
             buf: Vec::new(),
+            log_size_counter_bytes,
         })
     }
 
@@ -193,11 +255,21 @@ impl WriteEventLog {
         let (needs_upload, writer) = match use_streaming_uploads()? {
             true => (
                 false, // Upload is handled in subprocess
-                start_persist_subprocess(path, event.trace_id()?.clone()).await?,
+                start_persist_subprocess(
+                    path,
+                    event.trace_id()?.clone(),
+                    self.log_size_counter_bytes.clone(),
+                )
+                .await?,
             ),
             false => (
                 true,
-                open_event_log_for_writing(path, event.trace_id()?).await?,
+                open_event_log_for_writing(
+                    path,
+                    event.trace_id()?,
+                    self.log_size_counter_bytes.clone(),
+                )
+                .await?,
             ),
         };
         let mut writers = vec![writer];
@@ -213,6 +285,7 @@ impl WriteEventLog {
                         },
                     ),
                     event.trace_id()?,
+                    self.log_size_counter_bytes.clone(),
                 )
                 .await?,
             );
@@ -310,6 +383,7 @@ fn use_streaming_uploads() -> anyhow::Result<bool> {
 async fn start_persist_subprocess(
     path: EventLogPathBuf,
     trace_id: TraceId,
+    bytes_written: Option<Arc<AtomicU64>>,
 ) -> anyhow::Result<NamedEventLogWriter> {
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
@@ -329,12 +403,13 @@ async fn start_persist_subprocess(
         )
     })?;
     let pipe = child.stdin.expect("stdin was piped");
-    get_writer(path, pipe, trace_id)
+    get_writer(path, pipe, trace_id, bytes_written)
 }
 
 async fn open_event_log_for_writing(
     path: EventLogPathBuf,
     trace_id: TraceId,
+    bytes_written: Option<Arc<AtomicU64>>,
 ) -> anyhow::Result<NamedEventLogWriter> {
     let file = OpenOptions::new()
         .create(true)
@@ -348,26 +423,26 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    get_writer(path, file, trace_id)
+    get_writer(path, file, trace_id, bytes_written)
 }
 
 fn get_writer(
     path: EventLogPathBuf,
     file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
     trace_id: TraceId,
+    bytes_written: Option<Arc<AtomicU64>>,
 ) -> Result<NamedEventLogWriter, anyhow::Error> {
     let file = match path.encoding.compression {
-        Compression::None => Box::new(file) as EventLogWriter,
+        Compression::None => Box::new(CountingReader::new(file, bytes_written)) as EventLogWriter,
         Compression::Gzip => Box::new(GzipEncoder::with_quality(
-            file,
+            CountingReader::new(file, bytes_written),
             async_compression::Level::Fastest,
         )) as EventLogWriter,
         Compression::Zstd => Box::new(ZstdEncoder::with_quality(
-            file,
+            CountingReader::new(file, bytes_written),
             async_compression::Level::Default,
         )) as EventLogWriter,
     };
-
     Ok(NamedEventLogWriter {
         path,
         file,
@@ -506,13 +581,14 @@ mod tests {
             Ok(Self {
                 state: LogWriterState::Opened {
                     needs_upload: false,
-                    writers: vec![open_event_log_for_writing(log, TraceId::new()).await?],
+                    writers: vec![open_event_log_for_writing(log, TraceId::new(), None).await?],
                 },
                 sanitized_argv: vec!["buck2".to_owned()],
                 async_cleanup_context: None,
                 command_name: "testtest".to_owned(),
                 working_dir: WorkingDir::current_dir()?,
                 buf: Vec::new(),
+                log_size_counter_bytes: None,
             })
         }
     }

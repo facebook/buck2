@@ -23,6 +23,7 @@ impl KillallCommand {
             CommonDaemonCommandOptions::default_ref(),
             "killall",
             std::env::args().collect(),
+            None,
         )?;
 
         let ok = buck2_wrapper_common::killall(|s| {

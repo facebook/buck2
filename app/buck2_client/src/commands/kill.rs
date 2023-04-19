@@ -28,6 +28,7 @@ impl KillCommand {
                 CommonDaemonCommandOptions::default_ref(),
                 "kill",
                 std::env::args().collect(),
+                None,
             )?;
 
             match ctx

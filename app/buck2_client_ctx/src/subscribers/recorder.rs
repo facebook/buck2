@@ -8,6 +8,8 @@
  */
 
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use dupe::Dupe;
 
@@ -23,6 +25,8 @@ mod imp {
     use std::future::Future;
     use std::io::Write;
     use std::path::Path;
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
     use std::sync::Arc;
     use std::time::Duration;
     use std::time::Instant;
@@ -120,6 +124,7 @@ mod imp {
         enable_restarter: bool,
         restarted_trace_id: Option<TraceId>,
         has_command_result: bool,
+        compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
     }
 
     impl InvocationRecorder {
@@ -134,6 +139,7 @@ mod imp {
             build_count_manager: BuildCountManager,
             invocation_root_path: AbsNormPathBuf,
             restarted_trace_id: Option<TraceId>,
+            log_size_counter_bytes: Option<Arc<AtomicU64>>,
         ) -> Self {
             // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
             if command_name == "uquery" {
@@ -207,6 +213,7 @@ mod imp {
                 enable_restarter: false,
                 restarted_trace_id,
                 has_command_result: false,
+                compressed_event_log_size_bytes: log_size_counter_bytes,
             }
         }
 
@@ -333,6 +340,11 @@ mod imp {
                 exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
                 has_command_result: Some(self.has_command_result),
+                // At this point we expect the event log writer to have finished
+                compressed_event_log_size_bytes: self
+                    .compressed_event_log_size_bytes
+                    .clone()
+                    .map(|x| x.load(Ordering::Relaxed)),
             };
 
             let event = BuckEvent::new(
@@ -984,6 +996,7 @@ pub fn try_get_invocation_recorder(
     opts: &CommonDaemonCommandOptions,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
+    log_size_counter_bytes: Option<Arc<AtomicU64>>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
@@ -1001,6 +1014,7 @@ pub fn try_get_invocation_recorder(
         BuildCountManager::new(ctx.paths()?.build_count_dir()),
         ctx.paths()?.project_root().root().to_buf(),
         ctx.restarted_trace_id.dupe(),
+        log_size_counter_bytes,
     );
     Ok(Some(Box::new(recorder) as _))
 }

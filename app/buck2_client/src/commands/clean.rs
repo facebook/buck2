@@ -79,6 +79,7 @@ impl CleanCommand {
             CommonDaemonCommandOptions::default_ref(),
             "clean",
             std::env::args().collect(),
+            None,
         )?;
 
         ctx.with_runtime(async move |ctx| {

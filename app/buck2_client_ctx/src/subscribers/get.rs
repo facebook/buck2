@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
@@ -105,6 +108,7 @@ pub(crate) fn try_get_event_log_subscriber(
     event_log_opts: &CommonDaemonCommandOptions,
     sanitized_argv: Vec<String>,
     ctx: &ClientCommandContext,
+    log_size_counter_bytes: Option<Arc<AtomicU64>>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if event_log_opts.no_event_log {
         return Ok(None);
@@ -120,6 +124,7 @@ pub(crate) fn try_get_event_log_subscriber(
         sanitized_argv,
         ctx.async_cleanup_context().dupe(),
         ctx.command_name.clone(),
+        log_size_counter_bytes,
     )?;
     Ok(Some(Box::new(log)))
 }
