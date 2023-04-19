@@ -107,7 +107,7 @@ pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
 }
 
 pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
-    let line = line.render_line();
+    let line = line.render();
     crate::eprintln!("{}", line)
 }
 
