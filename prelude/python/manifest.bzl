@@ -16,7 +16,7 @@ ManifestInfo = record(
     # The actual manifest file (in the form of a JSON file).
     manifest = field("artifact"),
     # All artifacts that are referenced in the manifest.
-    artifacts = field([["artifact", "transitive_set_args_projection"]]),
+    artifacts = field([["artifact", "_arglike"]]),
 )
 
 # Parse imports from a *.py file to generate a list of required modules
@@ -63,7 +63,7 @@ def create_manifest_for_entries(
     """
     return ManifestInfo(
         manifest = _write_manifest(ctx, name, entries),
-        artifacts = [a for _, a, _ in entries],
+        artifacts = [(a, dest) for dest, a, _ in entries],
     )
 
 def create_manifest_for_source_map(
@@ -94,7 +94,9 @@ def create_manifest_for_source_dir(
     cmd.add(cmd_args(manifest.as_output(), format = "--output={}"))
     cmd.add(extracted)
     ctx.actions.run(cmd, category = "py_source_manifest", identifier = param)
-    return ManifestInfo(manifest = manifest, artifacts = [extracted])
+
+    # TODO: enumerate directory?
+    return ManifestInfo(manifest = manifest, artifacts = [(extracted, param)])
 
 def create_manifest_for_extensions(
         ctx: "context",
@@ -111,12 +113,8 @@ def create_manifest_for_extensions(
     # Include external debug paths, even though they're not explicitly listed
     # in the manifest, as python packaging may also consume debug paths which
     # were referenced in native code.
-    manifest.artifacts.extend(
-        project_external_debug_info(
-            ctx.actions,
-            label = ctx.label,
-            infos = [lib.external_debug_info for lib, _ in extensions.values()],
-        ),
-    )
+    for name, (lib, _) in extensions.items():
+        for dbginfo in project_external_debug_info(ctx.actions, ctx.label, [lib.external_debug_info]):
+            manifest.artifacts.append((dbginfo, name))
 
     return manifest
