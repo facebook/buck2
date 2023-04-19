@@ -19,6 +19,7 @@ use serde_json::to_value;
 
 use super::arg::StringWithMacros;
 use super::dep::DepAttr;
+use super::query::QueryAttr;
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
@@ -72,6 +73,7 @@ pub enum ConfiguredAttrExtraTypes {
     // cases that would cause cycles.
     Label(Box<ConfiguredProvidersLabel>),
     Arg(StringWithMacros<ConfiguredAttr>),
+    Query(Box<QueryAttr<ConfiguredAttr>>),
 }
 
 impl Display for ConfiguredAttrExtraTypes {
@@ -84,6 +86,7 @@ impl Display for ConfiguredAttrExtraTypes {
             Self::SourceLabel(e) => write!(f, "\"{}\"", e),
             Self::Label(e) => write!(f, "\"{}\"", e),
             Self::Arg(e) => write!(f, "\"{}\"", e),
+            Self::Query(e) => write!(f, "\"{}\"", e.query()),
         }
     }
 }
@@ -98,6 +101,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::SourceLabel(e) => Ok(to_value(e.to_string())?),
             Self::Label(e) => Ok(to_value(e.to_string())?),
             Self::Arg(e) => Ok(to_value(e.to_string())?),
+            Self::Query(e) => Ok(to_value(e.query())?),
         }
     }
 
@@ -110,6 +114,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::SourceLabel(e) => filter(&e.to_string()),
             Self::Label(e) => filter(&e.to_string()),
             Self::Arg(e) => filter(&e.to_string()),
+            Self::Query(e) => filter(e.query()),
         }
     }
 }
@@ -140,6 +145,7 @@ pub enum CoercedAttrExtraTypes {
     // cases that would cause cycles.
     Label(Box<ProvidersLabel>),
     Arg(StringWithMacros<CoercedAttr>),
+    Query(Box<QueryAttr<CoercedAttr>>),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
@@ -153,6 +159,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::SourceLabel(e) => Ok(to_value(e.to_string())?),
             Self::Label(e) => Ok(to_value(e.to_string())?),
             Self::Arg(e) => Ok(to_value(e.to_string())?),
+            Self::Query(e) => Ok(to_value(e.query())?),
         }
     }
 
@@ -166,6 +173,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::SourceLabel(e) => filter(&e.to_string()),
             Self::Label(e) => filter(&e.to_string()),
             Self::Arg(e) => filter(&e.to_string()),
+            Self::Query(e) => filter(e.query()),
         }
     }
 }
@@ -181,6 +189,7 @@ impl Display for CoercedAttrExtraTypes {
             Self::SourceLabel(e) => write!(f, "\"{}\"", e),
             Self::Label(e) => write!(f, "\"{}\"", e),
             Self::Arg(e) => write!(f, "\"{}\"", e),
+            Self::Query(e) => write!(f, "\"{}\"", e.query()),
         }
     }
 }

@@ -160,7 +160,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(ctx.heap().alloc(Dict::new(res)))
             }
             AttrLiteral::None => Ok(Value::new_none()),
-            AttrLiteral::Query(query) => query.resolve(ctx),
             AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
                 ctx,
                 BuckPath::new(pkg.dupe(), s.path().dupe()),
@@ -190,6 +189,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     Ok(ctx.heap().alloc(label))
                 }
                 ConfiguredAttrExtraTypes::Arg(arg) => arg.resolve(ctx),
+                ConfiguredAttrExtraTypes::Query(query) => query.resolve(ctx),
             },
         }
     }
@@ -219,7 +219,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
-            AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             AttrLiteral::OneOf(box l, _) => l.starlark_type(),
             AttrLiteral::Visibility(..) => Ok(ListRef::TYPE),
@@ -237,6 +236,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 }
                 ConfiguredAttrExtraTypes::Label(_) => Ok(Label::get_type_value_static().as_str()),
                 ConfiguredAttrExtraTypes::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
+                ConfiguredAttrExtraTypes::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             },
         }
     }
@@ -263,7 +263,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 heap.alloc(Dict::new(res))
             }
             AttrLiteral::None => Value::new_none(),
-            AttrLiteral::Query(q) => heap.alloc(q.query.query()),
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),
@@ -298,6 +297,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
                 ConfiguredAttrExtraTypes::Label(l) => heap.alloc(Label::new(*l.clone())),
                 ConfiguredAttrExtraTypes::Arg(arg) => heap.alloc(arg.to_string()),
+                ConfiguredAttrExtraTypes::Query(query) => heap.alloc(query.query.query()),
             },
         })
     }
