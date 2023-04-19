@@ -77,11 +77,26 @@ def compile_context(ctx: "context") -> CompileContext.type:
     toolchain_info = ctx_toolchain_info(ctx)
 
     # Setup source symlink tree.
-    srcs = ctx.attrs.srcs
-    mapped_srcs = ctx.attrs.mapped_srcs
-    symlinks = {src.short_path: src for src in srcs}
-    symlinks.update({k: v for v, k in mapped_srcs.items()})
-    symlinked_srcs = ctx.actions.symlinked_dir("__srcs", symlinks)
+    srcs = {src.short_path: src for src in ctx.attrs.srcs}
+    srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
+
+    # Decide whether to use symlinked_dir or copied_dir.
+    #
+    # If a source is a prefix of any other source, use copied_dir. This supports
+    # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
+    # with a `mapped_srcs` which overlays additional generated files into that
+    # directory. Symlinked_dir would error in this situation.
+    prefixes = {}
+    symlinked_srcs = None
+    for src in sorted(srcs.keys(), key = len, reverse = True):
+        if src in prefixes:
+            symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+            break
+        components = src.split("/")
+        for i in range(1, len(components)):
+            prefixes["/".join(components[:i])] = None
+    if not symlinked_srcs:
+        symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
 
     linker = _linker_args(ctx)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
