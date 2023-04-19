@@ -17,6 +17,7 @@ pub mod execution_platform_info;
 pub mod execution_platform_registration_info;
 pub mod external_runner_test_info;
 pub mod install_info;
+pub mod local_resource_info;
 pub mod platform_info;
 pub mod run_info;
 pub mod template_placeholder_info;

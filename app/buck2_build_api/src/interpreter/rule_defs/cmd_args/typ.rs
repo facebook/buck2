@@ -240,6 +240,12 @@ pub type FrozenStarlarkCommandLine =
 
 starlark_complex_values!(StarlarkCommandLine);
 
+impl<'v> StarlarkCommandLine<'v> {
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().items.is_empty()
+    }
+}
+
 impl<'v> Display for StarlarkCommandLine<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0.try_borrow() {

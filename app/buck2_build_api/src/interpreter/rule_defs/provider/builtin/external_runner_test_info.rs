@@ -14,6 +14,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
 use either::Either;
+use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -37,6 +38,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
+use crate::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.
@@ -93,6 +95,11 @@ pub struct ExternalRunnerTestInfoGen<V> {
     /// This is of type {str.type: CommandExecutorConfig}
     #[provider(field_type = "DictType<String, StarlarkCommandExecutorConfig>")]
     executor_overrides: V,
+
+    /// Mapping from a local resource type to a corresponding provider.
+    /// Required types are passed from test runner.
+    #[provider(field_type = "DictType<String, FrozenLocalResourceInfo>")]
+    local_resources: V,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -143,6 +150,10 @@ impl FrozenExternalRunnerTestInfo {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
+    pub fn local_resources(&self) -> IndexMap<&str, &FrozenLocalResourceInfo> {
+        unwrap_all(iter_local_resources(self.local_resources.to_value())).collect()
+    }
+
     pub fn visit_artifacts(
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor,
@@ -159,6 +170,8 @@ impl FrozenExternalRunnerTestInfo {
         for (_, arglike) in self.env() {
             arglike.visit_artifacts(visitor)?;
         }
+
+        // Ignoring local resources as those are built on-demand.
 
         Ok(())
     }
@@ -324,6 +337,44 @@ fn iter_executor_overrides<'v>(
     }))
 }
 
+fn iter_local_resources<'v>(
+    local_resources: Value<'v>,
+) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v FrozenLocalResourceInfo)>> {
+    if local_resources.is_none() {
+        return Either::Left(Either::Left(empty()));
+    }
+
+    let local_resources = match DictRef::from_value(local_resources) {
+        Some(local_resources) => local_resources,
+        None => {
+            return Either::Left(Either::Right(once(Err(anyhow::anyhow!(
+                "Invalid `local_resources`: Expected a dict, got: `{}`",
+                local_resources
+            )))));
+        }
+    };
+
+    // TODO: In an ideal world this wouldnt be necessary, but local_resources's lifetime is
+    // bound by this function.
+    #[allow(clippy::needless_collect)]
+    let local_resources = local_resources.iter().collect::<Vec<_>>();
+
+    Either::Right(local_resources.into_iter().map(|(key, value)| {
+        let key = key.unpack_str().with_context(|| {
+            format!(
+                "Invalid key in `local_resources`: Expected a str, got: `{}`",
+                key
+            )
+        })?;
+
+        let resource = value
+            .downcast_ref::<FrozenLocalResourceInfo>()
+            .with_context(|| format!("Invalid value in `local_resources` for key `{}`", key))?;
+
+        Ok((key, resource))
+    }))
+}
+
 fn unpack_opt_executor<'v>(
     executor: Value<'v>,
 ) -> anyhow::Result<Option<&'v StarlarkCommandExecutorConfig>> {
@@ -365,6 +416,7 @@ where
     check_all(iter_opt_str_list(info.labels.to_value(), "labels"))?;
     check_all(iter_opt_str_list(info.contacts.to_value(), "contacts"))?;
     check_all(iter_executor_overrides(info.executor_overrides.to_value()))?;
+    check_all(iter_local_resources(info.local_resources.to_value()))?;
     NoneOr::<bool>::unpack_value(info.use_project_relative_paths.to_value())
         .context("`use_project_relative_paths` must be a bool if provided")?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
@@ -390,6 +442,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
         #[starlark(default = NoneType)] default_executor: Value<'v>,
         #[starlark(default = NoneType)] executor_overrides: Value<'v>,
+        #[starlark(default = NoneType)] local_resources: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: r#type,
@@ -401,6 +454,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             run_from_project_root,
             default_executor,
             executor_overrides,
+            local_resources,
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
