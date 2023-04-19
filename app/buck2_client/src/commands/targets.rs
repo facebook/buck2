@@ -144,7 +144,7 @@ pub struct TargetsCommand {
     show_full_output: bool,
 
     /// Show target call stacks
-    #[clap(long)]
+    #[clap(long = "stack")]
     target_call_stacks: bool,
 
     /// On loading errors, put buck.error in the output stream and continue

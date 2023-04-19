@@ -30,7 +30,7 @@ pub struct ConfiguredTargetsCommand {
     common_opts: CommonCommandOptions,
 
     /// Show target call stacks
-    #[clap(long)]
+    #[clap(long = "stack")]
     target_call_stacks: bool,
 
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.

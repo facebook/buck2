@@ -36,7 +36,7 @@ impl TargetsError {
         // when suffixed targets are used. When we finally fix this suffixed target setup,
         // this code can be removed.
         match call_stack {
-            None => "re-run the command with `--target-call-stacks` \
+            None => "re-run the command with `--stack` \
                     to obtain a call stack of the first registration"
                 .to_owned(),
             Some(call_stack) => format!("first registered at:\n{}", indent("  ", call_stack)),
