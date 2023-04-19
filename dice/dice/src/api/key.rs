@@ -14,6 +14,7 @@ use std::hash::Hash;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::storage_type::StorageType;
@@ -37,7 +38,11 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
         short_type_name(std::any::type_name::<Self>())
     }
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value;
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        cancellations: &CancellationContext,
+    ) -> Self::Value;
 
     /// If computed value is equal to previously cached value,
     /// DICE won't invalidate graph nodes depending on this node.

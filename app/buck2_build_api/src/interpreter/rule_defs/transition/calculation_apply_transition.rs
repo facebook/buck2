@@ -34,6 +34,7 @@ use dice::Key;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use more_futures::cancellation::CancellationContext;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
@@ -261,7 +262,11 @@ impl ApplyTransition for DiceComputations {
         impl Key for TransitionKey {
             type Value = SharedResult<Arc<TransitionApplied>>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let v: SharedResult<_> = try {
                     do_apply_transition(ctx, self.attrs.as_deref(), &self.cfg, &self.transition_id)
                         .await?

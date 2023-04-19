@@ -23,6 +23,7 @@ use dupe::Dupe;
 use futures::future;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -190,7 +191,11 @@ impl<T> MaybeTransient<T> {
 impl Key for EvalVar {
     type Value = Result<MaybeTransient<bool>, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let step = self.state.next_step_for_var(self.key);
         let ret = match &*lookup_unit(ctx, self.key).await.map_err(Arc::new)? {
             Expr::Unit(unit) => resolve_units(ctx, &[unit.clone()], self.state.dupe())

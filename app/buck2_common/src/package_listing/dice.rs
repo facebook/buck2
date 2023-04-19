@@ -16,6 +16,7 @@ use buck2_core::package::PackageLabel;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::HasFileOps;
@@ -74,7 +75,11 @@ impl<'c> PackageListingResolver for DicePackageListingResolver<'c> {
         #[async_trait]
         impl Key for PackageListingKey {
             type Value = SharedResult<PackageListing>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let file_ops = ctx.file_ops();
                 InterpreterPackageListingResolver::new(cell_resolver, Arc::new(file_ops))

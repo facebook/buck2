@@ -24,6 +24,7 @@
 //!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
+//! use more_futures::cancellation::CancellationContext;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute>(&'compute DiceComputations);
@@ -60,7 +61,7 @@
 //!             impl Key for ComputeA {
 //!                 type Value = Arc<String>;
 //!
-//!                 async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+//!                 async fn compute(&self, ctx: &DiceComputations, _cancellations: &CancellationContext) -> Self::Value {
 //!                     // request for other computations on the self
 //!                     let n = ctx.my_computation().compute_b(self.0).await;
 //!                     Arc::new(self.1.repeat(n))
@@ -88,7 +89,7 @@
 //!     impl Key for ComputeB {
 //!         type Value = usize;
 //!
-//!         async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+//!         async fn compute(&self, ctx: &DiceComputations, _cancellations: &CancellationContext) -> Self::Value {
 //!             self.0 + ctx.injected_configs().get_config().await + ctx.global_data().static_data().len()
 //!         }
 //!

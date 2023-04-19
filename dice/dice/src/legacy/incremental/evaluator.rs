@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use more_futures::cancellation::CancellationContext;
 
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::dice_futures::dice_task::DiceTask;
@@ -41,6 +42,7 @@ pub(crate) trait Evaluator:
         &self,
         k: &Self::Key,
         transaction_ctx: Arc<TransactionCtx>,
+        cancellations: &CancellationContext,
         extra: ComputationData,
     ) -> ValueWithDeps<Self::Value>;
 }
@@ -59,6 +61,7 @@ pub(crate) mod testing {
     use async_trait::async_trait;
     use dupe::Dupe;
     use gazebo::prelude::*;
+    use more_futures::cancellation::CancellationContext;
 
     use crate::api::error::DiceResult;
     use crate::api::storage_type::StorageType;
@@ -144,6 +147,7 @@ pub(crate) mod testing {
             &self,
             _k: &Self::Key,
             _transaction_ctx: Arc<TransactionCtx>,
+            _cancellations: &CancellationContext,
             _extra: ComputationData,
         ) -> ValueWithDeps<Self::Value> {
             unreachable!()
@@ -245,6 +249,7 @@ pub(crate) mod testing {
             &self,
             k: &K,
             _: Arc<TransactionCtx>,
+            _cancellations: &CancellationContext,
             _extra: ComputationData,
         ) -> ValueWithDeps<V> {
             (self.f)(k.clone()).await

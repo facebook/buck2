@@ -11,6 +11,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -29,7 +30,11 @@ async fn different_data_per_compute_ctx() {
     impl Key for DataRequest {
         type Value = usize;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
         }
 

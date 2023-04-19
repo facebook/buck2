@@ -15,5 +15,12 @@ use std::sync::Arc;
 /// cancellation
 pub struct CancellationContext(Arc<CancellationContextShared>);
 
+impl CancellationContext {
+    /// TODO replace with real initialization
+    pub fn todo() -> Self {
+        Self(Arc::new(CancellationContextShared {}))
+    }
+}
+
 #[allow(unused)]
 struct CancellationContextShared {}

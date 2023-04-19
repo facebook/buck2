@@ -11,6 +11,7 @@
 
 use futures::task::waker;
 use futures::task::AtomicWaker;
+use more_futures::cancellation::CancellationContext;
 use triomphe::Arc;
 
 use crate::impls::task::dice::DiceTaskInternal;
@@ -21,6 +22,7 @@ use crate::DiceResult;
 /// the task.
 pub(crate) struct DiceTaskHandle {
     pub(super) internal: Arc<DiceTaskInternal>,
+    pub(super) cancellations: CancellationContext,
 }
 
 /// After reporting that we are about to transition to a state, should we continue processing or
@@ -43,6 +45,10 @@ impl DiceTaskHandle {
 
     pub(crate) fn finished(self, value: DiceResult<DiceComputedValue>) {
         let _ignore = self.internal.set_value(value);
+    }
+
+    pub(crate) fn cancellation_ctx(&self) -> &CancellationContext {
+        &self.cancellations
     }
 }
 

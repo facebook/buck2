@@ -74,6 +74,7 @@ use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -294,7 +295,11 @@ impl AnonTargetKey {
         impl Key for AnonTargetKey {
             type Value = SharedResult<AnalysisResult>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 Ok(self.run_analysis(ctx).await?)
             }
 

@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::poll;
+use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
@@ -41,7 +42,11 @@ struct K;
 impl Key for K {
     type Value = usize;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        cancellations: &CancellationContext,
+    ) -> Self::Value {
         unimplemented!("test")
     }
 

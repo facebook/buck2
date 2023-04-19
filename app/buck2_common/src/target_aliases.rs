@@ -19,6 +19,7 @@ use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -148,7 +149,11 @@ struct TargetAliasResolverKey {
 impl Key for TargetAliasResolverKey {
     type Value = SharedResult<BuckConfigTargetAliasResolver>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> SharedResult<BuckConfigTargetAliasResolver> {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> SharedResult<BuckConfigTargetAliasResolver> {
         let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_configs.target_alias_resolver())
     }

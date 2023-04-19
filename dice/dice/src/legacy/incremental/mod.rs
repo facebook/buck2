@@ -39,6 +39,7 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellable_future::try_to_disable_cancellation;
+use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_task;
 use more_futures::spawn::CompletionObserver;
 use parking_lot::MappedRwLockReadGuard;
@@ -428,6 +429,8 @@ where
         };
 
         let future = async move {
+            let cancellation = CancellationContext::todo();
+
             // check again since another thread could have inserted into the versioned
             // cache before we entered the index.
             let res = match ev.engine.versioned_cache.get(
@@ -450,7 +453,9 @@ where
                     {
                         DidDepsChange::Changed | DidDepsChange::NoDeps => {
                             debug!("dependencies changed. recomputing...");
-                            ev.engine.compute(&ev.k, eval_ctx, extra).await
+                            ev.engine
+                                .compute(&ev.k, eval_ctx, extra, &cancellation)
+                                .await
                         }
                         DidDepsChange::NoChange(unchanged_both_deps) => {
                             debug!("dependencies are unchanged, reusing entry");
@@ -472,7 +477,9 @@ where
                     extra.start_computing_key::<K>(&ev.k);
 
                     debug!("dirtied. recomputing...");
-                    ev.engine.compute(&ev.k, eval_ctx, extra).await
+                    ev.engine
+                        .compute(&ev.k, eval_ctx, extra, &cancellation)
+                        .await
                 }
             };
 
@@ -528,7 +535,7 @@ where
 
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, extra),
+        skip(self, transaction_ctx, extra, cancellation),
         fields(k = %k, version = %transaction_ctx.get_version()),
     )]
     async fn compute(
@@ -536,6 +543,7 @@ where
         k: &K::Key,
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
+        cancellation: &CancellationContext,
     ) -> DiceResult<GraphNode<K>> {
         let desc = K::key_type_name();
         extra
@@ -554,7 +562,7 @@ where
         let ValueWithDeps { value, both_deps } = self
             .versioned_cache
             .storage_properties
-            .eval(k, transaction_ctx, extra)
+            .eval(k, transaction_ctx, cancellation, extra)
             .await;
 
         let _guard = match try_to_disable_cancellation() {
@@ -1237,6 +1245,7 @@ mod tests {
     use indexmap::indexset;
     use more_futures::cancellable_future::critical_section;
     use more_futures::cancellable_future::with_structured_cancellation;
+    use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
     use sorted_vector_map::sorted_vector_set;
@@ -2234,6 +2243,7 @@ mod tests {
                 &self,
                 _k: &usize,
                 transaction_ctx: Arc<TransactionCtx>,
+                _cancellations: &CancellationContext,
                 _extra: ComputationData,
             ) -> ValueWithDeps<usize> {
                 ValueWithDeps {
@@ -2300,6 +2310,7 @@ mod tests {
                 &self,
                 _k: &usize,
                 transaction_ctx: Arc<TransactionCtx>,
+                _cancellations: &CancellationContext,
                 extra: ComputationData,
             ) -> ValueWithDeps<usize> {
                 let node = self

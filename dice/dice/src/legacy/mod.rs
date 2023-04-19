@@ -28,6 +28,7 @@ use incremental::IncrementalEngine;
 use incremental::ValueWithDeps;
 use key::StoragePropertiesForKey;
 use map::DiceMap;
+use more_futures::cancellation::CancellationContext;
 use parking_lot::RwLock;
 use projection::ProjectionKeyProperties;
 use tokio::sync::watch;
@@ -260,6 +261,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
         &self,
         k: &K,
         transaction_ctx: Arc<TransactionCtx>,
+        cancellations: &CancellationContext,
         extra: ComputationData,
     ) -> ValueWithDeps<K::Value> {
         let ctx = DiceComputationsImplLegacy::new_for_key_evaluation(
@@ -271,7 +273,10 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
         );
 
         let value = k
-            .compute(&DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())))
+            .compute(
+                &DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                cancellations,
+            )
             .await;
 
         let both_deps = ctx.finalize();

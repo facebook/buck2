@@ -17,6 +17,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
@@ -34,7 +35,12 @@ struct BaseK;
 impl Key for BaseK {
     type Value = ();
 
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {}
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+    }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true

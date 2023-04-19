@@ -12,6 +12,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use futures::FutureExt;
+use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::Spawner;
 
 use crate::impls::task::dice::DiceTask;
@@ -37,6 +38,7 @@ where
     let internal = DiceTaskInternal::new();
     let handle = DiceTaskHandle {
         internal: internal.clone(),
+        cancellations: CancellationContext::todo(),
     };
 
     let spawned = spawner.spawn(ctx, f(handle).boxed());

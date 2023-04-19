@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
@@ -63,6 +64,7 @@ impl AsyncEvaluator {
         &self,
         key: DiceKey,
         cycles: UserCycleDetectorData,
+        cancellation: &CancellationContext,
     ) -> DiceResult<DiceValueStorageAndDeps> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
@@ -75,7 +77,7 @@ impl AsyncEvaluator {
                     cycles,
                 )));
 
-                let value = key_dyn.compute(&new_ctx).await;
+                let value = key_dyn.compute(&new_ctx, cancellation).await;
                 let (deps, dep_validity) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")

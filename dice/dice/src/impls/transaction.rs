@@ -240,6 +240,7 @@ mod tests {
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use derive_more::Display;
+    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::data::DiceData;
@@ -257,7 +258,11 @@ mod tests {
     impl Key for K {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             unimplemented!("test")
         }
 

@@ -18,5 +18,6 @@ rust_library(
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/shed/more_futures:more_futures",
     ],
 )

@@ -27,6 +27,7 @@ use dupe::Dupe;
 use futures::future;
 use futures::FutureExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
 #[display(fmt = "Var({})", _0)]
@@ -129,7 +130,11 @@ pub struct EvalVar(pub Var);
 impl Key for EvalVar {
     type Value = Result<i64, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Result<i64, Arc<anyhow::Error>> {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Result<i64, Arc<anyhow::Error>> {
         let equation = lookup_unit(ctx, &self.0).await.map_err(Arc::new)?;
         Ok(match &*equation {
             Equation::Add(adds) => resolve_units(ctx, &adds[..]).await?.iter().sum(),

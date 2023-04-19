@@ -22,6 +22,7 @@ use ctor::ctor;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::bxl::eval::eval;
 
@@ -50,7 +51,11 @@ fn set_bxl_calculation_impl() {
 impl Key for internal::BxlComputeKey {
     type Value = SharedResult<BxlComputeResult>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
         let key = self.0.dupe();
         ctx.temporary_spawn(async move |ctx| {
             let profiler = ctx.get_profile_mode_for_intermediate_analysis().await?;

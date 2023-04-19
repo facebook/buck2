@@ -25,6 +25,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -157,7 +158,11 @@ impl HasPackageBoundaryExceptions for DiceComputations {
         impl Key for PackageBoundaryExceptionsKey {
             type Value = SharedResult<Arc<PackageBoundaryExceptions>>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 Ok(Arc::new(PackageBoundaryExceptions::new(
                     &ctx.get_legacy_configs().await?,
                 )?))
@@ -190,7 +195,11 @@ impl HasPackageBoundaryExceptions for DiceComputations {
         impl Key for PackageBoundaryExceptionKey {
             type Value = SharedResult<bool>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 Ok(ctx
                     .get_package_boundary_exceptions()
                     .await?

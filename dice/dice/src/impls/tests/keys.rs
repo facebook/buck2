@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::join3;
+use more_futures::cancellation::CancellationContext;
 use tokio::sync::Mutex;
 
 use crate::api::computations::DiceComputations;
@@ -45,7 +46,11 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
     impl Key for ComputeOnce {
         type Value = ();
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             let mut count = self.0.lock().await;
             *count += 1;
         }
@@ -105,7 +110,11 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     impl Key for ComputeParallel {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.0.wait();
 
             1

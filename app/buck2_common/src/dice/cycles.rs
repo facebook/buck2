@@ -21,6 +21,7 @@ use dice::Key;
 use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
 use futures::Future;
+use more_futures::cancellation::CancellationContext;
 
 /// Additional requirement for a CycleDescriptor to be used for defining a Dice UserCycleDetector through
 /// the CycleDetectorAdapter. Simply requires converting the Dice Key to the CycleDescriptor::Key type.
@@ -90,7 +91,12 @@ struct PoisonedDueToDetectedCycleKey;
 impl Key for PoisonedDueToDetectedCycleKey {
     type Value = ();
 
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {}
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+    }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true

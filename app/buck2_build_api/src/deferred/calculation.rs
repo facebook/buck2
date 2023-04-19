@@ -32,6 +32,7 @@ use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 
 use crate::actions::artifact::materializer::ArtifactMaterializer;
@@ -153,7 +154,11 @@ async fn resolve_deferred(
     impl Key for DeferredResolve {
         type Value = SharedResult<DeferredValueAnyReady>;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
             let result = compute_deferred(ctx, &self.0).await?;
             match result.value() {
                 DeferredValueAny::Ready(value) => Ok(value.dupe()),
@@ -186,7 +191,11 @@ async fn compute_deferred(
     impl Key for DeferredCompute {
         type Value = SharedResult<DeferredResult>;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
             let deferred = lookup_deferred(ctx, &self.0).await?;
             let deferred = deferred.get()?.as_complex();
 

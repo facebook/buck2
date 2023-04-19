@@ -33,6 +33,7 @@ use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use tracing::debug;
 
@@ -286,7 +287,11 @@ struct BuildKey(ActionKey);
 impl Key for BuildKey {
     type Value = SharedResult<ActionOutputs>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
         build_action_impl(ctx, &self.0).await.shared_error()
     }
 

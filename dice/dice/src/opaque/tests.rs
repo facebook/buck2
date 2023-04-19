@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use parking_lot::Mutex;
 
 use crate::api::computations::DiceComputations;
@@ -63,7 +64,11 @@ struct ComputationsTracker {
 impl Key for IsOpaque {
     type Value = Arc<String>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         ctx.global_data()
             .get::<Arc<Mutex<ComputationsTracker>>>()
             .unwrap()
@@ -85,7 +90,11 @@ impl Key for IsOpaque {
 impl Key for DoesNotReadOpaque {
     type Value = Arc<String>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         ctx.global_data()
             .get::<Arc<Mutex<ComputationsTracker>>>()
             .unwrap()

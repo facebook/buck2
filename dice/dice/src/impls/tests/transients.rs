@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -33,7 +34,11 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     impl Key for AlwaysTransient {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
             1
         }
@@ -96,7 +101,11 @@ async fn demo_with_transient() -> anyhow::Result<()> {
     impl Key for MaybeTransient {
         type Value = Result<usize, bool>;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             if self.0 == 0 {
                 if !self.1.load(Ordering::SeqCst) {
                     Err(true)

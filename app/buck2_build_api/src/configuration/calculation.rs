@@ -40,6 +40,7 @@ use dice::Key;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use starlark::collections::SmallMap;
 use thiserror::Error;
 
@@ -81,7 +82,11 @@ async fn get_target_platform_detector(
     #[async_trait]
     impl Key for TargetPlatformDetectorKey {
         type Value = SharedResult<Arc<TargetPlatformDetector>>;
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
             // We get this off the root cell's config. It's not clear that that's the appropriate way to do it, but its the easiest to get working at FB.
             // TODO(cjhopman): Consider revisiting that approach.
             let resolver = ctx.get_cell_resolver().await?;
@@ -471,7 +476,11 @@ impl ConfigurationCalculation for DiceComputations {
         impl Key for PlatformConfigurationKey {
             type Value = SharedResult<ConfigurationData>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 compute_platform_configuration(ctx, &self.0)
                     .await
                     .shared_error()
@@ -509,7 +518,11 @@ impl ConfigurationCalculation for DiceComputations {
         impl Key for ResolvedConfigurationKey {
             type Value = SharedResult<ResolvedConfiguration>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let config_futures: Vec<_> = self.configuration_deps.map(|d| async move {
                     ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
                         .await
@@ -552,7 +565,11 @@ impl ConfigurationCalculation for DiceComputations {
         impl Key for ConfigurationNodeKey {
             type Value = SharedResult<ConfigurationNode>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let analysis_result = ctx
                     .get_configuration_analysis_result(&self.cfg_target)
                     .await?;
@@ -613,7 +630,11 @@ impl ConfigurationCalculation for DiceComputations {
         #[async_trait]
         impl Key for ExecutionPlatformsKey {
             type Value = SharedResult<Option<ExecutionPlatforms>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 get_execution_platforms(ctx).await
             }
 

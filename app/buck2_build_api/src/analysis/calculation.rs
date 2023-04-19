@@ -44,6 +44,7 @@ use dupe::IterDupedExt;
 use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use more_futures::cancellation::CancellationContext;
 use starlark::eval::ProfileMode;
 
 use crate::actions::build_listener::AnalysisSignal;
@@ -96,7 +97,11 @@ impl RuleAnalysisCalculation for DiceComputations {
         #[async_trait]
         impl Key for AnalysisKey {
             type Value = SharedResult<MaybeCompatible<AnalysisResult>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let profile_mode = ctx.get_profile_mode_for_intermediate_analysis().await?;
                 Ok(get_analysis_result(ctx, &self.0, &profile_mode)
                     .await

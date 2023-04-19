@@ -34,6 +34,7 @@ use futures::future::join_all;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 
 #[derive(Display, Debug, Hash, Eq, Clone, PartialEq, Dupe, Allocative)]
@@ -210,7 +211,11 @@ async fn lookup_company_resource_cost(
     impl Key for LookupCompanyResourceCost {
         type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             let company = ctx
                 .compute(&self.0)
                 .await
@@ -270,7 +275,11 @@ impl Cost for DiceComputations {
         impl Key for LookupResourceCost {
             type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 let companies = ctx
                     .compute(LookupResource::ref_cast(&self.0))
                     .await

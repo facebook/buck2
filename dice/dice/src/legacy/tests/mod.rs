@@ -24,6 +24,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
 
@@ -187,7 +188,11 @@ struct K(i32);
 impl Key for K {
     type Value = Result<K, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let mut sum = self.0;
         for i in 0..self.0 {
             sum += ctx
@@ -372,7 +377,11 @@ fn dice_computations_are_parallel() {
     impl Key for Blocking {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.barrier.wait();
             1
         }
@@ -423,7 +432,11 @@ async fn different_data_per_compute_ctx() {
     impl Key for DataRequest {
         type Value = usize;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
         }
 
@@ -466,7 +479,11 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     impl Key for AlwaysTransient {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
             1
         }
@@ -529,7 +546,11 @@ async fn demo_with_transient() -> anyhow::Result<()> {
     impl Key for MaybeTransient {
         type Value = Result<usize, bool>;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             if self.0 == 0 {
                 if !self.1.load(Ordering::SeqCst) {
                     Err(true)
@@ -612,7 +633,11 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
     impl Key for TestKey {
         type Value = ();
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             critical_section(|| self.channel.clone()).await.unwrap()
         }
 
@@ -664,7 +689,11 @@ struct Fib(u8);
 impl Key for Fib {
     type Value = Result<u64, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         if self.0 > 93 {
             return Err(Arc::new(anyhow::anyhow!("that's too big")));
         }
@@ -939,7 +968,11 @@ fn invalid_update() {
     impl Key for Invalid {
         type Value = ();
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             unimplemented!("not needed for test")
         }
 

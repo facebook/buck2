@@ -78,6 +78,7 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
+    use more_futures::cancellation::CancellationContext;
 
     use crate::api::data::DiceData;
     use crate::api::key::Key;
@@ -98,7 +99,11 @@ mod tests {
     impl Key for K {
         type Value = i32;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             unimplemented!("test")
         }
 

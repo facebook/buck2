@@ -24,6 +24,7 @@ use buck2_core::cells::CellAliasResolver;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::package_imports::PackageImplicitImports;
 
@@ -94,7 +95,11 @@ impl HasImportPaths for DiceComputations {
         impl Key for ImportPathsKey {
             type Value = SharedResult<Arc<ImplicitImportPaths>>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let config = ctx
                     .get_legacy_config_for_cell(self.cell_name.name())
                     .await?;

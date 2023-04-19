@@ -26,6 +26,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::interpreter::calculation::keys::InterpreterResultsKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
@@ -89,7 +90,11 @@ impl InterpreterCalculation for DiceComputations {
         #[async_trait]
         impl Key for InterpreterResultsKey {
             type Value = SharedResult<Arc<EvaluationResult>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 ctx.get_interpreter_results_uncached(self.0.dupe())
                     .await
                     .shared_error()

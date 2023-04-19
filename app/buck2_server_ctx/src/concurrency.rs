@@ -778,6 +778,7 @@ mod tests {
     use dice::UserComputationData;
     use dupe::Dupe;
     use more_futures::cancellable_future::with_structured_cancellation;
+    use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
@@ -1404,7 +1405,11 @@ mod tests {
         type Value = ();
 
         #[allow(clippy::await_holding_lock)]
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
             let _guard = self.is_executing.lock();
 
             // TODO: use critical_section as it's simpler, but this stack doesn't have it and

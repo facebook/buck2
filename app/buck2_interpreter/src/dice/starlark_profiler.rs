@@ -17,6 +17,7 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;
@@ -172,7 +173,11 @@ pub struct StarlarkProfileModeForIntermediateAnalysisKey;
 impl Key for StarlarkProfilerConfigurationKey {
     type Value = SharedResult<StarlarkProfilerConfiguration>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let mut configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
 
         if let StarlarkProfilerConfiguration::None = configuration {
@@ -210,6 +215,7 @@ impl Key for StarlarkProfilerInstrumentationKey {
     async fn compute(
         &self,
         ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
     ) -> SharedResult<Option<StarlarkProfilerInstrumentation>> {
         let configuration = get_starlark_profiler_configuration(ctx).await?;
         Ok(configuration.bzl_instrumentation())
@@ -230,6 +236,7 @@ impl Key for StarlarkProfileModeForIntermediateAnalysisKey {
     async fn compute(
         &self,
         ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
     ) -> SharedResult<StarlarkProfileModeOrInstrumentation> {
         let configuration = get_starlark_profiler_configuration(ctx).await?;
         Ok(configuration.profile_mode_for_intermediate_analysis())

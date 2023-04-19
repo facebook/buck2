@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use dupe::Dupe;
 use fnv::FnvHasher;
 use gazebo::cmp::PartialEqAny;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
@@ -209,7 +210,11 @@ impl<'a> CowDiceKey<'a> {
 
 #[async_trait]
 pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
-    async fn compute(&self, ctx: &DiceComputations) -> Arc<dyn DiceValueDyn>;
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        cancellations: &CancellationContext,
+    ) -> Arc<dyn DiceValueDyn>;
 
     fn eq_any(&self) -> PartialEqAny;
 
@@ -229,8 +234,12 @@ impl<K> DiceKeyDyn for K
 where
     K: Key,
 {
-    async fn compute(&self, ctx: &DiceComputations) -> Arc<dyn DiceValueDyn> {
-        let value = self.compute(ctx).await;
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        cancellations: &CancellationContext,
+    ) -> Arc<dyn DiceValueDyn> {
+        let value = self.compute(ctx, cancellations).await;
         Arc::new(DiceKeyValue::<K>::new(value))
     }
 
@@ -461,6 +470,7 @@ mod tests {
     use allocative::Allocative;
     use derive_more::Display;
     use dupe::Dupe;
+    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
@@ -478,7 +488,11 @@ mod tests {
         impl Key for TestK {
             type Value = ();
 
-            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                _ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 unimplemented!("test")
             }
 

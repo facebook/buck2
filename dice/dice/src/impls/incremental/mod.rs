@@ -264,7 +264,9 @@ impl IncrementalEngine {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let eval_result = eval.evaluate(k, cycles).await;
+        let eval_result = eval
+            .evaluate(k, cycles, task_handle.cancellation_ctx())
+            .await;
 
         let _guard = match try_to_disable_cancellation() {
             Some(g) => g,

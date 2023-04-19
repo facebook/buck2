@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -102,7 +103,11 @@ struct K(i32);
 impl Key for K {
     type Value = Result<K, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let mut sum = self.0;
         for i in 0..self.0 {
             sum += ctx
@@ -147,7 +152,11 @@ fn dice_computations_are_parallel() {
     impl Key for Blocking {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.barrier.wait();
             1
         }
@@ -198,7 +207,11 @@ async fn different_data_per_compute_ctx() {
     impl Key for DataRequest {
         type Value = usize;
 
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
         }
 
@@ -239,7 +252,11 @@ fn invalid_update() {
     impl Key for Invalid {
         type Value = ();
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             unimplemented!("not needed for test")
         }
 
@@ -266,7 +283,11 @@ struct Fib(u8);
 impl Key for Fib {
     type Value = Result<u64, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         if self.0 > 93 {
             return Err(Arc::new(anyhow::anyhow!("that's too big")));
         }

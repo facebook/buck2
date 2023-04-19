@@ -39,6 +39,7 @@ use futures::future;
 use futures::stream::FuturesOrdered;
 use futures::Future;
 use futures::FutureExt;
+use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -295,7 +296,11 @@ pub(crate) struct EnsureProjectedArtifactKey(ProjectedArtifact);
 impl Key for EnsureProjectedArtifactKey {
     type Value = SharedResult<ArtifactValue>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
         let base_value = ensure_base_artifact_staged(ctx, self.0.base())
             .await?
             .unpack_single()?;
@@ -340,7 +345,11 @@ pub(crate) struct EnsureTransitiveSetProjectionKey(TransitiveSetProjectionKey);
 impl Key for EnsureTransitiveSetProjectionKey {
     type Value = SharedResult<ArtifactGroupValues>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
         let set = ctx
             .compute_deferred_data(&self.0.key)
             .await

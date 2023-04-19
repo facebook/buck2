@@ -24,6 +24,7 @@ use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use starlark::environment::Globals;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
@@ -141,7 +142,11 @@ impl HasGlobalInterpreterState for DiceComputations {
         #[async_trait]
         impl Key for GisKey {
             type Value = SharedResult<GisValue>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let interpreter_configuror = ctx.get_interpreter_configuror().await?;
                 let legacy_configs = ctx.get_legacy_configs_on_dice().await?;
                 let cell_resolver = ctx.get_cell_resolver().await?;

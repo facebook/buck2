@@ -20,6 +20,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use tempfile::NamedTempFile;
 
 use crate::api::computations::DiceComputations;
@@ -89,7 +90,11 @@ impl<'c> Filesystem<'c> {
         #[async_trait]
         impl Key for File {
             type Value = Result<Arc<String>, Arc<anyhow::Error>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 let encoding = ctx.encodings().get().await?;
 
                 let s = fs::read_to_string(&self.0).unwrap();

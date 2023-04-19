@@ -57,6 +57,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use starlark::collections::SmallSet;
 use thiserror::Error;
 
@@ -269,7 +270,11 @@ async fn execution_platforms_for_toolchain(
     #[async_trait]
     impl Key for ExecutionPlatformsForToolchainKey {
         type Value = SharedResult<ToolchainConstraints>;
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
             let node = ctx.get_target_node(self.0.unconfigured()).await?;
             if node.transition_deps().next().is_some() {
                 // We could actually check this when defining the rule, but a bit of a corner
@@ -761,6 +766,7 @@ async fn compute_configured_target_node(
             async fn compute(
                 &self,
                 ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
             ) -> SharedResult<MaybeCompatible<ConfiguredTargetNode>> {
                 compute_configured_target_node_with_transition(self, ctx)
                     .await
@@ -837,7 +843,11 @@ impl NodeCalculation for DiceComputations {
         #[async_trait]
         impl Key for ConfiguredTargetNodeKey {
             type Value = SharedResult<MaybeCompatible<ConfiguredTargetNode>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let res = compute_configured_target_node(self, ctx).await;
                 Ok(res.with_context(|| format!("Error looking up configured node {}", self.0))?)
             }

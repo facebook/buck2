@@ -50,6 +50,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::future;
+use more_futures::cancellation::CancellationContext;
 use starlark::codemap::FileSpan;
 use starlark::syntax::AstModule;
 
@@ -96,7 +97,11 @@ impl<'c> HasCalculationDelegate<'c> for DiceComputations {
         #[async_trait]
         impl Key for InterpreterConfigForCellKey {
             type Value = SharedResult<Arc<InterpreterForCell>>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let global_state = ctx.get_global_interpreter_state().await?;
 
@@ -156,7 +161,11 @@ impl<'c> DiceCalculationDelegate<'c> {
         #[async_trait]
         impl Key for EvalImportKey {
             type Value = SharedResult<LoadedModule>;
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let starlark_path = self.0.borrow();
                 let starlark_profiler_instrumentation =
                     ctx.get_starlark_profiler_instrumentation().await?;
@@ -378,7 +387,11 @@ impl<'c> DiceCalculationDelegate<'c> {
         impl Key for PackageFileKey {
             type Value = SharedResult<SuperPackage>;
 
-            async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
                 let interpreter = ctx
                     .get_interpreter_calculator(self.0.cell(), self.0.build_file_cell())
                     .await

@@ -14,6 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use parking_lot::Mutex;
 
 use crate::api::computations::DiceComputations;
@@ -61,7 +62,11 @@ struct FileKey {
 impl Key for FileKey {
     type Value = Result<Arc<String>, Arc<anyhow::Error>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         // Read "config".
         let config = ctx
             .compute_opaque(&ConfigKey)
@@ -109,7 +114,11 @@ struct ConfigKey;
 impl Key for ConfigKey {
     type Value = Arc<HashMap<String, String>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> Arc<HashMap<String, String>> {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Arc<HashMap<String, String>> {
         // Record we performed this computation.
         ctx.global_data()
             .get::<Arc<Mutex<RecordedComputations>>>()

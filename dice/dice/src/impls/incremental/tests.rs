@@ -26,6 +26,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use indexmap::indexset;
+use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::sorted_vector_set;
 use triomphe::Arc;
 
@@ -66,7 +67,11 @@ struct K;
 impl Key for K {
     type Value = usize;
 
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         unimplemented!("test")
     }
 
@@ -189,7 +194,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     impl Key for IsRan {
         type Value = ();
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             self.0.store(true, Ordering::SeqCst);
         }
 
@@ -369,7 +378,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     impl Key for InstanceEqualKey {
         type Value = InstanceEqual;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             InstanceEqual {
                 instance_count: self.0.fetch_add(1, Ordering::SeqCst),
             }

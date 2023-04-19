@@ -87,6 +87,7 @@ mod tests {
     use async_trait::async_trait;
     use derive_more::Display;
     use dupe::Dupe;
+    use more_futures::cancellation::CancellationContext;
 
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
@@ -112,7 +113,11 @@ mod tests {
         impl Key for MyKey {
             type Value = Bar;
 
-            async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+            async fn compute(
+                &self,
+                _ctx: &DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
                 panic!("value should be cached, not evaluated")
             }
 

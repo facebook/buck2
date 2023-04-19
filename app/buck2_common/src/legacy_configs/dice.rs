@@ -26,6 +26,7 @@ use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::view::LegacyBuckConfigView;
@@ -176,7 +177,11 @@ struct LegacyBuckConfigForCellKey {
 impl Key for LegacyBuckConfigForCellKey {
     type Value = SharedResult<LegacyBuckConfig>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> SharedResult<LegacyBuckConfig> {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> SharedResult<LegacyBuckConfig> {
         let legacy_configs = ctx.get_legacy_configs().await?;
         legacy_configs
             .get(self.cell_name)
@@ -204,7 +209,11 @@ struct LegacyBuckConfigPropertyKey {
 impl Key for LegacyBuckConfigPropertyKey {
     type Value = SharedResult<Option<Arc<str>>>;
 
-    async fn compute(&self, ctx: &DiceComputations) -> SharedResult<Option<Arc<str>>> {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> SharedResult<Option<Arc<str>>> {
         let legacy_config = ctx.get_legacy_config_for_cell(self.cell_name).await?;
         Ok(legacy_config
             .get(&self.section, &self.property)

@@ -159,6 +159,7 @@ mod tests {
     use async_trait::async_trait;
     use derive_more::Display;
     use dupe::Dupe;
+    use more_futures::cancellation::CancellationContext;
     use triomphe::Arc;
 
     use crate::api::computations::DiceComputations;
@@ -180,7 +181,11 @@ mod tests {
     impl Key for K {
         type Value = usize;
 
-        async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             unimplemented!("test")
         }
 

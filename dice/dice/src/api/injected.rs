@@ -14,6 +14,7 @@ use std::hash::Hash;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
@@ -43,7 +44,11 @@ where
 {
     type Value = K::Value;
 
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         panic!(
             "Injected Keys must be injected onto the graph before being requested, hence \
             computes should never be called; however, `compute` on `{:?}` was called.",

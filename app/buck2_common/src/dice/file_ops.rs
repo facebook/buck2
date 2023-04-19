@@ -31,6 +31,7 @@ use dice::DiceTransactionUpdater;
 use dice::Key;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
+use more_futures::cancellation::CancellationContext;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
@@ -235,7 +236,11 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
     #[async_trait]
     impl Key for FileOpsKey {
         type Value = SharedResult<FileOpsValue>;
-        async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
             let cells = ctx.get_cell_resolver().await?;
             let io = ctx.global_data().get_io_provider();
 
@@ -351,7 +356,11 @@ struct ReadFileKey(Arc<CellPath>);
 #[async_trait]
 impl Key for ReadFileKey {
     type Value = FileToken;
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         FileToken(self.0.dupe())
     }
 
@@ -366,7 +375,11 @@ struct ReadDirKey(CellPath);
 #[async_trait]
 impl Key for ReadDirKey {
     type Value = SharedResult<ReadDirOutput>;
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         get_default_file_ops(ctx)
             .await?
             .read_dir(self.0.as_ref())
@@ -392,7 +405,11 @@ struct PathMetadataKey(CellPath);
 #[async_trait]
 impl Key for PathMetadataKey {
     type Value = SharedResult<Option<RawPathMetadata>>;
-    async fn compute(&self, ctx: &DiceComputations) -> Self::Value {
+    async fn compute(
+        &self,
+        ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
         let res = get_default_file_ops(ctx)
             .await?
             .read_path_metadata_if_exists(self.0.as_ref())

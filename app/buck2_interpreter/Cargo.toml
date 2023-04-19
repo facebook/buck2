@@ -25,6 +25,7 @@ dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
+more_futures = { path = "../../shed/more_futures" }
 starlark = { workspace = true }
 
 buck2_common = { workspace = true }

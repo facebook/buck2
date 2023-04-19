@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::Spawner;
 use tokio::task::JoinHandle;
 
@@ -47,7 +48,12 @@ struct K;
 impl Key for K {
     type Value = ();
 
-    async fn compute(&self, _ctx: &DiceComputations) -> Self::Value {}
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+    }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true
