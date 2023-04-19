@@ -74,6 +74,7 @@ use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::int::PointerI32;
+use crate::values::iter::StarlarkIterator;
 use crate::values::layout::avalue::basic_ref;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::StarlarkStrAValue;
@@ -406,6 +407,7 @@ impl<'v> Value<'v> {
     }
 
     /// Get a pointer to a [`AValue`].
+    #[inline]
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
         unsafe {
             match self.0.unpack() {
@@ -739,23 +741,17 @@ impl<'v> Value<'v> {
     pub fn with_iterator<T>(
         self,
         heap: &'v Heap,
-        mut f: impl FnMut(&mut dyn Iterator<Item = Value<'v>>) -> T,
+        mut f: impl FnMut(&mut StarlarkIterator<'v>) -> T,
     ) -> anyhow::Result<T> {
-        let mut res = None;
-        self.get_ref().with_iterator(heap, &mut |it| {
-            res = Some(f(it));
-            Ok(())
-        })?;
-        // Safe because if we ran the iterator, we should have called it and set `res`
-        Ok(res.take().expect("with_iterator to call the callback"))
+        // TODO(nga): inline this function.
+        Ok(f(&mut self.iterate(heap)?))
     }
 
     /// Produce an iterable from a value.
-    pub fn iterate(
-        self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'v>> {
-        self.get_ref().iterate(heap)
+    #[inline]
+    pub fn iterate(self, heap: &'v Heap) -> anyhow::Result<StarlarkIterator<'v>> {
+        let iter = self.get_ref().iterate(self, heap)?;
+        Ok(StarlarkIterator::new(iter, heap))
     }
 
     /// Get the [`Hashed`] version of this [`Value`].

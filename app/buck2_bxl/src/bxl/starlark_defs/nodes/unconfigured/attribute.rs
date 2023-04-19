@@ -68,26 +68,21 @@ where
 {
     starlark_type!("starlark_attributes");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let starlark_target_node = self
             .inner
             .downcast_ref::<StarlarkTargetNode>()
             .context("invalid inner")?;
         let target_node = &starlark_target_node.0;
-        Ok(Box::new(target_node.attrs(AttrInspectOptions::All).map(
-            |a| {
+        Ok(target_node
+            .attrs(AttrInspectOptions::All)
+            .map(|a| {
                 heap.alloc((
                     a.name,
                     StarlarkCoercedAttr(a.value.clone(), target_node.label().pkg()),
                 ))
-            },
-        )))
+            })
+            .collect())
     }
 }
 

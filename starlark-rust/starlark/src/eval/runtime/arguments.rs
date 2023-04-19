@@ -34,6 +34,7 @@ use crate::eval::runtime::params::ParametersSpec;
 use crate::hint::unlikely;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
+use crate::values::iter::StarlarkIterator;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Heap;
 use crate::values::StringValue;
@@ -485,7 +486,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
             // Very sad that we allocate into a vector, but I expect calling into a small positional argument
             // with a *args is very rare.
             let args = match x.0.args {
-                None => Box::new(None.into_iter()),
+                None => StarlarkIterator::empty(heap),
                 Some(args) => args.iterate(heap)?,
             };
             let xs = x.0.pos.iter().copied().chain(args).collect::<Vec<_>>();

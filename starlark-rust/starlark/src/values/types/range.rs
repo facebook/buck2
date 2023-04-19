@@ -19,7 +19,6 @@
 
 use std::fmt;
 use std::fmt::Display;
-use std::marker::PhantomData;
 use std::num::NonZeroI32;
 
 use allocative::Allocative;
@@ -100,29 +99,18 @@ impl Range {
             return Ok(false);
         }
     }
-}
 
-/// Implementation of an iterator over [`Range`].
-struct RangeIterator<'a>(Range, PhantomData<&'a ()>);
+    fn rem_range_at_iter(&self, index: usize) -> Option<Range> {
+        let index = i64::try_from(index).ok()?;
 
-impl<'a> Iterator for RangeIterator<'a> {
-    type Item = Value<'a>;
+        let start =
+            (self.start as i64).saturating_add(index.saturating_mul(self.step.get() as i64));
 
-    fn next(&mut self) -> Option<Value<'a>> {
-        if !self.0.to_bool() {
-            return None;
-        }
-
-        let old_start = self.0.start;
-        self.0.start = self.0.start.saturating_add(self.0.step.get());
-        Some(Value::new_int(old_start))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self.0.length() {
-            Ok(n) => (n as usize, Some(n as usize)),
-            Err(_) => (0, None),
-        }
+        Some(Range {
+            start: i32::try_from(start).ok()?,
+            stop: self.stop,
+            step: self.step,
+        })
     }
 }
 
@@ -210,23 +198,31 @@ impl<'v> StarlarkValue<'v> for Range {
         }));
     }
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(RangeIterator::<'v>(*self, PhantomData)))
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        Ok(me)
     }
 
-    fn with_iterator(
-        &self,
-        _heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        f(&mut RangeIterator::<'v>(*self, PhantomData))
+    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+        let rem_range = self.rem_range_at_iter(index)?;
+
+        if !rem_range.to_bool() {
+            return None;
+        }
+
+        Some(Value::new_int(rem_range.start))
     }
+
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        let Some(rem_range) = self.rem_range_at_iter(index) else {
+            return (0, Some(0));
+        };
+        match rem_range.length() {
+            Ok(length) => (length as usize, Some(length as usize)),
+            Err(_) => (0, None),
+        }
+    }
+
+    unsafe fn iter_stop(&self) {}
 
     fn is_in(&self, other: Value) -> anyhow::Result<bool> {
         let other = match other.unpack_num().and_then(|n| n.as_int()) {
@@ -346,6 +342,7 @@ mod tests {
 
         let heap = Heap::new();
         for x in &ranges {
+            let x = heap.alloc_simple(*x);
             let full: Vec<Value> = x.iterate(&heap).unwrap().collect();
             assert_eq!(x.length().unwrap(), full.len() as i32);
             for (i, v) in full.iter().enumerate() {
@@ -356,6 +353,8 @@ mod tests {
         // Takes 294^2 steps - but completes instantly
         for x in &ranges {
             for y in &ranges {
+                let x = heap.alloc_simple(*x);
+                let y = heap.alloc_simple(*y);
                 assert_eq!(
                     x == y,
                     Iterator::eq(x.iterate(&heap).unwrap(), y.iterate(&heap).unwrap())

@@ -17,8 +17,10 @@
 
 use std::any::TypeId;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
@@ -220,6 +222,12 @@ pub(crate) struct AValueDyn<'v> {
     pub(crate) vtable: &'static AValueVTable,
 }
 
+impl<'v> Debug for AValueDyn<'v> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AValueDyn").finish_non_exhaustive()
+    }
+}
+
 impl<'v> AValueDyn<'v> {
     #[inline]
     pub(crate) fn memory_size(self) -> ValueSize {
@@ -372,23 +380,23 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn iterate<'a>(
-        self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'v>>
-    where
-        'v: 'a,
-    {
-        (self.vtable.starlark_value.iterate)(StarlarkValueRawPtr::new(self.value), heap)
+    pub(crate) fn iterate(self, me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        (self.vtable.starlark_value.iterate)(StarlarkValueRawPtr::new(self.value), me, heap)
     }
 
     #[inline]
-    pub(crate) fn with_iterator(
-        self,
-        heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        (self.vtable.starlark_value.with_iterator)(StarlarkValueRawPtr::new(self.value), heap, f)
+    pub(crate) fn iter_next(self, index: usize, heap: &'v Heap) -> Option<Value<'v>> {
+        (self.vtable.starlark_value.iter_next)(StarlarkValueRawPtr::new(self.value), index, heap)
+    }
+
+    #[inline]
+    pub(crate) fn iter_size_hint(self, index: usize) -> (usize, Option<usize>) {
+        (self.vtable.starlark_value.iter_size_hint)(StarlarkValueRawPtr::new(self.value), index)
+    }
+
+    #[inline]
+    pub(crate) fn iter_stop(self) {
+        (self.vtable.starlark_value.iter_stop)(StarlarkValueRawPtr::new(self.value))
     }
 
     #[inline]

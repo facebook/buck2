@@ -19,6 +19,7 @@
 
 mod alloc;
 mod of;
+pub(crate) mod refcell;
 mod refs;
 pub(crate) mod value;
 

@@ -79,15 +79,9 @@ where
 {
     starlark_type!("transitive_set_iterator");
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
+    fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let tset = TransitiveSet::from_value(self.inner.to_value()).context("Invalid inner")?;
-        tset.iter_values(self.ordering)
+        Ok(tset.iter_values(self.ordering)?.collect())
     }
 }
 
@@ -120,15 +114,11 @@ where
 {
     starlark_type!("transitive_set_args_projection_iterator");
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
+    fn iterate_collect(&self, _heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
         let set =
             TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;
-        set.iter_projection_values(self.ordering, self.projection)
+        Ok(set
+            .iter_projection_values(self.ordering, self.projection)?
+            .collect())
     }
 }

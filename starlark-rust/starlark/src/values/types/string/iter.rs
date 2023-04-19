@@ -72,31 +72,18 @@ where
 {
     starlark_type!("iterator");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        let s = self.string.as_str().chars();
-        if self.produce_char {
-            Ok(Box::new(s.map(move |x| heap.alloc(x))))
+    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        // Lazy implementation: we allocate a tuple and then iterate over it.
+        let iter = if self.produce_char {
+            heap.alloc_tuple_iter(self.string.as_str().chars().map(|c| heap.alloc(c)))
         } else {
-            Ok(Box::new(s.map(|x| Value::new_int(u32::from(x) as i32))))
-        }
-    }
-
-    fn with_iterator(
-        &self,
-        heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        let s = self.string.as_str().chars();
-        if self.produce_char {
-            f(&mut s.map(|x| heap.alloc(x)))
-        } else {
-            f(&mut s.map(|x| Value::new_int(u32::from(x) as i32)))
-        }
+            heap.alloc_tuple_iter(
+                self.string
+                    .as_str()
+                    .chars()
+                    .map(|c| Value::new_int(u32::from(c) as i32)),
+            )
+        };
+        Ok(iter)
     }
 }

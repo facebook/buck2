@@ -83,14 +83,8 @@ impl<'v, Node: NodeLike> AllocValue<'v> for StarlarkTargetSet<Node> {
 impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     starlark_type!("target_set");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(self.iter(heap)))
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self.iter(heap).collect())
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

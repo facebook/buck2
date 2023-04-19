@@ -59,31 +59,26 @@ where
 {
     starlark_type!("bxl_built_artifacts_iterable");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(
-            self.0
-                .downcast_ref::<StarlarkBxlBuildResult>()
-                .unwrap()
-                .0
-                .unpack_built()
-                .unwrap()
-                .outputs
-                .iter()
-                .flat_map(|built| match built {
-                    Ok(built) => {
-                        itertools::Either::Left(Box::new(built.values.iter().map(
-                            |(artifact, _)| heap.alloc(StarlarkArtifact::new(artifact.dupe())),
-                        )))
-                    }
-                    Err(_) => itertools::Either::Right(std::iter::empty()),
-                }),
-        ))
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self
+            .0
+            .downcast_ref::<StarlarkBxlBuildResult>()
+            .unwrap()
+            .0
+            .unpack_built()
+            .unwrap()
+            .outputs
+            .iter()
+            .flat_map(|built| match built {
+                Ok(built) => itertools::Either::Left(Box::new(
+                    built
+                        .values
+                        .iter()
+                        .map(|(artifact, _)| heap.alloc(StarlarkArtifact::new(artifact.dupe()))),
+                )),
+                Err(_) => itertools::Either::Right(std::iter::empty()),
+            })
+            .collect())
     }
 }
 
@@ -109,27 +104,21 @@ where
 {
     starlark_type!("bxl_failed_artifacts_iterable");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(
-            self.0
-                .downcast_ref::<StarlarkBxlBuildResult>()
-                .unwrap()
-                .0
-                .unpack_built()
-                .unwrap()
-                .outputs
-                .iter()
-                .filter_map(|built| match built {
-                    Ok(_) => None,
-                    Err(e) => Some(heap.alloc(format!("{}", e))),
-                }),
-        ))
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self
+            .0
+            .downcast_ref::<StarlarkBxlBuildResult>()
+            .unwrap()
+            .0
+            .unpack_built()
+            .unwrap()
+            .outputs
+            .iter()
+            .filter_map(|built| match built {
+                Ok(_) => None,
+                Err(e) => Some(heap.alloc(format!("{}", e))),
+            })
+            .collect())
     }
 }
 

@@ -331,13 +331,13 @@ impl Display for FrozenListData {
 pub(crate) trait ListLike<'v>: Debug + Allocative {
     fn content(&self) -> &[Value<'v>];
     fn set_at(&self, i: usize, v: Value<'v>) -> anyhow::Result<()>;
-    fn iterate<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>
-    where
-        'v: 'a;
-    fn with_iterator(
-        &self,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()>;
+
+    // These functions are unsafe for the same reason
+    // `StarlarkValue` iterator functions are unsafe.
+    unsafe fn new_iter(&self, me: Value<'v>) -> Value<'v>;
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>);
+    unsafe fn iter_next(&self, index: usize) -> Option<Value<'v>>;
+    unsafe fn iter_stop(&self);
 }
 
 impl<'v> ListLike<'v> for ListData<'v> {
@@ -351,18 +351,21 @@ impl<'v> ListLike<'v> for ListData<'v> {
         Ok(())
     }
 
-    fn iterate<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>
-    where
-        'v: 'a,
-    {
-        Box::new(self.content.get().as_ref().iter())
+    unsafe fn new_iter(&self, _me: Value<'v>) -> Value<'v> {
+        self.content.get().inc_iter_count();
+        self.content.get().to_value()
     }
 
-    fn with_iterator(
-        &self,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        f(&mut self.content.get().iter())
+    unsafe fn iter_size_hint(&self, _index: usize) -> (usize, Option<usize>) {
+        panic!("Iteration is performed on Array")
+    }
+
+    unsafe fn iter_next(&self, _index: usize) -> Option<Value<'v>> {
+        panic!("Iteration is performed on Array")
+    }
+
+    unsafe fn iter_stop(&self) {
+        panic!("Iteration is performed on Array")
     }
 }
 
@@ -375,19 +378,21 @@ impl<'v> ListLike<'v> for FrozenListData {
         Err(ValueError::CannotMutateImmutableValue.into())
     }
 
-    fn iterate<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>
-    where
-        'v: 'a,
-    {
-        Box::new(ListLike::content(self).iter().copied())
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        debug_assert!(index <= self.len());
+        let rem = self.len() - index;
+        (rem, Some(rem))
     }
 
-    fn with_iterator(
-        &self,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        f(&mut ListLike::content(self).iter().copied())
+    unsafe fn new_iter(&self, me: Value<'v>) -> Value<'v> {
+        me
     }
+
+    unsafe fn iter_next(&self, index: usize) -> Option<Value<'v>> {
+        self.content().get(index).map(|v| v.to_value())
+    }
+
+    unsafe fn iter_stop(&self) {}
 }
 
 impl<T: Display> Display for ListGen<T> {
@@ -486,22 +491,20 @@ where
         Ok(heap.alloc_list(&res))
     }
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(self.0.iterate())
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        Ok(self.0.new_iter(me))
     }
 
-    fn with_iterator(
-        &self,
-        _heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        self.0.with_iterator(f)
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        self.0.iter_size_hint(index)
+    }
+
+    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+        self.0.iter_next(index)
+    }
+
+    unsafe fn iter_stop(&self) {
+        self.0.iter_stop();
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {

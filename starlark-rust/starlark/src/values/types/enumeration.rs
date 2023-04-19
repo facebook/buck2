@@ -235,23 +235,21 @@ where
         Ok(self.elements.get_index(i).map(|x| *x.1).unwrap().to_value())
     }
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(self.elements.values().map(|x| x.to_value())))
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        Ok(me)
     }
 
-    fn with_iterator(
-        &self,
-        _heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        f(&mut self.elements.values().map(|x| x.to_value()))
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        debug_assert!(index <= self.elements.len());
+        let rem = self.elements.len() - index;
+        (rem, Some(rem))
     }
+
+    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+        self.elements.values().nth(index).map(|v| v.to_value())
+    }
+
+    unsafe fn iter_stop(&self) {}
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

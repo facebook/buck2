@@ -35,6 +35,7 @@ use crate::any::ProvidesStaticType;
 use crate::private::Private;
 use crate::starlark_type;
 use crate::values::types::list::value::display_list;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -154,11 +155,7 @@ impl<'v> Array<'v> {
         unsafe { *self.iter_count.get() != 0 }
     }
 
-    /// Create an iterator.
-    ///
-    /// Note this operation updates the iterator count of this object.
-    /// It this is not desirable, use [Self::content()].
-    pub(crate) fn iter<'a>(&'a self) -> ArrayIter<'a, 'v> {
+    pub(crate) fn inc_iter_count(&self) {
         // When array is statically allocated, `iter_count` variable
         // is shared between threads.
         if !self.is_statically_allocated() {
@@ -166,9 +163,16 @@ impl<'v> Array<'v> {
                 *self.iter_count.get() += 1;
             };
         }
-        ArrayIter {
-            array: self,
-            next: 0,
+    }
+
+    pub(crate) fn dec_iter_count(&self) {
+        unsafe {
+            if !self.is_statically_allocated() {
+                debug_assert!(*self.iter_count.get() >= 1);
+                *self.iter_count.get() -= 1;
+            } else {
+                debug_assert!(*self.iter_count.get() == 0);
+            }
         }
     }
 
@@ -250,57 +254,6 @@ impl<'v> Display for Array<'v> {
     }
 }
 
-/// Iterator over the array.
-pub(crate) struct ArrayIter<'a, 'v> {
-    array: &'a Array<'v>,
-    next: usize,
-}
-
-impl<'a, 'v> Iterator for ArrayIter<'a, 'v> {
-    type Item = Value<'v>;
-
-    fn next(&mut self) -> Option<Value<'v>> {
-        // We use `>=` instead of `==` here because it is possible
-        // to modify the `Array` (e. g. call `clear`) while the iterator is active.
-        // Note mutation during iteration does not violate memory safety.
-        if self.next >= self.array.len() {
-            None
-        } else {
-            unsafe {
-                let r = self.array.get_unchecked(self.next);
-                self.next += 1;
-                Some(r)
-            }
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let rem = self.len();
-        (rem, Some(rem))
-    }
-}
-
-impl<'a, 'v> ExactSizeIterator for ArrayIter<'a, 'v> {
-    fn len(&self) -> usize {
-        // We use `saturating_sub` here because an array can be modified
-        // while the iterator is alive.
-        self.array.len().saturating_sub(self.next)
-    }
-}
-
-impl<'a, 'v> Drop for ArrayIter<'a, 'v> {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.array.is_statically_allocated() {
-                debug_assert!(*self.array.iter_count.get() >= 1);
-                *self.array.iter_count.get() -= 1;
-            } else {
-                debug_assert!(*self.array.iter_count.get() == 0);
-            }
-        }
-    }
-}
-
 impl<'v> StarlarkValue<'v> for Array<'v> {
     starlark_type!("array");
 
@@ -313,6 +266,21 @@ impl<'v> StarlarkValue<'v> for Array<'v> {
 
     fn length(&self) -> anyhow::Result<i32> {
         Ok(self.len() as i32)
+    }
+
+    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+        debug_assert!(self.len() == 0 || self.iter_count_is_non_zero());
+        self.content().get(index).copied()
+    }
+
+    unsafe fn iter_stop(&self) {
+        self.dec_iter_count();
+    }
+
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        debug_assert!(index <= self.len());
+        let rem = self.len() - index;
+        (rem, Some(rem))
     }
 }
 

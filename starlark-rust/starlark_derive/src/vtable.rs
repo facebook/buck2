@@ -148,6 +148,7 @@ impl Gen {
             if m.sig.ident == "is_special"
                 || m.sig.ident == "please_use_starlark_type_macro"
                 || m.sig.ident == "extra_memory"
+                || m.sig.ident == "iterate_collect"
             {
                 continue;
             }

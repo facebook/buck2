@@ -108,16 +108,12 @@ starlark_simple_value!(StarlarkFileSet);
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     starlark_type!("file_set");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(self.0.iter().map(|cell_path| {
-            heap.alloc(StarlarkFileNode(cell_path.clone()))
-        })))
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self
+            .0
+            .iter()
+            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
+            .collect())
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -214,17 +210,9 @@ impl fmt::Display for StarlarkReadDirSet {
 impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
     starlark_type!("read_dir_set");
 
-    fn iterate<'a>(
-        &'a self,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        let iter = self
+    fn iterate_collect(&self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(self
             .children()?
-            .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)));
-
-        Ok(Box::new(iter.into_iter()))
+            .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path))))
     }
 }

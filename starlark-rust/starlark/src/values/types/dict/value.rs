@@ -24,13 +24,13 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem;
 use std::ops::Deref;
 
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::StarlarkDocs;
-use starlark_map::small_map;
 use starlark_map::Equivalent;
 
 use crate as starlark;
@@ -45,6 +45,7 @@ use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::starlark_type;
 use crate::values::comparison::equals_small_map;
+use crate::values::dict::refcell::unleak_borrow;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
@@ -307,7 +308,11 @@ trait DictLike<'v>: Debug + Allocative {
         Self: 'a,
         'v: 'a;
     fn content<'a>(&'a self) -> Self::ContentRef<'a>;
-    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a>;
+    // These functions are unsafe for the same reason
+    // `StarlarkValue` iterator functions are unsafe.
+    unsafe fn iter_start(&self);
+    unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>>;
+    unsafe fn iter_stop(&self);
     fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> anyhow::Result<()>;
 }
 
@@ -318,29 +323,20 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
         Ref::map(self.borrow(), |x| &x.content)
     }
 
-    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
-        struct IterImpl<'a, 'v> {
-            /// Keep the dict borrowed so that it won't be modified while we iterate.
-            _dict: Ref<'a, Dict<'v>>,
-            iter: small_map::Keys<'a, Value<'v>, Value<'v>>,
-        }
+    #[inline]
+    unsafe fn iter_start(&self) {
+        mem::forget(self.borrow());
+    }
 
-        impl<'a, 'v> Iterator for IterImpl<'a, 'v> {
-            type Item = Value<'v>;
+    #[inline]
+    unsafe fn iter_stop(&self) {
+        unleak_borrow(self);
+    }
 
-            fn next(&mut self) -> Option<Self::Item> {
-                self.iter.next().copied()
-            }
-
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                self.iter.size_hint()
-            }
-        }
-
-        let dict = self.borrow();
-        // Drop the lifetime: we need to return the iterator while borrowing the dict.
-        let iter = unsafe { &*(&dict.content as *const SmallMap<Value, Value>) }.keys();
-        Box::new(IterImpl { _dict: dict, iter })
+    #[inline]
+    unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>> {
+        // SAFETY: this function contract is, caller must ensure that the value is borrowed.
+        &self.try_borrow_unguarded().ok().unwrap_unchecked().content
     }
 
     fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> anyhow::Result<()> {
@@ -361,8 +357,12 @@ impl<'v> DictLike<'v> for FrozenDictData {
         coerce(&self.content)
     }
 
-    fn content_iter<'a>(&'a self) -> Box<dyn Iterator<Item = Value<'v>> + 'a> {
-        Box::new(self.content.keys().copied().map(|v| v.to_value()))
+    unsafe fn iter_start(&self) {}
+
+    unsafe fn iter_stop(&self) {}
+
+    unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>> {
+        coerce(&self.content)
     }
 
     fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> anyhow::Result<()> {
@@ -434,22 +434,23 @@ where
             .contains_key_hashed_by_value(other.get_hashed()?))
     }
 
-    fn iterate<'a>(
-        &'a self,
-        _heap: &'v Heap,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(self.0.content_iter())
+    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        self.0.iter_start();
+        Ok(me)
     }
 
-    fn with_iterator(
-        &self,
-        _heap: &'v Heap,
-        f: &mut dyn FnMut(&mut dyn Iterator<Item = Value<'v>>) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
-        f(&mut self.0.content().keys().copied())
+    unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
+        debug_assert!(index <= self.0.content().len());
+        let rem = self.0.content().len() - index;
+        (rem, Some(rem))
+    }
+
+    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+        self.0.content_unchecked().keys().nth(index).copied()
+    }
+
+    unsafe fn iter_stop(&self) {
+        self.0.iter_stop();
     }
 
     fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> anyhow::Result<()> {
