@@ -1502,6 +1502,7 @@ message InvocationRecord {
   optional string restarted_trace_id = 63;
   optional bool has_command_result = 64;
   optional uint64 compressed_event_log_size_bytes = 65;
+  bool use_streaming_upload = 66;
 }
 
 message CacheUploadStart {

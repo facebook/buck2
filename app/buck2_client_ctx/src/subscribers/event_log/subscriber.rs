@@ -36,6 +36,7 @@ impl EventLog {
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        use_streaming_upload: bool,
     ) -> anyhow::Result<EventLog> {
         Ok(Self {
             writer: WriteEventLog::new(
@@ -46,6 +47,7 @@ impl EventLog {
                 async_cleanup_context,
                 command_name,
                 log_size_counter_bytes,
+                use_streaming_upload,
             )?,
         })
     }

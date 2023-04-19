@@ -32,7 +32,6 @@ use futures::future::Future;
 use futures::FutureExt;
 use pin_project::pin_project;
 use prost::Message;
-use rand::Rng;
 use serde::Serialize;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWrite;
@@ -53,7 +52,6 @@ use crate::subscribers::event_log::utils::NoInference;
 use crate::subscribers::should_upload_log;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
-static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
 
 mod counting_reader {
     use super::*;
@@ -131,6 +129,7 @@ pub(crate) struct WriteEventLog {
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    use_streaming_upload: bool,
 }
 
 impl WriteEventLog {
@@ -142,6 +141,7 @@ impl WriteEventLog {
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        use_streaming_upload: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: LogWriterState::Unopened(logdir, extra_path),
@@ -151,6 +151,7 @@ impl WriteEventLog {
             working_dir,
             buf: Vec::new(),
             log_size_counter_bytes,
+            use_streaming_upload,
         })
     }
 
@@ -252,7 +253,7 @@ impl WriteEventLog {
             path: logdir.as_abs_path().join(file_name),
             encoding,
         };
-        let (needs_upload, writer) = match use_streaming_uploads()? {
+        let (needs_upload, writer) = match self.use_streaming_upload {
             true => (
                 false, // Upload is handled in subprocess
                 start_persist_subprocess(
@@ -366,18 +367,6 @@ impl Drop for WriteEventLog {
             None => (),
         }
     }
-}
-
-fn use_streaming_uploads() -> anyhow::Result<bool> {
-    if cfg!(windows) {
-        // TODO T149151673: support windows streaming upload
-        return Ok(false);
-    };
-    let mut rng = rand::thread_rng();
-    let random_number = rng.gen_range(0..100);
-    Ok(USE_STREAMING_UPLOADS
-        .get_copied()?
-        .unwrap_or(random_number < 0))
 }
 
 async fn start_persist_subprocess(
@@ -589,6 +578,7 @@ mod tests {
                 working_dir: WorkingDir::current_dir()?,
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
+                use_streaming_upload: false,
             })
         }
     }

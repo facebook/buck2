@@ -109,6 +109,7 @@ pub(crate) fn try_get_event_log_subscriber(
     sanitized_argv: Vec<String>,
     ctx: &ClientCommandContext,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    use_streaming_upload: bool,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     if event_log_opts.no_event_log {
         return Ok(None);
@@ -125,6 +126,7 @@ pub(crate) fn try_get_event_log_subscriber(
         ctx.async_cleanup_context().dupe(),
         ctx.command_name.clone(),
         log_size_counter_bytes,
+        use_streaming_upload,
     )?;
     Ok(Some(Box::new(log)))
 }

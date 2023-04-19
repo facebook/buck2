@@ -24,6 +24,7 @@ impl KillallCommand {
             "killall",
             std::env::args().collect(),
             None,
+            false,
         )?;
 
         let ok = buck2_wrapper_common::killall(|s| {

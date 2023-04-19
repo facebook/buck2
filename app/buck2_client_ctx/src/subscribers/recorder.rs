@@ -125,6 +125,7 @@ mod imp {
         restarted_trace_id: Option<TraceId>,
         has_command_result: bool,
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
+        use_streaming_upload: bool,
     }
 
     impl InvocationRecorder {
@@ -140,6 +141,7 @@ mod imp {
             invocation_root_path: AbsNormPathBuf,
             restarted_trace_id: Option<TraceId>,
             log_size_counter_bytes: Option<Arc<AtomicU64>>,
+            use_streaming_upload: bool,
         ) -> Self {
             // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
             if command_name == "uquery" {
@@ -214,6 +216,7 @@ mod imp {
                 restarted_trace_id,
                 has_command_result: false,
                 compressed_event_log_size_bytes: log_size_counter_bytes,
+                use_streaming_upload,
             }
         }
 
@@ -345,6 +348,7 @@ mod imp {
                     .compressed_event_log_size_bytes
                     .clone()
                     .map(|x| x.load(Ordering::Relaxed)),
+                use_streaming_upload: self.use_streaming_upload,
             };
 
             let event = BuckEvent::new(
@@ -997,6 +1001,7 @@ pub fn try_get_invocation_recorder(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    use_streaming_upload: bool,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
@@ -1015,6 +1020,7 @@ pub fn try_get_invocation_recorder(
         ctx.paths()?.project_root().root().to_buf(),
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,
+        use_streaming_upload,
     );
     Ok(Some(Box::new(recorder) as _))
 }
