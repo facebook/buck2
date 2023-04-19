@@ -27,6 +27,7 @@ load(
     "prepare_final_jar",
     "setup_dep_files",
 )
+load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//utils:utils.bzl", "expect", "map_idx")
 
 buckPaths = struct(
@@ -100,7 +101,7 @@ def create_jar_artifact_kotlincd(
             ),
             friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
-            jvmTarget = "1.8",
+            jvmTarget = get_kotlinc_compatible_target(str(target_level)),
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
             shouldUseCompilationTracer = kotlin_toolchain.should_use_compilation_tracer,
             shouldUseJvmAbiGen = should_use_jvm_abi_gen,

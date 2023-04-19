@@ -34,6 +34,7 @@ load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
+load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
 load("@prelude//utils:utils.bzl", "is_any", "map_idx")
 
@@ -100,7 +101,7 @@ def _create_kotlin_sources(
         ] + ctx.attrs.extra_kotlinc_arguments,
     )
 
-    jvm_target = _get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
+    jvm_target = get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
     if jvm_target:
         kotlinc_cmd_args.add([
             "-jvm-target",
@@ -235,11 +236,6 @@ def _add_plugins(
 
         if options:
             kotlinc_cmd_args.add(["-P", cmd_args(options, delimiter = ",")])
-
-# kotlinc is strict about the target that you can pass, e.g.
-# error: unknown JVM target version: 8.  Supported versions: 1.6, 1.8, 9, 10, 11, 12
-def _get_kotlinc_compatible_target(target: str.type) -> str.type:
-    return "1.6" if target == "6" else "1.8" if target == "8" else target
 
 def kotlin_library_impl(ctx: "context") -> ["provider"]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
