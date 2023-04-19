@@ -161,11 +161,6 @@ impl Line {
         Ok(())
     }
 
-    /// This function is deprecated in favor of `render`.
-    pub fn render_line(&self) -> String {
-        self.render()
-    }
-
     /// Render the line as a string with ANSI escape codes.
     ///
     /// Without trailing newline or an escape sequence to clear the line.
