@@ -29,6 +29,10 @@ impl CancellationContext {
         Self(Arc::new(CancellationContextShared {}))
     }
 
+    pub fn testing<'a>() -> &'a Self {
+        &INSTANCE
+    }
+
     /// Create a new context from a thread that is never canceled
     pub fn never_cancelled() -> &'static Self {
         &INSTANCE
