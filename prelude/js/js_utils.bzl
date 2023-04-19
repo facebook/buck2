@@ -14,7 +14,7 @@ load("@prelude//utils:utils.bzl", "expect")
 
 RAM_BUNDLE_TYPES = {
     "": "",
-    "rambundle-indexed": "--indexed-rambundle",
+    "rambundle-indexed": "indexed",
 }
 
 TRANSFORM_PROFILES = ["transform-profile-default", "hermes-stable", "hermes-canary"]
