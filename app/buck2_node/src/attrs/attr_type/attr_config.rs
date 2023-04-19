@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
@@ -47,7 +46,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     // Used to encapsulate the type encodings for various attr types.
-    type ExtraTypes: AttrConfigExtraTypes + Display + Allocative;
+    type ExtraTypes: AttrConfigExtraTypes + AttrDisplayWithContext + Allocative;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
 
@@ -56,7 +55,7 @@ pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
 
 /// Needed to support `ExtraTypes` for within `AttrConfig`.
 pub trait AttrConfigExtraTypes {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
@@ -76,23 +75,8 @@ pub enum ConfiguredAttrExtraTypes {
     Query(Box<QueryAttr<ConfiguredAttr>>),
 }
 
-impl Display for ConfiguredAttrExtraTypes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
-            Self::SplitTransitionDep(e) => Display::fmt(e, f),
-            Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
-            Self::Dep(e) => write!(f, "\"{}\"", e),
-            Self::SourceLabel(e) => write!(f, "\"{}\"", e),
-            Self::Label(e) => write!(f, "\"{}\"", e),
-            Self::Arg(e) => write!(f, "\"{}\"", e),
-            Self::Query(e) => write!(f, "\"{}\"", e.query()),
-        }
-    }
-}
-
 impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, _ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
@@ -115,6 +99,21 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::Label(e) => filter(&e.to_string()),
             Self::Arg(e) => filter(&e.to_string()),
             Self::Query(e) => filter(e.query()),
+        }
+    }
+}
+
+impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
+    fn fmt(&self, _ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+            Self::SplitTransitionDep(e) => Display::fmt(e, f),
+            Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            Self::Dep(e) => write!(f, "\"{}\"", e),
+            Self::SourceLabel(e) => write!(f, "\"{}\"", e),
+            Self::Label(e) => write!(f, "\"{}\"", e),
+            Self::Arg(e) => write!(f, "\"{}\"", e),
+            Self::Query(e) => write!(f, "\"{}\"", e.query()),
         }
     }
 }
@@ -149,7 +148,7 @@ pub enum CoercedAttrExtraTypes {
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, _ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
@@ -178,8 +177,8 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
     }
 }
 
-impl Display for CoercedAttrExtraTypes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl AttrDisplayWithContext for CoercedAttrExtraTypes {
+    fn fmt(&self, _ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             Self::SplitTransitionDep(e) => Display::fmt(e, f),

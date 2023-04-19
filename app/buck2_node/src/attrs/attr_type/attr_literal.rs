@@ -127,7 +127,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AttrLiteral::Visibility(v) => Display::fmt(v, f),
-            AttrLiteral::Extra(u) => Display::fmt(u, f),
+            AttrLiteral::Extra(u) => AttrDisplayWithContext::fmt(u, ctx, f),
         }
     }
 }
@@ -172,7 +172,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             }
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
             AttrLiteral::Visibility(v) => Ok(v.to_json()),
-            AttrLiteral::Extra(u) => u.to_json(),
+            AttrLiteral::Extra(u) => u.to_json(ctx),
         }
     }
 
