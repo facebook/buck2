@@ -379,6 +379,23 @@ impl TestOrchestrator for BuckTestOrchestrator {
 }
 
 impl BuckTestOrchestrator {
+    fn executor_preference(&self, test_supports_re: bool) -> anyhow::Result<ExecutorPreference> {
+        let mut executor_preference = ExecutorPreference::Default;
+
+        if !self.session.options().allow_re {
+            // We don't ban RE (we only prefer not to use it) if the session doesn't allow it, so
+            // that executor overrides or default executor can still route executions to RE.
+            executor_preference = executor_preference.and(ExecutorPreference::LocalPreferred)?;
+        }
+
+        if !test_supports_re {
+            // But if the test doesn't support RE at all, then we ban it.
+            executor_preference = executor_preference.and(ExecutorPreference::LocalRequired)?;
+        }
+
+        Ok(executor_preference)
+    }
+
     async fn execute_shared<'a>(
         &self,
         test_target: &ConfiguredProvidersLabel,
@@ -393,19 +410,7 @@ impl BuckTestOrchestrator {
         CommandExecutionMetadata,
         Vec<BuckOutTestPath>,
     )> {
-        let mut executor_preference = ExecutorPreference::Default;
-
-        if !self.session.options().allow_re {
-            // We don't ban RE (we only prefer not to use it) if the session doesn't allow it, so
-            // that executor overrides or default executor can still route executions to RE.
-            executor_preference = executor_preference.and(ExecutorPreference::LocalPreferred)?;
-        }
-
-        if !supports_re {
-            // But if the test doesn't support RE at all, then we ban it.
-            executor_preference = executor_preference.and(ExecutorPreference::LocalRequired)?;
-        }
-
+        let executor_preference = self.executor_preference(supports_re)?;
         request = request
             .with_executor_preference(executor_preference)
             .with_disable_miniperf(true);
