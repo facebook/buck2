@@ -55,6 +55,7 @@ use tonic::transport::channel::ClientTlsConfig;
 use tonic::transport::Certificate;
 use tonic::transport::Channel;
 use tonic::transport::Identity;
+use tonic::transport::Uri;
 
 use crate::error::*;
 use crate::metadata::*;
@@ -141,10 +142,49 @@ async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<Cli
     Ok(config)
 }
 
+fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
+    // Now do some awkward things with the protocol. Why do we do all this? The reason is
+    // because we'd like our configuration to not be super confusing. We don't want to e.g.
+    // allow setting the address to `https://foobar` without enabling TLS (or enabling tls
+    // and using `http://foobar`), so we restrict ourselves to schemes that are actually
+    // remotely valid in GRPC (which is more restrictive than what Tonic allows).
+
+    // This is the GRPC spec for naming: https://github.com/grpc/grpc/blob/master/doc/naming.md
+    // Many people (including Bazel), use grpc://, so we tolerate it.
+
+    match uri.scheme_str() {
+        Some("grpc") | Some("dns") | Some("ipv4") | Some("ipv6") | None => {}
+        Some(scheme) => {
+            return Err(anyhow::anyhow!(
+                "Invalid URI scheme: `{}` (you should omit it)",
+                scheme
+            ));
+        }
+    };
+
+    // And now, let's put back a proper scheme for Tonic to be happy with. First, because
+    // Tonic will blow up if we don't. Second, so we get port inference.
+    let mut parts = uri.into_parts();
+    parts.scheme = Some(if tls {
+        http::uri::Scheme::HTTPS
+    } else {
+        http::uri::Scheme::HTTP
+    });
+
+    // Is this API actually designed to be unusable? If you've got a scheme, you must
+    // have a path_and_query. I'm sure there's a good reason, so we abide:
+    if parts.path_and_query.is_none() {
+        parts.path_and_query = Some(http::uri::PathAndQuery::from_static(""));
+    }
+
+    Ok(Uri::from_parts(parts)?)
+}
+
 pub struct REClientBuilder;
 
 impl REClientBuilder {
     pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
+        // We just always create this just in case, so that we implicitly validate it if set.
         let tls_config = create_tls_config(opts)
             .await
             .context("Invalid TLS config")?;
@@ -154,10 +194,16 @@ impl REClientBuilder {
         let create_channel = |address: Option<String>| async move {
             let address = address.as_ref().context("No address")?;
             let address = substitute_env_vars(address).context("Invalid address")?;
+            let uri = address.parse().context("Invalid address")?;
+            let uri = prepare_uri(uri, opts.tls).context("Invalid URI")?;
+
+            let mut channel = Channel::builder(uri);
+            if opts.tls {
+                channel = channel.tls_config(tls_config.clone())?;
+            }
 
             anyhow::Ok(
-                Channel::from_shared(address.clone())?
-                    .tls_config(tls_config.clone())?
+                channel
                     .connect()
                     .await
                     .with_context(|| format!("Error connecting to `{}`", address))?,

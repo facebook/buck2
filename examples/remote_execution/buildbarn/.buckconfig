@@ -9,6 +9,7 @@ digest_algorithms = SHA256
 action_cache_address = http://localhost:8980
 engine_address = http://localhost:8980
 cas_address = http://localhost:8980
+tls = false
 
 [build]
   execution_platforms = root//platforms:platforms

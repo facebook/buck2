@@ -12,6 +12,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",

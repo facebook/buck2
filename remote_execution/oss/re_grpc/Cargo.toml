@@ -9,6 +9,7 @@ anyhow = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 futures = { workspace = true }
+http = { workspace = true }
 thiserror = { workspace = true }
 prost-types = { workspace = true }
 prost = { workspace = true }
