@@ -1,17 +1,22 @@
 # @nolint
 
-# Get current target platform - hard-coded for example, matches one of the platforms
-# defined in reindeer.toml.
+# Get current target platform. Hard-coded for now. Needs to match up with
+# platforms defined in 'reindeer.toml'.
 def _get_plat():
     if host_info().os.is_windows:
         return "windows-gnu"
+    elif host_info().os.is_macos:
+        return "macos"
     else:
         return "linux-x86_64"
 
-# Matching host triple
+# Matching host triple. Like the above, also incomplete and needing work to be
+# general.
 def _get_native_host_triple():
     if host_info().os.is_windows:
         return "x86_64-pc-windows-gnu"
+    elif host_info().os.is_macos:
+        return "x86_64-apple-darwin"
     else:
         return "x86_64-unknown-linux-gnu"
 
@@ -110,7 +115,7 @@ def _sanitize_env(kwargs):
             env[k] = v.replace("\n", "")
 
 def third_party_rust_library(
-        name, platform = {}, 
+        name, platform = {},
         dlopen_enable = None,
         linkable_alias = None,
         **kwargs):

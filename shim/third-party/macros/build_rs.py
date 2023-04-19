@@ -29,6 +29,15 @@ def arg_parse():
 def mk_feature(x):
     return "CARGO_FEATURE_" + x.upper().replace("-", "_")
 
+def os_from_target(target):
+    # `_mk_cmd` in `rust_third_party.bzl` passes the result of
+    # `_get_native_host_triple()` here.
+    os = target.split("-")[2]
+    # The result is used to set `CARGO_CFG_TARGET_OS` so should be a value in
+    # the set "windows", "macos", "ios", "linux", "android", "freebsd",
+    # "dragonfly", "openbsd", "netbsd".
+    return "macos" if os == "darwin" else os
+
 def mk_env(args, parent):
     env = os.environ.copy()
     out_dir = Path(args.output)
@@ -41,7 +50,7 @@ def mk_env(args, parent):
     env["HOST"] = args.target
     env["TARGET"] = args.target
     env["CARGO_CFG_TARGET_ARCH"] = args.target.split("-")[0]
-    env["CARGO_CFG_TARGET_OS"] = args.target.split("-")[2]
+    env["CARGO_CFG_TARGET_OS"] = os_from_target(args.target)
     env["CARGO_CFG_TARGET_POINTER_WIDTH"] = "64"
     env["CARGO_CFG_TARGET_ENDIAN"] = "little"
     for k, v in args.env or []:
