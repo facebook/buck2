@@ -76,7 +76,7 @@ pub(crate) async fn targets_streaming(
             let imported = imported.dupe();
             let threads = threads.dupe();
 
-            dice.temporary_spawn(move |dice| async move {
+            dice.temporary_spawn(move |dice, _cancellation| async move {
                 let (package, spec) = x?;
                 let mut res = Res {
                     stats: Stats::default(),

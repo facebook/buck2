@@ -291,7 +291,7 @@ impl TargetHashes {
                 self.hashes.insert(
                     target.node_ref().clone(),
                     async move {
-                        dice.temporary_spawn(move |_| async move {
+                        dice.temporary_spawn(move |_, _cancellation| async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                             TargetHashes::hash_node(&target, &mut *hasher);
 

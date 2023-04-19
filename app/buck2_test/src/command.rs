@@ -413,7 +413,7 @@ async fn test_targets(
     let test_run =
         ctx.temporary_spawn({
             let test_status_sender = test_status_sender.clone();
-            move |ctx| {
+            move |ctx, _cancellation| {
                 // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
                 // if the liveliness guard indicates we should.
                 critical_section(move || async move {

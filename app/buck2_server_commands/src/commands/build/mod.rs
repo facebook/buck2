@@ -352,7 +352,7 @@ async fn build_targets_in_universe(
         .map(|p| {
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
-            ctx.temporary_spawn(|ctx| async move {
+            ctx.temporary_spawn(|ctx, _cancellation| async move {
                 let option = build::build_configured_label(
                     &ctx,
                     &materialization_context,
@@ -384,7 +384,7 @@ async fn build_targets_with_global_target_platform(
             let build_providers = build_providers.dupe();
             let global_target_platform = global_target_platform.dupe();
             let materialization_context = materialization_context.dupe();
-            ctx.temporary_spawn(async move |ctx| {
+            ctx.temporary_spawn(async move |ctx, _cancellation| {
                 let res = ctx.get_interpreter_results(package.dupe()).await?;
                 build_targets_for_spec(
                     &ctx,
@@ -471,7 +471,7 @@ async fn build_targets_for_spec(
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
             // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-            ctx.temporary_spawn(async move |ctx| {
+            ctx.temporary_spawn(async move |ctx, _cancellation| {
                 build_target(
                     &ctx,
                     build_spec,

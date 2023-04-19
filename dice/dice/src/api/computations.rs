@@ -12,6 +12,7 @@ use std::future::Future;
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -84,12 +85,17 @@ impl DiceComputations {
     /// the Arc, which makes lifetimes weird.
     pub fn temporary_spawn<F, FUT, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
     where
-        F: FnOnce(DiceTransaction) -> FUT + Send + 'static,
+        F: FnOnce(DiceTransaction, &CancellationContext) -> FUT + Send + 'static,
         FUT: Future<Output = R> + Send,
         R: Send + 'static,
     {
-        self.0
-            .temporary_spawn(async move |ctx| f(DiceTransaction(DiceComputations(ctx))).await)
+        self.0.temporary_spawn(async move |ctx| {
+            f(
+                DiceTransaction(DiceComputations(ctx)),
+                &CancellationContext::todo(),
+            )
+            .await
+        })
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

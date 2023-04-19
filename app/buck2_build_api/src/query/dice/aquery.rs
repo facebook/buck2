@@ -180,7 +180,9 @@ async fn get_tset_node(
     Ok(node_cache
         .tset_nodes
         .get_or_compute(key, move |key| {
-            ctx.temporary_spawn(move |ctx| compute_tset_node(copied_node_cache, ctx, key))
+            ctx.temporary_spawn(move |ctx, _cancellation| {
+                compute_tset_node(copied_node_cache, ctx, key)
+            })
         })
         .await?)
 }
@@ -209,7 +211,9 @@ async fn get_action_node(
     Ok(node_cache
         .action_nodes
         .get_or_compute(key, move |key| {
-            ctx.temporary_spawn(move |ctx| compute_action_node(copied_node_cache, ctx, key, fs))
+            ctx.temporary_spawn(move |ctx, _cancellation| {
+                compute_action_node(copied_node_cache, ctx, key, fs)
+            })
         })
         .await?)
 }

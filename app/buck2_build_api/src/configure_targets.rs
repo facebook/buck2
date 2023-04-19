@@ -61,7 +61,7 @@ pub async fn get_maybe_compatible_targets(
         let targets = result?;
         let global_target_platform = global_target_platform.dupe();
 
-        by_package_futs.push(ctx.temporary_spawn(|ctx| async move {
+        by_package_futs.push(ctx.temporary_spawn(|ctx, _cancellation| async move {
             let ctx = &ctx;
             let global_target_platform = global_target_platform.as_ref();
             let target_futs: Vec<_> = targets.map(|target| async move {

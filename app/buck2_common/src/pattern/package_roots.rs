@@ -46,7 +46,7 @@ pub fn find_package_roots_stream(
     let (packages_tx, packages_rx) = mpsc::unbounded();
 
     // We don't wait on the task finishing. The packages_rx we return will naturally end when the tx side is dropped.
-    let spawned = ctx.temporary_spawn(|ctx| async move {
+    let spawned = ctx.temporary_spawn(|ctx, _cancellation| async move {
         let file_ops = ctx.file_ops();
         let cell_resolver = ctx.get_cell_resolver().await?;
         let _ignored = find_package_roots_impl(&file_ops, &cell_resolver, paths, |res| {

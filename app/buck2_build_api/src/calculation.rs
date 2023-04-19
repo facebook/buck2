@@ -240,7 +240,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         package: PackageLabel,
     ) -> BoxFuture<'a, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> {
         // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
-        ctx.temporary_spawn(async move |ctx| {
+        ctx.temporary_spawn(async move |ctx, _cancellation| {
             let res = ctx.get_interpreter_results(package.dupe()).await;
             (package, res)
         })
