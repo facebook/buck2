@@ -12,7 +12,12 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use once_cell::sync::Lazy;
+
 use crate::cancellable_future::critical_section;
+
+static INSTANCE: Lazy<CancellationContext> =
+    Lazy::new(|| CancellationContext(Arc::new(CancellationContextShared {})));
 
 /// Context available to the function running inside the future to control and manage it's own
 /// cancellation
@@ -22,6 +27,11 @@ impl CancellationContext {
     /// TODO replace with real initialization
     pub fn todo() -> Self {
         Self(Arc::new(CancellationContextShared {}))
+    }
+
+    /// Create a new context from a thread that is never canceled
+    pub fn never_cancelled() -> &'static Self {
+        &INSTANCE
     }
 
     /// Enter a critical section during which the current future (if supports explicit cancellation)
