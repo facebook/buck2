@@ -203,6 +203,8 @@ impl TestOrchestrator for BuckTestOrchestrator {
             supports_re,
             declared_outputs,
         } = test_executable_expanded;
+
+        let executor_preference = self.executor_preference(supports_re)?;
         let execution_request = self
             .create_command_execution_request(
                 cwd,
@@ -213,17 +215,12 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 &fs,
                 Some(timeout),
                 Some(host_sharing_requirements),
+                Some(executor_preference),
             )
             .await?;
 
         let (stdout, stderr, status, timing, outputs) = self
-            .execute_shared(
-                &test_target,
-                metadata,
-                supports_re,
-                &executor,
-                execution_request,
-            )
+            .execute_shared(&test_target, metadata, &executor, execution_request)
             .await?;
 
         self.liveliness_observer.require_alive().await?;
@@ -355,6 +352,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 &fs,
                 None,
                 None,
+                None,
             )
             .await?;
 
@@ -400,7 +398,6 @@ impl BuckTestOrchestrator {
         &self,
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
-        supports_re: bool,
         executor: &CommandExecutor,
         mut request: CommandExecutionRequest,
     ) -> anyhow::Result<(
@@ -410,10 +407,7 @@ impl BuckTestOrchestrator {
         CommandExecutionMetadata,
         Vec<BuckOutTestPath>,
     )> {
-        let executor_preference = self.executor_preference(supports_re)?;
-        request = request
-            .with_executor_preference(executor_preference)
-            .with_disable_miniperf(true);
+        request = request.with_disable_miniperf(true);
 
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
@@ -678,6 +672,7 @@ impl BuckTestOrchestrator {
         fs: &ArtifactFs,
         timeout: Option<Duration>,
         host_sharing_requirements: Option<HostSharingRequirements>,
+        executor_preference: Option<ExecutorPreference>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -708,6 +703,9 @@ impl BuckTestOrchestrator {
         }
         if let Some(host_sharing_requirements) = host_sharing_requirements {
             request = request.with_host_sharing_requirements(host_sharing_requirements);
+        }
+        if let Some(executor_preference) = executor_preference {
+            request = request.with_executor_preference(executor_preference);
         }
         Ok(request)
     }
