@@ -67,7 +67,6 @@ def _unarchive_cmd(ext_type: str.type, exec_is_windows: bool.type, archive: "art
 
 def http_archive_impl(ctx: "context") -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not support: {}".format(ctx.attrs.urls))
-    expect(ctx.attrs.strip_prefix == None, "`strip_prefix` not supported: {}".format(ctx.attrs.strip_prefix))
 
     # The HTTP download is local so it makes little sense to run actions
     # remotely, unless we can defer them.
@@ -135,5 +134,8 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         category = "http_archive",
         local_only = local_only,
     )
+
+    if ctx.attrs.strip_prefix:
+        output = output.project(ctx.attrs.strip_prefix, hide_prefix = True)
 
     return [DefaultInfo(default_output = output)]
