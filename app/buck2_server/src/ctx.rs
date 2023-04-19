@@ -505,7 +505,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
 
         let enable_miniperf = root_config
             .parse::<RolloutPercentage>("buck2", "miniperf2")?
-            .unwrap_or_else(RolloutPercentage::never)
+            .unwrap_or_else(RolloutPercentage::always)
             .roll();
 
         let executor_global_knobs = ExecutorGlobalKnobs { enable_miniperf };
