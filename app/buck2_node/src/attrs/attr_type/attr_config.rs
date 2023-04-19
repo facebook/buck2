@@ -10,10 +10,13 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::target::label::TargetLabel;
+use dupe::Dupe;
+use either::Either;
 use serde_json::to_value;
 
 use super::arg::StringWithMacros;
@@ -27,6 +30,7 @@ use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -73,10 +77,11 @@ pub enum ConfiguredAttrExtraTypes {
     Label(Box<ConfiguredProvidersLabel>),
     Arg(StringWithMacros<ConfiguredAttr>),
     Query(Box<QueryAttr<ConfiguredAttr>>),
+    SourceFile(CoercedPath),
 }
 
 impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
-    fn to_json(&self, _ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
@@ -86,6 +91,7 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::Label(e) => Ok(to_value(e.to_string())?),
             Self::Arg(e) => Ok(to_value(e.to_string())?),
             Self::Query(e) => Ok(to_value(e.query())?),
+            Self::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
 
@@ -99,12 +105,13 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::Label(e) => filter(&e.to_string()),
             Self::Arg(e) => filter(&e.to_string()),
             Self::Query(e) => filter(e.query()),
+            Self::SourceFile(e) => filter(&e.path().to_string()),
         }
     }
 }
 
 impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
-    fn fmt(&self, _ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             Self::SplitTransitionDep(e) => Display::fmt(e, f),
@@ -114,6 +121,7 @@ impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
             Self::Label(e) => write!(f, "\"{}\"", e),
             Self::Arg(e) => write!(f, "\"{}\"", e),
             Self::Query(e) => write!(f, "\"{}\"", e.query()),
+            Self::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
         }
     }
 }
@@ -145,10 +153,11 @@ pub enum CoercedAttrExtraTypes {
     Label(Box<ProvidersLabel>),
     Arg(StringWithMacros<CoercedAttr>),
     Query(Box<QueryAttr<CoercedAttr>>),
+    SourceFile(CoercedPath),
 }
 
 impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
-    fn to_json(&self, _ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
             Self::SplitTransitionDep(e) => e.to_json(),
@@ -159,6 +168,7 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::Label(e) => Ok(to_value(e.to_string())?),
             Self::Arg(e) => Ok(to_value(e.to_string())?),
             Self::Query(e) => Ok(to_value(e.query())?),
+            Self::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
 
@@ -173,12 +183,13 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::Label(e) => filter(&e.to_string()),
             Self::Arg(e) => filter(&e.to_string()),
             Self::Query(e) => filter(e.query()),
+            Self::SourceFile(e) => filter(&e.path().to_string()),
         }
     }
 }
 
 impl AttrDisplayWithContext for CoercedAttrExtraTypes {
-    fn fmt(&self, _ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             Self::SplitTransitionDep(e) => Display::fmt(e, f),
@@ -189,6 +200,7 @@ impl AttrDisplayWithContext for CoercedAttrExtraTypes {
             Self::Label(e) => write!(f, "\"{}\"", e),
             Self::Arg(e) => write!(f, "\"{}\"", e),
             Self::Query(e) => write!(f, "\"{}\"", e.query()),
+            Self::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
         }
     }
 }
@@ -203,5 +215,18 @@ impl AttrConfig for CoercedAttr {
 
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         CoercedAttr::any_matches(self, filter)
+    }
+}
+
+fn source_file_display<'a>(
+    ctx: &'a AttrFmtContext,
+    source_file: &'a CoercedPath,
+) -> impl Display + 'a {
+    match &ctx.package {
+        Some(pkg) => Either::Left(BuckPathRef::new(pkg.dupe(), source_file.path())),
+        None => {
+            // This code is unreachable, but better this than panic.
+            Either::Right(format!("<no package>/{}", source_file.path()))
+        }
     }
 }

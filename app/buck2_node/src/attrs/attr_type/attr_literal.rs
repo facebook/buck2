@@ -15,7 +15,6 @@ use buck2_core::package::PackageLabel;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
-use either::Either;
 use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
@@ -29,7 +28,6 @@ use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -58,7 +56,6 @@ pub enum AttrLiteral<C: AttrConfig> {
     Tuple(ArcSlice<C>),
     Dict(ArcSlice<(C, C)>),
     None,
-    SourceFile(CoercedPath),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
     OneOf(
@@ -124,7 +121,6 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
                 Ok(())
             }
             AttrLiteral::None => write!(f, "None"),
-            AttrLiteral::SourceFile(v) => write!(f, "\"{}\"", Self::source_file_display(ctx, v)),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AttrLiteral::Visibility(v) => Display::fmt(v, f),
             AttrLiteral::Extra(u) => AttrDisplayWithContext::fmt(u, ctx, f),
@@ -133,19 +129,6 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
 }
 
 impl<C: AttrConfig> AttrLiteral<C> {
-    fn source_file_display<'a>(
-        ctx: &'a AttrFmtContext,
-        source_file: &'a CoercedPath,
-    ) -> impl Display + 'a {
-        match &ctx.package {
-            Some(pkg) => Either::Left(BuckPathRef::new(pkg.dupe(), source_file.path())),
-            None => {
-                // This code is unreachable, but better this than panic.
-                Either::Right(format!("<no package>/{}", source_file.path()))
-            }
-        }
-    }
-
     pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         use serde_json::to_value;
         match self {
@@ -167,9 +150,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 Ok(res.into())
             }
             AttrLiteral::None => Ok(serde_json::Value::Null),
-            AttrLiteral::SourceFile(s) => {
-                Ok(to_value(Self::source_file_display(ctx, s).to_string())?)
-            }
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
             AttrLiteral::Visibility(v) => Ok(v.to_json()),
             AttrLiteral::Extra(u) => u.to_json(ctx),
@@ -200,7 +180,6 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 Ok(false)
             }
             AttrLiteral::None => Ok(false),
-            AttrLiteral::SourceFile(s) => filter(&s.path().to_string()),
             AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
             AttrLiteral::Int(i) => filter(&i.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
@@ -246,12 +225,6 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::None => Ok(()),
-            AttrLiteral::SourceFile(source) => {
-                for x in source.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
-                }
-                Ok(())
-            }
             AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
             AttrLiteral::Visibility(..) => Ok(()),
             AttrLiteral::Extra(u) => match u {
@@ -270,6 +243,12 @@ impl AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::Label(label) => traversal.label(label),
                 ConfiguredAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
                 ConfiguredAttrExtraTypes::Query(query) => query.traverse(traversal),
+                ConfiguredAttrExtraTypes::SourceFile(source) => {
+                    for x in source.inputs() {
+                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    }
+                    Ok(())
+                }
             },
         }
     }
@@ -297,7 +276,6 @@ impl AttrLiteral<CoercedAttr> {
                 .into(),
             ),
             AttrLiteral::None => AttrLiteral::None,
-            AttrLiteral::SourceFile(s) => AttrLiteral::SourceFile(s.clone()),
             AttrLiteral::OneOf(l, i) => {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
                 AttrLiteral::OneOf(Box::new(configured), *i)
@@ -329,6 +307,9 @@ impl AttrLiteral<CoercedAttr> {
                 CoercedAttrExtraTypes::Query(query) => AttrLiteral::Extra(
                     ConfiguredAttrExtraTypes::Query(Box::new(query.configure(ctx)?)),
                 ),
+                CoercedAttrExtraTypes::SourceFile(s) => {
+                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
+                }
             },
         }))
     }
@@ -357,12 +338,6 @@ impl AttrLiteral<CoercedAttr> {
                 Ok(())
             }
             AttrLiteral::None => Ok(()),
-            AttrLiteral::SourceFile(source) => {
-                for x in source.inputs() {
-                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
-                }
-                Ok(())
-            }
             AttrLiteral::OneOf(box l, _) => l.traverse(pkg, traversal),
             AttrLiteral::Visibility(..) => Ok(()),
             AttrLiteral::Extra(u) => match u {
@@ -379,6 +354,12 @@ impl AttrLiteral<CoercedAttr> {
                 CoercedAttrExtraTypes::Label(label) => traversal.label(label),
                 CoercedAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
                 CoercedAttrExtraTypes::Query(query) => query.traverse(traversal),
+                CoercedAttrExtraTypes::SourceFile(source) => {
+                    for x in source.inputs() {
+                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    }
+                    Ok(())
+                }
             },
         }
     }

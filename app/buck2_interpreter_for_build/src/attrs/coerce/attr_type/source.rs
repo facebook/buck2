@@ -51,7 +51,7 @@ impl AttrTypeCoerce for SourceAttrType {
             ))),
             Err(label_err) => {
                 match ctx.coerce_path(cleanup_path(source_label), self.allow_directory) {
-                    Ok(path) => Ok(AttrLiteral::SourceFile(path)),
+                    Ok(path) => Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::SourceFile(path))),
                     Err(path_err) => Err(SourceLabelCoercionError::CoercionFailed(
                         value.to_str(),
                         label_err,

@@ -160,10 +160,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 Ok(ctx.heap().alloc(Dict::new(res)))
             }
             AttrLiteral::None => Ok(Value::new_none()),
-            AttrLiteral::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
-                ctx,
-                BuckPath::new(pkg.dupe(), s.path().dupe()),
-            )),
             AttrLiteral::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             a @ AttrLiteral::Visibility(_) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
@@ -190,6 +186,10 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 }
                 ConfiguredAttrExtraTypes::Arg(arg) => arg.resolve(ctx),
                 ConfiguredAttrExtraTypes::Query(query) => query.resolve(ctx),
+                ConfiguredAttrExtraTypes::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
+                    ctx,
+                    BuckPath::new(pkg.dupe(), s.path().dupe()),
+                )),
             },
         }
     }
@@ -219,7 +219,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
             AttrLiteral::Dict(_) => Ok(Dict::TYPE),
             AttrLiteral::None => Ok(NoneType::TYPE),
-            AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             AttrLiteral::OneOf(box l, _) => l.starlark_type(),
             AttrLiteral::Visibility(..) => Ok(ListRef::TYPE),
             AttrLiteral::Extra(u) => match u {
@@ -237,6 +236,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::Label(_) => Ok(Label::get_type_value_static().as_str()),
                 ConfiguredAttrExtraTypes::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
                 ConfiguredAttrExtraTypes::Query(_) => Ok(starlark::values::string::STRING_TYPE),
+                ConfiguredAttrExtraTypes::SourceFile(_) => {
+                    Ok(StarlarkArtifact::get_type_value_static().as_str())
+                }
             },
         }
     }
@@ -263,9 +265,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 heap.alloc(Dict::new(res))
             }
             AttrLiteral::None => Value::new_none(),
-            AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
-            ))),
             AttrLiteral::OneOf(box l, _) => l.to_value(pkg, heap)?,
             AttrLiteral::Visibility(specs) => match specs {
                 VisibilitySpecification::Public => heap.alloc(AllocList(["PUBLIC"])),
@@ -298,6 +297,11 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::Label(l) => heap.alloc(Label::new(*l.clone())),
                 ConfiguredAttrExtraTypes::Arg(arg) => heap.alloc(arg.to_string()),
                 ConfiguredAttrExtraTypes::Query(query) => heap.alloc(query.query.query()),
+                ConfiguredAttrExtraTypes::SourceFile(f) => {
+                    heap.alloc(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
+                        BuckPath::new(pkg.to_owned(), f.path().dupe()),
+                    ))))
+                }
             },
         })
     }
