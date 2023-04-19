@@ -165,7 +165,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ctx,
                 BuckPath::new(pkg.dupe(), s.path().dupe()),
             )),
-            AttrLiteral::Arg(arg) => arg.resolve(ctx),
             AttrLiteral::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             a @ AttrLiteral::Visibility(_) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
@@ -190,6 +189,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     let label = Label::new(*label.clone());
                     Ok(ctx.heap().alloc(label))
                 }
+                ConfiguredAttrExtraTypes::Arg(arg) => arg.resolve(ctx),
             },
         }
     }
@@ -221,7 +221,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::None => Ok(NoneType::TYPE),
             AttrLiteral::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
-            AttrLiteral::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             AttrLiteral::OneOf(box l, _) => l.starlark_type(),
             AttrLiteral::Visibility(..) => Ok(ListRef::TYPE),
             AttrLiteral::Extra(u) => match u {
@@ -237,6 +236,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                     Ok(Label::get_type_value_static().as_str())
                 }
                 ConfiguredAttrExtraTypes::Label(_) => Ok(Label::get_type_value_static().as_str()),
+                ConfiguredAttrExtraTypes::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
             },
         }
     }
@@ -267,7 +267,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
             ))),
-            AttrLiteral::Arg(arg) => heap.alloc(arg.to_string()),
             AttrLiteral::OneOf(box l, _) => l.to_value(pkg, heap)?,
             AttrLiteral::Visibility(specs) => match specs {
                 VisibilitySpecification::Public => heap.alloc(AllocList(["PUBLIC"])),
@@ -298,6 +297,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
                 ConfiguredAttrExtraTypes::Dep(d) => heap.alloc(Label::new(d.label.clone())),
                 ConfiguredAttrExtraTypes::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
                 ConfiguredAttrExtraTypes::Label(l) => heap.alloc(Label::new(*l.clone())),
+                ConfiguredAttrExtraTypes::Arg(arg) => heap.alloc(arg.to_string()),
             },
         })
     }

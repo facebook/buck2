@@ -171,10 +171,10 @@ impl ConfiguredAttr {
                     Ok(Self(AttrLiteral::String(ArcStr::from(res))))
                 }
             }
-            AttrLiteral::Arg(left) => {
+            AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(left)) => {
                 let res = left.concat(items.map(|x| {
                     match x?.0 {
-                        AttrLiteral::Arg(x) => Ok(x),
+                        AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(x)) => Ok(x),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
                             attr.as_display_no_ctx().to_string(),
@@ -182,7 +182,7 @@ impl ConfiguredAttr {
                         .into()),
                     }
                 }))?;
-                Ok(Self(AttrLiteral::Arg(res)))
+                Ok(Self(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(res))))
             }
             val => Err(ConfiguredAttrError::ConcatNotSupported(
                 val.as_display_no_ctx().to_string(),
