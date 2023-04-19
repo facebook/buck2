@@ -43,6 +43,7 @@ use crate::subscribers::event_log::utils::EventLogErrors;
 use crate::subscribers::event_log::utils::Invocation;
 use crate::subscribers::event_log::utils::LogMode;
 use crate::subscribers::event_log::utils::NoInference;
+use crate::subscribers::should_upload_log;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
@@ -314,18 +315,19 @@ async fn start_persist_subprocess(
     let mut command = buck2_util::process::async_background_command(current_exe);
     let manifold_name = &format!("{}{}", trace_id, path.extension());
     let local_path = &path.path.display().to_string();
-    let child = command
+    command
         .args(["debug", "persist-event-logs"])
         .args(["--manifold-name", manifold_name])
-        .args(["--local-path", local_path])
-        .stdin(Stdio::piped())
-        .spawn()
-        .with_context(|| {
-            format!(
-                "Failed to open event log subprocess for writing at `{}`",
-                path.path.display()
-            )
-        })?;
+        .args(["--local-path", local_path]);
+    if !should_upload_log()? {
+        command.arg("--no-upload");
+    };
+    let child = command.stdin(Stdio::piped()).spawn().with_context(|| {
+        format!(
+            "Failed to open event log subprocess for writing at `{}`",
+            path.path.display()
+        )
+    })?;
     let pipe = child.stdin.expect("stdin was piped");
     get_writer(path, pipe, trace_id)
 }

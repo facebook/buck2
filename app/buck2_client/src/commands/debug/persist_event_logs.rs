@@ -37,6 +37,8 @@ pub struct PersistEventLogsCommand {
     manifold_name: String,
     #[clap(long, help = "Where to write this log to on disk")]
     local_path: String,
+    #[clap(long, help = "If present, only write to disk and don't upload")]
+    no_upload: bool,
 }
 
 impl PersistEventLogsCommand {
@@ -65,17 +67,20 @@ impl PersistEventLogsCommand {
             &mut first_upload,
             &manifold_path,
             upload_chunk_size,
+            !self.no_upload,
         )
         .await?;
-        upload_remaining(
-            &mut file,
-            upload_handle,
-            read_position,
-            first_upload,
-            &manifold_path,
-            upload_chunk_size,
-        )
-        .await?;
+        if !self.no_upload {
+            upload_remaining(
+                &mut file,
+                upload_handle,
+                read_position,
+                first_upload,
+                &manifold_path,
+                upload_chunk_size,
+            )
+            .await?;
+        };
         Ok(())
     }
 
@@ -104,6 +109,7 @@ async fn poll_and_upload_loop(
     first_upload: &mut bool,
     manifold_path: &str,
     chunk_size: u64,
+    should_upload: bool,
 ) -> Result<(), anyhow::Error> {
     let mut write_position: u64 = 0;
     loop {
@@ -115,7 +121,9 @@ async fn poll_and_upload_loop(
         write_to_file(file, write_position, &buf[..bytes_read]).await?;
         write_position += bytes_read as u64;
         let cert = find_certs::find_tls_cert()?;
-        if should_upload(*read_position, write_position, &*upload_handle, chunk_size) {
+        if should_upload
+            && should_upload_chunk(*read_position, write_position, &*upload_handle, chunk_size)
+        {
             file.seek(io::SeekFrom::Start(*read_position))
                 .await
                 .context("Failed to seek log file")?;
@@ -192,7 +200,7 @@ async fn read_chunk(
     Ok((buf, len))
 }
 
-fn should_upload(
+fn should_upload_chunk(
     read_position: u64,
     write_position: u64,
     upload_handle: &MyJoinHandle,
