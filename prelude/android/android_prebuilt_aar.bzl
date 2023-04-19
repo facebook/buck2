@@ -24,6 +24,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
     assets = ctx.actions.declare_output("assets", dir = True)
     jni = ctx.actions.declare_output("jni", dir = True)
     annotation_jars_dir = ctx.actions.declare_output("annotation_jars", dir = True)
+    proguard_config = ctx.actions.declare_output("proguard.txt")
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     unpack_aar_tool = android_toolchain.unpack_aar[RunInfo]
@@ -48,6 +49,8 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         jni.as_output(),
         "--annotation-jars-dir",
         annotation_jars_dir.as_output(),
+        "--proguard-config-path",
+        proguard_config.as_output(),
         "--jar-tool",
         jar_tool,
     ]
@@ -81,6 +84,7 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
         needs_desugar = True,
         is_prebuilt_jar = True,
         annotation_jars_dir = annotation_jars_dir,
+        proguard_config = proguard_config,
     )
 
     native_library = PrebuiltNativeLibraryDir(
@@ -106,5 +110,6 @@ def android_prebuilt_aar_impl(ctx: "context") -> ["provider"]:
             assets,
             jni,
             annotation_jars_dir,
+            proguard_config,
         ]),
     ]
