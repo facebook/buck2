@@ -118,40 +118,59 @@ async fn poll_and_upload_loop(
         write_to_file(file, write_position, &buf[..bytes_read]).await?;
         write_position += bytes_read as u64;
         let cert = find_certs::find_tls_cert()?;
-        if should_upload
-            && should_upload_chunk(*read_position, write_position, &upload_handle, chunk_size)
-        {
-            file.seek(io::SeekFrom::Start(*read_position))
-                .await
-                .context("Failed to seek log file")?;
-            let (buf, len) = read_chunk(file, chunk_size).await?;
-            // Upload concurrently
-            let manifold_path = manifold_path.to_owned();
-            if *first_upload {
-                upload_handle = Some(tokio::spawn(async move {
-                    if let Err(e) = upload_write(manifold_path, &buf).await {
-                        let _res = buck2_core::soft_error!("manifold_write_error", e);
-                    }
-                    Ok(())
-                }));
-                *first_upload = false;
-            } else {
-                let read_position_clone = *read_position;
-                upload_handle = Some(tokio::spawn(async move {
-                    if let Err(e) =
-                        upload_append(manifold_path, &buf, read_position_clone, &cert).await
-                    {
-                        let _res = buck2_core::soft_error!("manifold_append_error", e);
-                    }
-                    Ok(())
-                }));
+        if should_upload && upload_handle.as_ref().map_or(true, |h| h.is_finished()) {
+            if write_position - *read_position > chunk_size {
+                upload_chunk(
+                    file,
+                    read_position,
+                    chunk_size,
+                    manifold_path,
+                    first_upload,
+                    &mut upload_handle,
+                    cert,
+                )
+                .await?;
             }
-            *read_position += len as u64;
         }
     }
     if let Some(handle) = upload_handle {
         handle.await.context("Error while uploading chunk")??;
     };
+    Ok(())
+}
+
+async fn upload_chunk(
+    file: &mut File,
+    read_position: &mut u64,
+    chunk_size: u64,
+    manifold_path: &str,
+    first_upload: &mut bool,
+    upload_handle: &mut Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>,
+    cert: OsString,
+) -> Result<(), anyhow::Error> {
+    file.seek(io::SeekFrom::Start(*read_position))
+        .await
+        .context("Failed to seek log file")?;
+    let (buf, len) = read_chunk(file, chunk_size).await?;
+    let manifold_path = manifold_path.to_owned();
+    if *first_upload {
+        *upload_handle = Some(tokio::spawn(async move {
+            if let Err(e) = upload_write(manifold_path, &buf).await {
+                let _res = buck2_core::soft_error!("manifold_write_error", e);
+            }
+            Ok(())
+        }));
+        *first_upload = false;
+    } else {
+        let read_position_clone = *read_position;
+        *upload_handle = Some(tokio::spawn(async move {
+            if let Err(e) = upload_append(manifold_path, &buf, read_position_clone, &cert).await {
+                let _res = buck2_core::soft_error!("manifold_append_error", e);
+            }
+            Ok(())
+        }));
+    }
+    *read_position += len as u64;
     Ok(())
 }
 
@@ -194,16 +213,6 @@ async fn read_chunk(
         .await
         .context("Cannot read log file chunk")?;
     Ok((buf, len))
-}
-
-fn should_upload_chunk(
-    read_position: u64,
-    write_position: u64,
-    upload_handle: &MyJoinHandle,
-    chunk_size: u64,
-) -> bool {
-    write_position - read_position > chunk_size
-        && upload_handle.as_ref().map_or(true, |h| h.is_finished())
 }
 
 async fn write_to_file(
