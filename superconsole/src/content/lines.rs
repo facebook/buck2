@@ -263,7 +263,11 @@ impl Lines {
     /// If a limit is specified, no more than that amount will be drained.
     /// The limit is on the number of *lines*, **NOT** the number of *bytes*.
     /// Care should be taken with calling a limit of 0 - this will cause no lines to render and the buffer to never be drained.
-    pub fn render(&mut self, writer: &mut Vec<u8>, limit: Option<usize>) -> anyhow::Result<()> {
+    pub(crate) fn render(
+        &mut self,
+        writer: &mut Vec<u8>,
+        limit: Option<usize>,
+    ) -> anyhow::Result<()> {
         let limit = limit.unwrap_or(self.len());
         let amt = cmp::min(limit, self.len());
         for line in self.0.drain(..amt) {
