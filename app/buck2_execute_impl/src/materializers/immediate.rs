@@ -41,7 +41,7 @@ use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 
@@ -94,17 +94,23 @@ impl Materializer for ImmediateMaterializer {
         srcs: Vec<CopiedArtifact>,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(Box::new(CleanOutputPaths {
-                paths: vec![path.to_owned()],
-            }))
+            .execute_io(
+                Box::new(CleanOutputPaths {
+                    paths: vec![path.to_owned()],
+                }),
+                &CancellationContext::todo(),
+            )
             .await?;
 
         // TODO: display [materializing] in superconsole
         self.io_executor
-            .execute_io(Box::new(MaterializeTreeStructure {
-                path: path.clone(),
-                entry: value.entry().dupe(),
-            }))
+            .execute_io(
+                Box::new(MaterializeTreeStructure {
+                    path: path.clone(),
+                    entry: value.entry().dupe(),
+                }),
+                &CancellationContext::todo(),
+            )
             .await?;
 
         self.io_executor
@@ -135,17 +141,23 @@ impl Materializer for ImmediateMaterializer {
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(Box::new(CleanOutputPaths {
-                paths: artifacts.map(|(p, _)| p.to_owned()),
-            }))
+            .execute_io(
+                Box::new(CleanOutputPaths {
+                    paths: artifacts.map(|(p, _)| p.to_owned()),
+                }),
+                &CancellationContext::todo(),
+            )
             .await?;
 
         for (path, value) in artifacts.iter() {
             self.io_executor
-                .execute_io(Box::new(MaterializeTreeStructure {
-                    path: path.to_owned(),
-                    entry: value.entry().dupe(),
-                }))
+                .execute_io(
+                    Box::new(MaterializeTreeStructure {
+                        path: path.to_owned(),
+                        entry: value.entry().dupe(),
+                    }),
+                    &CancellationContext::todo(),
+                )
                 .await?;
         }
 
@@ -169,7 +181,9 @@ impl Materializer for ImmediateMaterializer {
 
         let re_conn = self.re_client_manager.get_re_connection();
         let re_client = re_conn.get_client();
-        critical_section(|| re_client.materialize_files(files, info.re_use_case)).await?;
+        CancellationContext::todo()
+            .critical_section(|| re_client.materialize_files(files, info.re_use_case))
+            .await?;
         Ok(())
     }
 
@@ -179,9 +193,12 @@ impl Materializer for ImmediateMaterializer {
         info: HttpDownloadInfo,
     ) -> anyhow::Result<()> {
         self.io_executor
-            .execute_io(Box::new(CleanOutputPaths {
-                paths: vec![path.to_owned()],
-            }))
+            .execute_io(
+                Box::new(CleanOutputPaths {
+                    paths: vec![path.to_owned()],
+                }),
+                &CancellationContext::todo(),
+            )
             .await?;
 
         http_download(

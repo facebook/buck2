@@ -44,6 +44,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use gazebo::prelude::VecExt;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
@@ -81,20 +82,22 @@ struct MaterializationStat {
 
 #[async_trait]
 pub(super) trait IoHandler: Sized + Sync + Send + 'static {
-    fn write(
+    fn write<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: Version,
         command_sender: MaterializerSender<Self>,
-    ) -> BoxFuture<'static, Result<(), SharedMaterializingError>>;
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
 
-    fn clean_path(
+    fn clean_path<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         version: Version,
         command_sender: MaterializerSender<Self>,
-    ) -> BoxFuture<'static, Result<(), SharedError>>;
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, Result<(), SharedError>>;
 
     async fn materialize_entry(
         self: &Arc<Self>,
@@ -102,6 +105,7 @@ pub(super) trait IoHandler: Sized + Sync + Send + 'static {
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         event_dispatcher: EventDispatcher,
+        cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError>;
 
     fn create_ttl_refresh(
@@ -114,20 +118,24 @@ pub(super) trait IoHandler: Sized + Sync + Send + 'static {
 
 impl DefaultIoHandler {
     /// Materializes an `entry` at `path`, using the materialization `method`
-    #[instrument(level = "debug", skip(self, stat), fields(path = %path, method = %method, entry = %entry))]
+    #[instrument(level = "debug", skip(self, stat, cancellations), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry_span(
         &self,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         stat: &mut MaterializationStat,
+        cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor
-            .execute_io(Box::new(MaterializeTreeStructure {
-                path: path.clone(),
-                entry: entry.dupe(),
-            }))
+            .execute_io(
+                Box::new(MaterializeTreeStructure {
+                    path: path.clone(),
+                    entry: entry.dupe(),
+                }),
+                cancellations,
+            )
             .await?;
 
         // Materialize files
@@ -258,48 +266,57 @@ impl DefaultIoHandler {
 
 #[async_trait]
 impl IoHandler for DefaultIoHandler {
-    fn write(
+    fn write<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: Version,
         command_sender: MaterializerSender<Self>,
-    ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
         self.io_executor
-            .execute_io(Box::new(WriteIoRequest {
-                path,
-                write,
-                version,
-                command_sender,
-            }))
+            .execute_io(
+                Box::new(WriteIoRequest {
+                    path,
+                    write,
+                    version,
+                    command_sender,
+                }),
+                cancellations,
+            )
             .map_err(|e| SharedMaterializingError::Error(e.into()))
             .boxed()
     }
 
-    fn clean_path(
+    fn clean_path<'a>(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         version: Version,
         command_sender: MaterializerSender<Self>,
-    ) -> BoxFuture<'static, Result<(), SharedError>> {
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, Result<(), SharedError>> {
         self.io_executor
-            .execute_io(Box::new(CleanIoRequest {
-                path,
-                version,
-                command_sender,
-            }))
+            .execute_io(
+                Box::new(CleanIoRequest {
+                    path,
+                    version,
+                    command_sender,
+                }),
+                cancellations,
+            )
             .map(|r| r.shared_error())
             .boxed()
     }
 
     /// Materializes an `entry` at `path`, using the materialization `method`
-    #[instrument(level = "debug", skip(self), fields(path = %path, method = %method, entry = %entry))]
+    #[instrument(level = "debug", skip(self, cancellations), fields(path = %path, method = %method, entry = %entry))]
     async fn materialize_entry(
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         event_dispatcher: EventDispatcher,
+        cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
         let materialization_start = buck2_data::MaterializationStart {
             action_digest: match method.as_ref() {
@@ -317,7 +334,7 @@ impl IoHandler for DefaultIoHandler {
                     total_bytes: 0,
                 };
                 let res = self
-                    .materialize_entry_span(path, method.dupe(), entry, &mut stat)
+                    .materialize_entry_span(path, method.dupe(), entry, &mut stat, cancellations)
                     .await;
                 let error = res.as_ref().err().map(|e| format!("{:#}", e));
 

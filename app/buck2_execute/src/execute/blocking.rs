@@ -20,7 +20,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use tokio::sync::oneshot;
 use tokio::sync::Semaphore;
 
@@ -38,7 +38,11 @@ pub trait BlockingExecutor: Allocative + Send + Sync + 'static {
     /// Execute a blocking I/O operation, possibly on a dedicated I/O pool. This should be used as
     /// the default for I/O. The operations executed here must perform _only_ I/O (since if they do
     /// something else they might contend for I/O threads with actual I/O).
-    fn execute_io(&self, io: Box<dyn IoRequest>) -> BoxFuture<'static, anyhow::Result<()>>;
+    fn execute_io<'a>(
+        &self,
+        io: Box<dyn IoRequest>,
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, anyhow::Result<()>>;
 
     /// The size of the queue of pending I/O.
     fn queue_size(&self) -> usize;
@@ -135,14 +139,20 @@ impl BlockingExecutor for BuckBlockingExecutor {
         tokio::task::block_in_place(f)
     }
 
-    fn execute_io(&self, io: Box<dyn IoRequest>) -> BoxFuture<'static, anyhow::Result<()>> {
+    fn execute_io<'a>(
+        &self,
+        io: Box<dyn IoRequest>,
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, anyhow::Result<()>> {
         let (sender, receiver) = oneshot::channel();
 
         // Ignore errors sending as they'll translate to an error receiving once we drop the
         // sender.
         let _ignored = self.command_sender.send(ThreadPoolIoRequest { io, sender });
 
-        critical_section(|| async move { receiver.await.context("Pool shut down")? }).boxed()
+        cancellations
+            .critical_section(|| async move { receiver.await.context("Pool shut down")? })
+            .boxed()
     }
 
     fn queue_size(&self) -> usize {
@@ -191,7 +201,11 @@ pub mod testing {
             f()
         }
 
-        fn execute_io(&self, io: Box<dyn IoRequest>) -> BoxFuture<'static, anyhow::Result<()>> {
+        fn execute_io<'a>(
+            &self,
+            io: Box<dyn IoRequest>,
+            _cancellations: &'a CancellationContext,
+        ) -> BoxFuture<'a, anyhow::Result<()>> {
             futures::future::ready(io.execute(&self.fs)).boxed()
         }
 

@@ -138,16 +138,18 @@ mod state_machine {
             _write: Arc<WriteFile>,
             _version: Version,
             _command_sender: MaterializerSender<Self>,
-        ) -> BoxFuture<'static, Result<(), SharedMaterializingError>> {
+            _cancellations: &CancellationContext,
+        ) -> BoxFuture<Result<(), SharedMaterializingError>> {
             unimplemented!()
         }
 
-        fn clean_path(
+        fn clean_path<'a>(
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
             version: Version,
             command_sender: MaterializerSender<Self>,
-        ) -> BoxFuture<'static, Result<(), SharedError>> {
+            _cancellations: &'a CancellationContext,
+        ) -> BoxFuture<'a, Result<(), SharedError>> {
             self.log.lock().push((Op::Clean, path.clone()));
 
             async move {
@@ -169,6 +171,7 @@ mod state_machine {
             _method: Arc<ArtifactMaterializationMethod>,
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
             _event_dispatcher: EventDispatcher,
+            _cancellations: &CancellationContext,
         ) -> Result<(), MaterializeEntryError> {
             // Simulate a non-immediate materialization if configured
             match self.materialization_config.get(&path) {
@@ -253,6 +256,7 @@ mod state_machine {
                 subscriptions: MaterializerSubscriptions::new(),
                 ttl_refresh_history: Default::default(),
                 ttl_refresh_instance: Default::default(),
+                cancellations: CancellationContext::testing(),
             },
             command_receiver,
         )

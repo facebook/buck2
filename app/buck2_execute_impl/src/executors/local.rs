@@ -78,6 +78,7 @@ use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
 use more_futures::cancellable_future::with_structured_cancellation;
 use more_futures::cancellable_future::CancellationObserver;
+use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
@@ -797,9 +798,12 @@ pub async fn create_output_dirs(
                 .await?;
         } else {
             blocking_executor
-                .execute_io(Box::new(CleanOutputPaths {
-                    paths: output_paths,
-                }))
+                .execute_io(
+                    Box::new(CleanOutputPaths {
+                        paths: output_paths,
+                    }),
+                    &CancellationContext::todo(),
+                )
                 .await
                 .context("Failed to cleanup output directory")?;
         }

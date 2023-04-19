@@ -84,6 +84,7 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use more_futures::cancellation::CancellationContext;
 use pin_project::pin_project;
 use thiserror::Error;
 use tokio::runtime::Handle;
@@ -259,6 +260,7 @@ struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
     /// The current ttl_refresh instance, if any exists.
     ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
+    cancellations: &'static CancellationContext,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -903,25 +905,32 @@ impl DeferredMaterializer {
             }
         }
 
-        let command_processor = DeferredMaterializerCommandProcessor {
-            io: Arc::new(DefaultIoHandler {
-                fs: fs.dupe(),
+        let command_processor = {
+            let command_sender = command_sender.dupe();
+            let io_executor = io_executor.dupe();
+            let rt = Handle::current();
+            let fs = fs.dupe();
+            move |cancellations| DeferredMaterializerCommandProcessor {
+                io: Arc::new(DefaultIoHandler {
+                    fs,
+                    digest_config,
+                    buck_out_path,
+                    re_client_manager,
+                    io_executor,
+                }),
                 digest_config,
-                buck_out_path,
-                re_client_manager,
-                io_executor: io_executor.dupe(),
-            }),
-            digest_config,
-            sqlite_db,
-            rt: Handle::current(),
-            defer_write_actions: configs.defer_write_actions,
-            log_buffer: LogBuffer::new(25),
-            version_tracker: VersionTracker::new(),
-            command_sender: command_sender.dupe(),
-            tree,
-            subscriptions: MaterializerSubscriptions::new(),
-            ttl_refresh_history: Vec::new(),
-            ttl_refresh_instance: None,
+                sqlite_db,
+                rt,
+                defer_write_actions: configs.defer_write_actions,
+                log_buffer: LogBuffer::new(25),
+                version_tracker: VersionTracker::new(),
+                command_sender,
+                tree,
+                subscriptions: MaterializerSubscriptions::new(),
+                ttl_refresh_history: Vec::new(),
+                ttl_refresh_instance: None,
+                cancellations,
+            }
         };
 
         let command_thread = std::thread::Builder::new()
@@ -933,7 +942,11 @@ impl DeferredMaterializer {
                         .build()
                         .unwrap();
 
-                    rt.block_on(command_processor.run(command_receiver, configs.ttl_refresh));
+                    let cancellations = CancellationContext::never_cancelled();
+
+                    rt.block_on(
+                        command_processor(cancellations).run(command_receiver, configs.ttl_refresh),
+                    );
                 }
             })
             .context("Cannot start materializer thread")?;
@@ -1142,9 +1155,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
-                        async move { join_all_existing_futs(existing_futs.shared_error()?).await }
-                            .boxed()
-                            .shared(),
+                        async move {
+                            join_all_existing_futs(existing_futs.shared_error()?)
+                                .await
+                                .shared_error()
+                        }
+                        .boxed()
+                        .shared(),
                     )
                     .ok();
             }
@@ -1356,6 +1373,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     write.dupe(),
                     version,
                     self.command_sender.dupe(),
+                    self.cancellations,
                 );
                 ProcessingFuture::Materializing(materialize.shared())
             }
@@ -1366,6 +1384,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 self.command_sender.dupe(),
                 existing_futs,
                 &self.rt,
+                self.cancellations,
             )),
         };
 
@@ -1562,6 +1581,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let task = self
             .rt
             .spawn(async move {
+                let cancellations = CancellationContext::never_cancelled(); // spawned
+
                 // Materialize the deps and this entry. This *must* happen in a try block because we
                 // need to notify the materializer regardless of whether this succeeds or fails.
 
@@ -1592,6 +1613,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 method,
                                 entry.dupe(),
                                 event_dispatcher.dupe(),
+                                cancellations,
                             )
                         };
 
@@ -1675,6 +1697,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         self.command_sender.dupe(),
                         ExistingFutures::empty(),
                         &self.rt,
+                        self.cancellations,
                     ));
                     info.processing = Processing::Active { future, version };
                 } else {
@@ -2020,16 +2043,21 @@ fn clean_path<T: IoHandler>(
     command_sender: MaterializerSender<T>,
     existing_futs: ExistingFutures,
     rt: &Handle,
+    cancellations: &'static CancellationContext,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
-        return io.clean_path(path, version, command_sender).shared();
+        return io
+            .clean_path(path, version, command_sender, cancellations)
+            .shared();
     }
 
     rt.spawn({
         let io = io.dupe();
+        let cancellations = CancellationContext::never_cancelled();
         async move {
             join_all_existing_futs(existing_futs.into_result()?).await?;
-            io.clean_path(path, version, command_sender).await
+            io.clean_path(path, version, command_sender, cancellations)
+                .await
         }
     })
     .map(|r| match r {

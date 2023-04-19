@@ -51,6 +51,7 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use more_futures::cancellation::CancellationContext;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
@@ -398,9 +399,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } else {
             self.executor
                 .blocking_executor
-                .execute_io(Box::new(CleanOutputPaths {
-                    paths: output_paths,
-                }))
+                .execute_io(
+                    Box::new(CleanOutputPaths {
+                        paths: output_paths,
+                    }),
+                    &CancellationContext::todo(),
+                )
                 .await
                 .context("Failed to cleanup output directory")?;
         }

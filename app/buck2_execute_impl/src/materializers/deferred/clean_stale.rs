@@ -27,6 +27,7 @@ use derivative::Derivative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
@@ -84,6 +85,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
                     sqlite_db,
                     &processor.io,
                     processor.digest_config,
+                    processor.cancellations,
                 )
             }
         } else {
@@ -117,6 +119,7 @@ fn gather_clean_futures_for_stale_artifacts(
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<DefaultIoHandler>,
     digest: DigestConfig,
+    cancellations: &'static CancellationContext,
 ) -> anyhow::Result<(
     Vec<BoxFuture<'static, anyhow::Result<()>>>,
     buck2_cli_proto::CleanStaleResponse,
@@ -185,7 +188,10 @@ fn gather_clean_futures_for_stale_artifacts(
                 async move {
                     join_all_existing_futs(existing_futs).await?;
                     io.io_executor
-                        .execute_io(Box::new(CleanOutputPaths { paths: vec![path] }))
+                        .execute_io(
+                            Box::new(CleanOutputPaths { paths: vec![path] }),
+                            cancellations,
+                        )
                         .await?;
                     anyhow::Ok(())
                 }
