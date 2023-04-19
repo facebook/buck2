@@ -54,6 +54,7 @@ impl PersistEventLogsCommand {
 
     async fn write(self, stdin: impl io::AsyncBufRead + Unpin) -> anyhow::Result<()> {
         let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
+        let mut should_upload = !self.no_upload;
         let mut file = self.create_log_file().await?;
         let mut read_position: u64 = 0;
         let mut first_upload = true;
@@ -65,10 +66,10 @@ impl PersistEventLogsCommand {
             &mut first_upload,
             &manifold_path,
             upload_chunk_size,
-            !self.no_upload,
+            &mut should_upload,
         )
         .await?;
-        if !self.no_upload {
+        if should_upload {
             upload_remaining(
                 &mut file,
                 read_position,
@@ -105,7 +106,7 @@ async fn poll_and_upload_loop(
     first_upload: &mut bool,
     manifold_path: &str,
     chunk_size: u64,
-    should_upload: bool,
+    should_upload: &mut bool,
 ) -> Result<(), anyhow::Error> {
     let mut write_position: u64 = 0;
     let mut upload_handle: MyJoinHandle = None;
@@ -118,7 +119,14 @@ async fn poll_and_upload_loop(
         write_to_file(file, write_position, &buf[..bytes_read]).await?;
         write_position += bytes_read as u64;
         let cert = find_certs::find_tls_cert()?;
-        if should_upload && upload_handle.as_ref().map_or(true, |h| h.is_finished()) {
+        if *should_upload && upload_handle.as_ref().map_or(true, |h| h.is_finished()) {
+            if let Some(upload_handle) = upload_handle.as_mut() {
+                // It's finished already, it shouldn't wait much in this await
+                if let Err(e) = upload_handle.await.context("Error while uploading chunk")? {
+                    let _res = buck2_core::soft_error!("manifold_upload_chunk_error", e);
+                    *should_upload = false;
+                };
+            };
             if write_position - *read_position > chunk_size {
                 upload_chunk(
                     file,
