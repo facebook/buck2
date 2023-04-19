@@ -256,6 +256,16 @@ pub enum MaterializationContext {
     },
 }
 
+impl MaterializationContext {
+    /// Create a new MaterializationContext that will force all materializations.
+    pub fn force_materializations() -> Self {
+        Self::Materialize {
+            map: Arc::new(DashMap::new()),
+            force: true,
+        }
+    }
+}
+
 pub trait ConvertMaterializationContext {
     fn from(self) -> MaterializationContext;
 

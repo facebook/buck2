@@ -19,12 +19,10 @@ use std::process::Stdio;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::artifact_type::BaseArtifactKind;
-use buck2_build_api::actions::artifact::materializer::ArtifactMaterializer;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::build::materialize_artifact_group;
+use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
@@ -186,6 +184,9 @@ async fn install(
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
+    let materializations = MaterializationContext::force_materializations();
+    let materializations = &materializations; // Don't move this below.
+
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
         &ctx,
@@ -273,6 +274,7 @@ async fn install(
         let handle_install_request_future = async move {
             handle_install_request(
                 ctx,
+                materializations,
                 install_log_dir,
                 &install_files_vector,
                 installer_label,
@@ -313,6 +315,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 
 async fn handle_install_request<'a>(
     ctx: &'a DiceComputations,
+    materializations: &'a MaterializationContext,
     install_log_dir: &AbsNormPathBuf,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     installer_label: &ConfiguredProvidersLabel,
@@ -321,7 +324,7 @@ async fn handle_install_request<'a>(
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let build_files = async move {
-        build_files(ctx, install_files_slice, files_tx).await?;
+        build_files(ctx, materializations, install_files_slice, files_tx).await?;
         anyhow::Ok(())
     };
     let build_installer_and_connect = async move {
@@ -350,7 +353,14 @@ async fn handle_install_request<'a>(
             installer_log_filename.to_owned(),
         ]);
 
-        build_launch_installer(ctx, installer_label, &installer_run_args, installer_debug).await?;
+        build_launch_installer(
+            ctx,
+            materializations,
+            installer_label,
+            &installer_run_args,
+            installer_debug,
+        )
+        .await?;
 
         let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
         let artifact_fs = ctx.get_artifact_fs().await?;
@@ -439,6 +449,7 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 
 async fn build_launch_installer<'a>(
     ctx: &'a DiceComputations,
+    materializations: &'a MaterializationContext,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
     installer_log_console: bool,
@@ -469,7 +480,7 @@ async fn build_launch_installer<'a>(
         };
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
         try_join_all(inputs.into_iter().map(|input| async move {
-            materialize_artifact_group(ctx, &input)
+            materialize_artifact_group(ctx, &input, materializations)
                 .await
                 .map(|value| (input, value))
         }))
@@ -506,6 +517,7 @@ pub struct FileResult {
 
 async fn build_files(
     ctx: &DiceComputations,
+    materializations: &MaterializationContext,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
@@ -523,7 +535,8 @@ async fn build_files(
 
     try_join_all(file_outputs.into_iter().map(
         |(install_id, name, artifact, tx_clone)| async move {
-            let artifact_values = materialize_artifact_group(ctx, &artifact).await?;
+            let artifact_values =
+                materialize_artifact_group(ctx, &artifact, materializations).await?;
             for (artifact, artifact_value) in artifact_values.iter() {
                 let file_result = FileResult {
                     install_id: (*install_id).to_owned(),
@@ -538,25 +551,6 @@ async fn build_files(
     ))
     .await?;
     Ok(())
-}
-
-// TODO @lebentle extract out and make some sort of util
-async fn materialize_artifact_group(
-    ctx: &DiceComputations,
-    artifact_group: &ArtifactGroup,
-) -> anyhow::Result<ArtifactGroupValues> {
-    let values = ctx.ensure_artifact_group(artifact_group).await?;
-
-    try_join_all(values.iter().filter_map(|(artifact, _value)| {
-        if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-            Some(ctx.try_materialize_requested_artifact(artifact, true))
-        } else {
-            None
-        }
-    }))
-    .await
-    .context("Failed to materialize artifacts")?;
-    Ok(values)
 }
 
 async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<Channel>> {
