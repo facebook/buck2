@@ -212,6 +212,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 declared_outputs,
                 &fs,
                 Some(timeout),
+                Some(host_sharing_requirements),
             )
             .await?;
 
@@ -219,7 +220,6 @@ impl TestOrchestrator for BuckTestOrchestrator {
             .execute_shared(
                 &test_target,
                 metadata,
-                Some(host_sharing_requirements),
                 supports_re,
                 &executor,
                 execution_request,
@@ -354,6 +354,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
                 declared_outputs,
                 &fs,
                 None,
+                None,
             )
             .await?;
 
@@ -382,7 +383,6 @@ impl BuckTestOrchestrator {
         &self,
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
-        host_sharing_requirements: Option<HostSharingRequirements>,
         supports_re: bool,
         executor: &CommandExecutor,
         mut request: CommandExecutionRequest,
@@ -409,9 +409,6 @@ impl BuckTestOrchestrator {
         request = request
             .with_executor_preference(executor_preference)
             .with_disable_miniperf(true);
-        if let Some(requirements) = host_sharing_requirements {
-            request = request.with_host_sharing_requirements(requirements);
-        }
 
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
@@ -675,6 +672,7 @@ impl BuckTestOrchestrator {
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
+        host_sharing_requirements: Option<HostSharingRequirements>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -702,6 +700,9 @@ impl BuckTestOrchestrator {
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
+        }
+        if let Some(host_sharing_requirements) = host_sharing_requirements {
+            request = request.with_host_sharing_requirements(host_sharing_requirements);
         }
         Ok(request)
     }
