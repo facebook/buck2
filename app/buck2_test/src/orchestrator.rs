@@ -399,7 +399,7 @@ impl BuckTestOrchestrator {
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
         executor: &CommandExecutor,
-        mut request: CommandExecutionRequest,
+        request: CommandExecutionRequest,
     ) -> anyhow::Result<(
         ExecutionStream,
         ExecutionStream,
@@ -407,8 +407,6 @@ impl BuckTestOrchestrator {
         CommandExecutionMetadata,
         Vec<BuckOutTestPath>,
     )> {
-        request = request.with_disable_miniperf(true);
-
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             self.events.dupe(),
@@ -697,7 +695,8 @@ impl BuckTestOrchestrator {
         );
         request = request
             .with_working_directory(cwd)
-            .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist());
+            .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
+            .with_disable_miniperf(true);
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
         }
