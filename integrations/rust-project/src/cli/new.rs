@@ -171,7 +171,7 @@ rust_library(
     deps = []
 )"#;
 
-    assert_eq!(expected, target.render());
+    assert_eq!(expected, target.render().replace("\r\n", "\n"));
 
     let target = Target::Binary {
         name: String::from("a-rust-binary"),
@@ -185,5 +185,5 @@ rust_binary(
     deps = []
 )"#;
 
-    assert_eq!(expected, target.render());
+    assert_eq!(expected, target.render().replace("\r\n", "\n"));
 }
