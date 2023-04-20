@@ -103,7 +103,7 @@ pub enum DebugCommand {
     LogPerf(LogPerfCommand),
     /// Interact with I/O tracing of the daemon.
     TraceIo(TraceIoCommand),
-    /// Write event logs to disk and upload
+    #[doc(hidden)]
     PersistEventLogs(PersistEventLogsCommand),
 }
 
