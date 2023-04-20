@@ -20,6 +20,7 @@
 use std::fmt::Write;
 
 use crate::eval::bc::addr::BcPtrAddr;
+use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr::InstrControl;
@@ -42,6 +43,8 @@ pub(crate) struct Bc {
     pub(crate) local_count: u32,
     /// Max stack size in values (`Value`).
     pub(crate) max_stack_size: u32,
+    /// Max depth of loops.
+    pub(crate) max_loop_depth: LoopDepth,
 }
 
 impl Bc {
@@ -99,8 +102,6 @@ impl Bc {
         match run_block(eval, self.instrs.start_ptr()) {
             RunBlockResult::Return(v) => Ok(v),
             RunBlockResult::Err(e) => Err(e),
-            RunBlockResult::Break => unreachable!("break outside of loop"),
-            RunBlockResult::Continue => unreachable!("continue outside of loop"),
         }
     }
 
@@ -146,10 +147,6 @@ fn step<'v, 'b>(
 
 /// Result of instruction block evaluation.
 pub(crate) enum RunBlockResult<'v> {
-    /// Go to the next loop iteration.
-    Continue,
-    /// Break off the loop.
-    Break,
     /// Return from the function.
     Return(Value<'v>),
     /// Error.
@@ -171,8 +168,6 @@ pub(crate) fn run_block<'v>(eval: &mut Evaluator<'v, '_>, mut ip: BcPtrAddr) -> 
         ip = match step(eval, frame, ip) {
             InstrControl::Next(ip) => ip,
             InstrControl::Return(v) => return RunBlockResult::Return(v),
-            InstrControl::LoopContinue => return RunBlockResult::Continue,
-            InstrControl::LoopBreak => return RunBlockResult::Break,
             InstrControl::Err(e) => {
                 return RunBlockResult::Err(Bc::wrap_error_for_instr_ptr(ip, e, eval));
             }

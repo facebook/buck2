@@ -194,6 +194,7 @@ impl IrSpanned<StmtCompiled> {
         compiler: &StmtCompileContext,
         bc: &mut BcWriter,
     ) {
+        bc.write_iter_stop(span);
         if compiler.has_return_type {
             expr.write_bc_cb(bc, |slot, bc| {
                 bc.write_instr::<InstrReturnCheckType>(span, slot);

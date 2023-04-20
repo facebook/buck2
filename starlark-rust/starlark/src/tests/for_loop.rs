@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-mod basic;
-mod bc;
-mod before_stmt;
-mod call;
-mod comprehension;
-mod def;
-mod derive;
-mod docs;
-mod for_loop;
-mod freeze_access_value;
-mod go;
-mod interop;
-mod opt;
-mod runtime;
-mod type_annot;
-mod uncategorized;
+use crate::assert;
+
+#[test]
+fn test_for_loop_bug_1() {
+    assert::pass(
+        r#"
+def test(x):
+    for i in x:
+        # This should release mutation lock on `x`.
+        return i
+
+l = [1]
+test(l)
+l.append(1)
+"#,
+    );
+}

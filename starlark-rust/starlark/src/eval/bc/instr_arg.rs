@@ -30,9 +30,11 @@ use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::bc::addr::BcAddr;
 use crate::eval::bc::addr::BcAddrOffset;
+use crate::eval::bc::addr::BcAddrOffsetNeg;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::call::BcCallArgsFull;
 use crate::eval::bc::call::BcCallArgsPos;
+use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::InstrDefData;
 use crate::eval::bc::native_function::BcNativeFunction;
@@ -271,6 +273,21 @@ impl BcInstrArg for BcAddrOffset {
 
     fn visit_jump_addr(param: &Self, ip: BcAddr, consumer: &mut dyn FnMut(BcAddr)) {
         consumer(ip.offset(*param));
+    }
+}
+
+impl BcInstrArg for BcAddrOffsetNeg {
+    fn fmt_append(
+        param: &Self,
+        ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", ip.offset_neg(*param).0)
+    }
+
+    fn visit_jump_addr(param: &Self, ip: BcAddr, consumer: &mut dyn FnMut(BcAddr)) {
+        consumer(ip.offset_neg(*param));
     }
 }
 
@@ -529,6 +546,19 @@ impl BcInstrArg for BcOpcode {
         f: &mut dyn Write,
     ) -> fmt::Result {
         write!(f, " {:?}", param)
+    }
+
+    fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
+}
+
+impl BcInstrArg for LoopDepth {
+    fn fmt_append(
+        param: &Self,
+        _ip: BcAddr,
+        _end_arg: Option<&BcInstrEndArg>,
+        f: &mut dyn Write,
+    ) -> fmt::Result {
+        write!(f, " {}", param)
     }
 
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}

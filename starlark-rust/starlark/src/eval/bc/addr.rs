@@ -40,13 +40,20 @@ use crate::eval::bc::repr::BcInstrRepr;
 pub(crate) struct BcAddr(pub(crate) u32);
 
 impl BcAddr {
+    #[inline]
     pub(crate) fn offset_from(self, start: BcAddr) -> BcAddrOffset {
         debug_assert!(self >= start);
         BcAddrOffset(self.0 - start.0)
     }
 
+    #[inline]
     pub(crate) fn offset(self, offset: BcAddrOffset) -> BcAddr {
         BcAddr(self.0 + offset.0)
+    }
+
+    #[inline]
+    pub(crate) fn offset_neg(self, offset: BcAddrOffsetNeg) -> BcAddr {
+        BcAddr(self.0 - offset.0)
     }
 }
 
@@ -182,16 +189,28 @@ impl<'b> BcPtrAddr<'b> {
         }
     }
 
+    #[inline(always)]
+    fn sub_usize(self, offset: usize) -> BcPtrAddr<'b> {
+        unsafe { BcPtrAddr::new(self.ptr.sub(offset), self.range) }
+    }
+
+    #[inline(always)]
     pub(crate) fn sub(self, start: BcAddr) -> BcPtrAddr<'b> {
-        unsafe { BcPtrAddr::new(self.ptr.sub(start.0 as usize), self.range) }
+        self.sub_usize(start.0 as usize)
     }
 
     pub(crate) fn offset(self, addr: BcAddr) -> BcPtrAddr<'b> {
         self.add(addr.0 as usize)
     }
 
+    #[inline(always)]
     pub(crate) fn add_rel(self, rel: BcAddrOffset) -> BcPtrAddr<'b> {
         self.add(rel.0 as usize)
+    }
+
+    #[inline(always)]
+    pub(crate) fn add_rel_neg(self, rel: BcAddrOffsetNeg) -> BcPtrAddr<'b> {
+        self.sub_usize(rel.0 as usize)
     }
 
     pub(crate) fn add(self, offset: usize) -> BcPtrAddr<'b> {
@@ -216,4 +235,13 @@ impl BcAddrOffset {
         <BcInstrRepr<I>>::assert_align();
         BcAddrOffset(mem::size_of::<BcInstrRepr<I>>() as u32)
     }
+
+    #[inline(always)]
+    pub(crate) fn neg(self) -> BcAddrOffsetNeg {
+        BcAddrOffsetNeg(self.0)
+    }
 }
+
+/// Negative difference between addresses.
+#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display)]
+pub(crate) struct BcAddrOffsetNeg(pub(crate) u32);

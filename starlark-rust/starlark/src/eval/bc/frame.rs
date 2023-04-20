@@ -25,6 +25,7 @@ use std::slice;
 
 use dupe::Dupe;
 
+use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
 use crate::eval::bc::stack_ptr::BcSlotOut;
@@ -36,16 +37,26 @@ use crate::values::Value;
 
 /// Current `def` frame (but not native function frame).
 ///
-/// We erase lifetime here, because it is very hard to do lifetimes properly.
+/// Frame memory layout:
+///
+/// ```text
+/// [ loop_indices | BcFrame | locals | stack ]
+///   BcFramePtr points here ^
+/// ```
 #[repr(C)]
 struct BcFrame<'v> {
     /// Number of local slots.
     local_count: u32,
     /// Number of stack slots.
     max_stack_size: u32,
+    /// Max number of nested for loops.
+    max_loop_depth: LoopDepth,
     /// `local_count` local slots followed by `max_stack_size` stack slots.
     slots: [Option<Value<'v>>; 0],
 }
+
+const _: () = assert!(mem::size_of::<BcFrame>() % mem::size_of::<usize>() == 0);
+const _: () = assert!(mem::align_of::<BcFrame>() == mem::align_of::<usize>());
 
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct BcFramePtr<'v> {
@@ -126,6 +137,16 @@ impl<'v> BcFramePtr<'v> {
     #[inline(always)]
     pub(crate) fn get_bc_slot_range<'a>(self, slots: BcSlotInRange) -> &'a [Value<'v>] {
         self.frame().get_bc_slot_range(slots)
+    }
+
+    #[inline(always)]
+    pub(crate) fn get_iter_index(self, loop_depth: LoopDepth) -> usize {
+        self.frame().get_iter_index(loop_depth)
+    }
+
+    #[inline(always)]
+    pub(crate) fn set_iter_index(mut self, loop_depth: LoopDepth, index: usize) {
+        self.frame_mut().set_iter_index(loop_depth, index)
     }
 
     pub(crate) fn max_stack_size(self) -> u32 {
@@ -257,6 +278,28 @@ impl<'v> BcFrame<'v> {
                 .write(Some(value))
         }
     }
+
+    #[inline(always)]
+    pub(crate) fn set_iter_index(&mut self, iter_index: LoopDepth, index: usize) {
+        debug_assert!(iter_index < self.max_loop_depth);
+        unsafe {
+            (self as *mut BcFrame as *mut usize)
+                .sub(iter_index.0 as usize)
+                .sub(1)
+                .write(index);
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn get_iter_index(&self, iter_index: LoopDepth) -> usize {
+        debug_assert!(iter_index < self.max_loop_depth);
+        unsafe {
+            (self as *const BcFrame as *const usize)
+                .sub(iter_index.0 as usize)
+                .sub(1)
+                .read()
+        }
+    }
 }
 
 unsafe impl<'v> Trace<'v> for BcFrame<'v> {
@@ -278,18 +321,21 @@ fn alloca_raw<'v, 'a, R>(
     eval: &mut Evaluator<'v, 'a>,
     local_count: u32,
     max_stack_size: u32,
+    max_loop_depth: LoopDepth,
     k: impl FnOnce(&mut Evaluator<'v, 'a>, BcFramePtr<'v>) -> R,
 ) -> R {
     assert_eq!(mem::align_of::<BcFrame>() % mem::size_of::<usize>(), 0);
     assert_eq!(mem::size_of::<Value>(), mem::size_of::<usize>());
     let alloca_size_in_words = mem::size_of::<BcFrame>() / mem::size_of::<usize>()
         + (local_count as usize)
-        + (max_stack_size as usize);
+        + (max_stack_size as usize)
+        + (max_loop_depth.0 as usize);
     eval.alloca_uninit::<usize, _, _>(alloca_size_in_words, |slice, eval| unsafe {
-        let frame_ptr = slice.as_mut_ptr() as *mut BcFrame;
+        let frame_ptr = slice.as_mut_ptr().add(max_loop_depth.0 as usize) as *mut BcFrame;
         *(frame_ptr) = BcFrame {
             local_count,
             max_stack_size,
+            max_loop_depth,
             slots: [],
         };
 
@@ -305,14 +351,21 @@ pub(crate) fn alloca_frame<'v, 'a, R>(
     eval: &mut Evaluator<'v, 'a>,
     local_count: u32,
     max_stack_size: u32,
+    loop_depth: LoopDepth,
     k: impl FnOnce(&mut Evaluator<'v, 'a>) -> R,
 ) -> R {
-    alloca_raw(eval, local_count, max_stack_size, |eval, mut frame| {
-        // TODO(nga): no need to fill the slots for parameters.
-        frame.frame_mut().init();
-        let old_frame = mem::replace(&mut eval.current_frame, frame);
-        let r = k(eval);
-        eval.current_frame = old_frame;
-        r
-    })
+    alloca_raw(
+        eval,
+        local_count,
+        max_stack_size,
+        loop_depth,
+        |eval, mut frame| {
+            // TODO(nga): no need to fill the slots for parameters.
+            frame.frame_mut().init();
+            let old_frame = mem::replace(&mut eval.current_frame, frame);
+            let r = k(eval);
+            eval.current_frame = old_frame;
+            r
+        },
+    )
 }

@@ -32,12 +32,6 @@ pub(crate) enum InstrControl<'v, 'b> {
     Next(BcPtrAddr<'b>),
     /// Return from the function.
     Return(Value<'v>),
-    /// Go to the next loop iteration.
-    ///
-    /// Note there's no range check for blocks, so each loop body ends with continue instruction.
-    LoopContinue,
-    /// Break from the loop.
-    LoopBreak,
     /// Error.
     Err(anyhow::Error),
 }

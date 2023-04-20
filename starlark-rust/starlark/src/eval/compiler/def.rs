@@ -721,11 +721,17 @@ where
         'v: 'a,
     {
         let bc = self.bc();
-        alloca_frame(eval, bc.local_count, bc.max_stack_size, |eval| {
-            let slots = eval.current_frame.locals();
-            self.parameters.collect_inline(args, slots, eval.heap())?;
-            self.invoke_raw(eval)
-        })
+        alloca_frame(
+            eval,
+            bc.local_count,
+            bc.max_stack_size,
+            bc.max_loop_depth,
+            |eval| {
+                let slots = eval.current_frame.locals();
+                self.parameters.collect_inline(args, slots, eval.heap())?;
+                self.invoke_raw(eval)
+            },
+        )
     }
 
     pub(crate) fn invoke_with_args<'a, A: ArgumentsImpl<'v, 'a>>(

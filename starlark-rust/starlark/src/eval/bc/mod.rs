@@ -22,6 +22,7 @@ pub(crate) mod bytecode;
 pub(crate) mod call;
 pub(crate) mod compiler;
 pub(crate) mod definitely_assigned;
+pub(crate) mod for_loop;
 pub(crate) mod frame;
 pub(crate) mod if_debug;
 pub(crate) mod instr;

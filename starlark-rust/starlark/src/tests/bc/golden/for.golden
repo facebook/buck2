@@ -10,10 +10,10 @@ def test(x):
 
 # Bytecode:
 
-Max stack size: 1
+Max stack size: 2
 Instructions:
-   0: ForLoop &x &i 80
-     16: CallFrozenNativePos noop &1..&2 instrs.star.bzl:3:5-12 &2
-     72: Continue
-  >80: ReturnConst None
-   96: End
+   0: Iter &x 0 &2 &i 104
+  >  24: CallFrozenNativePos noop &1..&2 instrs.star.bzl:3:5-12 &3
+     80: Continue &2 0 &i 24 104
+  >104: ReturnConst None
+   120: End

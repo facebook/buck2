@@ -24,14 +24,16 @@ use crate::eval::bc::addr::BcAddr;
 use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::definitely_assigned::BcDefinitelyAssigned;
+use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::InstrBr;
 use crate::eval::bc::instr_impl::InstrBreak;
 use crate::eval::bc::instr_impl::InstrConst;
 use crate::eval::bc::instr_impl::InstrContinue;
-use crate::eval::bc::instr_impl::InstrForLoop;
 use crate::eval::bc::instr_impl::InstrIfBr;
 use crate::eval::bc::instr_impl::InstrIfNotBr;
+use crate::eval::bc::instr_impl::InstrIter;
+use crate::eval::bc::instr_impl::InstrIterStop;
 use crate::eval::bc::instr_impl::InstrLoadLocal;
 use crate::eval::bc::instr_impl::InstrLoadLocalCaptured;
 use crate::eval::bc::instr_impl::InstrMov;
@@ -56,6 +58,18 @@ use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 
+/// For loop during bytecode write.
+struct BcWriterForLoop {
+    /// Iterator variable.
+    iter: BcSlotIn,
+    /// Variable to store the next value in.
+    var: BcSlotOut,
+    /// Address of the first instruction in the loop body.
+    inner_addr: BcAddr,
+    /// Addresses to patch with the address of the instruction after the loop.
+    end_addrs_to_patch: Vec<PatchAddr>,
+}
+
 /// Write bytecode here.
 pub(crate) struct BcWriter<'f> {
     /// Insert bytecode profiling instructions.
@@ -75,6 +89,10 @@ pub(crate) struct BcWriter<'f> {
     definitely_assigned: BcDefinitelyAssigned,
     /// Max observed stack size.
     max_stack_size: u32,
+    /// Current loop depth.
+    for_loops: Vec<BcWriterForLoop>,
+    /// Max observed loop depth.
+    max_loop_depth: LoopDepth,
 
     /// Allocate various objects here.
     pub(crate) heap: &'f FrozenHeap,
@@ -105,6 +123,8 @@ impl<'f> BcWriter<'f> {
             definitely_assigned,
             max_stack_size: 0,
             heap,
+            for_loops: Vec::new(),
+            max_loop_depth: LoopDepth(0),
         }
     }
 
@@ -121,12 +141,15 @@ impl<'f> BcWriter<'f> {
             definitely_assigned,
             max_stack_size,
             heap,
+            for_loops,
+            max_loop_depth,
         } = self;
         let _ = has_before_instr;
         let _ = call_enter_exit;
         let _ = heap;
         let _ = definitely_assigned;
         assert_eq!(stack_size, 0);
+        assert!(for_loops.is_empty());
         // Drop lifetime.
         let local_names = unsafe {
             transmute!(
@@ -139,6 +162,7 @@ impl<'f> BcWriter<'f> {
             instrs: instrs.finish(spans, local_names),
             local_count: local_names.len().try_into().unwrap(),
             max_stack_size,
+            max_loop_depth,
         }
     }
 
@@ -340,11 +364,32 @@ impl<'f> BcWriter<'f> {
     }
 
     pub(crate) fn write_continue(&mut self, span: FrameSpan) {
-        self.write_instr::<InstrContinue>(span, ());
+        let loop_depth = LoopDepth(self.for_loops.len().checked_sub(1).unwrap() as u32);
+        let for_loop = self.for_loops.last().unwrap();
+        let jump_back = self.ip().offset_from(for_loop.inner_addr).neg();
+        let var = for_loop.var;
+        let (addr, arg) = self.write_instr_ret_arg::<InstrContinue>(
+            span,
+            (
+                for_loop.iter,
+                loop_depth,
+                var,
+                jump_back,
+                BcAddrOffset::FORWARD,
+            ),
+        );
+        let end_patch = self.instrs.addr_to_patch(addr, unsafe { &(*arg).4 });
+        let for_loop = self.for_loops.last_mut().unwrap();
+        for_loop.end_addrs_to_patch.push(end_patch);
     }
 
     pub(crate) fn write_break(&mut self, span: FrameSpan) {
-        self.write_instr::<InstrBreak>(span, ());
+        let for_loop = self.for_loops.last().unwrap();
+        let (addr, arg) =
+            self.write_instr_ret_arg::<InstrBreak>(span, (for_loop.iter, BcAddrOffset::FORWARD));
+        let end_patch = self.instrs.addr_to_patch(addr, unsafe { &(*arg).1 });
+        let for_loop = self.for_loops.last_mut().unwrap();
+        for_loop.end_addrs_to_patch.push(end_patch);
     }
 
     /// Write for loop.
@@ -353,20 +398,46 @@ impl<'f> BcWriter<'f> {
         over: BcSlotIn,
         var: BcSlotOut,
         span: FrameSpan,
-        body: impl FnOnce(&mut Self),
+        body: impl FnOnce(&mut BcWriter),
     ) {
-        // Definitely assigned save/restore is redundant here, it is performed more precisely
-        // by the caller. But it is safer to do it here anyway.
-        let definitely_assigned = self.save_definitely_assigned();
+        // Allocate a slot to store the iterator.
+        self.alloc_slot(|iter, bc| {
+            // Definitely assigned save/restore is redundant here, it is performed more precisely
+            // by the caller. But it is safer to do it here anyway.
+            let definitely_assigned = bc.save_definitely_assigned();
 
-        let (addr, arg) =
-            self.write_instr_ret_arg::<InstrForLoop>(span, (over, var, BcAddrOffset::FORWARD));
-        let end_patch = self.instrs.addr_to_patch(addr, unsafe { &(*arg).2 });
-        body(self);
-        self.write_instr::<InstrContinue>(span, ());
-        self.patch_addr(end_patch);
+            let loop_depth = LoopDepth(bc.for_loops.len() as u32);
+            let (addr, arg) = bc.write_instr_ret_arg::<InstrIter>(
+                span,
+                (over, loop_depth, iter.to_out(), var, BcAddrOffset::FORWARD),
+            );
+            let end_patch = bc.instrs.addr_to_patch(addr, unsafe { &(*arg).4 });
+            bc.for_loops.push(BcWriterForLoop {
+                inner_addr: bc.ip(),
+                end_addrs_to_patch: vec![end_patch],
+                var,
+                iter: iter.to_in(),
+            });
+            bc.max_loop_depth = cmp::max(bc.max_loop_depth, LoopDepth(bc.for_loops.len() as u32));
+            body(bc);
+            bc.write_continue(span);
+            let for_loop = bc.for_loops.pop().unwrap();
+            for addr_to_patch in for_loop.end_addrs_to_patch {
+                bc.patch_addr(addr_to_patch);
+            }
 
-        self.restore_definitely_assigned(definitely_assigned);
+            bc.restore_definitely_assigned(definitely_assigned);
+        })
+    }
+
+    /// Write instructions to stop all current iterations.
+    /// This is done before `return`.
+    pub(crate) fn write_iter_stop(&mut self, span: FrameSpan) {
+        // We can stop iteration in any order, but let's for consistency stop them in reverse order.
+        for depth in (0..self.for_loops.len()).rev() {
+            let iter = self.for_loops[depth].iter;
+            self.write_instr::<InstrIterStop>(span, iter);
+        }
     }
 
     fn stack_add(&mut self, add: u32) {

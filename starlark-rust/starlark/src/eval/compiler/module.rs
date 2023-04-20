@@ -104,9 +104,13 @@ impl<'v> Compiler<'v, '_, '_> {
                 // That is OK for now: the only locals used in module evaluation
                 // are comprehension bindings.
                 let local_count = local_names.len().try_into().unwrap();
-                alloca_frame(self.eval, local_count, bc.max_stack_size, |eval| {
-                    bc.run(eval)
-                })
+                alloca_frame(
+                    self.eval,
+                    local_count,
+                    bc.max_stack_size,
+                    bc.max_loop_depth,
+                    |eval| bc.run(eval),
+                )
             }
         }
     }

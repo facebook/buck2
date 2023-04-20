@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 The Starlark in Rust Authors.
+ * Copyright 2019 The Starlark in Rust Authors.
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-mod basic;
-mod bc;
-mod before_stmt;
-mod call;
-mod comprehension;
-mod def;
-mod derive;
-mod docs;
-mod for_loop;
-mod freeze_access_value;
-mod go;
-mod interop;
-mod opt;
-mod runtime;
-mod type_annot;
-mod uncategorized;
+use dupe::Dupe;
+
+/// Depth of the loop. For example,
+///
+/// ```text
+/// def foo():
+///   for i in range(10): # depth 0
+///     for j in range(20): # depth 1
+///       pass
+/// ```
+#[derive(
+    Default,
+    Debug,
+    Copy,
+    Clone,
+    Dupe,
+    derive_more::Display,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd
+)]
+pub(crate) struct LoopDepth(pub(crate) u32);

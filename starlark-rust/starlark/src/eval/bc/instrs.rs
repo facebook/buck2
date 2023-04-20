@@ -34,7 +34,7 @@ use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::InstrEnd;
-use crate::eval::bc::instr_impl::InstrForLoop;
+use crate::eval::bc::instr_impl::InstrIter;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::opcode::BcOpcodeHandler;
 use crate::eval::bc::repr::BcInstrHeader;
@@ -250,9 +250,9 @@ impl BcInstrs {
             if newline {
                 writeln!(f)?;
             }
-            if opcode == BcOpcode::ForLoop {
-                let for_loop = ptr.get_instr::<InstrForLoop>();
-                loop_ends.push(ip.offset(for_loop.arg.2));
+            if opcode == BcOpcode::Iter {
+                let for_loop = ptr.get_instr::<InstrIter>();
+                loop_ends.push(ip.offset(for_loop.arg.4));
             }
         }
         Ok(())
@@ -357,9 +357,9 @@ mod tests {
     use std::mem;
 
     use crate::const_frozen_string;
-    use crate::eval::bc::instr_impl::InstrBreak;
     use crate::eval::bc::instr_impl::InstrConst;
     use crate::eval::bc::instr_impl::InstrPossibleGc;
+    use crate::eval::bc::instr_impl::InstrRecordCallExit;
     use crate::eval::bc::instr_impl::InstrReturn;
     use crate::eval::bc::instrs::BcInstrs;
     use crate::eval::bc::instrs::BcInstrsWriter;
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn write() {
         let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrBreak>(());
+        bc.write::<InstrRecordCallExit>(());
         assert_eq!(1, bc.instrs.len());
         bc.write::<InstrPossibleGc>(());
         assert_eq!(2, bc.instrs.len());
