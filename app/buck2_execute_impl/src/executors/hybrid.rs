@@ -77,6 +77,14 @@ impl HybridExecutor {
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
         self.remote.exec_cmd(command, remote_manager).await
     }
+
+    fn command_executor_preference(
+        &self,
+        command: &PreparedCommand<'_, '_>,
+    ) -> anyhow::Result<ExecutorPreference> {
+        self.executor_preference
+            .and(command.request.executor_preference())
+    }
 }
 
 #[async_trait]
@@ -86,9 +94,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult {
-        let executor_preference = self
-            .executor_preference
-            .and(command.request.executor_preference());
+        let executor_preference = self.command_executor_preference(command);
 
         let executor_preference = match executor_preference {
             Ok(executor_preference) => executor_preference,
