@@ -256,7 +256,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                     (metadata, ActionExecutionKind::Deferred)
                 }
                 None => {
-                    ctx.cleanup_outputs().await?;
+                    ctx.cleanup_outputs(cancellation).await?;
 
                     let artifact_fs = ctx.fs();
                     let project_fs = artifact_fs.fs();

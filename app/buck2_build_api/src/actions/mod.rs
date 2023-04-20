@@ -202,7 +202,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// Clean up all the output directories for this action. This requires a mutable reference
     /// because you shouldn't be doing anything else with the ActionExecutionCtx while cleaning the
     /// outputs.
-    async fn cleanup_outputs(&mut self) -> anyhow::Result<()>;
+    async fn cleanup_outputs(&mut self, cancellation: &CancellationContext) -> anyhow::Result<()>;
 
     /// Get the value of an Artifact. This Artifact _must_ have been declared
     /// as an input to the associated action or a panic will be raised.

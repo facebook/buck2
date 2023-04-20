@@ -372,7 +372,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         res
     }
 
-    async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
+    async fn cleanup_outputs(&mut self, cancellation: &CancellationContext) -> anyhow::Result<()> {
         // Delete all outputs before we start, so things will be clean.
         let output_paths = self
             .outputs
@@ -404,7 +404,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     Box::new(CleanOutputPaths {
                         paths: output_paths,
                     }),
-                    &CancellationContext::todo(),
+                    cancellation,
                 )
                 .await
                 .context("Failed to cleanup output directory")?;
@@ -440,7 +440,7 @@ impl ActionExecutor for BuckActionExecutor {
 
             let (result, metadata) = match action.as_executable() {
                 ActionExecutable::Pristine(exe) => {
-                    ctx.cleanup_outputs().await?;
+                    ctx.cleanup_outputs(cancellation).await?;
                     exe.execute(&mut ctx, cancellation).await?
                 }
                 ActionExecutable::Incremental(exe) => {
