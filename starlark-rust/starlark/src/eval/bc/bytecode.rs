@@ -93,12 +93,6 @@ impl Bc {
     pub(crate) fn run<'v>(&self, eval: &mut Evaluator<'v, '_>) -> Result<Value<'v>, EvalException> {
         debug_assert!(eval.current_frame.is_inititalized());
         debug_assert_eq!(self.max_stack_size, eval.current_frame.max_stack_size());
-        self.run_with_stack(eval)
-    }
-
-    #[inline(always)]
-    fn run_with_stack<'v>(&self, eval: &mut Evaluator<'v, '_>) -> Result<Value<'v>, EvalException> {
-        // println!("{}", self.bc);
         run_block(eval, self.instrs.start_ptr())
     }
 
