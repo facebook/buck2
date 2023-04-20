@@ -19,6 +19,8 @@ pub enum InterpreterHostPlatform {
     Linux,
     MacOS,
     Windows,
+    FreeBsd,
+    Unknown,
 }
 
 #[derive(Copy, Clone, Dupe, Debug, PartialEq, Allocative)]

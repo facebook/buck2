@@ -47,8 +47,14 @@ fn new_host_info(
                 "is_windows",
                 host_platform == InterpreterHostPlatform::Windows,
             ),
-            ("is_freebsd", false),
-            ("is_unknown", false),
+            (
+                "is_freebsd",
+                host_platform == InterpreterHostPlatform::FreeBsd,
+            ),
+            (
+                "is_unknown",
+                host_platform == InterpreterHostPlatform::Unknown,
+            ),
         ],
     );
 

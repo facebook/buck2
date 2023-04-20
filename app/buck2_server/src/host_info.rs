@@ -24,7 +24,8 @@ pub fn get_host_info(
             "linux" => InterpreterHostPlatform::Linux,
             "macos" => InterpreterHostPlatform::MacOS,
             "windows" => InterpreterHostPlatform::Windows,
-            v => unimplemented!("no support yet for operating system `{}`", v),
+            "freebsd" => InterpreterHostPlatform::FreeBsd,
+            _ => InterpreterHostPlatform::Unknown,
         },
     };
     // This compiles in the target architecture, which should be sufficient, as
