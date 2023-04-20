@@ -27,4 +27,11 @@ pub enum InterpreterHostPlatform {
 pub enum InterpreterHostArchitecture {
     AArch64,
     X86_64,
+    Arm,
+    X86,
+    Mips,
+    Mips64,
+    PowerPc,
+    PowerPc64,
+    Unknown,
 }

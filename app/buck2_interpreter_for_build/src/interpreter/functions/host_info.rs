@@ -69,16 +69,37 @@ fn new_host_info(
                 "is_aarch64",
                 host_architecture == InterpreterHostArchitecture::AArch64,
             ),
-            ("is_arm", false),
+            (
+                "is_arm",
+                host_architecture == InterpreterHostArchitecture::Arm,
+            ),
             ("is_armeb", false),
-            ("is_i386", false),
-            ("is_mips", false),
-            ("is_mips64", false),
+            (
+                "is_i386",
+                host_architecture == InterpreterHostArchitecture::X86,
+            ),
+            (
+                "is_mips",
+                host_architecture == InterpreterHostArchitecture::Mips,
+            ),
+            (
+                "is_mips64",
+                host_architecture == InterpreterHostArchitecture::Mips64,
+            ),
             ("is_mipsel", false),
             ("is_mipsel64", false),
-            ("is_powerpc", false),
-            ("is_ppc64", false),
-            ("is_unknown", false),
+            (
+                "is_powerpc",
+                host_architecture == InterpreterHostArchitecture::PowerPc,
+            ),
+            (
+                "is_ppc64",
+                host_architecture == InterpreterHostArchitecture::PowerPc64,
+            ),
+            (
+                "is_unknown",
+                host_architecture == InterpreterHostArchitecture::Unknown,
+            ),
         ],
     );
 
