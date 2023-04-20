@@ -75,6 +75,9 @@ def merge_class_to_source_map_from_jar(
         value = mapping,
         children = [d.tset for d in deps],
     )
-    cmd.add(tset.project_as_args("class_to_src_map"))
+    class_to_source_files = tset.project_as_args("class_to_src_map")
+    mappings_file = actions.write("class_to_src_map.txt", class_to_source_files)
+    cmd.add(["--mappings", mappings_file])
+    cmd.hidden(class_to_source_files)
     actions.run(cmd, category = "merge_class_to_srcs_map")
     return output

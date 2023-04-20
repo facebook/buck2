@@ -8,6 +8,7 @@
 import argparse
 import json
 import os
+import pathlib
 import sys
 
 
@@ -19,27 +20,29 @@ def main(argv):
     parser.add_argument(
         "--relative-to",
     )
-    parser.add_argument("mappings", nargs="*")
+    parser.add_argument("--mappings", "-m", type=pathlib.Path, required=True)
     args = parser.parse_args(argv[1:])
 
-    for mapping in args.mappings:
-        with open(mapping) as f:
-            obj = json.load(f)
+    with open(args.mappings) as f:
+        mappings = [line.replace("\n", "") for line in f.readlines()]
+        for mapping in mappings:
+            with open(mapping) as f:
+                obj = json.load(f)
 
-        if args.relative_to is not None:
-            obj = {
-                "jarPath": os.path.relpath(obj["jarPath"], args.relative_to),
-                "classes": [
-                    {
-                        "className": c["className"],
-                        "srcPath": os.path.relpath(c["srcPath"], args.relative_to),
-                    }
-                    for c in obj["classes"]
-                ],
-            }
+            if args.relative_to is not None:
+                obj = {
+                    "jarPath": os.path.relpath(obj["jarPath"], args.relative_to),
+                    "classes": [
+                        {
+                            "className": c["className"],
+                            "srcPath": os.path.relpath(c["srcPath"], args.relative_to),
+                        }
+                        for c in obj["classes"]
+                    ],
+                }
 
-        json.dump(obj, args.output)
-        print("", file=args.output)
+            json.dump(obj, args.output)
+            print("", file=args.output)
 
 
 sys.exit(main(sys.argv))
