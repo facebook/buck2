@@ -840,8 +840,7 @@ impl DaemonApi for BuckdServer {
                         data.materializer.dupe(),
                         data.scribe_sink.dupe() as _,
                     )
-                    .create_snapshot()
-                    .await,
+                    .create_snapshot(),
                 )
             } else {
                 None

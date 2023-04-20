@@ -66,12 +66,12 @@ impl SnapshotCollector {
     }
 
     /// Create a new Snapshot.
-    pub async fn create_snapshot(&self) -> buck2_data::Snapshot {
+    pub fn create_snapshot(&self) -> buck2_data::Snapshot {
         let mut snapshot = Self::pre_initialization_snapshot(self.daemon_start_time);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
-        self.add_dice_metrics(&mut snapshot).await;
+        self.add_dice_metrics(&mut snapshot);
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
@@ -161,8 +161,8 @@ impl SnapshotCollector {
         }
     }
 
-    async fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let metrics = self.dice.metrics().await;
+    fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let metrics = self.dice.metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_active_key_count = metrics.currently_active_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;

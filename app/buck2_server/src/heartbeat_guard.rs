@@ -46,7 +46,7 @@ impl HeartbeatGuard {
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 loop {
-                    let snapshot = collector.create_snapshot().await;
+                    let snapshot = collector.create_snapshot();
                     match events.lock().expect("Poisoned lock").as_ref() {
                         Some(events) => events.instant_event(Box::new(snapshot)),
                         None => break,
@@ -71,9 +71,7 @@ impl Drop for HeartbeatGuard {
         if let Some(events) = maybe_events.take() {
             // Send one last snapshot.
             let collector = self.collector.dupe();
-            tokio::spawn(async move {
-                events.instant_event(Box::new(collector.create_snapshot().await));
-            });
+            events.instant_event(Box::new(collector.create_snapshot()));
         }
         // Cancel the task as well.
         self.handle.abort();

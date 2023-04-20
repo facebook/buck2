@@ -252,8 +252,8 @@ impl Dice {
         self.implementation.detect_cycles()
     }
 
-    pub async fn metrics(&self) -> Metrics {
-        self.implementation.metrics().await
+    pub fn metrics(&self) -> Metrics {
+        self.implementation.metrics()
     }
 
     /// Wait until all active versions have exited.

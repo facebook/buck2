@@ -78,13 +78,15 @@ impl DiceModern {
         TransactionUpdater::new(self.dupe(), Arc::new(extra))
     }
 
-    pub async fn metrics(&self) -> Metrics {
+    pub fn metrics(&self) -> Metrics {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         self.state_handle
             .request(StateRequest::Metrics { resp: tx });
 
-        rx.await.unwrap()
+        // Modern dice can just run on a blocking runtime and block waiting for the channel.
+        // This is safe since the processing dice thread is dedicated, and never awaits any other tasks.
+        tokio::task::block_in_place(|| rx.blocking_recv().unwrap())
     }
 
     pub fn to_introspectable(&self) -> GraphIntrospectable {
