@@ -38,68 +38,34 @@ fn new_host_info(
         heap.alloc(AllocStruct(values.iter().copied()))
     }
 
+    let platform = |name, x| (name, host_platform == x);
     let os = new_struct(
         &heap,
         &[
-            ("is_linux", host_platform == InterpreterHostPlatform::Linux),
-            ("is_macos", host_platform == InterpreterHostPlatform::MacOS),
-            (
-                "is_windows",
-                host_platform == InterpreterHostPlatform::Windows,
-            ),
-            (
-                "is_freebsd",
-                host_platform == InterpreterHostPlatform::FreeBsd,
-            ),
-            (
-                "is_unknown",
-                host_platform == InterpreterHostPlatform::Unknown,
-            ),
+            platform("is_linux", InterpreterHostPlatform::Linux),
+            platform("is_macos", InterpreterHostPlatform::MacOS),
+            platform("is_windows", InterpreterHostPlatform::Windows),
+            platform("is_freebsd", InterpreterHostPlatform::FreeBsd),
+            platform("is_unknown", InterpreterHostPlatform::Unknown),
         ],
     );
 
+    let host = |name, x| (name, host_architecture == x);
     let arch = new_struct(
         &heap,
         &[
-            (
-                "is_x86_64",
-                host_architecture == InterpreterHostArchitecture::X86_64,
-            ),
-            (
-                "is_aarch64",
-                host_architecture == InterpreterHostArchitecture::AArch64,
-            ),
-            (
-                "is_arm",
-                host_architecture == InterpreterHostArchitecture::Arm,
-            ),
+            host("is_x86_64", InterpreterHostArchitecture::X86_64),
+            host("is_aarch64", InterpreterHostArchitecture::AArch64),
+            host("is_arm", InterpreterHostArchitecture::Arm),
             ("is_armeb", false),
-            (
-                "is_i386",
-                host_architecture == InterpreterHostArchitecture::X86,
-            ),
-            (
-                "is_mips",
-                host_architecture == InterpreterHostArchitecture::Mips,
-            ),
-            (
-                "is_mips64",
-                host_architecture == InterpreterHostArchitecture::Mips64,
-            ),
+            host("is_i386", InterpreterHostArchitecture::X86),
+            host("is_mips", InterpreterHostArchitecture::Mips),
+            host("is_mips64", InterpreterHostArchitecture::Mips64),
             ("is_mipsel", false),
             ("is_mipsel64", false),
-            (
-                "is_powerpc",
-                host_architecture == InterpreterHostArchitecture::PowerPc,
-            ),
-            (
-                "is_ppc64",
-                host_architecture == InterpreterHostArchitecture::PowerPc64,
-            ),
-            (
-                "is_unknown",
-                host_architecture == InterpreterHostArchitecture::Unknown,
-            ),
+            host("is_powerpc", InterpreterHostArchitecture::PowerPc),
+            host("is_ppc64", InterpreterHostArchitecture::PowerPc64),
+            host("is_unknown", InterpreterHostArchitecture::Unknown),
         ],
     );
 
