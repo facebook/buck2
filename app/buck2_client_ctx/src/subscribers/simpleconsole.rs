@@ -14,6 +14,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -153,6 +154,7 @@ pub(crate) struct SimpleConsole<E> {
     last_had_open_spans: Instant, // Used to detect hangs
     already_raged: bool,
     isolation_dir: FileNameBuf,
+    last_shown_snapshot_ts: Option<SystemTime>,
 }
 
 impl<E> SimpleConsole<E>
@@ -175,6 +177,7 @@ where
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
+            last_shown_snapshot_ts: None,
         }
     }
 
@@ -194,6 +197,7 @@ where
             last_had_open_spans: Instant::now(),
             already_raged: false,
             isolation_dir,
+            last_shown_snapshot_ts: None,
         }
     }
 
@@ -233,23 +237,33 @@ where
             echo!("{}", h)?;
         }
 
-        {
+        let snapshots = self.observer().two_snapshots();
+        let last_snapshot_ts = snapshots.last.as_ref().map(|(ts, _)| *ts);
+
+        // We normally send snapshots more often than we print this, so we'd expect the
+        // snapshot to change on every call.
+        let is_snapshot_stale = match (&self.last_shown_snapshot_ts, last_snapshot_ts) {
+            (Some(x), Some(y)) => *x == y,
+            _ => false,
+        };
+
+        if is_snapshot_stale {
+            echo!("Resource usage: <snapshot is stale>")?;
+        } else {
             let mut parts = Vec::with_capacity(2);
-            if let Some((_, snapshot)) = &self.observer().two_snapshots().last {
+            if let Some((_, snapshot)) = &snapshots.last {
                 if let Some(buck2_rss) = snapshot.buck2_rss {
                     parts.push(format!("RSS: {}", HumanizedBytes::new(buck2_rss)));
                 }
             }
-            if let Some(cpu) = self.observer().two_snapshots().cpu_percents() {
+            if let Some(cpu) = snapshots.cpu_percents() {
                 parts.push(format!("CPU: {}%", cpu));
             }
             if !parts.is_empty() {
                 echo!("Resource usage: {}", parts.join(" "))?;
             }
-        }
 
-        {
-            if let Some((_, snapshot)) = &self.observer().two_snapshots().last {
+            if let Some((_ts, snapshot)) = &snapshots.last {
                 let mut parts = Vec::new();
                 for (key, value) in io_in_flight_non_zero_counters(snapshot) {
                     parts.push(format!("{:?}: {}", key, value));
@@ -260,6 +274,8 @@ where
                     echo!("IO: none")?;
                 }
             }
+
+            self.last_shown_snapshot_ts = last_snapshot_ts;
         }
 
         Ok(())
