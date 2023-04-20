@@ -99,10 +99,7 @@ impl Bc {
     #[inline(always)]
     fn run_with_stack<'v>(&self, eval: &mut Evaluator<'v, '_>) -> Result<Value<'v>, EvalException> {
         // println!("{}", self.bc);
-        match run_block(eval, self.instrs.start_ptr()) {
-            RunBlockResult::Return(v) => Ok(v),
-            RunBlockResult::Err(e) => Err(e),
-        }
+        run_block(eval, self.instrs.start_ptr())
     }
 
     pub(crate) fn dump_debug(&self) -> String {
@@ -145,17 +142,12 @@ fn step<'v, 'b>(
     opcode.dispatch(HandlerImpl { eval, frame, ip })
 }
 
-/// Result of instruction block evaluation.
-pub(crate) enum RunBlockResult<'v> {
-    /// Return from the function.
-    Return(Value<'v>),
-    /// Error.
-    Err(EvalException),
-}
-
 /// Execute the code block, either a module, a function body or a loop body.
 // Do not inline this function because it is called from two places: function and loop.
-pub(crate) fn run_block<'v>(eval: &mut Evaluator<'v, '_>, mut ip: BcPtrAddr) -> RunBlockResult<'v> {
+pub(crate) fn run_block<'v>(
+    eval: &mut Evaluator<'v, '_>,
+    mut ip: BcPtrAddr,
+) -> Result<Value<'v>, EvalException> {
     // Copy frame pointer to local variable to generate more efficient code.
     let frame = eval.current_frame;
 
@@ -167,10 +159,8 @@ pub(crate) fn run_block<'v>(eval: &mut Evaluator<'v, '_>, mut ip: BcPtrAddr) -> 
         // generated stack frame is too large which leads to C stack overflow in debug more.
         ip = match step(eval, frame, ip) {
             InstrControl::Next(ip) => ip,
-            InstrControl::Return(v) => return RunBlockResult::Return(v),
-            InstrControl::Err(e) => {
-                return RunBlockResult::Err(Bc::wrap_error_for_instr_ptr(ip, e, eval));
-            }
+            InstrControl::Return(v) => return Ok(v),
+            InstrControl::Err(e) => return Err(Bc::wrap_error_for_instr_ptr(ip, e, eval)),
         }
     }
 }
