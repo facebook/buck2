@@ -126,9 +126,11 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
 #[derive(Derivative, Clone, Debug, Allocative)]
 #[derivative(PartialEq)]
 pub struct HostInfo {
+    // These first three fields are for equality only, otherwise not used
     platform: InterpreterHostPlatform,
     arch: InterpreterHostArchitecture,
     xcode: Option<XcodeVersionInfo>,
+    // The actual value which we ignore for equality, which is OK because of above
     #[derivative(PartialEq = "ignore")]
     value: OwnedFrozenValue,
 }
