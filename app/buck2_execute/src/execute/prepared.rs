@@ -15,6 +15,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::request::CommandExecutionRequest;
+use crate::execute::request::ExecutorPreference;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 
@@ -45,4 +46,8 @@ pub trait PreparedCommandExecutor: Send + Sync {
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
     ) -> CommandExecutionResult;
+
+    /// Checks if there is any possibility for a command with a given executor preference to
+    /// be executed locally.
+    fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool;
 }

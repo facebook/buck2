@@ -56,6 +56,7 @@ use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
@@ -635,6 +636,10 @@ impl PreparedCommandExecutor for LocalExecutor {
             )
         })
         .await
+    }
+
+    fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
+        true
     }
 }
 

@@ -33,6 +33,7 @@ use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
+use crate::execute::request::ExecutorPreference;
 use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
@@ -117,6 +118,12 @@ impl CommandExecutor {
                 manager,
             )
             .await
+    }
+
+    pub fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool {
+        self.0
+            .inner
+            .is_local_execution_possible(executor_preference)
     }
 
     async fn prepare(

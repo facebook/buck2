@@ -33,6 +33,7 @@ use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
@@ -480,6 +481,10 @@ impl PreparedCommandExecutor for CachingExecutor {
         };
 
         res
+    }
+
+    fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool {
+        self.inner.is_local_execution_possible(executor_preference)
     }
 }
 

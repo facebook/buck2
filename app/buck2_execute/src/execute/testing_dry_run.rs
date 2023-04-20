@@ -23,6 +23,7 @@ use crate::execute::manager::CommandExecutionManagerExt;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::request::ExecutorPreference;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
 
@@ -102,5 +103,9 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 CommandExecutionMetadata::default(),
             ),
         }
+    }
+
+    fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
+        false
     }
 }

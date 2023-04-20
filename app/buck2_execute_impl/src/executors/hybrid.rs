@@ -284,6 +284,16 @@ impl PreparedCommandExecutor for HybridExecutor {
         res.eligible_for_full_hybrid = !fallback_only;
         res
     }
+
+    fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool {
+        if executor_preference.requires_remote() {
+            return false;
+        }
+        match self.level {
+            HybridExecutionLevel::Limited => !executor_preference.prefers_remote(),
+            HybridExecutionLevel::Fallback { .. } | HybridExecutionLevel::Full { .. } => true,
+        }
+    }
 }
 
 struct ReClaimManager {

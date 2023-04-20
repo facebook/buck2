@@ -30,6 +30,7 @@ use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
@@ -303,6 +304,10 @@ impl PreparedCommandExecutor for ReExecutor {
         )
         .boxed()
         .await
+    }
+
+    fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
+        false
     }
 }
 
