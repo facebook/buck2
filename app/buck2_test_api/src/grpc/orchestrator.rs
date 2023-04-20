@@ -54,6 +54,7 @@ use crate::data::ExecuteRequest2;
 use crate::data::ExecutionResult2;
 use crate::data::ExecutorConfigOverride;
 use crate::data::PrepareForLocalExecutionResult;
+use crate::data::RequiredLocalResources;
 use crate::data::TestExecutable;
 use crate::data::TestResult;
 use crate::protocol::TestOrchestrator;
@@ -133,6 +134,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecutionResult2> {
         let test_executable = TestExecutable {
             ui_prints,
@@ -147,6 +149,7 @@ impl TestOrchestrator for TestOrchestratorClient {
             timeout,
             host_sharing_requirements,
             executor_override,
+            required_local_resources,
         };
 
         let req: buck2_test_proto::ExecuteRequest2 =
@@ -278,6 +281,7 @@ where
                 timeout,
                 host_sharing_requirements,
                 executor_override,
+                required_local_resources,
             } = request
                 .into_inner()
                 .try_into()
@@ -302,6 +306,7 @@ where
                     host_sharing_requirements,
                     pre_create_dirs,
                     executor_override,
+                    required_local_resources,
                 )
                 .await
                 .context("Execution failed")?;

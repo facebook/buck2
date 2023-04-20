@@ -189,12 +189,17 @@ message ExecutorConfigOverride {
   string name = 1;
 }
 
+message LocalResourceType {
+  string name = 1;
+}
+
 message ExecuteRequest2 {
   reserved 1 to 4, 7;
   google.protobuf.Duration timeout = 5;
   HostSharingRequirements host_sharing_requirements = 6;
   TestExecutable test_executable = 8;
   ExecutorConfigOverride executor_override = 9;
+  repeated LocalResourceType required_local_resources = 10;
 }
 
 message PrepareForLocalExecutionRequest {

@@ -92,6 +92,7 @@ use buck2_test_api::data::ExecutorConfigOverride;
 use buck2_test_api::data::ExternalRunnerSpecValue;
 use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
+use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
 use dice::DiceTransaction;
@@ -173,6 +174,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
+        _required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecutionResult2> {
         self.liveliness_observer.require_alive().await?;
 

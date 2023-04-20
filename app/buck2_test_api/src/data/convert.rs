@@ -14,7 +14,9 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 
+use super::LocalResourceType;
 use super::PrepareForLocalExecutionResult;
+use super::RequiredLocalResources;
 use crate::convert;
 use crate::data::ArgHandle;
 use crate::data::ArgValue;
@@ -415,6 +417,20 @@ impl From<buck2_test_proto::ExecutorConfigOverride> for ExecutorConfigOverride {
     }
 }
 
+impl From<LocalResourceType> for buck2_test_proto::LocalResourceType {
+    fn from(r: LocalResourceType) -> Self {
+        Self {
+            name: r.name.as_str().to_owned(),
+        }
+    }
+}
+
+impl From<buck2_test_proto::LocalResourceType> for LocalResourceType {
+    fn from(o: buck2_test_proto::LocalResourceType) -> Self {
+        Self { name: o.name }
+    }
+}
+
 impl TryInto<buck2_test_proto::ArgValue> for ArgValue {
     type Error = anyhow::Error;
 
@@ -490,6 +506,7 @@ impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
             timeout,
             host_sharing_requirements,
             executor_override,
+            required_local_resources,
         } = s;
 
         let test_executable = test_executable
@@ -508,11 +525,16 @@ impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
 
         let executor_override = executor_override.map(|o| o.into());
 
+        let required_local_resources = RequiredLocalResources {
+            resources: required_local_resources.into_map(|r| r.into()),
+        };
+
         Ok(ExecuteRequest2 {
             test_executable,
             timeout,
             host_sharing_requirements,
             executor_override,
+            required_local_resources,
         })
     }
 }
@@ -535,6 +557,10 @@ impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
                     .context("Invalid `host_sharing_requirements`")?,
             ),
             executor_override: self.executor_override.map(|o| o.into()),
+            required_local_resources: self
+                .required_local_resources
+                .resources
+                .into_map(|r| r.into()),
         })
     }
 }
@@ -887,6 +913,7 @@ mod tests {
             executor_override: Some(ExecutorConfigOverride {
                 name: "foo".to_owned(),
             }),
+            required_local_resources: RequiredLocalResources { resources: vec![] },
         };
         assert_roundtrips::<buck2_test_proto::ExecuteRequest2, ExecuteRequest2>(&request);
     }

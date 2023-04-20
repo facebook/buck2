@@ -185,12 +185,23 @@ pub struct ExecutorConfigOverride {
     pub name: String,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct LocalResourceType {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct RequiredLocalResources {
+    pub resources: Vec<LocalResourceType>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecuteRequest2 {
     pub test_executable: TestExecutable,
     pub timeout: Duration,
     pub host_sharing_requirements: HostSharingRequirements,
     pub executor_override: Option<ExecutorConfigOverride>,
+    pub required_local_resources: RequiredLocalResources,
 }
 
 #[derive(Clone, Debug, PartialEq)]

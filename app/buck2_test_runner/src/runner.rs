@@ -16,6 +16,7 @@ use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
 use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::ExternalRunnerSpecValue;
+use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
@@ -169,6 +170,7 @@ impl Buck2TestRunner {
                 host_sharing_requirements,
                 pre_create_dirs,
                 executor_override,
+                RequiredLocalResources { resources: vec![] },
             )
             .await
     }

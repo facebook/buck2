@@ -28,6 +28,7 @@ use crate::data::ExecutionResult2;
 use crate::data::ExecutorConfigOverride;
 use crate::data::ExternalRunnerSpec;
 use crate::data::PrepareForLocalExecutionResult;
+use crate::data::RequiredLocalResources;
 use crate::data::TestResult;
 
 /// available to buck to interact with the test executor
@@ -63,6 +64,7 @@ pub trait TestOrchestrator: Send + Sync {
         // A specific executor to use for this. It must be declared on the underlying
         // ExternalRunnerTestInfo to work.
         executor_override: Option<ExecutorConfigOverride>,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecutionResult2>;
 
     /// reports a test is done
