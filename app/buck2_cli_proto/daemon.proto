@@ -472,6 +472,8 @@ message TestResponse {
     CounterWithExamples listing_failed = 15;
   }
   TestStatuses test_statuses = 3;
+  string executor_stdout = 4;
+  string executor_stderr = 5;
 }
 
 message InstallResponse {}

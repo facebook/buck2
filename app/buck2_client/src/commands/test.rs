@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::str::FromStr;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CounterWithExamples;
@@ -22,14 +24,48 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::working_dir::WorkingDir;
 use gazebo::prelude::*;
 use superconsole::Line;
 use superconsole::Span;
 
 use crate::commands::build::print_build_result;
+
+#[derive(Debug, Eq, PartialEq)]
+enum OutputDestinationArg {
+    Stream,
+    Path(PathArg),
+}
+
+impl OutputDestinationArg {
+    const STREAM_TOKEN: &str = "-";
+}
+
+impl FromStr for OutputDestinationArg {
+    type Err = <PathArg as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == Self::STREAM_TOKEN {
+            Ok(OutputDestinationArg::Stream)
+        } else {
+            Ok(OutputDestinationArg::Path(PathArg::from_str(s)?))
+        }
+    }
+}
+
+fn forward_output_to_path(
+    output: &str,
+    path_arg: &PathArg,
+    working_dir: &WorkingDir,
+) -> anyhow::Result<()> {
+    fs_util::write(path_arg.resolve(working_dir), output)
+        .context("Failed to write test executor output to path")
+}
 
 fn print_error_counter(
     console: &FinalConsole,
@@ -116,6 +152,28 @@ If include patterns are present, regardless of whether exclude patterns are pres
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
     patterns: Vec<String>,
+
+    /// Writes the test executor stdout to the provided path
+    ///
+    /// --test-executor-stdout=- will write to stdout
+    ///
+    /// --test-executor-stdout=FILEPATH will write to the provided filepath, overwriting the current
+    /// file if it exists
+    ///
+    /// By default the test executor's stdout stream is captured
+    #[clap(long)]
+    test_executor_stdout: Option<OutputDestinationArg>,
+
+    /// Writes the test executor stderr to the provided path
+    ///
+    /// --test-executor-stderr=- will write to stderr
+    ///
+    /// --test-executor-stderr=FILEPATH will write to the provided filepath, overwriting the current
+    /// file if it exists
+    ///
+    /// By default test executor's stderr stream is captured
+    #[clap(long)]
+    test_executor_stderr: Option<OutputDestinationArg>,
 
     #[clap(
         name = "TEST_EXECUTOR_ARGS",
@@ -222,10 +280,31 @@ impl StreamingCommand for TestCommand {
             console.print_warning("NO TESTS RAN")?;
         }
 
-        if let Some(exit_code) = response.exit_code {
+        match self.test_executor_stderr {
+            Some(OutputDestinationArg::Path(path)) => {
+                forward_output_to_path(&response.executor_stderr, &path, &ctx.working_dir)?;
+            }
+            Some(OutputDestinationArg::Stream) => {
+                console.print_error(&response.executor_stderr)?;
+            }
+            _ => {}
+        }
+
+        let exit_result = if let Some(exit_code) = response.exit_code {
             ExitResult::status_extended(exit_code)
         } else {
             ExitResult::failure()
+        };
+
+        match self.test_executor_stdout {
+            Some(OutputDestinationArg::Path(path)) => {
+                forward_output_to_path(&response.executor_stdout, &path, &ctx.working_dir)?;
+                exit_result
+            }
+            Some(OutputDestinationArg::Stream) => {
+                exit_result.with_stdout(response.executor_stdout.into_bytes())
+            }
+            _ => exit_result,
         }
     }
 

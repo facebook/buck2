@@ -98,6 +98,8 @@ pub(crate) struct TestReport {
 struct TestOutcome {
     error_messages: Vec<String>,
     executor_report: ExecutorReport,
+    executor_stdout: String,
+    executor_stderr: String,
 }
 
 impl TestOutcome {
@@ -363,6 +365,8 @@ async fn test(
         exit_code,
         error_messages: test_outcome.error_messages,
         test_statuses: Some(test_statuses),
+        executor_stdout: test_outcome.executor_stdout,
+        executor_stderr: test_outcome.executor_stderr,
     })
 }
 
@@ -510,6 +514,8 @@ async fn test_targets(
 
     Ok(TestOutcome {
         error_messages: build_errors,
+        executor_stdout: executor_output.stdout,
+        executor_stderr: executor_output.stderr,
         executor_report,
     })
 }
