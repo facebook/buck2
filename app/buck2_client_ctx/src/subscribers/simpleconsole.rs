@@ -681,13 +681,8 @@ fn spawn_rage(isolation_dir: FileNameBuf, trace_id: TraceId) {
 }
 
 fn spawn_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Result<()> {
-    // We just spawn a process here and forget about it.
-    // Spawned process continues running after this function exits.
-    // However, nobody reaps this process, so after termination it lives as zombie
-    // until this process termination.
-    // Since we don't spawn a lot of rage commands, this is fine.
     let current_exe = std::env::current_exe().context("Not current_exe")?;
-    let mut command = buck2_util::process::background_command(current_exe);
+    let mut command = buck2_util::process::async_background_command(current_exe);
     command
         .args(["--isolation-dir", isolation_dir.as_str()])
         .arg("rage")
@@ -696,10 +691,14 @@ fn spawn_rage_impl(isolation_dir: FileNameBuf, trace_id: TraceId) -> anyhow::Res
         .arg("--no-paste")
         .args(["--origin", "hang-detector"])
         .args(["--invocation-id", &trace_id.to_string()]);
-    command
+    let mut spawned = command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()?;
+
+    // Running rage command in an async task. We don't want to block
+    // the main thread while we wait for rage command to finish.
+    tokio::spawn(async move { spawned.wait().await });
     Ok(())
 }
