@@ -16,18 +16,14 @@ pub fn get_host_info(
     host_platform: HostPlatformOverride,
     host_arch: HostArchOverride,
 ) -> (InterpreterHostPlatform, InterpreterHostArchitecture) {
-    let linux = InterpreterHostPlatform::Linux;
-    let mac = InterpreterHostPlatform::MacOS;
-    let windows = InterpreterHostPlatform::Windows;
-
     let interpreter_platform = match host_platform {
-        HostPlatformOverride::Linux => linux,
-        HostPlatformOverride::MacOs => mac,
-        HostPlatformOverride::Windows => windows,
+        HostPlatformOverride::Linux => InterpreterHostPlatform::Linux,
+        HostPlatformOverride::MacOs => InterpreterHostPlatform::MacOS,
+        HostPlatformOverride::Windows => InterpreterHostPlatform::Windows,
         HostPlatformOverride::DefaultPlatform => match std::env::consts::OS {
-            "linux" => linux,
-            "macos" => mac,
-            "windows" => windows,
+            "linux" => InterpreterHostPlatform::Linux,
+            "macos" => InterpreterHostPlatform::MacOS,
+            "windows" => InterpreterHostPlatform::Windows,
             v => unimplemented!("no support yet for operating system `{}`", v),
         },
     };
