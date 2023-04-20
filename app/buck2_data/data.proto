@@ -132,7 +132,7 @@ message SpanStats {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 9, 13;
+  reserved 9, 13, 22;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -177,8 +177,6 @@ message InstantEvent {
 
     // Notify the client that the daemon would like to update the rendering.
     ConsolePreferences console_preferences = 21;
-
-    InternalError internal_error = 22;
 
     IoProviderInfo io_provider_info = 23;
 
@@ -1721,11 +1719,6 @@ message CommandExecutionStats {
   optional uint64 cpu_instructions_user = 1;
   optional uint64 cpu_instructions_kernel = 2;
 }
-
-// Notify the client that we've encountered an internal error. This is normally
-// indicative of an irrecoverable error that the user is not responsible for.
-// Use sparingly.
-message InternalError {}
 
 message NetworkInterfaceStats {
   uint64 tx_bytes = 1;
