@@ -140,7 +140,7 @@ regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 reqwest = { version = "0.11.4", features = ["stream", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
-rustyline = "9.1"
+rustyline = "11.0"
 sequence_trie = "0.3.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.48"

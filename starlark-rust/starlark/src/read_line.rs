@@ -22,17 +22,18 @@ use std::env;
 use std::io;
 
 use rustyline::error::ReadlineError;
+use rustyline::history::DefaultHistory;
 use rustyline::Editor;
 
 /// Wrapper for the readline library, whichever we are using at the moment.
 pub struct ReadLine {
-    editor: Editor<()>,
+    editor: Editor<(), DefaultHistory>,
     histfile: Option<String>,
 }
 
 impl ReadLine {
     pub fn new(histfile_env: &str) -> anyhow::Result<ReadLine> {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new()?;
         let histfile = if let Ok(histfile) = env::var(histfile_env) {
             if let Err(e) = editor.load_history(&histfile) {
                 match e {
@@ -51,7 +52,7 @@ impl ReadLine {
     pub fn read_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
         match self.editor.readline(prompt) {
             Ok(line) => {
-                self.editor.add_history_entry(line.as_str());
+                self.editor.add_history_entry(line.as_str())?;
                 if let Some(histfile) = &self.histfile {
                     if let Err(e) = self.editor.save_history(&histfile) {
                         eprintln!("Failed to save history to `{}`: {}", histfile, e);
