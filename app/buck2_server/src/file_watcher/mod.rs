@@ -13,7 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_common::ignores::IgnoreSet;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;

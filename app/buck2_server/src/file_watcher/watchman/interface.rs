@@ -14,7 +14,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
-use buck2_common::ignores::IgnoreSet;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
