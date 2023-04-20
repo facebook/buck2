@@ -321,7 +321,7 @@ mod fbcode {
                 use buck2_data::span_start_event::Data;
 
                 match &s.data {
-                    Some(Data::Command(..)) => true, // used in CommandReporterProcessor
+                    Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => match ActionKind::from_i32(a.kind) {
                         // Simple actions are not useful for most log analysis cases
                         Some(ActionKind::Copy)
@@ -392,7 +392,7 @@ mod fbcode {
                     Some(Data::CommandCritical(..)) => false,
                     Some(Data::InstallEventInfo(..)) => false,
                     Some(Data::DiceStateUpdate(_)) => false,
-                    Some(Data::Materialization(..)) => true, // used in MaterializationProcessor
+                    Some(Data::Materialization(..)) => true,
                     Some(Data::DiceCriticalSection(_)) => false,
                     Some(Data::DiceBlockConcurrentCommand(_)) => false,
                     Some(Data::DiceSynchronizeSection(_)) => false,
