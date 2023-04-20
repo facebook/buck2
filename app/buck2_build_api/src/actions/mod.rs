@@ -58,6 +58,7 @@ use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use key::ActionKey;
+use more_futures::cancellation::CancellationContext;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 use thiserror::Error;
@@ -158,6 +159,7 @@ pub trait PristineActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 }
 
@@ -168,6 +170,7 @@ pub trait IncrementalActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 }
 
@@ -187,6 +190,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn events(&self) -> &EventDispatcher;
 
     /// Executes a command
+    /// TODO(bobyf) this seems like it deserves critical sections?
     async fn exec_cmd(
         &mut self,
         request: &CommandExecutionRequest,
@@ -354,6 +358,7 @@ pub(crate) mod testings {
     use derivative::Derivative;
     use dupe::Dupe;
     use indexmap::IndexSet;
+    use more_futures::cancellation::CancellationContext;
     use sorted_vector_map::sorted_vector_map;
     use starlark::values::OwnedFrozenValue;
 
@@ -468,6 +473,7 @@ pub(crate) mod testings {
         async fn execute(
             &self,
             ctx: &mut dyn ActionExecutionCtx,
+            _cancellation: &CancellationContext,
         ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),

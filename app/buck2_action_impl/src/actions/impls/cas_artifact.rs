@@ -42,6 +42,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
@@ -178,6 +179,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let expiration = ctx
             .re_client()
@@ -272,6 +274,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),
                 vec![(path, value.dupe())],
+                cancellation,
             )
             .await?;
 

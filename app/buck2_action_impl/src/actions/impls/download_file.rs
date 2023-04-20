@@ -39,6 +39,7 @@ use buck2_execute::materialize::http::HttpError;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
@@ -228,6 +229,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let client = http_client()?;
 
@@ -247,6 +249,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                                 metadata: metadata.dupe(),
                                 owner: ctx.target().owner().dupe().into_dyn(),
                             },
+                            cancellation,
                         )
                         .await?;
 

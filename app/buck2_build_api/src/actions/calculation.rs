@@ -54,6 +54,7 @@ pub struct ActionCalculation;
 
 async fn build_action_impl(
     ctx: &DiceComputations,
+    cancellation: &CancellationContext,
     key: &ActionKey,
 ) -> anyhow::Result<ActionOutputs> {
     // Compute is only called if we have cache miss
@@ -82,11 +83,12 @@ async fn build_action_impl(
         return res;
     }
 
-    build_action_no_redirect(ctx, action).await
+    build_action_no_redirect(ctx, cancellation, action).await
 }
 
 async fn build_action_no_redirect(
     ctx: &DiceComputations,
+    cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> anyhow::Result<ActionOutputs> {
     let materialized_inputs = {
@@ -123,8 +125,9 @@ async fn build_action_no_redirect(
     let now = Instant::now();
 
     let fut = async move {
-        let (execute_result, command_reports) =
-            executor.execute(materialized_inputs, &action).await;
+        let (execute_result, command_reports) = executor
+            .execute(materialized_inputs, &action, cancellation)
+            .await;
 
         let allow_omit_details = execute_result.is_ok();
 
@@ -290,9 +293,11 @@ impl Key for BuildKey {
     async fn compute(
         &self,
         ctx: &DiceComputations,
-        _cancellation: &CancellationContext,
+        cancellation: &CancellationContext,
     ) -> Self::Value {
-        build_action_impl(ctx, &self.0).await.shared_error()
+        build_action_impl(ctx, cancellation, &self.0)
+            .await
+            .shared_error()
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

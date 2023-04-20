@@ -92,13 +92,14 @@ impl Materializer for ImmediateMaterializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         self.io_executor
             .execute_io(
                 Box::new(CleanOutputPaths {
                     paths: vec![path.to_owned()],
                 }),
-                &CancellationContext::todo(),
+                cancellations,
             )
             .await?;
 
@@ -109,7 +110,7 @@ impl Materializer for ImmediateMaterializer {
                     path: path.clone(),
                     entry: value.entry().dupe(),
                 }),
-                &CancellationContext::todo(),
+                cancellations,
             )
             .await?;
 
@@ -139,13 +140,14 @@ impl Materializer for ImmediateMaterializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         self.io_executor
             .execute_io(
                 Box::new(CleanOutputPaths {
                     paths: artifacts.map(|(p, _)| p.to_owned()),
                 }),
-                &CancellationContext::todo(),
+                cancellations,
             )
             .await?;
 
@@ -156,7 +158,7 @@ impl Materializer for ImmediateMaterializer {
                         path: path.to_owned(),
                         entry: value.entry().dupe(),
                     }),
-                    &CancellationContext::todo(),
+                    cancellations,
                 )
                 .await?;
         }
@@ -181,7 +183,7 @@ impl Materializer for ImmediateMaterializer {
 
         let re_conn = self.re_client_manager.get_re_connection();
         let re_client = re_conn.get_client();
-        CancellationContext::todo()
+        cancellations
             .critical_section(|| re_client.materialize_files(files, info.re_use_case))
             .await?;
         Ok(())
@@ -191,13 +193,14 @@ impl Materializer for ImmediateMaterializer {
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         self.io_executor
             .execute_io(
                 Box::new(CleanOutputPaths {
                     paths: vec![path.to_owned()],
                 }),
-                &CancellationContext::todo(),
+                cancellations,
             )
             .await?;
 

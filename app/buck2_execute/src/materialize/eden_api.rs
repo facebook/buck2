@@ -313,6 +313,8 @@ impl EdenBuckOut {
         project_fs: &ProjectRoot,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> anyhow::Result<()> {
+        // TODO(bobyf, torozco) does this need to be critical section
+
         let futs = paths.iter().map(|path| async move {
             self.remove_path_recursive(project_fs, path)
                 .await

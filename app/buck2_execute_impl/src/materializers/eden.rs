@@ -43,6 +43,7 @@ use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 
@@ -80,6 +81,7 @@ impl Materializer for EdenMaterializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
@@ -154,6 +156,7 @@ impl Materializer for EdenMaterializer {
         &self,
         _info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
@@ -181,13 +184,14 @@ impl Materializer for EdenMaterializer {
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
             .remove_paths_recursive(&self.fs, vec![path.to_owned()])
             .await?;
 
-        self.delegator.declare_http(path, info).await
+        self.delegator.declare_http(path, info, cancellations).await
     }
 
     async fn declare_match(

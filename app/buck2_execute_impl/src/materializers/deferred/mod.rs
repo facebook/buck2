@@ -640,6 +640,7 @@ impl Materializer for DeferredMaterializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // TODO(rafaelc): get rid of this tree; it'd save a lot of memory.
         let mut srcs_tree = FileTree::new();
@@ -676,6 +677,7 @@ impl Materializer for DeferredMaterializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         for (path, value) in artifacts {
             let cmd = MaterializerCommand::Declare(
@@ -693,6 +695,7 @@ impl Materializer for DeferredMaterializer {
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         let cmd = MaterializerCommand::Declare(
             path,

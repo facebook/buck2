@@ -38,6 +38,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
@@ -149,6 +150,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        _cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let mut execution_start = None;
 

@@ -27,6 +27,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::TryStreamExt;
+use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 
 use crate::artifact_value::ArtifactValue;
@@ -147,18 +148,21 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()>;
 
     async fn declare_cas_many_impl<'a, 'b>(
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()>;
 
     async fn declare_http(
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()>;
 
     /// Write contents to paths. The output is ordered in the same order as the input. Implicitly
@@ -297,9 +301,11 @@ impl dyn Materializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         self.check_declared_external_symlink(&value)?;
-        self.declare_copy_impl(path, value, srcs).await
+        self.declare_copy_impl(path, value, srcs, cancellations)
+            .await
     }
 
     /// Declares a list of artifacts whose files can be materialized by
@@ -308,11 +314,13 @@ impl dyn Materializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         for (_, value) in artifacts.iter() {
             self.check_declared_external_symlink(value)?;
         }
-        self.declare_cas_many_impl(info, artifacts).await
+        self.declare_cas_many_impl(info, artifacts, cancellations)
+            .await
     }
 
     /// External symlink is a hack used to resolve the symlink to the correct external hack.

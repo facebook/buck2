@@ -31,6 +31,7 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
@@ -157,6 +158,7 @@ impl IncrementalActionExecutable for CopyAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let (input, src_value) = ctx
             .artifact_values(self.input())
@@ -192,6 +194,7 @@ impl IncrementalActionExecutable for CopyAction {
                     dest,
                     value.entry().dupe().map_dir(|d| d.as_immutable()),
                 )],
+                cancellation,
             )
             .await?;
 

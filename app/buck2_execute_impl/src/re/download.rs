@@ -47,6 +47,7 @@ use futures::future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
+use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use thiserror::Error;
 
@@ -231,6 +232,7 @@ impl CasDownloader<'_> {
                     ttl,
                 )),
                 to_declare,
+                &CancellationContext::todo(),
             )
             .boxed()
             .await

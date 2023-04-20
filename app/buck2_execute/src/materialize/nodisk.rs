@@ -16,6 +16,7 @@ use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use more_futures::cancellation::CancellationContext;
 
 use crate::artifact_value::ArtifactValue;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
@@ -52,6 +53,7 @@ impl Materializer for NoDiskMaterializer {
         _path: ProjectRelativePathBuf,
         _value: ArtifactValue,
         _srcs: Vec<CopiedArtifact>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -60,6 +62,7 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _info: Arc<CasDownloadInfo>,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -68,6 +71,7 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _path: ProjectRelativePathBuf,
         _info: HttpDownloadInfo,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         Ok(())
     }

@@ -50,6 +50,7 @@ use host_sharing::WeightClass;
 use indexmap::indexmap;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use more_futures::cancellation::CancellationContext;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::dict::DictRef;
@@ -414,6 +415,7 @@ impl IncrementalActionExecutable for RunAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        _cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;

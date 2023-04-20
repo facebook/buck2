@@ -192,6 +192,7 @@ pub trait ActionExecutor: Send + Sync {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
+        cancellation: &CancellationContext,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
@@ -419,6 +420,7 @@ impl ActionExecutor for BuckActionExecutor {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
+        cancellation: &CancellationContext,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
@@ -439,11 +441,11 @@ impl ActionExecutor for BuckActionExecutor {
             let (result, metadata) = match action.as_executable() {
                 ActionExecutable::Pristine(exe) => {
                     ctx.cleanup_outputs().await?;
-                    exe.execute(&mut ctx).await?
+                    exe.execute(&mut ctx, cancellation).await?
                 }
                 ActionExecutable::Incremental(exe) => {
                     // Let the action perform clean up in this case.
-                    exe.execute(&mut ctx).await?
+                    exe.execute(&mut ctx, cancellation).await?
                 }
             };
 
@@ -557,6 +559,7 @@ mod tests {
     use buck2_execute::re::manager::ManagedRemoteExecutionClient;
     use dupe::Dupe;
     use indexmap::indexset;
+    use more_futures::cancellation::CancellationContext;
     use once_cell::sync::Lazy;
     use sorted_vector_map::SortedVectorMap;
 
@@ -668,6 +671,7 @@ mod tests {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,
+                _cancellation: &CancellationContext,
             ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
                 self.ran.store(true, Ordering::SeqCst);
 
@@ -762,7 +766,7 @@ mod tests {
         );
         let res = with_dispatcher_async(
             EventDispatcher::null(),
-            executor.execute(Default::default(), &action),
+            executor.execute(Default::default(), &action, CancellationContext::testing()),
         )
         .await
         .0
