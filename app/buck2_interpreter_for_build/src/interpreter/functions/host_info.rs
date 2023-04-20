@@ -24,7 +24,7 @@ use starlark::values::Value;
 
 use crate::interpreter::build_context::BuildContext;
 
-pub(crate) fn new_host_info(
+fn new_host_info(
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
 ) -> OwnedFrozenValue {
@@ -147,11 +147,11 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
 #[derive(Derivative, Clone, Debug, Allocative)]
 #[derivative(PartialEq)]
 pub struct HostInfo {
-    pub platform: InterpreterHostPlatform,
-    pub arch: InterpreterHostArchitecture,
-    pub xcode: Option<XcodeVersionInfo>,
+    platform: InterpreterHostPlatform,
+    arch: InterpreterHostArchitecture,
+    xcode: Option<XcodeVersionInfo>,
     #[derivative(PartialEq = "ignore")]
-    pub value: OwnedFrozenValue,
+    value: OwnedFrozenValue,
 }
 
 impl HostInfo {
