@@ -226,6 +226,9 @@ rust_library = prelude_rule(
             "doc_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "doc_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "doctests": attrs.bool(default = True),
+            "doctest_link_style": attrs.option(attrs.enum(LinkableDepType), default = None, doc = """
+            Like `link_style` on binaries, but applies specifically to doctests.
+            """),
             "flagged_deps": attrs.list(attrs.tuple(attrs.dep(), attrs.list(attrs.string())), default = []),
             "incremental_build_mode": attrs.option(attrs.string(), default = None),
             "incremental_enabled": attrs.bool(default = False),

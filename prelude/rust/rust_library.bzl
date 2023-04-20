@@ -208,10 +208,11 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
             linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type,
             target_os_type = ctx.attrs._target_os_type[OsLookup],
         )
+        link_style = LinkStyle(ctx.attrs.doctest_link_style) if ctx.attrs.doctest_link_style else rustdoc_test_params.dep_link_style
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            link_style = rustdoc_test_params.dep_link_style,
+            link_style = link_style,
             library = rust_param_artifact[static_library_params],
             params = rustdoc_test_params,
             default_roots = default_roots,
