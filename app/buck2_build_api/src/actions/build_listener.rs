@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use std::fmt::Display;
 use std::future::Future;
 use std::hash::Hash;
@@ -38,7 +39,6 @@ use buck2_interpreter_for_build::load_signals::LoadSignalSender;
 use buck2_interpreter_for_build::load_signals::SetLoadSignals;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use derive_more::Display;
 use derive_more::From;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -188,19 +188,36 @@ struct CriticalPathNode<TKey: Eq, TValue> {
     pub prev: Option<TKey>,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug)]
 pub enum NodeKey {
-    #[display(fmt = "ActionKey: {}", .0)]
     ActionKey(ActionKey),
-    #[display(fmt = "TransitiveSetProjection: {}", .0)]
     TransitiveSetProjection(TransitiveSetProjectionKey),
     // NOTE: we do not currently support analysis of anonymous targets or BXL.
-    #[display(fmt = "Analysis: {}", .0)]
     Analysis(ConfiguredTargetLabel),
-    #[display(fmt = "Materialization: {}", .0)]
     Materialization(BuildArtifact),
-    #[display(fmt = "Load: {}", .0)]
     Load(PackageLabel),
+}
+
+impl fmt::Display for NodeKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ActionKey(k) => {
+                write!(f, "ActionKey: {}", k)
+            }
+            Self::TransitiveSetProjection(k) => {
+                write!(f, "TransitiveSetProjection: {}", k)
+            }
+            Self::Analysis(k) => {
+                write!(f, "Analysis: {}", k)
+            }
+            Self::Materialization(k) => {
+                write!(f, "Materialization: {}", k)
+            }
+            Self::Load(k) => {
+                write!(f, "Load: {}", k)
+            }
+        }
+    }
 }
 
 pub struct BuildSignalReceiver<T> {
@@ -870,7 +887,7 @@ fn start_listener(
     (sender, receiver_task_handle)
 }
 
-#[derive(Copy, Clone, Dupe, Display, Allocative)]
+#[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
 pub enum CriticalPathBackendName {
     #[display(fmt = "longest-path-graph")]
     LongestPathGraph,
