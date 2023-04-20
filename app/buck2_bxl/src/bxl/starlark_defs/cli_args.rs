@@ -63,6 +63,9 @@ pub(crate) struct CliArgs {
     /// The coercer to take this parameter's value from Starlark value -> an
     /// internal representation
     coercer: CliArgType,
+    /// The shorthand representation of the CLI arg
+    #[allocative(skip)]
+    pub(crate) short: Option<char>,
 }
 
 starlark_simple_value!(CliArgs);
@@ -73,7 +76,12 @@ impl<'v> StarlarkValue<'v> for CliArgs {
 
 impl CliArgs {
     /// Helper to create an attribute from attrs.foo functions
-    fn new<'v>(default: Option<Value<'v>>, doc: &str, coercer: CliArgType) -> anyhow::Result<Self> {
+    fn new<'v>(
+        default: Option<Value<'v>>,
+        doc: &str,
+        coercer: CliArgType,
+        short: Option<Value<'v>>,
+    ) -> anyhow::Result<Self> {
         let default = match default {
             None => None,
             Some(x) => Some(Arc::new(
@@ -82,20 +90,39 @@ impl CliArgs {
                     .map_err(|_| ValueError::IncorrectParameterType)?,
             )),
         };
+
+        let short = match short {
+            None => None,
+            Some(s) => match s.unpack_str() {
+                Some(s) => {
+                    if s.len() != 1 {
+                        return Err(ValueError::IncorrectParameterType.into());
+                    }
+                    Some(s.chars().next().unwrap())
+                }
+                None => return Err(ValueError::IncorrectParameterType.into()),
+            },
+        };
+
         Ok(Self {
             default,
             doc: doc.to_owned(),
             coercer,
+            short,
         })
     }
 
     pub fn to_clap<'a>(&'a self, arg: clap::Arg<'a>) -> clap::Arg<'a> {
-        let arg = self.coercer.to_clap(arg.help(self.doc.as_str()));
-        if self.default.is_some() {
-            arg.required(false)
-        } else {
-            arg
+        let mut arg = self.coercer.to_clap(arg.help(self.doc.as_str()));
+        if let Some(short) = self.short {
+            arg = arg.short(short);
         }
+
+        if self.default.is_some() {
+            arg = arg.required(false);
+        }
+
+        arg
     }
 
     pub async fn parse_clap<'a>(
@@ -131,7 +158,7 @@ impl CliArgValueExt for CliArgValue {
 
 #[derive(Debug, VariantName, Clone, Dupe, Allocative)]
 #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))] // recursive type
-enum CliArgType {
+pub(crate) enum CliArgType {
     Bool,
     Int,
     Float,
@@ -209,7 +236,7 @@ impl CliArgType {
 }
 
 #[derive(Debug, Error)]
-enum CliArgError {
+pub(crate) enum CliArgError {
     #[error("Expected default value of type `{}`, but got `{}`", _0, _1)]
     DefaultValueTypeError(CliArgType, String),
     #[error("Missing cli arg from command line that isn't optional nor has any default values")]
@@ -218,6 +245,8 @@ enum CliArgError {
     NotALabel(String, &'static str),
     #[error("Defaults are not allowed for cli arg type `{0}`.")]
     NoDefaultsAllowed(CliArgType),
+    #[error("Duplicate short args are not allowed: `{0}` was already used")]
+    DuplicateShort(char),
 }
 
 impl CliArgType {
@@ -444,53 +473,60 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
     fn string<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::string())
+        CliArgs::new(default, doc, CliArgType::string(), short)
     }
 
     fn list<'v>(
         #[starlark(require = pos)] inner: &CliArgs,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
         let coercer = CliArgType::list(inner.coercer.dupe());
-        CliArgs::new(default, doc, coercer)
+        CliArgs::new(default, doc, coercer, short)
     }
 
     fn bool<'v>(
         #[starlark(default = false)] default: Value<'v>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(Some(default), doc, CliArgType::bool())
+        CliArgs::new(Some(default), doc, CliArgType::bool(), short)
     }
 
     fn int<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::int())
+        CliArgs::new(default, doc, CliArgType::int(), short)
     }
 
     fn float<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::float())
+        CliArgs::new(default, doc, CliArgType::float(), short)
     }
 
     fn option<'v>(
         inner: &CliArgs,
         #[starlark(default = "")] doc: &str,
         #[starlark(default = NoneType)] default: Value<'v>,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
         let coercer = CliArgType::option(inner.coercer.dupe());
-        CliArgs::new(Some(default), doc, coercer)
+        CliArgs::new(Some(default), doc, coercer, short)
     }
 
     fn r#enum<'v>(
         #[starlark(require = pos)] variants: Vec<String>,
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
     ) -> anyhow::Result<CliArgs> {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
@@ -499,19 +535,29 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
             default,
             doc,
             CliArgType::enumeration(variants.into_iter().collect()),
+            short,
         )
     }
 
-    fn target_label(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::target_label())
+    fn target_label<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::target_label(), short)
     }
 
-    fn sub_target(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::sub_target())
+    fn sub_target<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::sub_target(), short)
     }
 
-    fn target_expr(#[starlark(default = "")] doc: &str) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::target_expr())
+    fn target_expr<'v>(
+        #[starlark(default = "")] doc: &str,
+        #[starlark(require = named)] short: Option<Value<'v>>,
+    ) -> anyhow::Result<CliArgs> {
+        CliArgs::new(None, doc, CliArgType::target_expr(), short)
     }
 }
 

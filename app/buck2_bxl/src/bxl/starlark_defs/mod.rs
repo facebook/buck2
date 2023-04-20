@@ -32,6 +32,7 @@ use ctor::ctor;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_simple_value;
@@ -49,6 +50,7 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::bxl::starlark_defs::cli_args::ArgAccessor;
+use crate::bxl::starlark_defs::cli_args::CliArgError;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
@@ -92,17 +94,26 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
             .unpack_bxl_file()
             .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
         .clone();
-        let cli_args = cli_args
-            .to_dict()
-            .into_iter()
-            .map(|(arg, def)| (arg.to_owned(), def.clone()))
-            .collect();
+
+        let mut unresolved_cli_args = SmallMap::new();
+        let mut short_args = SmallSet::new();
+
+        for (arg, def) in cli_args.to_dict().into_iter() {
+            if let Some(short) = def.short {
+                if short_args.contains(&short) {
+                    return Err(CliArgError::DuplicateShort(short.to_owned()).into());
+                } else {
+                    short_args.insert(short.to_owned());
+                }
+            }
+            unresolved_cli_args.insert(arg.to_owned(), def.clone());
+        }
 
         Ok(eval.heap().alloc(BxlFunction {
             bxl_path,
             id: RefCell::new(None),
             implementation,
-            cli_args,
+            cli_args: unresolved_cli_args,
             docs: Some(doc.to_owned()),
         }))
     }
