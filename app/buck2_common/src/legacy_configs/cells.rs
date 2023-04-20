@@ -181,10 +181,16 @@ impl BuckConfigBasedCells {
             &mut file_ops,
         )?;
 
-        static SKIP_EXTERNAL_CONFIG: EnvHelper<bool> =
-            EnvHelper::<bool>::new("BUCK2_TEST_SKIP_EXTERNAL_CONFIG");
+        static SKIP_DEFAULT_EXTERNAL_CONFIG: EnvHelper<bool> =
+            EnvHelper::<bool>::new("BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG");
 
-        let skip_external_config = SKIP_EXTERNAL_CONFIG.get()?.copied().unwrap_or_default();
+        static EXTRA_EXTERNAL_CONFIG: EnvHelper<String> =
+            EnvHelper::<String>::new("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG");
+
+        let skip_default_external_config = SKIP_DEFAULT_EXTERNAL_CONFIG
+            .get()?
+            .copied()
+            .unwrap_or_default();
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) {
@@ -194,7 +200,7 @@ impl BuckConfigBasedCells {
             let mut buckconfig_paths: Vec<MainConfigFile> = Vec::new();
 
             for buckconfig in DEFAULT_BUCK_CONFIG_FILES {
-                if skip_external_config && buckconfig.is_external() {
+                if skip_default_external_config && buckconfig.is_external() {
                     continue;
                 }
 
@@ -258,6 +264,13 @@ impl BuckConfigBasedCells {
                         )?;
                     }
                 }
+            }
+
+            if let Some(f) = EXTRA_EXTERNAL_CONFIG.get()? {
+                buckconfig_paths.push(MainConfigFile {
+                    path: AbsNormPathBuf::from(f.to_owned())?,
+                    owned_by_project: false,
+                });
             }
 
             let existing_configs: Vec<MainConfigFile> = buckconfig_paths
