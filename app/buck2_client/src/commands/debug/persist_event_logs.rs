@@ -53,31 +53,17 @@ impl PersistEventLogsCommand {
     }
 
     async fn write(self, stdin: impl io::AsyncBufRead + Unpin) -> anyhow::Result<()> {
-        let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
+        let mut params = UploadParams {
+            file: self.create_log_file().await?,
+            read_position: 0,
+            first_upload: true,
+            manifold_path: format!("flat/{}", self.manifold_name),
+            upload_chunk_size: UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024),
+        };
         let mut should_upload = !self.no_upload;
-        let mut file = self.create_log_file().await?;
-        let mut read_position: u64 = 0;
-        let mut first_upload = true;
-        let manifold_path = format!("flat/{}", self.manifold_name);
-        poll_and_upload_loop(
-            stdin,
-            &mut file,
-            &mut read_position,
-            &mut first_upload,
-            &manifold_path,
-            upload_chunk_size,
-            &mut should_upload,
-        )
-        .await?;
+        poll_and_upload_loop(stdin, &mut params, &mut should_upload).await?;
         if should_upload {
-            upload_remaining(
-                &mut file,
-                read_position,
-                first_upload,
-                &manifold_path,
-                upload_chunk_size,
-            )
-            .await?;
+            upload_remaining(&mut params).await?;
         };
         Ok(())
     }
@@ -99,13 +85,17 @@ impl PersistEventLogsCommand {
     }
 }
 
+struct UploadParams {
+    manifold_path: String,
+    upload_chunk_size: u64,
+    file: File,
+    read_position: u64,
+    first_upload: bool,
+}
+
 async fn poll_and_upload_loop(
     mut stdin: impl io::AsyncBufRead + Unpin,
-    file: &mut File,
-    read_position: &mut u64,
-    first_upload: &mut bool,
-    manifold_path: &str,
-    chunk_size: u64,
+    params: &mut UploadParams,
     should_upload: &mut bool,
 ) -> Result<(), anyhow::Error> {
     let mut write_position: u64 = 0;
@@ -116,7 +106,7 @@ async fn poll_and_upload_loop(
         if bytes_read == 0 {
             break; // closed stdin
         }
-        write_to_file(file, write_position, &buf[..bytes_read]).await?;
+        write_to_file(&mut params.file, write_position, &buf[..bytes_read]).await?;
         write_position += bytes_read as u64;
         let cert = find_certs::find_tls_cert()?;
         if *should_upload && upload_handle.as_ref().map_or(true, |h| h.is_finished()) {
@@ -127,17 +117,8 @@ async fn poll_and_upload_loop(
                     *should_upload = false;
                 };
             };
-            if write_position - *read_position > chunk_size {
-                upload_chunk(
-                    file,
-                    read_position,
-                    chunk_size,
-                    manifold_path,
-                    first_upload,
-                    &mut upload_handle,
-                    cert,
-                )
-                .await?;
+            if write_position - params.read_position > params.upload_chunk_size {
+                upload_chunk(params, &mut upload_handle, cert).await?;
             }
         }
     }
@@ -148,29 +129,27 @@ async fn poll_and_upload_loop(
 }
 
 async fn upload_chunk(
-    file: &mut File,
-    read_position: &mut u64,
-    chunk_size: u64,
-    manifold_path: &str,
-    first_upload: &mut bool,
+    params: &mut UploadParams,
     upload_handle: &mut Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>,
     cert: OsString,
 ) -> Result<(), anyhow::Error> {
-    file.seek(io::SeekFrom::Start(*read_position))
+    params
+        .file
+        .seek(io::SeekFrom::Start(params.read_position))
         .await
         .context("Failed to seek log file")?;
-    let (buf, len) = read_chunk(file, chunk_size).await?;
-    let manifold_path = manifold_path.to_owned();
-    if *first_upload {
+    let (buf, len) = read_chunk(&mut params.file, params.upload_chunk_size).await?;
+    let manifold_path = params.manifold_path.to_owned();
+    if params.first_upload {
         *upload_handle = Some(tokio::spawn(async move {
             if let Err(e) = upload_write(manifold_path, &buf).await {
                 let _res = buck2_core::soft_error!("manifold_write_error", e);
             }
             Ok(())
         }));
-        *first_upload = false;
+        params.first_upload = false;
     } else {
-        let read_position_clone = *read_position;
+        let read_position_clone = params.read_position;
         *upload_handle = Some(tokio::spawn(async move {
             if let Err(e) = upload_append(manifold_path, &buf, read_position_clone, &cert).await {
                 let _res = buck2_core::soft_error!("manifold_append_error", e);
@@ -178,34 +157,36 @@ async fn upload_chunk(
             Ok(())
         }));
     }
-    *read_position += len as u64;
+    params.read_position += len as u64;
     Ok(())
 }
 
-async fn upload_remaining(
-    file: &mut File,
-    mut read_position: u64,
-    mut first_upload: bool,
-    manifold_path: &str,
-    chunk_size: u64,
-) -> Result<(), anyhow::Error> {
-    file.seek(io::SeekFrom::Start(read_position))
+async fn upload_remaining(params: &mut UploadParams) -> Result<(), anyhow::Error> {
+    params
+        .file
+        .seek(io::SeekFrom::Start(params.read_position))
         .await
         .context("Failed to seek log file")?;
     let cert = find_certs::find_tls_cert()?;
     loop {
         // Upload in chunks size UPLOAD_CHUNK_SIZE
-        let (buf, len) = read_chunk(file, chunk_size).await?;
+        let (buf, len) = read_chunk(&mut params.file, params.upload_chunk_size).await?;
         if len == 0 {
             break;
         }
-        if first_upload {
-            upload_write(manifold_path.to_owned(), &buf).await?;
-            first_upload = false;
+        if params.first_upload {
+            upload_write(params.manifold_path.to_owned(), &buf).await?;
+            params.first_upload = false;
         } else {
-            upload_append(manifold_path.to_owned(), &buf, read_position, &cert).await?;
+            upload_append(
+                params.manifold_path.to_owned(),
+                &buf,
+                params.read_position,
+                &cert,
+            )
+            .await?;
         }
-        read_position += len as u64;
+        params.read_position += len as u64;
     }
     Ok(())
 }
