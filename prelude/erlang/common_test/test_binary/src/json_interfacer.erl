@@ -13,7 +13,7 @@
 %
 %
 
--export([write_json_output/2, format_json/1]).
+-export([write_json_output/2, format_json/1, status_name/1]).
 
 -define(PASSED, <<"PASSED">>).
 -define(FAILED, <<"FAILED">>).
@@ -26,6 +26,12 @@ status(failed) -> 2;
 status(skipped) -> 3;
 status(timeout) -> 5;
 status(omitted) -> 7.
+
+status_name(1) -> passed;
+status_name(2) -> failed;
+status_name(3) -> skipped;
+status_name(5) -> timeout;
+status_name(7) -> omitted.
 
 summary(passed) -> ?PASSED;
 summary(failed) -> ?FAILED;

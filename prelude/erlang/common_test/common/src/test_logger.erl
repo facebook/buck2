@@ -8,18 +8,28 @@
 -module(test_logger).
 -compile(warn_missing_spec).
 
--export([set_up_logger/2, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
+-export([set_up_logger/2, set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
 
 -spec set_up_logger(file:filename(), atom()) -> ok.
 set_up_logger(LogDir, AppName) ->
+    set_up_logger(LogDir, AppName, true).
+
+-spec set_up_logger(file:filename(), atom(), boolean()) -> ok.
+set_up_logger(LogDir, AppName, CaptureStdout) ->
+    [logger:remove_handler(Id) || Id <- logger:get_handler_ids()],
     Log = get_log_file(LogDir, AppName),
     filelib:ensure_dir(Log),
     StdOut = get_std_out(LogDir, AppName),
     filelib:ensure_dir(StdOut),
     {ok, LogFileOpened} = file:open(StdOut, [write]),
-    group_leader(
-        LogFileOpened, self()
-    ),
+    case CaptureStdout of
+        true ->
+            group_leader(
+                LogFileOpened, self()
+            );
+        false ->
+            ok
+    end,
     configure_logger(Log),
     test_artifact_directory:link_to_artifact_dir(StdOut, LogDir),
     test_artifact_directory:link_to_artifact_dir(Log, LogDir).

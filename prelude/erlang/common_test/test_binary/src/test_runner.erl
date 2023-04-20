@@ -19,7 +19,7 @@
 
 -define(DEFAULT_OUTPUT_FORMAT, json).
 
--spec run_tests([string()], #test_info{}, string(), [string()]) -> ok.
+-spec run_tests([string()], #test_info{}, string(), [#test_spec_test_case{}]) -> ok.
 run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
     Suite = list_to_atom(filename:basename(TestInfo#test_info.test_suite, ".beam")),
@@ -109,7 +109,7 @@ run_test(
                 after 5000 -> ok
                 end,
                 ErrorMsg =
-                    "***************************************************************\n"
+                    "\n***************************************************************\n"
                     "* the suite timed out, all tests will be reported as failure. *\n"
                     "***************************************************************\n",
                 test_run_timeout(TestEnv, ErrorMsg)
@@ -219,12 +219,13 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
-    {ok, ResultOuptuFile} = case OutputFormat of
-        xml ->
-            junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);
-        json ->
-            json_interfacer:write_json_output(OutputDir, Results)
-    end,
+    {ok, ResultOuptuFile} =
+        case OutputFormat of
+            xml ->
+                junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);
+            json ->
+                json_interfacer:write_json_output(OutputDir, Results)
+        end,
     JsonLogs = execution_logs:create_dir_summary(OutputDir),
     file:write_file(filename:join(OutputDir, "logs.json"), jsone:encode(JsonLogs)),
     FilesToUpload = [
@@ -465,8 +466,10 @@ max_timeout(#test_env{ct_opts = CtOpts}) ->
             Multiplier = proplists:get_value(multiply_timetraps, CtOpts, 1),
             %% 9 minutes 30 seconds, giving us 30 seconds to crash multiplied by multiply_timetraps
             round(Multiplier * (9 * 60 + 30) * 1000);
-        StrTimeout -> InputTimeout =  list_to_integer(StrTimeout),
-            case InputTimeout of _ when InputTimeout > 30 -> (InputTimeout -30) * 1000;
+        StrTimeout ->
+            InputTimeout = list_to_integer(StrTimeout),
+            case InputTimeout of
+                _ when InputTimeout > 30 -> (InputTimeout - 30) * 1000;
                 _ -> error("Please allow at least 30s for the binary to execute")
-        end
+            end
     end.

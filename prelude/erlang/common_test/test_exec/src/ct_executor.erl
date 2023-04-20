@@ -24,7 +24,7 @@ run(Args) when is_list(Args) ->
     ExitCode =
         try
             {CtExecutorArgs, CtRunArgs} = parse_arguments(Args),
-            io:format("~p", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
+            debug_print("~p", [#{ct_exec_args => CtExecutorArgs, ct_run_args => CtRunArgs}]),
             {_, OutputDir} = lists:keyfind(output_dir, 1, CtExecutorArgs),
             ok = test_logger:set_up_logger(OutputDir, ?MODULE),
 
@@ -106,14 +106,14 @@ parse_arguments(Args) ->
     % The logger is not set up yet.
     % This will be sent to the program executing it (ct_runner),
     % that will log it in its own log.
-    io:format("CT executor called with ~p~n", [Args]),
+    debug_print("CT executor called with ~p~n", [Args]),
     ParsedArgs = lists:map(
         fun(StrArgs) ->
             buck_ct_parser:parse_str(StrArgs)
         end,
         Args
     ),
-    io:format("Parsed arguments ~p~n", [ParsedArgs]),
+    debug_print("Parsed arguments ~p~n", [ParsedArgs]),
     % We split the arguments between those that go to ct_run and those that are for
     % ct_executor
     % the args passed to ct are to be found after the --ct-args
@@ -127,3 +127,10 @@ split_args(Args) -> split_args(Args, [], []).
 split_args([ct_args | Args], CtExecutorArgs, []) -> {lists:reverse(CtExecutorArgs), Args};
 split_args([Arg | Args], CtExecutorArgs, []) -> split_args(Args, [Arg | CtExecutorArgs], []);
 split_args([], CtExecutorArgs, []) -> {lists:reverse(CtExecutorArgs), []}.
+
+debug_print(Fmt, Args) ->
+    case os:getenv("ERLANG_BUCK_DEBUG_PRINT") of
+        false -> io:format(Fmt, Args);
+        "disabled" -> ok;
+        _ -> io:format(Fmt, Args)
+    end.
