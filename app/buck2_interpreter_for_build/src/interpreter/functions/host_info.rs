@@ -27,6 +27,7 @@ use crate::interpreter::build_context::BuildContext;
 fn new_host_info(
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
+    xcode_info: Option<&XcodeVersionInfo>,
 ) -> OwnedFrozenValue {
     let heap = FrozenHeap::new();
 
@@ -76,23 +77,14 @@ fn new_host_info(
     );
 
     let xcode = {
-        // Hack: Xcode version must be inferred from the platform we're running on
-        // since multiple Xcodes can live side-by-side and this is external state.
-        // Only try to populate this struct if we're running on macOS.
-        let xcode_info = if host_platform == InterpreterHostPlatform::MacOS {
-            XcodeVersionInfo::new().ok()
-        } else {
-            None
-        };
-
         let (version_string, major_version, minor_version, patch_version, build_number) =
             match xcode_info {
                 Some(i) => (
-                    heap.alloc(i.version_string),
-                    heap.alloc(i.major_version),
-                    heap.alloc(i.minor_version),
-                    heap.alloc(i.patch_version),
-                    heap.alloc(i.build_number),
+                    heap.alloc(i.version_string.as_str()),
+                    heap.alloc(i.major_version.as_str()),
+                    heap.alloc(i.minor_version.as_str()),
+                    heap.alloc(i.patch_version.as_str()),
+                    heap.alloc(i.build_number.as_str()),
                 ),
                 None => (
                     FrozenValue::new_none(),
@@ -159,16 +151,21 @@ impl HostInfo {
         platform: InterpreterHostPlatform,
         arch: InterpreterHostArchitecture,
     ) -> Self {
+        // Hack: Xcode version must be inferred from the platform we're running on
+        // since multiple Xcodes can live side-by-side and this is external state.
+        // Only try to populate this struct if we're running on macOS.
+        let xcode = match platform {
+            // TODO(raulgarcia4): Actually do something with any underlying
+            // errors in `XcodeVersionInfo`, rather than discarding them.
+            InterpreterHostPlatform::MacOS => XcodeVersionInfo::new().ok(),
+            _ => None,
+        };
+        let value = new_host_info(platform, arch, xcode.as_ref());
         Self {
             platform,
             arch,
-            xcode: match platform {
-                // TODO(raulgarcia4): Actually do something with any underlying
-                // errors in `XcodeVersionInfo`, rather than discarding them.
-                InterpreterHostPlatform::MacOS => XcodeVersionInfo::new().ok(),
-                _ => None,
-            },
-            value: new_host_info(platform, arch),
+            xcode,
+            value,
         }
     }
 }
