@@ -75,7 +75,7 @@ def cxx_toolchain_impl(ctx):
         link_ordering = ctx.attrs.link_ordering,
         linker = ctx.attrs.linker[RunInfo],
         linker_flags = cmd_args(ctx.attrs.linker_flags),
-        lto_mode = LtoMode("none"),
+        lto_mode = LtoMode(ctx.attrs.lto_mode),
         object_file_extension = ctx.attrs.object_file_extension or "o",
         shlib_interfaces = "disabled",
         independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
@@ -154,6 +154,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "linker": dep_type(providers = [RunInfo]),
+        "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         # A placeholder tool that can be used to set up toolchain constraints.
