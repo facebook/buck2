@@ -41,7 +41,11 @@ def _type(ctx: "context") -> str.type:
         fail("unsupported archive type: {}".format(typ))
     return typ
 
-def _unarchive_cmd(ext_type: str.type, exec_is_windows: bool.type, archive: "artifact") -> "cmd_args":
+def _unarchive_cmd(
+        ext_type: str.type,
+        exec_is_windows: bool.type,
+        archive: "artifact",
+        strip_prefix: [str.type, None]) -> "cmd_args":
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":
@@ -49,21 +53,55 @@ def _unarchive_cmd(ext_type: str.type, exec_is_windows: bool.type, archive: "art
             # bsdtar seems to not properly interop with zstd and hangs instead of
             # exiting with an error. Manually decompressing with zstd and piping to
             # tar seems to work fine though.
-            return cmd_args(archive, format = "zstd -d {} --stdout | tar -x -f -")
+            return cmd_args(
+                "zstd",
+                "-d",
+                archive,
+                "--stdout",
+                "|",
+                "tar",
+                "-x",
+                "-f",
+                "-",
+                _tar_strip_prefix_flags(strip_prefix),
+            )
         elif ext_type == "zip":
             # unzip and zip are not cli commands available on windows. however, the
             # bsdtar that ships with windows has builtin support for zip
-            return cmd_args(archive, format = "tar -xf {}")
+            return cmd_args(
+                "tar",
+                "-x",
+                "-f",
+                archive,
+                _tar_strip_prefix_flags(strip_prefix),
+            )
 
         # Else hope for the best
 
     if ext_type in _TAR_FLAGS:
-        return cmd_args(archive, format = "tar " + _TAR_FLAGS[ext_type] + " -x -f {}")
+        return cmd_args(
+            "tar",
+            _TAR_FLAGS[ext_type],
+            "-x",
+            "-f",
+            archive,
+            _tar_strip_prefix_flags(strip_prefix),
+        )
     elif ext_type == "zip":
+        if strip_prefix:
+            fail("`strip_prefix` for zip is only supported on windows")
+
         # gnutar does not intrinsically support zip
         return cmd_args(archive, format = "unzip {}")
     else:
         fail()
+
+def _tar_strip_prefix_flags(strip_prefix: [str.type, None]) -> [str.type]:
+    if strip_prefix:
+        # count nonempty path components in the prefix
+        count = len(filter(lambda c: c != "", strip_prefix.split("/")))
+        return ["--strip-components=" + str(count), strip_prefix]
+    return []
 
 def http_archive_impl(ctx: "context") -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not support: {}".format(ctx.attrs.urls))
@@ -118,12 +156,13 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         mkdir = "mkdir -p {}"
         interpreter = ["/bin/sh"]
 
+    unarchive_cmd = _unarchive_cmd(ext_type, exec_is_windows, archive, ctx.attrs.strip_prefix)
     script, _ = ctx.actions.write(
         "unpack.{}".format(ext),
         [
             cmd_args(output, format = mkdir),
             cmd_args(output, format = "cd {}"),
-            cmd_args([_unarchive_cmd(ext_type, exec_is_windows, archive)] + exclude_flags, delimiter = " ").relative_to(output),
+            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ").relative_to(output),
         ],
         is_executable = True,
         allow_args = True,
@@ -134,8 +173,5 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         category = "http_archive",
         local_only = local_only,
     )
-
-    if ctx.attrs.strip_prefix:
-        output = output.project(ctx.attrs.strip_prefix, hide_prefix = True)
 
     return [DefaultInfo(default_output = output)]
