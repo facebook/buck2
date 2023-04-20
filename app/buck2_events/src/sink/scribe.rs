@@ -330,36 +330,8 @@ mod fbcode {
                         | Some(ActionKind::WriteMacrosToFile) => false,
                         _ => true,
                     },
-                    Some(Data::Analysis(..)) => false,
-                    Some(Data::AnalysisStage(..)) => false,
-                    Some(Data::FinalMaterialization(..)) => false,
-                    Some(Data::Load(..)) => false,
-                    Some(Data::LoadPackage(..)) => false,
-                    Some(Data::ExecutorStage(..)) => false,
-                    Some(Data::TestDiscovery(..)) => false,
-                    Some(Data::TestStart(..)) => false,
-                    Some(Data::FileWatcher(..)) => false,
-                    Some(Data::MatchDepFiles(..)) => false,
-                    Some(Data::SharedTask(..)) => false,
-                    Some(Data::CacheUpload(..)) => false,
-                    Some(Data::CreateOutputSymlinks(..)) => false,
-                    Some(Data::CommandCritical(..)) => false,
-                    Some(Data::InstallEventInfo(..)) => false,
-                    Some(Data::DiceStateUpdate(_)) => false,
-                    Some(Data::Materialization(..)) => false,
-                    Some(Data::DiceCriticalSection(_)) => false,
-                    Some(Data::DiceBlockConcurrentCommand(_)) => false,
-                    Some(Data::DiceSynchronizeSection(_)) => false,
-                    Some(Data::DiceCleanup(_)) => false,
-                    Some(Data::ExclusiveCommandWait(_)) => false,
-                    Some(Data::DeferredPreparationStage(_)) => false,
-                    Some(Data::DynamicLambda(_)) => false,
-                    Some(Data::BxlExecution(_)) => false,
-                    Some(Data::BxlDiceInvocation(_)) => false,
-                    Some(Data::ReUpload(_)) => false,
-                    Some(Data::ConnectToInstaller(_)) => false,
-                    Some(Data::Fake(..)) => false,
                     None => false,
+                    _ => false,
                 }
             }
             Data::SpanEnd(s) => {
@@ -376,52 +348,35 @@ mod fbcode {
                         }
                     }
                     Some(Data::Analysis(..)) => true,
-                    Some(Data::AnalysisStage(..)) => false,
-                    Some(Data::FinalMaterialization(..)) => false,
                     Some(Data::Load(..)) => true,
-                    Some(Data::LoadPackage(..)) => false,
-                    Some(Data::ExecutorStage(..)) => false,
-                    Some(Data::TestDiscovery(..)) => false,
-                    Some(Data::TestEnd(..)) => false,
-                    Some(Data::SpanCancelled(..)) => false,
-                    Some(Data::FileWatcher(..)) => false,
-                    Some(Data::MatchDepFiles(..)) => false,
-                    Some(Data::SharedTask(..)) => false,
                     Some(Data::CacheUpload(..)) => true,
-                    Some(Data::CreateOutputSymlinks(..)) => false,
-                    Some(Data::CommandCritical(..)) => false,
-                    Some(Data::InstallEventInfo(..)) => false,
-                    Some(Data::DiceStateUpdate(_)) => false,
                     Some(Data::Materialization(..)) => true,
-                    Some(Data::DiceCriticalSection(_)) => false,
-                    Some(Data::DiceBlockConcurrentCommand(_)) => false,
-                    Some(Data::DiceSynchronizeSection(_)) => false,
-                    Some(Data::DiceCleanup(_)) => false,
-                    Some(Data::ExclusiveCommandWait(_)) => false,
-                    Some(Data::DeferredPreparationStage(_)) => false,
-                    Some(Data::DeferredEvaluation(_)) => false,
-                    Some(Data::BxlExecution(_)) => false,
-                    Some(Data::BxlDiceInvocation(_)) => false,
-                    Some(Data::ReUpload(_)) => false,
-                    Some(Data::ConnectToInstaller(_)) => false,
-                    Some(Data::Fake(..)) => false,
                     None => false,
+                    _ => false,
                 }
             }
             Data::Instant(i) => {
                 use buck2_data::instant_event::Data;
 
                 match i.data {
-                    Some(Data::Snapshot(..)) => false,
-                    Some(Data::DiceStateSnapshot(..)) => false,
-                    Some(Data::DiceEqualityCheck(..)) => false,
-                    Some(Data::NoActiveDiceState(..)) => false,
-                    Some(Data::RestartConfiguration(..)) => false,
+                    Some(Data::BuildGraphInfo(..)) => true,
+                    Some(Data::RageInvoked(..)) => true,
+                    Some(Data::RageResult(..)) => true,
+                    Some(Data::ReSession(..)) => true,
+                    Some(Data::StructuredError(..)) => true,
+                    Some(Data::TestResult(..)) => true,
                     None => false,
-                    _ => true,
+                    _ => false,
                 }
             }
-            Data::Record(_) => true,
+            Data::Record(r) => {
+                use buck2_data::record_event::Data;
+
+                match r.data {
+                    Some(Data::InvocationRecord(..)) => true,
+                    None => false,
+                }
+            }
         }
     }
 }
