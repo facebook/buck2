@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 
 use crate::ignores::ignore_set::IgnoreSet;
 
@@ -61,25 +61,6 @@ pub struct FileIgnores {
     cell_ignores: IgnoreSet,
 }
 
-/// This is `CellRelativePath` which may contain incorrect path elements.
-#[repr(transparent)]
-pub(crate) struct MaybeIgnoredCellRelativePath(str);
-
-impl MaybeIgnoredCellRelativePath {
-    #[inline]
-    pub(crate) fn new(path: &CellRelativePath) -> &MaybeIgnoredCellRelativePath {
-        Self::unchecked_new(path.as_str())
-    }
-
-    #[inline]
-    pub(crate) fn unchecked_new(path: &str) -> &MaybeIgnoredCellRelativePath {
-        unsafe {
-            // SAFETY: `repr(transparent)`.
-            &*(path as *const str as *const MaybeIgnoredCellRelativePath)
-        }
-    }
-}
-
 impl FileIgnores {
     /// Creates a new FileIgnores intended for use by the interpreter.
     ///
@@ -95,15 +76,18 @@ impl FileIgnores {
         })
     }
 
-    pub(crate) fn check(&self, path: &MaybeIgnoredCellRelativePath) -> FileIgnoreResult {
-        let candidate = globset::Candidate::new(&path.0);
+    pub(crate) fn check(&self, path: &UncheckedCellRelativePath) -> FileIgnoreResult {
+        let candidate = globset::Candidate::new(path.as_str());
 
         if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByPattern(path.0.to_owned(), pattern.to_owned());
+            return FileIgnoreResult::IgnoredByPattern(
+                path.as_str().to_owned(),
+                pattern.to_owned(),
+            );
         }
 
         if let Some(pattern) = self.cell_ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByCell(path.0.to_owned(), pattern.to_owned());
+            return FileIgnoreResult::IgnoredByCell(path.as_str().to_owned(), pattern.to_owned());
         }
 
         FileIgnoreResult::Ok
@@ -114,10 +98,10 @@ impl FileIgnores {
 mod tests {
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
+    use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
     use crate::ignores::file_ignores::FileIgnores;
-    use crate::ignores::file_ignores::MaybeIgnoredCellRelativePath;
 
     #[test]
     fn file_ignores() -> anyhow::Result<()> {
@@ -144,7 +128,7 @@ mod tests {
         assert_eq!(
             true,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                .check(UncheckedCellRelativePath::unchecked_new(
                     "some/long/path/Class.java"
                 ))
                 .is_ignored()
@@ -153,14 +137,14 @@ mod tests {
         assert_eq!(
             true,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new("other_cell"))
+                .check(UncheckedCellRelativePath::unchecked_new("other_cell"))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                .check(UncheckedCellRelativePath::unchecked_new(
                     "other_cell/some/lib"
                 ))
                 .is_ignored()
@@ -169,21 +153,21 @@ mod tests {
         assert_eq!(
             false,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new("third"))
+                .check(UncheckedCellRelativePath::unchecked_new("third"))
                 .is_ignored()
         );
 
         assert_eq!(
             false,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new("one/two/three"))
+                .check(UncheckedCellRelativePath::unchecked_new("one/two/three"))
                 .is_ignored()
         );
 
         assert_eq!(
             true,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                .check(UncheckedCellRelativePath::unchecked_new(
                     "recursive/two/three"
                 ))
                 .is_ignored()
@@ -192,7 +176,7 @@ mod tests {
         assert_eq!(
             true,
             ignores
-                .check(MaybeIgnoredCellRelativePath::unchecked_new(
+                .check(UncheckedCellRelativePath::unchecked_new(
                     "trailing_slash/BUCK"
                 ))
                 .is_ignored()

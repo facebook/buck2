@@ -133,6 +133,7 @@ pub mod cell_root_path;
 pub mod name;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
+pub mod unchecked_cell_rel_path;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;

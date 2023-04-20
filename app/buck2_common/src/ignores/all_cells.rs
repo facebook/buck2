@@ -13,13 +13,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use dice::DiceComputations;
 use itertools::Itertools;
 
 use crate::dice::cells::HasCellResolver;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::ignores::file_ignores::FileIgnores;
-use crate::ignores::file_ignores::MaybeIgnoredCellRelativePath;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 
 /// Ignored path configurations for all cells.
@@ -32,7 +32,7 @@ impl AllCellIgnores {
     pub(crate) fn check_ignored(
         &self,
         cell: CellName,
-        path: &MaybeIgnoredCellRelativePath,
+        path: &UncheckedCellRelativePath,
     ) -> anyhow::Result<FileIgnoreResult> {
         Ok(self
             .ignores

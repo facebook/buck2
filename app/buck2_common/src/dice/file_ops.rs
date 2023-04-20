@@ -19,6 +19,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -44,7 +45,6 @@ use crate::file_ops::ReadDirOutput;
 use crate::file_ops::SimpleDirEntry;
 use crate::ignores::all_cells::AllCellIgnores;
 use crate::ignores::all_cells::HasAllCellIgnores;
-use crate::ignores::file_ignores::MaybeIgnoredCellRelativePath;
 use crate::io::IoProvider;
 use crate::result::SharedResult;
 use crate::result::ToSharedResultExt;
@@ -139,7 +139,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
             // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
             self.ignores
-                .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
+                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
                 .into_result()
                 .with_context(|| format!("Error checking whether dir `{}` is ignored", path))?;
 
@@ -167,7 +167,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                 };
 
                 let cell_relative_path =
-                    MaybeIgnoredCellRelativePath::unchecked_new(cell_relative_path);
+                    UncheckedCellRelativePath::unchecked_new(cell_relative_path);
                 let is_ignored = self
                     .ignores
                     .check_ignored(path.cell(), cell_relative_path)?
@@ -224,7 +224,7 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
         async fn is_ignored(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<bool> {
             Ok(self
                 .ignores
-                .check_ignored(path.cell(), MaybeIgnoredCellRelativePath::new(path.path()))?
+                .check_ignored(path.cell(), UncheckedCellRelativePath::new(path.path()))?
                 .is_ignored())
         }
 
