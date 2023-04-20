@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::io;
 use std::io::Write;
 use std::path::Path;
-use std::str::FromStr;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -34,7 +33,7 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::exit_result::FailureExitCode;
 use buck2_client_ctx::final_console::FinalConsole;
-use buck2_client_ctx::path_arg::PathArg;
+use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -46,24 +45,6 @@ use futures::TryStreamExt;
 use gazebo::prelude::*;
 use multimap::MultiMap;
 use serde::Serialize;
-
-#[derive(Debug, Eq, PartialEq)]
-enum OutPath {
-    Stdout,
-    Path(PathArg),
-}
-
-impl FromStr for OutPath {
-    type Err = <PathArg as FromStr>::Err;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "-" {
-            Ok(OutPath::Stdout)
-        } else {
-            Ok(OutPath::Path(PathArg::from_str(s)?))
-        }
-    }
-}
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "build", about = "Build the specified targets")]
@@ -177,7 +158,7 @@ pub struct BuildCommand {
         long = "out",
         help = "Copy the output of the built target to this path (`-` to stdout)"
     )]
-    output_path: Option<OutPath>,
+    output_path: Option<OutputDestinationArg>,
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
     patterns: Vec<String>,
@@ -475,7 +456,7 @@ async fn copy_to_out(
     targets: &[BuildTarget],
     root_path: &ProjectRoot,
     working_dir: &WorkingDir,
-    out: &OutPath,
+    out: &OutputDestinationArg,
 ) -> anyhow::Result<()> {
     struct OutputToBeCopied {
         from_path: AbsNormPathBuf,
@@ -527,7 +508,7 @@ async fn copy_to_out(
     }
 
     match out {
-        OutPath::Stdout => {
+        OutputDestinationArg::Stream => {
             // Check no output is a directory. We allow outputting any number of
             // files (including 0) to stdout.
             if let Some(dir_i) = outputs_to_be_copied.iter().position(|o| o.is_dir) {
@@ -537,7 +518,7 @@ async fn copy_to_out(
                 ));
             }
         }
-        OutPath::Path(..) => {
+        OutputDestinationArg::Path(..) => {
             // Check we are outputting exactly 1 target. Okay if directory.
             if outputs_to_be_copied.len() != 1 {
                 return Err(anyhow::anyhow!(
@@ -549,13 +530,13 @@ async fn copy_to_out(
 
     for to_be_copied in outputs_to_be_copied {
         match out {
-            OutPath::Stdout => {
+            OutputDestinationArg::Stream => {
                 let mut file = async_fs_util::open(&to_be_copied.from_path).await?;
                 tokio::io::copy(&mut file, &mut tokio::io::stdout())
                     .await
                     .map_err(convert_broken_pipe_error)?;
             }
-            OutPath::Path(path) => {
+            OutputDestinationArg::Path(path) => {
                 let path = path.resolve(working_dir);
                 if to_be_copied.is_dir {
                     copy_directory(&to_be_copied.from_path, &path).await?;

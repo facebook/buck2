@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::str::FromStr;
-
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CounterWithExamples;
@@ -24,6 +22,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
+use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -35,28 +34,6 @@ use superconsole::Line;
 use superconsole::Span;
 
 use crate::commands::build::print_build_result;
-
-#[derive(Debug, Eq, PartialEq)]
-enum OutputDestinationArg {
-    Stream,
-    Path(PathArg),
-}
-
-impl OutputDestinationArg {
-    const STREAM_TOKEN: &str = "-";
-}
-
-impl FromStr for OutputDestinationArg {
-    type Err = <PathArg as FromStr>::Err;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == Self::STREAM_TOKEN {
-            Ok(OutputDestinationArg::Stream)
-        } else {
-            Ok(OutputDestinationArg::Path(PathArg::from_str(s)?))
-        }
-    }
-}
 
 fn forward_output_to_path(
     output: &str,
