@@ -24,6 +24,7 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
+use buck2_core::target::name::TargetName;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
@@ -37,7 +38,10 @@ use dupe::IterDupedExt;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
+use itertools::Either;
+use itertools::Itertools;
 use starlark_map::small_set::SmallSet;
+use thiserror::Error;
 use tokio::sync::Semaphore;
 
 use crate::commands::targets::fmt::Stats;
@@ -87,10 +91,20 @@ pub(crate) async fn targets_streaming(
                 let targets = {
                     // This bit of code is the heavy CPU stuff, so guard it with the threads
                     let _permit = threads.acquire().await.unwrap();
-                    load_targets(&dice, package.dupe(), spec, cached).await
+                    load_targets(&dice, package.dupe(), spec, cached, keep_going).await
+                };
+                let mut show_err = |err| {
+                    res.stats.errors += 1;
+                    let mut stderr = String::new();
+                    formatter.package_error(package.dupe(), err, &mut res.stdout, &mut stderr);
+                    res.stderr = Some(stderr);
                 };
                 match targets {
-                    Ok((eval_result, targets)) => {
+                    Ok((eval_result, targets, err)) => {
+                        if let Some(err) = err {
+                            show_err(&err);
+                            formatter.separator(&mut res.stdout);
+                        }
                         res.stats.success += 1;
                         if imports {
                             let eval_imports = eval_result.imports();
@@ -121,11 +135,8 @@ pub(crate) async fn targets_streaming(
                             )
                         }
                     }
-                    Err(e) => {
-                        res.stats.errors += 1;
-                        let mut stderr = String::new();
-                        formatter.package_error(package.dupe(), &e, &mut res.stdout, &mut stderr);
-                        res.stderr = Some(stderr);
+                    Err(err) => {
+                        show_err(&err);
                     }
                 }
                 anyhow::Ok(res)
@@ -236,12 +247,27 @@ fn stream_packages<T: PatternType>(
         .chain(find_package_roots_stream(dice, recursive_paths).map(|x| Ok((x?, PackageSpec::All))))
 }
 
+#[derive(Error, Debug)]
+enum TargetsError {
+    #[error(
+        "Unknown targets {} from package `{0}`.",
+        _1.iter().map(|x| format!("`{}`", x)).join(", ")
+    )]
+    MissingTargets(PackageLabel, Vec<TargetName>),
+}
+
+/// Load the targets from a package. If `keep_going` is specified then it may return a `Some` error in the triple.
 async fn load_targets(
     dice: &DiceComputations,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     cached: bool,
-) -> anyhow::Result<(Arc<EvaluationResult>, Vec<TargetNode>)> {
+    keep_going: bool,
+) -> anyhow::Result<(
+    Arc<EvaluationResult>,
+    Vec<TargetNode>,
+    Option<anyhow::Error>,
+)> {
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?
     } else {
@@ -249,13 +275,36 @@ async fn load_targets(
             .await?
     };
 
-    let targets = match spec {
-        PackageSpec::Targets(targets) => targets.into_try_map(|(target, TargetPatternExtra)| {
-            anyhow::Ok(result.resolve_target(target.as_ref())?.dupe())
-        })?,
-        PackageSpec::All => result.targets().values().duped().collect(),
-    };
-    Ok((result, targets))
+    match spec {
+        PackageSpec::Targets(targets) => {
+            if keep_going {
+                let (miss, targets): (Vec<_>, Vec<_>) =
+                    targets
+                        .into_iter()
+                        .partition_map(|(target, TargetPatternExtra)| {
+                            match result.targets().get(target.as_ref()) {
+                                None => Either::Left(target),
+                                Some(x) => Either::Right(x.dupe()),
+                            }
+                        });
+                let err = if miss.is_empty() {
+                    None
+                } else {
+                    Some(TargetsError::MissingTargets(package.dupe(), miss).into())
+                };
+                Ok((result, targets, err))
+            } else {
+                let targets = targets.into_try_map(|(target, TargetPatternExtra)| {
+                    anyhow::Ok(result.resolve_target(target.as_ref())?.dupe())
+                })?;
+                Ok((result, targets, None))
+            }
+        }
+        PackageSpec::All => {
+            let targets = result.targets().values().duped().collect();
+            Ok((result, targets, None))
+        }
+    }
 }
 
 /// Return `None` if the PACKAGE file doesn't exist
