@@ -398,9 +398,5 @@ async fn targets(
     if !response.serialized_targets_output.is_empty() {
         buck2_client_ctx::print!("{}", response.serialized_targets_output)?;
     }
-    if response.error_count == 0 {
-        ExitResult::success()
-    } else {
-        ExitResult::failure()
-    }
+    ExitResult::success()
 }
