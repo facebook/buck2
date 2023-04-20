@@ -13,7 +13,6 @@ pub mod xcode;
 
 use allocative::Allocative;
 use dupe::Dupe;
-pub use xcode::XcodeVersionInfo;
 
 #[derive(Copy, Clone, Dupe, Debug, PartialEq, Allocative)]
 pub enum InterpreterHostPlatform {
