@@ -77,32 +77,19 @@ fn new_host_info(
     );
 
     let xcode = {
-        let (version_string, major_version, minor_version, patch_version, build_number) =
-            match xcode_info {
-                Some(i) => (
-                    heap.alloc(i.version_string.as_str()),
-                    heap.alloc(i.major_version.as_str()),
-                    heap.alloc(i.minor_version.as_str()),
-                    heap.alloc(i.patch_version.as_str()),
-                    heap.alloc(i.build_number.as_str()),
-                ),
-                None => (
-                    FrozenValue::new_none(),
-                    FrozenValue::new_none(),
-                    FrozenValue::new_none(),
-                    FrozenValue::new_none(),
-                    FrozenValue::new_none(),
-                ),
-            };
+        let mk_value = |sel: fn(&XcodeVersionInfo) -> &String| match xcode_info {
+            Some(i) => heap.alloc(sel(i).as_str()),
+            None => FrozenValue::new_none(),
+        };
 
         new_struct(
             &heap,
             &[
-                ("version_string", version_string),
-                ("major_version", major_version),
-                ("minor_version", minor_version),
-                ("patch_version", patch_version),
-                ("build_number", build_number),
+                ("version_string", mk_value(|x| &x.version_string)),
+                ("major_version", mk_value(|x| &x.major_version)),
+                ("minor_version", mk_value(|x| &x.minor_version)),
+                ("patch_version", mk_value(|x| &x.patch_version)),
+                ("build_number", mk_value(|x| &x.build_number)),
             ],
         )
     };
