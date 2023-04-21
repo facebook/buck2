@@ -377,11 +377,10 @@ async fn start_persist_subprocess(
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
     let manifold_name = &format!("{}{}", trace_id, path.extension());
-    let local_path = &path.path.display().to_string();
     command
         .args(["debug", "persist-event-logs"])
         .args(["--manifold-name", manifold_name])
-        .args(["--local-path", local_path]);
+        .args(["--local-path".as_ref(), path.path.as_os_str()]);
     if !should_upload_log()? {
         command.arg("--no-upload");
     };
