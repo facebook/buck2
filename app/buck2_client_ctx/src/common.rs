@@ -178,6 +178,10 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long, ignore_case = true, value_name = "ARCH", arg_enum)]
     fake_arch: Option<HostArchOverride>,
 
+    /// Value must be formatted as: version-build (e.g., 14.3.0-14C18 or 14.1-14B47b)
+    #[clap(long, value_name = "VERSION-BUILD")]
+    fake_xcode_version: Option<String>,
+
     // TODO(cjhopman): Why is this only in CommonConfigOptions options, it has nothing to do with config? Shouldn't all commands support --oncall?
     #[clap(long)]
     pub oncall: Option<String>,
@@ -279,6 +283,9 @@ impl CommonBuildConfigurationOptions {
             None => HostArchOverride::Default,
         }
     }
+    pub fn host_xcode_version_override(&self) -> Option<String> {
+        self.fake_xcode_version.to_owned()
+    }
 
     pub fn default_ref() -> &'static Self {
         static DEFAULT: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
@@ -287,6 +294,7 @@ impl CommonBuildConfigurationOptions {
             target_platforms: None,
             fake_host: None,
             fake_arch: None,
+            fake_xcode_version: None,
             oncall: None,
             disable_starlark_types: false,
             reuse_current_config: false,

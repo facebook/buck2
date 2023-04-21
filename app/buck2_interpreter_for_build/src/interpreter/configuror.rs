@@ -100,6 +100,7 @@ impl BuildInterpreterConfiguror {
         prelude_import: Option<ImportPath>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
+        _host_xcode_version: Option<String>,
         record_target_call_stack: bool,
         configure_build_file_globals: fn(&mut GlobalsBuilder),
         configure_package_file_globals: fn(&mut GlobalsBuilder),

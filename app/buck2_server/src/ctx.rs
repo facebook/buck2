@@ -179,6 +179,7 @@ pub struct ServerCommandContext {
 
     host_platform_override: HostPlatformOverride,
     host_arch_override: HostArchOverride,
+    host_xcode_version_override: Option<String>,
 
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We
@@ -308,6 +309,7 @@ impl ServerCommandContext {
             working_dir_abs: WorkingDir::unchecked_new(working_dir.to_buf()),
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
+            host_xcode_version_override: client_context.host_xcode_version.clone(),
             oncall,
             _re_connection_handle: re_connection_handle,
             build_signals,
@@ -399,6 +401,7 @@ impl ServerCommandContext {
             buck_out_dir: self.buck_out_dir.clone(),
             interpreter_platform,
             interpreter_architecture,
+            interpreter_xcode_version: self.host_xcode_version_override.clone(),
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .dupe(),
@@ -591,6 +594,7 @@ struct DiceCommandUpdater {
     buck_out_dir: ProjectRelativePathBuf,
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
+    interpreter_xcode_version: Option<String>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
     record_target_call_stacks: bool,
@@ -612,6 +616,7 @@ impl DiceUpdater for DiceCommandUpdater {
             Some(prelude_path(cell_alias_resolver)?),
             self.interpreter_platform,
             self.interpreter_architecture,
+            self.interpreter_xcode_version.clone(),
             self.record_target_call_stacks,
             configure_build_file_globals,
             configure_package_file_globals,

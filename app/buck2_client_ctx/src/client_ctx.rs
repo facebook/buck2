@@ -107,6 +107,7 @@ impl<'a> ClientCommandContext<'a> {
                 HostArchOverride::AArch64 => GrpcHostArchOverride::AArch64,
             }
             .into(),
+            host_xcode_version: config_opts.host_xcode_version_override(),
             oncall: config_opts.oncall.as_ref().cloned().unwrap_or_default(),
             disable_starlark_types: config_opts.disable_starlark_types,
             reuse_current_config: config_opts.reuse_current_config,
@@ -142,6 +143,7 @@ impl<'a> ClientCommandContext<'a> {
             target_platform: Default::default(),
             host_platform: Default::default(),
             host_arch: Default::default(),
+            host_xcode_version: Default::default(),
             oncall: Default::default(),
             disable_starlark_types: false,
             trace_id: format!("{}", self.trace_id),

@@ -621,6 +621,7 @@ mod tests {
                 None,
                 InterpreterHostPlatform::Linux,
                 InterpreterHostArchitecture::X86_64,
+                None,
                 false,
                 |_| {},
                 |_| {},

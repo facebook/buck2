@@ -101,6 +101,7 @@ message ClientContext {
   }
   HostArchOverride host_arch = 13;
   repeated string argfiles = 14;
+  optional string host_xcode_version = 15;
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;

@@ -201,6 +201,7 @@ impl Tester {
                     self.prelude_path.clone(),
                     InterpreterHostPlatform::Linux,
                     InterpreterHostArchitecture::X86_64,
+                    None,
                     false,
                     |_| {},
                     |_| {},
