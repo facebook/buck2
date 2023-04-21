@@ -13,6 +13,7 @@ pub(crate) mod debug_what_ran;
 pub(crate) mod last_log;
 pub(crate) mod options;
 mod show_log;
+mod what_cmd;
 mod what_failed;
 mod what_materialized;
 pub(crate) mod what_ran;
@@ -55,6 +56,9 @@ pub enum LogCommand {
     /// Prints the most recent log to console
     Show(show_log::ShowLogCommand),
 
+    #[clap(alias = "whatcmd")]
+    WhatCmd(what_cmd::WhatCmdCommand),
+
     /// Show all the spans that where open when the log ended
     #[clap(alias = "whatup")]
     WhatUp(what_up::WhatUpCommand),
@@ -76,6 +80,7 @@ impl LogCommand {
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
             Self::Last(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
+            Self::WhatCmd(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
             Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
             Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
