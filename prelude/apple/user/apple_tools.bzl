@@ -13,11 +13,11 @@ def _impl(ctx: "context") -> ["provider"]:
         DefaultInfo(),
         AppleToolsInfo(
             assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
+            dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
             swift_objc_header_postprocess = ctx.attrs.swift_objc_header_postprocess[RunInfo],
-            dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
         ),
     ]
 
