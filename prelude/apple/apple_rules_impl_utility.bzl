@@ -8,6 +8,7 @@
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignType")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple/user:apple_focused_debugging.bzl", "AppleFocusedDebuggingInfo")
 load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
@@ -86,6 +87,7 @@ def apple_test_extra_attrs():
 
 def apple_bundle_extra_attrs():
     attribs = {
+        "focused_debugging": attrs.option(attrs.dep(providers = [AppleFocusedDebuggingInfo]), default = None),
         "resource_group_map": resource_group_map_attr(),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
