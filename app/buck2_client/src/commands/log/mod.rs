@@ -8,6 +8,8 @@
  */
 
 mod critical_path;
+pub(crate) mod debug_last_log;
+pub(crate) mod debug_what_ran;
 pub(crate) mod last_log;
 pub(crate) mod options;
 mod show_log;

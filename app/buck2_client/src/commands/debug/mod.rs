@@ -30,8 +30,8 @@ use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
-use crate::commands::log::last_log::LastLogCommand;
-use crate::commands::log::what_ran::WhatRanCommand;
+use crate::commands::log::debug_last_log::DebugLastLogCommand;
+use crate::commands::log::debug_what_ran::DebugWhatRanCommand;
 
 mod allocative;
 mod allocator_stats;
@@ -85,14 +85,12 @@ pub enum DebugCommand {
     UploadReLogs(UploadReLogsCommand),
     /// Validates that Buck2 and disk agree on the state of files.
     FileStatus(FileStatusCommand),
-
-    // Those 2 log commands kept here for historical compatibility
     /// Shows the commands that buck ran
-    #[clap(alias = "whatran")]
-    WhatRan(WhatRanCommand),
+    #[clap(alias = "whatran", setting(clap::AppSettings::Hidden))]
+    WhatRan(DebugWhatRanCommand),
     /// Shows the path to the most recent event log
-    #[clap(alias = "lastlog")]
-    LastLog(LastLogCommand),
+    #[clap(alias = "lastlog", setting(clap::AppSettings::Hidden))]
+    LastLog(DebugLastLogCommand),
     /// Prints buck2 daemon directory (`~/.buckd/xxx`).
     DaemonDir(DaemonDirCommand),
     /// Prints buck2 executable (this executable) path.
