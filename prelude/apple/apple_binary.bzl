@@ -24,7 +24,6 @@ load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_l
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
-load(":apple_link_postprocessor.bzl", "get_apple_link_postprocessor")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout")
 load(":resource_groups.bzl", "create_resource_graph")
@@ -44,7 +43,6 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         strip_executable = ctx.attrs.stripped,
         strip_args_factory = apple_strip_args,
         cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
-        link_postprocessor = get_apple_link_postprocessor(ctx),
         link_group_info = get_link_group_info(ctx),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
         # Some apple rules rely on `static` libs *not* following dependents.

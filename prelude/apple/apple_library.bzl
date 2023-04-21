@@ -33,7 +33,6 @@ load(
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
-load(":apple_link_postprocessor.bzl", "get_apple_link_postprocessor")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_module_name")
@@ -191,7 +190,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, swift_argsfile = swift_argsfile, populate_xcode_attributes_func = params.populate_xcode_attributes_func, **kwargs),
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
-        link_postprocessor = get_apple_link_postprocessor(ctx),
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
     )

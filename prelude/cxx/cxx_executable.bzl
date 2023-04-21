@@ -408,7 +408,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
-        link_postprocessor = impl_params.link_postprocessor,
         force_full_hybrid_if_capable = impl_params.force_full_hybrid_if_capable,
         category_suffix = impl_params.exe_category_suffix,
     )
@@ -563,7 +562,6 @@ def _link_into_executable(
         strip: bool.type = False,
         link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
         category_suffix: [str.type, None] = None) -> _CxxLinkExecutableResult.type:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
@@ -592,7 +590,6 @@ def _link_into_executable(
         category_suffix = category_suffix,
         strip = strip,
         strip_args_factory = strip_args_factory,
-        link_postprocessor = link_postprocessor,
         **shared_link_and_linker_map_args
     )
 

@@ -23,7 +23,6 @@ load(
     "unpack_external_debug_info",
     "unpack_link_args",
 )
-load("@prelude//linking:link_postprocessor.bzl", "postprocess")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -75,7 +74,6 @@ def cxx_link(
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
         allow_bolt_optimization_and_dwp_generation: bool.type = True,
-        link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: bool.type = False,
         import_library: ["artifact", None] = None) -> LinkedObject.type:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
@@ -180,9 +178,6 @@ def cxx_link(
         strip_args = strip_args_factory(ctx) if strip_args_factory else cmd_args()
         output = strip_shared_library(ctx, cxx_toolchain_info, output, strip_args)
 
-    if link_postprocessor:
-        output = postprocess(ctx, output, link_postprocessor)
-
     final_output = output if not (allow_bolt_optimization_and_dwp_generation and is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, identifier)
     dwp_artifact = None
     if should_generate_dwp:
@@ -242,7 +237,6 @@ def cxx_link_shared_library(
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
     """
     Link a shared library into the supplied output.
@@ -283,7 +277,6 @@ def cxx_link_shared_library(
         identifier = identifier,
         strip = strip,
         strip_args_factory = strip_args_factory,
-        link_postprocessor = link_postprocessor,
         import_library = import_library,
         **shared_link_and_linker_map_args
     )
@@ -341,7 +334,6 @@ def cxx_link_into_shared_library(
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
         strip_args_factory = None,
-        link_postprocessor: ["cmd_args", None] = None,
         force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
@@ -359,6 +351,5 @@ def cxx_link_into_shared_library(
         shared_library_flags = shared_library_flags,
         strip = strip,
         strip_args_factory = strip_args_factory,
-        link_postprocessor = link_postprocessor,
         force_full_hybrid_if_capable = force_full_hybrid_if_capable,
     )

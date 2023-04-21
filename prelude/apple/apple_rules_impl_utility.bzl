@@ -66,7 +66,6 @@ def apple_test_extra_attrs():
         "extension": attrs.string(default = "xctest"),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "link_postprocessor": attrs.option(attrs.exec_dep(), default = None),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.
         "link_style": attrs.enum(LinkableDepType, default = "static"),
