@@ -622,7 +622,7 @@ impl CellsAggregator {
     }
 
     /// Creates the 'CellResolver' from all the entries that were aggregated
-    pub fn make_cell_resolver(&self) -> anyhow::Result<CellResolver> {
+    pub fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
         let mut cell_mappings = HashMap::new();
         let mut cell_path_mappings = SequenceTrie::new();
 
@@ -947,14 +947,9 @@ mod tests {
         agg.add_cell_entry(cell_root, CellAlias::new("world".to_owned()), alias_path)?;
 
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
-        assert!(
-            agg.make_cell_resolver()?
-                .contains(CellName::testing_new("hello"))
-        );
-        assert!(
-            !agg.make_cell_resolver()?
-                .contains(CellName::testing_new("cruel"))
-        );
+        let cell_resolver = agg.make_cell_resolver()?;
+        assert!(cell_resolver.contains(CellName::testing_new("hello")));
+        assert!(!cell_resolver.contains(CellName::testing_new("cruel")));
         Ok(())
     }
 
