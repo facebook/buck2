@@ -120,7 +120,7 @@ jobs:
       Build all with cargo for macOS
     macos:
       xcode: 13.4.1
-    resource_class: large
+    resource_class: macos.x86.medium.gen2
     steps:
       - checkout
       - setup_macos_env
@@ -131,7 +131,7 @@ jobs:
     description: Build example projects
     macos:
       xcode: 13.4.1
-    resource_class: large
+    resource_class: macos.x86.medium.gen2
     steps:
       - checkout
       - setup_macos_env
