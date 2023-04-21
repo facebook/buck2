@@ -1036,7 +1036,7 @@ _CxxSharedLibraryResult = record(
     shlib = LinkedObject.type,
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
-    linker_map_data = CxxLinkerMapData.type,
+    linker_map_data = [CxxLinkerMapData.type, None],
 )
 
 def _shared_library(

@@ -243,7 +243,7 @@ def cxx_link_shared_library(
         strip: bool.type = False,
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
-        force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, CxxLinkerMapData.type):
+        force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
     """
     Link a shared library into the supplied output.
     """
@@ -342,7 +342,7 @@ def cxx_link_into_shared_library(
         strip: bool.type = False,
         strip_args_factory = None,
         link_postprocessor: ["cmd_args", None] = None,
-        force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, CxxLinkerMapData.type):
+        force_full_hybrid_if_capable: [bool.type, None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,
