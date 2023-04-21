@@ -93,7 +93,7 @@ def main() -> None:
                 dest = "rules"
                 prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
                 src = "\n".join(src.splitlines()[1:])
-            elif x.endswith("/function.bzl"):
+            elif x.endswith("/function.md"):
                 # Uninteresting docs we'd rather not have generated
                 continue
             elif "/standard/" in x or "/extension/" in x or x.endswith("builtins.md"):
