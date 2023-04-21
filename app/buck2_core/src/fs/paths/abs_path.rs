@@ -13,6 +13,7 @@ use std::fmt;
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use allocative::Allocative;
 use thiserror::Error;
@@ -190,5 +191,13 @@ impl TryFrom<String> for AbsPathBuf {
 
     fn try_from(path: String) -> Result<Self, Self::Error> {
         AbsPathBuf::try_from(PathBuf::from(path))
+    }
+}
+
+impl FromStr for AbsPathBuf {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<AbsPathBuf> {
+        AbsPathBuf::try_from(s.to_owned())
     }
 }

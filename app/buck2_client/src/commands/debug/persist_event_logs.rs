@@ -17,6 +17,7 @@ use buck2_client_ctx::find_certs;
 use buck2_client_ctx::manifold;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use clap::ArgMatches;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -39,7 +40,7 @@ pub struct PersistEventLogsCommand {
     #[clap(long, help = "Name this log will take in Manifold")]
     manifold_name: String,
     #[clap(long, help = "Where to write this log to on disk")]
-    local_path: String,
+    local_path: AbsPathBuf,
     #[clap(long, help = "If present, only write to disk and don't upload")]
     no_upload: bool,
 }
@@ -81,7 +82,7 @@ impl PersistEventLogsCommand {
             .with_context(|| {
                 format!(
                     "Failed to open event log for writing at `{}`",
-                    self.local_path
+                    self.local_path.display()
                 )
             })?;
         Ok(file)
