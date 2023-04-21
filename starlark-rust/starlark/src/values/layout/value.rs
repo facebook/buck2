@@ -731,10 +731,7 @@ impl<'v> Value<'v> {
 
     /// Return the contents of an iterable collection, as an owned vector.
     pub fn iterate_collect(self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
-        // You might reasonably think this is mostly called on lists (I think it is),
-        // and thus that a fast-path here would speed things up. But in my experiments
-        // it's completely irrelevant (you pay a bit for the check, you save a bit on each step).
-        self.with_iterator(heap, |it| it.collect())
+        Ok(self.iterate(heap)?.collect())
     }
 
     /// Operate over an iterable for a value.

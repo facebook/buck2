@@ -299,17 +299,15 @@ impl InstrNoFlowImpl for InstrUnpackImpl {
                 AssignError::IncorrectNumberOfValueToUnpack(target.len() as i32, nvl).into(),
             );
         }
-        v.with_iterator(eval.heap(), |items| {
-            let mut i = 0;
-            for item in items {
-                // Use unconditional assertion here because we cannot trust
-                // user defined `length` and `with_iterator` consistently.
-                assert!(i < target.len());
-                frame.set_bc_slot(target[i], item);
-                i += 1;
-            }
-            assert!(i == target.len());
-        })?;
+        let mut i = 0;
+        for item in v.iterate(eval.heap())? {
+            // Use unconditional assertion here because we cannot trust
+            // user defined `length` and `with_iterator` consistently.
+            assert!(i < target.len());
+            frame.set_bc_slot(target[i], item);
+            i += 1;
+        }
+        assert!(i == target.len());
         Ok(())
     }
 }

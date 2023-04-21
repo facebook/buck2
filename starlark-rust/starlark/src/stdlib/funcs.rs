@@ -53,19 +53,18 @@ use crate::values::ValueError;
 use crate::values::ValueLike;
 
 fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> anyhow::Result<(Value<'v>, Value<'v>)> {
-    pair.with_iterator(heap, |it| {
-        if let Some(first) = it.next() {
-            if let Some(second) = it.next() {
-                if it.next().is_none() {
-                    return Ok((first, second));
-                }
+    let mut it = pair.iterate(heap)?;
+    if let Some(first) = it.next() {
+        if let Some(second) = it.next() {
+            if it.next().is_none() {
+                return Ok((first, second));
             }
         }
-        Err(anyhow::anyhow!(
-            "Found a non-pair element in the positional argument of dict(): {}",
-            pair.to_repr(),
-        ))
-    })?
+    }
+    Err(anyhow::anyhow!(
+        "Found a non-pair element in the positional argument of dict(): {}",
+        pair.to_repr(),
+    ))
 }
 
 fn min_max_iter<'v>(
@@ -119,8 +118,8 @@ fn min_max<'v>(
     min: bool,
 ) -> anyhow::Result<Value<'v>> {
     if args.len() == 1 {
-        args.swap_remove(0)
-            .with_iterator(eval.heap(), |it| min_max_iter(it, key, eval, min))?
+        let it = args.swap_remove(0).iterate(eval.heap())?;
+        min_max_iter(it, key, eval, min)
     } else {
         min_max_iter(args.into_iter(), key, eval, min)
     }
@@ -176,14 +175,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        x.with_iterator(heap, |it| {
-            for i in it {
-                if i.to_bool() {
-                    return true;
-                }
+        for i in x.iterate(heap)? {
+            if i.to_bool() {
+                return Ok(true);
             }
-            false
-        })
+        }
+        Ok(false)
     }
 
     /// [all](
@@ -210,14 +207,12 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos, type = "iter(\"\")")] x: Value<'v>,
         heap: &'v Heap,
     ) -> anyhow::Result<bool> {
-        x.with_iterator(heap, |it| {
-            for i in it {
-                if !i.to_bool() {
-                    return false;
-                }
+        for i in x.iterate(heap)? {
+            if !i.to_bool() {
+                return Ok(false);
             }
-            true
-        })
+        }
+        Ok(true)
     }
 
     /// [bool](
@@ -345,15 +340,16 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                         result.reserve(kwargs.len());
                         result
                     }
-                    None => pos.with_iterator(heap, |it| -> anyhow::Result<_> {
+                    None => {
+                        let it = pos.iterate(heap)?;
                         let mut result = SmallMap::with_capacity(it.size_hint().0 + kwargs.len());
                         for el in it {
                             let (k, v) = unpack_pair(el, heap)?;
                             let k = k.get_hashed()?;
                             result.insert_hashed(k, v);
                         }
-                        Ok(Dict::new(result))
-                    })??,
+                        Dict::new(result)
+                    }
                 };
                 for (k, v) in kwargs.iter_hashed() {
                     result.insert_hashed(k, v);
@@ -778,7 +774,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             if let Some(xs) = ListRef::from_value(a) {
                 heap.alloc_list(xs.content())
             } else {
-                a.with_iterator(heap, |it| heap.alloc(AllocList(it)))?
+                let it = a.iterate(heap)?;
+                heap.alloc(AllocList(it))
             }
         } else {
             heap.alloc(AllocList::EMPTY)
@@ -1097,7 +1094,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 return Ok(a);
             }
 
-            a.with_iterator(heap, |it| heap.alloc_tuple_iter(it))
+            let it = a.iterate(heap)?;
+            Ok(heap.alloc_tuple_iter(it))
         } else {
             Ok(heap.alloc(AllocTuple::EMPTY))
         }

@@ -644,7 +644,7 @@ pub(crate) fn add_assign<'v>(
                 list.double(heap);
             } else {
                 // TODO: if RHS is list, consider calling `List::extend_from_slice`.
-                rhs.with_iterator(heap, |it| list.extend(it, heap))?;
+                list.extend(rhs.iterate(heap)?, heap);
             }
             Ok(lhs)
         }

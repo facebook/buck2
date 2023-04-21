@@ -115,9 +115,8 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
             // But we can do something smarter to double the elements
             res.double(heap);
         } else {
-            other.with_iterator(heap, |it| {
-                res.extend(it, heap);
-            })?;
+            let it = other.iterate(heap)?;
+            res.extend(it, heap);
         }
         Ok(NoneType)
     }

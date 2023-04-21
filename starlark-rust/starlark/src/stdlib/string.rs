@@ -682,38 +682,37 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
             <&str>::unpack_named_param(x, "to_join")
         }
 
-        to_join.with_iterator(heap, |it| {
-            match it.next() {
-                None => Ok(Value::new_empty_string()),
-                Some(x1) => {
-                    match it.next() {
-                        None => {
-                            as_str(x1)?;
-                            // If there is a singleton we can avoid reallocation
-                            Ok(x1)
-                        }
-                        Some(x2) => {
-                            let s1 = as_str(x1)?;
-                            let s2 = as_str(x2)?;
-                            // guess towards the upper bound, since we throw away over-allocations quickly
-                            // include a buffer (20 bytes)
-                            let n = it.size_hint().0 + 2;
-                            let guess =
-                                (cmp::max(s1.len(), s2.len()) * n) + (this.len() * (n - 1)) + 20;
-                            let mut r = String::with_capacity(guess);
-                            r.push_str(s1);
+        let mut it = to_join.iterate(heap)?;
+        match it.next() {
+            None => Ok(Value::new_empty_string()),
+            Some(x1) => {
+                match it.next() {
+                    None => {
+                        as_str(x1)?;
+                        // If there is a singleton we can avoid reallocation
+                        Ok(x1)
+                    }
+                    Some(x2) => {
+                        let s1 = as_str(x1)?;
+                        let s2 = as_str(x2)?;
+                        // guess towards the upper bound, since we throw away over-allocations quickly
+                        // include a buffer (20 bytes)
+                        let n = it.size_hint().0 + 2;
+                        let guess =
+                            (cmp::max(s1.len(), s2.len()) * n) + (this.len() * (n - 1)) + 20;
+                        let mut r = String::with_capacity(guess);
+                        r.push_str(s1);
+                        r.push_str(this);
+                        r.push_str(s2);
+                        for x in it {
                             r.push_str(this);
-                            r.push_str(s2);
-                            for x in it {
-                                r.push_str(this);
-                                r.push_str(as_str(x)?);
-                            }
-                            Ok(heap.alloc(r))
+                            r.push_str(as_str(x)?);
                         }
+                        Ok(heap.alloc(r))
                     }
                 }
             }
-        })?
+        }
     }
 
     /// [string.lstrip](
