@@ -70,7 +70,8 @@ def main() -> None:
         )
 
     with tempfile.TemporaryDirectory() as tmp:
-        # Actually generate the docss
+        # Actually generate the docs
+        print("Running Buck...")
         subprocess.run(
             buck_command(args)
             + " docs starlark --format=markdown_files --markdown-files-destination-dir="
