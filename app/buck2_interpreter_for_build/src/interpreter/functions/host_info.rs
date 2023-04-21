@@ -132,16 +132,8 @@ impl HostInfo {
     pub(crate) fn new(
         platform: InterpreterHostPlatform,
         arch: InterpreterHostArchitecture,
+        xcode: Option<XcodeVersionInfo>,
     ) -> Self {
-        // Hack: Xcode version must be inferred from the platform we're running on
-        // since multiple Xcodes can live side-by-side and this is external state.
-        // Only try to populate this struct if we're running on macOS.
-        let xcode = match platform {
-            // TODO(raulgarcia4): Actually do something with any underlying
-            // errors in `XcodeVersionInfo`, rather than discarding them.
-            InterpreterHostPlatform::MacOS => XcodeVersionInfo::new().ok(),
-            _ => None,
-        };
         let value = new_host_info(platform, arch, xcode.as_ref());
         Self {
             platform,

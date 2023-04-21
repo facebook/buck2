@@ -81,6 +81,7 @@ use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
@@ -392,8 +393,12 @@ impl ServerCommandContext {
     }
 
     async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
-        let (interpreter_platform, interpreter_architecture) =
-            host_info::get_host_info(self.host_platform_override, self.host_arch_override);
+        let (interpreter_platform, interpreter_architecture, interpreter_xcode_version) =
+            host_info::get_host_info(
+                self.host_platform_override,
+                self.host_arch_override,
+                &self.host_xcode_version_override,
+            );
 
         Ok(DiceCommandUpdater {
             file_watcher: self.base_context.file_watcher.dupe(),
@@ -401,7 +406,7 @@ impl ServerCommandContext {
             buck_out_dir: self.buck_out_dir.clone(),
             interpreter_platform,
             interpreter_architecture,
-            interpreter_xcode_version: self.host_xcode_version_override.clone(),
+            interpreter_xcode_version,
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .dupe(),
@@ -594,7 +599,7 @@ struct DiceCommandUpdater {
     buck_out_dir: ProjectRelativePathBuf,
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
-    interpreter_xcode_version: Option<String>,
+    interpreter_xcode_version: Option<XcodeVersionInfo>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
     record_target_call_stacks: bool,

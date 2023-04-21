@@ -9,13 +9,19 @@
 
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 
 pub fn get_host_info(
     host_platform: HostPlatformOverride,
     host_arch: HostArchOverride,
-) -> (InterpreterHostPlatform, InterpreterHostArchitecture) {
+    host_xcode_override: &Option<String>,
+) -> (
+    InterpreterHostPlatform,
+    InterpreterHostArchitecture,
+    Option<XcodeVersionInfo>,
+) {
     let interpreter_platform = match host_platform {
         HostPlatformOverride::Linux => InterpreterHostPlatform::Linux,
         HostPlatformOverride::MacOs => InterpreterHostPlatform::MacOS,
@@ -46,5 +52,53 @@ pub fn get_host_info(
         },
     };
 
-    (interpreter_platform, interpreter_architecture)
+    // TODO(raulgarcia4): Actually do something with any underlying
+    // errors in `XcodeVersionInfo` construction, rather than discarding them.
+    let interpreter_xcode_version = match host_xcode_override {
+        Some(x) => XcodeVersionInfo::from_version_and_build(x.as_str()).ok(),
+        None if interpreter_platform == InterpreterHostPlatform::MacOS => {
+            XcodeVersionInfo::new().ok()
+        }
+        _ => None,
+    };
+
+    (
+        interpreter_platform,
+        interpreter_architecture,
+        interpreter_xcode_version,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_host_info_create_xcode_override() {
+        let linux = InterpreterHostPlatform::Linux;
+        let linux_override = HostPlatformOverride::Linux;
+        let mac = InterpreterHostPlatform::MacOS;
+        let mac_override = HostPlatformOverride::MacOs;
+        let aarch64 = InterpreterHostArchitecture::AArch64;
+        let aarch64_override = HostArchOverride::AArch64;
+        let xcode_str = "14.3.0-14C18";
+        let xcode_string = Some(xcode_str.to_owned());
+
+        let xcode_override_on_linux =
+            get_host_info(linux_override, aarch64_override, &xcode_string);
+        let want1 = (
+            linux,
+            aarch64,
+            XcodeVersionInfo::from_version_and_build(xcode_str).ok(),
+        );
+        assert_eq!(xcode_override_on_linux, want1);
+
+        let xcode_override_on_mac = get_host_info(mac_override, aarch64_override, &xcode_string);
+        let want2 = (
+            mac,
+            aarch64,
+            XcodeVersionInfo::from_version_and_build(xcode_str).ok(),
+        );
+        assert_eq!(xcode_override_on_mac, want2);
+    }
 }

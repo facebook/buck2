@@ -16,6 +16,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
@@ -100,7 +101,7 @@ impl BuildInterpreterConfiguror {
         prelude_import: Option<ImportPath>,
         host_platform: InterpreterHostPlatform,
         host_architecture: InterpreterHostArchitecture,
-        _host_xcode_version: Option<String>,
+        host_xcode_version: Option<XcodeVersionInfo>,
         record_target_call_stack: bool,
         configure_build_file_globals: fn(&mut GlobalsBuilder),
         configure_package_file_globals: fn(&mut GlobalsBuilder),
@@ -110,7 +111,7 @@ impl BuildInterpreterConfiguror {
     ) -> Arc<Self> {
         Arc::new(Self {
             prelude_import,
-            host_info: HostInfo::new(host_platform, host_architecture),
+            host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
             record_target_call_stack,
             configure_build_file_globals: ConfigureGlobalsFn(configure_build_file_globals),
             configure_package_file_globals: ConfigureGlobalsFn(configure_package_file_globals),
