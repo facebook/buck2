@@ -8,7 +8,7 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
-load("@prelude//cxx:linker.bzl", "LINKERS")
+load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:utils.bzl", "value_or")
@@ -69,6 +69,7 @@ def cxx_toolchain_impl(ctx):
         archive_objects_locally = False,
         binary_extension = value_or(ctx.attrs.binary_extension, ""),
         generate_linker_maps = ctx.attrs.generate_linker_maps,
+        is_pdb_generated = is_pdb_generated(ctx.attrs.linker_type, ctx.attrs.linker_flags),
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
         link_libraries_locally = False,
         link_style = LinkStyle("static"),

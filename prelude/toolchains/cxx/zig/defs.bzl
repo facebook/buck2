@@ -108,6 +108,10 @@ load(
     "HeaderMode",
 )
 load(
+    "@prelude//cxx:linker.bzl",
+    "is_pdb_generated",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
@@ -344,6 +348,7 @@ def _cxx_zig_toolchain_impl(ctx: "context") -> ["provider"]:
             independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
             type = _get_linker_type(dist.os),
             use_archiver_flags = True,
+            is_pdb_generated = is_pdb_generated(_get_linker_type(dist.os), ctx.attrs.linker_flags),
         ),
         binary_utilities_info = BinaryUtilitiesInfo(
             bolt_msdk = None,

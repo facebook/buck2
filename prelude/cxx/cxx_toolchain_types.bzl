@@ -54,6 +54,7 @@ LinkerInfo = provider(fields = [
     "type",  # of "LinkerType" type
     "use_archiver_flags",
     "force_full_hybrid_if_capable",
+    "is_pdb_generated",  # bool.type
 ])
 
 BinaryUtilitiesInfo = provider(fields = [

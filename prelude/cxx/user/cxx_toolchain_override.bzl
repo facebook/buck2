@@ -8,6 +8,7 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
+load("@prelude//cxx:linker.bzl", "is_pdb_generated")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -61,6 +62,16 @@ def _cxx_toolchain_override(ctx):
         dep_files_processor = base_cxx_info.dep_files_processor,
     )
     base_linker_info = base_toolchain.linker_info
+    linker_type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type
+    pdb_expected = is_pdb_generated(linker_type, ctx.attrs.linker_flags) if ctx.attrs.linker_flags != None else base_linker_info.is_pdb_generated
+
+    # This handles case when linker type is overriden to non-windows from
+    # windows but linker flags are inherited.
+    # When it's changed from non-windows to windows but flags are not changed,
+    # we can't inspect base linker flags and disable PDB subtargets.
+    # This shouldn't be a problem because to use windows linker after non-windows
+    # linker flags should be changed as well.
+    pdb_expected = linker_type == "windows" and pdb_expected
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
         archiver_type = base_linker_info.archiver_type,
@@ -90,9 +101,10 @@ def _cxx_toolchain_override(ctx):
         static_dep_runtime_ld_flags = [],
         static_pic_dep_runtime_ld_flags = [],
         static_library_extension = base_linker_info.static_library_extension,
-        type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type,
+        type = linker_type,
         use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, base_linker_info.use_archiver_flags),
         force_full_hybrid_if_capable = value_or(ctx.attrs.force_full_hybrid_if_capable, base_linker_info.force_full_hybrid_if_capable),
+        is_pdb_generated = pdb_expected,
     )
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info

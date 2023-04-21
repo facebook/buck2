@@ -250,3 +250,13 @@ def get_rpath_origin(
         return "@loader_path"
 
     fail("Linker type {} not supported".format(linker_type))
+
+def is_pdb_generated(linker_type: str.type, linker_flags: ["resolved_macro"]) -> bool.type:
+    if linker_type != "windows":
+        return False
+    for flag in reversed(linker_flags):
+        flag = str(flag).upper()
+        if flag.startswith('"/DEBUG') or flag.startswith('"-DEBUG'):
+            # The last one should be not /DEBUG:NONE
+            return not flag.endswith('DEBUG:NONE"')
+    return False

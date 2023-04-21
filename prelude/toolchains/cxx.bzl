@@ -19,6 +19,10 @@ load(
     "HeaderMode",
 )
 load(
+    "@prelude//cxx:linker.bzl",
+    "is_pdb_generated",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
@@ -61,6 +65,7 @@ def _system_cxx_toolchain_impl(ctx):
                 shared_library_versioned_name_format = "lib{}.so.{}",
                 static_library_extension = "a",
                 force_full_hybrid_if_capable = False,
+                is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(
