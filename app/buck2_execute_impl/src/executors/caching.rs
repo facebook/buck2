@@ -44,6 +44,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
+use more_futures::cancellation::CancellationContext;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::REClientError;
@@ -415,6 +416,7 @@ impl PreparedCommandExecutor for CachingExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let error_on_cache_upload = match ERROR_ON_CACHE_UPLOAD.get_copied() {
             Ok(r) => r.unwrap_or_default(),
@@ -431,7 +433,7 @@ impl PreparedCommandExecutor for CachingExecutor {
             )
             .await?;
 
-        let mut res = self.inner.exec_cmd(command, manager).await;
+        let mut res = self.inner.exec_cmd(command, manager, cancellations).await;
 
         let upload_res = self
             .maybe_perform_cache_upload(

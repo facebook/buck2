@@ -8,6 +8,7 @@
  */
 
 use async_trait::async_trait;
+use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 
 use crate::digest_config::DigestConfig;
@@ -45,6 +46,7 @@ pub trait PreparedCommandExecutor: Send + Sync {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult;
 
     /// Checks if there is any possibility for a command with a given executor preference to

@@ -34,6 +34,7 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
+use more_futures::cancellation::CancellationContext;
 
 use crate::executors::local::LocalExecutor;
 use crate::executors::re::ReExecutor;
@@ -60,10 +61,13 @@ impl HybridExecutor {
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let local_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
-        self.local.exec_cmd(command, local_manager).await
+        self.local
+            .exec_cmd(command, local_manager, cancellations)
+            .await
     }
 
     async fn remote_exec_cmd(
@@ -72,10 +76,13 @@ impl HybridExecutor {
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let remote_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
-        self.remote.exec_cmd(command, remote_manager).await
+        self.remote
+            .exec_cmd(command, remote_manager, cancellations)
+            .await
     }
 
     fn command_executor_preference(
@@ -93,6 +100,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let executor_preference = self.command_executor_preference(command);
 
@@ -131,6 +139,7 @@ impl PreparedCommandExecutor for HybridExecutor {
                     .dupe()
                     .and(local_execution_liveliness_observer.dupe()),
             ),
+            cancellations,
         );
 
         let remote_result = self.remote_exec_cmd(
@@ -142,6 +151,7 @@ impl PreparedCommandExecutor for HybridExecutor {
             )),
             manager.events.dupe(),
             manager.liveliness_observer.dupe(),
+            cancellations,
         );
 
         if executor_preference.requires_local()

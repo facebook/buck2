@@ -102,6 +102,7 @@ use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::FrozenRef;
 use uuid::Uuid;
@@ -368,6 +369,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
             &execution_request,
             materializer.dupe(),
             blocking_executor,
+            &CancellationContext::todo(),
         )
         .await?;
 
@@ -414,12 +416,19 @@ impl BuckTestOrchestrator {
             self.events.dupe(),
             self.liveliness_observer.dupe(),
         );
+        let cancellations = CancellationContext::todo();
 
         let test_target = TestTarget {
             target: test_target.target(),
         };
 
-        let command = executor.exec_cmd(&test_target as _, &request, manager, self.digest_config);
+        let command = executor.exec_cmd(
+            &test_target as _,
+            &request,
+            manager,
+            self.digest_config,
+            &cancellations,
+        );
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.

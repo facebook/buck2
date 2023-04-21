@@ -42,6 +42,7 @@ use buck2_execute::re::remote_action_result::RemoteActionResult;
 use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
@@ -252,6 +253,7 @@ impl PreparedCommandExecutor for ReExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        _cancellations: &CancellationContext, // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
     ) -> CommandExecutionResult {
         let PreparedCommand {
             request,

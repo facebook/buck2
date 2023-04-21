@@ -194,6 +194,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     async fn exec_cmd(
         &mut self,
         request: &CommandExecutionRequest,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
@@ -473,7 +474,7 @@ pub(crate) mod testings {
         async fn execute(
             &self,
             ctx: &mut dyn ActionExecutionCtx,
-            _cancellation: &CancellationContext,
+            cancellation: &CancellationContext,
         ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),
@@ -492,7 +493,7 @@ pub(crate) mod testings {
                 sorted_vector_map![],
             );
 
-            let (outputs, meta) = ctx.exec_cmd(&req).await?;
+            let (outputs, meta) = ctx.exec_cmd(&req, cancellation).await?;
 
             let outputs = ActionOutputs::new(outputs);
 

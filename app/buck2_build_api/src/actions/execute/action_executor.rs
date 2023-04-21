@@ -321,6 +321,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     async fn exec_cmd(
         &mut self,
         request: &CommandExecutionRequest,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
@@ -340,7 +341,13 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         } = self
             .executor
             .command_executor
-            .exec_cmd(&action as _, request, manager, self.digest_config())
+            .exec_cmd(
+                &action as _,
+                request,
+                manager,
+                self.digest_config(),
+                cancellations,
+            )
             .await;
 
         // TODO (@torozco): The execution kind should be made to come via the command reports too.
@@ -671,7 +678,7 @@ mod tests {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,
-                _cancellation: &CancellationContext,
+                cancellation: &CancellationContext,
             ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
                 self.ran.store(true, Ordering::SeqCst);
 
@@ -703,7 +710,7 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let res = ctx.exec_cmd(&req).await;
+                let res = ctx.exec_cmd(&req, cancellation).await;
 
                 // Must write out the things we promised to do
                 for x in &self.outputs {

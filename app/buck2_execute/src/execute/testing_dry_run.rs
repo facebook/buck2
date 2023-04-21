@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use indexmap::IndexMap;
+use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact_value::ArtifactValue;
@@ -54,6 +55,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        _cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let PreparedCommand {
             request,

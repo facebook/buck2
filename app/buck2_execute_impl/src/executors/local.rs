@@ -207,6 +207,7 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         manager: CommandExecutionManager,
         cancellation: CancellationObserver,
+        cancellations: &CancellationContext,
         digest_config: DigestConfig,
     ) -> CommandExecutionResult {
         let args = request.args();
@@ -275,6 +276,7 @@ impl LocalExecutor {
                     request,
                     self.materializer.dupe(),
                     self.blocking_executor.dupe(),
+                    cancellations,
                 )
                 .await
                 .context("Error creating output directories")?;
@@ -602,6 +604,7 @@ impl PreparedCommandExecutor for LocalExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         if command.request.executor_preference().requires_remote() {
             return manager.error("local_prepare", LocalExecutionError::RemoteOnlyAction);
@@ -632,6 +635,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                 request,
                 manager,
                 cancellation,
+                cancellations,
                 *digest_config,
             )
         })
@@ -779,6 +783,7 @@ pub async fn create_output_dirs(
     request: &CommandExecutionRequest,
     materializer: Arc<dyn Materializer>,
     blocking_executor: Arc<dyn BlockingExecutor>,
+    cancellations: &CancellationContext,
 ) -> anyhow::Result<()> {
     let outputs: Vec<_> = request
         .outputs()
@@ -807,7 +812,7 @@ pub async fn create_output_dirs(
                     Box::new(CleanOutputPaths {
                         paths: output_paths,
                     }),
-                    &CancellationContext::todo(),
+                    cancellations,
                 )
                 .await
                 .context("Failed to cleanup output directory")?;

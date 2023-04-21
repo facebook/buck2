@@ -18,6 +18,7 @@ use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use dupe::Dupe;
+use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
@@ -104,6 +105,7 @@ impl CommandExecutor {
         request: &CommandExecutionRequest,
         manager: CommandExecutionManager,
         digest_config: DigestConfig,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let (manager, prepared_action) = self.prepare(manager, request, digest_config).await?;
         self.0
@@ -116,6 +118,7 @@ impl CommandExecutor {
                     digest_config,
                 },
                 manager,
+                cancellations,
             )
             .await
     }
