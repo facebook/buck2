@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags")
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "SdkUncompiledModuleInfo")
 
 def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
     module_name = ctx.attrs.module_name
@@ -34,6 +34,10 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             "-parse-stdlib",
         ])
 
+    overlays = []
+    if ctx.attrs.overlays:
+        overlays = [SdkSwiftOverlayInfo(overlays = ctx.attrs.overlays)]
+
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(
@@ -45,7 +49,7 @@ def apple_sdk_swift_module_impl(ctx: "context") -> ["provider"]:
             input_relative_path = ctx.attrs.swiftinterface_relative_path,
             deps = ctx.attrs.deps,
         ),
-    ]
+    ] + overlays
 
 # This rule represent a Swift module from SDK and forms a graph of dependencies between such modules.
 apple_sdk_swift_module = rule(

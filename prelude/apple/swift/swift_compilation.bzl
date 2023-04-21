@@ -349,6 +349,8 @@ def _get_shared_flags(
         # debug prefix mapped and are not shareable across machines.
         "-Xfrontend",
         "-no-clang-module-breadcrumbs",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
     ])
 
     if uses_explicit_modules(ctx):

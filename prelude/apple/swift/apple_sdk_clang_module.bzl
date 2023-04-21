@@ -6,10 +6,13 @@
 # of this source tree.
 
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args")
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "SdkUncompiledModuleInfo")
 
 def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
     cmd = get_shared_pcm_compilation_args(ctx.attrs.target, ctx.attrs.module_name)
+    overlays = []
+    if ctx.attrs.overlays:
+        overlays = [SdkSwiftOverlayInfo(overlays = ctx.attrs.overlays)]
     return [
         DefaultInfo(),
         SdkUncompiledModuleInfo(
@@ -21,7 +24,7 @@ def apple_sdk_clang_module_impl(ctx: "context") -> ["provider"]:
             input_relative_path = ctx.attrs.modulemap_relative_path,
             deps = ctx.attrs.deps,
         ),
-    ]
+    ] + overlays
 
 # This rule represent a Clang module from SDK and forms a graph of dependencies between such modules.
 apple_sdk_clang_module = rule(

@@ -5,7 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":swift_toolchain_types.bzl", "WrappedSdkCompiledModuleInfo")
+load("@prelude//utils:set.bzl", "set")
+load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "WrappedSdkCompiledModuleInfo")
 
 def project_as_hidden(module_info: "SdkCompiledModuleInfo"):
     # NOTE(cjhopman): This would probably be better done by projecting as normal args and the caller putting it in hidden.
@@ -52,14 +53,31 @@ def get_uncompiled_sdk_deps(
         fail("SDK deps are not set for swift_toolchain")
 
     all_sdk_modules = sdk_modules + required_modules
-    all_sdk_modules = dedupe(all_sdk_modules)
+    all_sdk_modules = set(all_sdk_modules)
 
     sdk_deps = []
+    sdk_overlays = []
 
-    for sdk_module_dep_name in all_sdk_modules:
-        if sdk_module_dep_name in toolchain.uncompiled_swift_sdk_modules_deps:
-            sdk_deps.append(toolchain.uncompiled_swift_sdk_modules_deps[sdk_module_dep_name])
-        elif sdk_module_dep_name in toolchain.uncompiled_clang_sdk_modules_deps:
-            sdk_deps.append(toolchain.uncompiled_clang_sdk_modules_deps[sdk_module_dep_name])
+    def process_sdk_module_dep(dep_name, uncompiled_sdk_modules_map):
+        if dep_name not in uncompiled_sdk_modules_map:
+            return
 
-    return sdk_deps
+        sdk_dep = uncompiled_sdk_modules_map[dep_name]
+        sdk_deps.append(sdk_dep)
+
+        if SdkSwiftOverlayInfo not in sdk_dep:
+            return
+
+        overlay_info = sdk_dep[SdkSwiftOverlayInfo]
+        for underlying_module, overlay_modules in overlay_info.overlays.items():
+            # Only add a cross import SDK overlay if both modules associated with the overlay are required
+            if all_sdk_modules.contains(underlying_module):
+                # Cross import overlays themselves are always Swift modules, but the underlying module
+                # can be a Swift module or a Clang module
+                sdk_overlays.extend([toolchain.uncompiled_swift_sdk_modules_deps[overlay_name] for overlay_name in overlay_modules if overlay_name in toolchain.uncompiled_swift_sdk_modules_deps])
+
+    for sdk_module_dep_name in all_sdk_modules.list():
+        process_sdk_module_dep(sdk_module_dep_name, toolchain.uncompiled_swift_sdk_modules_deps)
+        process_sdk_module_dep(sdk_module_dep_name, toolchain.uncompiled_clang_sdk_modules_deps)
+
+    return sdk_deps + sdk_overlays

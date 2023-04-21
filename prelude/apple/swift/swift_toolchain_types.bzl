@@ -47,3 +47,7 @@ SdkCompiledModuleInfo = provider(fields = [
     "output_artifact",  # Compiled artifact either swiftmodule or pcm.
     "input_relative_path",
 ])
+
+SdkSwiftOverlayInfo = provider(fields = [
+    "overlays",  # {str.type: [str.type]} A mapping providing a list of overlay module names for each underlying module
+])
