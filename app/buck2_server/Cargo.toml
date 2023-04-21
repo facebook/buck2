@@ -74,6 +74,10 @@ host_sharing = { workspace = true }
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 psutil = { workspace = true }
 
+[target.'cfg(any(fbcode_build, cargo_internal_build))'.dependencies]
+# @oss-disable: detect_eden = { path = "../../../common/rust/shed/detect_eden" }
+# @oss-disable: fsinfo = { path = "../../../eden/scm/lib/fsinfo" }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 maplit = { workspace = true }

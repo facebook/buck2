@@ -31,6 +31,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -613,6 +614,10 @@ impl DaemonState {
 
         dispatcher.instant_event(buck2_data::IoProviderInfo { eden_version });
 
+        if self.validate_buck_out_mount().await.is_err() {
+            tracing::debug!("failed to identify buck-out fstype, ignoring");
+        }
+
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             project_root: self.paths.project_root().clone(),
@@ -633,5 +638,30 @@ impl DaemonState {
 
     pub fn data(&self) -> anyhow::Result<Arc<DaemonStateData>> {
         Ok(self.data.dupe()?)
+    }
+
+    async fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
+        #[cfg(any(fbcode_build, cargo_internal_build))]
+        {
+            use fsinfo::FsType;
+
+            let project_root = self.paths.project_root().root().to_path_buf();
+            if !detect_eden::is_eden(project_root)? {
+                return Ok(());
+            }
+
+            let buck_out = self.paths.buck_out_path();
+            match fsinfo::fstype(buck_out)? {
+                FsType::FUSE | FsType::NFS => {
+                    let err = "buck-out for this EdenFS repo is on an unsupported mount type which like likely result in failed builds.\n\n \
+                    To remediate, run `eden redirect fixup`.
+                ";
+                    let _unused = soft_error!("eden_buck_out_on_nfs_or_fuse", anyhow::anyhow!(err));
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
     }
 }
