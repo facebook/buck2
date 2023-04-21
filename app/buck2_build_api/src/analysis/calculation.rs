@@ -628,7 +628,7 @@ mod tests {
                 register_rule_defs,
                 |_| {},
                 None,
-            ),
+            )?,
             configs,
         )?;
         let dice = dice.commit().await;

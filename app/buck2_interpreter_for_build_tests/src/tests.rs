@@ -80,18 +80,21 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let cell_configs = empty_configs(&resolver);
 
     ctx.set_cell_resolver(resolver.dupe()).unwrap();
-    ctx.set_interpreter_context(BuildInterpreterConfiguror::new(
-        None,
-        InterpreterHostPlatform::Linux,
-        InterpreterHostArchitecture::X86_64,
-        None,
-        false,
-        register_read_package_value,
-        register_package_natives,
-        register_rule_defs,
-        |_| {},
-        None,
-    ))
+    ctx.set_interpreter_context(
+        BuildInterpreterConfiguror::new(
+            None,
+            InterpreterHostPlatform::Linux,
+            InterpreterHostArchitecture::X86_64,
+            None,
+            false,
+            register_read_package_value,
+            register_package_natives,
+            register_rule_defs,
+            |_| {},
+            None,
+        )
+        .unwrap(),
+    )
     .unwrap();
     ctx.set_legacy_configs(cell_configs).unwrap();
     ctx.set_starlark_profiler_instrumentation_override(StarlarkProfilerConfiguration::default())

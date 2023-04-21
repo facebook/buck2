@@ -108,8 +108,8 @@ impl BuildInterpreterConfiguror {
         configure_extension_file_globals: fn(&mut GlobalsBuilder),
         configure_bxl_file_globals: fn(&mut GlobalsBuilder),
         additional_globals: Option<AdditionalGlobalsFn>,
-    ) -> Arc<Self> {
-        Arc::new(Self {
+    ) -> anyhow::Result<Arc<Self>> {
+        Ok(Arc::new(Self {
             prelude_import,
             host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
             record_target_call_stack,
@@ -118,7 +118,7 @@ impl BuildInterpreterConfiguror {
             configure_extension_file_globals: ConfigureGlobalsFn(configure_extension_file_globals),
             configure_bxl_file_globals: ConfigureGlobalsFn(configure_bxl_file_globals),
             additional_globals,
-        })
+        }))
     }
 
     pub(crate) fn build_file_globals(&self) -> Globals {

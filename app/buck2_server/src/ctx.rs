@@ -398,7 +398,7 @@ impl ServerCommandContext {
                 self.host_platform_override,
                 self.host_arch_override,
                 &self.host_xcode_version_override,
-            );
+            )?;
 
         Ok(DiceCommandUpdater {
             file_watcher: self.base_context.file_watcher.dupe(),
@@ -628,7 +628,7 @@ impl DiceUpdater for DiceCommandUpdater {
             configure_extension_file_globals,
             *CONFIGURE_BXL_FILE_GLOBALS.get()?,
             None,
-        );
+        )?;
 
         let mut ctx = self.file_watcher.sync(ctx).await?;
 

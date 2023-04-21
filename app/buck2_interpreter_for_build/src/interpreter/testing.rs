@@ -213,7 +213,7 @@ impl Tester {
                             (additional_globals.0)(globals_builder)
                         }
                     }))),
-                ),
+                )?,
                 false,
             )?),
             Arc::new(import_paths),
