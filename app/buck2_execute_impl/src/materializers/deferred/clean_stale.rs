@@ -18,6 +18,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
@@ -49,6 +50,7 @@ pub struct CleanStaleArtifacts {
     pub tracked_only: bool,
     #[derivative(Debug = "ignore")]
     pub sender: Sender<BoxFuture<'static, anyhow::Result<buck2_cli_proto::CleanStaleResponse>>>,
+    pub dispatcher: EventDispatcher,
 }
 
 fn skip_clean_response_with_message(
@@ -86,6 +88,7 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
                     &processor.io,
                     processor.digest_config,
                     processor.cancellations,
+                    &self.dispatcher,
                 )
             }
         } else {
@@ -120,6 +123,7 @@ fn gather_clean_futures_for_stale_artifacts(
     io: &Arc<DefaultIoHandler>,
     digest: DigestConfig,
     cancellations: &'static CancellationContext,
+    dispatcher: &EventDispatcher,
 ) -> anyhow::Result<(
     Vec<BoxFuture<'static, anyhow::Result<()>>>,
     buck2_cli_proto::CleanStaleResponse,
@@ -150,7 +154,14 @@ fn gather_clean_futures_for_stale_artifacts(
         let subtree = tree
             .get_subtree(&mut io.fs.relativize(&gen_dir)?.iter())
             .context("Found a file where gen dir expected")?;
-        find_stale_recursive(&io.fs, subtree, &gen_dir, keep_since_time, &mut stats)?
+        find_stale_recursive(
+            &io.fs,
+            subtree,
+            &gen_dir,
+            keep_since_time,
+            &mut stats,
+            dispatcher,
+        )?
     };
 
     // If no stale or retained artifact founds, the db should be empty.
@@ -252,15 +263,23 @@ fn find_stale_recursive(
     path: &AbsNormPath,
     keep_since_time: DateTime<Utc>,
     stats: &mut buck2_data::CleanStaleStats,
+    dispatcher: &EventDispatcher,
 ) -> anyhow::Result<StaleFinderResult> {
     // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
-    let path_type = FileType::from(path.symlink_metadata()?.file_type());
+    let file_type = FileType::from(path.symlink_metadata()?.file_type());
     let rel_path = fs.relativize(&path)?;
 
     let clean_untracked = |stats: &mut buck2_data::CleanStaleStats| {
         stats.untracked_artifact_count += 1;
         stats.untracked_bytes += get_size(path)?;
-        tracing::trace!(path = %path, path_type = ?path_type, "marking as untracked");
+        tracing::trace!(path = %path, file_type = ?file_type, "marking as untracked");
+        // Avoid excessive logging if all or most files are untracked
+        if stats.untracked_artifact_count <= 2000 {
+            dispatcher.instant_event(buck2_data::UntrackedFile {
+                path: format!("{}", rel_path),
+                file_type: format!("{:?}", file_type),
+            });
+        }
         Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
     };
 
@@ -281,19 +300,19 @@ fn find_stale_recursive(
             if last_access_time < &keep_since_time && !active {
                 stats.stale_artifact_count += 1;
                 stats.stale_bytes += size;
-                tracing::trace!(path = %path, path_type = ?path_type, "marking as stale");
+                tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
                 Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
             } else {
                 stats.retained_artifact_count += 1;
                 stats.retained_bytes += size;
-                tracing::trace!(path = %path, path_type = ?path_type, "marking as retained");
+                tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
                 Ok(StaleFinderResult::CleanNone)
             }
         } else {
             // Artifact was declared but never materialized, should not be a file here.
             clean_untracked(stats)
         }
-    } else if path_type.is_dir() {
+    } else if file_type.is_dir() {
         let children = subtree.and_then(|t| t.children());
         let mut children_to_clean = Vec::new();
         let mut clean_dir = true;
@@ -307,7 +326,7 @@ fn find_stale_recursive(
                 .and_then(|f| FileName::new(f).ok());
             let subtree = children.and_then(|c| file_name.and_then(|f| c.get(f)));
             let child_result =
-                find_stale_recursive(fs, subtree, &child_path, keep_since_time, stats)?;
+                find_stale_recursive(fs, subtree, &child_path, keep_since_time, stats, dispatcher)?;
 
             if !child_result.clean_all() {
                 clean_dir = false;

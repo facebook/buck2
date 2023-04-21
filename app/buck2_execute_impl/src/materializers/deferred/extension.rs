@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
@@ -333,6 +334,7 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
         dry_run: bool,
         tracked_only: bool,
     ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
+        let dispatcher = get_dispatcher();
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(Box::new(
@@ -341,6 +343,7 @@ impl DeferredMaterializerExtensions for DeferredMaterializer {
                     dry_run,
                     tracked_only,
                     sender,
+                    dispatcher,
                 },
             )))?;
         recv.await?.await

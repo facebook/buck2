@@ -130,6 +130,11 @@ message SpanStats {
   uint64 total_poll_time_us = 2;
 }
 
+message UntrackedFile {
+  string path = 1;
+  string file_type = 2;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 9, 13, 22;
@@ -197,6 +202,10 @@ message InstantEvent {
     // This is notionally reading from .buckconfig at startup, but since that's
     // done by the daemon, it needs to come through this way.
     RestartConfiguration restart_configuration = 28;
+
+    // Unexpected file found in buck-out/<isolation_dir>/gen during a
+    // clean --stale run, not found in materializer state
+    UntrackedFile untracked_file = 29;
   }
 
   reserved 12; // Log
