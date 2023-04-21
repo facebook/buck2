@@ -20,6 +20,7 @@ use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
+use serde::Deserialize;
 use serde::Serialize;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -47,7 +48,17 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+    Clone,
+    Display,
+    Debug,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Allocative
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePathBuf(String);

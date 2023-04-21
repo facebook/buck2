@@ -6,3 +6,5 @@ version = "0.1.0"
 
 [dependencies]
 serde = { workspace = true }
+
+buck2_core = { workspace = true }

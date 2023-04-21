@@ -25,6 +25,7 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_offline_archive::OfflineArchiveManifest;
 use tokio::process::Command;
 
@@ -124,7 +125,11 @@ impl StreamingCommand for TraceIoCommand {
                 trace.push(".buck2-previous".to_owned());
 
                 let manifest = OfflineArchiveManifest {
-                    paths: trace,
+                    paths: trace
+                        .into_iter()
+                        // Note: Safe because these are all ProjectRelativePath's on the daemon side.
+                        .map(ProjectRelativePathBuf::unchecked_new)
+                        .collect(),
                     repo_revision: hg_revision().await.context("fetching hg revision")?,
                 };
                 let serialized = serde_json::to_string(&manifest)

@@ -66,6 +66,7 @@ use derivative::Derivative;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::fs::paths::file_name::FileName;
@@ -96,7 +97,16 @@ pub struct ProjectRelativePath(
 /// The owned version of the 'ProjectRelativePath'
 #[derive(Clone, derive_more::Display, Derivative)]
 // split in two because formatters don't agree
-#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Allocative)]
+#[derive(
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Deserialize,
+    Serialize,
+    Allocative
+)]
 #[derivative(Debug)]
 pub struct ProjectRelativePathBuf(
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePathBuf,
