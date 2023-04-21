@@ -568,10 +568,8 @@ mod tests {
 
         let cell_resolver = CellResolver::of_names_and_paths(
             CellName::testing_new("root"),
-            &[(
-                CellName::testing_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
-            )],
+            CellName::testing_new("cell"),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         );
         let output_path = ProjectRelativePathBuf::unchecked_new("buck-out/v2".into());
 

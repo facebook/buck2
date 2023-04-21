@@ -1018,10 +1018,8 @@ mod tests {
 
         let cell_resolver = CellResolver::of_names_and_paths(
             CellName::testing_new("root"),
-            &[(
-                CellName::testing_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-            )],
+            CellName::testing_new("cell"),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
         );
         let buckout_path = ProjectRelativePathBuf::unchecked_new("buck_out/v2".into());
         let mut dice = DiceBuilder::new()

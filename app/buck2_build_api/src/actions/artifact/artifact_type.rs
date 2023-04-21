@@ -610,10 +610,8 @@ mod tests {
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(
                 CellName::testing_new("root"),
-                &[(
-                    CellName::testing_new("cell"),
-                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-                )],
+                CellName::testing_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
@@ -654,10 +652,8 @@ mod tests {
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(
                 CellName::testing_new("root"),
-                &[(
-                    CellName::testing_new("cell"),
-                    CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-                )],
+                CellName::testing_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),

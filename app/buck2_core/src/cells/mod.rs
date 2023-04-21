@@ -463,9 +463,9 @@ impl CellResolver {
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     /// let cells = CellResolver::of_names_and_paths(
     ///     CellName::testing_new("mycell"),
-    ///     &[
-    ///         (CellName::testing_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
-    ///     ]);
+    ///     CellName::testing_new("mycell"),
+    ///     CellRootPathBuf::new(cell_path.to_buf()),
+    /// );
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::testing_new("mycell"),
@@ -500,9 +500,9 @@ impl CellResolver {
     ///
     /// let cells = CellResolver::of_names_and_paths(
     ///     CellName::testing_new("mycell"),
-    ///     &[
-    ///         (CellName::testing_new("mycell"), CellRootPathBuf::new(cell_path.to_buf()))
-    ///     ]);
+    ///     CellName::testing_new("mycell"),
+    ///     CellRootPathBuf::new(cell_path.to_buf()),
+    /// );
     ///
     /// let pkg = PackageLabel::new(
     ///     CellName::testing_new("mycell"),
@@ -677,12 +677,10 @@ pub mod testing {
     use crate::cells::CellInstance;
     use crate::cells::CellResolver;
     pub trait CellResolverExt {
-        /// Creates a new 'CellResolver' based on the given iterator of (cell
-        /// name, cell path). The 'CellAliasResolver' of each cell is
-        /// empty. i.e. no aliases are defined for any of the cells.
         fn of_names_and_paths(
             current: CellName,
-            cells: &[(CellName, CellRootPathBuf)],
+            other_name: CellName,
+            other_path: CellRootPathBuf,
         ) -> CellResolver;
 
         fn with_names_and_paths_with_alias(
@@ -693,27 +691,26 @@ pub mod testing {
     impl CellResolverExt for CellResolver {
         fn of_names_and_paths(
             current: CellName,
-            cells: &[(CellName, CellRootPathBuf)],
+            other_name: CellName,
+            other_path: CellRootPathBuf,
         ) -> CellResolver {
             let mut cell_mappings = HashMap::new();
             let mut path_mappings = SequenceTrie::new();
 
-            for (name, path) in cells {
-                cell_mappings.insert(
-                    *name,
-                    CellInstance::new(
-                        *name,
-                        path.clone(),
-                        default_buildfiles(),
-                        CellAliasResolver {
-                            current,
-                            aliases: Arc::new(Default::default()),
-                        },
-                    ),
-                );
+            cell_mappings.insert(
+                other_name,
+                CellInstance::new(
+                    other_name,
+                    other_path.clone(),
+                    default_buildfiles(),
+                    CellAliasResolver {
+                        current,
+                        aliases: Arc::new(Default::default()),
+                    },
+                ),
+            );
 
-                path_mappings.insert(path.iter(), *name);
-            }
+            path_mappings.insert(other_path.iter(), other_name);
 
             Self::new(cell_mappings, path_mappings)
         }
@@ -751,10 +748,8 @@ pub mod testing {
 
         let cell_resolver = CellResolver::of_names_and_paths(
             CellName::testing_new("root"),
-            &[(
-                CellName::testing_new("foo"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
-            )],
+            CellName::testing_new("foo"),
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
         );
 
         let cell = cell_resolver.get(CellName::testing_new("foo"))?;
