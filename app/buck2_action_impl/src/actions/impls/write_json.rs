@@ -169,7 +169,9 @@ impl Action for WriteJsonAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
-        let contents = (|| Ok(String::from_utf8(self.get_contents(fs)?)?))()
+        let contents = self
+            .get_contents(fs)
+            .and_then(|c| Ok(String::from_utf8(c)?))
             .unwrap_or_else(|e: anyhow::Error| format!("ERROR: constructing contents ({e})"));
         indexmap! { "contents".to_owned() => contents }
     }
