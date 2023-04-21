@@ -47,6 +47,7 @@ dupe = { workspace = true }
 fbinit = { workspace = true }
 which = "4.2.4"
 
+# @oss-disable: detect_eden = { path = "../../../common/rust/shed/detect_eden" }
 # @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
 superconsole = { version = "0.1.0", path = "../../superconsole" }
 

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -53,7 +52,6 @@ mod imp {
     use crate::cleanup_ctx::AsyncCleanupContext;
     use crate::subscribers::observer::ErrorCause;
     use crate::subscribers::observer::ErrorObserver;
-    use crate::subscribers::recorder::is_eden_dir;
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
 
@@ -453,9 +451,16 @@ mod imp {
                 };
             self.command_end = Some(command);
             let root = Path::to_owned(self.invocation_root_path.as_ref());
-            if is_eden_dir(root).unwrap_or(false) {
-                self.filesystem = Some("eden".to_owned());
-            } else {
+            #[cfg(any(fbcode_build, cargo_internal_build))]
+            {
+                if detect_eden::is_eden(root).unwrap_or(false) {
+                    self.filesystem = Some("eden".to_owned());
+                } else {
+                    self.filesystem = Some("default".to_owned());
+                }
+            }
+            #[cfg(not(any(fbcode_build, cargo_internal_build)))]
+            {
                 self.filesystem = Some("default".to_owned());
             }
             Ok(())
@@ -1031,68 +1036,6 @@ pub fn try_get_invocation_recorder(
         use_streaming_upload,
     );
     Ok(Some(Box::new(recorder) as _))
-}
-
-// TODO: is_eden_dir() should probably be placed in buck2_common/src/eden/mod.rs as a public function,
-// but current Windows build limitations make importing that module difficult
-// https://www.internalfb.com/intern/wiki/EdenFS/detecting-an-eden-mount/
-#[cfg(not(windows))]
-pub fn is_eden_dir(mut dir: PathBuf) -> anyhow::Result<bool> {
-    dir.push(".eden");
-    dir.push("root");
-    Ok(std::fs::read_link(&dir).is_ok())
-}
-
-#[cfg(windows)]
-pub fn is_eden_dir(mut dir: PathBuf) -> anyhow::Result<bool> {
-    // https://docs.microsoft.com/en-us/windows/win32/fileio/determining-whether-a-directory-is-a-volume-mount-point
-    fn is_mount_point(mut temp_dir: PathBuf) -> Result<bool, std::io::Error> {
-        use std::mem::MaybeUninit;
-        use std::os::windows::ffi::OsStrExt;
-        use std::os::windows::fs::MetadataExt;
-
-        // Append a `\` to the end of the directory path, per Windows documentation requirement
-        if !temp_dir.ends_with("") {
-            temp_dir.push("");
-        }
-        let mut encoded = temp_dir.as_os_str().encode_wide().collect::<Vec<u16>>();
-        encoded.push(0);
-
-        unsafe {
-            let metadata = std::fs::metadata(&temp_dir)?;
-            if metadata.file_attributes() & winapi::um::winnt::FILE_ATTRIBUTE_REPARSE_POINT == 0 {
-                return Ok(false);
-            }
-
-            let mut data: MaybeUninit<winapi::um::minwinbase::WIN32_FIND_DATAW> =
-                MaybeUninit::uninit();
-            let data_ptr = data.as_mut_ptr();
-            let handle = winapi::um::fileapi::FindFirstFileW(encoded.as_ptr(), data_ptr);
-            if handle == winapi::um::handleapi::INVALID_HANDLE_VALUE {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "invalid handle value".to_owned(),
-                ));
-            }
-            winapi::um::fileapi::FindClose(handle);
-
-            let data = data.assume_init();
-            Ok(data.dwReserved0 == winapi::um::winnt::IO_REPARSE_TAG_MOUNT_POINT)
-        }
-    }
-
-    dir = std::fs::canonicalize(&dir)?;
-    if is_mount_point(dir.clone())? {
-        return Ok(false);
-    }
-
-    dir.push(".eden");
-    dir.push("config");
-    if std::fs::metadata(&dir).map_or(false, |metadata| metadata.is_file()) {
-        Ok(true)
-    } else {
-        Ok(false)
-    }
 }
 
 fn system_memory_stats() -> u64 {

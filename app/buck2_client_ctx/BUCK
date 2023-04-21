@@ -83,6 +83,7 @@ rust_library(
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/superconsole:superconsole",
+        # @oss-disable: "//common/rust/shed/detect_eden:detect_eden", 
         "//common/rust/shed/fbinit:fbinit",
         # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
     ],
