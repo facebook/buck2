@@ -258,7 +258,7 @@ impl CellAliasResolver {
 
     /// finds the 'CellName' for the current cell (with the alias `""`. See module docs)
     pub fn resolve_self(&self) -> CellName {
-        self.resolve("").expect("The alias \"\" to be valid")
+        self.current
     }
 
     pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, CellName)> {
