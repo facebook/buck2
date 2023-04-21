@@ -76,21 +76,21 @@ def _system_cxx_toolchain_impl(ctx):
                 compiler = RunInfo(args = [ctx.attrs.cxx_compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,
             ),
             as_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,
             ),
             asm_compiler_info = CCompilerInfo(
                 compiler = RunInfo(args = [ctx.attrs.compiler]),
-                compiler_type = "clang",  # one of CxxToolProviderType
+                compiler_type = ctx.attrs.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
         ),
@@ -103,6 +103,7 @@ system_cxx_toolchain = rule(
     attrs = {
         "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.string(default = "clang"),
+        "compiler_type": attrs.string(default = "clang"),  # one of CxxToolProviderType
         "cxx_compiler": attrs.string(default = "clang++"),
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
