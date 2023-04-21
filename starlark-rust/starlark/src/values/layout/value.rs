@@ -729,16 +729,6 @@ impl<'v> Value<'v> {
         self.get_ref().documentation()
     }
 
-    /// Operate over an iterable for a value.
-    pub fn with_iterator<T>(
-        self,
-        heap: &'v Heap,
-        mut f: impl FnMut(&mut StarlarkIterator<'v>) -> T,
-    ) -> anyhow::Result<T> {
-        // TODO(nga): inline this function.
-        Ok(f(&mut self.iterate(heap)?))
-    }
-
     /// Produce an iterable from a value.
     #[inline]
     pub fn iterate(self, heap: &'v Heap) -> anyhow::Result<StarlarkIterator<'v>> {
