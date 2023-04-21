@@ -700,7 +700,7 @@ def create_link_groups(
         link_group_mappings: [{"label": str.type}, None] = None) -> _LinkedLinkGroups.type:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
-    node_count = len(linkable_graph_node_map)
+    node_count = getattr(ctx.attrs, "link_group_min_binary_node_count", None) or len(linkable_graph_node_map)
     specs = []
     disabled_link_groups = []
     for link_group_spec in link_group_specs:

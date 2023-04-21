@@ -285,6 +285,7 @@ def _python_executable_attrs():
         "inplace_build_args": attrs.list(attrs.arg(), default = []),
         "link_group": attrs.option(attrs.string(), default = None),
         "link_group_map": link_group_map_attr(),
+        "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # entries for the generated __manifest__ python module
         "manifest_module_entries": attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None),
@@ -326,6 +327,7 @@ def _cxx_binary_and_test_attrs():
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "link_group_map": link_group_map_attr(),
+        "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_locally_override": attrs.option(attrs.bool(), default = None),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = False)),
