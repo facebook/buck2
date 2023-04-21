@@ -56,6 +56,7 @@ apple_sdk_swift_module = rule(
         # This is a real module name, contrary to `name`
         # which has a special suffix to distinguish Swift and Clang modules with the same name
         "module_name": attrs.string(),
+        "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string(), default = []), sorted = False, default = {}),
         # A prefixed path ($SDKROOT/$PLATFORM_DIR) to swiftinterface textual file.
         "swiftinterface_relative_path": attrs.option(attrs.string(), default = None),  # if `swiftinterface` is None represents a Root node.
         "target": attrs.string(),
