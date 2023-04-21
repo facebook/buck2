@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::fs::fs_util;
+use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -22,6 +23,8 @@ enum XcodeVersionError {
     UnableToConstructVersionInfoPath,
     #[error("Expected short version `{0}` to contain at least major and minor versions")]
     MalformedShortVersion(String),
+    #[error("Expected valid format for 'version-build' (e.g., 14.3.0-14C18 or 14.1-14B47b)")]
+    MalformedVersionBuildString,
 }
 
 const XCODE_SELECT_SYMLINK: &str = "/var/db/xcode_select_link";
@@ -82,6 +85,30 @@ impl XcodeVersionInfo {
             minor_version: minor,
             patch_version: patch,
             build_number,
+        })
+    }
+
+    /// Construct from a string, formatted as: "version-build"
+    /// (e.g., 14.3.0-14C18 or 14.1-14B47b)
+    pub fn from_version_and_build(version_and_build: &str) -> anyhow::Result<Self> {
+        let re = Regex::new(r"^((\d+)\.(\d+)(?:\.(\d+))?)\-([[:alnum:]]+)$").unwrap();
+        if !re.is_match(version_and_build) {
+            return Err(XcodeVersionError::MalformedVersionBuildString.into());
+        }
+
+        let caps = re.captures(version_and_build).unwrap();
+        let version = caps.get(1).map_or("", |m| m.as_str());
+        let major = caps.get(2).map_or("", |m| m.as_str());
+        let minor = caps.get(3).map_or("", |m| m.as_str());
+        let patch = caps.get(4).map_or("0", |m| m.as_str());
+        let build = caps.get(5).map_or("", |m| m.as_str());
+
+        Ok(Self {
+            version_string: version.to_owned(),
+            major_version: major.to_owned(),
+            minor_version: minor.to_owned(),
+            patch_version: patch.to_owned(),
+            build_number: build.to_owned(),
         })
     }
 }
@@ -210,5 +237,32 @@ mod tests {
             build_number: "14A309".to_owned(),
         };
         assert_eq!(want, got);
+    }
+
+    #[test]
+    fn test_resolves_version_from_version_and_build_string() {
+        let version_build = "14.3.1-14C18";
+        let got = XcodeVersionInfo::from_version_and_build(version_build)
+            .expect("failed to parse version info");
+        let want = XcodeVersionInfo {
+            version_string: "14.3.1".to_owned(),
+            major_version: "14".to_owned(),
+            minor_version: "3".to_owned(),
+            patch_version: "1".to_owned(),
+            build_number: "14C18".to_owned(),
+        };
+        assert_eq!(want, got);
+
+        let version_build2 = "14.1-14B47b";
+        let got2 = XcodeVersionInfo::from_version_and_build(version_build2)
+            .expect("failed to parse version info");
+        let want2 = XcodeVersionInfo {
+            version_string: "14.1".to_owned(),
+            major_version: "14".to_owned(),
+            minor_version: "1".to_owned(),
+            patch_version: "0".to_owned(),
+            build_number: "14B47b".to_owned(),
+        };
+        assert_eq!(want2, got2);
     }
 }

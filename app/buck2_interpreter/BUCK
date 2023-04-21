@@ -19,6 +19,7 @@ rust_library(
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:plist",
+        "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:thiserror",
