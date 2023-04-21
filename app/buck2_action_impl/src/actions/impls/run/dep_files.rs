@@ -723,44 +723,54 @@ impl DeclaredDepFiles {
 
             let dep_file = declared_dep_file.output.resolve_path(fs)?;
 
-            let read_dep_file: anyhow::Result<()> = try {
-                let dep_file_path = fs.fs().resolve(&dep_file);
-                let dep_file = fs_util::read_to_string_opt(&dep_file_path)?;
-
-                let dep_file = match dep_file {
-                    Some(dep_file) => dep_file,
-                    None => {
-                        soft_error!(
-                            "missing_dep_file",
-                            anyhow::anyhow!("Dep file is missing at {}", dep_file_path)
-                        )?;
-                        return Ok(None);
-                    }
-                };
-
-                for line in dep_file.split('\n') {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let path = ProjectRelativePath::new(line)
-                        .context("Invalid line encountered in dep file")?;
-
-                    selector.select(path);
-                }
-            };
-
-            read_dep_file.with_context(|| {
-                format!(
-                    "Action execution produced an invalid `{}` dep file at `{}`",
-                    declared_dep_file.label, dep_file,
-                )
-            })?;
+            DeclaredDepFiles::select_from_dep_file(fs, &dep_file, &mut selector).with_context(
+                || {
+                    format!(
+                        "Action execution produced an invalid `{}` dep file at `{}`",
+                        declared_dep_file.label, dep_file,
+                    )
+                },
+            )?;
 
             contents.insert(declared_dep_file.label.dupe(), selector);
         }
 
         Ok(Some(ConcreteDepFiles { contents }))
+    }
+
+    /// read deps from a single dep file into a directory selector. Hard errors
+    /// generate Err(...) for propogation, soft errors are reported directly
+    /// and halt processing.
+    fn select_from_dep_file(
+        fs: &ArtifactFs,
+        dep_file: &ProjectRelativePath,
+        selector: &mut DirectorySelector,
+    ) -> Result<(), anyhow::Error> {
+        let dep_file_path = fs.fs().resolve(dep_file);
+        let dep_file = fs_util::read_to_string_opt(&dep_file_path)?;
+
+        let dep_file = match dep_file {
+            Some(dep_file) => dep_file,
+            None => {
+                soft_error!(
+                    "missing_dep_file",
+                    anyhow::anyhow!("Dep file is missing at {}", dep_file_path)
+                )?;
+                return Ok(());
+            }
+        };
+
+        for path in dep_file
+            .split('\n')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|line| ProjectRelativePath::new(line))
+        {
+            let path = path.context("Invalid line encountered in dep file")?;
+
+            selector.select(path);
+        }
+        Ok(())
     }
 
     /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
