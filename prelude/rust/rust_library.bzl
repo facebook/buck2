@@ -67,7 +67,6 @@ load(
     "RuleType",
     "build_params",
     "crate_type_transitive_deps",
-    "preferred_rust_binary_build_params",
 )
 load(
     ":context.bzl",
@@ -203,16 +202,27 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
 
     rustdoc_test = None
     if ctx.attrs.doctests and toolchain_info.rustc_target_triple == targets.exec_triple(ctx):
-        rustdoc_test_params = preferred_rust_binary_build_params(
+        if ctx.attrs.doctest_link_style:
+            doctest_link_style = LinkStyle(ctx.attrs.doctest_link_style)
+        else:
+            doctest_link_style = {
+                "any": LinkStyle("shared"),
+                "shared": LinkStyle("shared"),
+                "static": DEFAULT_STATIC_LINK_STYLE,
+            }[ctx.attrs.preferred_linkage]
+        rustdoc_test_params = build_params(
+            rule = RuleType("binary"),
+            proc_macro = False,
+            link_style = doctest_link_style,
             preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
+            lang = LinkageLang("rust"),
             linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type,
             target_os_type = ctx.attrs._target_os_type[OsLookup],
         )
-        link_style = LinkStyle(ctx.attrs.doctest_link_style) if ctx.attrs.doctest_link_style else rustdoc_test_params.dep_link_style
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            link_style = link_style,
+            link_style = rustdoc_test_params.dep_link_style,
             library = rust_param_artifact[static_library_params],
             params = rustdoc_test_params,
             default_roots = default_roots,
