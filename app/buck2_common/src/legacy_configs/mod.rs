@@ -1205,8 +1205,6 @@ impl LegacyBuckConfig {
 struct BuckConfigParseOptions {
     // Defines whether includes are followed, this can significantly reduce parse time.
     follow_includes: bool,
-    // Defines whether the configs for any cells found in [repositories] should be parsed.
-    parse_cells: bool,
 }
 
 fn push_all_files_from_a_directory(

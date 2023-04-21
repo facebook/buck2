@@ -72,11 +72,6 @@ impl BuckConfigBasedCells {
     ) -> anyhow::Result<CellResolver> {
         let opts = BuckConfigParseOptions {
             follow_includes: false,
-            // Cells _still_ need to be parsed because we need to correctly resolved cell aliases
-            // against the repository mapping for a particular cell. For example, imagine a cell
-            // alias like `//some:path` in an argfle - it's relatively to the cell containing
-            // the argfile, so we must have parsed all cells.
-            parse_cells: true,
         };
         let cells = Self::parse_with_file_ops_and_options(
             project_fs,
@@ -118,7 +113,6 @@ impl BuckConfigBasedCells {
     ) -> anyhow::Result<Self> {
         let opts = BuckConfigParseOptions {
             follow_includes: true,
-            parse_cells: true,
         };
         Self::parse_with_file_ops_and_options(project_fs, file_ops, config_args, cwd, opts)
     }
@@ -313,9 +307,7 @@ impl BuckConfigBasedCells {
                         root_aliases.insert(alias.clone(), alias_path.clone());
                     }
                     cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
-                    if options.parse_cells {
-                        work.push(alias_path);
-                    }
+                    work.push(alias_path);
                 }
             }
 
