@@ -76,7 +76,8 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
         exported_deps = cxx_attr_exported_deps(ctx),
     )
     bundle_infos = get_bundle_infos_from_graph(resource_graph)
-    bundle_infos.append(AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]))
+    if cxx_output.linker_map_data:
+        bundle_infos.append(AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]))
 
     return [
         DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),

@@ -138,7 +138,7 @@ CxxExecutableOutput = record(
     auto_link_groups = field({str.type: LinkedObject.type}, {}),
     compilation_db = CxxCompilationDbInfo.type,
     xcode_data = XcodeDataInfo.type,
-    linker_map_data = CxxLinkerMapData.type,
+    linker_map_data = [CxxLinkerMapData.type, None],
 )
 
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
@@ -499,7 +499,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if cxx_use_bolt(ctx):
         sub_targets["prebolt"] = [DefaultInfo(default_output = binary.prebolt_output)]
 
-    sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map_data.map, other_outputs = [linker_map_data.binary])]
+    if linker_map_data:
+        sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map_data.map, other_outputs = [linker_map_data.binary])]
 
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_output = binary.linker_argsfile,
@@ -548,7 +549,7 @@ _CxxLinkExecutableResult = record(
     runtime_files = ["_arglike"],
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = ["artifact", None],
-    linker_map_data = CxxLinkerMapData.type,
+    linker_map_data = [CxxLinkerMapData.type, None],
 )
 
 def _link_into_executable(
