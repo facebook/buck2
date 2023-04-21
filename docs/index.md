@@ -43,6 +43,11 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 
 * [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for introspection of Buck2's graphs.
 
+### External articles about Buck2
+
+* [Introducing Buck2](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system/) - our initial introduction when we open sourced Buck2.
+* [Using buck to build Rust projects](https://steveklabnik.com/writing/using-buck-to-build-rust-projects) - working through an initial small Rust project, by [Steve Klabnik](https://steveklabnik.com/).
+
 <FbInternalOnly>
 
 ### For people developing Buck2
