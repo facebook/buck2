@@ -303,12 +303,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| {
-            format!(
-                "Invalid relative target pattern `{}` is not allowed",
-                pattern
-            )
-        })
+        .with_context(|| format!("Parsing target pattern `{}`", pattern))
     }
 }
 
