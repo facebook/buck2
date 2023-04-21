@@ -169,14 +169,9 @@ impl Action for WriteJsonAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
-        let res: anyhow::Result<String> = try { String::from_utf8(self.get_contents(fs)?)? };
-        // TODO(cjhopman): We should change this api to support returning a Result.
-        indexmap! {
-            "contents".to_owned() => match res {
-                Ok(v) => v,
-                Err(e) => format!("ERROR: constructing contents ({})", e)
-            }
-        }
+        let contents = (|| Ok(String::from_utf8(self.get_contents(fs)?)?))()
+            .unwrap_or_else(|e: anyhow::Error| format!("ERROR: constructing contents ({e})"));
+        indexmap! { "contents".to_owned() => contents }
     }
 }
 
