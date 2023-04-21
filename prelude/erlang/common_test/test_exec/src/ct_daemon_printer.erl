@@ -77,7 +77,11 @@ print_skip_location({_, GroupOrSuite}) ->
 print_skip_location(Other) ->
     Other.
 
-chop_stack(Stacktrace) ->
+chop_stack(E = {failed, _}) ->
+    E;
+chop_stack(Stacktrace) when is_list(Stacktrace) ->
     lists:takewhile(
         fun({Module, _, _, _}) -> not lists:member(Module, [ct_daemon_core, ct_daemon_hooks]) end, Stacktrace
-    ).
+    );
+chop_stack(Other) ->
+    Other.
