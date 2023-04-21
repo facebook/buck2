@@ -320,6 +320,7 @@ def _cxx_zig_toolchain_impl(ctx: "context") -> ["provider"]:
             #archive_contents = None,
             archive_objects_locally = False,
             binary_extension = "",
+            generate_linker_maps = False,
             link_binaries_locally = False,
             link_libraries_locally = False,
             link_style = LinkStyle(ctx.attrs.link_style),

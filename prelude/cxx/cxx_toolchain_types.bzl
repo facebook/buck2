@@ -20,6 +20,7 @@ LinkerInfo = provider(fields = [
     # "archiver_platform",
     # "" on Unix, "exe" on Windows
     "binary_extension",  # str.type
+    "generate_linker_maps",  # bool.type
     # Whether to run native links locally.  We support this for fbcode platforms
     # to avoid issues with C++ static links (see comment in
     # `platform/cxx_toolchains.bzl` for details).

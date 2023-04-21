@@ -43,6 +43,7 @@ def _system_cxx_toolchain_impl(ctx):
                 linker_flags = ["-fuse-ld=lld"] + ctx.attrs.link_flags,
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 archiver_type = archiver_type,
+                generate_linker_maps = False,
                 type = linker_type,
                 link_binaries_locally = True,
                 archive_objects_locally = True,
