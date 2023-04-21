@@ -1510,6 +1510,7 @@ message InvocationRecord {
   optional bool has_command_result = 64;
   optional uint64 compressed_event_log_size_bytes = 65;
   bool use_streaming_upload = 66;
+  optional bool has_end_of_stream = 67;
 }
 
 message CacheUploadStart {

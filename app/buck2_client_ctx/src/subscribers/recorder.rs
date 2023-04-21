@@ -124,6 +124,7 @@ mod imp {
         enable_restarter: bool,
         restarted_trace_id: Option<TraceId>,
         has_command_result: bool,
+        has_end_of_stream: bool,
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
         use_streaming_upload: bool,
     }
@@ -215,6 +216,7 @@ mod imp {
                 enable_restarter: false,
                 restarted_trace_id,
                 has_command_result: false,
+                has_end_of_stream: false,
                 compressed_event_log_size_bytes: log_size_counter_bytes,
                 use_streaming_upload,
             }
@@ -343,6 +345,7 @@ mod imp {
                 exit_when_different_state: Some(self.exit_when_different_state),
                 restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
                 has_command_result: Some(self.has_command_result),
+                has_end_of_stream: Some(self.has_end_of_stream),
                 // At this point we expect the event log writer to have finished
                 compressed_event_log_size_bytes: self
                     .compressed_event_log_size_bytes
@@ -933,6 +936,11 @@ mod imp {
             _result: &buck2_cli_proto::CommandResult,
         ) -> anyhow::Result<()> {
             self.has_command_result = true;
+            Ok(())
+        }
+
+        async fn exit(&mut self) -> anyhow::Result<()> {
+            self.has_end_of_stream = true;
             Ok(())
         }
 
