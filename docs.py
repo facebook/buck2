@@ -36,6 +36,28 @@ def buck_command(args):
         return "./buck2.sh"
 
 
+# Given the path to the documentation, e.g. native/bxl/analysis_result
+# produce a new name which is the destination, e.g. bxl/analysis_result
+def doc_name(x):
+    if x.startswith("native/bxl/"):
+        return x[7:]  # drop the native
+    elif x.endswith("/rules.bzl"):
+        return "rules"
+    elif x.endswith("/function"):
+        # Uninteresting docs we'd rather not have generated
+        return None
+    elif (
+        x.startswith("native/standard/")
+        or x.startswith("native/extension/")
+        or x.endswith("/builtins")
+    ):
+        return "starlark/" + x.split("/")[-1]
+    elif x.startswith("native/"):
+        return "build/" + x[7:]
+    else:
+        raise RuntimeError("Unknown name: " + x)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -83,25 +105,20 @@ def main() -> None:
 
         for orig in Path(tmp).rglob("*.md"):
             src = read_file(orig)
-            x = os.path.relpath(orig, tmp)
-            name = Path(x).stem
-            if name.endswith(".bzl"):
-                name = name[:-4]
-            prefix = "---\nid: " + name + "\n---\n"
-            if x.startswith("native/bxl/"):
-                dest = x[7:-3]
-            elif x.endswith("/rules.bzl.md"):
-                dest = "rules"
+            path = os.path.relpath(orig, tmp)
+            if path.endswith(".md"):
+                path = path[:-3]
+
+            name = doc_name(path)
+            if name is None:
+                continue
+
+            prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
+            if name == "rules":
                 prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
                 src = "\n".join(src.splitlines()[1:])
-            elif x.endswith("/function.md"):
-                # Uninteresting docs we'd rather not have generated
-                continue
-            elif "/standard/" in x or "/extension/" in x or x.endswith("builtins.md"):
-                dest = "starlark/" + name
-            else:
-                dest = "build/" + x[7:-3]
-            dest = "docs/api/" + dest + ".generated.md"
+
+            dest = "docs/api/" + name + ".generated.md"
             os.makedirs(Path(dest).parent, exist_ok=True)
             write_file(dest, prefix + src)
 
