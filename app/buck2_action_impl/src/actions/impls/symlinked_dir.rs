@@ -37,7 +37,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use starlark::values::dict::DictRef;
 use starlark::values::OwnedFrozenValue;
@@ -226,7 +225,6 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs().fs();
         let output = ctx.fs().resolve_build(self.output().get_path());
@@ -257,7 +255,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 
         let value = builder.build(output.as_ref())?;
         ctx.materializer()
-            .declare_copy(output, value.dupe(), srcs, cancellation)
+            .declare_copy(output, value.dupe(), srcs, ctx.cancellation_context())
             .await?;
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

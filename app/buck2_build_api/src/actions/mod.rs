@@ -159,7 +159,6 @@ pub trait PristineActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 }
 
@@ -170,7 +169,6 @@ pub trait IncrementalActionExecutable: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-        cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)>;
 }
 
@@ -194,7 +192,6 @@ pub trait ActionExecutionCtx: Send + Sync {
     async fn exec_cmd(
         &mut self,
         request: &CommandExecutionRequest,
-        cancellations: &CancellationContext,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
@@ -203,7 +200,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// Clean up all the output directories for this action. This requires a mutable reference
     /// because you shouldn't be doing anything else with the ActionExecutionCtx while cleaning the
     /// outputs.
-    async fn cleanup_outputs(&mut self, cancellation: &CancellationContext) -> anyhow::Result<()>;
+    async fn cleanup_outputs(&mut self) -> anyhow::Result<()>;
 
     /// Get the value of an Artifact. This Artifact _must_ have been declared
     /// as an input to the associated action or a panic will be raised.
@@ -217,6 +214,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Obtian per-command knobs for RunAction.
     fn run_action_knobs(&self) -> RunActionKnobs;
+
+    fn cancellation_context(&self) -> &CancellationContext;
 }
 
 #[derive(Error, Debug)]
@@ -359,7 +358,6 @@ pub(crate) mod testings {
     use derivative::Derivative;
     use dupe::Dupe;
     use indexmap::IndexSet;
-    use more_futures::cancellation::CancellationContext;
     use sorted_vector_map::sorted_vector_map;
     use starlark::values::OwnedFrozenValue;
 
@@ -474,7 +472,6 @@ pub(crate) mod testings {
         async fn execute(
             &self,
             ctx: &mut dyn ActionExecutionCtx,
-            cancellation: &CancellationContext,
         ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
             let req = CommandExecutionRequest::new(
                 self.cmd.clone(),
@@ -493,7 +490,7 @@ pub(crate) mod testings {
                 sorted_vector_map![],
             );
 
-            let (outputs, meta) = ctx.exec_cmd(&req, cancellation).await?;
+            let (outputs, meta) = ctx.exec_cmd(&req).await?;
 
             let outputs = ActionOutputs::new(outputs);
 

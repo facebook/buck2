@@ -274,6 +274,7 @@ struct BuckActionExecutionContext<'a> {
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
+    cancellations: &'a CancellationContext,
 }
 
 #[async_trait]
@@ -318,10 +319,13 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.run_action_knobs
     }
 
+    fn cancellation_context(&self) -> &CancellationContext {
+        self.cancellations
+    }
+
     async fn exec_cmd(
         &mut self,
         request: &CommandExecutionRequest,
-        cancellations: &CancellationContext,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
@@ -346,7 +350,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 request,
                 manager,
                 self.digest_config(),
-                cancellations,
+                self.cancellations,
             )
             .await;
 
@@ -379,7 +383,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         res
     }
 
-    async fn cleanup_outputs(&mut self, cancellation: &CancellationContext) -> anyhow::Result<()> {
+    async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
         // Delete all outputs before we start, so things will be clean.
         let output_paths = self
             .outputs
@@ -411,7 +415,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     Box::new(CleanOutputPaths {
                         paths: output_paths,
                     }),
-                    cancellation,
+                    self.cancellations,
                 )
                 .await
                 .context("Failed to cleanup output directory")?;
@@ -427,7 +431,7 @@ impl ActionExecutor for BuckActionExecutor {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
-        cancellation: &CancellationContext,
+        cancellations: &CancellationContext,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
@@ -443,16 +447,17 @@ impl ActionExecutor for BuckActionExecutor {
                 inputs,
                 outputs: outputs.as_ref(),
                 command_reports: &mut command_reports,
+                cancellations,
             };
 
             let (result, metadata) = match action.as_executable() {
                 ActionExecutable::Pristine(exe) => {
-                    ctx.cleanup_outputs(cancellation).await?;
-                    exe.execute(&mut ctx, cancellation).await?
+                    ctx.cleanup_outputs().await?;
+                    exe.execute(&mut ctx).await?
                 }
                 ActionExecutable::Incremental(exe) => {
                     // Let the action perform clean up in this case.
-                    exe.execute(&mut ctx, cancellation).await?
+                    exe.execute(&mut ctx).await?
                 }
             };
 
@@ -678,7 +683,6 @@ mod tests {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,
-                cancellation: &CancellationContext,
             ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
                 self.ran.store(true, Ordering::SeqCst);
 
@@ -710,7 +714,7 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let res = ctx.exec_cmd(&req, cancellation).await;
+                let res = ctx.exec_cmd(&req).await;
 
                 // Must write out the things we promised to do
                 for x in &self.outputs {

@@ -43,7 +43,6 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -186,7 +185,6 @@ impl IncrementalActionExecutable for WriteJsonAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-        _cancellation: &CancellationContext,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let fs = ctx.fs();
 
