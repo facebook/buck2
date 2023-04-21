@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
     "@prelude//utils:build_target_pattern.bzl",
@@ -93,6 +94,7 @@ registration_spec = RuleRegistrationSpec(
         "json_type": attrs.enum(_FocusedDebuggingJsonTypes),
         "scrubber": attrs.dep(),
         "targets_json_file": attrs.option(attrs.source(), default = None),
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
 )
 
