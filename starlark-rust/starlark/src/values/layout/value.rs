@@ -729,11 +729,6 @@ impl<'v> Value<'v> {
         self.get_ref().documentation()
     }
 
-    /// Return the contents of an iterable collection, as an owned vector.
-    pub fn iterate_collect(self, heap: &'v Heap) -> anyhow::Result<Vec<Value<'v>>> {
-        Ok(self.iterate(heap)?.collect())
-    }
-
     /// Operate over an iterable for a value.
     pub fn with_iterator<T>(
         self,
