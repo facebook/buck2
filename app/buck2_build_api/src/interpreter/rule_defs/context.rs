@@ -124,6 +124,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 pub struct AnalysisContext<'v> {
     attrs: Value<'v>, // A struct
     actions: ValueTyped<'v, AnalysisActions<'v>>,
+    /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, Label>>,
 }
 
@@ -226,16 +227,26 @@ impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
     }
 }
 
-/// The starting type, usually bound as `ctx`
+/// The type used for defining rules, usually bound as `ctx`.
+/// Usually the sole argument to the `impl` argument of the `rule` function.
+///
+/// ```python
+/// def _impl_my_rule(ctx: "context") -> ["provider"]:
+///     return [DefaultInfo()]
+/// my_rule = rule(impl = _impl_my_rule, attrs = {})
+/// ```
 #[starlark_module]
 fn register_context(builder: &mut MethodsBuilder) {
-    /// Returns the attributes of the target as a Starlark struct with a field for each attribute, which varies per rule
-    #[starlark(attribute)]
+    /// Returns the attributes of the target as a Starlark struct with a field for each attribute, which varies per rule.
+    /// As an example, given a rule with the `attrs` argument of `{"foo": attrs.string()}`, this field will be
+    /// a `struct` containing a field `foo` of type string.
+    #[starlark(attribute, return_type = "struct.type")]
     fn attrs<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.attrs)
     }
 
-    /// Returns `actions` allowing you to define actions
+    /// Returns an `actions` value containing functions to define actual actions that are run.
+    /// See the `actions` type for the operations that are available.
     #[starlark(attribute)]
     fn actions<'v>(
         this: RefAnalysisContext,
@@ -243,8 +254,9 @@ fn register_context(builder: &mut MethodsBuilder) {
         Ok(this.0.actions)
     }
 
-    /// Returns a `label` representing the target
-    #[starlark(attribute)]
+    /// Returns a `label` representing the target, or `None` if being invoked from a
+    /// `dynamic_output` in Bxl.
+    #[starlark(attribute, return_type = "[None, \"label\"]")]
     fn label<'v>(this: RefAnalysisContext) -> anyhow::Result<Value<'v>> {
         Ok(this.0.label.map_or(Value::new_none(), |v| v.to_value()))
     }

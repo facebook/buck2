@@ -17,7 +17,7 @@ use starlark::values::Value;
 #[starlark_module]
 pub fn dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
-    /// rather than by equality.
+    /// rather than by equality. In many cases you should use a transitive set instead.
     fn dedupe<'v>(
         #[starlark(require = pos)] val: Value<'v>,
         heap: &'v Heap,

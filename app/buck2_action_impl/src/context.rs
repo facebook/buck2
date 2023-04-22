@@ -190,7 +190,10 @@ fn copy_file<'v>(
     Ok(value)
 }
 
-/// Actions take inputs and produce outputs.
+/// Functions to allow users to interact with the Actions registry.
+/// Accessed via `ctx.actions.<function>`.
+///
+/// Actions take inputs and produce outputs, mostly using the `artifact` type.
 /// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
 #[starlark_module]
 fn register_context_actions(builder: &mut MethodsBuilder) {
