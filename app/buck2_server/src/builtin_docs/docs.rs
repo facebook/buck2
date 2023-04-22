@@ -16,7 +16,6 @@ use buck2_build_api::actions::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::callable::UserProviderCallable;
 use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
@@ -146,19 +145,6 @@ fn get_artifact_docs() -> Option<Doc> {
         .map(|artifact_docs| builtin_doc("artifact", "", artifact_docs))
 }
 
-fn get_ctx_docs() -> Vec<Doc> {
-    let mut docs = vec![];
-    // Grab the 'ctx', and 'ctx.actions' structs from analysis
-    let ctx = AnalysisContext::ctx_documentation();
-    if let Some(ctx_docs) = ctx.context {
-        docs.push(builtin_doc("ctx", "", ctx_docs));
-    }
-    if let Some(actions_docs) = ctx.actions {
-        docs.push(builtin_doc("ctx.actions", "", actions_docs));
-    }
-    docs
-}
-
 pub fn get_builtin_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
@@ -173,7 +159,6 @@ pub fn get_builtin_docs(
     if let Some(artifact) = get_artifact_docs() {
         all_builtins.push(artifact);
     }
-    all_builtins.extend(get_ctx_docs());
 
     all_builtins.extend(get_registered_starlark_docs());
 

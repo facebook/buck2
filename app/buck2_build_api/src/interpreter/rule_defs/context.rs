@@ -20,7 +20,6 @@ use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
 use starlark::any::ProvidesStaticType;
-use starlark::docs::DocItem;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -43,7 +42,15 @@ use crate::analysis::registry::AnalysisRegistry;
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`
-#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize, Allocative)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    Display,
+    Trace,
+    NoSerialize,
+    Allocative,
+    StarlarkDocs
+)]
 #[display(fmt = "<ctx.actions>")]
 pub struct AnalysisActions<'v> {
     /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
@@ -106,7 +113,14 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     }
 }
 
-#[derive(ProvidesStaticType, Debug, Trace, NoSerialize, Allocative)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    Trace,
+    NoSerialize,
+    Allocative,
+    StarlarkDocs
+)]
 pub struct AnalysisContext<'v> {
     attrs: Value<'v>, // A struct
     actions: ValueTyped<'v, AnalysisActions<'v>>,
@@ -124,14 +138,6 @@ impl<'v> Display for AnalysisContext<'v> {
         write!(f, ">")?;
         Ok(())
     }
-}
-
-/// Simple holder for documentation from AnalysisContext
-pub struct ContextDocs {
-    /// Docs for ctx
-    pub context: Option<DocItem>,
-    /// Docs for ctx.actions
-    pub actions: Option<DocItem>,
 }
 
 impl<'v> AnalysisContext<'v> {
@@ -186,23 +192,6 @@ impl<'v> AnalysisContext<'v> {
             .borrow_mut()
             .take()
             .expect("nothing to have stolen state yet")
-    }
-
-    /// Returns the documentation for AnalysisContext and AnalysisActions based on their get_methods() calls.
-    ///
-    /// That is the only reason that this function should be called.
-    pub fn ctx_documentation() -> ContextDocs {
-        static CTX_METHODS: MethodsStatic = MethodsStatic::new();
-        static ACTIONS_METHODS: MethodsStatic = MethodsStatic::new();
-
-        let context = CTX_METHODS
-            .methods(register_context)
-            .map(|methods| methods.documentation());
-        let actions = ACTIONS_METHODS
-            .methods(REGISTER_CONTEXT_ACTIONS.get().unwrap())
-            .map(|methods| methods.documentation());
-
-        ContextDocs { context, actions }
     }
 }
 
