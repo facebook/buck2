@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr::Attribute;
@@ -17,14 +18,23 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::provider_id_set::ProviderIdSet;
+use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::starlark_type;
+use starlark::values::NoSerialize;
+use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::StarlarkDocs;
 use thiserror::Error;
 use tracing::error;
 
@@ -134,10 +144,11 @@ fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<P
     )?))
 }
 
-/// Fields of `attrs` struct.
+/// Fields of `Attribute` type.
 #[starlark_module]
-fn attr_module(registry: &mut GlobalsBuilder) {
+fn attr_module(registry: &mut MethodsBuilder) {
     fn string<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[allow(unused_variables)]
         #[starlark(require = named)]
@@ -149,6 +160,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn list<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &AttributeAsStarlarkValue,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -159,6 +171,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn exec_dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -171,6 +184,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn toolchain_dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -183,6 +197,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn transition_dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -216,6 +231,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn configured_dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -228,6 +244,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn split_transition_dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         cfg: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -261,6 +278,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn dep<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -273,6 +291,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn any<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
@@ -281,6 +300,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn bool<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -289,6 +309,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn option<'v>(
+        #[starlark(this)] _this: Value<'v>,
         inner: &AttributeAsStarlarkValue,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -305,7 +326,8 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         }
     }
 
-    fn default_only(
+    fn default_only<'v>(
+        #[starlark(this)] _this: Value<'v>,
         inner: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
@@ -320,6 +342,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn label<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -328,6 +351,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn dict<'v>(
+        #[starlark(this)] _this: Value<'v>,
         key: &AttributeAsStarlarkValue,
         value: &AttributeAsStarlarkValue,
         #[starlark(default = false)] sorted: bool,
@@ -340,6 +364,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn arg<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[allow(unused_variables)]
         #[starlark(default = false)]
         json: bool,
@@ -351,6 +376,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn r#enum<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] variants: Vec<String>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -362,7 +388,8 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::enumeration(variants)?)
     }
 
-    fn configuration_label(
+    fn configuration_label<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
@@ -372,6 +399,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn regex<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -380,6 +408,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn set<'v>(
+        #[starlark(this)] _this: Value<'v>,
         value_type: &AttributeAsStarlarkValue,
         #[allow(unused_variables)]
         #[starlark(default = false)]
@@ -393,6 +422,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn named_set<'v>(
+        #[starlark(this)] _this: Value<'v>,
         value_type: &AttributeAsStarlarkValue,
         #[starlark(default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -408,6 +438,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn one_of<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: Vec<&AttributeAsStarlarkValue>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -418,6 +449,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn tuple<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: Vec<&AttributeAsStarlarkValue>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -428,6 +460,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn int<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
@@ -435,14 +468,16 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::int())
     }
 
-    fn query(
+    fn query<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
         Attribute::attr(eval, None, doc, AttrType::query())
     }
 
-    fn versioned(
+    fn versioned<'v>(
+        #[starlark(this)] _this: Value<'v>,
         value_type: &AttributeAsStarlarkValue,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> anyhow::Result<AttributeAsStarlarkValue> {
@@ -462,6 +497,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 
     fn source<'v>(
+        #[starlark(this)] _this: Value<'v>,
         #[starlark(default = false)] allow_directory: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -472,6 +508,26 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     }
 }
 
+#[derive(
+    Display,
+    Debug,
+    StarlarkDocs,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize
+)]
+#[display(fmt = "<attrs>")]
+struct Attrs;
+
+impl<'v> StarlarkValue<'v> for Attrs {
+    starlark_type!("attrs");
+
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(attr_module)
+    }
+}
+
 pub fn register_attrs(globals: &mut GlobalsBuilder) {
-    globals.struct_("attrs", attr_module);
+    globals.set("attrs", globals.frozen_heap().alloc_simple(Attrs));
 }
