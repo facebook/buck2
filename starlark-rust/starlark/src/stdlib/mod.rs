@@ -28,6 +28,7 @@ pub(crate) mod enumeration;
 pub(crate) mod extra;
 mod funcs;
 pub(crate) mod json;
+pub(crate) mod partial;
 
 pub(crate) mod list;
 pub(crate) mod record;
@@ -111,7 +112,7 @@ impl LibraryExtension {
             EnumType => enumeration::global(builder),
             Map => extra::map(builder),
             Filter => extra::filter(builder),
-            Partial => extra::partial(builder),
+            Partial => partial::partial(builder),
             ExperimentalRegex => extra::regex(builder),
             Debug => extra::debug(builder),
             Print => extra::print(builder),
