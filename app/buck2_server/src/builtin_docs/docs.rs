@@ -143,7 +143,7 @@ fn get_artifact_docs() -> Option<Doc> {
         ))));
     artifact
         .documentation()
-        .map(|artifact_docs| builtin_doc("Artifact", "", artifact_docs))
+        .map(|artifact_docs| builtin_doc("artifact", "", artifact_docs))
 }
 
 fn get_ctx_docs() -> Vec<Doc> {
