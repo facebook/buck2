@@ -30,6 +30,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::liveliness_observer::LivelinessGuard;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::name::CellName;
@@ -76,7 +77,7 @@ use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use serde::Serialize;
 
 use crate::downward_api::BuckTestDownwardApi;
@@ -416,22 +417,25 @@ async fn test_targets(
 
     let test_run = ctx.temporary_spawn({
         let test_status_sender = test_status_sender.clone();
-        move |ctx, _cancellation| {
+        move |ctx, cancellations| {
             {
                 // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
                 // if the liveliness guard indicates we should.
-                critical_section(move || async move {
+                cancellations.critical_section(move || async move {
                     // Spawn our server to listen to the test runner's requests for execution.
-                    let orchestrator = BuckTestOrchestrator::new(
-                        ctx.dupe(),
-                        session.dupe(),
-                        liveliness_observer.dupe(),
-                        test_status_sender,
-                    )
-                    .await
-                    .context("Failed to create a BuckTestOrchestrator")?;
 
-                    let server_handle = make_server(orchestrator, BuckTestDownwardApi);
+                    let server_handle = make_server(
+                        BuckTestOrchestrator::new(
+                            ctx.dupe(),
+                            session.dupe(),
+                            liveliness_observer.dupe(),
+                            test_status_sender,
+                            CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
+                        )
+                        .await
+                        .context("Failed to create a BuckTestOrchestrator")?,
+                        BuckTestDownwardApi,
+                    );
 
                     let mut driver = TestDriver::new(TestDriverState {
                         ctx: &ctx,

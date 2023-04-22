@@ -33,7 +33,7 @@ pub struct ExecutorLaunch {
     pub handle: Pin<Box<dyn Future<Output = anyhow::Result<ExecutorOutput>> + Send>>,
     pub client: TestExecutorClient,
     pub make_server:
-        Box<dyn FnOnce(BuckTestOrchestrator, BuckTestDownwardApi) -> ServerHandle + Send>,
+        Box<dyn FnOnce(BuckTestOrchestrator<'static>, BuckTestDownwardApi) -> ServerHandle + Send>,
 }
 
 #[derive(Debug, Display)]

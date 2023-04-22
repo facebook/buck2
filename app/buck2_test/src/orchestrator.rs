@@ -116,22 +116,24 @@ pub enum TestResultOrExitCode {
     ExitCode(i32),
 }
 
-pub struct BuckTestOrchestrator {
+pub struct BuckTestOrchestrator<'a> {
     dice: DiceTransaction,
     session: Arc<TestSession>,
     results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
+    cancellations: &'a CancellationContext,
 }
 
-impl BuckTestOrchestrator {
+impl<'a> BuckTestOrchestrator<'a> {
     pub async fn new(
         dice: DiceTransaction,
         session: Arc<TestSession>,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
-    ) -> anyhow::Result<Self> {
+        cancellations: &'a CancellationContext,
+    ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let digest_config = dice.global_data().get_digest_config();
         Ok(Self::from_parts(
@@ -141,6 +143,7 @@ impl BuckTestOrchestrator {
             results_channel,
             events,
             digest_config,
+            cancellations,
         ))
     }
 
@@ -151,7 +154,8 @@ impl BuckTestOrchestrator {
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
         events: EventDispatcher,
         digest_config: DigestConfig,
-    ) -> Self {
+        cancellations: &'a CancellationContext,
+    ) -> BuckTestOrchestrator<'a> {
         Self {
             dice,
             session,
@@ -159,12 +163,13 @@ impl BuckTestOrchestrator {
             results_channel,
             events,
             digest_config,
+            cancellations,
         }
     }
 }
 
 #[async_trait]
-impl TestOrchestrator for BuckTestOrchestrator {
+impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     async fn execute2(
         &self,
         metadata: DisplayMetadata,
@@ -369,7 +374,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
             &execution_request,
             materializer.dupe(),
             blocking_executor,
-            &CancellationContext::todo(),
+            self.cancellations,
         )
         .await?;
 
@@ -380,7 +385,7 @@ impl TestOrchestrator for BuckTestOrchestrator {
     }
 }
 
-impl BuckTestOrchestrator {
+impl<'b> BuckTestOrchestrator<'b> {
     fn executor_preference(&self, test_supports_re: bool) -> anyhow::Result<ExecutorPreference> {
         let mut executor_preference = ExecutorPreference::Default;
 
@@ -416,7 +421,6 @@ impl BuckTestOrchestrator {
             self.events.dupe(),
             self.liveliness_observer.dupe(),
         );
-        let cancellations = CancellationContext::todo();
 
         let test_target = TestTarget {
             target: test_target.target(),
@@ -427,7 +431,7 @@ impl BuckTestOrchestrator {
             &request,
             manager,
             self.digest_config,
-            &cancellations,
+            self.cancellations,
         );
 
         // instrument execution with a span.
@@ -721,7 +725,7 @@ impl BuckTestOrchestrator {
     }
 }
 
-impl Drop for BuckTestOrchestrator {
+impl<'a> Drop for BuckTestOrchestrator<'a> {
     fn drop(&mut self) {
         // If we didn't close the sender yet, then notify the receiver that our stream is
         // incomplete.
@@ -1011,7 +1015,7 @@ mod tests {
     use super::*;
 
     async fn make() -> anyhow::Result<(
-        BuckTestOrchestrator,
+        BuckTestOrchestrator<'static>,
         UnboundedReceiver<anyhow::Result<TestResultOrExitCode>>,
     )> {
         let fs = ProjectRootTemp::new().unwrap();
@@ -1040,6 +1044,7 @@ mod tests {
                 sender,
                 EventDispatcher::null(),
                 DigestConfig::testing_default(),
+                CancellationContext::testing(),
             ),
             receiver,
         ))
