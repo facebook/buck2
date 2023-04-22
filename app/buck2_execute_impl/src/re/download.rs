@@ -63,6 +63,7 @@ pub async fn download_action_results<'a>(
     requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
     action_digest: &ActionDigest,
     response: &dyn RemoteActionResult,
+    cancellations: &CancellationContext,
 ) -> CommandExecutionResult {
     // Claim the request before starting the download.
     let manager = manager.claim().await;
@@ -81,6 +82,7 @@ pub async fn download_action_results<'a>(
         requested_outputs,
         action_digest,
         response,
+        cancellations,
     );
 
     let std_streams = response.std_streams(re_client, re_use_case, digest_config);
@@ -119,6 +121,7 @@ impl CasDownloader<'_> {
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<
         CommandExecutionResult,
         (
@@ -128,7 +131,13 @@ impl CasDownloader<'_> {
     > {
         let download_response = executor_stage_async(
             stage,
-            self.materialize_files(paths, requested_outputs, action_digest, output_spec),
+            self.materialize_files(
+                paths,
+                requested_outputs,
+                action_digest,
+                output_spec,
+                cancellations,
+            ),
         )
         .await;
 
@@ -151,6 +160,7 @@ impl CasDownloader<'_> {
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
         action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         static FAIL_RE_DOWNLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_RE_DOWNLOADS");
         if FAIL_RE_DOWNLOADS.get()?.copied().unwrap_or_default() {
@@ -232,7 +242,7 @@ impl CasDownloader<'_> {
                     ttl,
                 )),
                 to_declare,
-                &CancellationContext::todo(),
+                cancellations,
             )
             .boxed()
             .await

@@ -82,6 +82,7 @@ impl CachingExecutor {
         action_digest: &ActionDigest,
         action_blobs: &ActionBlobs,
         digest_config: DigestConfig,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
         let action_cache_response = executor_stage_async(
@@ -144,6 +145,7 @@ impl CachingExecutor {
                 request.outputs(),
                 action_digest,
                 &response,
+                cancellations,
             )
             .await,
         )
@@ -430,11 +432,13 @@ impl PreparedCommandExecutor for CachingExecutor {
                 &command.prepared_action.action,
                 &command.prepared_action.blobs,
                 command.digest_config,
+                cancellations,
             )
             .await?;
 
         let mut res = self.inner.exec_cmd(command, manager, cancellations).await;
 
+        // TODO(bobyf, torozco) should these be critical sections?
         let upload_res = self
             .maybe_perform_cache_upload(
                 command.request,

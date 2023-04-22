@@ -253,7 +253,7 @@ impl PreparedCommandExecutor for ReExecutor {
         &self,
         command: &PreparedCommand<'_, '_>,
         manager: CommandExecutionManager,
-        _cancellations: &CancellationContext, // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let PreparedCommand {
             request,
@@ -273,6 +273,7 @@ impl PreparedCommandExecutor for ReExecutor {
             )?;
         }
 
+        // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
         let manager = self
             .upload(manager, blobs, request.paths(), *digest_config)
             .await?;
@@ -303,6 +304,7 @@ impl PreparedCommandExecutor for ReExecutor {
             request.outputs(),
             action_digest,
             &response,
+            cancellations,
         )
         .boxed()
         .await
