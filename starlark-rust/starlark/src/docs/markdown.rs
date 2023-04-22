@@ -167,13 +167,13 @@ fn render_function(name: &str, function: &DocFunction) -> String {
         body.push_str("\n\n#### Parameters\n\n");
         body.push_str(&parameter_docs);
     }
-    if let Some(details) = details {
-        body.push_str("\n\n#### Details\n\n");
-        body.push_str(&details);
-    }
     if let Some(returns) = return_docs {
         body.push_str("\n\n#### Returns\n\n");
         body.push_str(&returns);
+    }
+    if let Some(details) = details {
+        body.push_str("\n\n#### Details\n\n");
+        body.push_str(&details);
     }
 
     body
