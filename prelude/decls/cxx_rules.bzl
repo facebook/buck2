@@ -135,30 +135,30 @@ cxx_genrule = prelude_rule(
     docs = """
         A `cxx_genrule()` enables you to run shell commands as part
         of the Buck build process. A `cxx_genrule()` exposes\342\200\224through
-        a set of string parameter macros and variables\342\200\224information about the 
+        a set of string parameter macros and variables\342\200\224information about the
         tools and configuration options used by the
-        Buck environment, specifically those related to the C/C++ toolchain. 
+        Buck environment, specifically those related to the C/C++ toolchain.
 
 
-        The information exposed through these tools and configuration options is a reflection of: 
-        Buck's built-in settings, 
+        The information exposed through these tools and configuration options is a reflection of:
+        Buck's built-in settings,
         the settings in `.buckconfig`
         and `.buckconfig.local`,
-        and the result of various command-line overrides specified through 
-        the `common\\_parameters`command-line option. 
+        and the result of various command-line overrides specified through
+        the `common\\_parameters`command-line option.
 
 
         This information is available only
-        to the shell commands specified in the `cxx_genrule`. 
+        to the shell commands specified in the `cxx_genrule`.
         The information is not available to other arguments of the rule.
 
 
-        A `cxx_genrule()` can be an input to 
+        A `cxx_genrule()` can be an input to
         another `cxx_genrule()`.
 
 
         Note that if you specify the `cxx_genrule` as a command-line
-        target to `buck build`, you must include a platform flavor. 
+        target to `buck build`, you must include a platform flavor.
         For example:
 
 
@@ -192,14 +192,14 @@ cxx_genrule = prelude_rule(
             "cmd": attrs.option(attrs.arg(), default = None, doc = """
                 The shell command to run to generate the output file. It is the fallback of `bash`
                  and `cmd_exe`. The shell command can access information
-                 about the buck build environment through a set 
+                 about the buck build environment through a set
                  of *macros*, *parameterized macros*, and *variables*.
 
                  #### Macros
 
-                 The following macros are available to the shell command and are 
+                 The following macros are available to the shell command and are
                  accessed using the following syntax.
- 
+
 
                 ```
                 $(<macro>)
@@ -207,7 +207,7 @@ cxx_genrule = prelude_rule(
 
 
                  Example:
- 
+
 
                 ```
                 $(cc)
@@ -216,89 +216,89 @@ cxx_genrule = prelude_rule(
 
                 `$(cc)`
                 Path to the C compiler.
-  
+
 
                 `$(cxx)`
                 Path to the C++ compiler.
-  
+
 
                 `$(cflags)`
                 Flags passed to the C compiler.
-  
+
 
                 `$(cppflags)`
                 Flags passed to the C preprocessor.
-  
+
 
                 `$(cxxflags)`
                 Flags passed to the C++ compiler.
-  
+
 
                 `$(cxxppflags)`
                 Flags to pass to the C++ preprocessor.
-  
+
 
                 `$(ld)`
                 Path to the linker.
-  
+
 
                 `$(ldflags-pic)`
                 Flags passed to the linker for binaries that use
                  position-independent code (PIC).
-  
+
 
                 `$(ldflags-pic-filter <pattern>)`
-                Flags passed to the linker for binaries that use position-independent code (PIC). 
+                Flags passed to the linker for binaries that use position-independent code (PIC).
                  Use the *pattern* parameter to specify a regular expression that matches the build targets that use these flags.
- 
-  
+
+
 
                 `$(ldflags-shared)`
                 Flags passed to the linker for shared libraries, such as dynamic-link libraries (DLLs).
-  
+
 
                 `$(ldflags-shared-filter <pattern>)`
-                Flags passed to the linker for shared libraries, such as dynamic-link libraries (DLLs). 
+                Flags passed to the linker for shared libraries, such as dynamic-link libraries (DLLs).
                  Use the *pattern* parameter to specify a regular expression that matches the build targets that use these flags.
- 
-  
+
+
 
                 `$(ldflags-static)`
                 Flags passed to the linker for statically-linked libraries.
-  
+
 
                 `$(ldflags-static-filter <pattern>)`
-                Flags passed to the linker for statically-linked libraries. 
+                Flags passed to the linker for statically-linked libraries.
                  Use the *pattern* parameter to specify a regular expression that matches the build targets that use these flags.
- 
-  
+
+
 
                 `$(platform-name)`
                 The platform flavor with which this `cxx_genrule` was specified.
- 
+
 
                 #### Parameterized Macros
 
                  It is also possible to expand references to other rules within the
-                 shell command, using the following subset of the 
+                 shell command, using the following subset of the
                  builtin `string parameter macros`
-                . 
-                 Note that all build rules expanded in the command are automatically 
+                .
+                 Note that all build rules expanded in the command are automatically
                  considered to be dependencies of the `genrule()`.
- 
+
 
                  Note that the paths returned by these macros are *absolute* paths. You should convert these paths to be relative paths before
                  embedding them in, for example, a shell script or batch file. Using
                  relative paths ensures that your builds are *hermetic*, that
                  is, they are reproducible across different machine environments.
- 
+
 
                  Additionally, if you embed these paths in a shell script, you should
                  execute that script using the `sh\\_binary()`rule and include
                  the targets for these paths in the `resources` argument of
                  that `sh_binary` rule. These are the same targets that you
                  pass to the string parameter macros.
- 
+
 
                 `$(exe //path/to:target)`
                 Expands to the commands necessary to run the executable
@@ -307,7 +307,7 @@ cxx_genrule = prelude_rule(
                  such as `main`. If the specified build rule does not generate an
                  executable output, an exception will be thrown and the build will
                  fail.
-  
+
 
                 `$(location //path/to:target)`
                 Expands to the path of the output of the build rule. This
@@ -319,7 +319,7 @@ cxx_genrule = prelude_rule(
                  Finally, Buck adds the following variables to the environment in
                  which the shell command runs. They are accessed using the following syntax.
                  Note the use of braces rather than parentheses.
- 
+
 
                 ```
                 ${<variable>}
@@ -327,7 +327,7 @@ cxx_genrule = prelude_rule(
 
 
                  Example:
- 
+
 
                 ```
                 ${SRCS}
@@ -335,22 +335,22 @@ cxx_genrule = prelude_rule(
 
 
                 `${SRCS}`
-                A string expansion of the `srcs` argument delimited by 
+                A string expansion of the `srcs` argument delimited by
                  the `environment_expansion_separator` argument where each element
                  of `srcs` will be translated into an absolute path.
-  
+
 
                 `${SRCDIR}`
                 The absolute path to the to which sources are copied
                  prior to running the command.
-  
+
 
                 `${OUT}`
                 The output file for the `genrule()`. The file
                  specified by this variable must always be written by this
                  command. If not, the execution of this rule will be considered a
                  failure, halting the build process.
-  
+
 
                 `${TMP}`
                 A temporary directory which can be used for intermediate results and will not be
@@ -386,7 +386,7 @@ cxx_library = prelude_rule(
         A `cxx_library()` rule specifies a set of C/C++ source files
         and also provides flags that specify how those files should be built.
 
-        ### Building requires a specified top-level target
+        #### Building requires a specified top-level target
 
         Whether a Buck command builds the `cxx_library` is
         determined by the inclusion of a top-level target, such as
@@ -595,15 +595,15 @@ cxx_precompiled_header = prelude_rule(
     name = "cxx_precompiled_header",
     docs = """
         A `cxx_precompiled_header` rule specifies a single header file that can be
-         precompiled and made available for use in other build rules such as 
+         precompiled and made available for use in other build rules such as
          a `cxx\\_library()`or a `cxx\\_binary()`.
- 
+
 
          This header file is precompiled by the preprocessor on behalf of the
          C, C++, Objective-C, or Objective-C++ rule using it, via its `precompiled_header` parameter.
          Afterwards the precompiled header is applied during the rule's own compilation
          (often with an appreciable reduction in build time, the main benefit of PCH).
- 
+
 
          This PCH is built once per combination of build flags which might affect the PCH's compatibility.
          For example, a distinct pre-compilation of the header occurs per combination of flags related to
@@ -764,7 +764,7 @@ cxx_test = prelude_rule(
                 This attribute is currently not implemented, and just causes buck to rebuild
                  the test file if any of the resources change. This will change in the future
                  to provide a more reliable interface for resource files.
- 
+
 
 
                  Additional data or source files which this test uses.
@@ -778,13 +778,13 @@ cxx_test = prelude_rule(
             """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 A map of environment names and values to set when running the test.
-   
-  
+
+
 
                  It is also possible to expand references to other rules within the **values** of
                  these environment variables, using builtin `string parameter macros`
                 :
- 
+
                 `$(location //path/to:target)`
                 Expands to the location of the output of the build rule. This
                  means that you can refer to these without needing to be aware of how
@@ -792,13 +792,13 @@ cxx_test = prelude_rule(
             """),
             "args": attrs.list(attrs.arg(), default = [], doc = """
                 A list of additional arguments to pass to the test when it's run.
-   
-  
+
+
 
                  It is also possible to expand references to other rules within these
                  arguments, using builtin `string parameter macros`
                 :
- 
+
                 `$(location //path/to:target)`
                 Expands to the location of the output of the build rule. This
                  means that you can refer to these without needing to be aware of how
