@@ -13,7 +13,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
-use buck2_core::fs::fs_util;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
 use dupe::Dupe;
@@ -26,6 +25,7 @@ use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
+use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
@@ -39,13 +39,19 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
+use tokio::io::BufReader;
 use tonic::codegen::InterceptedService;
 use tonic::metadata;
 use tonic::metadata::MetadataKey;
@@ -63,6 +69,11 @@ use crate::request::*;
 use crate::response::*;
 
 const INSTANCE_NAME: &str = "";
+
+// RBE Services (e.g. Buildbarn) may not be robust against having too many files open at
+// once. Limit to an arbitrary reasonable number since this information is not expressed
+// in the Capabilities message query.
+const CONCURRENT_UPLOAD_LIMIT: usize = 512;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -180,6 +191,13 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
     Ok(Uri::from_parts(parts)?)
 }
 
+/// Contains information queried from the the Remote Execution Capabilities service.
+pub struct RECapabilities {
+    /// Largest size of a message before being uploaded using bytestream service.
+    /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
+    max_msg_size: usize,
+}
+
 pub struct REClientBuilder;
 
 impl REClientBuilder {
@@ -210,16 +228,18 @@ impl REClientBuilder {
             )
         };
 
-        let (cas, execution, action_cache) = futures::future::join3(
+        let (cas, execution, action_cache, bytestream, capabilities) = futures::future::join5(
             create_channel(opts.cas_address.clone()),
             create_channel(opts.engine_address.clone()),
             create_channel(opts.action_cache_address.clone()),
+            create_channel(opts.cas_address.clone()),
+            create_channel(opts.engine_address.clone()),
         )
         .await;
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let grpc_clients = GRPCClients {
+        let mut grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::with_interceptor(
                 cas.context("Error creating CAS client")?,
                 interceptor.dupe(),
@@ -228,13 +248,49 @@ impl REClientBuilder {
                 execution.context("Error creating Execution client")?,
                 interceptor.dupe(),
             ),
-            action_cache_client: ActionCacheClient::with_interceptor(
+            bytestream_client: ByteStreamClient::with_interceptor(
                 action_cache.context("Error creating ActionCache client")?,
+                interceptor.dupe(),
+            ),
+            action_cache_client: ActionCacheClient::with_interceptor(
+                bytestream.context("Error creating ActionCache client")?,
+                interceptor.dupe(),
+            ),
+            capabilities_client: CapabilitiesClient::with_interceptor(
+                capabilities.context("Error creating Capabilities client")?,
                 interceptor.dupe(),
             ),
         };
 
-        Ok(REClient::new(grpc_clients))
+        let capabilities = Self::fetch_rbe_capabilities(&mut grpc_clients).await?;
+        Ok(REClient::new(grpc_clients, capabilities))
+    }
+
+    pub async fn fetch_rbe_capabilities(
+        clients: &mut GRPCClients,
+    ) -> anyhow::Result<RECapabilities> {
+        // TODO use more of the capabilities of the remote build executor
+
+        let resp = clients
+            .capabilities_client
+            .get_capabilities(GetCapabilitiesRequest {
+                instance_name: INSTANCE_NAME.into(),
+            })
+            .await?;
+
+        // Default is a reasonable size for the gRPC transport
+        // with enough room for headers.
+        let mut max_msg_size = 1000 * 1000 * 4;
+
+        if let Some(cache_cap) = resp.into_inner().cache_capabilities {
+            let size = cache_cap.max_batch_total_size_bytes as usize;
+            // A value of 0 means no limit is set
+            if size != 0 {
+                max_msg_size = size;
+            }
+        }
+
+        Ok(RECapabilities { max_msg_size })
     }
 }
 
@@ -288,6 +344,8 @@ pub struct GRPCClients {
         ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    bytestream_client: ByteStreamClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    capabilities_client: CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
 }
 
 #[derive(Default)]
@@ -299,6 +357,7 @@ pub struct REState {
 
 pub struct REClient {
     grpc_clients: GRPCClients,
+    capabilities: RECapabilities,
     state: Mutex<REState>,
 }
 
@@ -309,10 +368,57 @@ impl Drop for REClient {
     }
 }
 
+/// Information on components of a batch upload.
+/// Used to defer reading of NamedDigest contents till
+/// actual execution of upload and prevent opening too many
+/// files at the same time.
+enum BatchUploadRequest {
+    Blob(InlinedBlobWithDigest),
+    File(NamedDigest),
+}
+
+#[derive(Default)]
+/// Builds up a vector of batch upload requests based upon the maximum allowed message size.
+struct BatchUploader {
+    max_msg_size: i64,
+    curr_req: Vec<BatchUploadRequest>,
+    requests: Vec<Vec<BatchUploadRequest>>,
+    curr_request_size: i64,
+}
+
+impl BatchUploader {
+    pub fn new(max_msg_size: usize) -> Self {
+        BatchUploader {
+            max_msg_size: max_msg_size as i64,
+            ..Default::default()
+        }
+    }
+
+    pub fn push(&mut self, req: BatchUploadRequest) {
+        let size_in_bytes = match &req {
+            BatchUploadRequest::Blob(blob) => blob.digest.size_in_bytes,
+            BatchUploadRequest::File(file) => file.digest.size_in_bytes,
+        };
+        self.curr_request_size += size_in_bytes;
+
+        if self.curr_request_size >= self.max_msg_size {
+            self.requests.push(std::mem::take(&mut self.curr_req));
+            self.curr_request_size = size_in_bytes;
+        }
+        self.curr_req.push(req);
+    }
+
+    pub fn done(mut self) -> Vec<Vec<BatchUploadRequest>> {
+        self.requests.push(std::mem::take(&mut self.curr_req));
+        self.requests
+    }
+}
+
 impl REClient {
-    pub fn new(grpc_clients: GRPCClients) -> Self {
+    pub fn new(grpc_clients: GRPCClients, capabilities: RECapabilities) -> Self {
         REClient {
             grpc_clients,
+            capabilities,
             state: Mutex::new(REState::default()),
         }
     }
@@ -471,72 +577,189 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> anyhow::Result<UploadResponse> {
-        let mut client = self.grpc_clients.cas_client.clone();
+        // NOTE if we stop recording blob_hashes, we can drop out a lot of allocations.
+        let mut upload_futures: Vec<
+            std::pin::Pin<Box<dyn Future<Output = Result<Vec<String>, anyhow::Error>> + Send>>,
+        > = vec![];
 
-        let files_with_digest: Vec<Request> = request
-            .files_with_digest
-            .unwrap_or_default()
-            .into_try_map(|x| {
-                anyhow::Ok(Request {
-                    digest: Some(tdigest_to(x.digest)),
-                    // FIXME: This could do a lot of blocking reads
-                    data: fs_util::read(&x.name)?,
-                    compressor: compressor::Value::Identity as i32,
-                })
-            })?;
+        let max_msg_size = self.capabilities.max_msg_size;
 
-        let re_request = BatchUpdateBlobsRequest {
-            instance_name: INSTANCE_NAME.into(),
-            requests: [
-                request
-                    .inlined_blobs_with_digest
-                    .unwrap_or_default()
-                    .into_map(|x| Request {
-                        digest: Some(tdigest_to(x.digest)),
-                        data: x.blob,
-                        compressor: compressor::Value::Identity as i32,
-                    }),
-                files_with_digest,
-            ]
-            .concat(),
-        };
+        // For small file uploads the client should group them together and call `BatchUpdateBlobs`
+        // https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto#L205
+        let mut batched_blob_updates = BatchUploader::new(max_msg_size);
 
-        let blob_hashes = re_request
-            .requests
-            .iter()
-            .map(|x| x.digest.as_ref().unwrap().hash.clone())
-            .collect::<Vec<String>>();
-        let response = client
-            .batch_update_blobs(with_internal_metadata(re_request, metadata))
-            .await?;
+        // Create futures for any blobs that need uploading.
+        for blob in request.inlined_blobs_with_digest.unwrap_or_default() {
+            let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
+            let hash = blob.digest.hash.clone();
+            let size = blob.digest.size_in_bytes;
 
-        let failures: Vec<String> = response
-            .get_ref()
-            .responses
-            .iter()
-            .filter_map(|r| {
-                r.status.as_ref().and_then(|s| {
-                    if s.code == (Code::Ok as i32) {
-                        None
-                    } else {
-                        Some(format!(
-                            "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
-                            r.digest.as_ref().map_or("N/A", |d| &d.hash),
-                            s.code,
-                            s.message
-                        ))
-                    }
-                })
-            })
-            .collect();
+            if size < max_msg_size as i64 {
+                batched_blob_updates.push(BatchUploadRequest::Blob(blob));
+                continue;
+            }
 
-        if failures.is_empty() {
-            tracing::debug!("uploaded: {:?}", blob_hashes);
-            // TODO(aloiscochard): Add something interesting in UploadResponse?
-            Ok(UploadResponse {})
-        } else {
-            Err(anyhow::anyhow!("Batch upload failed: {:?}", failures))
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let data = blob.blob;
+            let name = format!("uploads/{}/blobs/{}/{}", uuid, hash, size);
+            let metadata = metadata.clone();
+            let fut = async move {
+                // Number of complete (non-partial) messages
+                let num_msgs = size as usize / max_msg_size;
+                let upload_segments = futures::stream::iter(data).chunks(max_msg_size);
+                let requests = upload_segments
+                    .enumerate()
+                    .map(move |(i, chunk)| WriteRequest {
+                        resource_name: name.to_owned(),
+                        write_offset: (i * max_msg_size) as i64,
+                        finish_write: i == num_msgs,
+                        data: chunk.to_owned(),
+                    });
+
+                let resp = bytestream_client
+                    .write(with_internal_metadata(requests, metadata))
+                    .await?;
+                if resp.into_inner().committed_size != size as i64 {
+                    return Err(anyhow::anyhow!(
+                        "Failed to upload inline blob: invalid committed_size from WriteResponse"
+                    ));
+                }
+
+                Ok(vec![hash])
+            };
+            upload_futures.push(Box::pin(fut));
         }
+
+        // Create futures for any files that needs uploading.
+        for file in request.files_with_digest.unwrap_or_default() {
+            let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
+            let hash = file.digest.hash.clone();
+            let size = file.digest.size_in_bytes;
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let name = file.name.clone();
+            let metadata = metadata.clone();
+
+            if size < max_msg_size as i64 {
+                batched_blob_updates.push(BatchUploadRequest::File(file));
+                continue;
+            }
+            let fut = async move {
+                let file = tokio::fs::File::open(&name).await?;
+                let mut reader = BufReader::with_capacity(max_msg_size, file);
+                let mut write_offset = 0;
+
+                let mut upload_segments = Vec::new();
+                loop {
+                    let resource_name = format!("uploads/{}/blobs/{}/{}", uuid, hash.clone(), size);
+                    let data = reader.fill_buf().await?;
+                    let length = data.len();
+
+                    upload_segments.push(WriteRequest {
+                        resource_name: resource_name.to_owned(),
+                        write_offset,
+                        finish_write: length == 0,
+                        data: data.to_owned(),
+                    });
+
+                    write_offset += length as i64;
+                    reader.consume(length);
+                    if length == 0 {
+                        break;
+                    }
+                }
+
+                let resp = bytestream_client
+                    .write(with_internal_metadata(
+                        futures::stream::iter(upload_segments),
+                        metadata,
+                    ))
+                    .await?;
+                if resp.into_inner().committed_size != size as i64 {
+                    return Err(anyhow::anyhow!(
+                        "Failed to upload {name}: invalid committed_size from WriteResponse"
+                    ));
+                }
+                Ok(vec![hash])
+            };
+            upload_futures.push(Box::pin(fut));
+        }
+
+        // Create futures for any files small enough that they
+        // should be uploaded in batches.
+        let batched_blob_updates = batched_blob_updates.done();
+        for batch in batched_blob_updates {
+            let metadata = metadata.clone();
+            let mut cas_client = self.grpc_clients.cas_client.clone();
+            let fut = async move {
+                let mut re_request = BatchUpdateBlobsRequest {
+                    instance_name: INSTANCE_NAME.into(),
+                    requests: vec![],
+                };
+                for blob in batch {
+                    match blob {
+                        BatchUploadRequest::Blob(blob) => {
+                            re_request.requests.push(Request {
+                                digest: Some(tdigest_to(blob.digest.clone())),
+                                data: blob.blob.clone(),
+                                compressor: compressor::Value::Identity as i32,
+                            });
+                        }
+                        BatchUploadRequest::File(file) => {
+                            // These should be small files, so no need to use a buffered reader.
+                            let mut fin = tokio::fs::File::open(&file.name).await?;
+                            let mut data = vec![];
+                            fin.read_to_end(&mut data).await?;
+
+                            re_request.requests.push(Request {
+                                digest: Some(tdigest_to(file.digest.clone())),
+                                data,
+                                compressor: compressor::Value::Identity as i32,
+                            });
+                        }
+                    }
+                }
+                let blob_hashes = re_request
+                    .requests
+                    .iter()
+                    .map(|x| x.digest.as_ref().unwrap().hash.clone())
+                    .collect::<Vec<String>>();
+                let response = cas_client
+                    .batch_update_blobs(with_internal_metadata(re_request, metadata))
+                    .await?;
+                let failures: Vec<String> = response
+                    .get_ref()
+                    .responses
+                    .iter()
+                    .filter_map(|r| {
+                        r.status.as_ref().and_then(|s| {
+                            if s.code == (Code::Ok as i32) {
+                                None
+                            } else {
+                                Some(format!(
+                                        "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
+                                        r.digest.as_ref().map_or("N/A", |d| &d.hash),
+                                        s.code,
+                                        s.message
+                                ))
+                            }
+                        })
+                    })
+                .collect();
+
+                if !failures.is_empty() {
+                    return Err(anyhow::anyhow!("Batch upload failed: {:?}", failures));
+                }
+                Ok(blob_hashes)
+            };
+            upload_futures.push(Box::pin(fut));
+        }
+
+        let upload_stream =
+            futures::stream::iter(upload_futures).buffer_unordered(CONCURRENT_UPLOAD_LIMIT);
+        let blob_hashes = upload_stream.try_collect::<Vec<Vec<String>>>().await?;
+
+        tracing::debug!("uploaded: {:?}", blob_hashes);
+        Ok(UploadResponse {})
     }
 
     pub async fn upload_blob(

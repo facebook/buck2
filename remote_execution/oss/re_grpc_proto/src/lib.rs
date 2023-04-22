@@ -11,6 +11,9 @@ pub mod google {
     pub mod api {
         tonic::include_proto!("google.api");
     }
+    pub mod bytestream {
+        tonic::include_proto!("google.bytestream");
+    }
     pub mod longrunning {
         tonic::include_proto!("google.longrunning");
     }

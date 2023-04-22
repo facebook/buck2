@@ -16,6 +16,7 @@ fn main() -> io::Result<()> {
         "proto/google/api/annotations.proto",
         "proto/google/api/client.proto",
         "proto/google/api/http.proto",
+        "proto/google/bytestream/bytestream.proto",
         "proto/google/longrunning/operations.proto",
         "proto/google/rpc/code.proto",
         "proto/google/rpc/status.proto",

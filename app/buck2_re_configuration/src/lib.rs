@@ -132,8 +132,11 @@ mod not_fbcode {
 /// gate less code behind fbcode_build.
 #[derive(Clone, Debug, Default, Allocative)]
 pub struct Buck2OssReConfiguration {
+    /// Address for RBE Content Addresable Storage service (including bytestream uploads service).
     pub cas_address: Option<String>,
+    /// Address for RBE Engine service (including capabilities service).
     pub engine_address: Option<String>,
+    /// Address for RBE Action Cache service.
     pub action_cache_address: Option<String>,
     /// Whether to use TLS to interact with remote execution.
     pub tls: bool,
