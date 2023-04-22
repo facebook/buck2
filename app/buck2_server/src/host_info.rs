@@ -63,7 +63,7 @@ pub fn get_host_info(
             match XcodeVersionInfo::new()
                 .context("Constructing `XcodeVersionInfo` using host platform MacOS.")
             {
-                Ok(v) => Some(v),
+                Ok(v) => v,
                 Err(e) => {
                     soft_error!("invalid_xcode_version", e)?;
                     None

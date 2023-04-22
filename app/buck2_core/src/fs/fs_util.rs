@@ -410,6 +410,18 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
     AbsNormPathBuf::new(path)
 }
 
+pub fn canonicalize_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<AbsNormPathBuf>> {
+    let _guard = IoCounterKey::Canonicalize.guard();
+    match dunce::canonicalize(&path) {
+        Ok(path) => Some(AbsNormPathBuf::new(path)).transpose(),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(anyhow::Error::new(e).context(format!(
+            "canonicalize_if_exists({})",
+            P::as_ref(&path).display()
+        ))),
+    }
+}
+
 /// Convert Windows UNC path to regular path.
 pub fn simplified(path: &AbsPath) -> anyhow::Result<&AbsPath> {
     let path = dunce::simplified(path.as_ref());

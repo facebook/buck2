@@ -54,14 +54,19 @@ pub struct XcodeVersionInfo {
 
 impl XcodeVersionInfo {
     // Construct from version.plist in root of Xcode install dir.
-    pub fn new() -> anyhow::Result<Self> {
-        let resolved_xcode_path = fs_util::canonicalize(PathBuf::from(XCODE_SELECT_SYMLINK))
-            .context("resolve selected xcode link")?;
+    pub fn new() -> anyhow::Result<Option<Self>> {
+        let resolved_xcode_path =
+            fs_util::canonicalize_if_exists(PathBuf::from(XCODE_SELECT_SYMLINK))
+                .context("resolve selected xcode link")?;
+        let resolved_xcode_path = match resolved_xcode_path {
+            Some(p) => p,
+            None => return Ok(None),
+        };
         let plist_path = resolved_xcode_path
             .parent()
             .map(|base| base.as_path().join("version.plist"))
             .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
-        Self::from_plist(&plist_path)
+        Ok(Some(Self::from_plist(&plist_path)?))
     }
 
     pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Self> {
