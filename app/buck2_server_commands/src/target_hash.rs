@@ -291,29 +291,32 @@ impl TargetHashes {
                 self.hashes.insert(
                     target.node_ref().clone(),
                     async move {
-                        dice.temporary_spawn(move |_, _cancellation| async move {
-                            let mut hasher = TargetHashes::new_hasher(use_fast_hash);
-                            TargetHashes::hash_node(&target, &mut *hasher);
+                        dice.temporary_spawn(move |_, _cancellation| {
+                            async move {
+                                let mut hasher = TargetHashes::new_hasher(use_fast_hash);
+                                TargetHashes::hash_node(&target, &mut *hasher);
 
-                            let mut input_futs = Vec::new();
-                            if let Some(file_hasher) = file_hasher {
-                                target.inputs_for_each(|cell_path| {
-                                    let file_hasher = file_hasher.dupe();
-                                    input_futs.push(async move {
-                                        let file_hash = file_hasher.hash_path(&cell_path).await;
-                                        (cell_path, file_hash)
-                                    });
-                                    anyhow::Ok(())
-                                })?;
+                                let mut input_futs = Vec::new();
+                                if let Some(file_hasher) = file_hasher {
+                                    target.inputs_for_each(|cell_path| {
+                                        let file_hasher = file_hasher.dupe();
+                                        input_futs.push(async move {
+                                            let file_hash = file_hasher.hash_path(&cell_path).await;
+                                            (cell_path, file_hash)
+                                        });
+                                        anyhow::Ok(())
+                                    })?;
+                                }
+
+                                let (dep_hashes, input_hashes) =
+                                    join!(join_all(dep_futures), join_all(input_futs));
+
+                                TargetHashes::hash_deps(dep_hashes, &mut *hasher)?;
+                                TargetHashes::hash_files(input_hashes, &mut *hasher)?;
+
+                                Ok(hasher.finish_u128())
                             }
-
-                            let (dep_hashes, input_hashes) =
-                                join!(join_all(dep_futures), join_all(input_futs));
-
-                            TargetHashes::hash_deps(dep_hashes, &mut *hasher)?;
-                            TargetHashes::hash_files(input_hashes, &mut *hasher)?;
-
-                            Ok(hasher.finish_u128())
+                            .boxed()
                         })
                         .await
                     }

@@ -22,10 +22,10 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::stream::FuturesOrdered;
 use futures::Future;
-use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use itertools::Either;
@@ -181,7 +181,7 @@ async fn get_tset_node(
         .tset_nodes
         .get_or_compute(key, move |key| {
             ctx.temporary_spawn(move |ctx, _cancellation| {
-                compute_tset_node(copied_node_cache, ctx, key)
+                compute_tset_node(copied_node_cache, ctx, key).boxed()
             })
         })
         .await?)
@@ -212,7 +212,7 @@ async fn get_action_node(
         .action_nodes
         .get_or_compute(key, move |key| {
             ctx.temporary_spawn(move |ctx, _cancellation| {
-                compute_action_node(copied_node_cache, ctx, key, fs)
+                compute_action_node(copied_node_cache, ctx, key, fs).boxed()
             })
         })
         .await?)

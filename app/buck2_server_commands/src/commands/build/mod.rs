@@ -57,6 +57,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use futures::future::FutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
@@ -352,16 +353,19 @@ async fn build_targets_in_universe(
         .map(|p| {
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
-            ctx.temporary_spawn(|ctx, _cancellation| async move {
-                let option = build::build_configured_label(
-                    &ctx,
-                    &materialization_context,
-                    &p,
-                    &providers_to_build,
-                    false,
-                )
-                .await?;
-                Ok(option.map(|r| (p, r)))
+            ctx.temporary_spawn(move |ctx, _cancellation| {
+                async move {
+                    let option = build::build_configured_label(
+                        &ctx,
+                        &materialization_context,
+                        &p,
+                        &providers_to_build,
+                        false,
+                    )
+                    .await?;
+                    Ok(option.map(|r| (p, r)))
+                }
+                .boxed()
             })
         })
         .collect();
@@ -384,18 +388,21 @@ async fn build_targets_with_global_target_platform(
             let build_providers = build_providers.dupe();
             let global_target_platform = global_target_platform.dupe();
             let materialization_context = materialization_context.dupe();
-            ctx.temporary_spawn(async move |ctx, _cancellation| {
-                let res = ctx.get_interpreter_results(package.dupe()).await?;
-                build_targets_for_spec(
-                    &ctx,
-                    package.dupe(),
-                    spec,
-                    global_target_platform,
-                    res,
-                    build_providers,
-                    &materialization_context,
-                )
-                .await
+            ctx.temporary_spawn(move |ctx, _cancellation| {
+                async move {
+                    let res = ctx.get_interpreter_results(package.dupe()).await?;
+                    build_targets_for_spec(
+                        &ctx,
+                        package.dupe(),
+                        spec,
+                        global_target_platform,
+                        res,
+                        build_providers,
+                        &materialization_context,
+                    )
+                    .await
+                }
+                .boxed()
             })
         })
         .collect();
@@ -471,14 +478,19 @@ async fn build_targets_for_spec(
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
             // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-            ctx.temporary_spawn(async move |ctx, _cancellation| {
-                build_target(
-                    &ctx,
-                    build_spec,
-                    &providers_to_build,
-                    &materialization_context,
-                )
-                .await
+            ctx.temporary_spawn(move |ctx, _cancellation| {
+                async move {
+                    {
+                        build_target(
+                            &ctx,
+                            build_spec,
+                            &providers_to_build,
+                            &materialization_context,
+                        )
+                        .await
+                    }
+                }
+                .boxed()
             })
         })
         .collect();

@@ -20,6 +20,7 @@ use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::future::FutureExt;
 use gazebo::prelude::SliceExt;
 use starlark_map::small_set::SmallSet;
 
@@ -61,16 +62,19 @@ pub async fn get_maybe_compatible_targets(
         let targets = result?;
         let global_target_platform = global_target_platform.dupe();
 
-        by_package_futs.push(ctx.temporary_spawn(|ctx, _cancellation| async move {
-            let ctx = &ctx;
-            let global_target_platform = global_target_platform.as_ref();
-            let target_futs: Vec<_> = targets.map(|target| async move {
-                let target = ctx
-                    .get_configured_target(target.label(), global_target_platform)
-                    .await?;
-                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-            });
-            futures::future::join_all(target_futs).await
+        by_package_futs.push(ctx.temporary_spawn(|ctx, _cancellation| {
+            async move {
+                let ctx = &ctx;
+                let global_target_platform = global_target_platform.as_ref();
+                let target_futs: Vec<_> = targets.map(|target| async move {
+                    let target = ctx
+                        .get_configured_target(target.label(), global_target_platform)
+                        .await?;
+                    anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+                });
+                futures::future::join_all(target_futs).await
+            }
+            .boxed()
         }));
     }
 

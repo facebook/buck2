@@ -15,16 +15,21 @@ use allocative::Allocative;
 use dashmap::mapref::entry::Entry;
 use derivative::Derivative;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::FutureExt;
+use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_dropcancel;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
+use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
+use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
+use crate::ctx::DiceComputationsImpl;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::dep_trackers::RecordingDepsTracker;
@@ -179,19 +184,23 @@ impl PerComputeCtx {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, FUT, R>(
-        &self,
-        f: F,
-    ) -> impl Future<Output = R> + Send + 'static
+    pub(crate) fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
     where
-        F: FnOnce(PerComputeCtx) -> FUT + Send + 'static,
-        FUT: Future<Output = R> + Send,
+        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+            + Send
+            + 'static,
         R: Send + 'static,
     {
         let duped = self.dupe();
 
         spawn_dropcancel(
-            async move { f(duped).await },
+            async move {
+                f(
+                    DiceTransaction(DiceComputations(DiceComputationsImpl::Modern(duped))),
+                    &CancellationContext::todo(),
+                )
+                .await
+            },
             self.data.user_data.spawner.as_ref(),
             &self.data.user_data,
             debug_span!(parent: None, "spawned_task",),

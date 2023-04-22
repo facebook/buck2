@@ -11,6 +11,7 @@ use std::future::Future;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 
@@ -83,19 +84,14 @@ impl DiceComputations {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub fn temporary_spawn<F, FUT, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
+    pub fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
     where
-        F: FnOnce(DiceTransaction, &CancellationContext) -> FUT + Send + 'static,
-        FUT: Future<Output = R> + Send,
+        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+            + Send
+            + 'static,
         R: Send + 'static,
     {
-        self.0.temporary_spawn(async move |ctx| {
-            f(
-                DiceTransaction(DiceComputations(ctx)),
-                &CancellationContext::todo(),
-            )
-            .await
-        })
+        self.0.temporary_spawn(f)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

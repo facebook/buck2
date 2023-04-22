@@ -12,12 +12,16 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::FutureExt;
+use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
+use crate::api::transaction::DiceTransaction;
+use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::PerComputeCtx;
@@ -25,7 +29,6 @@ use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
-use crate::DiceTransactionUpdater;
 
 #[derive(Allocative, Dupe, Clone)]
 pub(crate) enum DiceComputationsImpl {
@@ -82,22 +85,16 @@ impl DiceComputationsImpl {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, FUT, R>(
-        &self,
-        f: F,
-    ) -> impl Future<Output = R> + Send + 'static
+    pub(crate) fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
     where
-        F: FnOnce(DiceComputationsImpl) -> FUT + Send + 'static,
-        FUT: Future<Output = R> + Send,
+        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+            + Send
+            + 'static,
         R: Send + 'static,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate
-                .temporary_spawn(async move |ctx| f(DiceComputationsImpl::Legacy(ctx)).await)
-                .left_future(),
-            DiceComputationsImpl::Modern(delegate) => delegate
-                .temporary_spawn(async move |ctx| f(DiceComputationsImpl::Modern(ctx)).await)
-                .right_future(),
+            DiceComputationsImpl::Legacy(delegate) => delegate.temporary_spawn(f).left_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate.temporary_spawn(f).right_future(),
         }
     }
 
