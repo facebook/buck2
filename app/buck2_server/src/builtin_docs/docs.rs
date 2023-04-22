@@ -12,24 +12,16 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::context::prelude_path;
-use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::callable::UserProviderCallable;
 use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::buck_path::path::BuckPath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use buck2_core::package::PackageLabel;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::path::StarlarkModulePath;
@@ -53,7 +45,6 @@ use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::environment::Globals;
-use starlark::values::StarlarkValue;
 
 use super::bxl_docs::get_builtin_bxl_docs;
 
@@ -128,23 +119,6 @@ fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> any
     Ok(builtin_doc("build", "", cleaned_build))
 }
 
-fn get_artifact_docs() -> Option<Doc> {
-    let pkg = PackageLabel::new(
-        CellName::unchecked_new("fake_cell").unwrap(),
-        CellRelativePath::unchecked_new("__native__"),
-    );
-
-    // Artifact isn't really exported into globals anywhere, so instantiate it.
-    let artifact =
-        StarlarkArtifact::new(Artifact::from(SourceArtifact::new(BuckPath::testing_new(
-            pkg,
-            PackageRelativePathBuf::unchecked_new("__fake_path__".to_owned()),
-        ))));
-    artifact
-        .documentation()
-        .map(|artifact_docs| builtin_doc("artifact", "", artifact_docs))
-}
-
 pub fn get_builtin_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
@@ -154,12 +128,7 @@ pub fn get_builtin_docs(
     ];
 
     all_builtins.extend(get_builtin_bxl_docs(interpreter_state)?);
-
     all_builtins.extend(get_builtin_provider_docs());
-    if let Some(artifact) = get_artifact_docs() {
-        all_builtins.push(artifact);
-    }
-
     all_builtins.extend(get_registered_starlark_docs());
 
     Ok(all_builtins)

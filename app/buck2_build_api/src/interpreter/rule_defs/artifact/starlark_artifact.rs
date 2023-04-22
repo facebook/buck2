@@ -52,7 +52,15 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// A wrapper for an `Artifact` that is guaranteed to be bound, such as outputs
 /// from dependencies, or source files.
-#[derive(Debug, Dupe, Clone, PartialEq, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Dupe,
+    Clone,
+    PartialEq,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkDocs
+)]
 pub struct StarlarkArtifact {
     pub(crate) artifact: Artifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
