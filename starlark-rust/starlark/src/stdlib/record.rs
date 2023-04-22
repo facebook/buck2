@@ -77,8 +77,6 @@ pub fn global(builder: &mut GlobalsBuilder) {
 
     /// Creates a field record. Used as an argument to the `record` function.
     ///
-    /// Examples:
-    ///
     /// ```
     /// # starlark::assert::is_true(r#"
     /// rec_type = record(host=field(str.type), port=field(int.type), mask=field(int.type, default=255))

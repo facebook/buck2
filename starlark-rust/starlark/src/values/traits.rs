@@ -275,7 +275,6 @@ pub trait StarlarkValue<'v>:
     /// In many cases the `repr()` representation will also be a Starlark expression
     /// for creating the value.
     ///
-    /// # Examples:
     /// ```rust
     /// # starlark::assert::all_true(r#"
     /// repr("test") == '"test"'

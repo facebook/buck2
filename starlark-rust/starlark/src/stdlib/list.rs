@@ -41,8 +41,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `append` fails if the list is frozen or has active iterators.
     ///
-    /// Examples:
-    ///
     /// ```
     /// # starlark::assert::is_true(r#"
     /// x = []
@@ -69,8 +67,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// `L.clear()` removes all the elements of the list L and returns `None`.
     /// It fails if the list is frozen or if there are active iterators.
     ///
-    /// Examples:
-    ///
     /// ```
     /// # starlark::assert::is_true(r#"
     /// x = [1, 2, 3]
@@ -93,8 +89,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `extend` fails if `x` is not iterable, or if the list L is frozen or has
     /// active iterators.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
@@ -136,8 +130,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `index` fails if `x` is not found in L, or if `start` or `end`
     /// is not a valid index (`int` or `None`).
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
@@ -185,8 +177,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `insert` fails if the list is frozen or has active iterators.
     ///
-    /// Examples:
-    ///
     /// ```
     /// # starlark::assert::is_true(r#"
     /// x = ["b", "c", "e"]
@@ -216,8 +206,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `pop` fails if the index is negative or not less than the length of
     /// the list, of if the list is frozen or has active iterators.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
@@ -256,8 +244,6 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     ///
     /// `remove` fails if the list does not contain `x`, is frozen, or has
     /// active iterators.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::is_true(r#"

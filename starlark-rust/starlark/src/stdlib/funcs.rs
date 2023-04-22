@@ -139,7 +139,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
 
     /// fail: fail the execution
     ///
-    /// Examples:
     /// ```
     /// # starlark::assert::fail(r#"
     /// fail("this is an error")  # fail: this is an error
@@ -164,8 +163,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#any
     /// ): returns true if any value in the iterable object have a truth value
     /// of true.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -193,8 +190,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#all
     /// ): returns true if all values in the iterable object have a truth value
     /// of true.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -224,8 +219,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// [bool](
     /// https://github.com/google/skylark/blob/a0e5de7e63b47e716cca7226662a4c95d47bf873/doc/spec.md#bool
     /// ): returns the truth value of any starlark value.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -261,8 +254,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// `chr(i)` returns a returns a string that encodes the single Unicode code
     /// point whose value is specified by the integer `i`. `chr` fails
     /// unless `0 ≤ i ≤ 0x10FFFF`.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -306,8 +297,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// `dict` also accepts any number of keyword arguments, each of which
     /// specifies a key/value pair in the resulting dictionary; each keyword
     /// is treated as a string.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
@@ -373,8 +362,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// methods) of its operand. The attributes of a value `x` are the names
     /// `f` such that `x.f` is a valid expression.
     ///
-    /// Examples:
-    ///
     /// ```
     /// # starlark::assert::all_true(r#"
     /// "capitalize" in dir("abc")
@@ -395,8 +382,6 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     ///
     /// The optional second parameter, `start`, specifies an integer value to
     /// add to each index.
-    ///
-    /// Examples:
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
