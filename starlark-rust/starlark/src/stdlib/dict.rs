@@ -39,9 +39,6 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// `D.clear()` removes all the entries of dictionary D and returns `None`.
     /// It fails if the dictionary is frozen or if there are active iterators.
     ///
-    ///
-    /// `dict·clear` is not provided by the Java implementation.
-    ///
     /// Examples:
     ///
     /// ```

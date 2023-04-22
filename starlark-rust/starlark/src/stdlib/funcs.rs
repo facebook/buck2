@@ -127,8 +127,14 @@ fn min_max<'v>(
 
 #[starlark_module]
 pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
+    /// The `None` value, used to represent nothing.
+    /// Implicitly returned from functions that don't have an explicit return.
     const None: NoneType = NoneType;
+
+    /// A boolean representing true.
     const True: bool = true;
+
+    /// A boolean representing false.
     const False: bool = false;
 
     /// fail: fail the execution

@@ -26,6 +26,25 @@ use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
+    /// The `enum` type represents one value picked from a set of values.
+    ///
+    /// For example:
+    ///
+    /// ```python
+    /// MyEnum = enum("option1", "option2", True)
+    /// ```
+    ///
+    /// This statement defines an enumeration `MyEnum` that consists of the three values `"option1"`, `"option2"` and `True`.
+    ///
+    /// Now `MyEnum` is defined, it's possible to do the following:
+    ///
+    /// * Create values of this type with `MyEnum("option2")`. It is a runtime error if the argument is not one of the predeclared values of the enumeration.
+    /// * Get the type of the enum suitable for a type annotation with `MyEnum.type`.
+    /// * Given a value of the enum (for example, `v = MyEnum("option2")`), get the underlying value `v.value == "option2"` or the index in the enumeration `v.index = 1`.
+    /// * Get a list of the values that make up the array with `MyEnum.values() == ["option1", "option2", True]`.
+    /// * Treat `MyEnum` a bit like an array, with `len(MyEnum) == 3`, `MyEnum[1] == MyEnum("option2")` and iteration over enums `[x.value for x in MyEnum] == ["option1", "option2", True]`.
+    ///
+    /// Enumeration types store each value once, which are then efficiently referenced by enumeration values.
     fn r#enum<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         heap: &'v Heap,

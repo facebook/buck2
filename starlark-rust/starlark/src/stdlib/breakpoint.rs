@@ -207,6 +207,7 @@ const BREAKPOINT_HIT_MESSAGE: &str = "BREAKPOINT HIT! :resume to continue, :help
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
+    /// When a debugger is available, breaks into the debugger.
     fn breakpoint(eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         {
             let mut guard = BREAKPOINT_MUTEX.lock().unwrap();

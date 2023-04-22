@@ -56,6 +56,16 @@ use crate::values::ValueLike;
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {
+    /// Apply a predicate to each element of the iterable, returning those that match.
+    /// As a special case if the function is `None` then removes all the `None` values.
+    ///
+    /// ```
+    /// # starlark::assert::all_true(r#"
+    /// filter(bool, [0, 1, False, True]) == [1, True]
+    /// filter(lambda x: x > 2, [1, 2, 3, 4]) == [3, 4]
+    /// filter(None, [True, None, False]) == [True, False]
+    /// # "#);
+    /// ```
     #[starlark(return_type = "[\"\"]")]
     fn filter<'v>(
         #[starlark(require = pos)] func: Value<'v>,
@@ -79,6 +89,14 @@ pub fn filter(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn map(builder: &mut GlobalsBuilder) {
+    /// Apply a function to each element of the iterable, returning the results.
+    ///
+    /// ```
+    /// # starlark::assert::all_true(r#"
+    /// map(abs, [7, -5, -6]) == [7, 5, 6]
+    /// map(lambda x: x * 2, [1, 2, 3, 4]) == [2, 4, 6, 8]
+    /// # "#);
+    /// ```
     #[starlark(return_type = "[\"\"]")]
     fn map<'v>(
         #[starlark(require = pos)] func: Value<'v>,
@@ -96,6 +114,7 @@ pub fn map(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn partial(builder: &mut GlobalsBuilder) {
+    /// Construct a partial application. In almost all cases it is simpler to use a `lamdba`.
     fn partial<'v>(
         #[starlark(require = pos)] func: Value<'v>,
         #[starlark(args)] args: Value<'v>,
@@ -125,8 +144,8 @@ pub fn partial(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn debug(builder: &mut GlobalsBuilder) {
-    /// Print the value with full debug formatting. The result may not be stable over time,
-    /// mostly intended for debugging purposes.
+    /// Print the value with full debug formatting. The result may not be stable over time.
+    /// Intended for debugging purposes and guaranteed to produce verbose output not suitable for user display.
     fn debug(#[starlark(require = pos)] val: Value) -> anyhow::Result<String> {
         Ok(format!("{:?}", val))
     }
@@ -134,7 +153,14 @@ pub fn debug(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn regex(builder: &mut GlobalsBuilder) {
-    /// Creates a regex which can be used for matching
+    /// Creates a regex which can be used for matching.
+    ///
+    /// ```
+    /// # starlark::assert::all_true(r#"
+    /// experimental_regex("^[a-z]*$").match("test") == True
+    /// experimental_regex("^[a-z]*$").match("1234") == False
+    /// # "#);
+    /// ```
     fn experimental_regex<'v>(
         #[starlark(require = pos)] regex: &str,
     ) -> anyhow::Result<StarlarkRegex> {
@@ -172,6 +198,7 @@ impl PrintHandler for StderrPrintHandler {
 
 #[starlark_module]
 pub fn print(builder: &mut GlobalsBuilder) {
+    /// Print some values to the output.
     fn print(#[starlark(args)] args: Vec<Value>, eval: &mut Evaluator) -> anyhow::Result<NoneType> {
         // In practice most users should want to put the print somewhere else, but this does for now
         // Unfortunately, we can't use PrintWrapper because strings to_str() and Display are different.
@@ -196,6 +223,15 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
 
 #[starlark_module]
 pub fn abs(builder: &mut GlobalsBuilder) {
+    /// Take the absolute value of an int.
+    //
+    /// ```
+    /// # starlark::assert::all_true(r#"
+    /// abs(0)   == 0
+    /// abs(-10) == 10
+    /// abs(10)  == 10
+    /// # "#);
+    /// ```
     fn abs(#[starlark(require = pos)] x: i32) -> anyhow::Result<i32> {
         Ok(x.abs())
     }

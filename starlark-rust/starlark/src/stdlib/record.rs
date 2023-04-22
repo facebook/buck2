@@ -31,6 +31,33 @@ use crate::values::Value;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
+    /// A `record` type represents a set of named values, each with their own type.
+    ///
+    /// For example:
+    ///
+    /// ```python
+    /// MyRecord = record(host=str.type, port=int.type)
+    /// ```
+    ///
+    /// This above statement defines a record `MyRecord` with 2 fields, the first named `host` that must be of type `str.type`, and the second named `port` that must be of type `int.type`.
+    ///
+    /// Now `MyRecord` is defined, it's possible to do the following:
+    ///
+    /// * Create values of this type with `MyRecord(host="localhost", port=80)`. It is a runtime error if any arguments are missed, of the wrong type, or if any unexpected arguments are given.
+    /// * Get the type of the record suitable for a type annotation with `MyRecord.type`.
+    /// * Get the fields of the record. For example, `v = MyRecord(host="localhost", port=80)` will provide `v.host == "localhost"` and `v.port == 80`. Similarly, `dir(v) == ["host", "port"]`.
+    ///
+    /// It is also possible to specify default values for parameters using the `field` function.
+    ///
+    /// For example:
+    ///
+    /// ```python
+    /// MyRecord = record(host=str.type, port=field(int.type, 80))
+    /// ```
+    ///
+    /// Now the `port` field can be omitted, defaulting to `80` is not present (for example, `MyRecord(host="localhost").port == 80`).
+    ///
+    /// Records are stored deduplicating their field names, making them more memory efficient than dictionaries.
     fn record<'v>(
         #[starlark(kwargs)] kwargs: SmallMap<String, Value<'v>>,
         heap: &'v Heap,
@@ -48,7 +75,7 @@ pub fn global(builder: &mut GlobalsBuilder) {
         Ok(RecordType::new(mp))
     }
 
-    /// Creates a field record.
+    /// Creates a field record. Used as an argument to the `record` function.
     ///
     /// Examples:
     ///
