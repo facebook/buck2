@@ -103,6 +103,20 @@ fn module(builder: &mut GlobalsBuilder) {
     }
 
     /// A function with only positional arguments.
+    ///
+    /// And a slightly longer description. With some example code:
+    ///
+    /// ```python
+    /// func3(1)
+    /// ```
+    ///
+    /// And some assertions:
+    ///
+    /// ```rust
+    /// # starlark::assert::all_true(r#"
+    /// 1 == 1
+    /// # "#);
+    /// ```
     fn func3(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
@@ -164,15 +178,16 @@ fn golden_docs_starlark() {
         "starlark",
         DocItem::Module(assert::pass_module(STARLARK_CODE).documentation()),
     );
-    assert!(!res.contains("_do_not_export"))
+    assert!(!res.contains("_do_not_export"));
 }
 
 #[test]
 fn golden_docs_module() {
-    docs_golden_test(
+    let res = docs_golden_test(
         "module",
         GlobalsBuilder::new().with(module).build().documentation(),
     );
+    assert!(!res.contains("starlark::assert::all_true"));
 }
 
 #[test]

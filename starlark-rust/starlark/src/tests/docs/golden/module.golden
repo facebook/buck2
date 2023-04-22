@@ -50,3 +50,17 @@ def func3(a1: int.type, a2: [None, int.type] = None, step: int.type = None) -> s
 ```
 
 A function with only positional arguments.
+
+#### Details
+
+And a slightly longer description. With some example code:
+
+```python
+func3(1)
+```
+
+And some assertions:
+
+```rust
+1 == 1
+```
