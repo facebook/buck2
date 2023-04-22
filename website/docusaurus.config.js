@@ -9,7 +9,7 @@
 
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
-const itemFilter = require('./sidebars.js').itemFilter;
+const { itemFilter, itemSort } = require('./sidebars.js');
 const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/internal');
 
 // With JSDoc @type annotations, IDEs can provide config autocompletion
@@ -41,7 +41,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
               item: item,
               ...args
             });
-            return items;
+            return itemSort(items);
           },
         },
         theme: {
