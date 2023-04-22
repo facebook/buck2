@@ -141,8 +141,6 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// To materialize the entire sequence of bytes, apply `list(...)` to the
     /// result.
     ///
-    /// Example:
-    ///
     /// Examples:
     ///
     /// ```
@@ -193,8 +191,6 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// By returning an iterable, not a list, the cost of decoding the string
     /// is deferred until actually needed; apply `list(...)` to the result to
     /// materialize the entire sequence.
-    ///
-    /// Example:
     ///
     /// Examples:
     ///
