@@ -159,21 +159,27 @@ fn render_function(name: &str, function: &DocFunction) -> String {
     let return_docs = render_doc_string(DSOpts::Combined, &function.ret.docs);
 
     let mut body = header;
-    if let Some(summary) = summary {
+    if let Some(summary) = &summary {
         body.push_str("\n\n");
-        body.push_str(&summary);
+        body.push_str(summary);
     }
-    if let Some(parameter_docs) = parameter_docs {
+    if let Some(parameter_docs) = &parameter_docs {
         body.push_str("\n\n#### Parameters\n\n");
-        body.push_str(&parameter_docs);
+        body.push_str(parameter_docs);
     }
-    if let Some(returns) = return_docs {
+    if let Some(returns) = &return_docs {
         body.push_str("\n\n#### Returns\n\n");
-        body.push_str(&returns);
+        body.push_str(returns);
     }
-    if let Some(details) = details {
-        body.push_str("\n\n#### Details\n\n");
-        body.push_str(&details);
+    if let Some(details) = &details {
+        if parameter_docs.is_some() || return_docs.is_some() {
+            body.push_str("\n\n#### Details\n\n");
+        } else {
+            // No need to aggressively separate the defaults from the summary if there
+            // was nothing in between them. Just let it flow.
+            body.push_str("\n\n");
+        }
+        body.push_str(details);
     }
 
     body
