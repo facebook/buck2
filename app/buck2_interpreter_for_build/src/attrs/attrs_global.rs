@@ -144,9 +144,27 @@ fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<P
     )?))
 }
 
-/// Fields of `Attribute` type.
+/// This type is available as a global `attrs` symbol, to allow the definition of attributes to the `rule` function.
+///
+/// As an example:
+///
+/// ```python
+/// rule(impl = _impl, attrs = {"foo": attrs.string(), "bar": attrs.int(default = 42)})
+/// ```
+///
+/// Most attributes take at least two optional parameters:
+///
+/// * A `doc` parameter, which specifies documentation for the attribute.
+///
+/// * A `default` parameter, which if present specifies the default value for the attribute if omitted.
+///   If there is no default, the user of the rule must supply that parameter.
+///
+/// Each attribute defines what values it accepts from the user, and which values it gives to the rule.
+/// For simple types like `attrs.string` these are the same, for more complex types like `attrs.dep` these
+/// are different (string from the user, dependency to the rule).
 #[starlark_module]
 fn attr_module(registry: &mut MethodsBuilder) {
+    /// Takes a string from the user, supplies a string to the rule.
     fn string<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -159,6 +177,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::string())
     }
 
+    /// Takes a list from the user, supplies a list to the rule.
     fn list<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &AttributeAsStarlarkValue,
@@ -170,6 +189,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes a target from the user, as a string, and supplies a dependency to the rule.
+    /// The dependency will transition to the execution platform. Use `exec_dep` if you
+    /// plan to execute things from this dependency as part of the compilation.
     fn exec_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
@@ -183,6 +205,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes a target from the user, as a string, and supplies a dependency to the rule.
+    /// The dependency will be a toolchain dependency, meaning that its execution platform
+    /// dependencies will be used to select the execution platform for this rule.
     fn toolchain_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
@@ -277,6 +302,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
         )))
     }
 
+    /// Takes a target from the user, as a string, and supplies a dependency to the rule.
+    /// A target can be specified as an absolute dependency `foo//bar:baz`, omitting the
+    /// cell (`//bar:baz`) or omitting the package name (`:baz`).
+    ///
+    /// If supplied the `providers` argument ensures that specific providers will be present
+    /// on the dependency.
     fn dep<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(default = Vec::new())] providers: Vec<Value<'v>>,
@@ -290,6 +321,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes most builtin literals and passes them to the rule as a string.
+    /// Discouraged, as it provides little type safety and destroys the structure.
     fn any<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -299,6 +332,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::any())
     }
 
+    /// Takes a boolean and passes it to the rule as a boolean.
     fn bool<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -308,6 +342,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::bool())
     }
 
+    /// Takes a value that may be `None` or some inner type, and passes either `None` or the
+    /// value corresponding to the inner to the rule. Often used to make a rule optional:
+    ///
+    /// ```python
+    /// attrs.option(attr.string(), default = None)
+    /// ```
     fn option<'v>(
         #[starlark(this)] _this: Value<'v>,
         inner: &AttributeAsStarlarkValue,
@@ -326,6 +366,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
         }
     }
 
+    /// Rejects all values and uses the default for the inner argument.
+    /// Often used to resolve dependencies, which otherwise can't be resolved inside a rule.
+    ///
+    /// ```python
+    /// attrs.default_only(attrs.dep(default = "foo//my_package:my_target"))
+    /// ```
     fn default_only<'v>(
         #[starlark(this)] _this: Value<'v>,
         inner: &AttributeAsStarlarkValue,
@@ -341,6 +387,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         )))
     }
 
+    /// Takes a target (as per `deps`) and passes a `label` to the rule.
+    /// Validates that the target exists, but does not introduce a dependency on it.
     fn label<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -350,6 +398,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::label())
     }
 
+    /// Takes a dict from the user, supplies a dict to the rule.
     fn dict<'v>(
         #[starlark(this)] _this: Value<'v>,
         key: &AttributeAsStarlarkValue,
@@ -363,6 +412,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes a command line argument from the user and supplies a `cmd_args` compatible value to the rule.
+    /// The argument may contain special macros such as `$(location :my_target)` or `$(exe :my_target)` which
+    /// will be replaced with references to those values in the rule.
     fn arg<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[allow(unused_variables)]
@@ -375,6 +427,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, AttrType::arg())
     }
 
+    /// Takes a string from one of the variants given, and gives that string to the rule.
+    /// Strings are matched case-insensitively, and always passed to the rule lowercase.
     fn r#enum<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] variants: Vec<String>,
@@ -398,6 +452,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, None, doc, AttrType::dep(ProviderIdSet::EMPTY))
     }
 
+    /// Currently an alias for `attrs.string`.
     fn regex<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -437,6 +492,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Given a list of alternative attributes, selects the first that matches and gives that to the rule.
     fn one_of<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: Vec<&AttributeAsStarlarkValue>,
@@ -448,6 +504,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes a tuple of values and gives a tuple to the rule.
     fn tuple<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: Vec<&AttributeAsStarlarkValue>,
@@ -459,6 +516,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         Attribute::attr(eval, default, doc, coercer)
     }
 
+    /// Takes an int from the user, supplies an int to the rule.
     fn int<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -496,6 +554,10 @@ fn attr_module(registry: &mut MethodsBuilder) {
         )))
     }
 
+    /// Takes a source file from the user, supplies an artifact to the rule.
+    /// The source file may be specified as a literal string
+    /// (representing the path within this package), or a target (which must have a
+    /// `DefaultInfo` with a `default_outputs` value).
     fn source<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(default = false)] allow_directory: bool,
