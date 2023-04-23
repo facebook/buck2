@@ -157,6 +157,7 @@ impl BeforeSubcommandOptions {
     }
 }
 
+#[rustfmt::skip]
 fn help() -> &'static str {
     concat!(
         "A build system\n",
