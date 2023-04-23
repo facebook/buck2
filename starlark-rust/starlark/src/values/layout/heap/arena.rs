@@ -47,6 +47,8 @@ use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
+use crate::values::layout::heap::allocator::api::ArenaAllocator;
+use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
@@ -77,11 +79,11 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
 };
 
 #[derive(Default)]
-pub(crate) struct Arena {
+pub(crate) struct Arena<A: ArenaAllocator> {
     /// Arena for things which don't need dropping (e.g. strings)
-    non_drop: Bump,
+    non_drop: A,
     /// Arena for things which might need dropping (e.g. Vec, with memory on heap)
-    drop: Bump,
+    drop: A,
 }
 
 /// Reservation is morally a Reservation<T>, but we treat is as an
@@ -139,7 +141,7 @@ impl<'c> Iterator for ChunkIter<'c> {
     }
 }
 
-impl Arena {
+impl<A: ArenaAllocator> Arena<A> {
     pub(crate) fn is_empty(&self) -> bool {
         self.allocated_bytes() == 0
     }
@@ -153,11 +155,17 @@ impl Arena {
     }
 
     pub(crate) fn available_bytes(&self) -> usize {
-        self.drop.chunk_capacity() + self.non_drop.chunk_capacity()
+        self.drop.remaining_capacity() + self.non_drop.remaining_capacity()
+    }
+
+    /// Don't forget to call this function to release memory.
+    pub(crate) fn finish(&mut self) {
+        self.drop.finish();
+        self.non_drop.finish();
     }
 
     fn alloc_uninit<'v, 'v2: 'v, T: AValue<'v2>>(
-        bump: &'v Bump,
+        bump: &'v A,
         extra_len: usize,
     ) -> (
         &'v mut MaybeUninit<AValueRepr<T>>,
@@ -172,8 +180,7 @@ impl Arena {
         );
 
         let size = T::memory_size_for_extra_len(extra_len).add_header();
-        let layout = size.layout();
-        let p = bump.alloc_layout(layout).as_ptr();
+        let p = bump.alloc(size).as_ptr();
         unsafe {
             let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
             let extra = slice::from_raw_parts_mut(
@@ -184,7 +191,7 @@ impl Arena {
         }
     }
 
-    fn bump_for_type<'v, T: AValue<'v>>(&self) -> &Bump {
+    fn bump_for_type<'v, T: AValue<'v>>(&self) -> &A {
         if mem::needs_drop::<T>() {
             &self.drop
         } else {
@@ -298,15 +305,24 @@ impl Arena {
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
         for bump in [&mut self.drop, &mut self.non_drop] {
-            let chunks = bump.iter_allocated_chunks().collect::<Vec<_>>();
+            let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
             // Use a single buffer to reduce allocations, but clear it after use
             let mut buffer = Vec::new();
             for chunk in chunks.iter().rev() {
-                buffer.extend(Arena::iter_chunk(chunk));
-                for x in buffer.iter().rev() {
-                    f(x);
+                match A::CHUNK_ALLOCATION_DIRECTION {
+                    ChunkAllocationDirection::Down => {
+                        buffer.extend(Arena::<A>::iter_chunk(chunk));
+                        for x in buffer.iter().rev() {
+                            f(x);
+                        }
+                        buffer.clear();
+                    }
+                    ChunkAllocationDirection::Up => {
+                        for x in Arena::<A>::iter_chunk(chunk) {
+                            f(x);
+                        }
+                    }
                 }
-                buffer.clear();
             }
         }
     }
@@ -364,20 +380,22 @@ impl Arena {
 
     // Iterate over the values in the drop bump in any order
     pub(crate) fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
-        for chunk in self.drop.iter_allocated_chunks() {
-            for x in Arena::iter_chunk(chunk) {
-                if let Some(x) = x.unpack_header() {
-                    f(x);
+        unsafe {
+            for chunk in self.drop.iter_allocated_chunks_rev() {
+                for x in Arena::<A>::iter_chunk(chunk) {
+                    if let Some(x) = x.unpack_header() {
+                        f(x);
+                    }
                 }
             }
         }
     }
 
-    fn for_each_unordered_in_bump<'a>(bump: &'a Bump, mut f: impl FnMut(&'a AValueHeader)) {
+    fn for_each_unordered_in_bump<'a>(bump: &'a A, mut f: impl FnMut(&'a AValueHeader)) {
         // SAFETY: We're consuming the iterator immediately and not allocating from the arena during.
         unsafe {
-            bump.iter_allocated_chunks_raw().for_each(|(data, len)| {
-                for x in Arena::iter_chunk(slice::from_raw_parts(data as *const _, len)) {
+            bump.iter_allocated_chunks_rev().for_each(|slice| {
+                for x in Arena::<A>::iter_chunk(slice) {
                     if let Some(x) = x.unpack_header() {
                         f(x);
                     }
@@ -420,11 +438,11 @@ impl Arena {
 
     /// Memory allocated in the arena but not used for allocation in starlark.
     pub(crate) fn unused_capacity(&self) -> usize {
-        self.drop.chunk_capacity() + self.non_drop.chunk_capacity()
+        self.drop.remaining_capacity() + self.non_drop.remaining_capacity()
     }
 }
 
-impl Drop for Arena {
+impl<A: ArenaAllocator> Drop for Arena<A> {
     fn drop(&mut self) {
         self.for_each_drop_unordered(|x| {
             // Safe to convert to *mut because we are the only owner
@@ -434,11 +452,11 @@ impl Drop for Arena {
     }
 }
 
-impl Allocative for Arena {
+impl<A: ArenaAllocator> Allocative for Arena<A> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let Arena { drop, non_drop } = self;
 
-        fn visit_bump<'a, 'b: 'a>(bump: &Bump, visitor: &'a mut Visitor<'b>) {
+        fn visit_bump<'a, 'b: 'a, A: ArenaAllocator>(bump: &A, visitor: &'a mut Visitor<'b>) {
             let mut visitor =
                 visitor.enter_unique(allocative::Key::new("data"), mem::size_of::<*const ()>());
             let mut allocated_visitor =
@@ -454,6 +472,10 @@ impl Allocative for Arena {
                 object_visitor.exit();
             });
             allocated_visitor.exit();
+            visitor.visit_simple(
+                allocative::Key::new("allocation_overhead"),
+                bump.allocation_overhead(),
+            );
             visitor.exit();
         }
 
@@ -489,7 +511,10 @@ mod tests {
         simple(StarlarkAny::new(x.to_owned()))
     }
 
-    fn reserve_str<'v, T: AValue<'static>>(arena: &'v Arena, _: &T) -> Reservation<'v, 'static, T> {
+    fn reserve_str<'v, T: AValue<'static>>(
+        arena: &'v Arena<Bump>,
+        _: &T,
+    ) -> Reservation<'v, 'static, T> {
         arena.reserve_with_extra::<T>(0).0
     }
 
@@ -553,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_allocated_summary() {
-        let arena = Arena::default();
+        let arena = Arena::<Bump>::default();
         arena.alloc(mk_str("test"));
         arena.alloc(mk_str("test"));
         let res = arena.allocated_summary().summary;
@@ -566,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_is_empty() {
-        let arena = Arena::default();
+        let arena = Arena::<Bump>::default();
         assert!(arena.is_empty());
         arena.alloc_str("xyz");
         assert!(!arena.is_empty());

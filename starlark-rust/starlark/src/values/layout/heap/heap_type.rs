@@ -36,6 +36,7 @@ use std::time::Instant;
 use std::usize;
 
 use allocative::Allocative;
+use bumpalo::Bump;
 use dupe::Dupe;
 use either::Either;
 use starlark_map::small_set::SmallSet;
@@ -104,7 +105,7 @@ pub(crate) enum HeapKind {
 pub struct Heap {
     /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
     peak_allocated: Cell<usize>,
-    arena: FastCell<Arena>,
+    arena: FastCell<Arena<Bump>>,
 }
 
 impl Debug for Heap {
@@ -123,7 +124,7 @@ impl Debug for Heap {
 #[derive(Default)]
 pub struct FrozenHeap {
     /// My memory.
-    arena: Arena,
+    arena: Arena<Bump>,
     /// Memory I depend on.
     refs: RefCell<SmallSet<FrozenHeapRef>>,
     /// String interner.
@@ -135,7 +136,7 @@ pub struct FrozenHeap {
 #[derive(Default, Allocative)]
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
-    arena: Arena,
+    arena: Arena<Bump>,
     refs: Box<[FrozenHeapRef]>,
 }
 
@@ -229,7 +230,10 @@ impl FrozenHeap {
     /// [`FrozenHeapRef`] which can be [`clone`](Clone::clone)d, shared between threads,
     /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
     pub fn into_ref(self) -> FrozenHeapRef {
-        let FrozenHeap { arena, refs, .. } = self;
+        let FrozenHeap {
+            mut arena, refs, ..
+        } = self;
+        arena.finish();
         let refs = refs.into_inner();
         if arena.is_empty() && refs.is_empty() {
             FrozenHeapRef::default()
@@ -876,7 +880,7 @@ impl Heap {
 
 /// Used to perform garbage collection by [`Trace::trace`](crate::values::Trace::trace).
 pub struct Tracer<'v> {
-    arena: Arena,
+    arena: Arena<Bump>,
     phantom: PhantomData<&'v ()>,
 }
 
