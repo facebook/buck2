@@ -190,7 +190,20 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         else:
             fail("Unhandled lang {}".format(lang))
 
-    static_library_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LINK_STYLE)]
+    # Among {rustdoc, doctests, save-analysis, macro expand}, doctests are the
+    # only one which cares about linkage. So if there is a required link style
+    # set for the doctests, reuse those same dependency artifacts for the other
+    # build outputs where static vs static_pic does not make a difference.
+    if ctx.attrs.doctest_link_style:
+        static_link_style = {
+            "shared": DEFAULT_STATIC_LINK_STYLE,
+            "static": LinkStyle("static"),
+            "static_pic": LinkStyle("static_pic"),
+        }[ctx.attrs.doctest_link_style]
+    else:
+        static_link_style = DEFAULT_STATIC_LINK_STYLE
+
+    static_library_params = lang_style_param[(LinkageLang("rust"), static_link_style)]
     default_roots = ["lib.rs"]
     rustdoc = generate_rustdoc(
         ctx = ctx,
