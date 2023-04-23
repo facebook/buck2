@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-#![feature(negative_impls)]
 #![feature(assert_matches)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]

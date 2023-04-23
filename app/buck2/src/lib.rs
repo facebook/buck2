@@ -9,13 +9,6 @@
 
 //! `buck2 audit` command implementation, both client and server.
 
-#![allow(stable_features)]
-#![feature(async_closure)]
-#![feature(try_blocks)]
-#![feature(negative_impls)]
-#![feature(exact_size_is_empty)]
-#![feature(box_into_pin)]
-#![feature(try_trait_v2)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(

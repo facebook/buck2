@@ -8,15 +8,11 @@
  */
 
 #![feature(async_closure)]
-#![feature(downcast_unchecked)]
 #![feature(box_patterns)]
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
-#![feature(type_name_of_val)]
 #![feature(never_type)]
-#![feature(is_sorted)]
-#![feature(trait_alias)]
 #![feature(provide_any)]
 // Plugins
 #![cfg_attr(feature = "gazebo_lint", feature(plugin))]
