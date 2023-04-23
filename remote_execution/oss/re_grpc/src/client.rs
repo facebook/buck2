@@ -42,6 +42,8 @@ use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::bytestream::ReadRequest;
+use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
@@ -248,12 +250,12 @@ impl REClientBuilder {
                 execution.context("Error creating Execution client")?,
                 interceptor.dupe(),
             ),
-            bytestream_client: ByteStreamClient::with_interceptor(
+            action_cache_client: ActionCacheClient::with_interceptor(
                 action_cache.context("Error creating ActionCache client")?,
                 interceptor.dupe(),
             ),
-            action_cache_client: ActionCacheClient::with_interceptor(
-                bytestream.context("Error creating ActionCache client")?,
+            bytestream_client: ByteStreamClient::with_interceptor(
+                bytestream.context("Error creating Bytestream client")?,
                 interceptor.dupe(),
             ),
             capabilities_client: CapabilitiesClient::with_interceptor(
@@ -776,13 +778,32 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
-        download_impl(request, |re_request| async {
-            let mut client = self.grpc_clients.cas_client.clone();
-            Ok(client
-                .batch_read_blobs(with_internal_metadata(re_request, metadata))
-                .await?
-                .into_inner())
-        })
+        download_impl(
+            request,
+            self.capabilities.max_msg_size,
+            |re_request| async {
+                let metadata = metadata.clone();
+                let mut client = self.grpc_clients.cas_client.clone();
+                Ok(client
+                    .batch_read_blobs(with_internal_metadata(re_request, metadata))
+                    .await?
+                    .into_inner())
+            },
+            |digest| async move {
+                let mut client = self.grpc_clients.bytestream_client.clone();
+
+                let resource_name = format!("blobs/{}/{}", digest.hash, digest.size_in_bytes);
+                let response = client
+                    .read(ReadRequest {
+                        resource_name,
+                        read_offset: 0,
+                        read_limit: 0,
+                    })
+                    .await?
+                    .into_inner();
+                Ok(response)
+            },
+        )
         .await
     }
 
@@ -920,44 +941,70 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
     Ok(action_result)
 }
 
-async fn download_impl<F, Fut>(request: DownloadRequest, f: F) -> anyhow::Result<DownloadResponse>
+async fn download_impl<Bf, BFut, F, Fut>(
+    request: DownloadRequest,
+    max_msg_size: usize,
+    f: F,
+    big_f: Bf,
+) -> anyhow::Result<DownloadResponse>
 where
-    F: FnOnce(BatchReadBlobsRequest) -> Fut,
+    Bf: Fn(TDigest) -> BFut,
+    BFut: Future<Output = anyhow::Result<tonic::Streaming<ReadResponse>>>,
+    F: Fn(BatchReadBlobsRequest) -> Fut,
     Fut: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
 {
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
-    let re_request = BatchReadBlobsRequest {
+    let mut curr_size = 0;
+    let mut requests = vec![];
+    let mut curr_digests = vec![];
+    let mut bytestream_digests = vec![];
+    for digest in file_digests
+        .iter()
+        .map(|req| &req.named_digest.digest)
+        .chain(inlined_digests.iter())
+        .map(|d| tdigest_to(d.clone()))
+        .filter(|d| d.size_bytes > 0)
+    {
+        if digest.size_bytes as usize > max_msg_size {
+            bytestream_digests.push(digest);
+            continue;
+        }
+        curr_size += digest.size_bytes;
+        if curr_size > max_msg_size as i64 {
+            let read_blob_req = BatchReadBlobsRequest {
+                instance_name: INSTANCE_NAME.into(),
+                digests: std::mem::take(&mut curr_digests),
+                acceptable_compressors: vec![compressor::Value::Identity as i32],
+            };
+            requests.push(read_blob_req);
+        }
+        curr_digests.push(digest.clone());
+    }
+    let read_blob_req = BatchReadBlobsRequest {
         instance_name: INSTANCE_NAME.into(),
-        digests: file_digests
-            .iter()
-            .map(|req| &req.named_digest.digest)
-            .chain(inlined_digests.iter())
-            .map(|d| tdigest_to(d.clone()))
-            .filter(|d| d.size_bytes > 0)
-            .collect(),
+        digests: std::mem::take(&mut curr_digests),
         acceptable_compressors: vec![compressor::Value::Identity as i32],
     };
+    requests.push(read_blob_req);
 
-    let response = f(re_request).await?;
-
-    let response = response
-        .responses
-        .into_iter()
-        .map(|r| {
-            check_status(r.status.unwrap_or_default())?;
+    let mut batched_blobs_response = HashMap::new();
+    for read_blob_req in requests {
+        let resp = f(read_blob_req).await?;
+        for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
-            anyhow::Ok((digest, r.data))
-        })
-        .collect::<Result<HashMap<_, _>, _>>()?;
+            check_status(r.status.unwrap_or_default())?;
+            batched_blobs_response.insert(digest, r.data);
+        }
+    }
 
     let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
         if digest.size_in_bytes == 0 {
             return Ok(Vec::new());
         }
 
-        Ok(response
+        Ok(batched_blobs_response
             .get(digest)
             .with_context(|| format!("Did not receive digest data for `{}`", digest))?
             .clone())
@@ -974,8 +1021,6 @@ where
     })?;
 
     let writes = file_digests.iter().map(|req| async {
-        let data = get(&req.named_digest.digest)?;
-
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).create_new(true);
         #[cfg(unix)]
@@ -987,17 +1032,26 @@ where
             }
         }
 
-        async {
+        let fut = async {
             let mut file = opts
                 .open(&req.named_digest.name)
                 .await
                 .context("Error opening")?;
-            file.write_all(&data).await.context("Error writing")?;
+            // If the data is small enough to be transfered in a batch
+            // blob update, just write it directly to file.
+            if req.named_digest.digest.size_in_bytes < max_msg_size as i64 {
+                let data = get(&req.named_digest.digest)?;
+                file.write_all(&data).await.context("Error writing")?;
+            } else {
+                let mut responses = big_f(req.named_digest.digest.clone()).await?;
+                while let Some(ReadResponse { data }) = responses.message().await? {
+                    file.write_all(&data).await.context("Error writing")?;
+                }
+            }
             file.flush().await.context("Error flushing")?;
             anyhow::Ok(())
-        }
-        .await
-        .with_context(|| {
+        };
+        fut.await.with_context(|| {
             format!(
                 "Error writing digest `{}` to `{}`",
                 req.named_digest.digest, req.named_digest.name,
@@ -1143,12 +1197,24 @@ mod tests {
             ],
         };
 
-        download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 2);
-            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
-            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
-            Ok(res)
-        })
+        download_impl(
+            req,
+            10000,
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let digest2 = digest2.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 2);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    assert_eq!(req.digests[1], tdigest_to(digest2));
+                    Ok(res.clone())
+                }
+            },
+            |_digest| async move {
+                panic!("Should never have reached a Bytestream call");
+            },
+        )
         .await?;
 
         assert_eq!(tokio::fs::read(&path1).await?, vec![1, 2, 3]);
@@ -1205,12 +1271,24 @@ mod tests {
             ],
         };
 
-        let res = download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 2);
-            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
-            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
-            Ok(res)
-        })
+        let res = download_impl(
+            req,
+            100000,
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let digest2 = digest2.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 2);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    assert_eq!(req.digests[1], tdigest_to(digest2));
+                    Ok(res)
+                }
+            },
+            |_digest| async move {
+                panic!("Should never have reached a Bytestream call");
+            },
+        )
         .await?;
 
         let inlined_blobs = res.inlined_blobs.unwrap();
@@ -1241,10 +1319,20 @@ mod tests {
 
         let res = BatchReadBlobsResponse { responses: vec![] };
 
-        let res = download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 0);
-            Ok(res)
-        })
+        let res = download_impl(
+            req,
+            100000,
+            |req| {
+                let res = res.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 0);
+                    Ok(res)
+                }
+            },
+            |_digest| async move {
+                panic!("Should never have reached a Bytestream call");
+            },
+        )
         .await?;
 
         let inlined_blobs = res.inlined_blobs.unwrap();
