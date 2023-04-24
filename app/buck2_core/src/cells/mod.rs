@@ -188,6 +188,8 @@ enum CellError {
         "Cell name `{0}` should be an alias for an existing cell, but `{1}` isn't a known alias"
     )]
     AliasOnlyCell(NonEmptyCellAlias, NonEmptyCellAlias),
+    #[error("Cell `{0}` alias `{0}` should point to itself, but it points to `{1}`")]
+    WrongSelfAlias(CellName, CellName),
 }
 
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.
@@ -212,6 +214,13 @@ impl CellAliasResolver {
         current: CellName,
         aliases: Arc<HashMap<NonEmptyCellAlias, CellName>>,
     ) -> anyhow::Result<CellAliasResolver> {
+        let current_as_alias = NonEmptyCellAlias::new(current.as_str().to_owned())?;
+        if let Some(alias_target) = aliases.get(&current_as_alias) {
+            if *alias_target != current {
+                return Err(CellError::WrongSelfAlias(current, *alias_target).into());
+            }
+        }
+
         Ok(CellAliasResolver { current, aliases })
     }
 
