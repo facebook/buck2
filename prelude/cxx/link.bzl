@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
@@ -117,6 +118,13 @@ def cxx_link(
     if dwo_dir != None:
         external_debug_artifacts.append(dwo_dir)
 
+    pdb_artifact = None
+    if linker_info.is_pdb_generated:
+        pdb_filename = paths.replace_extension(output.short_path, ".pdb")
+        pdb_artifact = ctx.actions.declare_output(pdb_filename)
+        external_debug_artifacts.append(pdb_artifact)
+        hidden.append(pdb_artifact.as_output())
+
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
     # need to be available for debugging).
@@ -143,7 +151,7 @@ def cxx_link(
     command = cxx_link_cmd(ctx)
     command.add(get_output_flags(linker_info.type, output))
     command.add(cmd_args(argfile, format = "@{}"))
-    command.hidden([hidden])
+    command.hidden(hidden)
     category = "cxx_link"
     if category_suffix != None:
         category += "_" + category_suffix
@@ -209,6 +217,7 @@ def cxx_link(
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
         import_library = import_library,
+        pdb = pdb_artifact,
     )
 
 def _link_libraries_locally(ctx: "context", prefer_local: bool.type) -> bool.type:

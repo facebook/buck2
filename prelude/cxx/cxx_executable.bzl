@@ -117,6 +117,10 @@ load(
     "get_link_group_preferred_linkage",
 )
 load(
+    ":linker.bzl",
+    "PDB_SUB_TARGET",
+)
+load(
     ":preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
     "cxx_private_preprocessor_info",
@@ -492,6 +496,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary.
         sub_targets["dwp"] = [DefaultInfo(default_output = binary.dwp)]
+
+    if binary.pdb:
+        # A `pdb` sub-target which generates the `.pdb` file for this binary.
+        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = binary.pdb)]
 
     # If bolt is not ran, binary.prebolt_output will be the same as binary.output. Only
     # expose binary.prebolt_output if cxx_use_bolt(ctx) is True to avoid confusion

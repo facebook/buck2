@@ -248,7 +248,7 @@ LinkedObject = record(
     # May be None when Split DWARF is disabled or for some types of synthetic link objects.
     dwp = field(["artifact", None], None),
     # Additional dirs or paths that contain debug info referenced by the linked
-    # object (e.g. split dwarf files).
+    # object (e.g. split dwarf files or PDB file).
     external_debug_info = field([ExternalDebugInfoTSet.type, None], None),
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
@@ -258,6 +258,10 @@ LinkedObject = record(
     # Import library for linking with DLL on Windows.
     # If not on Windows it's always None.
     import_library = field(["artifact", None], None),
+    # A linked object (binary/shared library) may have an associated PDB file with
+    # its corresponding Windows debug info.
+    # If not on Windows it's always None.
+    pdb = field(["artifact", None], None),
 )
 
 def _link_info_default_args(infos: "LinkInfos"):

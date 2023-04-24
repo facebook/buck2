@@ -177,6 +177,9 @@ _CxxLibraryOutput = record(
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
     dwp = field(["artifact", None], None),
+    # A shared shared library may have an associated PDB file with
+    # its corresponding Windows debug info.
+    pdb = field(["artifact", None], None),
     linker_map = field([CxxLinkerMapData.type, None], None),
 )
 
@@ -395,6 +398,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 output.default,
                 output.external_debug_info,
                 output.dwp,
+                output.pdb,
                 output.linker_map,
             )
 
@@ -829,6 +833,7 @@ def _form_library_outputs(
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
                     linker_map = result.linker_map_data,
+                    pdb = shlib.pdb,
                 )
                 solibs[result.soname] = shlib
 

@@ -55,6 +55,8 @@ LINKERS = {
     ),
 }
 
+PDB_SUB_TARGET = "pdb"
+
 def _sanitize(s: str.type) -> str.type:
     return s.replace("/", "_")
 

@@ -100,6 +100,7 @@ load(
 )
 load(
     ":linker.bzl",
+    "PDB_SUB_TARGET",
     "get_link_whole_args",
     "get_shared_library_name",
 )
@@ -161,6 +162,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         _executable: "artifact",
         _external_debug_info: ["transitive_set", None],
         dwp: ["artifact", None],
+        pdb: ["artifact", None],
         linker_map: [CxxLinkerMapData.type, None]) -> ({str.type: ["provider"]}, ["provider"]):
     if link_style != LinkStyle("shared"):
         return ({}, [])
@@ -168,6 +170,8 @@ def _get_shared_link_style_sub_targets_and_providers(
     providers = []
     if dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = dwp)]
+    if pdb != None:
+        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = pdb)]
     if linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map.map, other_outputs = [linker_map.binary])]
     return (sub_targets, providers)
@@ -448,6 +452,9 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                     else:
                         soname_lib = shared_lib.output
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]
+
+                    if shared_lib.pdb:
+                        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = shared_lib.pdb)]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[link_style] = out
