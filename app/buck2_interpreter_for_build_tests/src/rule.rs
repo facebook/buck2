@@ -341,18 +341,18 @@ fn returns_documentation() -> anyhow::Result<()> {
     );
     params.extend(vec![
         arg("any", "\"\"", None),
-        arg("arg", "str.type", Some("None")),
-        arg("bool", "bool.type", Some("None")),
-        arg("default_only", "default_only", Some("None")),
-        arg("dep", "str.type", Some("None")),
-        arg("dict", "{str.type: bool.type}", Some("None")),
-        arg("list", "[str.type]", Some("None")),
-        arg("one_of", "[bool.type, str.type]", Some("None")),
-        arg("option", "[None, str.type]", Some("None")),
+        arg("arg", "str.type", Some("_")),
+        arg("bool", "bool.type", Some("_")),
+        arg("default_only", "default_only", Some("_")),
+        arg("dep", "str.type", Some("_")),
+        arg("dict", "{str.type: bool.type}", Some("_")),
+        arg("list", "[str.type]", Some("_")),
+        arg("one_of", "[bool.type, str.type]", Some("_")),
+        arg("option", "[None, str.type]", Some("_")),
         arg("query", "str.type", None),
-        arg("source", "str.type", Some("None")),
-        arg("string", "str.type", Some("None")),
-        arg("tuple", "(bool.type, str.type)", Some("None")),
+        arg("source", "str.type", Some("_")),
+        arg("string", "str.type", Some("_")),
+        arg("tuple", "(bool.type, str.type)", Some("_")),
     ]);
 
     let expected_docs = DocItem::Function(DocFunction {

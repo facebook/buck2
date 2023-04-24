@@ -677,7 +677,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
                         name,
                         docs,
                         typ,
-                        default_value: Some("None".to_owned()),
+                        default_value: Some("_".to_owned()),
                     },
                     ParameterKind::Defaulted(v) => DocParam::Arg {
                         name,
@@ -856,13 +856,13 @@ mod tests {
                 typ: Some(DocType {
                     raw_type: "int".to_owned(),
                 }),
-                default_value: Some("None".to_owned()),
+                default_value: Some("_".to_owned()),
             },
             DocParam::Arg {
                 name: "b".to_owned(),
                 docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
                 typ: None,
-                default_value: Some("None".to_owned()),
+                default_value: Some("_".to_owned()),
             },
         ];
         let mut types = HashMap::new();

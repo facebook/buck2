@@ -88,7 +88,7 @@ fn test_rustdoc() {
         r#"
 def args_kwargs(*args, **kwargs: "") -> None: pass
 def custom_types(arg1: str.type, arg2: "input") -> "output": pass
-def default_arg(arg1 = None, arg2: "" = None) -> [str.type]: pass
+def default_arg(arg1 = "_", arg2: "" = None) -> [str.type]: pass
 def pos_named(arg1: int.type, *, arg2: int.type) -> int.type: pass
 def simple(arg_int: int.type, arg_bool: bool.type, arg_vec: [str.type], arg_dict: {str.type: (bool.type, int.type)}) -> None: pass
 def with_arguments(*args, **kwargs) -> int.type: pass
@@ -114,6 +114,7 @@ def with_arguments(*args, **kwargs) -> int.type: pass
             .replace("\\\"bool\\\"", "bool.type")
             .replace("\\\"string\\\"", "str.type")
             .replace("Some(DocType { raw_type: \"\\\"\\\"\" })", "None")
+            .replace("\\\"_\\\"", "_")
     }
 
     let expected = expected.documentation().members;
