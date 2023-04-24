@@ -90,7 +90,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
 
         let build_context = BuildContext::from_context(eval)?;
         let bxl_path = (*build_context
-            .starlark_path
+            .starlark_path()
             .unpack_bxl_file()
             .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
         .clone();

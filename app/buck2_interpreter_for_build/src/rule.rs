@@ -51,6 +51,7 @@ use starlark::values::Value;
 
 use crate::attrs::attribute_as_starlark_value::AttributeAsStarlarkValue;
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 use crate::nodes::unconfigured::TargetNodeExt;
@@ -105,6 +106,8 @@ enum RuleError {
         "Rule defined with both `is_configuration_rule` and `is_toolchain_rule`, these options are mutually exclusive"
     )]
     IsConfigurationAndToolchain,
+    #[error("`rule` can only be declared in bzl files")]
+    RuleNonInBzl,
 }
 
 impl<'v> AllocValue<'v> for RuleCallable<'v> {
@@ -278,11 +281,10 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         let implementation = r#impl;
 
         let build_context = BuildContext::from_context(eval)?;
-        let bzl_path = (*build_context
-            .starlark_path
-            .unpack_load_file()
-            .ok_or_else(|| anyhow::anyhow!("`rule` can only be declared in bzl files"))?)
-        .clone();
+        let bzl_path: ImportPath = match &build_context.additional {
+            PerFileTypeContext::Bzl(bzl_path) => (*bzl_path).clone(),
+            _ => return Err(RuleError::RuleNonInBzl.into()),
+        };
         let sorted_validated_attrs = attrs
             .to_dict()
             .into_iter()

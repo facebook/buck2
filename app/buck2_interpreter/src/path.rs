@@ -160,7 +160,7 @@ impl<'a> StarlarkPath<'a> {
         }
     }
 
-    pub fn path(&self) -> Cow<CellPath> {
+    pub fn path(&self) -> Cow<'a, CellPath> {
         match self {
             StarlarkPath::BuildFile(b) => Cow::Owned(b.path()),
             StarlarkPath::PackageFile(p) => Cow::Borrowed(p.path()),

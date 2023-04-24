@@ -444,14 +444,16 @@ impl InterpreterForCell {
         self: &Arc<Self>,
         env: &Module,
         ast: AstModule,
-        import: StarlarkPath<'_>,
         buckconfig: &dyn LegacyBuckConfigView,
         root_buckconfig: &dyn LegacyBuckConfigView,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
     ) -> anyhow::Result<PerFileTypeContext> {
-        let globals = self.global_state.globals_for_file_type(import.file_type());
+        let import = extra_context.starlark_path();
+        let globals = self
+            .global_state
+            .globals_for_file_type(extra_context.file_type());
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let cell_info = self.get_cell_config(import.build_file_cell());
@@ -461,7 +463,6 @@ impl InterpreterForCell {
             cell_info,
             buckconfig,
             root_buckconfig,
-            import,
             host_info,
             extra_context,
             self.ignore_attrs_for_profiling,
@@ -506,7 +507,6 @@ impl InterpreterForCell {
         self.eval(
             &env,
             ast,
-            StarlarkPath::from(starlark_path),
             buckconfig,
             root_buckconfig,
             loaded_modules,
@@ -534,12 +534,12 @@ impl InterpreterForCell {
         let package_values = env.heap().alloc_complex_no_freeze(PackageValues::default());
         env.set_extra_value(package_values);
 
-        let extra_context = PerFileTypeContext::Package(PackageFileEvalCtx { parent });
+        let extra_context =
+            PerFileTypeContext::Package(package_file_path.clone(), PackageFileEvalCtx { parent });
 
         let per_file_context = self.eval(
             &env,
             ast,
-            StarlarkPath::PackageFile(package_file_path),
             buckconfig,
             root_buckconfig,
             loaded_modules,
@@ -621,11 +621,10 @@ impl InterpreterForCell {
             .eval(
                 &env,
                 ast,
-                StarlarkPath::BuildFile(build_file),
                 buckconfig,
                 root_buckconfig,
                 loaded_modules,
-                PerFileTypeContext::Build(internals),
+                PerFileTypeContext::Build(build_file.clone(), internals),
                 eval_provider,
             )?
             .into_build()?;

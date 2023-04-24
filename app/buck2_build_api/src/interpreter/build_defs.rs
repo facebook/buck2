@@ -46,7 +46,7 @@ pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
-        let path = BuildContext::from_context(eval)?.starlark_path.path();
+        let path = BuildContext::from_context(eval)?.starlark_path().path();
 
         let (field_names, field_docs) = match fields {
             Either::Left(f) => {
@@ -131,7 +131,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
         }
 
         Ok(TransitiveSetDefinition::new(
-            match build_context.starlark_path {
+            match build_context.starlark_path() {
                 StarlarkPath::LoadFile(import_path) => import_path.clone(),
                 _ => return Err(NativesError::TransitiveSetOnlyInBzl.into()),
             },

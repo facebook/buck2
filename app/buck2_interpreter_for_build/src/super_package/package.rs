@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use buck2_interpreter::path::StarlarkPath;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::build_context::PerFileTypeContext;
 
 #[derive(Debug, thiserror::Error)]
 enum PackageFileError {
@@ -35,8 +35,8 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<NoneType> {
         let _ignore = (inherit, visibility, within_view);
         let build_context = BuildContext::from_context(eval)?;
-        match build_context.starlark_path {
-            StarlarkPath::PackageFile(_) => {}
+        match build_context.additional {
+            PerFileTypeContext::Package(..) => {}
             _ => return Err(PackageFileError::NotPackage.into()),
         };
         // TODO(nga): implement visibility.

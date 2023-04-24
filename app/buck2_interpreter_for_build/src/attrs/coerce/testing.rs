@@ -22,7 +22,6 @@ use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::path::StarlarkPath;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -105,9 +104,8 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
         &cell_info,
         &buckconfig,
         &root_buckconfig,
-        StarlarkPath::LoadFile(&import_path),
         &host_info,
-        PerFileTypeContext::Bzl,
+        PerFileTypeContext::Bzl(import_path),
         false,
     );
 

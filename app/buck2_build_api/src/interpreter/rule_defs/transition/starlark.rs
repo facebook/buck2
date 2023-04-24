@@ -183,7 +183,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             .collect::<anyhow::Result<_>>()?;
 
         let path = (*BuildContext::from_context(eval)?
-            .starlark_path
+            .starlark_path()
             .unpack_load_file()
             .ok_or(TransitionError::OnlyBzl)?)
         .clone();
