@@ -116,7 +116,7 @@ fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> any
         }
         item => item,
     };
-    Ok(builtin_doc("build", "", cleaned_build))
+    Ok(builtin_doc("globals", "", cleaned_build))
 }
 
 pub fn get_builtin_docs(
