@@ -46,7 +46,7 @@ def func2() -> str.type
 ## func3
 
 ```python
-def func3(a1: int.type, a2: int.type = None, step: int.type = None) -> str.type
+def func3(a1: int.type, a2: int.type = None, step: int.type = 1) -> str.type
 ```
 
 A function with only positional arguments.
@@ -68,5 +68,5 @@ And some assertions:
 ## with\_defaults
 
 ```python
-def with_defaults(explicit_default: [str.type] = None, hidden_default: [str.type] = None, string_default: str.type = None) -> None
+def with_defaults(explicit_default: [str.type] = [], hidden_default: [str.type] = None, string_default: str.type = "my_default") -> None
 ```

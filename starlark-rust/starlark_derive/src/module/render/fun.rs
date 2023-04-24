@@ -18,9 +18,13 @@
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
+use quote::quote;
 use quote::quote_spanned;
 use syn::spanned::Spanned;
 use syn::Attribute;
+use syn::Expr;
+use syn::ExprLit;
+use syn::Lit;
 use syn::Type;
 
 use crate::module::render::render_starlark_return_type;
@@ -154,7 +158,7 @@ impl StarFun {
     /// Fields and field initializers for the struct implementing the trait.
     fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
         let signature = if let StarFunSource::Signature { .. } = self.source {
-            Some(render_signature(self)?)
+            Some(render_signature(self, Purpose::Parsing)?)
         } else {
             None
         };
@@ -480,13 +484,19 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum Purpose {
+    Documentation,
+    Parsing,
+}
+
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
+fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     let span = x.args_span();
     let name_str = ident_string(&x.name);
     let signature_var = format_ident!("__signature");
-    let sig_args = render_signature_args(&x.args, &signature_var)?;
+    let sig_args = render_signature_args(&x.args, &signature_var, purpose)?;
     Ok(quote_spanned! {
         span=> {
             #[allow(unused_mut)]
@@ -508,7 +518,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         StarFunSource::Arguments | StarFunSource::ThisArguments => false,
     };
     let documentation_signature = if need_render_signature {
-        render_signature(x)?
+        render_signature(x, Purpose::Documentation)?
     } else {
         // An Arguments can take anything, so give the most generic documentation signature
         quote_spanned! {
@@ -563,7 +573,11 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     Ok((var_name, documentation))
 }
 
-fn render_signature_args(args: &[StarArg], signature_var: &Ident) -> syn::Result<TokenStream> {
+fn render_signature_args(
+    args: &[StarArg],
+    signature_var: &Ident,
+    purpose: Purpose,
+) -> syn::Result<TokenStream> {
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
     enum CurrentParamStyle {
         PosOnly,
@@ -627,13 +641,17 @@ fn render_signature_args(args: &[StarArg], signature_var: &Ident) -> syn::Result
                 ));
             }
         }
-        sig_args.extend(render_signature_arg(arg, signature_var)?);
+        sig_args.extend(render_signature_arg(arg, signature_var, purpose)?);
     }
     Ok(sig_args)
 }
 
 // Generate a statement that modifies signature to add a new argument in.
-fn render_signature_arg(arg: &StarArg, signature_var: &Ident) -> syn::Result<TokenStream> {
+fn render_signature_arg(
+    arg: &StarArg,
+    signature_var: &Ident,
+    purpose: Purpose,
+) -> syn::Result<TokenStream> {
     let span = arg.span;
 
     let name_str = ident_string(&arg.name);
@@ -656,6 +674,14 @@ fn render_signature_arg(arg: &StarArg, signature_var: &Ident) -> syn::Result<Tok
             Ok(quote_spanned! { span=>
                 #signature_var.defaulted(#name_str, globals_builder.alloc(#default));
             })
+        } else if purpose == Purpose::Documentation
+            && render_default_as_frozen_value(default).is_some()
+        {
+            // We want the repr of the default arugment to show up, so pass it along
+            let frozen = render_default_as_frozen_value(default).unwrap();
+            Ok(quote_spanned! { span=>
+                #signature_var.defaulted(#name_str, #frozen);
+            })
         } else {
             Ok(quote_spanned! { span=>
                 #signature_var.optional(#name_str);
@@ -665,5 +691,34 @@ fn render_signature_arg(arg: &StarArg, signature_var: &Ident) -> syn::Result<Tok
         Ok(quote_spanned! { span=>
             #signature_var.required(#name_str);
         })
+    }
+}
+
+/// We have an argument that the user wants to use as a default.
+/// That _might_ have a valid `FrozenValue` representation, if so, it would be great to use for documentation.
+/// Try and synthesise it if we can.
+fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
+    let x = quote!(#default).to_string();
+    if let Ok(x) = x.trim_end_matches("i32").parse::<i32>() {
+        Some(quote! { starlark::values::FrozenValue::new_int(#x) })
+    } else if let Ok(x) = x.parse::<bool>() {
+        Some(quote! { starlark::values::FrozenValue::new_bool(#x) })
+    } else if x == "NoneOr :: None" {
+        Some(quote! { starlark::values::FrozenValue::new_none() })
+    } else if matches!(
+        default,
+        Expr::Lit(ExprLit {
+            lit: Lit::Str(_),
+            ..
+        })
+    ) {
+        // Make sure we don't splice in `x` again, or we double quote the string
+        Some(quote! { globals_builder.alloc(#default) })
+    } else if x == "Vec :: new()" {
+        Some(quote! { globals_builder.alloc(starlark::values::list::AllocList::EMPTY) })
+    } else if x == "SmallMap :: new()" {
+        Some(quote! { globals_builder.alloc(starlark::values::dict::AllocDict::EMPTY) })
+    } else {
+        None
     }
 }
