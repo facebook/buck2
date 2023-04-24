@@ -175,6 +175,8 @@ enum CellError {
     DuplicateAliases(NonEmptyCellAlias, CellRootPathBuf, CellRootPathBuf),
     #[error("Cell paths `{1}` and `{2}` had the same cell name `{0}`.")]
     DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
+    #[error("Two cells, `{0}` and `{1}`, share the same path `{2}`")]
+    DuplicatePaths(CellName, CellName, CellRootPathBuf),
     #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
     UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().join(", "))]
@@ -305,14 +307,20 @@ struct CellResolverInternals {
 
 impl CellResolver {
     // Make this public till we start parsing config files from cells
-    pub fn new(
-        cells: HashMap<CellName, CellInstance>,
-        path_mappings: SequenceTrie<FileNameBuf, CellName>,
-    ) -> CellResolver {
-        CellResolver(Arc::new(CellResolverInternals {
+    pub fn new(cells: HashMap<CellName, CellInstance>) -> anyhow::Result<CellResolver> {
+        let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
+        for cell in cells.values() {
+            let prev = path_mappings.insert(cell.path().iter(), cell.name());
+            if let Some(prev) = prev {
+                return Err(
+                    CellError::DuplicatePaths(cell.name(), prev, cell.path().to_buf()).into(),
+                );
+            }
+        }
+        Ok(CellResolver(Arc::new(CellResolverInternals {
             cells,
             path_mappings,
-        }))
+        })))
     }
 
     pub fn contains(&self, cell: CellName) -> bool {
@@ -490,13 +498,12 @@ impl CellResolver {
 
     pub fn of_names_and_paths(other_name: CellName, other_path: CellRootPathBuf) -> CellResolver {
         let mut cell_mappings = HashMap::new();
-        let mut path_mappings = SequenceTrie::new();
 
         cell_mappings.insert(
             other_name,
             CellInstance::new(
                 other_name,
-                other_path.clone(),
+                other_path,
                 default_buildfiles(),
                 CellAliasResolver {
                     current: other_name,
@@ -505,9 +512,7 @@ impl CellResolver {
             ),
         );
 
-        path_mappings.insert(other_path.iter(), other_name);
-
-        Self::new(cell_mappings, path_mappings)
+        Self::new(cell_mappings).unwrap()
     }
 
     pub fn with_names_and_paths_with_alias(
@@ -518,7 +523,6 @@ impl CellResolver {
         )],
     ) -> CellResolver {
         let mut cell_mappings = HashMap::new();
-        let mut path_mappings = SequenceTrie::new();
 
         for (name, path, alias) in cells {
             let prev = cell_mappings.insert(
@@ -531,12 +535,9 @@ impl CellResolver {
                 ),
             );
             assert!(prev.is_none());
-
-            let prev = path_mappings.insert(path.iter(), *name);
-            assert!(prev.is_none());
         }
 
-        Self::new(cell_mappings, path_mappings)
+        Self::new(cell_mappings).unwrap()
     }
 }
 
@@ -647,7 +648,6 @@ impl CellsAggregator {
     /// Creates the 'CellResolver' from all the entries that were aggregated
     pub fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
         let mut cell_mappings = HashMap::new();
-        let mut cell_path_mappings = SequenceTrie::new();
 
         for (cell_path, cell_info) in &self.cell_infos {
             let mut aliases_for_cell = HashMap::new();
@@ -677,11 +677,9 @@ impl CellsAggregator {
                     cell_path.clone()
                 )));
             }
-
-            cell_path_mappings.insert(cell_path.iter(), cell_name);
         }
 
-        Ok(CellResolver::new(cell_mappings, cell_path_mappings))
+        CellResolver::new(cell_mappings)
     }
 }
 
