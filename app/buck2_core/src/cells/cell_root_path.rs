@@ -72,6 +72,10 @@ impl CellRootPathBuf {
     pub fn project_relative_path(&self) -> &ProjectRelativePath {
         &self.0
     }
+
+    pub fn as_path(&self) -> &CellRootPath {
+        CellRootPath::new(&self.0)
+    }
 }
 
 impl Deref for CellRootPathBuf {

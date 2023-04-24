@@ -489,21 +489,39 @@ impl CellResolver {
             HashMap<NonEmptyCellAlias, CellName>,
         )],
     ) -> CellResolver {
-        let mut cell_mappings = Vec::new();
+        let cell_path_by_name: HashMap<CellName, CellRootPathBuf> = cells
+            .iter()
+            .map(|(name, path, _)| (*name, path.clone()))
+            .collect();
+
+        assert_eq!(cell_path_by_name.len(), cells.len(), "duplicate cell names");
+        assert_eq!(
+            cells.len(),
+            cells
+                .iter()
+                .map(|(_, path, _)| path.as_path())
+                .unique()
+                .count(),
+            "duplicate cell paths"
+        );
+
+        let mut cell_aggregator = CellsAggregator::new();
 
         for (name, path, alias) in cells {
-            cell_mappings.push(
-                CellInstance::new(
-                    *name,
-                    path.clone(),
-                    default_buildfiles(),
-                    CellAliasResolver::new(*name, alias.clone()).unwrap(),
-                )
-                .unwrap(),
-            );
+            cell_aggregator.cell_info(path.clone()).name = Some(*name);
+
+            for (alias, name) in alias {
+                cell_aggregator
+                    .add_cell_entry(
+                        path.clone(),
+                        alias.clone(),
+                        cell_path_by_name.get(name).unwrap().clone(),
+                    )
+                    .unwrap();
+            }
         }
 
-        Self::new(cell_mappings).unwrap()
+        cell_aggregator.make_cell_resolver().unwrap()
     }
 }
 
