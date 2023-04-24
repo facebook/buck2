@@ -53,12 +53,11 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     #[starlark(return_type = "[str.type]")]
     fn glob<'v>(
         include: Vec<String>,
-        #[starlark(require = named)] exclude: Option<Vec<String>>,
+        #[starlark(require = named, default=Vec::new())] exclude: Vec<String>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let extra = ModuleInternals::from_context(eval, "glob")?;
-        let excludes = exclude.unwrap_or_default();
-        let spec = GlobSpec::new(&include, &excludes)?;
+        let spec = GlobSpec::new(&include, &exclude)?;
         let res = extra.resolve_glob(&spec).map(|path| path.as_str());
         Ok(eval.heap().alloc(AllocList(res)))
     }
