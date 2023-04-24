@@ -8,7 +8,7 @@
  */
 
 use buck2_cli_proto::trace_io_request;
-use buck2_common::io::TracingIoProvider;
+use buck2_common::io::trace::TracingIoProvider;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
