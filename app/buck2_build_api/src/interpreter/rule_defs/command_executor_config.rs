@@ -27,7 +27,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -104,8 +103,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes =
                 remote_execution_max_input_files_mebibytes.into_option();
@@ -277,8 +275,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(heap.alloc_simple(StarlarkCommandExecutorConfig(Arc::new(
+        Ok(StarlarkCommandExecutorConfig(Arc::new(
             command_executor_config,
-        ))))
+        )))
     }
 }

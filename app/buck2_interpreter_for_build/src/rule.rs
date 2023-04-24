@@ -270,7 +270,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> anyhow::Result<RuleCallable<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
         //                 objects, but will blow up in a friendlier way here.
@@ -305,7 +305,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
 
-        Ok(eval.heap().alloc(RuleCallable {
+        Ok(RuleCallable {
             import_path: bzl_path,
             id: RefCell::new(None),
             implementation,
@@ -314,6 +314,6 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             rule_kind,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
-        }))
+        })
     }
 }

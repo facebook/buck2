@@ -141,9 +141,8 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
     #[starlark(attribute)]
-    fn path<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let path = LabelRelativePath(this.label.target().pkg().to_cell_path());
-        Ok(path.alloc_value(heap))
+    fn path<'v>(this: &Label) -> anyhow::Result<LabelRelativePath> {
+        Ok(LabelRelativePath(this.label.target().pkg().to_cell_path()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode`
@@ -153,9 +152,8 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn cell_root<'v>(this: &Label, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let cell_root = CellRoot::new(this.label.target().pkg().cell_name());
-        Ok(heap.alloc(cell_root))
+    fn cell_root<'v>(this: &Label) -> anyhow::Result<CellRoot> {
+        Ok(CellRoot::new(this.label.target().pkg().cell_name()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this returns the unconfigured underlying target label (`fbcode//buck2/hello:world`)
