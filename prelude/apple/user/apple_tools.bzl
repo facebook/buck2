@@ -14,10 +14,10 @@ def _impl(ctx: "context") -> ["provider"]:
         AppleToolsInfo(
             assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
             dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
-            focused_debugging_scrubber = ctx.attrs.focused_debugging_scrubber[RunInfo],
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
+            selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
             swift_objc_header_postprocess = ctx.attrs.swift_objc_header_postprocess[RunInfo],
         ),
     ]
@@ -31,10 +31,10 @@ registration_spec = RuleRegistrationSpec(
     attrs = {
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
-        "focused_debugging_scrubber": attrs.dep(providers = [RunInfo]),
         "info_plist_processor": attrs.dep(providers = [RunInfo]),
         "make_modulemap": attrs.dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.dep(providers = [RunInfo]),
+        "selective_debugging_scrubber": attrs.dep(providers = [RunInfo]),
         "swift_objc_header_postprocess": attrs.dep(providers = [RunInfo]),
     },
 )

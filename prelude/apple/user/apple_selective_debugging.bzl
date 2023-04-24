@@ -12,7 +12,7 @@ load(
     "parse_build_target_pattern",
 )
 
-AppleFocusedDebuggingInfo = provider(fields = [
+AppleSelectiveDebuggingInfo = provider(fields = [
     "scrub_binary",  # function
     "include_build_target_patterns",  # BuildTargetPattern.type
     "include_regular_expressions",  # regex
@@ -20,8 +20,8 @@ AppleFocusedDebuggingInfo = provider(fields = [
     "exclude_regular_expressions",  # regex
 ])
 
-# The type of focused debugging json input to utilze.
-_FocusedDebuggingJsonTypes = [
+# The type of selective debugging json input to utilze.
+_SelectiveDebuggingJsonTypes = [
     # Use a targets json file containing all targets to include.
     "targets",
     # Use a spec json file specifying the targets to include
@@ -29,13 +29,13 @@ _FocusedDebuggingJsonTypes = [
     "spec",
 ]
 
-_FocusedDebuggingJsonType = enum(
-    _FocusedDebuggingJsonTypes[0],
-    _FocusedDebuggingJsonTypes[1],
+_SelectiveDebuggingJsonType = enum(
+    _SelectiveDebuggingJsonTypes[0],
+    _SelectiveDebuggingJsonTypes[1],
 )
 
 def _impl(ctx: "context") -> ["provider"]:
-    json_type = _FocusedDebuggingJsonType(ctx.attrs.json_type)
+    json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
     # process inputs and provide them up the graph with typing
     include_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.include_build_target_patterns]
@@ -43,22 +43,22 @@ def _impl(ctx: "context") -> ["provider"]:
     exclude_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.exclude_build_target_patterns]
     exclude_regular_expressions = [experimental_regex(expression) for expression in ctx.attrs.exclude_regular_expressions]
 
-    scrubber = ctx.attrs._apple_tools[AppleToolsInfo].focused_debugging_scrubber
+    scrubber = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_scrubber
 
     cmd = cmd_args(scrubber)
-    if json_type == _FocusedDebuggingJsonType("targets"):
+    if json_type == _SelectiveDebuggingJsonType("targets"):
         # If a targets json file is not provided, write an empty json file:
         targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets_json.txt", {"targets": []})
         cmd.add("--targets-file")
         cmd.add(targets_json_file)
-    elif json_type == _FocusedDebuggingJsonType("spec"):
+    elif json_type == _SelectiveDebuggingJsonType("spec"):
         json_data = {
             "exclude_build_target_patterns": ctx.attrs.exclude_build_target_patterns,
             "exclude_regular_expressions": ctx.attrs.exclude_regular_expressions,
             "include_build_target_patterns": ctx.attrs.include_build_target_patterns,
             "include_regular_expressions": ctx.attrs.include_regular_expressions,
         }
-        spec_file = ctx.actions.write_json("focused_debugging_spec.json", json_data)
+        spec_file = ctx.actions.write_json("selective_debugging_spec.json", json_data)
         cmd.add("--spec-file")
         cmd.add(spec_file)
     else:
@@ -74,7 +74,7 @@ def _impl(ctx: "context") -> ["provider"]:
 
     return [
         DefaultInfo(),
-        AppleFocusedDebuggingInfo(
+        AppleSelectiveDebuggingInfo(
             scrub_binary = scrub_binary,
             include_build_target_patterns = include_build_target_patterns,
             include_regular_expressions = include_regular_expressions,
@@ -84,28 +84,28 @@ def _impl(ctx: "context") -> ["provider"]:
     ]
 
 registration_spec = RuleRegistrationSpec(
-    name = "apple_focused_debugging",
+    name = "apple_selective_debugging",
     impl = _impl,
     attrs = {
         "exclude_build_target_patterns": attrs.list(attrs.string(), default = []),
         "exclude_regular_expressions": attrs.list(attrs.string(), default = []),
         "include_build_target_patterns": attrs.list(attrs.string(), default = []),
         "include_regular_expressions": attrs.list(attrs.string(), default = []),
-        "json_type": attrs.enum(_FocusedDebuggingJsonTypes),
+        "json_type": attrs.enum(_SelectiveDebuggingJsonTypes),
         "targets_json_file": attrs.option(attrs.source(), default = None),
         "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
     },
 )
 
-def filter_debug_info(debug_info: "transitive_set_iterator", focused_debugging_info: AppleFocusedDebuggingInfo.type) -> ["artifact"]:
+def filter_debug_info(debug_info: "transitive_set_iterator", selective_debugging_info: AppleSelectiveDebuggingInfo.type) -> ["artifact"]:
     selected_debug_info = []
     for info in debug_info:
-        if focused_debugging_info.include_build_target_patterns or focused_debugging_info.include_regular_expressions:
-            is_included = _check_if_label_matches_patterns_or_expressions(info.label, focused_debugging_info.include_build_target_patterns, focused_debugging_info.include_regular_expressions)
+        if selective_debugging_info.include_build_target_patterns or selective_debugging_info.include_regular_expressions:
+            is_included = _check_if_label_matches_patterns_or_expressions(info.label, selective_debugging_info.include_build_target_patterns, selective_debugging_info.include_regular_expressions)
         else:
             is_included = True
 
-        if is_included and not _check_if_label_matches_patterns_or_expressions(info.label, focused_debugging_info.exclude_build_target_patterns, focused_debugging_info.exclude_regular_expressions):
+        if is_included and not _check_if_label_matches_patterns_or_expressions(info.label, selective_debugging_info.exclude_build_target_patterns, selective_debugging_info.exclude_regular_expressions):
             selected_debug_info.extend(info.artifacts)
     return selected_debug_info
 

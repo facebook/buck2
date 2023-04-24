@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple/user:apple_focused_debugging.bzl", _apple_focused_debugging_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
+load("@prelude//apple/user:apple_selective_debugging.bzl", _apple_selective_debugging_spec = "registration_spec")
 load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_override_spec = "registration_spec")
 load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
@@ -18,7 +18,7 @@ load(":extract_archive.bzl", _extract_archive_spec = "registration_spec")
 _all_specs = [
     _extract_archive_spec,
     _apple_tools_spec,
-    _apple_focused_debugging_spec,
+    _apple_selective_debugging_spec,
     _apple_resource_bundle_spec,
     _link_group_map_spec,
     _resource_group_map_spec,
