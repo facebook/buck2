@@ -61,7 +61,7 @@ pub(crate) fn docs_golden_test(test_name: &str, doc: DocItem) -> String {
     let manifest_dir =
         env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` variable must be set");
 
-    let golden_file_name = format!("{manifest_dir}/src/tests/docs/golden/{test_name}.golden");
+    let golden_file_name = format!("{manifest_dir}/src/tests/docs/golden/{test_name}.golden.md");
 
     let actual = make_golden(doc);
     if env::var(REGENERATE_VAR_NAME).is_ok() {
