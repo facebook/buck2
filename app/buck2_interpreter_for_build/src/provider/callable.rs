@@ -40,7 +40,7 @@ pub trait ProviderCallableLike {
     fn provider_callable_documentation(
         &self,
         docs: &Option<DocString>,
-        fields: &[String],
+        fields: &[&str],
         field_docs: &[Option<DocString>],
         field_types: &[Option<DocType>],
     ) -> Option<DocItem> {
@@ -50,7 +50,7 @@ pub trait ProviderCallableLike {
                     docs: docs.clone(),
                     typ: return_type.clone(),
                 });
-                (name.to_owned(), prop)
+                ((*name).to_owned(), prop)
             })
             .collect();
         Some(DocItem::Object(DocObject {

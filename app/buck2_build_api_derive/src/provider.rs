@@ -233,7 +233,7 @@ impl ProviderCodegen {
             fn documentation(&self) -> Option<starlark::docs::DocItem> {
                 let docstring = #provider_docstring;
                 let field_names = [
-                    #(#field_names.to_owned()),*
+                    #(#field_names),*
                 ];
                 let field_docs = [
                     #(#field_docstrings),*

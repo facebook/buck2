@@ -260,7 +260,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
             &self.docs,
-            &self.fields.iter().cloned().collect::<Vec<String>>(),
+            &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,
             &return_types,
         )
@@ -352,7 +352,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
             &self.docs,
-            &self.fields.iter().cloned().collect::<Vec<String>>(),
+            &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,
             &return_types,
         )
