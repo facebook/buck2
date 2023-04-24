@@ -27,6 +27,7 @@ use syn::Visibility;
 
 use crate::module::parse::ModuleKind;
 use crate::module::util::is_type_name;
+use crate::module::util::unpack_option;
 
 #[derive(Debug)]
 pub(crate) struct StarModule {
@@ -223,6 +224,11 @@ pub(crate) enum StarFunSource {
 impl StarArg {
     pub fn is_option(&self) -> bool {
         is_type_name(&self.ty, "Option")
+    }
+
+    /// Remove the `Option` if it exists, otherwise return the real type.
+    pub fn without_option(&self) -> &Type {
+        unpack_option(&self.ty).unwrap_or(&self.ty)
     }
 
     pub fn is_value(&self) -> bool {
