@@ -17,8 +17,11 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[starlark_module]
 pub fn register_module_natives(globals: &mut GlobalsBuilder) {
-    /// This should be called "target exists", not "rule exists"
-    /// (if this should exist at all).
+    /// Check if the target with `name` has already been defined,
+    /// returns `True` if it has.
+    ///
+    /// Note that this function checks for the existence of a _target_ rather than a _rule_.
+    /// In general use of this function is discouraged, as it makes definitions of rules not compose.
     fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
         Ok(ModuleInternals::from_context(eval, "rule_exists")?.target_exists(name))
     }

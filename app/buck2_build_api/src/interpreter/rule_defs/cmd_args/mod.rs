@@ -122,6 +122,17 @@ impl ValueAsFrozenCommandLineLike for FrozenValue {
 #[starlark_module]
 pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     #[starlark(type = "cmd_args")]
+    /// The `cmd_args` type is created by this function and is consumed by `ctx.actions.run`.
+    /// The type is a mutable collection of strings and artifact values.
+    /// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.
+    ///
+    /// The arguments are:
+    ///
+    /// * `*args` - a list of things to add to the command line, each of which must be coercible to a command line. Further items can be added with `cmd.add`.
+    /// * `format` - a string that provides a format to apply to the argument. for example, `cmd_args(x, format="--args={}")` would prepend `--args=` before `x`, or if `x` was a list, before each element in `x`.
+    /// * `delimiter` - added between arguments to join them together. For example, `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
+    /// * `prepend` - added as a separate argument before each argument.
+    /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
     fn cmd_args<'v>(
         #[starlark(args)] args: Vec<Value<'v>>,
         delimiter: Option<StringValue<'v>>,

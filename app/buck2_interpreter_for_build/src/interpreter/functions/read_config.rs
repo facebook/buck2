@@ -19,6 +19,26 @@ use crate::interpreter::build_context::BuildContext;
 
 #[starlark_module]
 pub fn register_read_config(globals: &mut GlobalsBuilder) {
+    /// Read a configuration from the nearest enclosing `.buckconfig`
+    /// of the `BUCK` file that started evaluation of this code.
+    ///
+    /// As an example, if you have a `.buckconfig` of:
+    ///
+    /// ```toml
+    /// [package_options]
+    /// compile = super_fast
+    /// ```
+    ///
+    /// Then you would get the following results:
+    ///
+    /// ```python
+    /// read_config("package_options", "compile") == "super_fast"
+    /// read_config("package_options", "linker") == None
+    /// read_config("package_options", "linker", "a_default") == "a_default"
+    /// ```
+    ///
+    /// In general the use of `.buckconfig` is discouraged in favour of `select`,
+    /// but it can still be useful.
     #[starlark(speculative_exec_safe)]
     fn read_config<'v>(
         section: StringValue,
@@ -33,6 +53,8 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         }
     }
 
+    /// Like `read_root_config` but the project root `.buckconfig` is always consulted,
+    /// regardless of the cell of the originating `BUCK` file.
     #[starlark(speculative_exec_safe)]
     fn read_root_config<'v>(
         #[starlark(require = pos)] section: StringValue,
