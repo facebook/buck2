@@ -23,7 +23,6 @@ mod imp {
     use std::collections::HashSet;
     use std::future::Future;
     use std::io::Write;
-    use std::path::Path;
     use std::sync::atomic::AtomicU64;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
@@ -85,6 +84,7 @@ mod imp {
         cache_upload_count: u64,
         cache_upload_attempt_count: u64,
         resolved_target_patterns: Option<buck2_data::ResolvedTargetPatterns>,
+        #[allow(dead_code)]
         invocation_root_path: AbsNormPathBuf,
         filesystem: Option<String>,
         watchman_version: Option<String>,
@@ -450,9 +450,9 @@ mod imp {
                     _ => 0,
                 };
             self.command_end = Some(command);
-            let root = Path::to_owned(self.invocation_root_path.as_ref());
             #[cfg(any(fbcode_build, cargo_internal_build))]
             {
+                let root = std::path::Path::to_owned(self.invocation_root_path.as_ref());
                 if detect_eden::is_eden(root).unwrap_or(false) {
                     self.filesystem = Some("eden".to_owned());
                 } else {

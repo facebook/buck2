@@ -31,7 +31,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -643,6 +642,7 @@ impl DaemonState {
     async fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
+            use buck2_core::soft_error;
             use fsinfo::FsType;
 
             let project_root = self.paths.project_root().root().to_path_buf();

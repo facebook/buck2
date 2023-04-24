@@ -157,6 +157,7 @@ impl BeforeSubcommandOptions {
     }
 }
 
+#[rustfmt::skip] // Formatting in internal and in OSS versions disagree after oss markers applied.
 fn help() -> &'static str {
     concat!(
         "A build system\n",
