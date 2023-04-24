@@ -5,6 +5,7 @@ name = "buck2_offline_archive"
 version = "0.1.0"
 
 [dependencies]
+anyhow = { workspace = true }
 serde = { workspace = true }
 
 buck2_core = { workspace = true }

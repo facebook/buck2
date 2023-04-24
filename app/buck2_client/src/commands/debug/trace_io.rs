@@ -27,7 +27,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_offline_archive::OfflineArchiveManifest;
-use tokio::process::Command;
+use buck2_offline_archive::RepositoryMetadata;
 
 /// Enable I/O tracing in the buck daemon so we keep track of which files
 /// go into a build.
@@ -51,27 +51,6 @@ enum Subcommand {
         #[clap(short, long, help = "Output path to write manifest to")]
         out: Option<PathBuf>,
     },
-}
-
-/// Fetch the current hg revision.
-async fn hg_revision() -> anyhow::Result<Option<String>> {
-    let result = Command::new("hg")
-        .arg("whereami")
-        .env("HGPLAIN", "1")
-        .output()
-        .await?;
-    if result.status.success() {
-        let out = String::from_utf8(result.stdout).context("hg stdout to string")?;
-        let out = out.trim();
-        if out.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(out.to_owned()))
-        }
-    } else {
-        let err = String::from_utf8(result.stderr).context("hg stderr to string")?;
-        Err(anyhow::anyhow!(err))
-    }
 }
 
 impl TraceIoCommand {
@@ -130,7 +109,8 @@ impl StreamingCommand for TraceIoCommand {
                         // Note: Safe because these are all ProjectRelativePath's on the daemon side.
                         .map(ProjectRelativePathBuf::unchecked_new)
                         .collect(),
-                    repo_revision: hg_revision().await.context("fetching hg revision")?,
+                    repository: RepositoryMetadata::from_cwd()
+                        .context("creating repository metadata")?,
                 };
                 let serialized = serde_json::to_string(&manifest)
                     .context("serializing offline archive manifest to json")?;

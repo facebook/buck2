@@ -6,6 +6,7 @@ rust_library(
     name = "buck2_offline_archive",
     srcs = glob(["src/**/*.rs"]),
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde",
         "//buck2/app/buck2_core:buck2_core",
     ],
