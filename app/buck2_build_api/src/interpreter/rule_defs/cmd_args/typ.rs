@@ -515,11 +515,12 @@ fn cmd_args<'v>(x: Value<'v>) -> impl Deref<Target = StarlarkCommandLineDataGen<
 
 /// The `cmd_args` type is created by `cmd_args()` and is consumed by `ctx.actions.run`.
 /// The type is a mutable collection of strings and `artifact` values.
-/// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a ``cmd_args` value.
+/// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.
 /// All these methods operate mutably on `cmd` and return that value too.
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
-    /// A list of arguments to be added to the command line, as per `cmd_args`
+    /// A list of arguments to be added to the command line, which may including `cmd_args`, artifacts, strings, `RunInfo` or lists thereof.
+    /// Note that this operation mutates the input `cmd_args`.
     #[starlark(return_type = "cmd_args")]
     fn add<'v>(
         this: Value<'v>,
@@ -529,7 +530,11 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Things to add to the command line which do not show up but are added as dependencies
+    /// Things to add to the command line which do not show up but are added as dependencies.
+    /// The values can be anything normally permissible to pass to `add`.
+    ///
+    /// Typically used if the command you are running implicitly depends on files that are not
+    /// passed on the command line, e.g. headers in the case of a C compilation.
     #[starlark(return_type = "cmd_args")]
     fn hidden<'v>(
         this: Value<'v>,
@@ -539,19 +544,42 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Conceptually the opposite of `hidden()`. It causes none of the arguments of the command line to be added as dependencies.
-    /// Use this if you need the path to an artifact but not the artifact itself.
-    /// Note: if you do find yourself needing any of the inputs referenced by this command, you will hit build errors due to missing dependencies.
+    /// Causes this `cmd_args` to have no declared dependencies. Allows you to reference the path of an artifact _without_
+    /// introducing dependencies on it.
+    ///
+    /// As an example where this can be useful, consider passing a dependency that is only accessed at runtime, but whose path
+    /// must be baked into the binary. As an example:
+    ///
+    /// ```python
+    /// resources = cmd_args(resource_file, format = "-DFOO={}").ignore_artifacts()
+    /// ctx.actions.run(cmd_args("gcc", "-c", source_file, resources))
+    /// ```
+    ///
+    /// Note that `ignore_artifacts` sets all artifacts referenced by this `cmd_args` to be ignored, including those added afterwards,
+    /// so generally create a special `cmd_args` and scope it quite tightly.
+    ///
+    /// If you actually do use the inputs referenced by this command, you will either error out due to missing dependencies (if running actions remotely)
+    /// or have untracked dependencies that will fail to rebuild when it should.
     #[starlark(return_type = "cmd_args")]
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
         Ok(this)
     }
 
+    /// Make all artifact paths relative to a given location. Typically used when the command
+    /// you are running changes directory.
+    ///
+    /// ```python
+    /// dir = symlinked_dir(...)
+    /// script = [
+    ///     cmd_args(cmd_args(dir, format = "cd {}"),
+    ///     original_script.relative_to(dir)
+    /// ]
+    /// ```
     #[starlark(return_type = "cmd_args")]
     fn relative_to<'v>(
         this: Value<'v>,
-        directory: Value<'v>,
+        #[starlark(type = "[artifact.type, \"cell_root\"]")] directory: Value<'v>,
         #[starlark(default = 0i32)] parent: i32,
     ) -> anyhow::Result<Value<'v>> {
         if RelativeOrigin::from_value(directory).is_none() {
@@ -564,14 +592,24 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Adds a prefix to the end of every artifact
+    /// Adds a prefix to the end of start artifact. Often used if you have a `$ROOT` variable
+    /// in a shell script and want to use it to make files absolute.
+    ///
+    /// ```python
+    /// cmd_args(script).absolute_prefix("$ROOT/")
+    /// ```
     #[starlark(return_type = "cmd_args")]
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
     }
 
-    /// Adds a suffix to the front of every artifact
+    /// Adds a suffix to the end of every artifact. Useful in conjunction with `absolute_prefix` to wrap
+    /// artifacts in function calls.
+    ///
+    /// ```python
+    /// cmd_args(script).absolute_prefix("call(").absolute_suffix(")")
+    /// ```
     fn absolute_suffix<'v>(this: Value<'v>, suffix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_suffix = Some(suffix);
         Ok(this)
@@ -613,12 +651,15 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
         Ok(this)
     }
 
-    /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other
+    /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
+    /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
     fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLine<'v>> {
         Ok(StarlarkCommandLineGen(RefCell::new(cmd_args(this).clone())))
     }
 
     /// Collect all the inputs (including hidden) referenced by this command line.
+    /// The output can be compared for equality and have its `len` requested to see whether
+    /// there are any inputs, but is otherwise mostly opaque.
     #[starlark(attribute)]
     fn inputs<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
