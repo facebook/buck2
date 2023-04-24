@@ -322,7 +322,6 @@ impl<'v> BuckOutPathParser<'v> {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::collections::HashMap;
 
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::cells::cell_path::CellPath;
@@ -345,11 +344,10 @@ mod tests {
     fn get_parse_test_cell_resolver() -> anyhow::Result<CellResolver> {
         let cell_path = CellRootPath::new(ProjectRelativePath::new("foo/bar")?);
 
-        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[(
+        let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("bar"),
             cell_path.to_buf(),
-            HashMap::new(),
-        )]);
+        );
 
         Ok(cell_resolver)
     }

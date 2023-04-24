@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
@@ -71,11 +69,10 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     per_transaction_data.set_starlark_debugger_handle(None);
     let mut ctx = dice.updater_with_data(per_transaction_data);
 
-    let resolver = CellResolver::testing_with_names_and_paths_with_alias(&[(
+    let resolver = CellResolver::testing_with_name_and_path(
         CellName::testing_new("root"),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
-        HashMap::new(),
-    )]);
+    );
     let cell_configs = empty_configs(&resolver);
 
     ctx.set_cell_resolver(resolver.dupe()).unwrap();
