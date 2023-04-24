@@ -7,20 +7,21 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_common::file_ops::FileType;
-use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use chrono::DateTime;
 use chrono::Utc;
@@ -34,8 +35,8 @@ use tokio::sync::oneshot::Sender;
 use tracing::error;
 
 use crate::materializers::deferred::extension::ExtensionCommand;
-use crate::materializers::deferred::file_tree::DataTree;
 use crate::materializers::deferred::join_all_existing_futs;
+use crate::materializers::deferred::ArtifactMaterializationData;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DefaultIoHandler;
@@ -56,11 +57,11 @@ pub struct CleanStaleArtifacts {
 fn skip_clean_response_with_message(
     message: &str,
 ) -> anyhow::Result<(
-    Vec<BoxFuture<'static, anyhow::Result<()>>>,
+    BoxFuture<'static, anyhow::Result<()>>,
     buck2_cli_proto::CleanStaleResponse,
 )> {
     Ok((
-        vec![],
+        futures::future::ready(Ok(())).boxed(),
         buck2_cli_proto::CleanStaleResponse {
             message: Some(message.to_owned()),
             stats: None,
@@ -97,8 +98,8 @@ impl ExtensionCommand<DefaultIoHandler> for CleanStaleArtifacts {
             )
         };
         let fut = async move {
-            let (cleaning_futs, response) = res?;
-            futures::future::try_join_all(cleaning_futs).await?;
+            let (fut, response) = res?;
+            fut.await?;
             tracing::trace!("finished cleaning stale artifacts");
             Ok(response)
         }
@@ -125,43 +126,48 @@ fn gather_clean_futures_for_stale_artifacts(
     cancellations: &'static CancellationContext,
     dispatcher: &EventDispatcher,
 ) -> anyhow::Result<(
-    Vec<BoxFuture<'static, anyhow::Result<()>>>,
+    BoxFuture<'static, anyhow::Result<()>>,
     buck2_cli_proto::CleanStaleResponse,
 )> {
-    let gen_path = &io
+    let gen_path = io
         .buck_out_path
         .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
-    let gen_dir = io.fs.resolve(gen_path);
+    let gen_dir = io.fs.resolve(&gen_path);
     if !fs_util::try_exists(&gen_dir)? {
         return skip_clean_response_with_message("Nothing to clean");
     }
     tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
-    let mut stats = buck2_data::CleanStaleStats {
-        stale_artifact_count: 0,
-        stale_bytes: 0,
-        retained_artifact_count: 0,
-        retained_bytes: 0,
-        untracked_artifact_count: 0,
-        untracked_bytes: 0,
-        cleaned_artifact_count: 0,
-        cleaned_path_count: 0,
-        cleaned_bytes: 0,
-    };
-    let result = if tracked_only {
-        find_stale_tracked_only(tree, keep_since_time, &mut stats)?
+    let mut stats = buck2_data::CleanStaleStats::default();
+    let mut paths_to_remove = Vec::new();
+    let mut paths_to_invalidate = Vec::new();
+
+    if tracked_only {
+        find_stale_tracked_only(tree, keep_since_time, &mut stats, &mut paths_to_invalidate)?
     } else {
-        let subtree = tree
-            .get_subtree(&mut io.fs.relativize(&gen_dir)?.iter())
+        let gen_subtree = tree
+            .get_subtree(&mut gen_path.iter())
             .context("Found a file where gen dir expected")?;
-        find_stale_recursive(
-            &io.fs,
-            subtree,
-            &gen_dir,
-            keep_since_time,
-            &mut stats,
+
+        let empty;
+
+        let gen_subtree = match gen_subtree {
+            Some(t) => t,
+            None => {
+                empty = HashMap::new();
+                &empty
+            }
+        };
+
+        StaleFinder {
+            fs: &io.fs,
             dispatcher,
-        )?
+            keep_since_time,
+            stats: &mut stats,
+            paths_to_remove: &mut paths_to_remove,
+            paths_to_invalidate: &mut paths_to_invalidate,
+        }
+        .visit_recursively(gen_path, gen_subtree)?;
     };
 
     // If no stale or retained artifact founds, the db should be empty.
@@ -182,66 +188,45 @@ fn gather_clean_futures_for_stale_artifacts(
         }
     }
 
-    let mut cleaning_futs = Vec::new();
-    if !dry_run {
-        let paths_to_clean = result.paths();
-        stats.cleaned_path_count = paths_to_clean.len() as u64;
+    let fut = if dry_run {
+        futures::future::ready(Ok(())).boxed()
+    } else {
+        let io = io.dupe();
+
+        stats.cleaned_path_count = paths_to_remove.len() as u64;
         stats.cleaned_artifact_count = stats.stale_artifact_count + stats.untracked_artifact_count;
         stats.cleaned_bytes = stats.untracked_bytes + stats.stale_bytes;
 
-        for path in paths_to_clean {
-            let io = io.dupe();
+        let existing_futs =
+            tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
 
-            let existing_futs =
-                tree.invalidate_paths_and_collect_futures(vec![path.clone()], Some(sqlite_db))?;
+        async move {
+            // Wait for all in-progress operations to finish on the paths we are about to
+            // remove from disk.
+            join_all_existing_futs(existing_futs).await?;
 
-            cleaning_futs.push(
-                async move {
-                    join_all_existing_futs(existing_futs).await?;
-                    io.io_executor
-                        .execute_io(
-                            Box::new(CleanOutputPaths { paths: vec![path] }),
-                            cancellations,
-                        )
-                        .await?;
-                    anyhow::Ok(())
-                }
-                .boxed(),
-            );
+            // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
+            // do this to get parallelism.
+            futures::future::try_join_all(paths_to_remove.into_iter().map(|path| {
+                io.io_executor.execute_io(
+                    Box::new(CleanOutputPaths { paths: vec![path] }),
+                    cancellations,
+                )
+            }))
+            .await?;
+
+            anyhow::Ok(())
         }
-    }
+        .boxed()
+    };
 
     Ok((
-        cleaning_futs,
+        fut,
         buck2_cli_proto::CleanStaleResponse {
             message: None,
             stats: Some(stats),
         },
     ))
-}
-
-enum StaleFinderResult {
-    CleanPath(ProjectRelativePathBuf),
-    CleanChildren(Vec<ProjectRelativePathBuf>),
-    CleanNone,
-}
-
-impl StaleFinderResult {
-    fn clean_all(&self) -> bool {
-        if let StaleFinderResult::CleanPath(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn paths(self) -> Vec<ProjectRelativePathBuf> {
-        match self {
-            StaleFinderResult::CleanPath(path) => vec![path],
-            StaleFinderResult::CleanChildren(paths) => paths,
-            StaleFinderResult::CleanNone => Vec::new(),
-        }
-    }
 }
 
 /// Get file size or directory size, without following symlinks
@@ -257,90 +242,119 @@ pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
     Ok(result)
 }
 
-fn find_stale_recursive(
-    fs: &ProjectRoot,
-    subtree: Option<&ArtifactTree>,
-    path: &AbsNormPath,
+struct StaleFinder<'a> {
+    fs: &'a ProjectRoot,
+    dispatcher: &'a EventDispatcher,
     keep_since_time: DateTime<Utc>,
-    stats: &mut buck2_data::CleanStaleStats,
-    dispatcher: &EventDispatcher,
-) -> anyhow::Result<StaleFinderResult> {
-    // Use symlink_metadata to not follow symlinks (stale/untracked symlink target may have been cleaned first)
-    let file_type = FileType::from(path.symlink_metadata()?.file_type());
-    let rel_path = fs.relativize(&path)?;
+    stats: &'a mut buck2_data::CleanStaleStats,
+    /// Those paths will be deleted on disk.
+    paths_to_remove: &'a mut Vec<ProjectRelativePathBuf>,
+    /// Those paths will be invalidated in the materiaizer.
+    paths_to_invalidate: &'a mut Vec<ProjectRelativePathBuf>,
+}
 
-    let clean_untracked = |stats: &mut buck2_data::CleanStaleStats| {
-        stats.untracked_artifact_count += 1;
-        stats.untracked_bytes += get_size(path)?;
-        tracing::trace!(path = %path, file_type = ?file_type, "marking as untracked");
-        // Avoid excessive logging if all or most files are untracked
-        if stats.untracked_artifact_count <= 2000 {
-            dispatcher.instant_event(buck2_data::UntrackedFile {
-                path: format!("{}", rel_path),
-                file_type: format!("{:?}", file_type),
-            });
+impl<'a> StaleFinder<'a> {
+    /// Start from `path` and `subtree` and visit everything below.
+    fn visit_recursively<'t>(
+        &mut self,
+        path: ProjectRelativePathBuf,
+        subtree: &'t HashMap<FileNameBuf, ArtifactTree>,
+    ) -> anyhow::Result<()> {
+        let mut queue = vec![(path, subtree)];
+
+        while let Some((path, tree)) = queue.pop() {
+            self.visit(&path, tree, &mut queue)?;
         }
-        Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
-    };
 
-    if let Some(DataTree::Data(tree_metadata)) = subtree {
-        if let ArtifactMaterializationStage::Materialized {
-            last_access_time,
-            active,
-            metadata,
-        } = &tree_metadata.stage
-        {
-            let size = match &metadata.0 {
-                DirectoryEntry::Dir(dir) => dir.total_size,
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                    file_metadata.digest.size()
+        Ok(())
+    }
+
+    /// Visit one directory.
+    fn visit<'t>(
+        &mut self,
+        path: &ProjectRelativePath,
+        subtree: &'t HashMap<FileNameBuf, ArtifactTree>,
+        queue: &mut Vec<(
+            ProjectRelativePathBuf,
+            &'t HashMap<FileNameBuf, ArtifactTree>,
+        )>,
+    ) -> anyhow::Result<()> {
+        let abs_path = self.fs.resolve(path);
+
+        for child in fs_util::read_dir(&abs_path)? {
+            let child = child?;
+
+            let file_name = child.file_name();
+            let file_name = file_name.to_str().and_then(|f| FileName::new(f).ok());
+
+            let file_name = match file_name {
+                Some(file_name) => file_name,
+                None => {
+                    // If the file name is invalid, then it can't be tracked by the materializer.
+                    // We should ideally delete this, but currently we don't support doing that.
+                    continue;
                 }
-                DirectoryEntry::Leaf(_) => 0,
             };
-            if last_access_time < &keep_since_time && !active {
-                stats.stale_artifact_count += 1;
-                stats.stale_bytes += size;
-                tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
-                Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
-            } else {
-                stats.retained_artifact_count += 1;
-                stats.retained_bytes += size;
-                tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
-                Ok(StaleFinderResult::CleanNone)
-            }
-        } else {
-            // Artifact was declared but never materialized, should not be a file here.
-            clean_untracked(stats)
-        }
-    } else if file_type.is_dir() {
-        let children = subtree.and_then(|t| t.children());
-        let mut children_to_clean = Vec::new();
-        let mut clean_dir = true;
-        for file in fs_util::read_dir(path)? {
-            let child_path = file?.path();
-            // If a file or dir exists here but the name not valid utf-8 it must be untracked.
-            // Make subtree None to mark it untracked instead of throwing an error.
-            let file_name = child_path
-                .file_name()
-                .and_then(|f| f.to_str())
-                .and_then(|f| FileName::new(f).ok());
-            let subtree = children.and_then(|c| file_name.and_then(|f| c.get(f)));
-            let child_result =
-                find_stale_recursive(fs, subtree, &child_path, keep_since_time, stats, dispatcher)?;
 
-            if !child_result.clean_all() {
-                clean_dir = false;
+            let path = path.join(file_name);
+
+            let file_type = FileType::from(child.file_type()?);
+
+            let subtree = match subtree.get(file_name) {
+                Some(subtree) => subtree,
+                None => {
+                    // This path is not tracked by the materializer, we can delete it.
+                    tracing::trace!(path = %path, file_type = ?file_type, "marking as untracked");
+                    self.stats.untracked_artifact_count += 1;
+                    self.stats.untracked_bytes += get_size(&child.path())?;
+                    if self.stats.untracked_artifact_count <= 2000 {
+                        self.dispatcher.instant_event(buck2_data::UntrackedFile {
+                            path: path.to_string(),
+                            file_type: format!("{:?}", file_type),
+                        });
+                    }
+                    self.paths_to_remove.push(path);
+                    continue;
+                }
+            };
+
+            match subtree {
+                ArtifactTree::Tree(subtree) if file_type.is_dir() => {
+                    queue.push((path, subtree));
+                }
+                ArtifactTree::Data(box ArtifactMaterializationData {
+                    stage:
+                        ArtifactMaterializationStage::Materialized {
+                            active: false,
+                            last_access_time,
+                            metadata,
+                        },
+                    ..
+                }) if *last_access_time < self.keep_since_time => {
+                    // This is something we can invalidate.
+                    tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
+                    self.stats.stale_artifact_count += 1;
+                    self.stats.stale_bytes += metadata.size();
+                    self.paths_to_invalidate.push(path.clone());
+                    self.paths_to_remove.push(path);
+                }
+                ArtifactTree::Data(box ArtifactMaterializationData {
+                    stage: ArtifactMaterializationStage::Materialized { metadata, .. },
+                    ..
+                }) => {
+                    tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
+                    self.stats.retained_artifact_count += 1;
+                    self.stats.retained_bytes += metadata.size();
+                }
+                _ => {
+                    // What we have on disk does not match what we have in the materializer (which is
+                    // not clean stale's problem to fix).
+                    tracing::trace!(path = %path, file_type = ?file_type, "skipping");
+                }
             }
-            children_to_clean.extend(child_result.paths());
         }
-        // If all children should be cleaned, remove this dir instead
-        if clean_dir {
-            Ok(StaleFinderResult::CleanPath(rel_path.clone().into_owned()))
-        } else {
-            Ok(StaleFinderResult::CleanChildren(children_to_clean))
-        }
-    } else {
-        clean_untracked(stats)
+
+        Ok(())
     }
 }
 
@@ -348,8 +362,8 @@ fn find_stale_tracked_only(
     tree: &ArtifactTree,
     keep_since_time: DateTime<Utc>,
     stats: &mut buck2_data::CleanStaleStats,
-) -> anyhow::Result<StaleFinderResult> {
-    let mut paths_to_clean = Vec::new();
+    paths_to_invalidate: &mut Vec<ProjectRelativePathBuf>,
+) -> anyhow::Result<()> {
     for (f_path, v) in tree.iter_with_paths() {
         if let ArtifactMaterializationStage::Materialized {
             last_access_time,
@@ -361,12 +375,12 @@ fn find_stale_tracked_only(
             if *last_access_time < keep_since_time && !active {
                 tracing::trace!(path = %path, "stale artifact");
                 stats.stale_artifact_count += 1;
-                paths_to_clean.push(path);
+                paths_to_invalidate.push(path);
             } else {
                 tracing::trace!(path = %path, "retaining artifact");
                 stats.retained_artifact_count += 1;
             }
         }
     }
-    Ok(StaleFinderResult::CleanChildren(paths_to_clean))
+    Ok(())
 }

@@ -534,6 +534,16 @@ impl ArtifactMetadata {
         };
         Self(new_entry)
     }
+
+    fn size(&self) -> u64 {
+        match &self.0 {
+            DirectoryEntry::Dir(dir) => dir.total_size,
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
+                file_metadata.digest.size()
+            }
+            DirectoryEntry::Leaf(_) => 0,
+        }
+    }
 }
 
 enum ArtifactMaterializationStage {
