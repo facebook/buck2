@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote_spanned;
+use syn::Expr;
 
 use crate::module::render::fun::render_fun;
 use crate::module::typ::SpecialParam;
@@ -212,7 +213,7 @@ pub(crate) fn render_starlark_type(
     span: proc_macro2::Span,
     typ: &syn::Type,
     // If the user supplied a Starlark version of the string, pass it along
-    starlark_type: &Option<String>,
+    starlark_type: &Option<Expr>,
 ) -> TokenStream {
     match starlark_type {
         None => {
@@ -228,7 +229,7 @@ pub(crate) fn render_starlark_type(
             }
         }
         Some(t) => {
-            quote_spanned! {span=> #t.to_owned()}
+            quote_spanned! {span=> (#t).to_owned()}
         }
     }
 }
@@ -236,7 +237,7 @@ pub(crate) fn render_starlark_type(
 pub(crate) fn render_starlark_return_type(
     fun: &StarFun,
     // If the user supplied a Starlark version of the string, pass it along
-    starlark_type: &Option<String>,
+    starlark_type: &Option<Expr>,
 ) -> TokenStream {
     match starlark_type {
         None => {
@@ -246,7 +247,7 @@ pub(crate) fn render_starlark_return_type(
             }
         }
         Some(t) => {
-            quote_spanned! {fun.span()=> #t.to_owned()}
+            quote_spanned! {fun.span()=> (#t).to_owned()}
         }
     }
 }

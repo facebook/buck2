@@ -28,7 +28,6 @@ use syn::GenericParam;
 use syn::Generics;
 use syn::ItemFn;
 use syn::Lifetime;
-use syn::LitStr;
 use syn::Pat;
 use syn::PatType;
 use syn::PathArguments;
@@ -54,7 +53,7 @@ use crate::module::typ::StarStmt;
 struct FnAttrs {
     is_attribute: bool,
     type_attribute: Option<Expr>,
-    starlark_return_type: Option<String>,
+    starlark_return_type: Option<Expr>,
     speculative_exec_safe: bool,
     docstring: Option<String>,
     /// Rest attributes
@@ -69,7 +68,7 @@ struct FnParamAttrs {
     named_only: bool,
     args: bool,
     kwargs: bool,
-    starlark_type: Option<String>,
+    starlark_type: Option<Expr>,
     unused_attrs: Vec<Attribute>,
 }
 
@@ -93,7 +92,7 @@ fn parse_starlark_fn_param_attr(
 
             if parser.parse::<Token![type]>().is_ok() {
                 parser.parse::<Token![=]>()?;
-                param_attrs.starlark_type = Some(parser.parse::<LitStr>()?.value());
+                param_attrs.starlark_type = Some(parser.parse::<Expr>()?);
                 continue;
             } else {
                 let ident = parser.parse::<Ident>()?;
@@ -179,7 +178,7 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
                     continue;
                 } else if ident == "return_type" {
                     parser.parse::<Token![=]>()?;
-                    attrs.starlark_return_type = Some(parser.parse::<LitStr>()?.value());
+                    attrs.starlark_return_type = Some(parser.parse::<Expr>()?);
                     continue;
                 }
                 return Err(syn::Error::new(
