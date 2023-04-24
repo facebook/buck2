@@ -42,6 +42,11 @@ impl CellRootPath {
     pub fn to_buf(&self) -> CellRootPathBuf {
         CellRootPathBuf(self.0.to_buf())
     }
+
+    #[inline]
+    pub fn is_repo_root(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl Deref for CellRootPath {

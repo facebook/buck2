@@ -182,6 +182,11 @@ impl ProjectRelativePath {
         &self.0
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Creates an owned 'ProjectRelativePathBuf' with path adjoined to self.
     ///
     /// ```

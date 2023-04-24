@@ -39,6 +39,15 @@ use crate::legacy_configs::LegacyBuckConfigs;
 use crate::legacy_configs::LegacyConfigCmdArg;
 use crate::legacy_configs::MainConfigFile;
 
+#[derive(Debug, thiserror::Error)]
+enum CellsError {
+    #[error(
+        "Repository root buckconfig must have `[repositories]` section with a pointer to itself \
+        like `root = .` which defines the root cell name"
+    )]
+    MissingRootCellName,
+}
+
 /// Used for creating a CellResolver in a buckv1-compatible way based on values
 /// in .buckconfig in each cell.
 ///
@@ -290,8 +299,16 @@ impl BuckConfigBasedCells {
                 options.follow_includes,
             )?;
 
-            if let Some(repositories) = config.get_section("repositories") {
+            let is_root = path.is_repo_root();
+
+            let repositories = config.get_section("repositories");
+            if let Some(repositories) = repositories {
+                let mut seen_dot = false;
                 for (alias, alias_path) in repositories.iter() {
+                    if alias_path.as_str() == "." {
+                        seen_dot = true;
+                    }
+
                     let alias_path = CellRootPathBuf::new(path
                         .join_normalized(RelativePath::new(alias_path.as_str()))
                         .with_context(|| {
@@ -303,12 +320,18 @@ impl BuckConfigBasedCells {
                             )
                         })?);
                     let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                    if path.as_str() == "" {
+                    if is_root {
                         root_aliases.insert(alias.clone(), alias_path.clone());
                     }
                     cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
                     work.push(alias_path);
                 }
+
+                if is_root && !seen_dot {
+                    return Err(CellsError::MissingRootCellName.into());
+                }
+            } else if is_root {
+                return Err(CellsError::MissingRootCellName.into());
             }
 
             if let Some(aliases) = config.get_section("repository_aliases") {
