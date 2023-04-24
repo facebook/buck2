@@ -219,7 +219,6 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 
     /// Parse a TargetPattern, but where there there is no relative directory.
-    /// Generally, not a good thing to do - should aim to remove most of these.
     pub fn parse_precise(cell_resolver: &CellAliasResolver, pattern: &str) -> anyhow::Result<Self> {
         parse_target_pattern(
             cell_resolver,
