@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -69,7 +70,7 @@ impl<'v> BxlActionsCtx<'v> {
 }
 
 impl<'v> StarlarkValue<'v> for BxlActionsCtx<'v> {
-    starlark_type!("bxl_actions");
+    starlark_type!("bxl_actions_ctx");
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -127,5 +128,43 @@ fn register_context(builder: &mut MethodsBuilder) {
         }
 
         Ok(this.ctx.as_ref().state.to_value())
+    }
+}
+
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Display,
+    Trace,
+    NoSerialize,
+    StarlarkDocs,
+    Allocative
+)]
+#[starlark_docs(directory = "bxl")]
+#[derivative(Debug)]
+#[display(fmt = "{:?}", self)]
+pub(crate) struct BxlActions<'v> {
+    actions: ValueTyped<'v, AnalysisActions<'v>>,
+}
+
+impl<'v> StarlarkValue<'v> for BxlActions<'v> {
+    starlark_type!("bxl_actions");
+}
+
+impl<'v> AllocValue<'v> for BxlActions<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+impl<'v> StarlarkTypeRepr for &'v BxlActions<'v> {
+    fn starlark_type_repr() -> String {
+        BxlActions::get_type_value_static().as_str().to_owned()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v BxlActions<'v> {
+    fn unpack_value(x: Value<'v>) -> Option<&'v BxlActions<'v>> {
+        x.downcast_ref()
     }
 }
