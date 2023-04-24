@@ -900,7 +900,7 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
-    use crate::cells::alias::CellAlias;
+    use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
     use crate::is_open_source;
@@ -1006,8 +1006,8 @@ mod tests {
 
     fn resolver() -> CellAliasResolver {
         let m = hashmap![
-            CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
-            CellAlias::new("alias2".to_owned()) => CellName::testing_new("cell2"),
+            NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
+            NonEmptyCellAlias::new("alias2".to_owned()).unwrap() => CellName::testing_new("cell2"),
         ];
         CellAliasResolver::new(CellName::testing_new("root"), Arc::new(m)).expect("valid resolver")
     }

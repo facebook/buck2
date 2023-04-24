@@ -325,7 +325,7 @@ mod tests {
     use std::collections::HashMap;
 
     use buck2_build_api::bxl::types::BxlFunctionLabel;
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
@@ -349,7 +349,7 @@ mod tests {
 
         let mut cell_alias_map = HashMap::new();
         cell_alias_map.insert(
-            CellAlias::new("bar".to_owned()),
+            NonEmptyCellAlias::new("bar".to_owned()).unwrap(),
             CellName::testing_new("bar"),
         );
 

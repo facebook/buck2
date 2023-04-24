@@ -155,7 +155,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAliasResolver;
 
@@ -164,11 +164,11 @@ mod tests {
     fn resolver() -> CellAliasResolver {
         let mut m = HashMap::new();
         m.insert(
-            CellAlias::new("cell1".to_owned()),
+            NonEmptyCellAlias::new("cell1".to_owned()).unwrap(),
             CellName::testing_new("cell1"),
         );
         m.insert(
-            CellAlias::new("alias2".to_owned()),
+            NonEmptyCellAlias::new("alias2".to_owned()).unwrap(),
             CellName::testing_new("cell2"),
         );
         CellAliasResolver::new(CellName::testing_new("root"), Arc::new(m)).expect("valid resolver")

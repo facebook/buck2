@@ -124,7 +124,7 @@ mod tests {
     use std::marker::PhantomData;
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -170,7 +170,7 @@ mod tests {
                             CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
                                 (*path).to_owned(),
                             )?),
-                            CellAlias::new((*alias).to_owned()),
+                            NonEmptyCellAlias::new((*alias).to_owned())?,
                             CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
                                 (*alias_path).to_owned(),
                             )?),

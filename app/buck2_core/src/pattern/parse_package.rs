@@ -42,7 +42,7 @@ pub fn parse_package(
 mod tests {
     use std::sync::Arc;
 
-    use crate::cells::alias::CellAlias;
+    use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::name::CellName;
     use crate::cells::CellAliasResolver;
     use crate::pattern::parse_package::parse_package;
@@ -55,7 +55,7 @@ mod tests {
                 CellName::testing_new("oof"),
                 Arc::new(
                     [(
-                        CellAlias::new("foo".to_owned()),
+                        NonEmptyCellAlias::new("foo".to_owned()).unwrap(),
                         CellName::testing_new("oof"),
                     )]
                     .into_iter()

@@ -50,7 +50,7 @@ fn parse_cell_path_as_file_expr_literal(
 ) -> anyhow::Result<Option<CellPath>> {
     Ok(match maybe_split_cell_alias_and_relative_path(val)? {
         Some((alias, path)) => {
-            let cell_name = cell_alias_resolver.resolve(&alias)?;
+            let cell_name = cell_alias_resolver.resolve(alias.as_str())?;
 
             let cell_relative_path = CellRelativePath::new(path);
 
@@ -124,7 +124,7 @@ impl<'v> StarlarkTypeRepr for FileExpr<'v> {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAliasResolver;
     use maplit::hashmap;
@@ -136,9 +136,9 @@ mod tests {
         let cell1 = CellName::testing_new("cell1");
 
         let map = hashmap![
-            CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
-            CellAlias::new("cell2".to_owned()) => CellName::testing_new("cell2"),
-            CellAlias::new("cell3".to_owned()) => CellName::testing_new("cell3"),
+            NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
+            NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
+            NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
         ];
 
         let cell_alias_resolver = CellAliasResolver::new(cell1, Arc::new(map))?;

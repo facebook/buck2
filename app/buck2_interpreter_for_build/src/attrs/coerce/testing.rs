@@ -14,7 +14,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::alias::CellAlias;
+use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
@@ -66,7 +66,7 @@ pub fn coercion_ctx() -> impl AttrCoercionContext {
 pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
     let package = PackageLabel::testing();
     let aliases = hashmap![
-        CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
+        NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
     ];
 
     BuildAttrCoercionContext::new_with_package(

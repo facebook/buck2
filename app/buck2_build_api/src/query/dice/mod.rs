@@ -126,7 +126,7 @@ impl LiteralParser {
     fn parse_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
         match maybe_split_cell_alias_and_relative_path(literal)? {
             Some((alias, path)) => {
-                let cell_name = self.cell_alias_resolver.resolve(&alias)?;
+                let cell_name = self.cell_alias_resolver.resolve(alias.as_str())?;
 
                 let cell_relative_path = CellRelativePath::new(path);
 

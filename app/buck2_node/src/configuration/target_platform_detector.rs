@@ -121,7 +121,7 @@ impl TargetPlatformDetector {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
     use maplit::hashmap;
 
@@ -132,7 +132,7 @@ mod tests {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
             Arc::new(hashmap! {
-                CellAlias::new("alias1".to_owned()) => CellName::testing_new("cell1"),
+                NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
             }),
         )?;
 
@@ -176,7 +176,7 @@ mod tests {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
             Arc::new(hashmap! {
-                CellAlias::new("alias1".to_owned()) => CellName::testing_new("cell1"),
+                NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
             }),
         )?;
 

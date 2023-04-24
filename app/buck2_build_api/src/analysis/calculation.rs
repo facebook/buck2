@@ -469,7 +469,7 @@ mod tests {
     use buck2_common::package_listing::listing::PackageListing;
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::bzl::ImportPath;
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAliasResolver;
@@ -517,12 +517,12 @@ mod tests {
             let mut cells = CellsAggregator::new();
             cells.add_cell_entry(
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-                CellAlias::new("root".to_owned()),
+                NonEmptyCellAlias::new("root".to_owned()).unwrap(),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
             )?;
             cells.add_cell_entry(
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-                CellAlias::new("cell".to_owned()),
+                NonEmptyCellAlias::new("cell".to_owned()).unwrap(),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
             )?;
             cells.make_cell_resolver()?

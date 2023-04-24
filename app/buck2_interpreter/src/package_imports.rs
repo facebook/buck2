@@ -127,7 +127,7 @@ impl PackageImplicitImports {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::CellAlias;
+    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellAliasResolver;
     use dupe::Dupe;
@@ -143,7 +143,7 @@ mod tests {
                     .into_iter()
                     .map(|(alias, name)| {
                         (
-                            CellAlias::new(alias.to_owned()),
+                            NonEmptyCellAlias::new(alias.to_owned()).unwrap(),
                             CellName::testing_new(name),
                         )
                     })

@@ -11,6 +11,12 @@ use std::borrow::Borrow;
 
 use allocative::Allocative;
 
+#[derive(Debug, thiserror::Error)]
+enum CellAliasError {
+    #[error("Empty alias where non-empty is required")]
+    EmptyAlias,
+}
+
 /// A 'CellAlias' is a user-provided string name that maps to a 'CellName'.
 /// The mapping of 'CellAlias' to 'CellName' is specific to the current cell so
 /// that the same 'CellAlias' may map to different 'CellName's depending on what
@@ -40,6 +46,41 @@ impl CellAlias {
 }
 
 impl Borrow<str> for CellAlias {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Empty string is an alias for the current cell.
+/// This type does not permit it.
+#[derive(
+    derive_more::Display,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative
+)]
+pub struct NonEmptyCellAlias(String);
+
+impl NonEmptyCellAlias {
+    pub fn new(alias: String) -> anyhow::Result<NonEmptyCellAlias> {
+        if alias.is_empty() {
+            Err(CellAliasError::EmptyAlias.into())
+        } else {
+            Ok(NonEmptyCellAlias(alias))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Borrow<str> for NonEmptyCellAlias {
     fn borrow(&self) -> &str {
         &self.0
     }

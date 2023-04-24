@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::alias::CellAlias;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -106,10 +105,7 @@ impl AuditSubcommand for AuditCellCommand {
                                     alias.to_owned(),
                                     fs.resolve(
                                         cells
-                                            .get(
-                                                cell_alias_resolver
-                                                    .resolve(&CellAlias::new(alias.to_owned()))?,
-                                            )
+                                            .get(cell_alias_resolver.resolve(alias)?)
                                             .unwrap()
                                             .path()
                                             .as_project_relative_path(),

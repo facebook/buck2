@@ -17,7 +17,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::alias::CellAlias;
+use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
@@ -86,7 +86,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     let mut agg = CellsAggregator::new();
     agg.add_cell_entry(
         CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
-        CellAlias::new("root".to_owned()),
+        NonEmptyCellAlias::new("root".to_owned()).unwrap(),
         CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?),
     )?;
     let resolver = agg.make_cell_resolver()?;

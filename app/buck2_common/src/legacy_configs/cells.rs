@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use anyhow::Context;
-use buck2_core::cells::alias::CellAlias;
+use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
@@ -302,7 +302,7 @@ impl BuckConfigBasedCells {
                                 path
                             )
                         })?);
-                    let alias = CellAlias::new(alias.to_owned());
+                    let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                     if path.as_str() == "" {
                         root_aliases.insert(alias.clone(), alias_path.clone());
                     }
@@ -313,8 +313,8 @@ impl BuckConfigBasedCells {
 
             if let Some(aliases) = config.get_section("repository_aliases") {
                 for (alias, destination) in aliases.iter() {
-                    let alias = CellAlias::new(alias.to_owned());
-                    let destination = CellAlias::new(destination.as_str().to_owned());
+                    let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                    let destination = NonEmptyCellAlias::new(destination.as_str().to_owned())?;
                     let alias_path = cells_aggregator.add_cell_alias(
                         path.clone(),
                         alias.clone(),
@@ -383,7 +383,7 @@ impl BuckConfigBasedCells {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::cells::alias::CellAlias;
+
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
@@ -474,7 +474,7 @@ mod tests {
             "other",
             root_instance
                 .cell_alias_resolver()
-                .resolve(&CellAlias::new("other_alias".to_owned()))?
+                .resolve("other_alias")?
                 .as_str()
         );
 
@@ -482,7 +482,7 @@ mod tests {
             "other",
             tp_instance
                 .cell_alias_resolver()
-                .resolve(&CellAlias::new("other_alias".to_owned()))?
+                .resolve("other_alias")?
                 .as_str()
         );
 

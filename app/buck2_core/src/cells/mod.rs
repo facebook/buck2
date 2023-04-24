@@ -87,6 +87,7 @@
 //! use buck2_core::cells::alias::CellAlias;
 //! use buck2_core::cells::testing::CellResolverExt;
 //! use dupe::Dupe;
+//! use buck2_core::cells::alias::NonEmptyCellAlias;
 //!
 //! let cell_config = ForwardRelativePathBuf::try_from(".buckconfig".to_owned())?;
 //! let fbsource = ProjectRelativePath::new("")?;
@@ -94,12 +95,12 @@
 //!
 //! let cells = CellResolver::with_names_and_paths_with_alias(&[
 //!     (CellName::testing_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
-//!         CellAlias::new("fbsource".to_owned()) => CellName::testing_new("fbsource"),
-//!         CellAlias::new("fbcode".to_owned()) => CellName::testing_new("fbcode"),
+//!         NonEmptyCellAlias::new("fbsource".to_owned()).unwrap() => CellName::testing_new("fbsource"),
+//!         NonEmptyCellAlias::new("fbcode".to_owned()).unwrap() => CellName::testing_new("fbcode"),
 //!     ]),
 //!     (CellName::testing_new("fbcode"), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
-//!         CellAlias::new("fbcode".to_owned()) => CellName::testing_new("fbcode"),
-//!         CellAlias::new("fbsource".to_owned()) => CellName::testing_new("fbsource"),
+//!         NonEmptyCellAlias::new("fbcode".to_owned()).unwrap() => CellName::testing_new("fbcode"),
+//!         NonEmptyCellAlias::new("fbsource".to_owned()).unwrap() => CellName::testing_new("fbsource"),
 //!     ])
 //! ]);
 //!
@@ -137,11 +138,8 @@ pub mod paths;
 pub(crate) mod sequence_trie_allocative;
 pub mod unchecked_cell_rel_path;
 
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -156,6 +154,7 @@ use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
 use crate::cells::alias::CellAlias;
+use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPath;
@@ -174,21 +173,19 @@ use crate::package::PackageLabel;
 #[derive(Error, Debug)]
 enum CellError {
     #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
-    DuplicateAliases(CellAlias, CellRootPathBuf, CellRootPathBuf),
+    DuplicateAliases(NonEmptyCellAlias, CellRootPathBuf, CellRootPathBuf),
     #[error("Cell paths `{1}` and `{2}` had the same cell name `{0}`.")]
     DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
     #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
     UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().join(", "))]
-    UnknownCellAlias(CellAlias, CellName, Vec<CellAlias>),
-    #[error("cell aliases cannot contain empty alias")]
-    EmptyAlias,
+    UnknownCellAlias(CellAlias, CellName, Vec<NonEmptyCellAlias>),
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
     UnknownCellName(CellName, Vec<CellName>),
     #[error(
         "Cell name `{0}` should be an alias for an existing cell, but `{1}` isn't a known alias"
     )]
-    AliasOnlyCell(CellAlias, CellAlias),
+    AliasOnlyCell(NonEmptyCellAlias, NonEmptyCellAlias),
 }
 
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.
@@ -203,7 +200,7 @@ pub struct CellInstance(Arc<CellData>);
 pub struct CellAliasResolver {
     /// Current cell name.
     current: CellName,
-    aliases: Arc<HashMap<CellAlias, CellName>>,
+    aliases: Arc<HashMap<NonEmptyCellAlias, CellName>>,
 }
 
 impl CellAliasResolver {
@@ -211,27 +208,19 @@ impl CellAliasResolver {
     /// this will fail
     pub fn new(
         current: CellName,
-        aliases: Arc<HashMap<CellAlias, CellName>>,
+        aliases: Arc<HashMap<NonEmptyCellAlias, CellName>>,
     ) -> anyhow::Result<CellAliasResolver> {
-        if aliases.contains_key("") {
-            Err(anyhow::Error::new(CellError::EmptyAlias))
-        } else {
-            Ok(CellAliasResolver { current, aliases })
-        }
+        Ok(CellAliasResolver { current, aliases })
     }
 
     /// resolves a 'CellAlias' into its corresponding 'CellName'
-    pub fn resolve<T: ?Sized>(&self, alias: &T) -> anyhow::Result<CellName>
-    where
-        CellAlias: Borrow<T>,
-        T: Hash + Eq + Display,
-    {
-        if alias == CellAlias::new("".to_owned()).borrow() {
+    pub fn resolve(&self, alias: &str) -> anyhow::Result<CellName> {
+        if alias.is_empty() {
             return Ok(self.current);
         }
         self.aliases.get(alias).duped().ok_or_else(|| {
             anyhow::Error::new(CellError::UnknownCellAlias(
-                CellAlias::new(alias.to_string()),
+                CellAlias::new(alias.to_owned()),
                 self.current,
                 self.aliases.keys().cloned().collect(),
             ))
@@ -243,7 +232,7 @@ impl CellAliasResolver {
         self.current
     }
 
-    pub fn mappings(&self) -> impl Iterator<Item = (&CellAlias, CellName)> {
+    pub fn mappings(&self) -> impl Iterator<Item = (&NonEmptyCellAlias, CellName)> {
         self.aliases.iter().map(|(alias, name)| (alias, *name))
     }
 }
@@ -521,14 +510,18 @@ struct CellAggregatorInfo {
     /// so the root file can choose what the alias is called.
     name: Option<CellName>,
     /// All the aliases known by this cell.
-    alias_mapping: HashMap<CellAlias, CellRootPathBuf>,
+    alias_mapping: HashMap<NonEmptyCellAlias, CellRootPathBuf>,
     /// The build file name in this if it's been set. If it hasn't we'll use the
     /// default `["BUCK.v2", "BUCK"]` when building the resolver.
     buildfiles: Option<Vec<FileNameBuf>>,
 }
 
 impl CellAggregatorInfo {
-    fn add_alias_mapping(&mut self, from: CellAlias, to: CellRootPathBuf) -> anyhow::Result<()> {
+    fn add_alias_mapping(
+        &mut self,
+        from: NonEmptyCellAlias,
+        to: CellRootPathBuf,
+    ) -> anyhow::Result<()> {
         let old = self.alias_mapping.insert(from.clone(), to.clone());
         if let Some(old) = old {
             if old != to {
@@ -556,7 +549,7 @@ impl CellsAggregator {
     pub fn add_cell_entry(
         &mut self,
         cell_root: CellRootPathBuf,
-        parsed_alias: CellAlias,
+        parsed_alias: NonEmptyCellAlias,
         alias_path: CellRootPathBuf,
     ) -> anyhow::Result<()> {
         let name = &mut self.cell_info(alias_path.clone()).name;
@@ -571,8 +564,8 @@ impl CellsAggregator {
     pub fn add_cell_alias(
         &mut self,
         cell_root: CellRootPathBuf,
-        parsed_alias: CellAlias,
-        alias_destination: CellAlias,
+        parsed_alias: NonEmptyCellAlias,
+        alias_destination: NonEmptyCellAlias,
     ) -> anyhow::Result<CellRootPathBuf> {
         let cell_info = self.cell_info(cell_root);
         let alias_path = match cell_info.alias_mapping.get(&alias_destination) {
@@ -652,9 +645,9 @@ pub mod testing {
     use sequence_trie::SequenceTrie;
 
     use super::default_buildfiles;
+    use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
-    use crate::cells::CellAlias;
     use crate::cells::CellAliasResolver;
     use crate::cells::CellInstance;
     use crate::cells::CellResolver;
@@ -666,7 +659,11 @@ pub mod testing {
         ) -> CellResolver;
 
         fn with_names_and_paths_with_alias(
-            cells: &[(CellName, CellRootPathBuf, HashMap<CellAlias, CellName>)],
+            cells: &[(
+                CellName,
+                CellRootPathBuf,
+                HashMap<NonEmptyCellAlias, CellName>,
+            )],
         ) -> CellResolver;
     }
 
@@ -698,7 +695,11 @@ pub mod testing {
         }
 
         fn with_names_and_paths_with_alias(
-            cells: &[(CellName, CellRootPathBuf, HashMap<CellAlias, CellName>)],
+            cells: &[(
+                CellName,
+                CellRootPathBuf,
+                HashMap<NonEmptyCellAlias, CellName>,
+            )],
         ) -> CellResolver {
             let mut cell_mappings = HashMap::new();
             let mut path_mappings = SequenceTrie::new();
@@ -761,27 +762,27 @@ mod tests {
                 CellName::testing_new("cell1"),
                 cell1_path.to_buf(),
                 hashmap![
-                    CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
-                    CellAlias::new("cell2".to_owned()) => CellName::testing_new("cell2"),
-                    CellAlias::new("cell3".to_owned()) => CellName::testing_new("cell3"),
+                    NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
+                    NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
+                    NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
                 ],
             ),
             (
                 CellName::testing_new("cell2"),
                 cell2_path.to_buf(),
                 hashmap![
-                    CellAlias::new("cell2".to_owned()) => CellName::testing_new("cell2"),
-                    CellAlias::new("cell1".to_owned()) => CellName::testing_new("cell1"),
-                    CellAlias::new("cell3".to_owned()) => CellName::testing_new("cell3"),
+                    NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
+                    NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
+                    NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
                 ],
             ),
             (
                 CellName::testing_new("cell3"),
                 cell3_path.to_buf(),
                 hashmap![
-                    CellAlias::new("z_cell3".to_owned()) => CellName::testing_new("cell3"),
-                    CellAlias::new("z_cell1".to_owned()) => CellName::testing_new("cell1"),
-                    CellAlias::new("z_cell2".to_owned()) => CellName::testing_new("cell2"),
+                    NonEmptyCellAlias::new("z_cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
+                    NonEmptyCellAlias::new("z_cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
+                    NonEmptyCellAlias::new("z_cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
                 ],
             ),
         ]);
@@ -908,20 +909,24 @@ mod tests {
 
         agg.add_cell_entry(
             cell_root.clone(),
-            CellAlias::new("root".to_owned()),
+            NonEmptyCellAlias::new("root".to_owned()).unwrap(),
             cell_root.clone(),
         )?;
         agg.add_cell_entry(
             cell_root.clone(),
-            CellAlias::new("hello".to_owned()),
+            NonEmptyCellAlias::new("hello".to_owned()).unwrap(),
             alias_path.clone(),
         )?;
         agg.add_cell_entry(
             cell_root.clone(),
-            CellAlias::new("cruel".to_owned()),
+            NonEmptyCellAlias::new("cruel".to_owned()).unwrap(),
             alias_path.clone(),
         )?;
-        agg.add_cell_entry(cell_root, CellAlias::new("world".to_owned()), alias_path)?;
+        agg.add_cell_entry(
+            cell_root,
+            NonEmptyCellAlias::new("world".to_owned()).unwrap(),
+            alias_path,
+        )?;
 
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
         let cell_resolver = agg.make_cell_resolver()?;
@@ -938,8 +943,8 @@ mod tests {
         assert!(
             agg.add_cell_alias(
                 cell_root,
-                CellAlias::new("root".to_owned()),
-                CellAlias::new("does_not_exist".to_owned()),
+                NonEmptyCellAlias::new("root".to_owned()).unwrap(),
+                NonEmptyCellAlias::new("does_not_exist".to_owned()).unwrap(),
             )
             .is_err()
         );
