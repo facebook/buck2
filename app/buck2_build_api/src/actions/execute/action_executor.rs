@@ -601,7 +601,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_execute_some_action() {
-        let cells = CellResolver::of_names_and_paths(
+        let cells = CellResolver::testing_with_name_and_path(
             CellName::testing_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
         );

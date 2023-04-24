@@ -71,7 +71,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     per_transaction_data.set_starlark_debugger_handle(None);
     let mut ctx = dice.updater_with_data(per_transaction_data);
 
-    let resolver = CellResolver::with_names_and_paths_with_alias(&[(
+    let resolver = CellResolver::testing_with_names_and_paths_with_alias(&[(
         CellName::testing_new("root"),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
         HashMap::new(),

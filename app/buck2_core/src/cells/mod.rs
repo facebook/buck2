@@ -92,7 +92,7 @@
 //! let fbsource = ProjectRelativePath::new("")?;
 //! let fbcode = ProjectRelativePath::new("fbcode")?;
 //!
-//! let cells = CellResolver::with_names_and_paths_with_alias(&[
+//! let cells = CellResolver::testing_with_names_and_paths_with_alias(&[
 //!     (CellName::testing_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
 //!         NonEmptyCellAlias::new("fbsource".to_owned()).unwrap() => CellName::testing_new("fbsource"),
 //!         NonEmptyCellAlias::new("fbcode".to_owned()).unwrap() => CellName::testing_new("fbcode"),
@@ -464,7 +464,7 @@ impl CellResolver {
     /// use buck2_core::cells::paths::CellRelativePathBuf;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
-    /// let cells = CellResolver::of_names_and_paths(
+    /// let cells = CellResolver::testing_with_name_and_path(
     ///     CellName::testing_new("mycell"),
     ///     CellRootPathBuf::new(cell_path.to_buf()),
     /// );
@@ -499,7 +499,7 @@ impl CellResolver {
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///
-    /// let cells = CellResolver::of_names_and_paths(
+    /// let cells = CellResolver::testing_with_name_and_path(
     ///     CellName::testing_new("mycell"),
     ///     CellRootPathBuf::new(cell_path.to_buf()),
     /// );
@@ -522,7 +522,10 @@ impl CellResolver {
 
     // These are constructors for tests.
 
-    pub fn of_names_and_paths(other_name: CellName, other_path: CellRootPathBuf) -> CellResolver {
+    pub fn testing_with_name_and_path(
+        other_name: CellName,
+        other_path: CellRootPathBuf,
+    ) -> CellResolver {
         let cell_mappings = vec![CellInstance::new(
             other_name,
             other_path,
@@ -536,7 +539,7 @@ impl CellResolver {
         Self::new(cell_mappings).unwrap()
     }
 
-    pub fn with_names_and_paths_with_alias(
+    pub fn testing_with_names_and_paths_with_alias(
         cells: &[(
             CellName,
             CellRootPathBuf,
@@ -702,7 +705,7 @@ mod tests {
     fn test_of_names_and_paths() -> anyhow::Result<()> {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
-        let cell_resolver = CellResolver::of_names_and_paths(
+        let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
         );
@@ -720,7 +723,7 @@ mod tests {
         let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
         let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
 
-        let cells = CellResolver::with_names_and_paths_with_alias(&[
+        let cells = CellResolver::testing_with_names_and_paths_with_alias(&[
             (
                 CellName::testing_new("cell1"),
                 cell1_path.to_buf(),

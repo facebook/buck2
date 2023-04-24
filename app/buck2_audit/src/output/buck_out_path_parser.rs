@@ -345,7 +345,7 @@ mod tests {
     fn get_parse_test_cell_resolver() -> anyhow::Result<CellResolver> {
         let cell_path = CellRootPath::new(ProjectRelativePath::new("foo/bar")?);
 
-        let cell_resolver = CellResolver::with_names_and_paths_with_alias(&[(
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[(
             CellName::testing_new("bar"),
             cell_path.to_buf(),
             HashMap::new(),

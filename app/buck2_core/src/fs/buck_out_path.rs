@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn buck_path_resolves() -> anyhow::Result<()> {
-        let cell_resolver = CellResolver::of_names_and_paths(
+        let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
         );

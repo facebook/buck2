@@ -565,7 +565,7 @@ mod tests {
     ) -> anyhow::Result<DiceTransaction> {
         let fs = temp_fs.path().dupe();
 
-        let cell_resolver = CellResolver::of_names_and_paths(
+        let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         );
