@@ -125,7 +125,6 @@ impl PackageImplicitImports {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
@@ -138,17 +137,15 @@ mod tests {
     fn test() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
-            Arc::new(
-                vec![("root", "root"), ("cell1", "cell1")]
-                    .into_iter()
-                    .map(|(alias, name)| {
-                        (
-                            NonEmptyCellAlias::new(alias.to_owned()).unwrap(),
-                            CellName::testing_new(name),
-                        )
-                    })
-                    .collect(),
-            ),
+            vec![("root", "root"), ("cell1", "cell1")]
+                .into_iter()
+                .map(|(alias, name)| {
+                    (
+                        NonEmptyCellAlias::new(alias.to_owned()).unwrap(),
+                        CellName::testing_new(name),
+                    )
+                })
+                .collect(),
         )?;
 
         let root_name = CellName::testing_new("root");

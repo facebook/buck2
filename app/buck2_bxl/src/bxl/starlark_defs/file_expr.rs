@@ -122,7 +122,6 @@ impl<'v> StarlarkTypeRepr for FileExpr<'v> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
@@ -141,7 +140,7 @@ mod tests {
             NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
         ];
 
-        let cell_alias_resolver = CellAliasResolver::new(cell1, Arc::new(map))?;
+        let cell_alias_resolver = CellAliasResolver::new(cell1, map)?;
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("//foo/bar", &cell_alias_resolver)?.unwrap();

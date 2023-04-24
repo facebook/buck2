@@ -119,8 +119,6 @@ impl TargetPlatformDetector {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
     use maplit::hashmap;
@@ -131,9 +129,9 @@ mod tests {
     fn test_parse_errors() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
-            Arc::new(hashmap! {
+            hashmap! {
                 NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-            }),
+            },
         )?;
 
         let check_fails = |spec| {
@@ -175,9 +173,9 @@ mod tests {
     fn test_detect() -> anyhow::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
-            Arc::new(hashmap! {
+            hashmap! {
                 NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-            }),
+            },
         )?;
 
         let detector = TargetPlatformDetector::parse_spec(

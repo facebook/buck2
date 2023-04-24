@@ -153,7 +153,6 @@ pub fn parse_import_with_config(
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
@@ -171,7 +170,7 @@ mod tests {
             NonEmptyCellAlias::new("alias2".to_owned()).unwrap(),
             CellName::testing_new("cell2"),
         );
-        CellAliasResolver::new(CellName::testing_new("root"), Arc::new(m)).expect("valid resolver")
+        CellAliasResolver::new(CellName::testing_new("root"), m).expect("valid resolver")
     }
 
     fn dir(cell: &str, path: &str) -> CellPath {

@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -70,14 +69,14 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
     ];
 
     BuildAttrCoercionContext::new_with_package(
-        CellAliasResolver::new(package.cell_name(), Arc::new(aliases)).unwrap(),
+        CellAliasResolver::new(package.cell_name(), aliases).unwrap(),
         (package, package_listing),
         false,
     )
 }
 
 fn cell_alias_resolver() -> CellAliasResolver {
-    CellAliasResolver::new(CellName::testing_new("root"), Arc::new(HashMap::new())).unwrap()
+    CellAliasResolver::new(CellName::testing_new("root"), HashMap::new()).unwrap()
 }
 
 pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {

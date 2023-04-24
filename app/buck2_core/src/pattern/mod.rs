@@ -892,7 +892,6 @@ pub enum PackageSpec<T: PatternType> {
 #[cfg(test)]
 mod tests {
     use std::marker::PhantomData;
-    use std::sync::Arc;
 
     use assert_matches::assert_matches;
     use gazebo::prelude::*;
@@ -1009,7 +1008,7 @@ mod tests {
             NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
             NonEmptyCellAlias::new("alias2".to_owned()).unwrap() => CellName::testing_new("cell2"),
         ];
-        CellAliasResolver::new(CellName::testing_new("root"), Arc::new(m)).expect("valid resolver")
+        CellAliasResolver::new(CellName::testing_new("root"), m).expect("valid resolver")
     }
 
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]

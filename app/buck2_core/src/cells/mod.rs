@@ -212,7 +212,7 @@ impl CellAliasResolver {
     /// this will fail
     pub fn new(
         current: CellName,
-        aliases: Arc<HashMap<NonEmptyCellAlias, CellName>>,
+        aliases: HashMap<NonEmptyCellAlias, CellName>,
     ) -> anyhow::Result<CellAliasResolver> {
         let current_as_alias = NonEmptyCellAlias::new(current.as_str().to_owned())?;
         if let Some(alias_target) = aliases.get(&current_as_alias) {
@@ -220,6 +220,8 @@ impl CellAliasResolver {
                 return Err(CellError::WrongSelfAlias(current, *alias_target).into());
             }
         }
+
+        let aliases = Arc::new(aliases);
 
         Ok(CellAliasResolver { current, aliases })
     }
@@ -548,7 +550,7 @@ impl CellResolver {
                 *name,
                 path.clone(),
                 default_buildfiles(),
-                CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
+                CellAliasResolver::new(*name, alias.clone()).unwrap(),
             ));
         }
 
@@ -680,7 +682,7 @@ impl CellsAggregator {
                     .buildfiles
                     .clone()
                     .unwrap_or_else(default_buildfiles),
-                CellAliasResolver::new(cell_name, Arc::new(aliases_for_cell))?,
+                CellAliasResolver::new(cell_name, aliases_for_cell)?,
             ));
         }
 

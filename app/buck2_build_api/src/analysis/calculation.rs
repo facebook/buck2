@@ -534,7 +534,7 @@ mod tests {
             LegacyBuckConfig::empty(),
         ]);
         let mut interpreter = Tester::with_cells((
-            CellAliasResolver::new(CellName::testing_new("cell"), Arc::new(HashMap::new()))?,
+            CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
             resolver.dupe(),
             configs.dupe(),
         ))?;
