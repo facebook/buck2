@@ -190,6 +190,11 @@ fn copy_file<'v>(
     Ok(value)
 }
 
+// Type literals that we use
+const TYPE_INPUT_ARTIFACT: &str = "[str.type, \"output_artifact\", \"artifact\"]";
+const TYPE_ARTIFACT: &str = "\"artifact\"";
+const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
+
 /// Functions to allow users to interact with the Actions registry.
 /// Accessed via `ctx.actions.<function>`.
 ///
@@ -197,9 +202,15 @@ fn copy_file<'v>(
 /// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
 #[starlark_module]
 fn register_context_actions(builder: &mut MethodsBuilder) {
-    /// Returns an `artifact` with the name filename, which when asked for its name, will return filename (which may include a directory portion)
+    /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way of binding an artifact is
+    /// with `ctx.actions.run`.
     ///
-    /// * `prefix` (optional): provides a silent part of the filename, which can be used to disambiguate but whose presence will not be visible to anyone using the `artifact`. By default, outputs are considered files; pass `dir = True` to indicate it is a directory
+    /// To construct an artifact with the name `foo`, call `ctx.actions.declare_output("foo")`. Artifacts from a single target may not
+    /// have the same name, so if you then want a second artifact also named `foo` you need to supply a prefix, e.g.
+    /// `ctx.actions.declare_output("directory", "foo")`. The artifact will still report it has name `foo`, but will be located at
+    /// `directory/foo`.
+    ///
+    /// The `dir` argument should be set to `True` if the binding will be a directory.
     fn declare_output<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] prefix: &str,
@@ -234,16 +245,17 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// Returns an `artifact` whose contents are content written as a JSON value
+    /// Returns an `artifact` whose contents are content written as a JSON value.
     ///
     /// * `filename`: can be a string, or an existing artifact created with `declare_output`
-    /// * `content`:  must be composed of the basic json types (Boolean, number, string, list/tuple, dictionary) plus artifacts and command lines
+    /// * `content`:  must be composed of the basic json types (boolean, number, string, list/tuple, dictionary) plus artifacts and command lines
     ///     * An artifact will be written as a string containing the path
     ///     * A command line will be written as a list of strings, unless `joined=True` is set, in which case it will be a string
     /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON file but carries all the underlying inputs as dependencies (so you don't have to use, for example, `hidden` for them to be added to an action that already receives the JSON file)
+    #[starlark(return_type = "[\"artifact\", \"cmd_args\"]")]
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos)] content: Value<'v>,
         #[starlark(require = named, default = false)] with_inputs: bool,
         eval: &mut Evaluator<'v, '_>,
@@ -276,10 +288,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     /// * `is_executable` (optional): indicates whether the resulting file should be marked with executable permissions
     /// * `allow_args` (optional): must be set to `True` if you want to write parameter arguments to the file (in particular, macros that write to file)
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a list of artifact values that were written by macros, which should be used in hidden fields or similar
+    #[starlark(return_type = "[\"artifact\", (\"artifact\", [\"artifact\"])]")]
     fn write<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
-        #[starlark(require = pos)] content: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] content: Value<'v>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] allow_args: bool,
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
@@ -444,10 +457,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     /// Copies the source `artifact` to the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
     /// The copy works for files or directories.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copy_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] dest: Value<'v>,
-        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
@@ -463,10 +477,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     /// Creates a symlink to the source `artifact` at the destination (which can be a string representing a filename or an output `artifact`) and returns the output `artifact`.
     /// The symlink works for files or directories.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlink_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] dest: Value<'v>,
-        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word `file` in it
@@ -480,19 +495,23 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )
     }
 
+    /// Make a copy of a directory.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copy_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] dest: Value<'v>,
-        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
     }
 
+    /// Create a symlink to a directory.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlink_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] dest: Value<'v>,
-        #[starlark(require = pos)] src: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] dest: Value<'v>,
+        #[starlark(require = pos, type = TYPE_ARTIFACT)] src: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         copy_file(
@@ -507,10 +526,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     /// Returns an `artifact` that is a directory containing symlinks.
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to bound `artifact`, which will be laid out in the directory.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn symlinked_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
-        #[starlark(require = pos)] srcs: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos, type = "{str.type, \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, false)
@@ -518,10 +538,11 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
 
     /// Returns an `artifact` which is a directory containing copied files.
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to the bound `artifact`, which will be laid out in the directory.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn copied_dir<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
-        #[starlark(require = pos)] srcs: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
+        #[starlark(require = pos, type = "{str.type, \"artifact\"}")] srcs: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         create_dir_tree(eval, this, output, srcs, true)
@@ -539,7 +560,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in an incremental manner (for details, see [Incremental Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
     fn run<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] arguments: Value<'v>,
+        #[starlark(require = pos, type = TYPE_CMD_ARG_LIKE)] arguments: Value<'v>,
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
         #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
@@ -549,7 +570,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] always_print_stderr: bool,
         #[starlark(require = named)] weight: Option<i32>,
         #[starlark(require = named)] weight_percentage: Option<i32>,
-        #[starlark(require = named)] dep_files: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
+        #[starlark(require = named, type = "{str.type, \"artifact_tag\"}")] dep_files: Option<
+            ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
+        >,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
         // TODO(scottcao): Refactor `no_outputs_cleanup` to `outputs_cleanup`
@@ -727,9 +750,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     /// Downloads a URL to an output (filename as string or output artifact).
     /// The file at the URL must have the given sha1 or the command will fail.
     /// The optional parameter is_executable indicates whether the resulting file should be marked with executable permissions.
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos)] url: &str,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
@@ -773,9 +797,10 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     /// * `use_case`: your RE use case
     /// * `expires_after_timestamp`: must be a UNIX timestamp. Your digest's TTL must exceed this timestamp. Your build will break once the digest expires, so make sure the expiry is long enough (preferably, in years).
     /// * `is_executable` (optional): indicates the resulting file should be marked with executable permissions
+    #[starlark(return_type = TYPE_ARTIFACT)]
     fn cas_artifact<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] output: Value<'v>,
+        #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos)] digest: &str,
         #[starlark(require = pos)] use_case: &str,
         #[starlark(require = named)] expires_after_timestamp: i64,
@@ -824,18 +849,38 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(output_value.into_declared_artifact(Default::default()))
     }
 
-    /// Creates a new transitive set (for details, see https://buck2.build/docs/rule_authors/transitive_sets/).
+    /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.
     fn tset<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] definition: Value<'v>,
+        #[starlark(require = pos, type = "\"transitive_set_definition\"")] definition: Value<'v>,
         value: Option<Value<'v>>,
-        children: Option<Value<'v>>, // An iterable.
+        #[starlark(type = "iter(\"\")")] children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let mut this = this.state();
         this.create_transitive_set(definition, value, children, eval)
     }
 
+    /// `dynamic_output` allows a rule to use information that was not available when the rule was first run at analysis time.
+    /// Examples include things like Distributed ThinLTO (where the index file is created by another action) or OCaml builds
+    /// (where the dependencies are created by `ocamldeps`).
+    ///
+    /// The arguments are:
+    ///
+    /// * `dynamic` - a list of artifacts whose values will be available in the function. These will be built before the function is run.
+    /// * `inputs` - a container of artifacts (`cmd_args`, list of artifacts, and so on).
+    ///   * These inputs must include all the inputs that are referenced by the body of the function argument, apart from those listed in `dynamic` and `outputs`: extra inputs may be passed that are not used.
+    ///   * The inputs are used for `buck2 aquery` functionality, but do not cause speculative building. In fact, these inputs may form a cycle with other `dynamic_output` actions if they were all required.
+    ///   * In the future, it may be possible to not pass all the inputs if the repo is set to permissive mode, allowing a more powerful form of dynamic dependencies.
+    /// * `outputs` - a list of unbound artifacts (created with `declare_artifact`) which will be bound by the function.
+    /// * The function argument is given 3 arguments:
+    ///   * `ctx` (context) - which is the same as that passed to the initial rule analysis.
+    ///   * `outputs` - using one of the artifacts from the `dynamic_output`'s `outputs` (example usage: `outputs[artifact_from_dynamic_output_outputs]`) gives an unbounded artifact. The function argument must use its `outputs` argument to bind output artifacts, rather than reusing artifacts from the outputs passed into `dynamic_output` directly.
+    ///   * `artifacts` - using one of the artifacts from `dynamic` (example usage: `artifacts[artifact_from_dynamic])` gives an artifact value containing the methods `read_string`, `read_lines`, and `read_json` to obtain the values from the disk in various formats.  Anything too complex should be piped through a Python script for transformation to JSON.
+    /// * The function must call `ctx.actions` (probably `ctx.actions.run`) to bind all outputs. It can examine the values of the dynamic variables and depends on the inputs.
+    ///   * The function will usually be a `def`, as `lambda` in Starlark does not allow statements, making it quite underpowered.
+    ///
+    /// For full details see http://localhost:3000/docs/rule_authors/dynamic_dependencies/.
     fn dynamic_output<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = named)] dynamic: Vec<StarlarkArtifact>,
@@ -868,16 +913,17 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Allocate a new input tag
-    fn artifact_tag<'v>(
-        this: &AnalysisActions<'v>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, ArtifactTag>> {
+    /// Allocate a new input tag. Used with the `dep_files` argument to `run`.
+    fn artifact_tag<'v>(this: &AnalysisActions<'v>) -> anyhow::Result<ArtifactTag> {
         let _ = this;
-        Ok(heap.alloc_typed(ArtifactTag::new()))
+        Ok(ArtifactTag::new())
     }
 
-    /// Generate an anonymous target
+    /// An anonymous target is defined by the hash of its attributes, rather than its name.
+    /// During analysis, rules can define and access the providers of anonymous targets before producing their own providers.
+    /// Two distinct rules might ask for the same anonymous target, sharing the work it performs.
+    ///
+    /// For more details see http://localhost:3000/docs/rule_authors/anon_targets/.
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -890,7 +936,8 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(res)
     }
 
-    /// Generate a series of anonymous targets
+    /// Generate a series of anonymous targets, equivalent to calling `anon_target` repeatedly but with greater
+    /// parallelism, and simpler `promise` management.
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
         rules: Vec<(
