@@ -103,6 +103,7 @@ load(
     "PDB_SUB_TARGET",
     "get_link_whole_args",
     "get_shared_library_name",
+    "get_shared_library_name_for_param",
 )
 load(
     ":omnibus.bzl",
@@ -334,8 +335,12 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
         ctx.attrs.header_dirs,
         ctx.attrs.platform_header_dirs,
     )
-    soname = value_or(ctx.attrs.soname, get_shared_library_name(linker_info, ctx.label.name))
     preferred_linkage = _prebuilt_linkage(ctx)
+
+    if ctx.attrs.soname != None:
+        soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
+    else:
+        soname = get_shared_library_name(linker_info, ctx.label.name)
 
     # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have platform_deps.
     first_order_deps = ctx.attrs.deps
