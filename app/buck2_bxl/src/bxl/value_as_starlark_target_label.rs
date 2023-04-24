@@ -48,6 +48,7 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
                 ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     target_alias_resolver,
                     cell.cell_alias_resolver(),
+                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
                     CellPathRef::new(cell.name(), CellRelativePath::empty()),
                     s,
                 )?

@@ -209,6 +209,7 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
+                // TODO(nga): Parse relaxed relative to cell root is incorrect.
                 CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
@@ -341,6 +342,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
                 ctx.cell.cell_alias_resolver(),
+                // TODO(nga): Parse relaxed relative to cell root is incorrect.
                 CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
                 s,
             )? {
