@@ -139,7 +139,6 @@ mod tests {
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::testing::CellResolverExt;
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;

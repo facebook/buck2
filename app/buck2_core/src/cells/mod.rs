@@ -85,7 +85,6 @@
 //! use buck2_core::cells::cell_root_path::CellRootPathBuf;
 //! use buck2_core::cells::name::CellName;
 //! use buck2_core::cells::alias::CellAlias;
-//! use buck2_core::cells::testing::CellResolverExt;
 //! use dupe::Dupe;
 //! use buck2_core::cells::alias::NonEmptyCellAlias;
 //!
@@ -422,14 +421,13 @@ impl CellResolver {
     /// the 'Package'
     ///
     /// ```
-    /// use buck2_core::cells::{CellResolver };
+    /// use buck2_core::cells::CellResolver;
     /// use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
     /// use std::convert::TryFrom;
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePathBuf;
-    /// use buck2_core::cells::testing::CellResolverExt;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     /// let cells = CellResolver::of_names_and_paths(
@@ -465,7 +463,6 @@ impl CellResolver {
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
     /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::cells::testing::CellResolverExt;
     ///
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     ///
@@ -489,6 +486,63 @@ impl CellResolver {
     /// ```
     pub fn resolve_package(&self, pkg: PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
         self.resolve_path(pkg.as_cell_path())
+    }
+
+    // These are constructors for tests.
+
+    pub fn of_names_and_paths(
+        current: CellName,
+        other_name: CellName,
+        other_path: CellRootPathBuf,
+    ) -> CellResolver {
+        let mut cell_mappings = HashMap::new();
+        let mut path_mappings = SequenceTrie::new();
+
+        cell_mappings.insert(
+            other_name,
+            CellInstance::new(
+                other_name,
+                other_path.clone(),
+                default_buildfiles(),
+                CellAliasResolver {
+                    current,
+                    aliases: Arc::new(Default::default()),
+                },
+            ),
+        );
+
+        path_mappings.insert(other_path.iter(), other_name);
+
+        Self::new(cell_mappings, path_mappings)
+    }
+
+    pub fn with_names_and_paths_with_alias(
+        cells: &[(
+            CellName,
+            CellRootPathBuf,
+            HashMap<NonEmptyCellAlias, CellName>,
+        )],
+    ) -> CellResolver {
+        let mut cell_mappings = HashMap::new();
+        let mut path_mappings = SequenceTrie::new();
+
+        for (name, path, alias) in cells {
+            let prev = cell_mappings.insert(
+                *name,
+                CellInstance::new(
+                    *name,
+                    path.clone(),
+                    default_buildfiles(),
+                    CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
+                ),
+            );
+            assert!(prev.is_none());
+
+            let prev = path_mappings.insert(path.iter(), *name);
+            assert!(prev.is_none());
+        }
+
+        Self::new(cell_mappings, path_mappings)
     }
 }
 
@@ -637,94 +691,14 @@ impl CellsAggregator {
     }
 }
 
-// test helpers
-pub mod testing {
-    use std::collections::HashMap;
-    use std::sync::Arc;
+#[cfg(test)]
+mod tests {
 
-    use sequence_trie::SequenceTrie;
-
-    use super::default_buildfiles;
-    use crate::cells::alias::NonEmptyCellAlias;
-    use crate::cells::cell_root_path::CellRootPathBuf;
-    use crate::cells::name::CellName;
-    use crate::cells::CellAliasResolver;
-    use crate::cells::CellInstance;
+    use super::*;
     use crate::cells::CellResolver;
-    pub trait CellResolverExt {
-        fn of_names_and_paths(
-            current: CellName,
-            other_name: CellName,
-            other_path: CellRootPathBuf,
-        ) -> CellResolver;
+    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+    use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
-        fn with_names_and_paths_with_alias(
-            cells: &[(
-                CellName,
-                CellRootPathBuf,
-                HashMap<NonEmptyCellAlias, CellName>,
-            )],
-        ) -> CellResolver;
-    }
-
-    impl CellResolverExt for CellResolver {
-        fn of_names_and_paths(
-            current: CellName,
-            other_name: CellName,
-            other_path: CellRootPathBuf,
-        ) -> CellResolver {
-            let mut cell_mappings = HashMap::new();
-            let mut path_mappings = SequenceTrie::new();
-
-            cell_mappings.insert(
-                other_name,
-                CellInstance::new(
-                    other_name,
-                    other_path.clone(),
-                    default_buildfiles(),
-                    CellAliasResolver {
-                        current,
-                        aliases: Arc::new(Default::default()),
-                    },
-                ),
-            );
-
-            path_mappings.insert(other_path.iter(), other_name);
-
-            Self::new(cell_mappings, path_mappings)
-        }
-
-        fn with_names_and_paths_with_alias(
-            cells: &[(
-                CellName,
-                CellRootPathBuf,
-                HashMap<NonEmptyCellAlias, CellName>,
-            )],
-        ) -> CellResolver {
-            let mut cell_mappings = HashMap::new();
-            let mut path_mappings = SequenceTrie::new();
-
-            for (name, path, alias) in cells {
-                let prev = cell_mappings.insert(
-                    *name,
-                    CellInstance::new(
-                        *name,
-                        path.clone(),
-                        default_buildfiles(),
-                        CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
-                    ),
-                );
-                assert!(prev.is_none());
-
-                let prev = path_mappings.insert(path.iter(), *name);
-                assert!(prev.is_none());
-            }
-
-            Self::new(cell_mappings, path_mappings)
-        }
-    }
-
-    #[cfg(test)]
     #[test]
     fn test_of_names_and_paths() -> anyhow::Result<()> {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -741,15 +715,6 @@ pub mod testing {
 
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use crate::cells::testing::CellResolverExt;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     #[test]
     fn test_cells() -> anyhow::Result<()> {

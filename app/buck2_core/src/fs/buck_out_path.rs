@@ -248,7 +248,6 @@ mod tests {
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::cells::testing::CellResolverExt;
     use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
     use crate::fs::buck_out_path::BuckOutPath;
