@@ -466,20 +466,7 @@ impl CellResolver {
         other_name: CellName,
         other_path: CellRootPathBuf,
     ) -> CellResolver {
-        let cell_mappings = vec![
-            CellInstance::new(
-                other_name,
-                other_path,
-                default_buildfiles(),
-                CellAliasResolver {
-                    current: other_name,
-                    aliases: Arc::new(Default::default()),
-                },
-            )
-            .unwrap(),
-        ];
-
-        Self::new(cell_mappings).unwrap()
+        Self::testing_with_names_and_paths_with_alias(&[(other_name, other_path, HashMap::new())])
     }
 
     pub fn testing_with_names_and_paths_with_alias(
