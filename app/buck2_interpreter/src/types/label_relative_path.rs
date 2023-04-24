@@ -17,7 +17,15 @@ use starlark::environment::MethodsStatic;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    PartialEq,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkDocs
+)]
 pub struct LabelRelativePath(pub CellPath);
 
 starlark_simple_value!(LabelRelativePath);
