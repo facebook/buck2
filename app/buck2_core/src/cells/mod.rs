@@ -466,15 +466,18 @@ impl CellResolver {
         other_name: CellName,
         other_path: CellRootPathBuf,
     ) -> CellResolver {
-        let cell_mappings = vec![CellInstance::new(
-            other_name,
-            other_path,
-            default_buildfiles(),
-            CellAliasResolver {
-                current: other_name,
-                aliases: Arc::new(Default::default()),
-            },
-        )];
+        let cell_mappings = vec![
+            CellInstance::new(
+                other_name,
+                other_path,
+                default_buildfiles(),
+                CellAliasResolver {
+                    current: other_name,
+                    aliases: Arc::new(Default::default()),
+                },
+            )
+            .unwrap(),
+        ];
 
         Self::new(cell_mappings).unwrap()
     }
@@ -489,12 +492,15 @@ impl CellResolver {
         let mut cell_mappings = Vec::new();
 
         for (name, path, alias) in cells {
-            cell_mappings.push(CellInstance::new(
-                *name,
-                path.clone(),
-                default_buildfiles(),
-                CellAliasResolver::new(*name, alias.clone()).unwrap(),
-            ));
+            cell_mappings.push(
+                CellInstance::new(
+                    *name,
+                    path.clone(),
+                    default_buildfiles(),
+                    CellAliasResolver::new(*name, alias.clone()).unwrap(),
+                )
+                .unwrap(),
+            );
         }
 
         Self::new(cell_mappings).unwrap()
@@ -626,7 +632,7 @@ impl CellsAggregator {
                     .clone()
                     .unwrap_or_else(default_buildfiles),
                 CellAliasResolver::new(cell_name, aliases_for_cell)?,
-            ));
+            )?);
         }
 
         CellResolver::new(cell_mappings)

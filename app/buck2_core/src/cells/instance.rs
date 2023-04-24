@@ -19,6 +19,12 @@ use crate::cells::name::CellName;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::file_name::FileNameBuf;
 
+#[derive(Debug, thiserror::Error)]
+enum CellInstanceError {
+    #[error("Inconsistent cell name: `{0}` in instance, but `{1}` in alias resolver")]
+    InconsistentCellName(CellName, CellName),
+}
+
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.
 #[derive(Clone, Debug, derive_more::Display, Dupe, PartialEq, Eq, Allocative)]
 #[display(fmt = "{}", "_0.name")]
@@ -46,13 +52,20 @@ impl CellInstance {
         path: CellRootPathBuf,
         buildfiles: Vec<FileNameBuf>,
         aliases: CellAliasResolver,
-    ) -> CellInstance {
-        CellInstance(Arc::new(CellData {
+    ) -> anyhow::Result<CellInstance> {
+        if name != aliases.current {
+            return Err(CellInstanceError::InconsistentCellName(
+                name,
+                aliases.current,
+            ))
+            .unwrap();
+        }
+        Ok(CellInstance(Arc::new(CellData {
             name,
             path,
             buildfiles,
             aliases,
-        }))
+        })))
     }
 
     /// Get the name of the cell, as supplied in `cell_name//foo:bar`.
