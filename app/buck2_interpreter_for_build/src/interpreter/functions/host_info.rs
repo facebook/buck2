@@ -109,7 +109,7 @@ pub fn register_host_info(builder: &mut GlobalsBuilder) {
     // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
     // even when evaluated speculatively, is going to be the same across all interpreters
     // that might reuse each other's output.
-    #[starlark(speculative_exec_safe)]
+    #[starlark(speculative_exec_safe, return_type = "struct.type")]
     fn host_info<'v>(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
         let host_info = &BuildContext::from_context(eval)?.host_info;
         Ok(host_info.value.owned_value(eval.frozen_heap()))

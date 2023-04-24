@@ -50,6 +50,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
     ///
     /// Currently `glob` is evaluated case-insensitively on all file systems, but we expect
     /// that to change to case sensitive in the near future.
+    #[starlark(return_type = "[str.type]")]
     fn glob<'v>(
         include: Vec<String>,
         #[starlark(require = named)] exclude: Option<Vec<String>>,

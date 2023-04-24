@@ -520,6 +520,7 @@ fn cmd_args<'v>(x: Value<'v>) -> impl Deref<Target = StarlarkCommandLineDataGen<
 #[starlark_module]
 fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// A list of arguments to be added to the command line, as per `cmd_args`
+    #[starlark(return_type = "cmd_args")]
     fn add<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -529,6 +530,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Things to add to the command line which do not show up but are added as dependencies
+    #[starlark(return_type = "cmd_args")]
     fn hidden<'v>(
         this: Value<'v>,
         #[starlark(args)] args: Vec<Value<'v>>,
@@ -540,11 +542,13 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// Conceptually the opposite of `hidden()`. It causes none of the arguments of the command line to be added as dependencies.
     /// Use this if you need the path to an artifact but not the artifact itself.
     /// Note: if you do find yourself needing any of the inputs referenced by this command, you will hit build errors due to missing dependencies.
+    #[starlark(return_type = "cmd_args")]
     fn ignore_artifacts<'v>(this: Value<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().ignore_artifacts = true;
         Ok(this)
     }
 
+    #[starlark(return_type = "cmd_args")]
     fn relative_to<'v>(
         this: Value<'v>,
         directory: Value<'v>,
@@ -561,6 +565,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Adds a prefix to the end of every artifact
+    #[starlark(return_type = "cmd_args")]
     fn absolute_prefix<'v>(this: Value<'v>, prefix: StringValue<'v>) -> anyhow::Result<Value<'v>> {
         cmd_args_mut(this)?.options_mut().absolute_prefix = Some(prefix);
         Ok(this)
@@ -576,6 +581,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}").parent()`.
+    #[starlark(return_type = "cmd_args")]
     fn parent<'v>(
         this: Value<'v>,
         #[starlark(require = pos, default = 1i32)] count: i32,
@@ -589,6 +595,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 
     /// Replaces all parts matching pattern regular expression in each argument with replacement string.
     /// Several replacements can be added by multiple replace_regex calls.
+    #[starlark(return_type = "cmd_args")]
     fn replace_regex<'v>(
         this: Value<'v>,
         pattern: StringValue<'v>,
