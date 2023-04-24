@@ -242,7 +242,7 @@ mod imp {
             Ok(0)
         }
 
-        fn exit(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
+        fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
             let mut sink_success_count = None;
             let mut sink_failure_count = None;
             let mut sink_dropped_count = None;
@@ -915,7 +915,7 @@ mod imp {
 
     impl Drop for InvocationRecorder {
         fn drop(&mut self) {
-            if let Some(fut) = self.exit() {
+            if let Some(fut) = self.send_it() {
                 self.async_cleanup_context
                     .register("sending invocation to Scribe", fut.boxed());
             }
