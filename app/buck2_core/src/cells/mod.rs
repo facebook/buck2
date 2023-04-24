@@ -212,12 +212,12 @@ impl CellAliasResolver {
     /// this will fail
     pub fn new(
         current: CellName,
-        aliases: HashMap<NonEmptyCellAlias, CellName>,
+        mut aliases: HashMap<NonEmptyCellAlias, CellName>,
     ) -> anyhow::Result<CellAliasResolver> {
         let current_as_alias = NonEmptyCellAlias::new(current.as_str().to_owned())?;
-        if let Some(alias_target) = aliases.get(&current_as_alias) {
-            if *alias_target != current {
-                return Err(CellError::WrongSelfAlias(current, *alias_target).into());
+        if let Some(alias_target) = aliases.insert(current_as_alias, current) {
+            if alias_target != current {
+                return Err(CellError::WrongSelfAlias(current, alias_target).into());
             }
         }
 

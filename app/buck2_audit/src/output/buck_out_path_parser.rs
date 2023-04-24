@@ -325,7 +325,6 @@ mod tests {
     use std::collections::HashMap;
 
     use buck2_build_api::bxl::types::BxlFunctionLabel;
-    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
@@ -346,16 +345,10 @@ mod tests {
     fn get_parse_test_cell_resolver() -> anyhow::Result<CellResolver> {
         let cell_path = CellRootPath::new(ProjectRelativePath::new("foo/bar")?);
 
-        let mut cell_alias_map = HashMap::new();
-        cell_alias_map.insert(
-            NonEmptyCellAlias::new("bar".to_owned()).unwrap(),
-            CellName::testing_new("bar"),
-        );
-
         let cell_resolver = CellResolver::with_names_and_paths_with_alias(&[(
             CellName::testing_new("bar"),
             cell_path.to_buf(),
-            cell_alias_map,
+            HashMap::new(),
         )]);
 
         Ok(cell_resolver)
