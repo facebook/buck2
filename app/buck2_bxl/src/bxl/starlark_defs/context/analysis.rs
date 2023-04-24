@@ -18,7 +18,7 @@ use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis(
     ctx: &DiceComputations,
-    expr: ProvidersExpr,
+    expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
 ) -> anyhow::Result<
     Either<StarlarkAnalysisResult, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,

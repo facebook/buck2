@@ -14,6 +14,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::label::Label;
@@ -47,12 +48,12 @@ enum ProviderExprError {
 /// ProvidersExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be a set of provider labels. It will accept a
 /// literal (like `//some:target[subtarget]`) or list of literals or a single provider label
-pub(crate) enum ProvidersExpr {
-    Literal(ConfiguredProvidersLabel),
-    Iterable(Vec<ConfiguredProvidersLabel>),
+pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
+    Literal(P),
+    Iterable(Vec<P>),
 }
 
-impl ProvidersExpr {
+impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub fn unpack<'v>(
         value: Value<'v>,
         target_platform: Value<'v>,
