@@ -11,6 +11,7 @@
 //! operations of converting file content to ASTs and evaluating import and
 //! build files.
 
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -534,8 +535,13 @@ impl InterpreterForCell {
         let package_values = env.heap().alloc_complex_no_freeze(PackageValues::default());
         env.set_extra_value(package_values);
 
-        let extra_context =
-            PerFileTypeContext::Package(package_file_path.clone(), PackageFileEvalCtx { parent });
+        let extra_context = PerFileTypeContext::Package(
+            package_file_path.clone(),
+            PackageFileEvalCtx {
+                parent,
+                visibility: RefCell::new(None),
+            },
+        );
 
         let per_file_context = self.eval(
             &env,

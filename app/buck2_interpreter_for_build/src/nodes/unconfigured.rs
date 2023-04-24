@@ -149,7 +149,7 @@ pub(crate) fn parse_visibility(
             }
         };
 
-        if &**value == "PUBLIC" {
+        if &**value == VisibilityPattern::PUBLIC {
             // TODO(cjhopman): We should probably enforce that this is the only entry.
             return Ok(VisibilitySpecification::Public);
         }

@@ -28,12 +28,26 @@ pub enum VisibilityError {
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, derive_more::Display)]
 pub struct VisibilityPattern(pub ParsedPattern<TargetPatternExtra>);
 
+impl VisibilityPattern {
+    pub const PUBLIC: &'static str = "PUBLIC";
+}
+
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
+    #[default]
+    Default,
+    VisibleTo(Box<Box<[VisibilityPattern]>>),
+}
+
+#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+pub enum WithinViewSpecification {
+    // Default is used when a target doesn't specify any visibility.
+    #[default]
+    Public,
     Default,
     VisibleTo(Box<Box<[VisibilityPattern]>>),
 }
@@ -56,7 +70,9 @@ impl VisibilitySpecification {
 
     pub(crate) fn to_json(&self) -> serde_json::Value {
         let list = match self {
-            VisibilitySpecification::Public => vec![serde_json::Value::String("PUBLIC".to_owned())],
+            VisibilitySpecification::Public => vec![serde_json::Value::String(
+                VisibilityPattern::PUBLIC.to_owned(),
+            )],
             VisibilitySpecification::Default => Vec::new(),
             VisibilitySpecification::VisibleTo(patterns) => {
                 patterns.map(|p| serde_json::Value::String(p.to_string()))
@@ -64,12 +80,28 @@ impl VisibilitySpecification {
         };
         serde_json::Value::Array(list)
     }
+
+    pub fn extend_with(&self, other: &VisibilitySpecification) -> VisibilitySpecification {
+        match (self, other) {
+            (VisibilitySpecification::Public, _) | (_, VisibilitySpecification::Public) => {
+                VisibilitySpecification::Public
+            }
+            (VisibilitySpecification::Default, other) => other.clone(),
+            (this, VisibilitySpecification::Default) => this.clone(),
+            (
+                VisibilitySpecification::VisibleTo(this),
+                VisibilitySpecification::VisibleTo(other),
+            ) => VisibilitySpecification::VisibleTo(Box::new(
+                this.iter().chain(&***other).cloned().collect(),
+            )),
+        }
+    }
 }
 
 impl Display for VisibilitySpecification {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VisibilitySpecification::Public => write!(f, "[\"PUBLIC\"]"),
+            VisibilitySpecification::Public => write!(f, "[\"{}\"]", VisibilityPattern::PUBLIC),
             VisibilitySpecification::Default => write!(f, "[]"),
             VisibilitySpecification::VisibleTo(patterns) => {
                 write!(f, "[")?;
@@ -81,6 +113,24 @@ impl Display for VisibilitySpecification {
                 }
                 write!(f, "]")
             }
+        }
+    }
+}
+
+impl WithinViewSpecification {
+    pub fn extend_with(&self, other: &WithinViewSpecification) -> WithinViewSpecification {
+        match (self, other) {
+            (WithinViewSpecification::Public, _) | (_, WithinViewSpecification::Public) => {
+                WithinViewSpecification::Public
+            }
+            (WithinViewSpecification::Default, other) => other.clone(),
+            (this, WithinViewSpecification::Default) => this.clone(),
+            (
+                WithinViewSpecification::VisibleTo(this),
+                WithinViewSpecification::VisibleTo(other),
+            ) => WithinViewSpecification::VisibleTo(Box::new(
+                this.iter().chain(&***other).cloned().collect(),
+            )),
         }
     }
 }

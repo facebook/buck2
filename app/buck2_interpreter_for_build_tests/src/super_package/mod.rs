@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+mod package_function;
 mod package_value;

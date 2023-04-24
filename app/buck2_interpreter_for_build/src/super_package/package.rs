@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::pattern::ParsedPattern;
+use buck2_node::visibility::VisibilityPattern;
+use buck2_node::visibility::VisibilitySpecification;
+use buck2_node::visibility::WithinViewSpecification;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -14,6 +19,7 @@ use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::super_package::eval_ctx::PackageFileVisibilityFields;
 
 #[derive(Debug, thiserror::Error)]
 enum PackageFileError {
@@ -22,6 +28,52 @@ enum PackageFileError {
         or in `bzl` files included from `PACKAGE` files"
     )]
     NotPackage,
+    #[error("`package()` function can be used at most once per `PACKAGE` file")]
+    AtMostOnce,
+}
+
+fn parse_visibility(
+    patterns: &[String],
+    cell_alias_resolver: &CellAliasResolver,
+) -> anyhow::Result<VisibilitySpecification> {
+    let mut specs: Option<Vec<_>> = None;
+    for pattern in patterns {
+        if pattern == VisibilityPattern::PUBLIC {
+            return Ok(VisibilitySpecification::Public);
+        }
+        specs
+            .get_or_insert_with(|| Vec::with_capacity(patterns.len()))
+            .push(VisibilityPattern(ParsedPattern::parse_precise(
+                cell_alias_resolver,
+                pattern,
+            )?));
+    }
+    Ok(match specs {
+        Some(specs) => VisibilitySpecification::VisibleTo(Box::new(specs.into_boxed_slice())),
+        None => VisibilitySpecification::Default,
+    })
+}
+
+fn parse_within_view(
+    patterns: &[String],
+    cell_alias_resolver: &CellAliasResolver,
+) -> anyhow::Result<WithinViewSpecification> {
+    let mut specs: Option<Vec<_>> = None;
+    for pattern in patterns {
+        if pattern == VisibilityPattern::PUBLIC {
+            return Ok(WithinViewSpecification::Public);
+        }
+        specs
+            .get_or_insert_with(|| Vec::with_capacity(patterns.len()))
+            .push(VisibilityPattern(ParsedPattern::parse_precise(
+                cell_alias_resolver,
+                pattern,
+            )?));
+    }
+    Ok(match specs {
+        Some(specs) => WithinViewSpecification::VisibleTo(Box::new(specs.into_boxed_slice())),
+        None => WithinViewSpecification::Default,
+    })
 }
 
 /// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.
@@ -33,13 +85,29 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         #[starlark(require=named, default=Vec::new())] within_view: Vec<String>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<NoneType> {
-        let _ignore = (inherit, visibility, within_view);
         let build_context = BuildContext::from_context(eval)?;
-        match build_context.additional {
-            PerFileTypeContext::Package(..) => {}
+        let package_file_eval_ctx = match &build_context.additional {
+            PerFileTypeContext::Package(_, package_file_eval_ctx) => package_file_eval_ctx,
             _ => return Err(PackageFileError::NotPackage.into()),
         };
-        // TODO(nga): implement visibility.
+        let visibility =
+            parse_visibility(&visibility, build_context.cell_info().cell_alias_resolver())?;
+        let within_view = parse_within_view(
+            &within_view,
+            build_context.cell_info().cell_alias_resolver(),
+        )?;
+
+        match &mut *package_file_eval_ctx.visibility.borrow_mut() {
+            Some(_) => return Err(PackageFileError::AtMostOnce.into()),
+            x => {
+                *x = Some(PackageFileVisibilityFields {
+                    visibility,
+                    within_view,
+                    inherit,
+                })
+            }
+        };
+
         Ok(NoneType)
     }
 }
