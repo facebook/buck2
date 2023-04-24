@@ -86,8 +86,8 @@ def apple_test_extra_attrs():
 
 def apple_bundle_extra_attrs():
     attribs = {
-        "focused_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "resource_group_map": resource_group_map_attr(),
+        "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "_apple_toolchain": _get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
         # FIXME: prelude// should be standalone (not refer to fbsource//)

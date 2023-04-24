@@ -66,10 +66,10 @@ def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
 def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutput.type:
     binary = binary_dep[DefaultInfo].default_outputs[0]
     debuggable_info = binary_dep.get(AppleDebuggableInfo)
-    if ctx.attrs.focused_debugging == None:
+    if ctx.attrs.selective_debugging == None:
         return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-    selective_debugging_info = ctx.attrs.focused_debugging[AppleSelectiveDebuggingInfo]
+    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     binary = selective_debugging_info.scrub_binary(ctx, binary)
 
     if not debuggable_info:
