@@ -62,3 +62,11 @@ And some assertions:
 ```rust
 1 == 1
 ```
+
+---
+
+## with\_defaults
+
+```python
+def with_defaults(explicit_default: [str.type] = None, hidden_default: [None, [str.type]] = None, string_default: str.type = None) -> None
+```

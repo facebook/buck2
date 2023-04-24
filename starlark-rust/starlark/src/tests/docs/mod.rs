@@ -123,8 +123,17 @@ fn module(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a2: Option<i32>,
         #[starlark(require = pos, default = 1)] step: i32,
     ) -> anyhow::Result<String> {
-        let _x = (a1, a2, step);
+        let _ = (a1, a2, step);
         Ok("func3".to_owned())
+    }
+
+    fn with_defaults<'v>(
+        #[starlark(default=Vec::new())] explicit_default: Vec<String>,
+        hidden_default: Option<Vec<String>>,
+        #[starlark(default = "my_default")] string_default: &str,
+    ) -> anyhow::Result<NoneType> {
+        let _unused = (explicit_default, hidden_default, string_default);
+        Ok(NoneType)
     }
 }
 
