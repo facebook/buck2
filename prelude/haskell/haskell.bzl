@@ -45,6 +45,8 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
+    "create_linkable_graph_node",
+    "create_linkable_node",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -275,6 +277,20 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
     for soname, lib in ctx.attrs.shared_libs.items():
         solibs[soname] = LinkedObject(output = lib)
 
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                exported_deps = ctx.attrs.deps,
+                link_infos = link_infos,
+                shared_libs = solibs,
+            ),
+        ),
+        deps = ctx.attrs.deps,
+    )
+
     inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     own_pp_info = CPreprocessor(
         args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs]),
@@ -292,10 +308,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
         merge_link_group_lib_info(deps = ctx.attrs.deps),
         merge_haskell_link_infos(haskell_infos + [haskell_link_infos]),
         merged_link_info,
-        create_linkable_graph(
-            ctx,
-            deps = ctx.attrs.deps,
-        ),
+        linkable_graph,
     ]
 
 def merge_haskell_link_infos(deps: [HaskellLinkInfo.type]) -> HaskellLinkInfo.type:
@@ -657,6 +670,21 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         exported_deps = nlis,
     )
 
+    linkable_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            linkable_node = create_linkable_node(
+                ctx = ctx,
+                preferred_linkage = preferred_linkage,
+                exported_deps = ctx.attrs.deps,
+                link_infos = link_infos,
+                shared_libs = solibs,
+            ),
+        ),
+        deps = ctx.attrs.deps,
+    )
+
     link_style = _cxx_toolchain_link_style(ctx)
     actual_link_style = get_actual_link_style(link_style, preferred_linkage)
     default_output = hlib_infos[actual_link_style].libs
@@ -683,12 +711,9 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
         HaskellLibraryProvider(lib = hlib_infos),
         merge_haskell_link_infos(hlis + [HaskellLinkInfo(info = hlink_infos)]),
         merged_link_info,
+        linkable_graph,
         cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
         merge_shared_libraries(ctx.actions, create_shared_libraries(ctx, solibs), shared_library_infos),
-        create_linkable_graph(
-            ctx,
-            deps = ctx.attrs.deps,
-        ),
     ]
 
     if indexing_tsets:
