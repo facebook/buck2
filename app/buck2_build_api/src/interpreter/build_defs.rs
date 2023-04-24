@@ -40,6 +40,21 @@ enum NativesError {
 
 #[starlark_module]
 pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
+    /// Create a `"provider"` type that can be returned from `rule` implementations.
+    /// Used to pass information from a rule to the things that depend on it.
+    /// Typically named with an `Info` suffix.
+    ///
+    /// ```python
+    /// GroovyLibraryInfo(fields = [
+    ///     "objects",  # a list of artifacts
+    ///     "options",  # a string containing compiler options
+    /// ])
+    /// ```
+    ///
+    /// Given a dependency you can obtain the provider with `my_dep[GroovyLibraryInfo]`
+    /// which returns either `None` or a value of type `GroovyLibraryInfo`.
+    ///
+    /// For providers that accumulate upwards a transitive set is often a good choice.
     fn provider(
         #[starlark(default = "")] doc: &str,
         fields: Either<Vec<String>, SmallMap<&str, &str>>,

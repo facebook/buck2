@@ -265,6 +265,18 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
 
 #[starlark_module]
 pub fn register_rule_function(builder: &mut GlobalsBuilder) {
+    /// Define a rule. As a simple example:
+    ///
+    /// ```python
+    /// def _my_rule(ctx: "context") -> ["provider"]:
+    ///     output = ctx.actions.write("hello.txt", ctx.attrs.contents, executable = ctx.attrs.exe)
+    ///     return [DefaultInfo(outputs = [output])]
+    ///
+    /// MyRule = rule(impl = _my_rule, attrs = {
+    ///     "contents": attrs.string(),
+    ///     "exe": attrs.option(attrs.bool(), default = False),
+    /// })
+    /// ```
     fn rule<'v>(
         #[starlark(require = named)] r#impl: Value<'v>,
         #[starlark(require = named)] attrs: DictOf<'v, &'v str, &'v AttributeAsStarlarkValue>,
