@@ -91,4 +91,5 @@ message ActiveCommand {
 
 message ActiveCommandStats {
   uint64 open_spans = 1;
+  uint64 closed_spans = 2;
 }

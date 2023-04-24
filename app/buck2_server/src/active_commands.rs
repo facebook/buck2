@@ -105,12 +105,35 @@ pub struct ActiveCommandState {
     #[allow(unused)]
     pub argv: Vec<String>,
 
-    active_spans: AtomicU64,
+    /// Top 32 bits for total spans. Lower 32 bits for closed spans.
+    /// We don't have that many spans that we might exceed this.
+    spans: AtomicU64,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Spans {
+    pub open: u32,
+    pub closed: u32,
+}
+
+impl Spans {
+    const INCREMENT_FINISHED: u64 = 1;
+    const INCREMENT_ACTIVE: u64 = 1 << 32;
+
+    fn unpack(val: u64) -> Self {
+        let closed: u32 = val as u32;
+        let total: u32 = (val >> 32) as u32;
+
+        Self {
+            open: total - closed,
+            closed,
+        }
+    }
 }
 
 impl ActiveCommandState {
-    pub fn active_spans(&self) -> u64 {
-        self.active_spans.load(Ordering::Relaxed)
+    pub fn spans(&self) -> Spans {
+        Spans::unpack(self.spans.load(Ordering::Relaxed))
     }
 }
 
@@ -136,11 +159,16 @@ impl ActiveCommandStateWriter {
 
         if buck_event.span_end_event().is_some() {
             if self.active_spans.remove(&span_id) {
-                self.shared.active_spans.fetch_sub(1, Ordering::Relaxed);
+                self.shared
+                    .spans
+                    .fetch_add(Spans::INCREMENT_FINISHED, Ordering::Relaxed);
             }
         } else if span_tracker::is_span_shown(buck_event) {
             self.active_spans.insert(span_id);
-            self.shared.active_spans.fetch_add(1, Ordering::Relaxed);
+            assert!(self.active_spans.len() as u64 <= u32::MAX as u64);
+            self.shared
+                .spans
+                .fetch_add(Spans::INCREMENT_ACTIVE, Ordering::Relaxed);
         }
     }
 }
@@ -157,7 +185,7 @@ impl ActiveCommand {
 
         let state = Arc::new(ActiveCommandState {
             argv: client_ctx.sanitized_argv.clone(),
-            active_spans: AtomicU64::new(0),
+            spans: AtomicU64::new(0),
         });
 
         let trace_id = event_dispatcher.trace_id().dupe();
@@ -205,5 +233,27 @@ impl ActiveCommand {
             daemon_shutdown_channel: receiver,
             state: ActiveCommandStateWriter::new(state),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spans() {
+        let mut val = 0;
+
+        val += Spans::INCREMENT_ACTIVE;
+        assert_eq!(Spans::unpack(val), Spans { open: 1, closed: 0 });
+
+        val += Spans::INCREMENT_ACTIVE;
+        assert_eq!(Spans::unpack(val), Spans { open: 2, closed: 0 });
+
+        val += Spans::INCREMENT_FINISHED;
+        assert_eq!(Spans::unpack(val), Spans { open: 1, closed: 1 });
+
+        val += Spans::INCREMENT_FINISHED;
+        assert_eq!(Spans::unpack(val), Spans { open: 0, closed: 2 });
     }
 }

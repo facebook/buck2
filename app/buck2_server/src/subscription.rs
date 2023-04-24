@@ -109,15 +109,19 @@ pub(crate) async fn run_subscription_server_command(
 fn active_commands_snapshot() -> buck2_subscription_proto::ActiveCommandsSnapshot {
     let active_commands = active_commands::active_commands()
         .iter()
-        .map(
-            |(trace_id, handle)| buck2_subscription_proto::ActiveCommand {
+        .map(|(trace_id, handle)| {
+            let state = handle.state();
+            let spans = state.spans();
+
+            buck2_subscription_proto::ActiveCommand {
                 trace_id: trace_id.to_string(),
-                argv: handle.state().argv.clone(),
+                argv: state.argv.clone(),
                 stats: Some(buck2_subscription_proto::ActiveCommandStats {
-                    open_spans: handle.state().active_spans(),
+                    open_spans: spans.open as _,
+                    closed_spans: spans.closed as _,
                 }),
-            },
-        )
+            }
+        })
         .collect();
 
     buck2_subscription_proto::ActiveCommandsSnapshot { active_commands }
