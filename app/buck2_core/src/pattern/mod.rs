@@ -34,6 +34,7 @@ use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
+use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
@@ -79,6 +80,10 @@ enum TargetPatternParseError {
     ExpectingPatternOfType(&'static str, String),
     #[error("Configuration part of the pattern must be enclosed in `()`")]
     ConfigurationPartMustBeEnclosedInParentheses,
+    #[error(
+        "Cell resolver cell `{0}` does not match the given relative dir `{1}` (internal error)"
+    )]
+    CellResolverCellDoesNotMatchWorkingDir(CellName, CellPath),
 }
 
 pub fn display_precise_pattern<'a, T: PatternType>(
@@ -735,6 +740,18 @@ where
         infer_target,
         strip_package_trailing_slash,
     } = opts;
+
+    if let Some(dir) = relative.dir() {
+        if dir.cell() != cell_resolver.resolve_self() {
+            return Err(
+                TargetPatternParseError::CellResolverCellDoesNotMatchWorkingDir(
+                    cell_resolver.resolve_self(),
+                    dir.to_owned(),
+                )
+                .into(),
+            );
+        }
+    }
 
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
