@@ -259,6 +259,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
+            None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,
@@ -351,6 +352,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     fn documentation(&self) -> Option<DocItem> {
         let return_types = vec![None; self.fields.len()];
         self.provider_callable_documentation(
+            None,
             &self.docs,
             &self.fields.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
             &self.field_docs,

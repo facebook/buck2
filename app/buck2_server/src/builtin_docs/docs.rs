@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::interpreter::context::prelude_path;
-use buck2_build_api::interpreter::rule_defs::provider::callable::UserProviderCallable;
 use buck2_cli_proto::unstable_docs_response;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_cli_proto::UnstableDocsResponse;
@@ -94,13 +93,6 @@ fn get_builtin_global_starlark_docs() -> Doc {
     builtin_doc("globals", "standard", globals.documentation())
 }
 
-fn get_builtin_provider_docs() -> Vec<Doc> {
-    UserProviderCallable::builtin_provider_documentation()
-        .into_iter()
-        .filter_map(|(name, docs)| docs.map(|item| builtin_doc(name, "providers", item)))
-        .collect()
-}
-
 /// Globals that are in the interpreter, but none of the starlark global symbols.
 fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
     let cleaned_build = match interpreter_state.extension_file_global_env.documentation() {
@@ -128,7 +120,6 @@ pub fn get_builtin_docs(
     ];
 
     all_builtins.extend(get_builtin_bxl_docs(interpreter_state)?);
-    all_builtins.extend(get_builtin_provider_docs());
     all_builtins.extend(get_registered_starlark_docs());
 
     Ok(all_builtins)

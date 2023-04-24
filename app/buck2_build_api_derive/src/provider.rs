@@ -203,6 +203,7 @@ impl ProviderCodegen {
     /// documentation() function for StarlarkValue.
     fn documentation_function(&self) -> syn::Result<proc_macro2::TokenStream> {
         let provider_docstring = self.get_docstring_impl(&self.input.attrs);
+        let create_func = &self.args.creator_func;
 
         let field_docs = match &self.input.fields {
             syn::Fields::Named(fields) => Ok(fields
@@ -243,7 +244,7 @@ impl ProviderCodegen {
                 ];
                 use starlark::values::type_repr::StarlarkTypeRepr;
                 use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
-                self.provider_callable_documentation(&docstring, &field_names, &field_docs, &field_types)
+                self.provider_callable_documentation(Some(#create_func), &docstring, &field_names, &field_docs, &field_types)
             }
         })
     }
@@ -406,9 +407,9 @@ impl ProviderCodegen {
 
     fn callable_impl_starlark_value(&self) -> syn::Result<proc_macro2::TokenStream> {
         let name_str = self.name_str()?;
+        let callable_name = self.callable_name()?;
         let documentation_function = self.documentation_function()?;
         let create_func = &self.args.creator_func;
-        let callable_name = self.callable_name()?;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
 
         Ok(quote! {
