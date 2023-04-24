@@ -157,7 +157,6 @@ mod tests {
                 .unwrap();
         let fs = ArtifactFs::new(
             BuckPathResolver::new(CellResolver::of_names_and_paths(
-                CellName::testing_new("root"),
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             )),

@@ -1020,7 +1020,6 @@ mod tests {
         let fs = ProjectRootTemp::new().unwrap();
 
         let cell_resolver = CellResolver::of_names_and_paths(
-            CellName::testing_new("root"),
             CellName::testing_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
         );

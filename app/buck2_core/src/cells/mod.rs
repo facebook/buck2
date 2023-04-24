@@ -432,7 +432,6 @@ impl CellResolver {
     /// let cell_path = ProjectRelativePath::new("my/cell")?;
     /// let cells = CellResolver::of_names_and_paths(
     ///     CellName::testing_new("mycell"),
-    ///     CellName::testing_new("mycell"),
     ///     CellRootPathBuf::new(cell_path.to_buf()),
     /// );
     ///
@@ -468,7 +467,6 @@ impl CellResolver {
     ///
     /// let cells = CellResolver::of_names_and_paths(
     ///     CellName::testing_new("mycell"),
-    ///     CellName::testing_new("mycell"),
     ///     CellRootPathBuf::new(cell_path.to_buf()),
     /// );
     ///
@@ -490,11 +488,7 @@ impl CellResolver {
 
     // These are constructors for tests.
 
-    pub fn of_names_and_paths(
-        current: CellName,
-        other_name: CellName,
-        other_path: CellRootPathBuf,
-    ) -> CellResolver {
+    pub fn of_names_and_paths(other_name: CellName, other_path: CellRootPathBuf) -> CellResolver {
         let mut cell_mappings = HashMap::new();
         let mut path_mappings = SequenceTrie::new();
 
@@ -505,7 +499,7 @@ impl CellResolver {
                 other_path.clone(),
                 default_buildfiles(),
                 CellAliasResolver {
-                    current,
+                    current: other_name,
                     aliases: Arc::new(Default::default()),
                 },
             ),
@@ -704,7 +698,6 @@ mod tests {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
         let cell_resolver = CellResolver::of_names_and_paths(
-            CellName::testing_new("root"),
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
         );

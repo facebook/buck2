@@ -525,7 +525,6 @@ mod tests {
 
         let cell_resolver = CellResolver::of_names_and_paths(
             CellName::testing_new("root"),
-            CellName::testing_new("root"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         );
 

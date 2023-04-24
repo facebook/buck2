@@ -566,7 +566,6 @@ mod tests {
         let fs = temp_fs.path().dupe();
 
         let cell_resolver = CellResolver::of_names_and_paths(
-            CellName::testing_new("root"),
             CellName::testing_new("cell"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
         );
