@@ -8,6 +8,16 @@
 
 These are where the module docs go
 
+## name.\_\_exported\_\_
+
+```python
+def name.__exported__() -> None
+```
+
+Needs to be escaped when rendered in markdown.
+
+---
+
 ## name.attr1
 
 ```python

@@ -88,12 +88,18 @@ fn render_doc_string(opts: DSOpts, string: &Option<DocString>) -> Option<String>
     })
 }
 
+/// Function names can have underscores in them, which are markdown,
+/// so escape them if we render them outside a codeblock.
+fn escape_name(name: &str) -> String {
+    name.replace('_', "\\_")
+}
+
 fn render_property(name: &str, property: &DocProperty) -> String {
     let prototype = render_code_block(&format!(
         "{name}: {}",
         TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
     ));
-    let header = format!("## {name}\n\n{prototype}");
+    let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
     let details = render_doc_string(DSOpts::Details, &property.docs);
 
@@ -151,7 +157,7 @@ fn render_function(name: &str, function: &DocFunction) -> String {
         }
         .render_markdown(MarkdownFlavor::DocFile)),
     );
-    let header = format!("## {name}\n\n{prototype}");
+    let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
 

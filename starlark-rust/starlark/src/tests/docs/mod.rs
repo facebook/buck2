@@ -30,6 +30,7 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::starlark_type;
 use crate::tests::docs::golden::docs_golden_test;
+use crate::values::none::NoneType;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -170,6 +171,12 @@ fn object(builder: &mut MethodsBuilder) {
         let _ = this;
         Ok("func2".to_owned())
     }
+
+    /// Needs to be escaped when rendered in markdown.
+    fn __exported__<'v>(this: Value<'v>) -> anyhow::Result<NoneType> {
+        let _ = this;
+        Ok(NoneType)
+    }
 }
 
 #[test]
@@ -192,5 +199,6 @@ fn golden_docs_module() {
 
 #[test]
 fn golden_docs_object() {
-    docs_golden_test("object", Obj.documentation().unwrap());
+    let res = docs_golden_test("object", Obj.documentation().unwrap());
+    assert!(res.contains(r#"name.\_\_exported\_\_"#));
 }
