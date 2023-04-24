@@ -264,6 +264,9 @@ fn render_member(name: &str, member: &DocMember) -> String {
 /// a single line.
 const MAX_ARGS_BEFORE_MULTILINE: usize = 3;
 
+/// If the prototype ends up longer than this length, we'll split it anyway
+const MAX_LENGTH_BEFORE_MULTILINE: usize = 80;
+
 /// Render a "type". This is either a [`Type`] object, or details about a function to
 /// produce a function prototype.
 enum TypeRenderer<'a> {
@@ -322,14 +325,19 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
 
                     let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
                     let prefix = format!("def {}", function_name);
-                    if MAX_ARGS_BEFORE_MULTILINE < f.params.len() {
+                    let single_line_result =
+                        format!("{}({}){}", prefix, params.clone().join(", "), ret_type);
+
+                    if f.params.len() > MAX_ARGS_BEFORE_MULTILINE
+                        || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
+                    {
                         let chunked_params = params.join(",\n    ");
                         Some(format!(
                             "{}(\n    {}\n){}",
                             prefix, chunked_params, ret_type
                         ))
                     } else {
-                        Some(format!("{}({}){}", prefix, params.join(", "), ret_type))
+                        Some(single_line_result)
                     }
                 }
             },

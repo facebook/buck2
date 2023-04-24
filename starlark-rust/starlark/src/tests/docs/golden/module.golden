@@ -68,5 +68,9 @@ And some assertions:
 ## with\_defaults
 
 ```python
-def with_defaults(explicit_default: [str.type] = [], hidden_default: [str.type] = _, string_default: str.type = "my_default") -> None
+def with_defaults(
+    explicit_default: [str.type] = [],
+    hidden_default: [str.type] = _,
+    string_default: str.type = "my_default"
+) -> None
 ```
