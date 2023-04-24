@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -110,6 +109,19 @@ pub struct ActiveCommandState {
     spans: AtomicU64,
 }
 
+impl ActiveCommandState {
+    pub fn spans(&self) -> Spans {
+        Spans::unpack(self.spans.load(Ordering::Relaxed))
+    }
+
+    fn new(argv: Vec<String>) -> Self {
+        Self {
+            argv,
+            spans: AtomicU64::new(0),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct Spans {
     pub open: u32,
@@ -131,22 +143,17 @@ impl Spans {
     }
 }
 
-impl ActiveCommandState {
-    pub fn spans(&self) -> Spans {
-        Spans::unpack(self.spans.load(Ordering::Relaxed))
-    }
-}
-
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
 pub struct ActiveCommandStateWriter {
-    active_spans: HashSet<SpanId>,
+    /// Maps a SpanId to whether it is a root (i.e. no parent)
+    active_spans: HashMap<SpanId, bool>,
     shared: Arc<ActiveCommandState>,
 }
 
 impl ActiveCommandStateWriter {
     fn new(shared: Arc<ActiveCommandState>) -> Self {
         Self {
-            active_spans: HashSet::new(),
+            active_spans: HashMap::new(),
             shared,
         }
     }
@@ -158,17 +165,24 @@ impl ActiveCommandStateWriter {
         };
 
         if buck_event.span_end_event().is_some() {
-            if self.active_spans.remove(&span_id) {
+            // If it's a root, then we decrement.
+            if self.active_spans.remove(&span_id) == Some(true) {
                 self.shared
                     .spans
                     .fetch_add(Spans::INCREMENT_FINISHED, Ordering::Relaxed);
             }
         } else if span_tracker::is_span_shown(buck_event) {
-            self.active_spans.insert(span_id);
+            let is_root = buck_event
+                .parent_id()
+                .map_or(true, |id| !self.active_spans.contains_key(&id));
+            self.active_spans.insert(span_id, is_root);
             assert!(self.active_spans.len() as u64 <= u32::MAX as u64);
-            self.shared
-                .spans
-                .fetch_add(Spans::INCREMENT_ACTIVE, Ordering::Relaxed);
+
+            if is_root {
+                self.shared
+                    .spans
+                    .fetch_add(Spans::INCREMENT_ACTIVE, Ordering::Relaxed);
+            }
         }
     }
 }
@@ -183,10 +197,7 @@ impl ActiveCommand {
     pub fn new(event_dispatcher: &EventDispatcher, client_ctx: &ClientContext) -> Self {
         let (sender, receiver) = oneshot::channel();
 
-        let state = Arc::new(ActiveCommandState {
-            argv: client_ctx.sanitized_argv.clone(),
-            spans: AtomicU64::new(0),
-        });
+        let state = Arc::new(ActiveCommandState::new(client_ctx.sanitized_argv.clone()));
 
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
@@ -238,6 +249,8 @@ impl ActiveCommand {
 
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use super::*;
 
     #[test]
@@ -255,5 +268,69 @@ mod tests {
 
         val += Spans::INCREMENT_FINISHED;
         assert_eq!(Spans::unpack(val), Spans { open: 0, closed: 2 });
+    }
+
+    #[test]
+    fn test_active_command_state() {
+        let mut writer =
+            ActiveCommandStateWriter::new(Arc::new(ActiveCommandState::new(Vec::new())));
+
+        let root = SpanId::new();
+        let child = SpanId::new();
+        let trace = TraceId::new();
+
+        writer.peek_event(&BuckEvent::new(
+            SystemTime::now(),
+            trace.clone(),
+            Some(root),
+            None,
+            buck2_data::SpanStartEvent {
+                data: Some(buck2_data::AnalysisStart::default().into()),
+            }
+            .into(),
+        ));
+
+        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+
+        writer.peek_event(&BuckEvent::new(
+            SystemTime::now(),
+            trace.clone(),
+            Some(child),
+            Some(root),
+            buck2_data::SpanStartEvent {
+                data: Some(buck2_data::AnalysisStageStart::default().into()),
+            }
+            .into(),
+        ));
+
+        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+
+        writer.peek_event(&BuckEvent::new(
+            SystemTime::now(),
+            trace.clone(),
+            Some(child),
+            Some(root),
+            buck2_data::SpanEndEvent {
+                data: Some(buck2_data::AnalysisStageEnd::default().into()),
+                ..Default::default()
+            }
+            .into(),
+        ));
+
+        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+
+        writer.peek_event(&BuckEvent::new(
+            SystemTime::now(),
+            trace,
+            Some(root),
+            None,
+            buck2_data::SpanEndEvent {
+                data: Some(buck2_data::AnalysisEnd::default().into()),
+                ..Default::default()
+            }
+            .into(),
+        ));
+
+        assert_eq!(writer.shared.spans(), Spans { open: 0, closed: 1 });
     }
 }
