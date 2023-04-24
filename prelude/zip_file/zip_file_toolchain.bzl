@@ -6,7 +6,7 @@
 # of this source tree.
 
 ZipFileToolchainInfo = provider(
-    "ZipFile toolchain info",
+    doc = "ZipFile toolchain info",
     fields = [
         "create_zip",
     ],

@@ -156,7 +156,7 @@ JavaPackagingDepTSet = transitive_set(
 )
 
 JavaLibraryInfo = provider(
-    "Information about a java library and its dependencies",
+    doc = "Information about a java library and its dependencies",
     fields = [
         # Java dependencies exposed to dependent targets and supposed to be used during compilation.
         # Consisting of this library's own output, and the "compiling_deps" of any exported_deps and exported_provided_deps.
@@ -173,7 +173,7 @@ JavaLibraryInfo = provider(
 )
 
 JavaLibraryIntellijInfo = provider(
-    "Information about a java library that is required for Intellij project generation",
+    doc = "Information about a java library that is required for Intellij project generation",
     fields = [
         # All the artifacts that were used in order to compile this library
         "compiling_classpath",  # ["artifact"]

@@ -12,14 +12,14 @@ DepFiles = enum("none", "per_class", "per_jar")
 JavacProtocol = enum("classic", "javacd")
 
 JavaPlatformInfo = provider(
-    "Java platform info",
+    doc = "Java platform info",
     fields = [
         "name",
     ],
 )
 
 JavaToolchainInfo = provider(
-    "Java toolchain info",
+    doc = "Java toolchain info",
     fields = [
         "abi_generation_mode",
         "bootclasspath_7",
@@ -52,7 +52,7 @@ JavaToolchainInfo = provider(
 )
 
 JavaTestToolchainInfo = provider(
-    "Java test toolchain info",
+    doc = "Java test toolchain info",
     fields = [
         "java_custom_class_loader_class",
         "java_custom_class_loader_library_jar",
@@ -71,7 +71,7 @@ JavaTestToolchainInfo = provider(
 # giving it its own to reduce the occurrence of cycles as we add
 # more Java- and Kotlin-built tools to the Java and Kotlin toolchains
 PrebuiltJarToolchainInfo = provider(
-    "prebuilt_jar toolchain info",
+    doc = "prebuilt_jar toolchain info",
     fields = [
         "class_abi_generator",
         "is_bootstrap_toolchain",

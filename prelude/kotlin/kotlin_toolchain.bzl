@@ -8,7 +8,7 @@
 KotlincProtocol = enum("classic", "kotlincd")
 
 KotlinToolchainInfo = provider(
-    "Kotlin toolchain info",
+    doc = "Kotlin toolchain info",
     fields = [
         "annotation_processing_jar",
         "compilation_tracer_plugin",

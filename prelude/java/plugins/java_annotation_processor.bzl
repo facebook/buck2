@@ -14,7 +14,7 @@ JavaProcessorsType = enum(
 )
 
 JavaProcessorsInfo = provider(
-    "Information about java annotation processor/ java compiler plugins and their dependencies",
+    doc = "Information about java annotation processor/ java compiler plugins and their dependencies",
     fields = [
         # Type of processor
         "type",  # "JavaProcessorsType"

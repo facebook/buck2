@@ -6,7 +6,7 @@
 # of this source tree.
 
 GenruleToolchainInfo = provider(
-    "Genrule toolchain info",
+    doc = "Genrule toolchain info",
     fields = [
         "zip_scrubber",
     ],
