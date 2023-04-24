@@ -48,6 +48,13 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 * [Introducing Buck2](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system/) - our initial introduction when we open sourced Buck2.
 * [Using buck to build Rust projects](https://steveklabnik.com/writing/using-buck-to-build-rust-projects) - working through an initial small Rust project, by [Steve Klabnik](https://steveklabnik.com/).
 
+### External projects using Buck2
+
+* [Rust `cxx` library](https://github.com/dtolnay/cxx) has examples and tests with a wide variety of build systems, including Buck2.
+* [`ocamlrep` library](https://github.com/facebook/ocamlrep) allows for interop between OCaml and Rust code, and can be [built with Buck2](https://github.com/facebook/ocamlrep/blob/main/README-BUCK.md).
+
+Feel free to [send a PR](https://github.com/facebook/buck2/edit/main/docs/index.md) adding your project.
+
 <FbInternalOnly>
 
 ### For people developing Buck2
