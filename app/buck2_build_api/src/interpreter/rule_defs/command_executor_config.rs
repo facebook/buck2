@@ -83,8 +83,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_output_paths`: How to express output paths to RE
     #[starlark(type = "command_executor_config")]
     fn CommandExecutorConfig<'v>(
-        local_enabled: bool,
-        remote_enabled: bool,
+        #[starlark(require = named)] local_enabled: bool,
+        #[starlark(require = named)] remote_enabled: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_cache_enabled: NoneOr<bool>,
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
