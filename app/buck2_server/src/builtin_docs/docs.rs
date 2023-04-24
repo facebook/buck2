@@ -91,7 +91,7 @@ pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) 
 
 fn get_builtin_global_starlark_docs() -> Doc {
     let globals = Globals::extended();
-    builtin_doc("builtins", "", globals.documentation())
+    builtin_doc("globals", "standard", globals.documentation())
 }
 
 fn get_builtin_provider_docs() -> Vec<Doc> {

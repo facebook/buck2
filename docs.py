@@ -46,11 +46,7 @@ def doc_name(x):
     elif x.endswith("/function"):
         # Uninteresting docs we'd rather not have generated
         return None
-    elif (
-        x.startswith("native/standard/")
-        or x.startswith("native/extension/")
-        or x.endswith("/builtins")
-    ):
+    elif x.startswith("native/standard/") or x.startswith("native/extension/"):
         return "starlark/" + x.split("/")[-1]
     elif x.startswith("native/"):
         return "build/" + x[7:]
