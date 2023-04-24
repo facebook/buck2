@@ -342,10 +342,6 @@ impl CellResolver {
         })))
     }
 
-    pub fn contains(&self, cell: CellName) -> bool {
-        self.0.cells.contains_key(&cell)
-    }
-
     /// Get a `Cell` from the `CellMap`
     pub fn get(&self, cell: CellName) -> anyhow::Result<&CellInstance> {
         self.0.cells.get(&cell).ok_or_else(|| {
@@ -886,8 +882,8 @@ mod tests {
 
         // We want the first alias to win (hello), rather than the lexiographically first (cruel)
         let cell_resolver = agg.make_cell_resolver()?;
-        assert!(cell_resolver.contains(CellName::testing_new("hello")));
-        assert!(!cell_resolver.contains(CellName::testing_new("cruel")));
+        assert!(cell_resolver.get(CellName::testing_new("hello")).is_ok());
+        assert!(cell_resolver.get(CellName::testing_new("cruel")).is_err());
         Ok(())
     }
 
