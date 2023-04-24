@@ -121,8 +121,8 @@ impl TargetPlatformDetector {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_core::cells::alias::CellAlias;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellAlias;
     use maplit::hashmap;
 
     use super::*;

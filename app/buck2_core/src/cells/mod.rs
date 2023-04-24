@@ -79,11 +79,12 @@
 //! ```
 //! use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
 //! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-//! use buck2_core::cells::{CellResolver, CellAlias};
+//! use buck2_core::cells::CellResolver;
 //! use std::convert::TryFrom;
 //! use maplit::hashmap;
 //! use buck2_core::cells::cell_root_path::CellRootPathBuf;
 //! use buck2_core::cells::name::CellName;
+//! use buck2_core::cells::alias::CellAlias;
 //! use buck2_core::cells::testing::CellResolverExt;
 //! use dupe::Dupe;
 //!
@@ -127,6 +128,7 @@
 //! ```
 //!
 
+pub mod alias;
 pub mod build_file_cell;
 pub mod cell_path;
 pub mod cell_root_path;
@@ -153,6 +155,7 @@ use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
+use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPath;
@@ -192,27 +195,6 @@ enum CellError {
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Allocative)]
 #[display(fmt = "{}", "_0.name")]
 pub struct CellInstance(Arc<CellData>);
-
-/// A 'CellAlias' is a user-provided string name that maps to a 'CellName'.
-/// The mapping of 'CellAlias' to 'CellName' is specific to the current cell so
-/// that the same 'CellAlias' may map to different 'CellName's depending on what
-/// the current 'CellInstance' is that references the 'CellAlias'.
-#[derive(
-    Clone, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
-)]
-pub struct CellAlias(String);
-
-impl CellAlias {
-    pub fn new(alias: String) -> CellAlias {
-        CellAlias(alias)
-    }
-}
-
-impl Borrow<str> for CellAlias {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
 
 /// A 'CellAliasResolver' is unique to a 'CellInstance'.
 /// It is responsible for resolving all 'CellAlias' encountered within the
@@ -579,7 +561,7 @@ impl CellsAggregator {
     ) -> anyhow::Result<()> {
         let name = &mut self.cell_info(alias_path.clone()).name;
         if name.is_none() {
-            *name = Some(CellName::unchecked_new(&parsed_alias.0)?);
+            *name = Some(CellName::unchecked_new(parsed_alias.as_str())?);
         }
         self.cell_info(cell_root)
             .add_alias_mapping(parsed_alias, alias_path)

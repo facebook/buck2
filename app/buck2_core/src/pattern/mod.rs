@@ -30,11 +30,11 @@ use pattern_type::ProvidersPatternExtra;
 use pattern_type::TargetPatternExtra;
 use regex::Regex;
 
+use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellAlias;
 use crate::cells::CellAliasResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
@@ -900,9 +900,9 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
+    use crate::cells::alias::CellAlias;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
-    use crate::cells::CellAlias;
     use crate::is_open_source;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
     use crate::target::label::TargetLabel;

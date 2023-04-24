@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use anyhow::Context;
+use buck2_core::cells::alias::CellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::CellAlias;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::env_helper::EnvHelper;
@@ -383,8 +383,8 @@ impl BuckConfigBasedCells {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::alias::CellAlias;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellAlias;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;

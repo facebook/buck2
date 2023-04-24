@@ -325,12 +325,12 @@ mod tests {
     use std::collections::HashMap;
 
     use buck2_build_api::bxl::types::BxlFunctionLabel;
+    use buck2_core::cells::alias::CellAlias;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::cells::testing::CellResolverExt;
-    use buck2_core::cells::CellAlias;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::data::ConfigurationDataData;

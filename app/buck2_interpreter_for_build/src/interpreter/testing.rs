@@ -17,6 +17,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::alias::CellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;

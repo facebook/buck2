@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::CellAlias;
+use buck2_core::cells::alias::CellAlias;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
