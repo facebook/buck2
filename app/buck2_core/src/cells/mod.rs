@@ -137,6 +137,7 @@ pub mod paths;
 pub(crate) mod sequence_trie_allocative;
 pub mod unchecked_cell_rel_path;
 
+use std::collections::hash_map;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -307,9 +308,9 @@ struct CellResolverInternals {
 
 impl CellResolver {
     // Make this public till we start parsing config files from cells
-    pub fn new(cells: HashMap<CellName, CellInstance>) -> anyhow::Result<CellResolver> {
+    pub fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
-        for cell in cells.values() {
+        for cell in &cells {
             let prev = path_mappings.insert(cell.path().iter(), cell.name());
             if let Some(prev) = prev {
                 return Err(
@@ -317,8 +318,26 @@ impl CellResolver {
                 );
             }
         }
+
+        let mut cells_map: HashMap<CellName, CellInstance> = HashMap::with_capacity(cells.len());
+        for cell in cells {
+            match cells_map.entry(cell.name()) {
+                hash_map::Entry::Occupied(entry) => {
+                    return Err(CellError::DuplicateNames(
+                        cell.name(),
+                        entry.get().path().to_buf(),
+                        cell.path().to_buf(),
+                    )
+                    .into());
+                }
+                hash_map::Entry::Vacant(entry) => {
+                    entry.insert(cell);
+                }
+            }
+        }
+
         Ok(CellResolver(Arc::new(CellResolverInternals {
-            cells,
+            cells: cells_map,
             path_mappings,
         })))
     }
@@ -497,20 +516,15 @@ impl CellResolver {
     // These are constructors for tests.
 
     pub fn of_names_and_paths(other_name: CellName, other_path: CellRootPathBuf) -> CellResolver {
-        let mut cell_mappings = HashMap::new();
-
-        cell_mappings.insert(
+        let cell_mappings = vec![CellInstance::new(
             other_name,
-            CellInstance::new(
-                other_name,
-                other_path,
-                default_buildfiles(),
-                CellAliasResolver {
-                    current: other_name,
-                    aliases: Arc::new(Default::default()),
-                },
-            ),
-        );
+            other_path,
+            default_buildfiles(),
+            CellAliasResolver {
+                current: other_name,
+                aliases: Arc::new(Default::default()),
+            },
+        )];
 
         Self::new(cell_mappings).unwrap()
     }
@@ -522,19 +536,15 @@ impl CellResolver {
             HashMap<NonEmptyCellAlias, CellName>,
         )],
     ) -> CellResolver {
-        let mut cell_mappings = HashMap::new();
+        let mut cell_mappings = Vec::new();
 
         for (name, path, alias) in cells {
-            let prev = cell_mappings.insert(
+            cell_mappings.push(CellInstance::new(
                 *name,
-                CellInstance::new(
-                    *name,
-                    path.clone(),
-                    default_buildfiles(),
-                    CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
-                ),
-            );
-            assert!(prev.is_none());
+                path.clone(),
+                default_buildfiles(),
+                CellAliasResolver::new(*name, Arc::new(alias.clone())).unwrap(),
+            ));
         }
 
         Self::new(cell_mappings).unwrap()
@@ -647,7 +657,7 @@ impl CellsAggregator {
 
     /// Creates the 'CellResolver' from all the entries that were aggregated
     pub fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
-        let mut cell_mappings = HashMap::new();
+        let mut cell_mappings = Vec::new();
 
         for (cell_path, cell_info) in &self.cell_infos {
             let mut aliases_for_cell = HashMap::new();
@@ -658,25 +668,15 @@ impl CellsAggregator {
                     .insert(alias.clone(), self.get_cell_name_from_path(path_for_alias)?);
             }
 
-            let old = cell_mappings.insert(
+            cell_mappings.push(CellInstance::new(
                 cell_name,
-                CellInstance::new(
-                    cell_name,
-                    cell_path.clone(),
-                    cell_info
-                        .buildfiles
-                        .clone()
-                        .unwrap_or_else(default_buildfiles),
-                    CellAliasResolver::new(cell_name, Arc::new(aliases_for_cell))?,
-                ),
-            );
-            if let Some(old) = old {
-                return Err(anyhow::anyhow!(CellError::DuplicateNames(
-                    old.name(),
-                    old.path().to_buf(),
-                    cell_path.clone()
-                )));
-            }
+                cell_path.clone(),
+                cell_info
+                    .buildfiles
+                    .clone()
+                    .unwrap_or_else(default_buildfiles),
+                CellAliasResolver::new(cell_name, Arc::new(aliases_for_cell))?,
+            ));
         }
 
         CellResolver::new(cell_mappings)
