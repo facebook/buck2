@@ -11,10 +11,11 @@ use buck2_core::soft_error;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use fancy_regex::Regex;
+use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictRef;
 use starlark::values::none::NoneType;
+use starlark::values::Value;
 use thiserror::Error;
 use tracing::warn;
 
@@ -49,11 +50,11 @@ enum ExtraFunctionErrors {
 fn extra_functions(builder: &mut GlobalsBuilder) {
     // Load symbols into the module. Should only be used by infra_macros/DEFS.bzl
     fn load_symbols<'v>(
-        symbols: DictRef<'v>,
+        symbols: SmallMap<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
-        for (k, v) in symbols.iter() {
-            eval.set_module_variable_at_some_point(&k.to_str(), v)?;
+        for (k, v) in symbols.into_iter() {
+            eval.set_module_variable_at_some_point(k, v)?;
         }
         Ok(NoneType)
     }
