@@ -29,7 +29,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::cells::CellInstance;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;

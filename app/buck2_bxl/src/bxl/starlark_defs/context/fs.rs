@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileOps;
-use buck2_core::cells::CellInstance;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;

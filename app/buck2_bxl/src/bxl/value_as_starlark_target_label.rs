@@ -9,8 +9,8 @@
 
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellInstance;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;

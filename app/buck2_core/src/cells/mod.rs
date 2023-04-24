@@ -132,6 +132,7 @@ pub mod alias;
 pub mod build_file_cell;
 pub mod cell_path;
 pub mod cell_root_path;
+pub mod instance;
 pub mod name;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
@@ -144,11 +145,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
+use instance::CellInstance;
 use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 use thiserror::Error;
@@ -191,11 +191,6 @@ enum CellError {
     #[error("Cell `{0}` alias `{0}` should point to itself, but it points to `{1}`")]
     WrongSelfAlias(CellName, CellName),
 }
-
-/// A 'CellInstance', contains a 'CellName' and a path for that cell.
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}", "_0.name")]
-pub struct CellInstance(Arc<CellData>);
 
 /// A 'CellAliasResolver' is unique to a 'CellInstance'.
 /// It is responsible for resolving all 'CellAlias' encountered within the
@@ -247,61 +242,6 @@ impl CellAliasResolver {
 
     pub fn mappings(&self) -> impl Iterator<Item = (&NonEmptyCellAlias, CellName)> {
         self.aliases.iter().map(|(alias, name)| (alias, *name))
-    }
-}
-
-#[derive(Derivative, PartialEq, Eq, Allocative)]
-#[derivative(Debug)]
-struct CellData {
-    /// the fully canonicalized 'CellName'
-    name: CellName,
-    /// the project relative path to this 'CellInstance'
-    path: CellRootPathBuf,
-    /// a list of potential buildfile names for this cell (e.g. 'BUCK', 'TARGETS',
-    /// 'TARGET.v2'). The candidates are listed in priority order, buck will use
-    /// the first one it encounters in a directory.
-    buildfiles: Vec<FileNameBuf>,
-    #[derivative(Debug = "ignore")]
-    /// the aliases of this specific cell
-    aliases: CellAliasResolver,
-}
-
-impl CellInstance {
-    fn new(
-        name: CellName,
-        path: CellRootPathBuf,
-        buildfiles: Vec<FileNameBuf>,
-        aliases: CellAliasResolver,
-    ) -> CellInstance {
-        CellInstance(Arc::new(CellData {
-            name,
-            path,
-            buildfiles,
-            aliases,
-        }))
-    }
-
-    /// Get the name of the cell, as supplied in `cell_name//foo:bar`.
-    #[inline]
-    pub fn name(&self) -> CellName {
-        self.0.name.dupe()
-    }
-
-    /// Get the path of the cell, where it is routed.
-    #[inline]
-    pub fn path(&self) -> &CellRootPath {
-        &self.0.path
-    }
-
-    // Get the name of build files for the cell.
-    #[inline]
-    pub fn buildfiles(&self) -> &[FileNameBuf] {
-        &self.0.buildfiles
-    }
-
-    #[inline]
-    pub fn cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.0.aliases
     }
 }
 

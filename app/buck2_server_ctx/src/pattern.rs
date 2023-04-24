@@ -13,7 +13,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellInstance;
+use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
