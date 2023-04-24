@@ -106,11 +106,38 @@ fn new_host_info(
 
 #[starlark_module]
 pub fn register_host_info(builder: &mut GlobalsBuilder) {
-    // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
-    // even when evaluated speculatively, is going to be the same across all interpreters
-    // that might reuse each other's output.
+    /// The `host_info()` function is used to get the current OS and processor architecture on the host. The structure returned is laid out thusly:
+    ///
+    /// ```python
+    /// struct(
+    ///     os=struct(
+    ///         is_linux=True|False,
+    ///         is_macos=True|False,
+    ///         is_windows=True|False,
+    ///         is_freebsd=True|False,
+    ///         is_unknown=True|False,
+    ///     ),
+    ///     arch=struct(
+    ///         is_aarch64=True|False,
+    ///         is_arm=True|False,
+    ///         is_armeb=True|False,
+    ///         is_i386=True|False,
+    ///         is_mips=True|False,
+    ///         is_mips64=True|False,
+    ///         is_mipsel=True|False,
+    ///         is_mipsel64=True|False,
+    ///         is_powerpc=True|False,
+    ///         is_ppc64=True|False,
+    ///         is_x86_64=True|False,
+    ///         is_unknown=True|False,
+    ///     ),
+    /// )
+    /// ```
     #[starlark(speculative_exec_safe, return_type = "struct.type")]
     fn host_info<'v>(eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+        // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
+        // even when evaluated speculatively, is going to be the same across all interpreters
+        // that might reuse each other's output.
         let host_info = &BuildContext::from_context(eval)?.host_info;
         Ok(host_info.value.owned_value(eval.frozen_heap()))
     }

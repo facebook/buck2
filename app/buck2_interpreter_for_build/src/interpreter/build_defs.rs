@@ -24,6 +24,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {
     /// The `glob()` function specifies a set of files using patterns.
+    /// Only available from `BUCK` files.
     ///
     /// A typical `glob` call looks like:
     ///
@@ -70,6 +71,8 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .to_string())
     }
 
+    /// `package_name()` can only be called in `BUCK` files, and returns the name of the package.
+    /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
     fn package_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         // An (IMO) unfortunate choice in the skylark api is that this just gives the cell-relative
         //  path of the package (which isn't a unique "name" for the package)
@@ -79,6 +82,10 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .to_string())
     }
 
+    /// `get_base_path()` can only be called in `BUCK` files, and returns the name of the package.
+    /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
+    ///
+    /// This function is identical to `package_name`.
     fn get_base_path(eval: &mut Evaluator) -> anyhow::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .require_package()?
@@ -86,6 +93,9 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
             .to_string())
     }
 
+    /// Like `get_cell_name()` but prepends a leading `@` for compatibility with Buck1.
+    /// You should call `get_cell_name()` instead, and if you really want the `@`,
+    /// prepend it yourself.
     fn repository_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         // In Buck v1 the repository name has a leading `@` on it, so match that with v2.
         // In practice, most users do `repository_name()[1:]` to drop it.
@@ -95,6 +105,13 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         ))
     }
 
+    /// `get_cell_name()` can be called from either a `BUCK` file or a `.bzl` file,
+    /// and returns the name of the cell where the `BUCK` file that started the call
+    /// lives.
+    ///
+    /// For example, inside `foo//bar/baz/BUCK` the output will be `foo`.
+    /// If that `BUCK` file does a `load("hello//world.bzl", "something")` then
+    /// the result in that `.bzl` file will also be `foo`.
     fn get_cell_name(eval: &mut Evaluator) -> anyhow::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .cell_info()

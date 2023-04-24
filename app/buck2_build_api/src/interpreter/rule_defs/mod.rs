@@ -48,7 +48,13 @@ enum ExtraFunctionErrors {
 
 #[starlark_module]
 fn extra_functions(builder: &mut GlobalsBuilder) {
-    // Load symbols into the module. Should only be used by infra_macros/DEFS.bzl
+    /// Used in a `.bzl` file to set exported symbols. In most cases just defining
+    /// the symbol as a top-level binding is sufficient, but sometimes the names
+    /// might be programatically generated.
+    ///
+    /// It is undefined behaviour if you try and use any of the symbols exported
+    /// here later in the same module, or if they overlap with existing definitions.
+    /// This function should be used rarely.
     fn load_symbols<'v>(
         symbols: SmallMap<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_>,
@@ -59,13 +65,25 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
         Ok(NoneType)
     }
 
-    // Test if a regex matches
+    /// Test if a regular expression matches a string. Fails if the regular expression
+    /// is malformed.
+    ///
+    /// As an example:
+    ///
+    /// ```python
+    /// regex_match("^[a-z]*$", "hello") == True
+    /// regex_match("^[a-z]*$", "1234") == False
+    /// ```
     fn regex_match(regex: &str, str: &str) -> anyhow::Result<bool> {
         let re = Regex::new(regex)?;
         Ok(re.is_match(str)?)
     }
 
-    /// Produce a warning.
+    /// Print a warning. The line will be decorated with the timestamp and other details,
+    /// including the word `WARN` (colored, if the console supports it).
+    ///
+    /// If you are not writing a warning, use `print` instead. Be aware that printing
+    /// lots of output (warnings or not) can be cause all information to be ignored by the user.
     fn warning(#[starlark(require = pos)] x: &str) -> anyhow::Result<NoneType> {
         warn!("{}", x);
         Ok(NoneType)
