@@ -13,7 +13,7 @@ import subprocess
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tar-flag", action="append")
+    parser.add_argument("--tar-flag", action="append", default=[])
     parser.add_argument("--tar-archive")
     parser.add_argument("--exclude", action="append")
     parser.add_argument("--out")

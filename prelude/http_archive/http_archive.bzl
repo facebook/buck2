@@ -10,9 +10,10 @@ load("@prelude//utils:utils.bzl", "expect", "value_or")
 
 # Flags to apply to decompress the various types of archives.
 _TAR_FLAGS = {
-    "tar.gz": "-z",
-    "tar.xz": "-J",
-    "tar.zst": "--use-compress-program=unzstd",
+    "tar": [],
+    "tar.gz": ["-z"],
+    "tar.xz": ["-J"],
+    "tar.zst": ["--use-compress-program=unzstd"],
 }
 
 _ARCHIVE_EXTS = _TAR_FLAGS.keys() + [
