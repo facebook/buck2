@@ -277,6 +277,15 @@ def build_params(
         lang: LinkageLang.type,
         linker_type: str.type,
         target_os_type: OsLookup.type) -> BuildParams.type:
+    if rule == RuleType("binary") and proc_macro:
+        # It's complicated: this is a rustdoc test for a procedural macro crate.
+        # We need deps built as if this were a binary, while passing crate-type
+        # proc_macro to the rustdoc invocation.
+        crate_type = CrateType("proc-macro")
+        proc_macro = False
+    else:
+        crate_type = None
+
     input = (rule.value, proc_macro, link_style.value, preferred_linkage.value, lang.value)
 
     expect(
@@ -294,7 +303,7 @@ def build_params(
     prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
-        crate_type = flags.crate_type,
+        crate_type = crate_type or flags.crate_type,
         reloc_model = reloc_model,
         dep_link_style = flags.dep_link_style,
         prefix = prefix,

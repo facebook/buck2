@@ -225,7 +225,7 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
             }[ctx.attrs.preferred_linkage]
         rustdoc_test_params = build_params(
             rule = RuleType("binary"),
-            proc_macro = False,
+            proc_macro = ctx.attrs.proc_macro,
             link_style = doctest_link_style,
             preferred_linkage = Linkage(ctx.attrs.preferred_linkage),
             lang = LinkageLang("rust"),
