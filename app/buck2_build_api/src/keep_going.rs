@@ -18,6 +18,7 @@ use std::hash::Hash;
 use std::io::Write;
 use std::sync::Mutex;
 
+use dice::UserComputationData;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
@@ -179,5 +180,26 @@ impl<I> KeepGoingCollectable<I> for SmallVec<[I; 1]> {
 
     fn push(&mut self, item: I) {
         SmallVec::push(self, item);
+    }
+}
+
+pub struct KeepGoingHolder(bool);
+
+pub trait HasKeepGoing {
+    fn set_keep_going(&mut self, keep_going: bool);
+
+    fn get_keep_going(&self) -> bool;
+}
+
+impl HasKeepGoing for UserComputationData {
+    fn set_keep_going(&mut self, keep_going: bool) {
+        self.data.set(KeepGoingHolder(keep_going));
+    }
+
+    fn get_keep_going(&self) -> bool {
+        self.data
+            .get::<KeepGoingHolder>()
+            .expect("KeepGoing should be set")
+            .0
     }
 }

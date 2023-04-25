@@ -37,7 +37,7 @@ pub mod context;
 pub mod deferred;
 pub mod dynamic;
 pub mod interpreter;
-mod keep_going;
+pub mod keep_going;
 pub mod nodes;
 pub mod query;
 pub mod spawner;

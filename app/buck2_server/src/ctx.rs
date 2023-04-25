@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::context::configure_build_file_globals;
 use buck2_build_api::interpreter::context::configure_extension_file_globals;
 use buck2_build_api::interpreter::context::configure_package_file_globals;
 use buck2_build_api::interpreter::context::prelude_path;
+use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
@@ -389,6 +390,7 @@ impl ServerCommandContext {
             no_remote_cache,
             create_unhashed_symlink_lock,
             starlark_debugger: self.debugger_handle.dupe(),
+            keep_going: false, // TODO (torozco): wire this up
         }
     }
 
@@ -484,6 +486,7 @@ struct DiceCommandDataProvider {
     no_remote_cache: bool,
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
+    keep_going: bool,
 }
 
 #[async_trait]
@@ -572,6 +575,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_run_action_knobs(self.run_action_knobs.dupe());
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
+        data.set_keep_going(self.keep_going);
         data.spawner = Arc::new(BuckSpawner::default());
 
         let tags = vec![
