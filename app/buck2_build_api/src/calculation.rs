@@ -8,6 +8,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::sync::Arc;
 
@@ -41,6 +42,7 @@ use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use fnv::FnvBuildHasher;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
@@ -236,6 +238,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
     struct Builder<'c> {
         ctx: &'c DiceComputations,
+        already_loading: HashSet<PackageLabel, FnvBuildHasher>,
         load_package_futs:
             FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
     }
@@ -243,10 +246,15 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     let mut builder = Builder {
         ctx,
         load_package_futs: FuturesUnordered::new(),
+        already_loading: HashSet::default(),
     };
 
     impl<'c> Builder<'c> {
         fn load_package(&mut self, package: PackageLabel) {
+            if !self.already_loading.insert(package.dupe()) {
+                return;
+            }
+
             // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
             self.load_package_futs.push(
                 self.ctx
