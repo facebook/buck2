@@ -449,4 +449,12 @@ mod tests {
 
         assert_matches!(tree.iter::<CopyCollector<_>>().next(), None);
     }
+
+    #[test]
+    fn test_remove_empty_dirs() {
+        let mut tree = DataTree::<i32, String>::new();
+        tree.insert(vec![1, 2, 3].into_iter(), "123".to_owned());
+        tree.remove(vec![1, 2, 3].iter());
+        assert_matches!(tree, DataTree::Tree(m) if m.is_empty());
+    }
 }
