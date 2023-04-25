@@ -3,5 +3,5 @@ load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 rust_binary(
     name = "__NAME_PLACEHOLDER__",
     srcs = glob(["src/**/*.rs"]),
-    deps = []
+    deps = [],
 )

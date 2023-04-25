@@ -168,8 +168,9 @@ fn test_render() {
 rust_library(
     name = "a-rust-library",
     srcs = glob(["src/**/*.rs"]),
-    deps = []
-)"#;
+    deps = [],
+)
+"#;
 
     assert_eq!(expected, target.render().replace("\r\n", "\n"));
 
@@ -182,8 +183,9 @@ rust_library(
 rust_binary(
     name = "a-rust-binary",
     srcs = glob(["src/**/*.rs"]),
-    deps = []
-)"#;
+    deps = [],
+)
+"#;
 
     assert_eq!(expected, target.render().replace("\r\n", "\n"));
 }
