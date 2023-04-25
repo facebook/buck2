@@ -370,12 +370,12 @@ pub struct CommonBuildOptions {
     #[clap(long)]
     exit_when_different_state: bool,
 
+    /// If Buck hits an error, do as little work as possible before exiting.
     #[clap(long, group = "fail-when")]
     fail_fast: bool,
 
-    /// This option is currently on by default, but will become a proper option in future (T110004971)
+    /// If Buck hits an error, continue doing as much work as possible before exiting.
     #[clap(long, group = "fail-when")]
-    #[allow(unused)]
     keep_going: bool,
 }
 
