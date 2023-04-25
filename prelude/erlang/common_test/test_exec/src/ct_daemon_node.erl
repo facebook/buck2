@@ -76,7 +76,7 @@ start(
         CodePaths,
         ConfigFiles,
         OutputDir,
-        [{args, Args}, {cd, ct_runner:project_root()}],
+        [{args, Args}, {cd, OutputDir}],
         false
     ),
     %% wait for the ct_daemon gen_server to be started
