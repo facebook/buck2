@@ -21,6 +21,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_util::indent::indent;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -28,7 +29,7 @@ use rand::Rng;
 
 #[derive(Debug, thiserror::Error)]
 enum EventLogOptionsError {
-    #[error("Manifold failed; stderr:\n{}", "indent(&_0)")]
+    #[error("Manifold failed; stderr:\n{}", indent("  ", &_0))]
     ManifoldFailed(String),
     #[error(
         "Log not found locally by trace id `{0}`; try `--allow-remote` to download from manifold"
