@@ -16,6 +16,14 @@ AppleDebuggableInfo = provider(fields = [
     "external_debug_info",  # "transitive_set"
 ])
 
+AppleBundleDebuggableInfo = record(
+    # Can be `None` for WatchKit stub
+    binary_info = field([AppleDebuggableInfo.type, None]),
+    dep_infos = field([AppleDebuggableInfo.type]),
+    # Concat of `binary_info` and `dep_infos`
+    all_infos = field([AppleDebuggableInfo.type]),
+)
+
 # TODO(T110672942): Things which are still unsupported:
 # - pass in dsymutil_extra_flags
 # - oso_prefix
