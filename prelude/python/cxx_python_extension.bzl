@@ -26,6 +26,7 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
 load(
     "@prelude//cxx:omnibus.bzl",
     "explicit_roots_enabled",
@@ -128,10 +129,14 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
     expect(len(shared_objects) == 1, "Expected exactly 1 so for cxx_python_extension: {}".format(ctx.label))
     extension = shared_objects[0]
 
+    sub_targets = cxx_library_info.sub_targets
+    if extension.pdb:
+        sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = extension.pdb)]
+
     providers.append(DefaultInfo(
         default_output = shared_output.default,
         other_outputs = shared_output.other,
-        sub_targets = cxx_library_info.sub_targets,
+        sub_targets = sub_targets,
     ))
 
     cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
