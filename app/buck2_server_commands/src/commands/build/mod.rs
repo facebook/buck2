@@ -235,6 +235,7 @@ async fn build(
         target_resolution_config,
         build_providers,
         &materialization_context,
+        build_opts.fail_fast,
     )
     .await?
     {
@@ -313,6 +314,7 @@ async fn build_targets(
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
+    fail_fast: bool,
 ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
@@ -339,7 +341,7 @@ async fn build_targets(
     };
 
     // We omit skipped targets here.
-    let res = BuildTargetResult::collect_stream(stream)
+    let res = BuildTargetResult::collect_stream(stream, fail_fast)
         .await?
         .into_iter()
         .filter_map(|(k, v)| Some((k, v?)))

@@ -165,7 +165,8 @@ pub(crate) fn build<'v>(
             .collect::<FuturesUnordered<_>>()
             .flatten_unordered(None);
 
-        BuildTargetResult::collect_stream(stream).await
+        // TODO (torozco): support --fail-fast in BXL.
+        BuildTargetResult::collect_stream(stream, false).await
     })?;
 
     build_result

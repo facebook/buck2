@@ -66,11 +66,6 @@ pub struct BuildCommand {
     #[clap(long = "providers", help = "Print the providers of each target")]
     print_providers: bool,
 
-    /// This option is currently on by default, but will become a proper option in future (T110004971)
-    #[clap(long = "keep-going")]
-    #[allow(unused)]
-    keep_going: bool,
-
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep")]
     #[allow(unused)] // for v1 compat

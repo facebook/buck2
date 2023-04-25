@@ -369,6 +369,14 @@ pub struct CommonBuildOptions {
     /// Exit the current command if there was a state change in the concurrently-running command.
     #[clap(long)]
     exit_when_different_state: bool,
+
+    #[clap(long, group = "fail-when")]
+    fail_fast: bool,
+
+    /// This option is currently on by default, but will become a proper option in future (T110004971)
+    #[clap(long, group = "fail-when")]
+    #[allow(unused)]
+    keep_going: bool,
 }
 
 impl CommonBuildOptions {
@@ -409,6 +417,8 @@ impl CommonBuildOptions {
             upload_all_actions: self.upload_all_actions,
             no_remote_cache: self.no_remote_cache,
             exit_when_different_state: self.exit_when_different_state,
+            fail_fast: self.fail_fast,
+            keep_going: self.keep_going,
         }
     }
 }

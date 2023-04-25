@@ -304,6 +304,17 @@ message CommonBuildOptions {
   /// Error out concurrent commands after there is a state change.
   bool exit_when_different_state = 12;
 
+  // Those two control how much faster or slower we try to fail. We keep them
+  // as separate fields because we actually want to allow for a mode where both
+  // are false (which is our historical behavior of fail-fast inside
+  // computations but keep-going at the top level). This could be an enum, but
+  // that turns out to be super verbose to check, so two flags it is.
+  //
+  // Setting both to true is nonsensical (but actually well-specified as per the
+  // above), but we let the CLI prevent that.
+  bool keep_going = 13;
+  bool fail_fast = 14;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if

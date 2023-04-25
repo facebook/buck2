@@ -71,6 +71,7 @@ pub struct BuildTargetResult {
 impl BuildTargetResult {
     pub async fn collect_stream(
         mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
+        fail_fast: bool,
     ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, Option<Self>>> {
         let mut res = BTreeMap::new();
 
@@ -105,12 +106,18 @@ impl BuildTargetResult {
                     }
                 }
                 BuildEventVariant::Output { output } => {
+                    let is_err = output.is_err();
+
                     res.get_mut(label.as_ref())
                         .with_context(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {} (internal error)", label))?
                         .as_mut()
                         .with_context(|| format!("BuildEventVariant::Output for a skipped target: `{}` (internal error)", label))?
                         .outputs
                         .push(output);
+
+                    if is_err && fail_fast {
+                        break;
+                    }
                 }
             }
         }

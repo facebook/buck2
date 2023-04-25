@@ -239,6 +239,8 @@ async fn test(
     ctx: DiceTransaction,
     request: &TestRequest,
 ) -> anyhow::Result<TestResponse> {
+    // TODO (torozco): Should the --fail-fast flag work here?
+
     let cwd = server_ctx.working_dir();
     let cell_resolver = ctx.get_cell_resolver().await?;
     let working_dir_cell = cell_resolver.find(cwd)?;

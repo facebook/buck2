@@ -102,11 +102,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     )]
     build_filtered_targets: bool, // TODO(bobyf) this flag should always override the buckconfig option when we use it
 
-    /// This option is currently on by default, but will become a proper option in future (T110004971)
-    #[clap(long = "keep-going")]
-    #[allow(unused)]
-    keep_going: bool,
-
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[allow(unused)] // for v1 compat
     #[clap(long = "deep")]
