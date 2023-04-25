@@ -3,6 +3,8 @@
 %%! +sbtu
 
 %% This is a fork from the OTP edoc_cli module
+%% major changes:
+%%   - Errors are propagated instead of being silently ignored
 %% =====================================================================
 %% Licensed under the Apache License, Version 2.0 (the "License"); you may
 %% not use this file except in compliance with the License. You may obtain
