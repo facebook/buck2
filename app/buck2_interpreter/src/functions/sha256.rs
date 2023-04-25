@@ -18,6 +18,7 @@ pub fn register_sha256(builder: &mut GlobalsBuilder) {
     ///
     /// ```python
     /// sha256("Buck2 is the best build system") == "bb99a3f19ecba6c4d2c7cd321b63b669684c713881baae21a6b1d759b3ec6ac9"
+    /// ```
     fn sha256(val: &str) -> anyhow::Result<String> {
         let hash = Sha256::digest(val.as_bytes());
         Ok(hex::encode(hash))
