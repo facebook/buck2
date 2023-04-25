@@ -232,33 +232,45 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     impl Stream<Item = (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> + 'c,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
-    let load_package_futs = FuturesUnordered::new();
     let mut recursive_packages = Vec::new();
 
-    fn load_package<'a>(
-        ctx: &'a DiceComputations,
-        package: PackageLabel,
-    ) -> BoxFuture<'a, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> {
-        // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
-        ctx.temporary_spawn(move |ctx, _cancellation| {
-            async move {
-                let res = ctx.get_interpreter_results(package.dupe()).await;
-                (package, res)
-            }
-            .boxed()
-        })
-        .boxed()
+    struct Builder<'c> {
+        ctx: &'c DiceComputations,
+        load_package_futs:
+            FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
+    }
+
+    let mut builder = Builder {
+        ctx,
+        load_package_futs: FuturesUnordered::new(),
+    };
+
+    impl<'c> Builder<'c> {
+        fn load_package(&mut self, package: PackageLabel) {
+            // it's important that this is not async and the temporary spawn happens when the function is called as we don't immediately start polling these.
+            self.load_package_futs.push(
+                self.ctx
+                    .temporary_spawn(move |ctx, _cancellation| {
+                        async move {
+                            let res = ctx.get_interpreter_results(package.dupe()).await;
+                            (package, res)
+                        }
+                        .boxed()
+                    })
+                    .boxed(),
+            )
+        }
     }
 
     for pattern in parsed_patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
                 spec.add_target(package.dupe(), target_name, extra);
-                load_package_futs.push(load_package(ctx, package.dupe()));
+                builder.load_package(package.dupe());
             }
             ParsedPattern::Package(package) => {
                 spec.add_package(package.dupe());
-                load_package_futs.push(load_package(ctx, package.dupe()));
+                builder.load_package(package.dupe());
             }
             ParsedPattern::Recursive(package) => {
                 recursive_packages.push(package);
@@ -270,10 +282,10 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     while let Some(res) = recursive_pattern_packages.next().await {
         let package = res?;
         spec.add_package(package.dupe());
-        load_package_futs.push(load_package(ctx, package));
+        builder.load_package(package);
     }
 
-    Ok((spec, load_package_futs))
+    Ok((spec, builder.load_package_futs))
 }
 
 pub struct LoadedPatterns<T: PatternType> {
