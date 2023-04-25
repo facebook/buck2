@@ -63,14 +63,6 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
         Ok(eval.heap().alloc(AllocList(res)))
     }
 
-    fn package(eval: &mut Evaluator) -> anyhow::Result<String> {
-        // TODO(cjhopman): Is this used much? Can we change it to return a thin wrapper
-        // over the Package itself that exposes things like the cell name or fully specified name?
-        Ok(BuildContext::from_context(eval)?
-            .require_package()?
-            .to_string())
-    }
-
     /// `package_name()` can only be called in `BUCK` files, and returns the name of the package.
     /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
     fn package_name(eval: &mut Evaluator) -> anyhow::Result<String> {
