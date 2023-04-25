@@ -190,10 +190,10 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         else:
             fail("Unhandled lang {}".format(lang))
 
-    # Among {rustdoc, doctests, save-analysis, macro expand}, doctests are the
-    # only one which cares about linkage. So if there is a required link style
-    # set for the doctests, reuse those same dependency artifacts for the other
-    # build outputs where static vs static_pic does not make a difference.
+    # Among {rustdoc, doctests, macro expand}, doctests are the only one which
+    # cares about linkage. So if there is a required link style set for the
+    # doctests, reuse those same dependency artifacts for the other build
+    # outputs where static vs static_pic does not make a difference.
     if ctx.attrs.doctest_link_style:
         static_link_style = {
             "shared": DEFAULT_STATIC_LINK_STYLE,
@@ -250,15 +250,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         default_roots = default_roots,
     )
 
-    save_analysis = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("save-analysis"),
-        params = static_library_params,
-        link_style = DEFAULT_STATIC_LINK_STYLE,
-        default_roots = default_roots,
-    )
-
     providers = []
 
     providers += _default_providers(
@@ -269,7 +260,6 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         rustdoc_test = rustdoc_test,
         check_artifacts = check_artifacts,
         expand = expand.outputs[Emit("expand")],
-        save_analysis = save_analysis.outputs[Emit("save-analysis")],
         sources = compile_ctx.symlinked_srcs,
     )
     providers += _rust_providers(
@@ -410,7 +400,6 @@ def _default_providers(
         rustdoc_test: ["cmd_args", None],
         check_artifacts: {str.type: "artifact"},
         expand: "artifact",
-        save_analysis: "artifact",
         sources: "artifact") -> ["provider"]:
     # Outputs indexed by LinkStyle
     style_info = {
@@ -423,7 +412,6 @@ def _default_providers(
     targets.update(check_artifacts)
     targets["sources"] = sources
     targets["expand"] = expand
-    targets["save-analysis"] = save_analysis
     targets["doc"] = rustdoc
     sub_targets = {
         k: [DefaultInfo(default_output = v)]

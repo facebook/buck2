@@ -845,16 +845,13 @@ def _rustc_emits(
     if emit in predeclared_outputs:
         output = predeclared_outputs[emit]
     else:
-        if emit == Emit("save-analysis"):
-            filename = "{}/save-analysis/{}{}.json".format(subdir, params.prefix, simple_crate)
+        extra_hash = "-" + _metadata(ctx.label)[1]
+        emit_args.add("-Cextra-filename={}".format(extra_hash))
+        if pipeline_meta:
+            # Make sure hollow rlibs are distinct from real ones
+            filename = subdir + "/hollow/" + output_filename(simple_crate, Emit("link"), params, extra_hash)
         else:
-            extra_hash = "-" + _metadata(ctx.label)[1]
-            emit_args.add("-Cextra-filename={}".format(extra_hash))
-            if pipeline_meta:
-                # Make sure hollow rlibs are distinct from real ones
-                filename = subdir + "/hollow/" + output_filename(simple_crate, Emit("link"), params, extra_hash)
-            else:
-                filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
+            filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
 
         output = ctx.actions.declare_output(filename)
 
@@ -875,19 +872,12 @@ def _rustc_emits(
             "-Zunpretty=expanded",
             cmd_args(output.as_output(), format = "-o{}"),
         )
-    elif emit == Emit("save-analysis"):
-        emit_args.add(
-            "--emit=metadata",
-            "-Zsave-analysis",
-            # No way to explicitly set the output location except with the output dir
-            cmd_args(output.as_output(), format = "--out-dir={}").parent(2),
-        )
     else:
         # Assume https://github.com/rust-lang/rust/issues/85356 is fixed (ie
         # https://github.com/rust-lang/rust/pull/85362 is applied)
         emit_args.add(cmd_args("--emit=", emit.value, "=", output.as_output(), delimiter = ""))
 
-    if emit not in (Emit("expand"), Emit("save-analysis")):
+    if emit != Emit("expand"):
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
         extra_dir = subdir + "/extras/" + base

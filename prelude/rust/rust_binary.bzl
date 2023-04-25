@@ -159,16 +159,6 @@ def _rust_binary_common(
         extra_flags = extra_flags,
     )
 
-    save_analysis = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("save-analysis"),
-        params = style_param[DEFAULT_STATIC_LINK_STYLE],
-        link_style = DEFAULT_STATIC_LINK_STYLE,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-    )
-
     (link, args, extra_targets, runtime_files) = styles[specified_link_style]
     extra_targets += [
         ("doc", generate_rustdoc(
@@ -179,7 +169,6 @@ def _rust_binary_common(
             document_private_items = True,
         )),
         ("expand", expand.outputs[Emit("expand")]),
-        ("save-analysis", save_analysis.outputs[Emit("save-analysis")]),
         ("sources", compile_ctx.symlinked_srcs),
     ]
     sub_targets = {k: [DefaultInfo(default_output = v)] for k, v in extra_targets}
