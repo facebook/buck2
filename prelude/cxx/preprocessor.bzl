@@ -227,8 +227,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # Propagate the exported header tree.
     if header_root != None:
-        inc_flag = _header_style_flag(style)
-        args.extend(_format_include_arg(inc_flag, header_root.include_path, compiler_type))
+        args.extend(_header_style_args(style, header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
 
@@ -349,11 +348,11 @@ def _cxx_private_preprocessor_info(
 def _by_language_cxx(x: {"": ""}) -> [""]:
     return cxx_by_language_ext(x, ".cpp")
 
-def _header_style_flag(style: HeaderStyle.type) -> str.type:
+def _header_style_args(style: HeaderStyle.type, path: "cmd_args", compiler_type: str.type) -> ["cmd_args"]:
     if style == HeaderStyle("local"):
-        return "-I"
+        return _format_include_arg("-I", path, compiler_type)
     if style == HeaderStyle("system"):
-        return "-isystem"
+        return format_system_include_arg(path, compiler_type)
     fail("unsupported header style: {}".format(style))
 
 def _attr_headers_as_raw_headers_mode(ctx: "context") -> HeadersAsRawHeadersMode.type:
