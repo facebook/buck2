@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::future;
 use std::io::BufWriter;
 use std::sync::Arc;
 
@@ -58,7 +57,10 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::FutureExt;
+use futures::future::TryFutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
+use futures::stream::Stream;
+use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
@@ -312,7 +314,7 @@ async fn build_targets(
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
 ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
-    match target_resolution_config {
+    let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
             let spec = spec.convert_pattern().context(
                 "Cannot build with explicit configurations when universe is not specified",
@@ -324,31 +326,32 @@ async fn build_targets(
                 build_providers,
                 materialization_context,
             )
-            .await
+            .left_stream()
         }
-        TargetResolutionConfig::Universe(universe) => {
-            build_targets_in_universe(
-                ctx,
-                spec,
-                universe,
-                build_providers,
-                materialization_context,
-            )
-            .await
-        }
-    }
+        TargetResolutionConfig::Universe(universe) => build_targets_in_universe(
+            ctx,
+            spec,
+            universe,
+            build_providers,
+            materialization_context,
+        )
+        .right_stream(),
+    };
+
+    stream.try_collect().await
 }
 
-async fn build_targets_in_universe(
-    ctx: &DiceComputations,
+fn build_targets_in_universe<'a>(
+    ctx: &'a DiceComputations,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization_context: &MaterializationContext,
-) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
+    materialization_context: &'a MaterializationContext,
+) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
+{
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
-    let futs: FuturesUnordered<_> = provider_labels
+    provider_labels
         .into_iter()
         .map(|p| {
             let materialization_context = materialization_context.dupe();
@@ -368,46 +371,42 @@ async fn build_targets_in_universe(
                 .boxed()
             })
         })
-        .collect();
-    futs.try_filter_map(|o| future::ready(Ok(o)))
-        .try_collect()
-        .await
+        .collect::<FuturesUnordered<_>>()
+        .try_filter_map(|v| futures::future::ready(Ok(v)))
 }
 
-async fn build_targets_with_global_target_platform(
-    ctx: &DiceComputations,
+fn build_targets_with_global_target_platform<'a>(
+    ctx: &'a DiceComputations,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     build_providers: Arc<BuildProviders>,
-    materialization_context: &MaterializationContext,
-) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
-    let futs: FuturesUnordered<_> = spec
-        .specs
+    materialization_context: &'a MaterializationContext,
+) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
+{
+    spec.specs
         .into_iter()
         .map(|(package, spec)| {
             let build_providers = build_providers.dupe();
             let global_target_platform = global_target_platform.dupe();
-            let materialization_context = materialization_context.dupe();
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    let res = ctx.get_interpreter_results(package.dupe()).await?;
-                    build_targets_for_spec(
-                        &ctx,
-                        package.dupe(),
-                        spec,
-                        global_target_platform,
-                        res,
-                        build_providers,
-                        &materialization_context,
-                    )
-                    .await
-                }
-                .boxed()
-            })
+            async move {
+                let res = ctx.get_interpreter_results(package.dupe()).await?;
+                anyhow::Ok(build_targets_for_spec(
+                    ctx,
+                    package.dupe(),
+                    spec,
+                    global_target_platform,
+                    res,
+                    build_providers,
+                    materialization_context,
+                ))
+            }
         })
-        .collect();
-
-    futs.try_concat().await
+        .collect::<FuturesUnordered<_>>()
+        .map(|res| match res {
+            Ok(stream) => stream.left_stream(),
+            Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
+        })
+        .flatten_unordered(None)
 }
 
 struct TargetBuildSpec {
@@ -438,49 +437,50 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
     providers_to_build
 }
 
-async fn build_targets_for_spec(
-    ctx: &DiceComputations,
+fn build_targets_for_spec<'a>(
+    ctx: &'a DiceComputations,
     package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
-    materialization_context: &MaterializationContext,
-) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
-    let available_targets = res.targets();
+    materialization_context: &'a MaterializationContext,
+) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
+{
+    async move {
+        let available_targets = res.targets();
 
-    let todo_targets: Vec<TargetBuildSpec> = match spec {
-        PackageSpec::All => available_targets
-            .keys()
-            .map(|t| TargetBuildSpec {
-                target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
-                global_target_platform: global_target_platform.dupe(),
-                skippable: true,
-            })
-            .collect(),
-        PackageSpec::Targets(targets) => {
-            for (target_name, _) in &targets {
-                res.resolve_target(target_name)?;
+        let todo_targets: Vec<TargetBuildSpec> = match spec {
+            PackageSpec::All => available_targets
+                .keys()
+                .map(|t| TargetBuildSpec {
+                    target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
+                    global_target_platform: global_target_platform.dupe(),
+                    skippable: true,
+                })
+                .collect(),
+            PackageSpec::Targets(targets) => {
+                for (target_name, _) in &targets {
+                    res.resolve_target(target_name)?;
+                }
+                targets.into_map(|(target_name, providers)| TargetBuildSpec {
+                    target: providers.into_providers_label(package.dupe(), target_name.as_ref()),
+                    global_target_platform: global_target_platform.dupe(),
+                    skippable: false,
+                })
             }
-            targets.into_map(|(target_name, providers)| TargetBuildSpec {
-                target: providers.into_providers_label(package.dupe(), target_name.as_ref()),
-                global_target_platform: global_target_platform.dupe(),
-                skippable: false,
-            })
-        }
-    };
+        };
 
-    let providers_to_build = build_providers_to_providers_to_build(&build_providers);
+        let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
-    let futs: FuturesUnordered<_> = todo_targets
-        .into_iter()
-        .map(|build_spec| {
-            let materialization_context = materialization_context.dupe();
-            let providers_to_build = providers_to_build.clone();
-            // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-            ctx.temporary_spawn(move |ctx, _cancellation| {
-                async move {
-                    {
+        let stream = todo_targets
+            .into_iter()
+            .map(|build_spec| {
+                let materialization_context = materialization_context.dupe();
+                let providers_to_build = providers_to_build.clone();
+                // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
+                ctx.temporary_spawn(move |ctx, _cancellations| {
+                    async move {
                         build_target(
                             &ctx,
                             build_spec,
@@ -489,15 +489,16 @@ async fn build_targets_for_spec(
                         )
                         .await
                     }
-                }
-                .boxed()
+                    .boxed()
+                })
             })
-        })
-        .collect();
+            .collect::<FuturesUnordered<_>>()
+            .try_filter_map(|v| futures::future::ready(Ok(v)));
 
-    futs.try_filter_map(|o| future::ready(Ok(o)))
-        .try_collect()
-        .await
+        anyhow::Ok(stream)
+    }
+    .boxed()
+    .try_flatten_stream()
 }
 
 async fn build_target(
