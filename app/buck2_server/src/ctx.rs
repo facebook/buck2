@@ -390,7 +390,10 @@ impl ServerCommandContext {
             no_remote_cache,
             create_unhashed_symlink_lock,
             starlark_debugger: self.debugger_handle.dupe(),
-            keep_going: false, // TODO (torozco): wire this up
+            keep_going: self
+                .build_options
+                .as_ref()
+                .map_or(false, |opts| opts.keep_going),
         }
     }
 
