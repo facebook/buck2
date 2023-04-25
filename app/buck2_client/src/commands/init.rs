@@ -118,7 +118,7 @@ fn exec_impl(
     set_up_project(&absolute, git, !cmd.no_prelude)
 }
 
-fn initialize_buckconfig(repo_root: &Path, prelude: bool) -> anyhow::Result<()> {
+fn initialize_buckconfig(repo_root: &Path, prelude: bool, git: bool) -> anyhow::Result<()> {
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[repositories]")?;
     writeln!(buckconfig, "root = .")?;
@@ -145,6 +145,11 @@ fn initialize_buckconfig(repo_root: &Path, prelude: bool) -> anyhow::Result<()> 
         let prelude_dir = repo_root.join("prelude");
         fs_util::create_dir(prelude_dir.as_path())?;
         fs_util::create_file(prelude_dir.join("prelude.bzl"))?;
+    }
+    if git {
+        writeln!(buckconfig)?;
+        writeln!(buckconfig, "[project]")?;
+        writeln!(buckconfig, "ignore = .git")?;
     }
     Ok(())
 }
@@ -248,7 +253,7 @@ fn set_up_project(repo_root: &Path, git: bool, prelude: bool) -> anyhow::Result<
         return Ok(());
     }
 
-    initialize_buckconfig(repo_root, prelude)?;
+    initialize_buckconfig(repo_root, prelude, git)?;
     if prelude {
         let toolchains = repo_root.join("toolchains");
         if !toolchains.exists() {
@@ -324,7 +329,7 @@ mod tests {
         fs_util::create_dir_all(tempdir_path)?;
 
         let buckconfig_path = tempdir_path.join(".buckconfig");
-        initialize_buckconfig(tempdir_path, true)?;
+        initialize_buckconfig(tempdir_path, true, false)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
         let expected_buckconfig = "[repositories]
 root = .
@@ -352,7 +357,7 @@ target_platform_detector_spec = target:root//...->prelude//platforms:default
         fs_util::create_dir_all(tempdir_path)?;
 
         let buckconfig_path = tempdir_path.join(".buckconfig");
-        initialize_buckconfig(tempdir_path, false)?;
+        initialize_buckconfig(tempdir_path, false, false)?;
         let actual_buckconfig = fs_util::read_to_string(buckconfig_path)?;
         let expected_buckconfig = "[repositories]
 root = .
