@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
@@ -27,6 +28,11 @@ use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use futures::future;
+use futures::stream::BoxStream;
+use futures::stream::FuturesUnordered;
+use futures::stream::Stream;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::artifact_type::BaseArtifactKind;
@@ -62,22 +68,96 @@ pub struct BuildTargetResult {
     pub run_args: Option<Vec<String>>,
 }
 
+impl BuildTargetResult {
+    pub async fn collect_stream(
+        mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
+    ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, Option<Self>>> {
+        let mut res = BTreeMap::new();
+
+        while let Some(BuildEvent { label, variant }) = stream.try_next().await? {
+            match variant {
+                BuildEventVariant::SkippedIncompatible => {
+                    let prev = res.insert((*label).clone(), None);
+                    if prev.is_some() {
+                        return Err(anyhow::anyhow!(
+                            "Duplicate signal for {} (internal error)",
+                            label
+                        ));
+                    }
+                }
+                BuildEventVariant::Prepared {
+                    providers,
+                    run_args,
+                } => {
+                    let prev = res.insert(
+                        (*label).clone(),
+                        Some(BuildTargetResult {
+                            outputs: Vec::new(),
+                            providers,
+                            run_args,
+                        }),
+                    );
+                    if prev.is_some() {
+                        return Err(anyhow::anyhow!(
+                            "Duplicate signal for {} (internal error)",
+                            label
+                        ));
+                    }
+                }
+                BuildEventVariant::Output { output } => {
+                    res.get_mut(label.as_ref())
+                        .with_context(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {} (internal error)", label))?
+                        .as_mut()
+                        .with_context(|| format!("BuildEventVariant::Output for a skipped target: `{}` (internal error)", label))?
+                        .outputs
+                        .push(output);
+                }
+            }
+        }
+
+        Ok(res)
+    }
+}
+
+enum BuildEventVariant {
+    SkippedIncompatible,
+    Prepared {
+        providers: FrozenProviderCollectionValue,
+        run_args: Option<Vec<String>>,
+    },
+    Output {
+        output: SharedResult<ProviderArtifacts>,
+    },
+}
+
+/// Events to be accumulated using BuildTargetResult::collect_stream.
+pub struct BuildEvent {
+    label: Arc<ConfiguredProvidersLabel>,
+    variant: BuildEventVariant,
+}
+
 pub async fn build_configured_label(
     ctx: &DiceComputations,
     materialization_context: &MaterializationContext,
-    providers_label: &ConfiguredProvidersLabel,
+    providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     skippable: bool,
-) -> anyhow::Result<Option<BuildTargetResult>> {
+) -> anyhow::Result<BoxStream<'static, BuildEvent>> {
+    let providers_label = Arc::new(providers_label);
+
     let artifact_fs = ctx.get_artifact_fs().await?;
 
     let (providers, outputs, run_args) = {
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
-        let providers = match ctx.get_providers(providers_label).await? {
+        let providers = match ctx.get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
                 if skippable {
                     console_message(reason.skipping_message(providers_label.target()));
-                    return Ok(None);
+                    return Ok(futures::stream::once(futures::future::ready(BuildEvent {
+                        label: providers_label.dupe(),
+                        variant: BuildEventVariant::SkippedIncompatible,
+                    }))
+                    .boxed());
                 } else {
                     return Err(reason.to_err());
                 }
@@ -167,21 +247,48 @@ pub async fn build_configured_label(
         ));
     }
 
-    let outputs = future::join_all(outputs.into_iter().map(|(o, provider_type)| async move {
-        let values = materialize_artifact_group(ctx, &o, materialization_context)
-            .await
-            .shared_error()?;
-        Ok(ProviderArtifacts {
-            values,
-            provider_type,
+    let outputs = outputs
+        .into_iter()
+        .map({
+            // The closure gets its copy.
+            let ctx = ctx.dupe();
+            let materialization_context = materialization_context.dupe();
+            move |(output, provider_type)| {
+                // And each future we create gets one too.
+                let ctx = ctx.dupe();
+                let materialization_context = materialization_context.dupe();
+                async move {
+                    let values =
+                        materialize_artifact_group(&ctx, &output, &materialization_context)
+                            .await
+                            .shared_error()?;
+                    Ok(ProviderArtifacts {
+                        values,
+                        provider_type,
+                    })
+                }
+            }
         })
+        .collect::<FuturesUnordered<_>>()
+        .map({
+            let providers_label = providers_label.dupe();
+            move |output| BuildEvent {
+                label: providers_label.dupe(),
+                variant: BuildEventVariant::Output { output },
+            }
+        });
+
+    let stream = futures::stream::once(futures::future::ready(BuildEvent {
+        label: providers_label.dupe(),
+        variant: BuildEventVariant::Prepared {
+            providers,
+            run_args,
+        },
     }))
-    .await;
-    Ok(Some(BuildTargetResult {
-        outputs,
-        providers,
-        run_args,
-    }))
+    .chain(outputs)
+    .boxed();
+
+    Ok(stream)
 }
 
 #[derive(Clone, Allocative)]

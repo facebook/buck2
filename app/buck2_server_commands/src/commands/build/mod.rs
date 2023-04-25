@@ -14,6 +14,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::build;
+use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
@@ -61,7 +62,6 @@ use futures::future::TryFutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 
@@ -338,7 +338,14 @@ async fn build_targets(
         .right_stream(),
     };
 
-    stream.try_collect().await
+    // We omit skipped targets here.
+    let res = BuildTargetResult::collect_stream(stream)
+        .await?
+        .into_iter()
+        .filter_map(|(k, v)| Some((k, v?)))
+        .collect();
+
+    Ok(res)
 }
 
 fn build_targets_in_universe<'a>(
@@ -347,8 +354,7 @@ fn build_targets_in_universe<'a>(
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
-{
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
     provider_labels
@@ -356,23 +362,29 @@ fn build_targets_in_universe<'a>(
         .map(|p| {
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
-            ctx.temporary_spawn(move |ctx, _cancellation| {
+            ctx.temporary_spawn(|ctx, _cancellations| {
                 async move {
-                    let option = build::build_configured_label(
+                    let res = build::build_configured_label(
                         &ctx,
                         &materialization_context,
-                        &p,
+                        p,
                         &providers_to_build,
                         false,
                     )
-                    .await?;
-                    Ok(option.map(|r| (p, r)))
+                    .await;
+
+                    match res {
+                        Ok(stream) => stream.map(Ok).left_stream(),
+                        Err(e) => {
+                            futures::stream::once(futures::future::ready(Err(e))).right_stream()
+                        }
+                    }
                 }
                 .boxed()
             })
         })
         .collect::<FuturesUnordered<_>>()
-        .try_filter_map(|v| futures::future::ready(Ok(v)))
+        .flatten_unordered(None)
 }
 
 fn build_targets_with_global_target_platform<'a>(
@@ -381,8 +393,7 @@ fn build_targets_with_global_target_platform<'a>(
     global_target_platform: Option<TargetLabel>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
-{
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     spec.specs
         .into_iter()
         .map(|(package, spec)| {
@@ -445,8 +456,7 @@ fn build_targets_for_spec<'a>(
     res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
-) -> impl Stream<Item = anyhow::Result<(ConfiguredProvidersLabel, BuildTargetResult)>> + Unpin + 'a
-{
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     async move {
         let available_targets = res.targets();
 
@@ -493,7 +503,7 @@ fn build_targets_for_spec<'a>(
                 })
             })
             .collect::<FuturesUnordered<_>>()
-            .try_filter_map(|v| futures::future::ready(Ok(v)));
+            .flatten_unordered(None);
 
         anyhow::Ok(stream)
     }
@@ -506,19 +516,25 @@ async fn build_target(
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_context: &MaterializationContext,
-) -> anyhow::Result<Option<(ConfiguredProvidersLabel, BuildTargetResult)>> {
-    let providers_label = ctx
-        .get_configured_target(&spec.target, spec.global_target_platform.as_ref())
-        .await?;
+) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'static {
+    let res = async {
+        let providers_label = ctx
+            .get_configured_target(&spec.target, spec.global_target_platform.as_ref())
+            .await?;
 
-    let result = build::build_configured_label(
-        ctx,
-        materialization_context,
-        &providers_label,
-        providers_to_build,
-        spec.skippable,
-    )
-    .await?;
+        build::build_configured_label(
+            ctx,
+            materialization_context,
+            providers_label,
+            providers_to_build,
+            spec.skippable,
+        )
+        .await
+    }
+    .await;
 
-    Ok(result.map(|r| (providers_label, r)))
+    match res {
+        Ok(stream) => stream.map(Ok).left_stream(),
+        Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
+    }
 }

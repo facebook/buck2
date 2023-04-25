@@ -11,6 +11,7 @@
 //! Implements the ability for bxl to build targets
 use allocative::Allocative;
 use buck2_build_api::build::build_configured_label;
+use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
@@ -19,6 +20,8 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use dupe::Dupe;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::eval::Evaluator;
@@ -131,32 +134,38 @@ pub(crate) fn build<'v>(
 ) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
     let build_spec = ProvidersExpr::unpack(spec, target_platform, ctx, eval)?;
 
-    // TODO allow bxl writers to specify
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, &ctx.materializations);
 
     let build_result = ctx.async_ctx.via_dice(async move |dice| {
-        Ok(futures::future::join_all(build_spec.labels().map(|target| {
-            async {
-                (
+        let materializations = &materializations;
+
+        let stream = build_spec
+            .labels()
+            .map(|target| async move {
+                let res = build_configured_label(
+                    dice,
+                    materializations,
                     target.clone(),
-                    build_configured_label(
-                        dice,
-                        &materializations,
-                        target,
-                        &ProvidersToBuild {
-                            default: true,
-                            default_other: true,
-                            run: true,
-                            tests: true,
-                        }, // TODO support skipping/configuring?
-                        false,
-                    )
-                    .await,
+                    &ProvidersToBuild {
+                        default: true,
+                        default_other: true,
+                        run: true,
+                        tests: true,
+                    }, // TODO support skipping/configuring?
+                    false,
                 )
-            }
-        }))
-        .await)
+                .await;
+
+                match res {
+                    Ok(stream) => stream.map(Ok).left_stream(),
+                    Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
+                }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .flatten_unordered(None);
+
+        BuildTargetResult::collect_stream(stream).await
     })?;
 
     build_result
@@ -165,8 +174,8 @@ pub(crate) fn build<'v>(
             Ok((
                 eval.heap().alloc(Label::new(target)).get_hashed().unwrap(),
                 eval.heap()
-                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result?))),
+                    .alloc(StarlarkBxlBuildResult(BxlBuildResult::new(result))),
             ))
         })
-        .collect::<anyhow::Result<SmallMap<_, _>>>()
+        .collect()
 }
