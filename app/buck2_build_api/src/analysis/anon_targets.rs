@@ -338,6 +338,7 @@ impl AnonTargetKey {
 
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
+            dice,
             self.deps()?
                 .into_iter()
                 .map(async move |dep| {

@@ -378,7 +378,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
                 .collect();
 
             let ready_inputs: Vec<_> =
-                tokio::task::unconstrained(keep_going::try_join_all(ensure_futs)).await?;
+                tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
 
             // Partition our inputs in artifacts and projections.
             let mut values_count = 0;
@@ -490,6 +490,7 @@ mod tests {
     use crate::interpreter::rule_defs::transitive_set::testing;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
     use crate::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
+    use crate::keep_going::HasKeepGoing;
 
     fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> DiceBuilder {
         let tset = TransitiveSet::from_value(value.value()).unwrap();
@@ -585,7 +586,10 @@ mod tests {
             }
         }
 
-        let mut dice = dice_builder.build(UserComputationData::new())?;
+        let mut extra = UserComputationData::new();
+        extra.set_keep_going(true);
+
+        let mut dice = dice_builder.build(extra)?;
         dice.set_cell_resolver(cell_resolver)?;
         dice.set_buck_out_path(None)?;
         let dice = dice.commit().await;

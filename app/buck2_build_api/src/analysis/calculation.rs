@@ -228,6 +228,7 @@ pub async fn get_dep_analysis<'v>(
     ctx: &DiceComputations,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
     keep_going::try_join_all(
+        ctx,
         configured_node
             .deps()
             .map(async move |dep| {
@@ -508,6 +509,7 @@ mod tests {
     use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
     use crate::interpreter::rule_defs::register_rule_defs;
+    use crate::keep_going::HasKeepGoing;
     use crate::spawner::BuckSpawner;
 
     #[tokio::test]
@@ -606,6 +608,7 @@ mod tests {
             })
             .build({
                 let mut data = UserComputationData::new();
+                data.set_keep_going(true);
                 set_fallback_executor_config(
                     &mut data.data,
                     CommandExecutorConfig::testing_local(),

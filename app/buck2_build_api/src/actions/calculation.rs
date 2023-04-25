@@ -99,7 +99,7 @@ async fn build_action_no_redirect(
             .collect();
 
         let ready_inputs: Vec<_> =
-            tokio::task::unconstrained(keep_going::try_join_all(ensure_futs)).await?;
+            tokio::task::unconstrained(keep_going::try_join_all(ctx, ensure_futs)).await?;
 
         let mut results = IndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs.into_iter()) {
@@ -504,6 +504,7 @@ mod tests {
     use crate::deferred::types::AnyValue;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredValueAnyReady;
+    use crate::keep_going::HasKeepGoing;
     use crate::spawner::BuckSpawner;
 
     fn create_test_build_artifact(
@@ -582,6 +583,7 @@ mod tests {
         }
 
         let mut extra = UserComputationData::new();
+        extra.set_keep_going(true);
         struct CommandExecutorProvider {
             dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
         }
