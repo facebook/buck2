@@ -27,6 +27,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::quiet_soft_error;
@@ -587,6 +588,9 @@ impl DaemonState {
             }
         })?;
 
+        self.validate_buck_out_mount()
+            .context("Error validating buck-out mount")?;
+
         let data = data?;
 
         let tags = vec![
@@ -613,10 +617,6 @@ impl DaemonState {
 
         dispatcher.instant_event(buck2_data::IoProviderInfo { eden_version });
 
-        if self.validate_buck_out_mount().await.is_err() {
-            tracing::debug!("failed to identify buck-out fstype, ignoring");
-        }
-
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             project_root: self.paths.project_root().clone(),
@@ -639,27 +639,48 @@ impl DaemonState {
         Ok(self.data.dupe()?)
     }
 
-    async fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
+    fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
             use buck2_core::soft_error;
-            use fsinfo::FsType;
 
-            let project_root = self.paths.project_root().root().to_path_buf();
-            if !detect_eden::is_eden(project_root)? {
+            let project_root = self.paths.project_root().root();
+            if !detect_eden::is_eden(project_root.to_path_buf())? {
                 return Ok(());
             }
 
-            let buck_out = self.paths.buck_out_path();
-            match fsinfo::fstype(buck_out)? {
-                FsType::FUSE | FsType::NFS => {
-                    let err = "buck-out for this EdenFS repo is on an unsupported mount type which like likely result in failed builds.\n\n \
-                    To remediate, run `eden redirect fixup`.
-                ";
-                    let _unused = soft_error!("eden_buck_out_on_nfs_or_fuse", anyhow::anyhow!(err));
+            let buck_out_root = project_root.join(InvocationPaths::buck_out_dir_prefix());
+
+            if let Some(buck_out_root_meta) = fs_util::symlink_metadata_if_exists(buck_out_root)? {
+                // If buck-out is a symlink, we'll be happy with that.
+                if buck_out_root_meta.is_symlink() {
+                    return Ok(());
                 }
-                _ => {}
+
+                // If we are on UNIX, then buck-out could also be on a different device from the repo.
+                // We don't check which kind of device, we just assume it's not mounted completely
+                // wrong.
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+
+                    let project_device = fs_util::symlink_metadata(project_root)?.dev();
+                    let buck_out_device = buck_out_root_meta.dev();
+
+                    if project_device != buck_out_device {
+                        return Ok(());
+                    }
+                }
             }
+
+            soft_error!(
+                "eden_buck_out",
+                anyhow::anyhow!(
+                    "Buck is running in an Eden repository, but `buck-out` is not redirected. \
+                     This will likely lead to failed or slow builds. \
+                     To remediate, run `eden redirect fixup`."
+                )
+            )?;
         }
 
         Ok(())
