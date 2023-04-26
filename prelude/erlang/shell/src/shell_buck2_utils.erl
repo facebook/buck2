@@ -28,7 +28,7 @@
 
 -spec project_root() -> file:filename().
 project_root() ->
-    case run_command("buck2 root --kind=project", [], [{at_root, false}, {replay, false}]) of
+    case run_command("buck2 root --kind=project 2>/dev/null", [], [{at_root, false}, {replay, false}]) of
         {ok, Output} ->
             Dir = string:trim(Output),
             case filelib:is_dir(Dir) of
