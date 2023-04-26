@@ -47,7 +47,7 @@ impl DiceError {
 
 #[derive(Debug, Error, Allocative)]
 pub(crate) enum DiceErrorImpl {
-    #[error("Cyclic computation detected when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(","))]
+    #[error("Cyclic computation detected when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(" -> "))]
     Cycle {
         trigger: Arc<dyn RequestedKey>,
         cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
