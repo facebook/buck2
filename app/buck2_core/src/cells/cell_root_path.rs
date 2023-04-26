@@ -28,6 +28,10 @@ impl CellRootPath {
         CellRootPath::ref_cast(path)
     }
 
+    pub fn testing_new(path: &str) -> &CellRootPath {
+        CellRootPath::new(ProjectRelativePath::new(path).unwrap())
+    }
+
     /// Project relative path to the cell root.
     pub fn as_project_relative_path(&self) -> &ProjectRelativePath {
         &self.0

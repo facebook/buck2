@@ -8,8 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use globset::Candidate;
 use globset::GlobSetBuilder;
@@ -81,40 +79,6 @@ impl IgnoreSet {
         Ok(Self {
             globset: patterns_builder.build()?,
             patterns,
-        })
-    }
-
-    /// Constructs an IgnoreSet that will ignore anything contained in a deeper cell.
-    ///
-    /// Ex. if this cell's path is `some/cell` and other cells are at `.`, `other`,
-    /// `some/cell/deeper`, this would construct an IgnoreSet to ignore `deeper/**`
-    /// (note that these ignores are expected to receive cell-relative paths.)
-    pub(crate) fn from_cell_roots(
-        all_cells: &[(CellName, &CellRootPath)],
-        this_cell: &CellRootPath,
-    ) -> anyhow::Result<Self> {
-        let mut cells_builder = GlobSetBuilder::new();
-        let mut cell_names = Vec::new();
-        for (name, path) in all_cells {
-            if *path == this_cell {
-                continue;
-            }
-
-            if !path.starts_with(this_cell) {
-                continue;
-            }
-
-            let relative = path.strip_prefix(this_cell).unwrap();
-            cells_builder.add(globset::Glob::new(&format!(
-                "{{{},{}/**}}",
-                relative, relative
-            ))?);
-            cell_names.push(name.as_str().to_owned());
-        }
-
-        Ok(Self {
-            globset: cells_builder.build()?,
-            patterns: cell_names,
         })
     }
 

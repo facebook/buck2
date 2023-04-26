@@ -134,6 +134,7 @@ pub mod cell_path;
 pub mod cell_root_path;
 pub mod instance;
 pub mod name;
+pub mod nested;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
 pub mod unchecked_cell_rel_path;

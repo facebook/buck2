@@ -8,6 +8,7 @@
  */
 
 use crate::cells::paths::CellRelativePath;
+use crate::fs::paths::path_util::path_remove_prefix;
 
 /// This is `CellRelativePath` which may contain incorrect path elements.
 #[repr(transparent)]
@@ -30,5 +31,14 @@ impl UncheckedCellRelativePath {
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    #[inline]
+    pub fn remove_prefix<'a>(
+        &'a self,
+        prefix: &CellRelativePath,
+    ) -> Option<&'a UncheckedCellRelativePath> {
+        path_remove_prefix(self.as_str(), prefix.as_str())
+            .map(UncheckedCellRelativePath::unchecked_new)
     }
 }

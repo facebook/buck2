@@ -269,6 +269,13 @@ impl ProjectRelativePath {
         self.0.strip_prefix(&base.as_ref().0)
     }
 
+    pub fn strip_prefix_opt<'a, P: ?Sized>(&'a self, base: &'a P) -> Option<&'a ForwardRelativePath>
+    where
+        P: AsRef<ProjectRelativePath>,
+    {
+        self.0.strip_prefix_opt(&base.as_ref().0)
+    }
+
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// ```

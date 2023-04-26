@@ -100,6 +100,10 @@ impl CellRelativePath {
         }
     }
 
+    pub fn testing_new(path: &str) -> &CellRelativePath {
+        CellRelativePath::new(ForwardRelativePath::new(path).unwrap())
+    }
+
     pub fn empty() -> &'static Self {
         CellRelativePath::unchecked_new("")
     }

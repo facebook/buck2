@@ -30,6 +30,7 @@ use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
+use crate::fs::paths::path_util::path_remove_prefix;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -359,18 +360,27 @@ impl ForwardRelativePath {
         base: P,
     ) -> anyhow::Result<&ForwardRelativePath> {
         let base = base.as_ref();
+        self.strip_prefix_opt(base)
+            .ok_or_else(|| StripPrefixError(base.as_str().to_owned(), self.0.to_owned()).into())
+    }
+
+    pub fn strip_prefix_opt<P: AsRef<ForwardRelativePath>>(
+        &self,
+        base: P,
+    ) -> Option<&ForwardRelativePath> {
+        let base = base.as_ref();
         if base.0.is_empty() {
-            Ok(self)
+            Some(self)
         } else if self.starts_with(base) {
             if self.0.len() == base.0.len() {
-                Ok(ForwardRelativePath::empty())
+                Some(ForwardRelativePath::empty())
             } else {
-                Ok(ForwardRelativePath::unchecked_new(
+                Some(ForwardRelativePath::unchecked_new(
                     &self.0[base.0.len() + 1..],
                 ))
             }
         } else {
-            Err(StripPrefixError(base.as_str().to_owned(), self.0.to_owned()).into())
+            None
         }
     }
 
@@ -390,10 +400,9 @@ impl ForwardRelativePath {
     /// # anyhow::Ok(())
     /// ```
     pub fn starts_with<P: AsRef<ForwardRelativePath>>(&self, base: P) -> bool {
-        let base = base.as_ref();
-        base.0.is_empty()
-            || (self.0.starts_with(&base.0)
-                && (self.0.len() == base.0.len() || self.0.as_bytes()[base.0.len()] == b'/'))
+        let path = self.as_str();
+        let prefix = base.as_ref().as_str();
+        path_remove_prefix(path, prefix).is_some()
     }
 
     /// Determines whether `child` is a suffix of `self`.

@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 
 use crate::ignores::ignore_set::IgnoreSet;
@@ -23,7 +24,7 @@ enum FileOpsError {
 pub(crate) enum FileIgnoreResult {
     Ok,
     IgnoredByPattern(String, String),
-    IgnoredByCell(String, String),
+    IgnoredByCell(String, CellName),
 }
 
 impl FileIgnoreResult {
@@ -39,8 +40,8 @@ impl FileIgnoreResult {
                     format!("file is matched by pattern `{}`", pattern)
                 )))
             }
-            FileIgnoreResult::IgnoredByCell(path, cell) => Err(anyhow::anyhow!(
-                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell))
+            FileIgnoreResult::IgnoredByCell(path, cell_name) => Err(anyhow::anyhow!(
+                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell_name))
             )),
         }
     }
@@ -58,7 +59,7 @@ impl FileIgnoreResult {
 #[derive(PartialEq, Eq, Allocative, Debug)]
 pub struct FileIgnores {
     ignores: IgnoreSet,
-    cell_ignores: IgnoreSet,
+    cell_ignores: NestedCells,
 }
 
 impl FileIgnores {
@@ -72,7 +73,7 @@ impl FileIgnores {
     ) -> anyhow::Result<FileIgnores> {
         Ok(FileIgnores {
             ignores: IgnoreSet::from_ignore_spec(ignore_spec)?,
-            cell_ignores: IgnoreSet::from_cell_roots(all_cells, this_cell)?,
+            cell_ignores: NestedCells::from_cell_roots(all_cells, this_cell),
         })
     }
 
@@ -86,8 +87,8 @@ impl FileIgnores {
             );
         }
 
-        if let Some(pattern) = self.cell_ignores.matches_candidate(&candidate) {
-            return FileIgnoreResult::IgnoredByCell(path.as_str().to_owned(), pattern.to_owned());
+        if let Some((_, cell_name, _)) = self.cell_ignores.matches(path) {
+            return FileIgnoreResult::IgnoredByCell(path.as_str().to_owned(), cell_name);
         }
 
         FileIgnoreResult::Ok

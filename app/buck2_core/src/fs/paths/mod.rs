@@ -30,6 +30,7 @@ pub mod file_name;
 pub(crate) mod fmt;
 pub mod forward_rel_path;
 mod into_filename_buf_iterator;
+pub mod path_util;
 // non public internal references
 
 pub use into_filename_buf_iterator::*;
