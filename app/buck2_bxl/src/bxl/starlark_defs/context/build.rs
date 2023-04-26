@@ -22,6 +22,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::eval::Evaluator;
@@ -142,6 +143,7 @@ pub(crate) fn build<'v>(
 
         let stream = build_spec
             .labels()
+            .unique()
             .map(|target| async move {
                 let res = build_configured_label(
                     dice,
