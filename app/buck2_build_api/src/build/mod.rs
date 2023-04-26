@@ -19,6 +19,7 @@ use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::soft_error;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::compatibility::MaybeCompatible;
@@ -80,10 +81,10 @@ impl BuildTargetResult {
                 BuildEventVariant::SkippedIncompatible => {
                     let prev = res.insert((*label).clone(), None);
                     if prev.is_some() {
-                        return Err(anyhow::anyhow!(
-                            "Duplicate signal for {} (internal error)",
-                            label
-                        ));
+                        soft_error!(
+                            "build_target_result_duplicate_signal",
+                            anyhow::anyhow!("Duplicate signal for {} (internal error)", label)
+                        )?;
                     }
                 }
                 BuildEventVariant::Prepared {
@@ -99,10 +100,10 @@ impl BuildTargetResult {
                         }),
                     );
                     if prev.is_some() {
-                        return Err(anyhow::anyhow!(
-                            "Duplicate signal for {} (internal error)",
-                            label
-                        ));
+                        soft_error!(
+                            "build_target_result_duplicate_signal",
+                            anyhow::anyhow!("Duplicate signal for {} (internal error)", label)
+                        )?;
                     }
                 }
                 BuildEventVariant::Output { output } => {
