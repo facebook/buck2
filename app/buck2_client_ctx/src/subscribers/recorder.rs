@@ -125,6 +125,7 @@ mod imp {
         has_end_of_stream: bool,
         compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
         use_streaming_upload: bool,
+        critical_path_backend: Option<String>,
     }
 
     impl InvocationRecorder {
@@ -217,6 +218,7 @@ mod imp {
                 has_end_of_stream: false,
                 compressed_event_log_size_bytes: log_size_counter_bytes,
                 use_streaming_upload,
+                critical_path_backend: None,
             }
         }
 
@@ -350,6 +352,7 @@ mod imp {
                     .clone()
                     .map(|x| x.load(Ordering::Relaxed)),
                 use_streaming_upload: self.use_streaming_upload,
+                critical_path_backend: self.critical_path_backend.take(),
             };
 
             let event = BuckEvent::new(
@@ -664,6 +667,7 @@ mod imp {
             }
 
             self.critical_path_duration = Some(duration);
+            self.critical_path_backend = info.backend_name.clone();
             Ok(())
         }
 
