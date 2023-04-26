@@ -128,10 +128,13 @@ def _apple_bundle_run_validity_checks(ctx: "context"):
         fail("`extension` attribute is required")
 
 def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.type) -> AppleBundleDebuggableInfo.type:
-    deps = ctx.attrs.deps
+    # `label` captures configuration as well, so it's safe to use for comparison purposes
+    binary_label = getattr(ctx.attrs.binary, "label", None)
     deps_debuggable_infos = filter(
         None,
-        [dep.get(AppleDebuggableInfo) for dep in deps],
+        # It's allowed for `ctx.attrs.binary` to appear in `ctx.attrs.deps` as well,
+        # in this case, do not duplicate the debugging info for the binary coming from two paths.
+        [dep.get(AppleDebuggableInfo) for dep in ctx.attrs.deps if dep.label != binary_label],
     )
 
     # We don't care to process the watchkit stub binary.
