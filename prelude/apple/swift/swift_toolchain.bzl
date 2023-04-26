@@ -67,5 +67,6 @@ def swift_toolchain_impl(ctx):
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
+            runtime_run_paths = ctx.attrs.runtime_run_paths,
         ),
     ]

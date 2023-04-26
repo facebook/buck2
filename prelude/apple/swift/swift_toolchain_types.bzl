@@ -20,6 +20,7 @@ SwiftToolchainInfo = provider(fields = [
     "sdk_path",
     "swift_stdlib_tool_flags",
     "swift_stdlib_tool",
+    "runtime_run_paths",  # [str.type]
 ])
 
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
