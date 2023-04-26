@@ -357,7 +357,12 @@ struct CasDigestData {
 #[repr(transparent)]
 pub struct CasDigest<Kind> {
     data: CasDigestData,
-    #[derivative(Hash = "ignore", PartialEq = "ignore", PartialOrd = "ignore")]
+    #[derivative(
+        Hash = "ignore",
+        PartialEq = "ignore",
+        PartialOrd = "ignore",
+        Ord = "ignore"
+    )]
     kind: PhantomData<Kind>,
 }
 
