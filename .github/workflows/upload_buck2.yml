@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: nightly-2023-01-24
+          toolchain: nightly-2023-03-07
           targets: ${{ matrix.target.triple }}
       - uses: Swatinem/rust-cache@v2
         with:
