@@ -10,8 +10,8 @@ The latest set of `buck2` executables can be found under the [`latest` release p
 To get started, first install [rustup](https://rustup.rs/), then compile the `buck2` executable:
 
 ```bash
-rustup install nightly-2023-01-24
-cargo +nightly-2023-01-24 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2023-03-07
+cargo +nightly-2023-03-07 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as `$HOME/.cargo/bin`, which you should then add to your `$PATH`:
