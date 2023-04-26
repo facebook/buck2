@@ -26,6 +26,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
@@ -202,15 +203,21 @@ impl DaemonState {
             .get(cells.root_cell())
             .context("No config for root cell")?;
 
+        static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
+            EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
+
+        let default_digest_algorithm =
+            DEFAULT_DIGEST_ALGORITHM.get_copied()?.unwrap_or_else(|| {
+                if buck2_core::is_open_source() {
+                    DigestAlgorithmKind::Sha256
+                } else {
+                    DigestAlgorithmKind::Sha1
+                }
+            });
+
         let digest_algorithms = root_config
             .parse_list("buck2", "digest_algorithms")?
-            .unwrap_or_else(|| {
-                if buck2_core::is_open_source() {
-                    vec![DigestAlgorithmKind::Sha256]
-                } else {
-                    vec![DigestAlgorithmKind::Sha1]
-                }
-            })
+            .unwrap_or_else(|| vec![default_digest_algorithm])
             .into_try_map(|d| {
                 anyhow::Ok(match d {
                     DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
