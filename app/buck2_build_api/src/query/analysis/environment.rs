@@ -304,7 +304,7 @@ async fn get_template_info_provider_artifacts(
 pub(crate) async fn get_from_template_placeholder_info<'x>(
     ctx: &'x DiceComputations,
     template_name: &'static str,
-    targets: &'x TargetSet<ConfiguredGraphNodeRef>,
+    targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
 ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
     let mut label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact> = IndexMap::new();
 
@@ -325,13 +325,12 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
     // This will contain the ArtifactGroups we encounter during our traversal (so only artifacts and top-level tset nodes).
     // Artifacts are put here to keep them in the correct order in the output, tsets are top-level tset nodes that we need
     // to traverse.
-    let artifacts = futures::future::try_join_all(targets.iter().map(|target| async move {
-        let artifacts =
-            get_template_info_provider_artifacts(ctx, target.label(), template_name).await?;
+    let artifacts = futures::future::try_join_all(targets.into_iter().map(|target| async move {
+        let artifacts = get_template_info_provider_artifacts(ctx, &target, template_name).await?;
         anyhow::Ok(
             artifacts
                 .into_iter()
-                .map(|artifact| (target.label().dupe(), artifact)),
+                .map(move |artifact| (target.dupe(), artifact)),
         )
     }))
     .await?;
@@ -425,6 +424,10 @@ pub async fn classpath(
     ctx: &DiceComputations,
     targets: impl Iterator<Item = ConfiguredTargetNode>,
 ) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
-    let targets: TargetSet<_> = targets.map(ConfiguredGraphNodeRef).collect();
-    get_from_template_placeholder_info(ctx, "classpath", &targets).await
+    get_from_template_placeholder_info(
+        ctx,
+        "classpath",
+        targets.map(|target| target.label().dupe()),
+    )
+    .await
 }

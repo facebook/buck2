@@ -11,18 +11,24 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::result::SharedResult;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use derive_more::Display;
 use dice::DiceComputations;
+use dice::Key;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use indexmap::IndexMap;
+use more_futures::cancellation::CancellationContext;
 
 use crate::actions::artifact::artifact_type::Artifact;
+use crate::nodes::calculation::NodeCalculation;
 use crate::query::analysis::environment::get_from_template_placeholder_info;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
@@ -55,13 +61,67 @@ impl<'a> ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQuer
         template_name: &'static str,
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
-        let label_to_artifact = get_from_template_placeholder_info(
-            self.dice_query_delegate.ctx(),
-            template_name,
-            &targets,
-        )
-        .await?;
-        find_target_nodes(targets, label_to_artifact)
+        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[display(fmt = "template_placeholder_info_query({})", template_name)]
+        struct TemplatePlaceholderInfoQueryKey {
+            template_name: &'static str,
+            // Use `ConfiguredTargetLabel` instead of `ConfiguredGraphNodeRef` here because `ConfiguredGraphNodeRef`
+            // only computes Hash and PartialEq based on the label. If we use `ConfiguredGraphNodeRef` directly we
+            // may cache stale ConfiguredTargetNodes and end up with a bug like T133069783.
+            targets: Arc<Vec<ConfiguredTargetLabel>>,
+        }
+
+        #[async_trait]
+        impl Key for TemplatePlaceholderInfoQueryKey {
+            type Value = SharedResult<Arc<TargetSet<ConfiguredGraphNodeRef>>>;
+
+            async fn compute(
+                &self,
+                ctx: &DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
+                let (targets, label_to_artifact) = futures::future::try_join(
+                    futures::future::try_join_all(self.targets.iter().map(|target| async move {
+                        ctx.get_configured_target_node(target)
+                            .await?
+                            .require_compatible()
+                    })),
+                    get_from_template_placeholder_info(
+                        ctx,
+                        self.template_name,
+                        self.targets.iter().duped(),
+                    ),
+                )
+                .await?;
+
+                let targets: TargetSet<_> =
+                    targets.into_iter().map(ConfiguredGraphNodeRef).collect();
+                let targets = find_target_nodes(targets, label_to_artifact)?;
+                Ok(Arc::new(targets))
+            }
+
+            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+                // result is not comparable
+                false
+            }
+        }
+
+        let targets: Vec<_> = targets
+            .into_iter()
+            .map(|target| target.label().dupe())
+            .collect();
+        let targets = self
+            .dice_query_delegate
+            .ctx()
+            .compute(&TemplatePlaceholderInfoQueryKey {
+                template_name,
+                targets: Arc::new(targets),
+            })
+            .await??;
+
+        // TODO(scottcao): Make all query functions return an Arc as an output so we can avoid making an unnecessary
+        // clone here
+        Ok(targets.as_ref().clone())
     }
 }
 
