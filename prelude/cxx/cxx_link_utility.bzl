@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode", "project_external_debug_info")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
@@ -49,7 +50,7 @@ def linker_map_args(ctx, linker_map) -> LinkArgs.type:
         return LinkArgs(flags = gnu_flags)
     return LinkArgs(flags = gnu_flags + extra_clang_flags)
 
-def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
+def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
     """
     Takes LinkArgs, and if they enable the DWO output dir hack, returns updated
     args and a DWO dir as output. If they don't, just returns the args as-is.
@@ -67,8 +68,9 @@ def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], dwo_dir_name: [st
 
     def adjust_flag(flag: "_arglike") -> "_arglike":
         if "HACK-OUTPUT-DWO-DIR" in repr(flag):
-            expect(dwo_dir_name != None)
+            expect(output_short_path != None)
             expect(dwo_dir[0] == None)
+            dwo_dir_name = output_short_path + ".dwo.d"
             dwo_dir[0] = ctx.actions.declare_output(dwo_dir_name)
             return cmd_args(dwo_dir[0].as_output(), format = "dwo_dir={}")
         else:
@@ -97,9 +99,9 @@ def make_link_args(
         ctx: "context",
         links: ["LinkArgs"],
         suffix = None,
-        dwo_dir_name: [str.type, None] = None,
+        output_short_path: [str.type, None] = None,
         is_shared: [bool.type, None] = None,
-        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None]):
+        link_ordering: ["LinkOrdering", None] = None) -> ("_arglike", ["_hidden"], ["artifact", None], ["artifact", None]):
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -107,11 +109,14 @@ def make_link_args(
     """
     suffix = "" if suffix == None else "-" + suffix
     args = cmd_args()
+    hidden = []
 
     filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
+    hidden.extend(filelists)
 
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
-    linker_type = cxx_toolchain_info.linker_info.type
+    linker_info = cxx_toolchain_info.linker_info
+    linker_type = linker_info.type
     if filelists:
         if linker_type == "gnu":
             fail("filelist populated for gnu linker")
@@ -152,13 +157,20 @@ def make_link_args(
     #
     # Context: D36669131
     dwo_dir = None
-    if cxx_toolchain_info.linker_info.lto_mode != LtoMode("none") and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
-        links, dwo_dir = map_link_args_for_dwo(ctx, links, dwo_dir_name)
+    if linker_info.lto_mode != LtoMode("none") and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none"):
+        links, dwo_dir = map_link_args_for_dwo(ctx, links, output_short_path)
+
+    pdb_artifact = None
+    if linker_info.is_pdb_generated:
+        expect(output_short_path != None)
+        pdb_filename = paths.replace_extension(output_short_path, ".pdb")
+        pdb_artifact = ctx.actions.declare_output(pdb_filename)
+        hidden.append(pdb_artifact.as_output())
 
     for link in links:
         args.add(unpack_link_args(link, is_shared, link_ordering = link_ordering))
 
-    return (args, [args] + filelists, dwo_dir)
+    return (args, [args] + hidden, dwo_dir, pdb_artifact)
 
 def shared_libs_symlink_tree_name(output: "artifact") -> str.type:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)

@@ -705,7 +705,7 @@ def ocaml_binary_impl(ctx: "context") -> ["provider"]:
         ctx,
         _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
     )
-    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static_pic"))])
+    ld_args, linker_deps, _, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static_pic"))])
     ld_nat = _mk_ld(ctx, [ld_args], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [ld_args], "ld_bytecode.sh")
 
@@ -789,7 +789,7 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     env = _mk_env(ctx)
     ocamlopt = _mk_ocaml_compiler(ctx, env, BuildMode("native"))
     deps_link_info = merge_link_infos(ctx, _attr_deps_merged_link_infos(ctx))
-    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(deps_link_info, LinkStyle("static_pic"))])
+    ld_args, linker_deps, _, _ = make_link_args(ctx, [get_link_args(deps_link_info, LinkStyle("static_pic"))])
     ld = _mk_ld(ctx, [ld_args], "ld.sh")
 
     cmxs_order, stbs, objs, cmis, _cmos, cmxs, cmts, cmtis, _, _ = _compile_result_to_tuple(_compile(ctx, ocamlopt, BuildMode("native")))
@@ -881,7 +881,7 @@ def ocaml_shared_impl(ctx: "context") -> ["provider"]:
         ctx,
         _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]),
     )
-    ld_args, linker_deps, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static_pic"))])
+    ld_args, linker_deps, _, _ = make_link_args(ctx, [get_link_args(link_infos, LinkStyle("static_pic"))])
 
     # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially
     # other required flags - see the darwin "dylib" specific block below) to the

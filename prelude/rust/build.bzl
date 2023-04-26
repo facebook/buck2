@@ -232,7 +232,7 @@ def generate_rustdoc_test(
         extra_transitive_deps = library.transitive_deps,
     )
 
-    link_args, hidden, _dwo_dir_unused_in_rust = make_link_args(
+    link_args, hidden, _dwo_dir_unused_in_rust, _pdb_artifact = make_link_args(
         ctx,
         [
             LinkArgs(flags = extra_link_args),
@@ -346,31 +346,6 @@ def rust_compile(
         lints,
     )
 
-    if crate_type_linked(params.crate_type) and not common_args.is_check:
-        subdir = common_args.subdir
-        tempfile = common_args.tempfile
-
-        # If this crate type has an associated native dep link style, include deps
-        # of that style.
-        (link_args, hidden, _dwo_dir_unused_in_rust) = make_link_args(
-            ctx,
-            [
-                LinkArgs(flags = extra_link_args),
-                get_link_args(
-                    inherited_non_rust_link_info(ctx),
-                    link_style,
-                ),
-            ],
-            "{}-{}".format(subdir, tempfile),
-        )
-        linker_argsfile, _ = ctx.actions.write(
-            "{}/__{}_linker_args.txt".format(subdir, tempfile),
-            link_args,
-            allow_args = True,
-        )
-        rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-        rustc_cmd.hidden(hidden)
-
     # If we're using failure filtering then we need to make sure the final
     # artifact location is the predeclared one since its specific path may have
     # already been encoded into the other compile args (eg rpath). So we still
@@ -395,6 +370,32 @@ def rust_compile(
             subdir = common_args.subdir,
             params = params,
         )
+
+    if crate_type_linked(params.crate_type) and not common_args.is_check:
+        subdir = common_args.subdir
+        tempfile = common_args.tempfile
+
+        # If this crate type has an associated native dep link style, include deps
+        # of that style.
+        (link_args, hidden, _dwo_dir_unused_in_rust, _pdb_artifact) = make_link_args(
+            ctx,
+            [
+                LinkArgs(flags = extra_link_args),
+                get_link_args(
+                    inherited_non_rust_link_info(ctx),
+                    link_style,
+                ),
+            ],
+            "{}-{}".format(subdir, tempfile),
+            output_short_path = outputs[emit].short_path,
+        )
+        linker_argsfile, _ = ctx.actions.write(
+            "{}/__{}_linker_args.txt".format(subdir, tempfile),
+            link_args,
+            allow_args = True,
+        )
+        rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
+        rustc_cmd.hidden(hidden)
 
     (diag, build_status) = _rustc_invoke(
         ctx = ctx,

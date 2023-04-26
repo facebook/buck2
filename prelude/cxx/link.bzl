@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:cxx_bolt.bzl",
     "bolt",
@@ -97,11 +96,11 @@ def cxx_link(
         )
     if linker_map != None:
         links += [linker_map_args(ctx, linker_map.as_output())]
-    (link_args, hidden, dwo_dir) = make_link_args(
+    (link_args, hidden, dwo_dir, pdb_artifact) = make_link_args(
         ctx,
         links,
         suffix = identifier,
-        dwo_dir_name = output.short_path + ".dwo.d",
+        output_short_path = output.short_path,
         is_shared = result_type.value == "shared_library",
         link_ordering = value_or(
             link_ordering,
@@ -118,12 +117,8 @@ def cxx_link(
     if dwo_dir != None:
         external_debug_artifacts.append(dwo_dir)
 
-    pdb_artifact = None
-    if linker_info.is_pdb_generated:
-        pdb_filename = paths.replace_extension(output.short_path, ".pdb")
-        pdb_artifact = ctx.actions.declare_output(pdb_filename)
+    if pdb_artifact != None:
         external_debug_artifacts.append(pdb_artifact)
-        hidden.append(pdb_artifact.as_output())
 
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
