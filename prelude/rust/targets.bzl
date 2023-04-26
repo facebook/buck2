@@ -12,8 +12,8 @@ _OS_TRIPLES = {
     ("linux", "x86_64"): "x86_64-unknown-linux-gnu",
     ("macos", "aarch64"): "aarch64-apple-darwin",
     ("macos", "x86_64"): "x86_64-apple-darwin",
-    ("windows", "aarch64"): "aarch64-pc-windows-gnu",
-    ("windows", "x86_64"): "x86_64-pc-windows-gnu",
+    ("windows", "aarch64"): "aarch64-pc-windows-msvc",
+    ("windows", "x86_64"): "x86_64-pc-windows-msvc",
 }
 
 def _exec_triple(ctx: "context") -> [str.type, None]:

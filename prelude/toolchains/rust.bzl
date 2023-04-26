@@ -17,13 +17,19 @@ _DEFAULT_TRIPLE = select({
         "config//cpu:x86_64": "x86_64-apple-darwin",
     }),
     "config//os:windows": select({
-        # FIXME: rustup's default ABI for the host on Windows is MSVC, not GNU.
-        # When you do `rustup install stable` that's the one you get. It makes
-        # you opt in to GNU by `rustup install stable-gnu`. We should match that
-        # default when we're able; but for now buck2 doesn't work with the MSVC
-        # toolchain yet.
-        "config//cpu:arm64": "aarch64-pc-windows-gnu",
-        "config//cpu:x86_64": "x86_64-pc-windows-gnu",
+        "config//cpu:arm64": select({
+            # Rustup's default ABI for the host on Windows is MSVC, not GNU.
+            # When you do `rustup install stable` that's the one you get. It
+            # makes you opt in to GNU by `rustup install stable-gnu`.
+            "DEFAULT": "aarch64-pc-windows-msvc",
+            "config//abi:gnu": "aarch64-pc-windows-gnu",
+            "config//abi:msvc": "aarch64-pc-windows-msvc",
+        }),
+        "config//cpu:x86_64": select({
+            "DEFAULT": "x86_64-pc-windows-msvc",
+            "config//abi:gnu": "x86_64-pc-windows-gnu",
+            "config//abi:msvc": "x86_64-pc-windows-msvc",
+        }),
     }),
 })
 
