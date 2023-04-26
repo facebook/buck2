@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -66,12 +67,26 @@ impl XcodeVersionInfo {
             .parent()
             .map(|base| base.as_path().join("version.plist"))
             .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
-        Ok(Some(Self::from_plist(&plist_path)?))
+        Ok(Self::from_plist(&plist_path)?)
     }
 
-    pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Self> {
-        let plist: XcodeVersionPlistSchema =
-            plist::from_file(plist_path).context("deserializing Xcode `version.plist`")?;
+    pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Option<Self>> {
+        let plist = plist::from_file::<_, XcodeVersionPlistSchema>(plist_path);
+
+        let plist = match plist {
+            Ok(plist) => plist,
+            Err(e)
+                if e.as_io()
+                    .map_or(false, |e| e.kind() == io::ErrorKind::NotFound) =>
+            {
+                return Ok(None);
+            }
+            Err(e) => {
+                return Err(
+                    anyhow::Error::from(e).context("Error deserializing Xcode `version.plist`")
+                );
+            }
+        };
 
         let version_parts = &mut plist.CFBundleShortVersionString.split('.');
         let major = version_parts
@@ -84,13 +99,13 @@ impl XcodeVersionInfo {
         let patch = version_parts.next().unwrap_or("0").to_owned();
         let build_number = plist.ProductBuildVersion;
 
-        Ok(Self {
+        Ok(Some(Self {
             version_string: plist.CFBundleShortVersionString,
             major_version: major,
             minor_version: minor,
             patch_version: patch,
             build_number,
-        })
+        }))
     }
 
     /// Construct from a string, formatted as: "version-build"
@@ -161,7 +176,9 @@ mod tests {
         "#,
         );
 
-        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
+        let got = XcodeVersionInfo::from_plist(&plist)
+            .expect("failed to parse version info")
+            .unwrap();
         let want = XcodeVersionInfo {
             version_string: "14.1.2".to_owned(),
             major_version: "14".to_owned(),
@@ -197,7 +214,9 @@ mod tests {
         "#,
         );
 
-        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
+        let got = XcodeVersionInfo::from_plist(&plist)
+            .expect("failed to parse version info")
+            .unwrap();
         let want = XcodeVersionInfo {
             version_string: "14.1".to_owned(),
             major_version: "14".to_owned(),
@@ -233,7 +252,9 @@ mod tests {
         "#,
         );
 
-        let got = XcodeVersionInfo::from_plist(&plist).expect("failed to parse version info");
+        let got = XcodeVersionInfo::from_plist(&plist)
+            .expect("failed to parse version info")
+            .unwrap();
         let want = XcodeVersionInfo {
             version_string: "14".to_owned(),
             major_version: "14".to_owned(),
@@ -242,6 +263,16 @@ mod tests {
             build_number: "14A309".to_owned(),
         };
         assert_eq!(want, got);
+    }
+
+    #[test]
+    fn test_no_plist() {
+        let workspace = tempfile::tempdir().expect("failed to create tempdir");
+        assert!(
+            XcodeVersionInfo::from_plist(&workspace.path().join("foo.plist"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
