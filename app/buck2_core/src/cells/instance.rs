@@ -16,6 +16,7 @@ use dupe::Dupe;
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
+use crate::cells::nested::NestedCells;
 use crate::cells::CellAliasResolver;
 use crate::fs::paths::file_name::FileNameBuf;
 
@@ -44,6 +45,7 @@ struct CellData {
     #[derivative(Debug = "ignore")]
     /// the aliases of this specific cell
     aliases: CellAliasResolver,
+    nested_cells: NestedCells,
 }
 
 impl CellInstance {
@@ -52,6 +54,7 @@ impl CellInstance {
         path: CellRootPathBuf,
         buildfiles: Vec<FileNameBuf>,
         aliases: CellAliasResolver,
+        nested_cells: NestedCells,
     ) -> anyhow::Result<CellInstance> {
         if name != aliases.current {
             return Err(CellInstanceError::InconsistentCellName(
@@ -65,6 +68,7 @@ impl CellInstance {
             path,
             buildfiles,
             aliases,
+            nested_cells,
         })))
     }
 
@@ -89,5 +93,10 @@ impl CellInstance {
     #[inline]
     pub fn cell_alias_resolver(&self) -> &CellAliasResolver {
         &self.0.aliases
+    }
+
+    #[inline]
+    pub fn nested_cells(&self) -> &NestedCells {
+        &self.0.nested_cells
     }
 }

@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
@@ -68,12 +67,11 @@ impl FileIgnores {
     /// This will ignore files/dirs in the ignore spec and those in other cells.
     pub fn new_for_interpreter(
         ignore_spec: &str,
-        all_cells: &[(CellName, &CellRootPath)],
-        this_cell: &CellRootPath,
+        nested_cells: NestedCells,
     ) -> anyhow::Result<FileIgnores> {
         Ok(FileIgnores {
             ignores: IgnoreSet::from_ignore_spec(ignore_spec)?,
-            cell_ignores: NestedCells::from_cell_roots(all_cells, this_cell),
+            cell_ignores: nested_cells,
         })
     }
 
@@ -99,6 +97,7 @@ impl FileIgnores {
 mod tests {
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
+    use buck2_core::cells::nested::NestedCells;
     use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
@@ -120,10 +119,10 @@ mod tests {
                 CellRootPath::new(ProjectRelativePath::unchecked_new("third")),
             ),
         ];
+        let nested_cells = NestedCells::from_cell_roots(cells, CellRootPath::testing_new("root"));
         let ignores = FileIgnores::new_for_interpreter(
             "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
-            cells,
-            CellRootPath::new(ProjectRelativePath::unchecked_new("root")),
+            nested_cells,
         )?;
 
         assert_eq!(

@@ -18,7 +18,7 @@ use crate::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 /// Paths to cells which reside inside current cell.
 ///
 /// Target labels cannot cross cell boundaries. This utility helps to identify such targets.
-#[derive(Eq, PartialEq, Debug, Allocative)]
+#[derive(Eq, PartialEq, Debug, Allocative, Clone)]
 pub struct NestedCells {
     paths: Vec<(CellRelativePathBuf, CellName)>,
 }

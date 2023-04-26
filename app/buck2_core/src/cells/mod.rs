@@ -161,6 +161,7 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
+use crate::cells::nested::NestedCells;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPath;
@@ -621,7 +622,16 @@ impl CellsAggregator {
     pub fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
         let mut cell_mappings = Vec::new();
 
+        let all_cell_roots_for_nested_cells: Vec<_> = self
+            .cell_infos
+            .keys()
+            .map(|path| Ok((self.get_cell_name_from_path(path)?, path.as_path())))
+            .collect::<anyhow::Result<_>>()?;
+
         for (cell_path, cell_info) in &self.cell_infos {
+            let nested_cells =
+                NestedCells::from_cell_roots(&all_cell_roots_for_nested_cells, cell_path);
+
             let mut aliases_for_cell = HashMap::new();
             let cell_name = self.get_cell_name_from_path(cell_path)?;
 
@@ -638,6 +648,7 @@ impl CellsAggregator {
                     .clone()
                     .unwrap_or_else(default_buildfiles),
                 CellAliasResolver::new(cell_name, aliases_for_cell)?,
+                nested_cells,
             )?);
         }
 

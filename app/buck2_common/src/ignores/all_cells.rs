@@ -59,17 +59,15 @@ impl HasAllCellIgnores for DiceComputations {
         let cells = self.get_cell_resolver().await?;
         let configs = self.get_legacy_configs_on_dice().await?;
 
-        let cell_paths: Vec<_> = cells.cells().map(|e| (e.1.name(), e.1.path())).collect();
         let mut ignores = HashMap::new();
 
         for (cell_name, instance) in cells.cells() {
-            let this_path = instance.path();
             let config = configs.get(cell_name).unwrap();
             let ignore_spec = config.get("project", "ignore")?;
             let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
             let cell_ignores =
-                FileIgnores::new_for_interpreter(ignore_spec, &cell_paths, this_path)?;
+                FileIgnores::new_for_interpreter(ignore_spec, instance.nested_cells().clone())?;
             ignores.insert(cell_name, cell_ignores);
         }
 
