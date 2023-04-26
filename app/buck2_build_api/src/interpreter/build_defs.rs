@@ -56,8 +56,8 @@ pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
     ///
     /// For providers that accumulate upwards a transitive set is often a good choice.
     fn provider(
-        #[starlark(default = "")] doc: &str,
-        fields: Either<Vec<String>, SmallMap<&str, &str>>,
+        #[starlark(require=named, default = "")] doc: &str,
+        #[starlark(require=named)] fields: Either<Vec<String>, SmallMap<&str, &str>>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
