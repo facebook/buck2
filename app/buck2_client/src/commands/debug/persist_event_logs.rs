@@ -222,11 +222,13 @@ async fn write_to_file(
 }
 
 async fn upload_write(manifold_path: String, buf: &[u8]) -> anyhow::Result<()> {
+    let cert = find_certs::find_tls_cert()?;
     // TODO T149151673: support windows uploads
     let upload = manifold::curl_write_command(
         manifold::Bucket::EventLogs.info(),
         &manifold_path,
         MANIFOLD_TTL_S.get_copied()?,
+        &cert,
     )?;
     if let Some(mut upload) = upload {
         let mut child = upload

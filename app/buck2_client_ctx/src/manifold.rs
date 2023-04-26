@@ -137,7 +137,14 @@ impl<'a> Upload<'a> {
         let bucket_path = &format!("flat/{}", self.filename);
 
         match manifold_cli_path {
-            None => curl_write_command(bucket, bucket_path, self.ttl_s),
+            None => {
+                if cfg!(windows) {
+                    Ok(None) // We do not have `curl` on Windows.
+                } else {
+                    let cert = find_tls_cert()?;
+                    curl_write_command(bucket, bucket_path, self.ttl_s, &cert)
+                }
+            }
             Some(cli_path) => Ok(Some(cli_upload_command(
                 cli_path,
                 &format!("{}/{}", bucket.name, bucket_path),
@@ -274,17 +281,12 @@ pub fn curl_write_command(
     bucket: BucketInfo,
     manifold_bucket_path: &str,
     ttl_s: Option<u64>,
+    cert: &OsString,
 ) -> anyhow::Result<Option<Command>> {
-    if cfg!(windows) {
-        // We do not have `curl` on Windows.
-        return Ok(None);
-    }
-
     let manifold_url = match log_upload_url() {
         None => return Ok(None),
         Some(x) => x,
     };
-    let cert = find_tls_cert()?;
 
     let url = format!(
         "{}/v0/write/{}?bucketName={}&apiKey={}&timeoutMsec=20000",
