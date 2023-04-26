@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Pointer;
 
 use allocative::Allocative;
 
@@ -30,7 +29,7 @@ impl OneOfAttrType {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            x.fmt(f)?;
+            write!(f, "{x}")?;
         }
         write!(f, "{})", arg)
     }

@@ -29,7 +29,10 @@ impl DictAttrType {
         write!(
             f,
             "attrs.dict({}, {}, sorted={}{})",
-            self.key, self.value, self.sorted, arg
+            self.key,
+            self.value,
+            if self.sorted { "True" } else { "False" },
+            arg
         )
     }
 }

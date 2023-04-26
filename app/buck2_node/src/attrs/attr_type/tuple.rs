@@ -30,7 +30,7 @@ impl TupleAttrType {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            x.fmt(f)?;
+            write!(f, "{x}")?;
         }
         write!(f, "{})", arg)
     }
