@@ -375,7 +375,6 @@ pub fn display_executor_stage(
             use buck2_data::re_stage::Stage;
 
             match re.stage.as_ref().context("re stage is missing")? {
-                Stage::Upload(..) => "re_upload",
                 Stage::Execute(..) => "re_execute",
                 Stage::Download(..) => "re_download",
                 Stage::Queue(..) => "re_queued",

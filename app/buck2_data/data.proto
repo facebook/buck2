@@ -1133,10 +1133,9 @@ message CacheHit {
 }
 
 message ReStage {
-  reserved 1, 2, 4;
+  reserved 1, 2, 3, 4;
 
   oneof stage {
-    ReUpload upload = 3;
     ReExecute execute = 5;
     ReDownload download = 6;
     ReQueue queue = 7;
@@ -1145,8 +1144,6 @@ message ReStage {
     ReUnknown unknown = 10;
   }
 }
-
-message ReUpload {}
 
 message ReExecute {
   string action_digest = 1;
