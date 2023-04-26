@@ -690,6 +690,11 @@ impl ChromeTraceWriter {
 
                         Categorization::ShowIfParent { name: name.into() }
                     }
+                    buck2_data::span_start_event::Data::ReUpload(_) => {
+                        let name = "re_upload";
+                        self.span_counters.bump_counter_while_span(event, name, 1)?;
+                        Categorization::ShowIfParent { name: name.into() }
+                    }
                     buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
                         Categorization::Show {
                             category: Self::CRITICAL_PATH,
