@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -567,11 +568,23 @@ impl ChromeTraceWriter {
                         .contains(&span_id.into())
                 });
 
+                enum Categorization<'a> {
+                    /// Show this node on a speciifc tack
+                    Show {
+                        category: &'static str,
+                        name: Cow<'a, str>,
+                    },
+                    /// Show this node if its parent is being shown.
+                    ShowIfParent { name: Cow<'a, str> },
+                    /// Do not show this node.
+                    Omit,
+                }
+
                 let categorization = match start_data {
-                    buck2_data::span_start_event::Data::Command(_command) => Some((
-                        self.invocation.command_line_args.join(" "),
-                        Self::UNCATEGORIZED,
-                    )),
+                    buck2_data::span_start_event::Data::Command(_command) => Categorization::Show {
+                        category: Self::UNCATEGORIZED,
+                        name: self.invocation.command_line_args.join(" ").into(),
+                    },
                     buck2_data::span_start_event::Data::Analysis(analysis) => {
                         self.span_counters
                             .bump_counter_while_span(event, "analysis", 1)?;
@@ -588,8 +601,8 @@ impl ChromeTraceWriter {
                             None
                         };
 
-                        category
-                            .map(|category| {
+                        match category {
+                            Some(category) => {
                                 let name = format!(
                                     "analysis {}",
                                     display::display_analysis_target(
@@ -601,9 +614,13 @@ impl ChromeTraceWriter {
                                     )?,
                                 );
 
-                                anyhow::Ok((name, category))
-                            })
-                            .transpose()?
+                                Categorization::Show {
+                                    category,
+                                    name: name.into(),
+                                }
+                            }
+                            None => Categorization::Omit,
+                        }
                     }
                     buck2_data::span_start_event::Data::Load(eval) => {
                         self.span_counters
@@ -621,7 +638,13 @@ impl ChromeTraceWriter {
                             None
                         };
 
-                        category.map(|category| (format!("load {}", eval.module_id), category))
+                        match category {
+                            Some(category) => Categorization::Show {
+                                category,
+                                name: format!("load {}", eval.module_id).into(),
+                            },
+                            None => Categorization::Omit,
+                        }
                     }
                     buck2_data::span_start_event::Data::ActionExecution(action) => {
                         #[allow(clippy::if_same_then_else)]
@@ -643,17 +666,21 @@ impl ChromeTraceWriter {
                             None
                         };
 
-                        category
-                            .map(|category| {
+                        match category {
+                            Some(category) => {
                                 let name = display::display_action_identity(
                                     action.key.as_ref(),
                                     action.name.as_ref(),
                                     TargetDisplayOptions::for_chrome_trace(),
                                 )?;
 
-                                anyhow::Ok((name, category))
-                            })
-                            .transpose()?
+                                Categorization::Show {
+                                    category,
+                                    name: name.into(),
+                                }
+                            }
+                            None => Categorization::Omit,
+                        }
                     }
                     buck2_data::span_start_event::Data::ExecutorStage(stage) => {
                         let name = display::display_executor_stage(
@@ -661,24 +688,33 @@ impl ChromeTraceWriter {
                         )?;
                         self.span_counters.bump_counter_while_span(event, name, 1)?;
 
-                        if self.open_spans.contains_key(&event.parent_id().unwrap()) {
-                            // As a child event, this will inherit its parent's track.
-                            Some((name.to_owned(), Self::UNCATEGORIZED))
-                        } else {
-                            None
-                        }
+                        Categorization::ShowIfParent { name: name.into() }
                     }
                     buck2_data::span_start_event::Data::FileWatcher(_file_watcher) => {
-                        Some(("file_watcher_sync".to_owned(), Self::CRITICAL_PATH))
+                        Categorization::Show {
+                            category: Self::CRITICAL_PATH,
+                            name: "file_watcher_sync".into(),
+                        }
                     }
-                    _ => None,
+                    _ => Categorization::Omit,
                 };
 
                 match categorization {
-                    Some((name, category)) => {
-                        self.open_named_span(event, name, category)?;
+                    Categorization::Show { category, name } => {
+                        self.open_named_span(event, name.into_owned(), category)?;
                     }
-                    None => {}
+                    Categorization::ShowIfParent { name } => {
+                        let parent_is_open = event
+                            .parent_id()
+                            .map_or(false, |id| self.open_spans.contains_key(&id));
+
+                        if parent_is_open {
+                            // Inherit the parent's track.
+                            self.open_named_span(event, name.into_owned(), Self::UNCATEGORIZED)?;
+                        }
+                    }
+
+                    Categorization::Omit => {}
                 }
             }
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
