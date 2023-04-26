@@ -47,9 +47,11 @@ def mk_env(args, parent):
     env["RUSTC"] = "rustc"
     for x in args.feature:
         env[mk_feature(x)] = "1"
+    split_target = args.target.split("-")
     env["HOST"] = args.target
     env["TARGET"] = args.target
-    env["CARGO_CFG_TARGET_ARCH"] = args.target.split("-")[0]
+    env["CARGO_CFG_TARGET_ARCH"] = split_target[0]
+    env["CARGO_CFG_TARGET_VENDOR"] = split_target[1]
     env["CARGO_CFG_TARGET_OS"] = os_from_target(args.target)
     env["CARGO_CFG_TARGET_POINTER_WIDTH"] = "64"
     env["CARGO_CFG_TARGET_ENDIAN"] = "little"
