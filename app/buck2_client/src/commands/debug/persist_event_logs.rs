@@ -19,17 +19,23 @@ use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use clap::ArgMatches;
+use thiserror::Error;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
 use tokio::io;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::Mutex;
 
 static UPLOAD_CHUNK_SIZE: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_CHUNK_BYTES");
 static MANIFOLD_TTL_S: EnvHelper<u64> = EnvHelper::new("BUCK2_TEST_MANIFOLD_TTL_S");
 
-type MyJoinHandle = Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>;
+#[derive(Debug, Error)]
+pub(crate) enum PersistLogError {
+    #[error("Read more bytes than are available")]
+    ReadBytesOverflow,
+}
 
 /// Read binary event log from stdin and simultaneously write it to disk and optionally upload to Manifold.
 ///
@@ -51,161 +57,161 @@ impl PersistEventLogsCommand {
         let runtime = client_tokio_runtime()?;
         let mut stdin = io::BufReader::new(ctx.stdin());
         runtime
-            .block_on(self.write(&mut stdin))
+            .block_on(self.write_and_upload(&mut stdin))
             .context("Error writing")?;
         ExitResult::success()
     }
 
-    async fn write(self, stdin: impl io::AsyncBufRead + Unpin) -> anyhow::Result<()> {
-        let mut params = UploadParams {
-            file: self.create_log_file().await?,
-            read_position: 0,
-            first_upload: true,
-            manifold_path: format!("flat/{}", self.manifold_name),
-            upload_chunk_size: UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024),
-        };
-        let mut should_upload = !self.no_upload;
-        poll_and_upload_loop(stdin, &mut params, &mut should_upload).await?;
-        if should_upload {
-            upload_remaining(&mut params).await?;
-        };
+    async fn write_and_upload(self, stdin: impl io::AsyncBufRead + Unpin) -> anyhow::Result<()> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let file = Mutex::new(create_log_file(self.local_path).await?);
+
+        let write = write_task(&file, tx, stdin);
+        let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
+
+        // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
+        let (write_result, upload_result) = tokio::join!(write, upload);
+        write_result?;
+        upload_result?;
         Ok(())
     }
-
-    async fn create_log_file(&self) -> Result<tokio::fs::File, anyhow::Error> {
-        let file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .read(true)
-            .open(&self.local_path)
-            .await
-            .with_context(|| {
-                format!(
-                    "Failed to open event log for writing at `{}`",
-                    self.local_path.display()
-                )
-            })?;
-        Ok(file)
-    }
 }
 
-struct UploadParams {
-    manifold_path: String,
-    upload_chunk_size: u64,
-    file: File,
-    read_position: u64,
-    first_upload: bool,
-}
-
-async fn poll_and_upload_loop(
+async fn write_task(
+    file_mutex: &Mutex<File>,
+    tx: tokio::sync::mpsc::UnboundedSender<u64>,
     mut stdin: impl io::AsyncBufRead + Unpin,
-    params: &mut UploadParams,
-    should_upload: &mut bool,
-) -> Result<(), anyhow::Error> {
-    let mut write_position: u64 = 0;
-    let mut upload_handle: MyJoinHandle = None;
+) -> anyhow::Result<()> {
+    let mut write_position = 0;
     loop {
         let mut buf = vec![0; 64 * 1024]; // maximum pipe size in linux
         let bytes_read = stdin.read(&mut buf).await?;
         if bytes_read == 0 {
             break; // closed stdin
         }
-        write_to_file(&mut params.file, write_position, &buf[..bytes_read]).await?;
+        let mut file = file_mutex.lock().await;
+        write_to_file(&mut file, write_position, &buf[..bytes_read]).await?;
+        drop(file);
         write_position += bytes_read as u64;
-        let cert = find_certs::find_tls_cert()?;
-        if *should_upload && upload_handle.as_ref().map_or(true, |h| h.is_finished()) {
-            if let Some(upload_handle) = upload_handle.as_mut() {
-                // It's finished already, it shouldn't wait much in this await
-                if let Err(e) = upload_handle.await.context("Error while uploading chunk")? {
-                    let _res = buck2_core::soft_error!("manifold_upload_chunk_error", e);
-                    *should_upload = false;
-                };
-            };
-            if write_position - params.read_position > params.upload_chunk_size {
-                upload_chunk(params, &mut upload_handle, cert).await?;
-            }
-        }
+        let _ignored = tx.send(bytes_read as u64); // If this errors, that means the upload task died.
     }
-    if let Some(handle) = upload_handle {
-        handle.await.context("Error while uploading chunk")??;
-    };
+
     Ok(())
 }
 
-async fn upload_chunk(
-    params: &mut UploadParams,
-    upload_handle: &mut Option<tokio::task::JoinHandle<Result<(), anyhow::Error>>>,
-    cert: OsString,
-) -> Result<(), anyhow::Error> {
-    params
-        .file
-        .seek(io::SeekFrom::Start(params.read_position))
+async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, anyhow::Error> {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .open(&local_path)
         .await
-        .context("Failed to seek log file")?;
-    let (buf, len) = read_chunk(&mut params.file, params.upload_chunk_size).await?;
-    let manifold_path = params.manifold_path.to_owned();
-    if params.first_upload {
-        *upload_handle = Some(tokio::spawn(async move {
-            if let Err(e) = upload_write(manifold_path, &buf).await {
-                let _res = buck2_core::soft_error!("manifold_write_error", e);
-            }
-            Ok(())
-        }));
-        params.first_upload = false;
-    } else {
-        let read_position_clone = params.read_position;
-        *upload_handle = Some(tokio::spawn(async move {
-            if let Err(e) = upload_append(manifold_path, &buf, read_position_clone, &cert).await {
-                let _res = buck2_core::soft_error!("manifold_append_error", e);
-            }
-            Ok(())
-        }));
-    }
-    params.read_position += len as u64;
-    Ok(())
+        .with_context(|| {
+            format!(
+                "Failed to open event log for writing at `{}`",
+                local_path.display()
+            )
+        })?;
+    Ok(file)
 }
 
-async fn upload_remaining(params: &mut UploadParams) -> Result<(), anyhow::Error> {
-    params
-        .file
-        .seek(io::SeekFrom::Start(params.read_position))
-        .await
-        .context("Failed to seek log file")?;
+async fn upload_task(
+    file_mutex: &Mutex<File>,
+    mut rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
+    manifold_name: String,
+    no_upload: bool,
+) -> anyhow::Result<()> {
+    if no_upload {
+        return Ok(());
+    }
+    let manifold_path = format!("flat/{}", manifold_name);
+    let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
     let cert = find_certs::find_tls_cert()?;
-    loop {
-        // Upload in chunks size UPLOAD_CHUNK_SIZE
-        let (buf, len) = read_chunk(&mut params.file, params.upload_chunk_size).await?;
-        if len == 0 {
-            break;
-        }
-        if params.first_upload {
-            upload_write(params.manifold_path.to_owned(), &buf).await?;
-            params.first_upload = false;
-        } else {
-            upload_append(
-                params.manifold_path.to_owned(),
-                &buf,
-                params.read_position,
+    let mut read_position = 0;
+    let mut total_bytes = 0_u64;
+
+    while let Some(n) = rx.recv().await {
+        total_bytes += n;
+        while should_upload_chunk(total_bytes, read_position, upload_chunk_size).await? {
+            do_the_upload_and_increment_read_position(
+                file_mutex,
+                &mut read_position,
+                &manifold_path,
                 &cert,
+                upload_chunk_size,
             )
             .await?;
         }
-        params.read_position += len as u64;
     }
+
+    // When tx gets dropped, rx will return None
+    while should_upload_chunk(total_bytes, read_position, upload_chunk_size).await? {
+        do_the_upload_and_increment_read_position(
+            file_mutex,
+            &mut read_position,
+            &manifold_path,
+            &cert,
+            upload_chunk_size,
+        )
+        .await?;
+    }
+
+    // Last chunk to upload is smaller than UPLOAD_CHUNK_SIZE
+    do_the_upload_and_increment_read_position(
+        file_mutex,
+        &mut read_position,
+        &manifold_path,
+        &cert,
+        upload_chunk_size,
+    )
+    .await?;
+
     Ok(())
 }
 
-async fn read_chunk(
-    read_ref: &mut File,
-    chunk_size: u64,
-) -> Result<(Vec<u8>, usize), anyhow::Error> {
+async fn should_upload_chunk(
+    total_bytes: u64,
+    read_position: u64,
+    upload_chunk_size: u64,
+) -> anyhow::Result<bool> {
+    Ok(total_bytes
+        .checked_sub(read_position)
+        .ok_or(PersistLogError::ReadBytesOverflow)?
+        > upload_chunk_size)
+}
+
+async fn do_the_upload_and_increment_read_position(
+    file_mutex: &Mutex<File>,
+    read_position: &mut u64,
+    manifold_path: &str,
+    cert: &OsString,
+    upload_chunk_size: u64,
+) -> anyhow::Result<u64> {
+    let mut file = file_mutex.lock().await;
+    // Upload chunk
+    file.seek(io::SeekFrom::Start(*read_position))
+        .await
+        .context("Failed to seek log file")?;
+    let (buf, len) = read_chunk(&mut file, upload_chunk_size).await?;
+    drop(file);
+    if *read_position == 0 {
+        // First chunk
+        upload_write(manifold_path, &buf, cert).await?;
+    } else {
+        upload_append(manifold_path, &buf, cert, *read_position).await?;
+    }
+    *read_position += len;
+    Ok(len)
+}
+
+async fn read_chunk(read_ref: &mut File, chunk_size: u64) -> Result<(Vec<u8>, u64), anyhow::Error> {
     let mut buf = vec![];
     let mut handle = read_ref.take(chunk_size);
     let len = handle
         .read_to_end(&mut buf)
         .await
         .context("Cannot read log file chunk")?;
-    Ok((buf, len))
+    Ok((buf, len as u64))
 }
 
 async fn write_to_file(
@@ -221,8 +227,7 @@ async fn write_to_file(
     Ok(())
 }
 
-async fn upload_write(manifold_path: String, buf: &[u8]) -> anyhow::Result<()> {
-    let cert = find_certs::find_tls_cert()?;
+async fn upload_write(manifold_path: &str, buf: &[u8], cert: &OsString) -> anyhow::Result<()> {
     // TODO T149151673: support windows uploads
     let upload = manifold::curl_write_command(
         manifold::Bucket::EventLogs.info(),
@@ -248,10 +253,10 @@ async fn upload_write(manifold_path: String, buf: &[u8]) -> anyhow::Result<()> {
 }
 
 async fn upload_append(
-    manifold_path: String,
+    manifold_path: &str,
     buf: &[u8],
-    offset: u64,
     cert: &OsString,
+    offset: u64,
 ) -> anyhow::Result<()> {
     // TODO T149151673: support windows uploads
     let upload = manifold::curl_append_command(
