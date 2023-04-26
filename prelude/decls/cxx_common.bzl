@@ -332,7 +332,7 @@ def _reexport_all_header_dependencies_arg():
     return {
         "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None, doc = """
     Whether to automatically re-export the exported headers of all dependencies.
- 
+
      When this is set to false, only exported headers from
      `exported_deps` are re-exported.
 """),
