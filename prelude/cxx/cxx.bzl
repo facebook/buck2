@@ -9,6 +9,7 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
+load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -47,14 +48,9 @@ load(
     "@prelude//utils:utils.bzl",
     "expect",
     "filter_and_map_idx",
-    "flatten",
     "value_or",
 )
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
-load(
-    ":compile.bzl",
-    "CxxSrcWithFlags",
-)
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(":cxx_library.bzl", "cxx_library_parameterized")
@@ -122,37 +118,6 @@ load(
 )
 
 cxx_link_into_shared_library = _cxx_link_into_shared_library
-
-#####################################################################
-# Attributes
-
-# The source files
-def get_srcs_with_flags(ctx: "context") -> [CxxSrcWithFlags.type]:
-    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs))
-
-    # src -> flags_hash -> flags
-    flags_sets_by_src = {}
-    for x in all_srcs:
-        if type(x) == type(()):
-            artifact = x[0]
-            flags = x[1]
-        else:
-            artifact = x
-            flags = []
-
-        flags_hash = hash(str(flags))
-        flag_sets = flags_sets_by_src.setdefault(artifact, {})
-        flag_sets[flags_hash] = flags
-
-    # Go through collected (source, flags) pair and set the index field if there are duplicate source files
-    cxx_src_with_flags_records = []
-    for (artifact, flag_sets) in flags_sets_by_src.items():
-        needs_indices = len(flag_sets) > 1
-        for i, flags in enumerate(flag_sets.values()):
-            index = i if needs_indices else None
-            cxx_src_with_flags_records.append(CxxSrcWithFlags(file = artifact, flags = flags, index = index))
-
-    return cxx_src_with_flags_records
 
 #####################################################################
 # Operations

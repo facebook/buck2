@@ -8,9 +8,9 @@
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple/swift:swift_compilation.bzl", "compile_swift", "get_swift_anonymous_targets", "get_swift_dependency_info", "get_swift_pcm_uncompile_info", "uses_explicit_modules")
-load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
 load(
     "@prelude//cxx:debug.bzl",

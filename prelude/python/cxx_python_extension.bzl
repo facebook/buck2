@@ -5,10 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//cxx:cxx.bzl",
-    "get_srcs_with_flags",
-)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library.bzl",
@@ -17,6 +13,10 @@ load(
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
+)
+load(
+    "@prelude//cxx:cxx_sources.bzl",
+    "get_srcs_with_flags",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(

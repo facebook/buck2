@@ -6,9 +6,9 @@
 # of this source tree.
 
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//cxx:cxx.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load("@prelude//cxx:debug.bzl", "project_external_debug_info")
 load(
