@@ -12,7 +12,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -284,11 +283,7 @@ impl TargetNode {
         key: &str,
         opts: AttrInspectOptions,
     ) -> anyhow::Result<Option<&CoercedAttr>> {
-        self.0
-            .rule
-            .attributes
-            .attr(&self.0.attributes, key, opts)
-            .with_context(|| format!("attribute `{}` not found", key))
+        self.0.rule.attributes.attr(&self.0.attributes, key, opts)
     }
 
     pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
