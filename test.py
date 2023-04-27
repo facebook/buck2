@@ -168,6 +168,7 @@ CLIPPY_ALLOW = [
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
     "clippy::uninlined_format_args",  # From Rust 1.67.0 (made pedantic in 1.67.1 https://github.com/rust-lang/rust-clippy/pull/10265)
     "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
+    "clippy::almost-swapped",  # Triggered by Clap v3, perhaps remove when we move to v4
 ]
 
 CLIPPY_DENY = [
@@ -265,9 +266,6 @@ def clippy(package_args: List[str], fix: bool) -> None:
     Also fails on any rustc warnings or build errors.
     We'd really like a quiet option (at least for CI), but it doesn't exist
     """
-
-    # FIXME: make clippy pass with Rust 1.69
-    return
 
     print_running("clippy")
 
