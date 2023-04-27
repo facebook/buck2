@@ -13,9 +13,9 @@ load(
 )
 load(
     "@prelude//apple:apple_frameworks.bzl",
-    "build_link_args_with_deduped_framework_flags",
-    "create_frameworks_linkable",
-    "get_frameworks_link_info_by_deduping_link_infos",
+    "apple_build_link_args_with_deduped_flags",
+    "apple_create_frameworks_linkable",
+    "apple_get_link_info_by_deduping_link_infos",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -223,7 +223,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     own_link_flags = cxx_attr_linker_flags(ctx) + impl_params.extra_link_flags + impl_params.extra_exported_link_flags
     own_binary_link_flags = ctx.attrs.binary_linker_flags + impl_params.extra_binary_link_flags + own_link_flags
     inherited_link = merge_link_infos(ctx, [d.merged_link_info for d in link_deps])
-    frameworks_linkable = create_frameworks_linkable(ctx)
+    frameworks_linkable = apple_create_frameworks_linkable(ctx)
 
     # `apple_binary()` / `cxx_binary()` _itself_ cannot contain Swift, so it does not
     # _directly_ contribute a Swift runtime linkable
@@ -236,7 +236,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     disabled_link_groups = []
 
     if not link_group_mappings:
-        dep_links = build_link_args_with_deduped_framework_flags(
+        dep_links = apple_build_link_args_with_deduped_flags(
             ctx,
             inherited_link,
             frameworks_linkable,
@@ -331,7 +331,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
         # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
+        frameworks_link_info = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
         if frameworks_link_info:
             filtered_links.append(frameworks_link_info)
 

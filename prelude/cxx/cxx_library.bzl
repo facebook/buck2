@@ -17,9 +17,9 @@ load(
 )
 load(
     "@prelude//apple:apple_frameworks.bzl",
-    "build_link_args_with_deduped_framework_flags",
-    "create_frameworks_linkable",
-    "get_frameworks_link_info_by_deduping_link_infos",
+    "apple_build_link_args_with_deduped_flags",
+    "apple_create_frameworks_linkable",
+    "apple_get_link_info_by_deduping_link_infos",
 )
 load(
     "@prelude//apple/swift:swift_runtime.bzl",
@@ -360,7 +360,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         children = link_group_deps,
     )
 
-    frameworks_linkable = create_frameworks_linkable(ctx)
+    frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swift_runtime_linkable = create_swift_runtime_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
         ctx,
@@ -939,7 +939,7 @@ def _get_shared_library_links(
         # loaded in the address space of any process at any address.
         link_style_value = "static_pic" if link_style_value == "static" else link_style_value
 
-        return build_link_args_with_deduped_framework_flags(
+        return apple_build_link_args_with_deduped_flags(
             ctx,
             link,
             frameworks_linkable,
@@ -970,7 +970,7 @@ def _get_shared_library_links(
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
     # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-    frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
+    frameworks_link_info = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
     if frameworks_link_info:
         filtered_links.append(frameworks_link_info)
 

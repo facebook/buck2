@@ -29,7 +29,7 @@ _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
     "$SDKROOT/System/Library/Frameworks",
 ]
 
-def create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None]:
+def apple_create_frameworks_linkable(ctx: "context") -> [FrameworksLinkable.type, None]:
     if not ctx.attrs.libraries and not ctx.attrs.frameworks:
         return None
 
@@ -120,7 +120,7 @@ def _non_sdk_unresolved_framework_directory(framework_path: str.type) -> [str.ty
             return None
     return paths.dirname(framework_path)
 
-def build_link_args_with_deduped_framework_flags(
+def apple_build_link_args_with_deduped_flags(
         ctx: "context",
         info: "MergedLinkInfo",
         frameworks_linkable: ["FrameworksLinkable", None],
@@ -139,7 +139,7 @@ def build_link_args_with_deduped_framework_flags(
         ), prefer_stripped),
     )
 
-def get_frameworks_link_info_by_deduping_link_infos(
+def apple_get_link_info_by_deduping_link_infos(
         ctx: "context",
         infos: [[LinkInfo.type, None]],
         framework_linkable: [FrameworksLinkable.type, None],
