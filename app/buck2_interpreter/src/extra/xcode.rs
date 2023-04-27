@@ -67,7 +67,7 @@ impl XcodeVersionInfo {
             .parent()
             .map(|base| base.as_path().join("version.plist"))
             .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
-        Ok(Self::from_plist(&plist_path)?)
+        Self::from_plist(&plist_path)
     }
 
     pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Option<Self>> {
