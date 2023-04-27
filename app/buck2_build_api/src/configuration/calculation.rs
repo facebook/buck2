@@ -91,7 +91,6 @@ async fn get_target_platform_detector(
             // TODO(cjhopman): Consider revisiting that approach.
             let resolver = ctx.get_cell_resolver().await?;
             let root_cell = resolver.root_cell();
-            let cell_alias_resolver = resolver.get(root_cell).unwrap().cell_alias_resolver();
 
             Ok(Arc::new(
                 match ctx
@@ -103,7 +102,7 @@ async fn get_target_platform_detector(
                     .await?
                 {
                     None => TargetPlatformDetector::empty(),
-                    Some(spec) => TargetPlatformDetector::parse_spec(cell_alias_resolver, &spec)?,
+                    Some(spec) => TargetPlatformDetector::parse_spec(&spec, root_cell, &resolver)?,
                 },
             ))
         }
@@ -130,10 +129,7 @@ async fn get_execution_platforms(
         .await?;
 
     let execution_platforms_target = match execution_platforms_target {
-        Some(v) => {
-            let root_cell = cells.root_cell_instance();
-            TargetLabel::parse(&v, root_cell.cell_alias_resolver())?
-        }
+        Some(v) => TargetLabel::parse(&v, cells.root_cell(), &cells)?,
         None => {
             return Ok(None);
         }
@@ -441,7 +437,8 @@ async fn compute_platform_configuration(
     let cell_resolver = ctx.get_cell_resolver().await?;
     let parsed_target = TargetLabel::parse(
         configuration_data.label()?,
-        cell_resolver.root_cell_cell_alias_resolver(),
+        cell_resolver.root_cell(),
+        &cell_resolver,
     )
     .context("`PlatformInfo` label for `platform()` rule should be a valid target label")?;
 

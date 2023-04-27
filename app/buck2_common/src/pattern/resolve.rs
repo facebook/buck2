@@ -200,14 +200,10 @@ mod tests {
         where
             T: PatternType,
         {
-            let aliases = self
-                .resolver
-                .get(CellName::testing_new("root"))
-                .unwrap()
-                .cell_alias_resolver();
-
-            let patterns: Vec<_> =
-                patterns.map(|p| ParsedPattern::<T>::parse_precise(aliases, p).unwrap());
+            let patterns: Vec<_> = patterns.map(|p| {
+                ParsedPattern::<T>::parse_precise(p, CellName::testing_new("root"), &self.resolver)
+                    .unwrap()
+            });
 
             resolve_target_patterns(&self.resolver, &patterns, &*self.file_ops).await
         }

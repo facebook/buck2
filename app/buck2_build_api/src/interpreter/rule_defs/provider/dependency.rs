@@ -176,8 +176,9 @@ mod tests {
         ) -> anyhow::Result<Dependency<'v>> {
             let c = BuildContext::from_context(eval)?;
             let label = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
-                c.cell_info().cell_alias_resolver()?,
                 s,
+                c.cell_info().name().name(),
+                c.cell_info().cell_resolver(),
             ) {
                 Ok(ParsedPattern::Target(package, target_name, providers)) => providers
                     .into_providers_label(package, target_name.as_ref())

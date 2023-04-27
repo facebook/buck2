@@ -75,6 +75,10 @@ impl NonEmptyCellAlias {
         }
     }
 
+    pub fn testing_new(alias: &str) -> NonEmptyCellAlias {
+        NonEmptyCellAlias::new(alias.to_owned()).unwrap()
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

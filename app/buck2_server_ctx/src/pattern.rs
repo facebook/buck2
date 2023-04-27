@@ -100,12 +100,11 @@ async fn target_platform_from_client_context_impl(
     working_dir: &ProjectRelativePath,
 ) -> anyhow::Result<Option<TargetLabel>> {
     let cwd = cell_resolver.get_cell_path(working_dir)?;
-    let cell_alias_resolver = cell_resolver.get(cwd.cell()).unwrap().cell_alias_resolver();
 
     let target_platform = &client_context.target_platform;
     if !target_platform.is_empty() {
         Ok(Some(
-            ParsedPattern::parse_precise(cell_alias_resolver, target_platform)?
+            ParsedPattern::parse_precise(target_platform, cwd.cell(), cell_resolver)?
                 .as_target_label(target_platform)?,
         ))
     } else {

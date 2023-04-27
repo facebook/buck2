@@ -100,8 +100,9 @@ pub mod testing {
     fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
         let ctx = BuildContext::from_context(eval)?;
         match ParsedPattern::<TargetPatternExtra>::parse_precise(
-            ctx.cell_info().cell_alias_resolver()?,
             target,
+            ctx.cell_info().name().name(),
+            ctx.cell_info().cell_resolver(),
         ) {
             Ok(ParsedPattern::Target(package, target_name, TargetPatternExtra)) => {
                 Ok(TargetLabel::new(package, target_name.as_ref())

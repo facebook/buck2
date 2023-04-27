@@ -48,6 +48,10 @@ impl InterpreterCellInfo {
         self.0.cell_name
     }
 
+    pub fn cell_resolver(&self) -> &CellResolver {
+        &self.0.cell_resolver
+    }
+
     pub fn cell_alias_resolver(&self) -> anyhow::Result<&CellAliasResolver> {
         Ok(self
             .0

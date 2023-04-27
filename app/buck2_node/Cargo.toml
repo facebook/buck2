@@ -34,7 +34,6 @@ buck2_query_parser = { workspace = true }
 buck2_util = { workspace = true }
 
 [dev-dependencies]
-maplit = { workspace = true }
 tokio = { workspace = true }
 
 [features]

@@ -26,7 +26,8 @@
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
@@ -59,7 +60,11 @@ impl TargetPlatformDetector {
             detectors: Vec::new(),
         }
     }
-    pub fn parse_spec(cell_alias_resolver: &CellAliasResolver, spec: &str) -> anyhow::Result<Self> {
+    pub fn parse_spec(
+        spec: &str,
+        cell_name: CellName,
+        cell_resolver: &CellResolver,
+    ) -> anyhow::Result<Self> {
         let mut detectors = Vec::new();
         for value in spec.split_whitespace() {
             match value.split_once(':') {
@@ -67,8 +72,9 @@ impl TargetPlatformDetector {
                     Some((matcher, target)) => {
                         let matcher_package =
                             match ParsedPattern::<TargetPatternExtra>::parse_precise(
-                                cell_alias_resolver,
                                 matcher,
+                                cell_name,
+                                cell_resolver,
                             )? {
                                 buck2_core::pattern::ParsedPattern::Recursive(root) => root,
                                 _ => {
@@ -81,8 +87,9 @@ impl TargetPlatformDetector {
                                 }
                             };
                         let target = ParsedPattern::<TargetPatternExtra>::parse_precise(
-                            cell_alias_resolver,
                             target,
+                            cell_name,
+                            cell_resolver,
                         )
                         .and_then(|x| x.as_target_label(target))
                         .context("Error parsing target platform detector spec")?;
@@ -119,23 +126,40 @@ impl TargetPlatformDetector {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use buck2_core::cells::alias::NonEmptyCellAlias;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use maplit::hashmap;
 
     use super::*;
 
     #[test]
     fn test_parse_errors() -> anyhow::Result<()> {
-        let cell_alias_resolver = CellAliasResolver::new(
-            CellName::testing_new("root"),
-            hashmap! {
-                NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-            },
-        )?;
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
+            (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new(""),
+                HashMap::from_iter([(
+                    NonEmptyCellAlias::testing_new("alias1"),
+                    CellName::testing_new("cell1"),
+                )]),
+            ),
+            (
+                CellName::testing_new("cell1"),
+                CellRootPathBuf::testing_new("cell1"),
+                HashMap::new(),
+            ),
+        ]);
 
-        let check_fails = |spec| {
-            if TargetPlatformDetector::parse_spec(&cell_alias_resolver, spec).is_ok() {
+        let check_fails = |spec: &str| {
+            if TargetPlatformDetector::parse_spec(
+                spec,
+                CellName::testing_new("root"),
+                &cell_resolver,
+            )
+            .is_ok()
+            {
                 panic!(
                     "Expected spec `{}` to fail parsing, but it succeeded.",
                     spec
@@ -143,8 +167,8 @@ mod tests {
             }
         };
 
-        let check_good = |spec| {
-            TargetPlatformDetector::parse_spec(&cell_alias_resolver, spec)
+        let check_good = |spec: &str| {
+            TargetPlatformDetector::parse_spec(spec, CellName::testing_new("root"), &cell_resolver)
                 .unwrap_or_else(|_| panic!("Expected parsing `{}` to succeed.", spec))
         };
 
@@ -171,16 +195,26 @@ mod tests {
 
     #[test]
     fn test_detect() -> anyhow::Result<()> {
-        let cell_alias_resolver = CellAliasResolver::new(
-            CellName::testing_new("root"),
-            hashmap! {
-                NonEmptyCellAlias::new("alias1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-            },
-        )?;
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
+            (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new(""),
+                HashMap::from_iter([(
+                    NonEmptyCellAlias::testing_new("alias1"),
+                    CellName::testing_new("cell1"),
+                )]),
+            ),
+            (
+                CellName::testing_new("cell1"),
+                CellRootPathBuf::testing_new("cell1"),
+                HashMap::new(),
+            ),
+        ]);
 
         let detector = TargetPlatformDetector::parse_spec(
-            &cell_alias_resolver,
             "target://lib/...->//:p1 target://lib2/foo/...->//:p2 target:alias1//map/...->alias1//:alias",
+            CellName::testing_new("root"),
+            &cell_resolver,
         )?;
 
         let p1 = TargetLabel::testing_parse("root//:p1");
