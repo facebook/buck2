@@ -202,7 +202,7 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
         # to dedupe these args results in linker.argsfile which are too big.
         pass
     else:
-        fail("unreachable")
+        fail("Encountered unhandled linkable of type {}".format(linkable._type))
 
 def link_info_to_args(value: LinkInfo.type) -> "cmd_args":
     args = cmd_args(value.pre_flags)
@@ -232,7 +232,7 @@ def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
         elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
             pass
         else:
-            fail("unreachable")
+            fail("Encountered unhandled linkable of type {}".format(linkable._type))
     return filelists
 
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
