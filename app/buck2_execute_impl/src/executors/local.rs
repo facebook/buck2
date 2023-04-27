@@ -69,7 +69,6 @@ use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use indexmap::IndexMap;
-use more_futures::cancellable_future::with_structured_cancellation;
 use more_futures::cancellable_future::CancellationObserver;
 use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
@@ -543,18 +542,19 @@ impl PreparedCommandExecutor for LocalExecutor {
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.
-        with_structured_cancellation(|cancellation| {
-            Self::exec_request(
-                self,
-                &prepared_action.action,
-                request,
-                manager,
-                cancellation,
-                cancellations,
-                *digest_config,
-            )
-        })
-        .await
+        cancellations
+            .with_structured_cancellation(|cancellation| {
+                Self::exec_request(
+                    self,
+                    &prepared_action.action,
+                    request,
+                    manager,
+                    cancellation,
+                    cancellations,
+                    *digest_config,
+                )
+            })
+            .await
     }
 
     fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
