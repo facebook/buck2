@@ -377,7 +377,7 @@ export_file = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "src": attrs.option(attrs.source(), default = None, doc = """
+            "src": attrs.option(attrs.source(allow_directory = True), default = None, doc = """
                 The path to the file that should be exported.
             """),
             "out": attrs.option(attrs.string(), default = None, doc = """
@@ -454,9 +454,10 @@ filegroup = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "srcs": attrs.option(attrs.named_set(attrs.source(), sorted = False), default = None, doc = """
+            "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = [], doc = """
                 The set of files to include in this rule.
             """),
+            "copy": attrs.bool(default = True),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),

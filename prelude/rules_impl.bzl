@@ -398,13 +398,6 @@ inlined_extra_attributes = {
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
-    "export_file": {
-        "src": attrs.source(allow_directory = True),
-    },
-    "filegroup": {
-        "copy": attrs.bool(default = True),
-        "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
-    },
     "genrule": genrule_attributes() | {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
