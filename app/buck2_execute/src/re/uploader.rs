@@ -262,7 +262,8 @@ impl Uploader {
                                             file.digest,
                                             info.origin.as_display_for_not_found(),
                                         ),
-                                        daemon_in_memory_state_is_corrupted: true
+                                        daemon_in_memory_state_is_corrupted: true,
+                                        action_cache_is_corrupted: !info.origin.action_result_has_expired()
                                     )?;
 
                                     return Err(anyhow::anyhow!(

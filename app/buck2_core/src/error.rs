@@ -102,6 +102,7 @@ pub struct SoftErrorOptions {
     pub task: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
+    pub action_cache_is_corrupted: bool,
 }
 
 impl Default for SoftErrorOptions {
@@ -111,6 +112,7 @@ impl Default for SoftErrorOptions {
             task: true,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
+            action_cache_is_corrupted: false,
         }
     }
 }

@@ -616,12 +616,16 @@ pub async fn materialize_inputs(
     while let Some(res) = stream.next().await {
         match res {
             Ok(()) => {}
-            Err(e @ MaterializationError::NotFound { .. }) => {
+            Err(MaterializationError::NotFound { path, info, debug }) => {
+                let expired = info.origin.action_result_has_expired();
+
                 return Err(soft_error!(
-                    "cas_missing_fatal", e.into(),
+                    "cas_missing_fatal",
+                    MaterializationError::NotFound { path, info, debug }.into(),
                     quiet: true,
                     task: false,
-                    daemon_in_memory_state_is_corrupted: true
+                    daemon_in_memory_state_is_corrupted: true,
+                    action_cache_is_corrupted: !expired
                 )?);
             }
             Err(e) => {
