@@ -28,6 +28,7 @@ use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
@@ -46,6 +47,8 @@ use once_cell::sync::Lazy;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
+
+use crate::actions::impls::offline;
 
 #[derive(Debug, Error)]
 enum CasArtifactActionDeclarationError {
@@ -142,6 +145,21 @@ impl CasArtifactAction {
 
         Ok(Self { output, inner })
     }
+
+    async fn execute_for_offline(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+        let outputs = offline::declare_copy_from_offline_cache(ctx, &self.output).await?;
+
+        Ok((
+            outputs,
+            ActionExecutionMetadata {
+                execution_kind: ActionExecutionKind::Deferred,
+                timing: ActionExecutionTimingData::default(),
+            },
+        ))
+    }
 }
 
 #[async_trait]
@@ -179,6 +197,12 @@ impl IncrementalActionExecutable for CasArtifactAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+        // If running in offline environment, try to restore from cached outputs
+        // first. Fallthrough to normal operation if unsuccessful.
+        if ctx.run_action_knobs().use_network_action_output_cache {
+            return self.execute_for_offline(ctx).await;
+        }
+
         let expiration = ctx
             .re_client()
             .get_digest_expirations(vec![self.inner.digest.to_re()], self.inner.re_use_case)
@@ -275,6 +299,15 @@ impl IncrementalActionExecutable for CasArtifactAction {
                 ctx.cancellation_context(),
             )
             .await?;
+
+        let io_provider = ctx.io_provider();
+        let maybe_io_tracer = io_provider.as_any().downcast_ref::<TracingIoProvider>();
+        if let Some(tracer) = maybe_io_tracer {
+            let offline_cache_path =
+                offline::declare_copy_to_offline_output_cache(ctx, &self.output, value.dupe())
+                    .await?;
+            tracer.add_buck_out_entry(offline_cache_path);
+        }
 
         Ok((
             ActionOutputs::from_single(self.output.get_path().dupe(), value),
