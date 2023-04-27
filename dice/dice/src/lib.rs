@@ -229,6 +229,7 @@ use legacy::incremental::transaction_ctx::TransactionCtx;
 use legacy::incremental::ValueWithDeps;
 use legacy::key::StoragePropertiesForKey;
 use metrics::Metrics;
+pub use more_futures::cancellation::CancellationContext; // expose cancellation context as api
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;
