@@ -9,7 +9,6 @@ load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",
-    "LinkGroupLibInfo",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -172,23 +171,6 @@ def get_link_group_info(
         children = executable_deps,
     )
     return build_link_group_info(linkable_graph, link_groups)
-
-def get_auto_link_group_libs(ctx: "context") -> [{str.type: LinkGroupLib.type}, None]:
-    """
-    Return link group libs created by the link group map rule.
-    """
-    link_group_map = ctx.attrs.link_group_map
-
-    if not link_group_map:
-        return None
-
-    if type(link_group_map) == "dependency":
-        info = link_group_map.get(LinkGroupLibInfo)
-        if info == None:
-            return None
-        return info.libs
-
-    fail("Link group maps must be provided as a link_group_map rule dependency.")
 
 def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
     return {
