@@ -61,6 +61,14 @@ mod interactive_terminal {
                 return Ok(None);
             }
 
+            // If stdout is redirected, let's also no turn this on since it might be redirected to
+            // something that wants stdout. We can always debug those with `debug replay` now.
+            if !nix::unistd::isatty(std::io::stdout().as_raw_fd())
+                .context("Failed to check stdout for TTY")?
+            {
+                return Ok(None);
+            }
+
             // We also check for stderr, since if a user is starting a bunch of bucks in the
             // background those may end up clobbering the termios state and the following can
             // happen:
