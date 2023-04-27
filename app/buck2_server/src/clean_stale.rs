@@ -50,25 +50,27 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        more_futures::cancellable_future::critical_section(async move || {
-            let deferred_materializer = server_ctx.materializer();
-            deferred_materializer.log_materializer_state(server_ctx.events());
+        server_ctx
+            .cancellation_context()
+            .critical_section(async move || {
+                let deferred_materializer = server_ctx.materializer();
+                deferred_materializer.log_materializer_state(server_ctx.events());
 
-            let extension = deferred_materializer
-                .as_deferred_materializer_extension()
-                .context("Deferred materializer is not in use")?;
+                let extension = deferred_materializer
+                    .as_deferred_materializer_extension()
+                    .context("Deferred materializer is not in use")?;
 
-            let keep_since_time = Utc
-                .timestamp_opt(self.req.keep_since_time, 0)
-                .single()
-                .context("Invalid timestamp")?;
+                let keep_since_time = Utc
+                    .timestamp_opt(self.req.keep_since_time, 0)
+                    .single()
+                    .context("Invalid timestamp")?;
 
-            extension
-                .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
-                .await
-                .context("Failed to clean stale artifacts.")
-        })
-        .await
+                extension
+                    .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
+                    .await
+                    .context("Failed to clean stale artifacts.")
+            })
+            .await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
