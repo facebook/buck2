@@ -418,7 +418,8 @@ def generate_abi_jars(
         encode_abi_command: "function",
         define_action: "function",
         debug_port: [int.type, None],
-        debug_target: ["label", None]) -> tuple.type:
+        debug_target: ["label", None],
+        extra_jvm_args: [str.type]) -> tuple.type:
     class_abi = None
     source_abi = None
     source_only_abi = None
@@ -449,6 +450,7 @@ def generate_abi_jars(
                 path_to_class_hashes = None,
                 debug_port = debug_port,
                 debug_target = debug_target,
+                extra_jvm_args = extra_jvm_args,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -476,6 +478,7 @@ def generate_abi_jars(
                 path_to_class_hashes = None,
                 debug_port = debug_port,
                 debug_target = debug_target,
+                extra_jvm_args = extra_jvm_args,
             )
             source_only_abi = source_only_abi_output_paths.jar
 

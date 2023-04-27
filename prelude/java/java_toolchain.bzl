@@ -34,6 +34,7 @@ JavaToolchainInfo = provider(
         "java",
         "javacd_debug_port",
         "javacd_debug_target",
+        "javacd_jvm_args",
         "java_for_tests",
         "javac",
         "javac_protocol",

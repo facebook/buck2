@@ -15,7 +15,6 @@ load(
     "AbiGenerationMode",  # @unused Used as a type
     "DepFiles",
 )
-load("@prelude//java/utils:java_utils.bzl", "derive_javac")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "OutputPaths",
@@ -183,6 +182,7 @@ def create_jar_artifact_javacd(
             path_to_class_hashes: ["artifact", None],
             debug_port: [int.type, None],
             debug_target: ["label", None],
+            extra_jvm_args: [str.type],
             is_creating_subtarget: bool.type = False):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
@@ -191,17 +191,22 @@ def create_jar_artifact_javacd(
         # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
         expect(type(java_toolchain.javac) == "dependency", "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
         cmd = cmd_args()
-        if (debug_port and qualified_name.startswith(base_qualified_name(debug_target))):
+        cmd.add(
+            java_toolchain.java[RunInfo],
+        )
+
+        if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
             cmd.add(
-                java_toolchain.java[RunInfo],
                 "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port),
-                "-jar",
-                java_toolchain.javac[DefaultInfo].default_outputs[0],
             )
-        else:
-            cmd.add(
-                derive_javac(java_toolchain.javac),
-            )
+
+        if len(extra_jvm_args) > 0:
+            cmd.add(extra_jvm_args)
+
+        cmd.add(
+            "-jar",
+            java_toolchain.javac[DefaultInfo].default_outputs[0],
+        )
 
         cmd.add(
             "--action-id",
@@ -273,6 +278,7 @@ def create_jar_artifact_javacd(
         path_to_class_hashes_out,
         java_toolchain.javacd_debug_port,
         java_toolchain.javacd_debug_target,
+        java_toolchain.javacd_jvm_args,
         is_creating_subtarget,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
@@ -292,6 +298,7 @@ def create_jar_artifact_javacd(
             define_action = define_javacd_action,
             debug_port = java_toolchain.javacd_debug_port,
             debug_target = java_toolchain.javacd_debug_target,
+            extra_jvm_args = java_toolchain.javacd_jvm_args,
         )
 
         result = make_compile_outputs(

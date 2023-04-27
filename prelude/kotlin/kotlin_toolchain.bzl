@@ -20,6 +20,7 @@ KotlinToolchainInfo = provider(
         "kotlinc_protocol",
         "kotlincd_debug_port",
         "kotlincd_debug_target",
+        "kotlincd_jvm_args",
         "kotlin_stdlib",
         "kotlin_home_libraries",
         "kosabi_stubs_gen_plugin",

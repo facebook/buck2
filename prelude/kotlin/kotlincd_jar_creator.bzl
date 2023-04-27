@@ -211,20 +211,28 @@ def create_jar_artifact_kotlincd(
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
             debug_port: [int.type, None],
-            debug_target: ["label", None]):
+            debug_target: ["label", None],
+            extra_jvm_args: [str.type]):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
         cmd = cmd_args()
-        if (debug_port and qualified_name.startswith(base_qualified_name(debug_target))):
+        cmd.add(
+            java_toolchain.java[RunInfo],
+        )
+
+        if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
             cmd.add(
-                java_toolchain.java[RunInfo],
                 "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port),
-                "-jar",
-                kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
             )
-        else:
-            cmd.add(kotlin_toolchain.kotlinc[RunInfo])
+
+        if len(extra_jvm_args) > 0:
+            cmd.add(extra_jvm_args)
+
+        cmd.add(
+            "-jar",
+            kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
+        )
 
         cmd.add(
             "--action-id",
@@ -300,6 +308,7 @@ def create_jar_artifact_kotlincd(
         path_to_class_hashes = path_to_class_hashes_out,
         debug_port = kotlin_toolchain.kotlincd_debug_port,
         debug_target = kotlin_toolchain.kotlincd_debug_target,
+        extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
     )
 
     final_jar = prepare_final_jar(
@@ -327,6 +336,7 @@ def create_jar_artifact_kotlincd(
         define_action = define_kotlincd_action,
         debug_port = kotlin_toolchain.kotlincd_debug_port,
         debug_target = kotlin_toolchain.kotlincd_debug_target,
+        extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
     )
     return make_compile_outputs(
         full_library = final_jar,
