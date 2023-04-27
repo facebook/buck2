@@ -22,11 +22,6 @@ use super::attr_config::CoercedAttrExtraTypes;
 use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_config::AttrConfigExtraTypes;
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
-use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
-use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::attr_type::label::LabelAttrType;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -281,36 +276,7 @@ impl AttrLiteral<CoercedAttr> {
                 AttrLiteral::OneOf(Box::new(configured), *i)
             }
             AttrLiteral::Visibility(v) => AttrLiteral::Visibility(v.clone()),
-            AttrLiteral::Extra(u) => match u {
-                CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => {
-                    ExplicitConfiguredDepAttrType::configure(ctx, dep)?
-                }
-                CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
-                    SplitTransitionDepAttrType::configure(ctx, dep)?
-                }
-                CoercedAttrExtraTypes::ConfiguredDep(dep) => {
-                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(dep.clone()))
-                }
-                CoercedAttrExtraTypes::ConfigurationDep(dep) => {
-                    ConfigurationDepAttrType::configure(ctx, dep)?
-                }
-                CoercedAttrExtraTypes::Dep(dep) => DepAttrType::configure(ctx, dep)?,
-                CoercedAttrExtraTypes::SourceLabel(source) => {
-                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
-                        source.configure_pair(ctx.cfg().cfg_pair().dupe()),
-                    )))
-                }
-                CoercedAttrExtraTypes::Label(label) => LabelAttrType::configure(ctx, label)?,
-                CoercedAttrExtraTypes::Arg(arg) => {
-                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(arg.configure(ctx)?))
-                }
-                CoercedAttrExtraTypes::Query(query) => AttrLiteral::Extra(
-                    ConfiguredAttrExtraTypes::Query(Box::new(query.configure(ctx)?)),
-                ),
-                CoercedAttrExtraTypes::SourceFile(s) => {
-                    AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
-                }
-            },
+            AttrLiteral::Extra(u) => u.configure(ctx)?,
         }))
     }
 

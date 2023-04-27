@@ -23,14 +23,21 @@ use super::arg::StringWithMacros;
 use super::dep::DepAttr;
 use super::query::QueryAttr;
 use crate::attrs::attr_type::attr_like::AttrLike;
+use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
+use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
+use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
+use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
+use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -202,6 +209,44 @@ impl AttrDisplayWithContext for CoercedAttrExtraTypes {
             Self::Query(e) => write!(f, "\"{}\"", e.query()),
             Self::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
         }
+    }
+}
+
+impl CoercedAttrExtraTypes {
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
+        Ok(match self {
+            CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => {
+                ExplicitConfiguredDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
+                SplitTransitionDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttrExtraTypes::ConfiguredDep(dep) => {
+                AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(dep.clone()))
+            }
+            CoercedAttrExtraTypes::ConfigurationDep(dep) => {
+                ConfigurationDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttrExtraTypes::Dep(dep) => DepAttrType::configure(ctx, dep)?,
+            CoercedAttrExtraTypes::SourceLabel(source) => {
+                AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
+                    source.configure_pair(ctx.cfg().cfg_pair().dupe()),
+                )))
+            }
+            CoercedAttrExtraTypes::Label(label) => LabelAttrType::configure(ctx, label)?,
+            CoercedAttrExtraTypes::Arg(arg) => {
+                AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(arg.configure(ctx)?))
+            }
+            CoercedAttrExtraTypes::Query(query) => AttrLiteral::Extra(
+                ConfiguredAttrExtraTypes::Query(Box::new(query.configure(ctx)?)),
+            ),
+            CoercedAttrExtraTypes::SourceFile(s) => {
+                AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
+            }
+        })
     }
 }
 
