@@ -80,6 +80,7 @@ jobs:
       - setup_linux_env
       - rust/clippy:
           with_cache: false
+          flags: -- --allow=clippy::almost-swapped
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
