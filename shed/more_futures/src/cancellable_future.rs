@@ -471,7 +471,7 @@ impl Future for CancellationObserver {
 /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
 /// CancellationObserver is a future that resolves when cancellation is requested (or when this
 /// section exits).
-pub fn with_structured_cancellation<F, Fut>(
+pub(crate) fn with_structured_cancellation<F, Fut>(
     make: F,
 ) -> impl Future<Output = <Fut as Future>::Output>
 where
