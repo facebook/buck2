@@ -131,27 +131,38 @@ impl CasDownloader<'_> {
             IndexMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
-        let download_response = executor_stage_async(stage, async {
-            let outputs = self
+        executor_stage_async(stage, async {
+            let artifacts = self
                 .extract_artifacts(paths, requested_outputs, output_spec)
-                .await?;
+                .await;
 
-            self.materialize_outputs(outputs, action_digest, cancellations)
-                .await
+            let artifacts = match artifacts {
+                Ok(artifacts) => artifacts,
+                Err(e) => {
+                    return ControlFlow::Break(manager.error(
+                        "extract_artifacts",
+                        e.context(format!("action_digest={}", action_digest)),
+                    ));
+                }
+            };
+
+            let outputs = self
+                .materialize_outputs(artifacts, action_digest, cancellations)
+                .await;
+
+            let outputs = match outputs {
+                Ok(outputs) => outputs,
+                Err(e) => {
+                    return ControlFlow::Break(manager.error(
+                        "materialize_outputs",
+                        e.context(format!("action_digest={}", action_digest)),
+                    ));
+                }
+            };
+
+            ControlFlow::Continue((manager, outputs))
         })
-        .await;
-
-        let outputs = match download_response {
-            Ok(outputs) => outputs,
-            Err(e) => {
-                return ControlFlow::Break(manager.error(
-                    "download",
-                    e.context(format!("action_digest={}", action_digest)),
-                ));
-            }
-        };
-
-        ControlFlow::Continue((manager, outputs))
+        .await
     }
 
     async fn extract_artifacts<'a>(
