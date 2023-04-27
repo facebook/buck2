@@ -92,12 +92,12 @@ async fn main() {
 
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
     let mut last = None;
-    for i in 0..10usize {
+    for (i, store_name) in store_names.iter().enumerate() {
         console.emit(Lines(vec![vec![i.to_string()].try_into().unwrap()]));
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))
             .collect::<Vec<_>>();
-        let store_name = StoreName(store_names[i].to_owned());
+        let store_name = StoreName((*store_name).to_owned());
         let correct_num = i + 1;
         console
             .render(&Greeter {

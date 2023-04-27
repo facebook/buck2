@@ -81,7 +81,7 @@ async fn main() {
     ];
 
     let mut timer = time::interval(Duration::from_secs_f32(0.5));
-    for i in 0usize..10usize {
+    for (i, store_name) in store_names.iter().enumerate() {
         let styled = i.to_string().with(Color::Green).on(Color::Black);
         console.emit(Lines::from_iter([Line::from_iter([styled
             .try_into()
@@ -89,7 +89,7 @@ async fn main() {
         let customers = (i..std::cmp::min(10, i + 2))
             .map(|x| CustomerName(people[x].to_owned()))
             .collect::<Vec<_>>();
-        let store_name = StoreName(store_names[i].to_owned());
+        let store_name = StoreName((*store_name).to_owned());
 
         console
             .render(&Greeter {

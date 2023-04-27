@@ -188,6 +188,7 @@ CLIPPY_DENY = [
     "clippy::mem_forget",
     "clippy::mut_mut",
     "clippy::needless_continue",
+    "clippy::needless_range_loop",
     "clippy::nonstandard_macro_braces",
     "clippy::rc_mutex",
     "clippy::ref_option_ref",
