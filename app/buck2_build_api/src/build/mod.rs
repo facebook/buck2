@@ -8,6 +8,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
@@ -63,18 +64,24 @@ pub enum BuildProviderType {
 }
 
 #[derive(Clone, Debug, Allocative)]
-pub struct BuildTargetResult {
-    pub outputs: Vec<SharedResult<ProviderArtifacts>>,
+pub struct BuildTargetResultGen<T> {
+    pub outputs: Vec<T>,
     pub providers: FrozenProviderCollectionValue,
     pub run_args: Option<Vec<String>>,
 }
+
+pub type BuildTargetResult = BuildTargetResultGen<SharedResult<ProviderArtifacts>>;
 
 impl BuildTargetResult {
     pub async fn collect_stream(
         mut stream: impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin,
         fail_fast: bool,
     ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, Option<Self>>> {
-        let mut res = BTreeMap::new();
+        // Create a map of labels to outputs, but retain the expected index of each output.
+        let mut res = HashMap::<
+            ConfiguredProvidersLabel,
+            Option<BuildTargetResultGen<(usize, SharedResult<ProviderArtifacts>)>>,
+        >::new();
 
         while let Some(BuildEvent { label, variant }) = stream.try_next().await? {
             match variant {
@@ -93,7 +100,7 @@ impl BuildTargetResult {
                 } => {
                     let prev = res.insert(
                         (*label).clone(),
-                        Some(BuildTargetResult {
+                        Some(BuildTargetResultGen {
                             outputs: Vec::new(),
                             providers,
                             run_args,
@@ -106,7 +113,7 @@ impl BuildTargetResult {
                         )?;
                     }
                 }
-                BuildEventVariant::Output { output } => {
+                BuildEventVariant::Output { index, output } => {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
@@ -114,7 +121,7 @@ impl BuildTargetResult {
                         .as_mut()
                         .with_context(|| format!("BuildEventVariant::Output for a skipped target: `{}` (internal error)", label))?
                         .outputs
-                        .push(output);
+                        .push((index, output));
 
                     if is_err && fail_fast {
                         break;
@@ -122,6 +129,35 @@ impl BuildTargetResult {
                 }
             }
         }
+
+        // Sort our outputs within each individual BuildTargetResult, then return those.
+        // Also, turn our HashMap into a BTreeMap.
+        let res = res
+            .into_iter()
+            .map(|(label, result)| {
+                let result = result.map(|result| {
+                    let BuildTargetResultGen {
+                        mut outputs,
+                        providers,
+                        run_args,
+                    } = result;
+
+                    // No need for a stable sort: the indices are unique.
+                    outputs.sort_unstable_by_key(|(index, _outputs)| *index);
+
+                    BuildTargetResult {
+                        outputs: outputs
+                            .into_iter()
+                            .map(|(_index, outputs)| outputs)
+                            .collect(),
+                        providers,
+                        run_args,
+                    }
+                });
+
+                (label, result)
+            })
+            .collect();
 
         Ok(res)
     }
@@ -135,6 +171,8 @@ enum BuildEventVariant {
     },
     Output {
         output: SharedResult<ProviderArtifacts>,
+        /// Ensure a stable ordering of outputs.
+        index: usize,
     },
 }
 
@@ -257,32 +295,34 @@ pub async fn build_configured_label(
 
     let outputs = outputs
         .into_iter()
+        .enumerate()
         .map({
             // The closure gets its copy.
             let ctx = ctx.dupe();
             let materialization_context = materialization_context.dupe();
-            move |(output, provider_type)| {
+            move |(index, (output, provider_type))| {
                 // And each future we create gets one too.
                 let ctx = ctx.dupe();
                 let materialization_context = materialization_context.dupe();
                 async move {
-                    let values =
-                        materialize_artifact_group(&ctx, &output, &materialization_context)
-                            .await
-                            .shared_error()?;
-                    Ok(ProviderArtifacts {
-                        values,
-                        provider_type,
-                    })
+                    let res = materialize_artifact_group(&ctx, &output, &materialization_context)
+                        .await
+                        .shared_error()
+                        .map(|values| ProviderArtifacts {
+                            values,
+                            provider_type,
+                        });
+
+                    (index, res)
                 }
             }
         })
         .collect::<FuturesUnordered<_>>()
         .map({
             let providers_label = providers_label.dupe();
-            move |output| BuildEvent {
+            move |(index, output)| BuildEvent {
                 label: providers_label.dupe(),
-                variant: BuildEventVariant::Output { output },
+                variant: BuildEventVariant::Output { index, output },
             }
         });
 
