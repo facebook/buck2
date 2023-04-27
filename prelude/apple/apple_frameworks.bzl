@@ -174,4 +174,4 @@ def _link_info_from_frameworks_linkable(ctx: "context", framework_linkables: [[F
     swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))
     return LinkInfo(
         pre_flags = [framework_link_args, swift_runtime_link_args],
-    ) if framework_link_args else None
+    ) if (framework_link_args or swift_runtime_link_args) else None
