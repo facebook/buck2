@@ -57,7 +57,13 @@ static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Ve
 /// propagate.
 #[macro_export]
 macro_rules! soft_error(
-    ($category:expr, $err:expr $(, $k:ident : $v:expr)*) => { {
+    ($category:expr, $err:expr) => {
+        $crate::soft_error!($category, $err,)
+    };
+    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
+        $crate::soft_error!($category, $err, $($k: $v,)*)
+    };
+    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
         static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         static ONCE: std::sync::Once = std::sync::Once::new();
         $crate::error::handle_soft_error(
@@ -71,7 +77,38 @@ macro_rules! soft_error(
                 ..Default::default()
             }
         )
-    } }
+    } };
+);
+
+/// Tag and report this error. Return said error.
+#[macro_export]
+macro_rules! tag_error(
+    ($category:expr, $err:expr) => {
+        $crate::tag_error!($category, $err,)
+    };
+    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
+        $crate::tag_error!($category, $err, $($k: $v,)*)
+    };
+    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => {
+        match $crate::soft_error!($category, $err, $($k: $v,)*) {
+            Ok(err) => err,
+            Err(err) => err,
+        }
+    };
+);
+
+/// If this result is an error, tag it, then return the result.
+#[macro_export]
+macro_rules! tag_result(
+    ($category:expr, $res:expr) => {
+        $crate::tag_result($category, $res,)
+    };
+    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
+        $crate::tag_result!($category, $err, $($k: $v,)*)
+    };
+    ($category:expr, $res:expr, $($k:ident : $v:expr ,)*) => {
+        $res.map_err(|err| $crate::tag_error!($category, err, $($k: $v,)*))
+    };
 );
 
 fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
