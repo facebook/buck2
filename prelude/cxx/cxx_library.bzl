@@ -221,6 +221,7 @@ _CxxCompiledSourcesOutput = record(
     stripped_objects = field([["artifact"], None]),
     # PIC object files stripped of debug information
     stripped_pic_objects = field([["artifact"], None]),
+    objects_sub_target = field(["provider"]),
 )
 
 # The outputs of a cxx_library_parameterized rule.
@@ -321,8 +322,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             )]
 
     if impl_params.generate_sub_targets.objects:
-        object_sub_targets = {o.short_path: [DefaultInfo(o)] for o in compiled_srcs.objects or []}
-        sub_targets["objects"] = [DefaultInfo(sub_targets = object_sub_targets)]
+        sub_targets["objects"] = compiled_srcs.objects_sub_target
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -722,8 +722,13 @@ def cxx_compile_srcs(
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
     pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
+
+    all_outs = []
+    all_outs.extend(pic_cxx_outs)
+
     if preferred_linkage != Linkage("shared"):
         cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
+        all_outs.extend(cxx_outs)
         objects = [out.object for out in cxx_outs]
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)
         external_debug_info = [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
@@ -737,6 +742,17 @@ def cxx_compile_srcs(
         objects += impl_params.extra_link_input
         stripped_objects += impl_params.extra_link_input
 
+    # Create the subtargets here
+    objects_sub_targets = {}
+    for obj in all_outs:
+        sub_targets = {}
+        if obj.clang_trace:
+            sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
+        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
+            obj.object,
+            sub_targets = sub_targets,
+        )]
+
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
         objects = objects,
@@ -749,6 +765,7 @@ def cxx_compile_srcs(
         pic_clang_traces = pic_clang_traces,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,
+        objects_sub_target = [DefaultInfo(sub_targets = objects_sub_targets)],
     )
 
 def _form_library_outputs(
