@@ -766,21 +766,12 @@ mod imp {
                 self.soft_error_categories
                     .insert(soft_error_category.to_owned());
 
-                for in_memory_category in &[
-                    "cas_missing_fatal",
-                    "eden_not_connected",
-                    "executor_launch_failed",
-                    "bxl_output_missing",
-                ] {
-                    if soft_error_category == in_memory_category {
-                        self.daemon_in_memory_state_is_corrupted = true;
-                    }
+                if err.daemon_in_memory_state_is_corrupted {
+                    self.daemon_in_memory_state_is_corrupted = true;
                 }
 
-                for materializer_category in &["missing_local_inputs"] {
-                    if soft_error_category == materializer_category {
-                        self.daemon_materializer_state_is_corrupted = true;
-                    }
+                if err.daemon_materializer_state_is_corrupted {
+                    self.daemon_materializer_state_is_corrupted = true;
                 }
             }
 

@@ -261,7 +261,8 @@ impl Uploader {
                                             "{} missing (origin: {})",
                                             file.digest,
                                             info.origin.as_display_for_not_found(),
-                                        )
+                                        ),
+                                        daemon_in_memory_state_is_corrupted: true
                                     )?;
 
                                     return Err(anyhow::anyhow!(

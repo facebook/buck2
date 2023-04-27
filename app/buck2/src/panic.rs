@@ -194,6 +194,8 @@ mod imp {
             quiet: options.quiet,
             task: Some(options.task),
             soft_error_category: soft_error_category.map(ToOwned::to_owned),
+            daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
+            daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
         }
     }
 

@@ -617,7 +617,11 @@ pub async fn materialize_inputs(
         match res {
             Ok(()) => {}
             Err(e @ MaterializationError::NotFound { .. }) => {
-                return Err(soft_error!("cas_missing_fatal", e.into(), quiet: true)?);
+                return Err(soft_error!(
+                    "cas_missing_fatal", e.into(),
+                    quiet: true,
+                    daemon_in_memory_state_is_corrupted: true
+                )?);
             }
             Err(e) => {
                 return Err(e.into());
@@ -657,7 +661,14 @@ async fn check_inputs(
         })
         .await;
 
-    match res.map_err(|err| soft_error!("missing_local_inputs", err, quiet: true)) {
+    match res.map_err(|err| {
+        soft_error!(
+            "missing_local_inputs",
+            err,
+            quiet: true,
+            daemon_materializer_state_is_corrupted: true
+        )
+    }) {
         Ok(()) | Err(Ok(_)) => ControlFlow::Continue(manager),
         Err(Err(err)) => ControlFlow::Break(manager.error("local_check_inputs", err)),
     }

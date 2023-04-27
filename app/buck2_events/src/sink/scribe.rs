@@ -132,6 +132,8 @@ mod fbcode {
                                     quiet: false,
                                     task: Some(true),
                                     soft_error_category: Some("oversized_scribe".to_owned()),
+                                    daemon_in_memory_state_is_corrupted: false,
+                                    daemon_materializer_state_is_corrupted: false,
                                 }
                                 .into(),
                             ),

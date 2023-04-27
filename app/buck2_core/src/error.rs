@@ -100,6 +100,8 @@ pub struct SoftErrorOptions {
     pub quiet: bool,
     /// Create a task for this error.
     pub task: bool,
+    pub daemon_in_memory_state_is_corrupted: bool,
+    pub daemon_materializer_state_is_corrupted: bool,
 }
 
 impl Default for SoftErrorOptions {
@@ -107,6 +109,8 @@ impl Default for SoftErrorOptions {
         Self {
             quiet: false,
             task: true,
+            daemon_in_memory_state_is_corrupted: false,
+            daemon_materializer_state_is_corrupted: false,
         }
     }
 }

@@ -250,7 +250,9 @@ async fn copy_output<W: Write>(
     let mut file = match fs_util::open_file(loc) {
         Ok(f) => f,
         Err(e) => {
-            return Err(soft_error!("bxl_output_missing", e, quiet: true)?);
+            return Err(
+                soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true)?,
+            );
         }
     };
     io::copy(&mut file, &mut output)?;
