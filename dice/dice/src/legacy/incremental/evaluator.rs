@@ -159,13 +159,11 @@ pub(crate) mod testing {
     #[allocative(bound = "")]
     pub(crate) struct EvaluatorFn<K, V> {
         #[allocative(skip)]
-        f: Pin<
-            Box<
-                dyn Fn(K) -> Pin<Box<dyn Future<Output = ValueWithDeps<V>> + Sync + Send + 'static>>
-                    + Send
-                    + Sync
-                    + 'static,
-            >,
+        f: Box<
+            dyn Fn(K) -> Pin<Box<dyn Future<Output = ValueWithDeps<V>> + Sync + Send + 'static>>
+                + Send
+                + Sync
+                + 'static,
         >,
     }
 
@@ -176,7 +174,7 @@ pub(crate) mod testing {
             F: FnOnce(K) -> FUT + Clone + 'static + Sync + Send + 'static,
         {
             Self {
-                f: Box::pin(move |k| {
+                f: Box::new(move |k| {
                     let f = f.clone();
                     Box::pin(f(k))
                 }),
