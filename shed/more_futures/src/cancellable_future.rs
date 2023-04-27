@@ -200,6 +200,9 @@ struct StructuredCancellation {
     rx: Shared<oneshot::Receiver<()>>,
 }
 
+/// NOTE: this future is intended only to be polled in a consistent tokio runtime, and never moved
+/// from one executor to another.
+/// The general safe way of using this future is to spawn it directly via `tokio::spawn`.
 #[pin_project(project = CancellableFutureProj)]
 pub struct CancellableFuture<F> {
     shared: SharedState,
@@ -275,6 +278,10 @@ where
         let mut this = self.project();
 
         if !*this.started {
+            // we only update the Waker once at the beginning of the poll. For the same tokio
+            // runtime, this is always safe and behaves correctly, as such, this future is
+            // restricted to be ran on the same tokio executor and never moved from one runtime to
+            // another
             take_mut::take(
                 &mut *this.shared.inner.state.lock(),
                 |future| match future {
