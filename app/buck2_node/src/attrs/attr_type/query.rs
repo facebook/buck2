@@ -49,7 +49,7 @@ impl<C: AttrConfig> QueryAttr<C> {
 impl QueryAttr<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         self.query.traverse(traversal)
     }
@@ -90,7 +90,7 @@ impl<C: AttrConfig> Display for QueryMacroBase<C> {
 impl QueryMacroBase<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         self.query.traverse(traversal)
     }
@@ -132,7 +132,7 @@ pub type ResolvedQueryLiterals<C> = BTreeMap<String, <C as AttrConfig>::Provider
 impl QueryAttrBase<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         // queries have no inputs.
         for dep in self.resolved_literals.values() {

@@ -14,27 +14,27 @@ use buck2_core::target::label::TargetLabel;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
-pub trait ConfiguredAttrTraversal<'a> {
-    fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()>;
+pub trait ConfiguredAttrTraversal {
+    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()>;
 
-    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
     }
 
-    fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
     }
 
-    fn configuration_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn configuration_dep(&mut self, _dep: &TargetLabel) -> anyhow::Result<()> {
         Ok(())
     }
 
     fn query_macro(
         &mut self,
-        _query: &'a str,
-        _resolved_literals: &'a ResolvedQueryLiterals<ConfiguredAttr>,
+        _query: &str,
+        _resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -43,7 +43,7 @@ pub trait ConfiguredAttrTraversal<'a> {
         Ok(())
     }
 
-    fn label(&mut self, _label: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn label(&mut self, _label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         Ok(())
     }
 }

@@ -71,7 +71,7 @@ impl<T: ProvidersLabelMaybeConfigured + AttrLike> Display for DepAttr<T> {
 impl DepAttr<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match &self.attr_type.transition {
             DepAttrTransition::Identity => traversal.dep(&self.label),
@@ -133,7 +133,7 @@ pub trait ExplicitConfiguredDepMaybeConfigured: Display + Allocative {
 impl ConfiguredExplicitConfiguredDep {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         traversal.dep(&self.label)
     }

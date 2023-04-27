@@ -199,7 +199,7 @@ impl AttrLiteral<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
         pkg: PackageLabel,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match self {
             AttrLiteral::Bool(_) => Ok(()),

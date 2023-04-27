@@ -28,22 +28,22 @@ impl ConfiguredAttrInfo {
     }
 }
 
-impl<'a> ConfiguredAttrTraversal<'a> for ConfiguredAttrInfo {
-    fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+impl ConfiguredAttrTraversal for ConfiguredAttrInfo {
+    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         self.deps.insert(dep.clone());
         Ok(())
     }
 
     fn query_macro(
         &mut self,
-        _query: &'a str,
-        _resolved_literals: &'a ResolvedQueryLiterals<ConfiguredAttr>,
+        _query: &str,
+        _resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
     ) -> anyhow::Result<()> {
         self.has_query = true;
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         self.execution_deps.insert(dep.clone());
         Ok(())
     }

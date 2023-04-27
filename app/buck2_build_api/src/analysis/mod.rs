@@ -266,15 +266,13 @@ impl<'a> AnalysisEnv<'a> {
     }
 }
 
-pub fn get_deps_from_analysis_results<'a>(
-    results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
-) -> anyhow::Result<HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+pub fn get_deps_from_analysis_results<'v>(
+    results: Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>,
+) -> anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
     results
         .into_iter()
         .map(|(label, result)| Ok((label, result.providers().dupe())))
-        .collect::<anyhow::Result<
-            HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
-        >>()
+        .collect::<anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
 fn run_analysis_with_env<'a>(

@@ -25,7 +25,7 @@ impl<'a> ConfiguredAttrFull<'a> {
     pub fn traverse<'v>(
         &'v self,
         pkg: PackageLabel,
-        traversal: &mut dyn ConfiguredAttrTraversal<'v>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         self.value
             .traverse(pkg, traversal)

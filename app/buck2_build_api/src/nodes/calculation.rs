@@ -158,18 +158,18 @@ struct ExecutionPlatformConstraints {
     exec_compatible_with: Vec<TargetLabel>,
 }
 
-impl<'a> ConfiguredAttrTraversal<'a> for ExecutionPlatformConstraints {
-    fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+impl ConfiguredAttrTraversal for ExecutionPlatformConstraints {
+    fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         // TODO(cjhopman): Check that the dep is in the unbound_exe configuration
         self.exec_deps.insert(dep.target().unconfigured().dupe());
         Ok(())
     }
 
-    fn toolchain_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
         self.toolchain_deps.insert(dep.target().dupe());
         Ok(())
     }
@@ -554,13 +554,13 @@ async fn compute_configured_target_node_no_transition(
         exec_deps: &'a mut SmallSet<ConfiguredProvidersLabel>,
     }
 
-    impl<'a> ConfiguredAttrTraversal<'a> for Traversal<'_> {
+    impl ConfiguredAttrTraversal for Traversal<'_> {
         fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
             self.deps.insert(dep.clone());
             Ok(())
         }
 
-        fn exec_dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
             self.exec_deps.insert(dep.clone());
             Ok(())
         }

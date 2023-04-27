@@ -356,8 +356,8 @@ impl ConfiguredTargetNode {
         struct InputsCollector {
             inputs: Vec<CellPath>,
         }
-        impl<'a> ConfiguredAttrTraversal<'a> for InputsCollector {
-            fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for InputsCollector {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 Ok(())
             }
 
@@ -382,16 +382,16 @@ impl ConfiguredTargetNode {
         let mut traversal = Traversal {
             queries: Vec::new(),
         };
-        impl<'attr> ConfiguredAttrTraversal<'attr> for Traversal {
-            fn dep(&mut self, _dep: &'attr ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for Traversal {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 // ignored.
                 Ok(())
             }
 
             fn query_macro(
                 &mut self,
-                query: &'attr str,
-                resolved_literals: &'attr ResolvedQueryLiterals<ConfiguredAttr>,
+                query: &str,
+                resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
             ) -> anyhow::Result<()> {
                 self.queries
                     .push((query.to_owned(), resolved_literals.clone()));
@@ -420,13 +420,13 @@ impl ConfiguredTargetNode {
             labels: Vec<ConfiguredProvidersLabel>,
         }
 
-        impl<'attr> ConfiguredAttrTraversal<'attr> for TestCollector {
-            fn dep(&mut self, _dep: &'attr ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for TestCollector {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 // ignored.
                 Ok(())
             }
 
-            fn label(&mut self, label: &'attr ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn label(&mut self, label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.labels.push(label.clone());
                 Ok(())
             }

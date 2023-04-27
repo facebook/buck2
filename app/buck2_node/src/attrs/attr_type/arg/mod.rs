@@ -62,7 +62,7 @@ impl StringWithMacros<ConfiguredAttr> {
 impl StringWithMacros<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -156,7 +156,7 @@ pub enum MacroBase<C: AttrConfig> {
 impl MacroBase<ConfiguredAttr> {
     pub fn traverse<'a>(
         &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal<'a>,
+        traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {

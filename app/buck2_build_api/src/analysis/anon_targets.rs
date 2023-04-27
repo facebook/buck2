@@ -322,8 +322,8 @@ impl AnonTargetKey {
     fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
         struct Traversal(Vec<ConfiguredTargetLabel>);
 
-        impl<'a> ConfiguredAttrTraversal<'a> for Traversal {
-            fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for Traversal {
+            fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())
             }

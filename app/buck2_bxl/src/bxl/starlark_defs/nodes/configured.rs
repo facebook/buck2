@@ -287,8 +287,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         struct InputsCollector {
             inputs: Vec<StarlarkArtifact>,
         }
-        impl<'a> ConfiguredAttrTraversal<'a> for InputsCollector {
-            fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for InputsCollector {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 Ok(())
             }
 
@@ -349,8 +349,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             found: Option<StarlarkArtifact>,
             target: CellPath,
         }
-        impl<'a> ConfiguredAttrTraversal<'a> for SourceFinder {
-            fn dep(&mut self, _dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        impl ConfiguredAttrTraversal for SourceFinder {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 Ok(())
             }
 
