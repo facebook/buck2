@@ -158,18 +158,27 @@ pub(crate) mod testing {
     #[allocative(bound = "")]
     pub(crate) struct EvaluatorFn<K, V> {
         #[allocative(skip)]
-        f: Box<dyn Fn(K) -> BoxFuture<'static, ValueWithDeps<V>> + Send + Sync + 'static>,
+        f: Box<
+            dyn for<'a> Fn(K, &'a CancellationContext) -> BoxFuture<'a, ValueWithDeps<V>>
+                + Send
+                + Sync
+                + 'static,
+        >,
     }
 
     impl<K, V> EvaluatorFn<K, V> {
         pub(crate) fn new<F>(f: F) -> Self
         where
-            F: FnOnce(K) -> BoxFuture<'static, ValueWithDeps<V>> + Clone + Sync + Send + 'static,
+            F: for<'a> FnOnce(K, &'a CancellationContext) -> BoxFuture<'a, ValueWithDeps<V>>
+                + Clone
+                + Sync
+                + Send
+                + 'static,
         {
             Self {
-                f: Box::new(move |k| {
+                f: Box::new(move |k, cancellations| {
                     let f = f.clone();
-                    f(k)
+                    f(k, cancellations)
                 }),
             }
         }
@@ -240,10 +249,10 @@ pub(crate) mod testing {
             &self,
             k: &K,
             _: Arc<TransactionCtx>,
-            _cancellations: &CancellationContext,
+            cancellations: &CancellationContext,
             _extra: ComputationData,
         ) -> ValueWithDeps<V> {
-            (self.f)(k.clone()).await
+            (self.f)(k.clone(), cancellations).await
         }
     }
 }

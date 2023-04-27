@@ -1243,7 +1243,6 @@ mod tests {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
-    use more_futures::cancellable_future::critical_section;
     use more_futures::cancellable_future::with_structured_cancellation;
     use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
@@ -1326,7 +1325,7 @@ mod tests {
             }
             .boxed()
         };
-        let engine = IncrementalEngine::new(EvaluatorFn::new(|k| eval_fn(k)));
+        let engine = IncrementalEngine::new(EvaluatorFn::new(|k, _| eval_fn(k)));
 
         let vt = VersionTracker::new(Box::new(|_| {}));
 
@@ -1409,7 +1408,7 @@ mod tests {
             }
         };
 
-        let engine = IncrementalEngine::new(EvaluatorFn::new(evaluator));
+        let engine = IncrementalEngine::new(EvaluatorFn::new(|k, _| evaluator(k)));
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(n_thread)
@@ -1483,7 +1482,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(n_thread));
 
         rt.block_on(async move {
-            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k| {
+            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k, _| {
                 async move {
                     let b = barrier.dupe();
                     // spawned tasks that can only proceed if all are
@@ -1791,7 +1790,7 @@ mod tests {
             let is_ran = is_ran.dupe();
             let dep = dep.dupe();
             let eval_result = eval_result.dupe();
-            |k| {
+            move |k| {
                 async move {
                     if k == 10 && !is_ran.load(Ordering::SeqCst) {
                         is_ran.store(true, Ordering::SeqCst);
@@ -1811,7 +1810,9 @@ mod tests {
         };
 
         let engine =
-            IncrementalEngine::<EvaluatorFn<usize, usize>>::new(EvaluatorFn::new(evaluator));
+            IncrementalEngine::<EvaluatorFn<usize, usize>>::new(EvaluatorFn::new(|k, _| {
+                evaluator(k)
+            }));
         *dep.lock() = Some(ComputedDep::testing_new(
             Arc::downgrade(&engine.dupe()),
             VersionNumber::new(0),
@@ -2003,7 +2004,7 @@ mod tests {
             ActiveTransactionCountGuard::testing_new(),
         ));
 
-        let engine0 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+        let engine0 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
                 ValueWithDeps {
                     value: k,
@@ -2019,7 +2020,7 @@ mod tests {
             .eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+        let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
                 ValueWithDeps {
                     value: k,
@@ -2035,7 +2036,7 @@ mod tests {
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+        let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
                 ValueWithDeps {
                     value: k,
@@ -2051,7 +2052,7 @@ mod tests {
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+        let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
                 ValueWithDeps {
                     value: k,
@@ -2130,7 +2131,7 @@ mod tests {
             let cg = check_guard.dupe();
             let c = ran_counter.dupe();
 
-            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k| {
+            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k, _| {
                 async move {
                     // spawned tasks that can only proceed if all are
                     // concurrently running
@@ -2422,7 +2423,7 @@ mod tests {
 
         let engine = {
             let instance_count = instance.dupe();
-            IncrementalEngine::new(EvaluatorFn::new(move |_k| {
+            IncrementalEngine::new(EvaluatorFn::new(move |_k, _| {
                 async move {
                     ValueWithDeps {
                         value: InstanceEqual {
@@ -2481,7 +2482,7 @@ mod tests {
 
         let engine = IncrementalEngine::new({
             let notify = notify.dupe();
-            EvaluatorFn::new(move |_k| {
+            EvaluatorFn::new(move |_k, _cancellations| {
                 async move {
                     let mut guard = exclusive
                         .try_lock()
@@ -2555,7 +2556,7 @@ mod tests {
             let entered_critical_section = entered_critical_section.dupe();
             let external_guard_dropped = external_guard_dropped.dupe();
 
-            EvaluatorFn::new(move |_k| {
+            EvaluatorFn::new(move |_k, cancellations| {
                 let was_first_call;
 
                 {
@@ -2566,16 +2567,17 @@ mod tests {
 
                 async move {
                     if was_first_call {
-                        critical_section(|| async move {
-                            entered_critical_section.notify_one();
-                            tokio::time::timeout(
-                                Duration::from_secs(1),
-                                external_guard_dropped.notified(),
-                            )
-                            .await
-                            .unwrap();
-                        })
-                        .await;
+                        cancellations
+                            .critical_section(|| async move {
+                                entered_critical_section.notify_one();
+                                tokio::time::timeout(
+                                    Duration::from_secs(1),
+                                    external_guard_dropped.notified(),
+                                )
+                                .await
+                                .unwrap();
+                            })
+                            .await;
                     }
 
                     ValueWithDeps {

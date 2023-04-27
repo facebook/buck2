@@ -453,7 +453,7 @@ mod tests {
             .boxed()
         };
 
-        let engine = IncrementalEngine::new(EvaluatorFn::new(move |k| fn_for_2_and_3(k)));
+        let engine = IncrementalEngine::new(EvaluatorFn::new(move |k, _| fn_for_2_and_3(k)));
 
         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
 
