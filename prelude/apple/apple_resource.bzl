@@ -19,10 +19,13 @@ def apple_resource_impl(ctx: "context") -> ["provider"]:
         named_variant_files = ctx.attrs.named_variants or {},
         codesign_files_on_copy = ctx.attrs.codesign_on_copy,
     )
+
+    # `files` can contain `apple_library()` which in turn can have `apple_resource()` deps
+    deps = [file_or_dep for file_or_dep in ctx.attrs.files if type(file_or_dep) == "dependency"]
     graph = create_resource_graph(
         ctx = ctx,
         labels = ctx.attrs.labels,
-        deps = [],
+        deps = deps,
         exported_deps = [],
         resource_spec = resource_spec,
     )
