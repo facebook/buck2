@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def cxx_by_language_ext(x: {"": ""}, ext: str.type) -> [""]:
+def cxx_by_language_ext(x: {"": ""}, ext: str.type, label: "label") -> [""]:
     # lang_preprocessor_flags is indexed by c/cxx
     # lang_compiler_flags is indexed by c_cpp_output/cxx_cpp_output
     # so write a function that can do either
@@ -32,7 +32,7 @@ def cxx_by_language_ext(x: {"": ""}, ext: str.type) -> [""]:
         # And you can see them in java code, but somehow it works with
         # this one, which is seem across the repo. Find out what's happening.
         key_compiler = "c_cpp_output"
-    elif ext in (".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp"):
+    elif ext in (".cpp", ".cc", ".cxx", ".c++"):
         key_pp = "cxx"
         key_compiler = "cxx_cpp_output"
     elif ext == ".m":
@@ -53,6 +53,13 @@ def cxx_by_language_ext(x: {"": ""}, ext: str.type) -> [""]:
     elif ext in (".asm", ".asmpp"):
         key_pp = "asm_with_cpp"
         key_compiler = "asm"
+    elif ext in (".h", ".hpp"):
+        # Note that the label is only required for this error message, once we make this a hard error, delete the label argument
+        soft_error("starlark_header_in_srcs", "Not allowed to have header files in the `srcs` attribute - put them in `headers`: " + repr(label))
+
+        # Same as .cpp for now
+        key_pp = "cxx"
+        key_compiler = "cxx_cpp_output"
     else:
         fail("Unexpected file extension: " + ext)
     res = []

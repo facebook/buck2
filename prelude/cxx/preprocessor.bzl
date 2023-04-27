@@ -128,17 +128,17 @@ CPreprocessorForTestsInfo = provider(fields = [
 def cxx_attr_preprocessor_flags(ctx: "context", ext: str.type) -> [""]:
     return (
         ctx.attrs.preprocessor_flags +
-        cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext) +
+        cxx_by_language_ext(ctx.attrs.lang_preprocessor_flags, ext, ctx.label) +
         flatten(cxx_by_platform(ctx, ctx.attrs.platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext)))
+        flatten(cxx_by_platform(ctx, cxx_by_language_ext(ctx.attrs.lang_platform_preprocessor_flags, ext, ctx.label)))
     )
 
 def cxx_attr_exported_preprocessor_flags(ctx: "context") -> [""]:
     return (
         ctx.attrs.exported_preprocessor_flags +
-        _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
+        _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags, ctx.label) +
         flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
+        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags, ctx.label)))
     )
 
 def cxx_inherited_preprocessor_infos(first_order_deps: ["dependency"]) -> [CPreprocessorInfo.type]:
@@ -345,8 +345,8 @@ def _cxx_private_preprocessor_info(
         file_prefix_args = file_prefix_args,
     )
 
-def _by_language_cxx(x: {"": ""}) -> [""]:
-    return cxx_by_language_ext(x, ".cpp")
+def _by_language_cxx(x: {"": ""}, label: "label") -> [""]:
+    return cxx_by_language_ext(x, ".cpp", label)
 
 def _header_style_args(style: HeaderStyle.type, path: "cmd_args", compiler_type: str.type) -> ["cmd_args"]:
     if style == HeaderStyle("local"):
