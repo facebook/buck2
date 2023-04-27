@@ -43,12 +43,14 @@ pub(crate) async fn trace_io_command(
             (Some(_), false) => Ok(buck2_cli_proto::TraceIoResponse {
                 enabled: true,
                 trace: Vec::new(),
+                external_entries: Vec::new(),
                 relative_symlinks: Vec::new(),
                 external_symlinks: Vec::new(),
             }),
             (None, _) => Ok(buck2_cli_proto::TraceIoResponse {
                 enabled: false,
                 trace: Vec::new(),
+                external_entries: Vec::new(),
                 relative_symlinks: Vec::new(),
                 external_symlinks: Vec::new(),
             }),
@@ -65,31 +67,15 @@ async fn build_response_with_trace(
     provider: &TracingIoProvider,
 ) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
     // Materialize buck-out paths so they can be archived.
-    let buck_out_paths: Vec<_> = provider
-        .trace()
-        .buck_out_entries
-        .iter()
-        .map(|path| path.key().to_buf())
-        .collect();
+    let buck_out_entries: Vec<_> = provider.trace().buck_out_entries();
     context
         .materializer()
-        .ensure_materialized(buck_out_paths)
+        .ensure_materialized(buck_out_entries.clone())
         .await
         .context("Error materializing buck-out paths for trace")?;
 
-    let mut entries: Vec<_> = provider
-        .trace()
-        .entries
-        .iter()
-        .map(|path| path.to_string())
-        .collect();
-    entries.extend(
-        provider
-            .trace()
-            .buck_out_entries
-            .iter()
-            .map(|path| path.to_string()),
-    );
+    let mut entries = provider.trace().project_entries();
+    entries.extend(buck_out_entries);
 
     let mut relative_symlinks = Vec::new();
     let mut external_symlinks = Vec::new();
@@ -113,7 +99,13 @@ async fn build_response_with_trace(
 
     Ok(buck2_cli_proto::TraceIoResponse {
         enabled: true,
-        trace: entries,
+        trace: entries.into_iter().map(|path| path.to_string()).collect(),
+        external_entries: provider
+            .trace()
+            .external_entries()
+            .into_iter()
+            .map(|path| path.to_string())
+            .collect(),
         relative_symlinks,
         external_symlinks,
     })

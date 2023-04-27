@@ -25,6 +25,7 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -109,6 +110,14 @@ impl StreamingCommand for TraceIoCommand {
                         // Note: Safe because these are all ProjectRelativePath's on the daemon side.
                         .map(ProjectRelativePathBuf::unchecked_new)
                         .collect(),
+                    external_paths: resp
+                        .external_entries
+                        .into_iter()
+                        .map(|path| {
+                            AbsNormPathBuf::try_from(path)
+                                .expect("got unexpected non-absolute path")
+                        })
+                        .collect(),
                     relative_symlinks: resp
                         .relative_symlinks
                         .into_iter()
@@ -123,7 +132,7 @@ impl StreamingCommand for TraceIoCommand {
                         .map(|symlink| ExternalSymlink {
                             link: ProjectRelativePathBuf::unchecked_new(symlink.link),
                             target: AbsPathBuf::try_from(symlink.target)
-                                .expect("got unexpected non-absolute path"),
+                                .expect("got unexpected non-absolute symlink target"),
                             remaining_path: symlink
                                 .remaining_path
                                 .map(ForwardRelativePathBuf::unchecked_new),

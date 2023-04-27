@@ -81,6 +81,8 @@ pub struct OfflineArchiveManifest {
     pub repository: RepositoryMetadata,
     /// List of project-relative paths that are required to perform a build.
     pub paths: Vec<ProjectRelativePathBuf>,
+    /// List of external, absolute paths required to perform a build.
+    pub external_paths: Vec<AbsNormPathBuf>,
     /// List of project-relative symlinks with targets inside the project.
     pub relative_symlinks: Vec<RelativeSymlink>,
     /// List of project-relative symlinks with targets outside the project.

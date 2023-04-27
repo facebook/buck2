@@ -800,6 +800,7 @@ message TraceIoResponse {
   repeated string trace = 2;
   repeated RelativeSymlink relative_symlinks = 3;
   repeated ExternalSymlink external_symlinks = 4;
+  repeated string external_entries = 5;
 }
 
 // Note: When adding new request or response types, some of the declarations in

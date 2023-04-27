@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufWriter;
@@ -277,17 +276,12 @@ impl ServerCommandContext {
         // Add argfiles read by client into IO tracing state.
         if let Some(tracing_provider) = base_context.io.as_any().downcast_ref::<TracingIoProvider>()
         {
-            let project_configs = client_context.argfiles.iter().filter_map(|s| {
-                AbsNormPathBuf::new(s.into())
-                    .and_then(|path| {
-                        base_context
-                            .project_root
-                            .relativize(&path)
-                            .map(Cow::into_owned)
-                    })
-                    .ok()
-            });
-            tracing_provider.add_entries(project_configs);
+            let argfiles: anyhow::Result<Vec<_>> = client_context
+                .argfiles
+                .iter()
+                .map(|s| AbsNormPathBuf::new(s.into()))
+                .collect();
+            tracing_provider.add_config_paths(&base_context.project_root, argfiles?);
         }
 
         let oncall = if client_context.oncall.is_empty() {
@@ -793,16 +787,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
             .as_any()
             .downcast_ref::<TracingIoProvider>()
         {
-            // Filter out anything that doesn't resolve to the project root; this filters out any config paths outside the repo
-            // (e.g. /etc/buckconfig).
-            let config_paths = paths.into_iter().filter_map(|path| {
-                self.base_context
-                    .project_root
-                    .relativize(&path)
-                    .map(Cow::into_owned)
-                    .ok()
-            });
-            tracing_provider.add_entries(config_paths);
+            tracing_provider.add_config_paths(&self.base_context.project_root, paths);
         }
 
         let root_cell_config = configs.get(cells.root_cell());
