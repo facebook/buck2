@@ -27,6 +27,7 @@ pub struct Symlink {
 #[derive(Allocative)]
 pub struct Trace {
     pub entries: DashSet<ProjectRelativePathBuf>,
+    pub buck_out_entries: DashSet<ProjectRelativePathBuf>,
     pub symlinks: DashSet<Symlink>,
 }
 
@@ -34,6 +35,7 @@ impl Trace {
     pub fn new() -> Self {
         Self {
             entries: DashSet::new(),
+            buck_out_entries: DashSet::new(),
             symlinks: DashSet::new(),
         }
     }
@@ -55,6 +57,10 @@ impl TracingIoProvider {
 
     pub fn add_entry(&self, entry: ProjectRelativePathBuf) {
         self.trace.entries.insert(entry);
+    }
+
+    pub fn add_buck_out_entry(&self, entry: ProjectRelativePathBuf) {
+        self.trace.buck_out_entries.insert(entry);
     }
 
     pub fn add_entries(&self, entries: impl Iterator<Item = ProjectRelativePathBuf>) {

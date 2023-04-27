@@ -127,6 +127,16 @@ pub struct DaemonStateData {
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
 
+    /// Whether to consult the offline-cache buck-out dir for network action
+    /// outputs prior to running them. If no cached output exists, the action
+    /// (download_file, cas_artifact) will execute normally.
+    ///
+    /// This supports fully-offline builds, where network actions like
+    /// download_file have an execution component that is inherently non-local (
+    /// e.g. making a HEAD request against the remote artifact to determine if
+    /// it needs to be downloaded again).
+    pub use_network_action_output_cache: bool,
+
     /// What buck2 state to store on disk, ex. materializer state on sqlite
     pub disk_state_options: DiskStateOptions,
 
@@ -389,6 +399,10 @@ impl DaemonState {
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
+        let use_network_action_output_cache = root_config
+            .parse("buck2", "use_network_action_output_cache")?
+            .unwrap_or(false);
+
         let nested_invocation_config = root_config
             .parse::<NestedInvocation>("buck2", "nested_invocation")?
             .unwrap_or(NestedInvocation::Run);
@@ -453,6 +467,7 @@ impl DaemonState {
             forkserver,
             scribe_sink,
             hash_all_commands,
+            use_network_action_output_cache,
             disk_state_options,
             start_time: std::time::Instant::now(),
             create_unhashed_outputs_lock,
@@ -636,6 +651,7 @@ impl DaemonState {
             events: dispatcher,
             forkserver: data.forkserver.dupe(),
             hash_all_commands: data.hash_all_commands,
+            use_network_action_output_cache: data.use_network_action_output_cache,
             _drop_guard: drop_guard,
             daemon_start_time: data.start_time,
             create_unhashed_outputs_lock: data.create_unhashed_outputs_lock.dupe(),

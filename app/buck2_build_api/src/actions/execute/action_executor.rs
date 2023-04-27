@@ -13,8 +13,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -223,6 +225,7 @@ impl HasActionExecutor for DiceComputations {
         let events = self.per_transaction_data().get_dispatcher().dupe();
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let io_provider = self.global_data().get_io_provider();
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(executor, artifact_fs, executor_config.options, platform),
@@ -232,6 +235,7 @@ impl HasActionExecutor for DiceComputations {
             re_client,
             digest_config,
             run_action_knobs,
+            io_provider,
         )))
     }
 }
@@ -244,6 +248,7 @@ pub struct BuckActionExecutor {
     re_client: ManagedRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
+    io_provider: Arc<dyn IoProvider>,
 }
 
 impl BuckActionExecutor {
@@ -255,6 +260,7 @@ impl BuckActionExecutor {
         re_client: ManagedRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
+        io_provider: Arc<dyn IoProvider>,
     ) -> Self {
         Self {
             command_executor,
@@ -264,6 +270,7 @@ impl BuckActionExecutor {
             re_client,
             digest_config,
             run_action_knobs,
+            io_provider,
         }
     }
 }
@@ -423,6 +430,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
         Ok(())
     }
+
+    fn io_provider(&self) -> Arc<dyn IoProvider> {
+        self.executor.io_provider.dupe()
+    }
 }
 
 #[async_trait]
@@ -530,9 +541,11 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
+    use buck2_common::io::fs::FsIoProvider;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
@@ -629,12 +642,18 @@ mod tests {
                 },
                 Default::default(),
             ),
-            Arc::new(DummyBlockingExecutor { fs: project_fs }),
+            Arc::new(DummyBlockingExecutor {
+                fs: project_fs.dupe(),
+            }),
             Arc::new(NoDiskMaterializer),
             EventDispatcher::null(),
             ManagedRemoteExecutionClient::testing_new_dummy(),
             DigestConfig::testing_default(),
             Default::default(),
+            Arc::new(FsIoProvider::new(
+                project_fs,
+                CasDigestConfig::testing_default(),
+            )),
         );
 
         #[derive(Debug, Allocative)]

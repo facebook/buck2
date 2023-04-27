@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::trace_io_response;
 use buck2_common::file_ops::RawSymlink;
@@ -37,36 +38,59 @@ pub(crate) async fn trace_io_command(
             Some(trace_io_request::ReadIoTracingState { with_trace: true })
         );
 
-        let resp = match (tracing_provider, respond_with_trace) {
-            (Some(provider), true) => build_response_with_trace(provider),
-            (Some(_), false) => buck2_cli_proto::TraceIoResponse {
+        let result = match (tracing_provider, respond_with_trace) {
+            (Some(provider), true) => build_response_with_trace(&context, provider).await,
+            (Some(_), false) => Ok(buck2_cli_proto::TraceIoResponse {
                 enabled: true,
                 trace: Vec::new(),
                 relative_symlinks: Vec::new(),
                 external_symlinks: Vec::new(),
-            },
-            (None, _) => buck2_cli_proto::TraceIoResponse {
+            }),
+            (None, _) => Ok(buck2_cli_proto::TraceIoResponse {
                 enabled: false,
                 trace: Vec::new(),
                 relative_symlinks: Vec::new(),
                 external_symlinks: Vec::new(),
-            },
+            }),
         };
 
-        let result = Ok(resp);
         let end_event = command_end(metadata, &result, buck2_data::TraceIoCommandEnd {});
         (result, end_event)
     })
     .await
 }
 
-fn build_response_with_trace(provider: &TracingIoProvider) -> buck2_cli_proto::TraceIoResponse {
-    let entries = provider
+async fn build_response_with_trace(
+    context: &ServerCommandContext,
+    provider: &TracingIoProvider,
+) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
+    // Materialize buck-out paths so they can be archived.
+    let buck_out_paths: Vec<_> = provider
+        .trace()
+        .buck_out_entries
+        .iter()
+        .map(|path| path.key().to_buf())
+        .collect();
+    context
+        .materializer()
+        .ensure_materialized(buck_out_paths)
+        .await
+        .context("Error materializing buck-out paths for trace")?;
+
+    let mut entries: Vec<_> = provider
         .trace()
         .entries
         .iter()
         .map(|path| path.to_string())
         .collect();
+    entries.extend(
+        provider
+            .trace()
+            .buck_out_entries
+            .iter()
+            .map(|path| path.to_string()),
+    );
+
     let mut relative_symlinks = Vec::new();
     let mut external_symlinks = Vec::new();
     for link in provider.trace().symlinks.iter() {
@@ -87,10 +111,10 @@ fn build_response_with_trace(provider: &TracingIoProvider) -> buck2_cli_proto::T
         }
     }
 
-    buck2_cli_proto::TraceIoResponse {
+    Ok(buck2_cli_proto::TraceIoResponse {
         enabled: true,
         trace: entries,
         relative_symlinks,
         external_symlinks,
-    }
+    })
 }

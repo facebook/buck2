@@ -189,6 +189,15 @@ impl BuckOutPathResolver {
         )
     }
 
+    pub fn resolve_offline_cache(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+        self.prefixed_path_for_owner(
+            ForwardRelativePath::unchecked_new("offline-cache"),
+            path.owner(),
+            path.action_key(),
+            path.path(),
+        )
+    }
+
     pub fn resolve_scratch(&self, path: &BuckOutScratchPath) -> ProjectRelativePathBuf {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),

@@ -19,6 +19,11 @@ pub struct RunActionKnobs {
     /// Hash all commands using the same mechanism as dep files. This allows us to skip
     /// re-executing commands if their inputs and outputs haven't changed.
     pub hash_all_commands: bool,
+
+    /// Whether to try reading from the action output cache (in buck-out/*/offline-cache)
+    /// for network actions (download_file, cas_artifact). Used to support offline
+    /// builds.
+    pub use_network_action_output_cache: bool,
 }
 
 pub trait HasRunActionKnobs {

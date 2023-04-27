@@ -27,6 +27,7 @@ use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
@@ -42,6 +43,8 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use thiserror::Error;
+
+use crate::actions::impls::offline;
 
 #[derive(Debug, Error)]
 enum DownloadFileActionError {
@@ -188,6 +191,22 @@ impl DownloadFileAction {
             None => Ok(None),
         }
     }
+
+    /// Execute this action for offline builds (e.g. no network).
+    async fn execute_for_offline(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+        let outputs = offline::declare_copy_from_offline_cache(ctx, self.output()).await?;
+
+        Ok((
+            outputs,
+            ActionExecutionMetadata {
+                execution_kind: ActionExecutionKind::Simple,
+                timing: ActionExecutionTimingData::default(),
+            },
+        ))
+    }
 }
 
 #[async_trait]
@@ -229,9 +248,18 @@ impl IncrementalActionExecutable for DownloadFileAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+        // Early return - if this path exists, it's because we're running in a
+        // special offline mode where the HEAD request below will likely fail.
+        // Shortcut and just return this path as the action output.
+        //
+        // This mostly looks like a "copy" action.
+        if ctx.run_action_knobs().use_network_action_output_cache {
+            return self.execute_for_offline(ctx).await;
+        }
+
         let client = http_client()?;
 
-        let (metadata, execution_kind) =
+        let (value, execution_kind) = {
             match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
@@ -251,7 +279,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                         )
                         .await?;
 
-                    (metadata, ActionExecutionKind::Deferred)
+                    (ArtifactValue::file(metadata), ActionExecutionKind::Deferred)
                 }
                 None => {
                     ctx.cleanup_outputs().await?;
@@ -280,11 +308,21 @@ impl IncrementalActionExecutable for DownloadFileAction {
                         .declare_existing(vec![(rel_path, ArtifactValue::file(metadata.dupe()))])
                         .await?;
 
-                    (metadata, ActionExecutionKind::Simple)
+                    (ArtifactValue::file(metadata), ActionExecutionKind::Simple)
                 }
-            };
+            }
+        };
 
-        let value = ArtifactValue::file(metadata);
+        // If we're tracing I/O, get the materializer to copy to the offline cache
+        // so we can include it in the offline archive manifest later.
+        let io_provider = ctx.io_provider();
+        let maybe_io_tracer = io_provider.as_any().downcast_ref::<TracingIoProvider>();
+        if let Some(tracer) = maybe_io_tracer {
+            let offline_cache_path =
+                offline::declare_copy_to_offline_output_cache(ctx, self.output(), value.dupe())
+                    .await?;
+            tracer.add_buck_out_entry(offline_cache_path);
+        }
 
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

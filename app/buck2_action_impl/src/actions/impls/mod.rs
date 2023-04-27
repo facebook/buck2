@@ -10,6 +10,7 @@
 pub(crate) mod cas_artifact;
 pub(crate) mod copy;
 pub(crate) mod download_file;
+pub(crate) mod offline;
 pub mod run;
 pub(crate) mod symlinked_dir;
 pub(crate) mod write;

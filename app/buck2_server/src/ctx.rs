@@ -157,6 +157,9 @@ pub struct BaseServerCommandContext {
     pub file_watcher: Arc<dyn FileWatcher>,
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
+    /// Whether to try to read from the network action output cache when running
+    /// network actions like download_file; only useful for offline builds.
+    pub use_network_action_output_cache: bool,
     /// Start time to track daemon uptime
     pub daemon_start_time: Instant,
     /// Mutex for creating symlinks
@@ -200,7 +203,7 @@ pub struct ServerCommandContext {
     record_target_call_stacks: bool,
     disable_starlark_types: bool,
 
-    buck_out_dir: ProjectRelativePathBuf,
+    pub buck_out_dir: ProjectRelativePathBuf,
 
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
@@ -345,6 +348,7 @@ impl ServerCommandContext {
 
         let mut run_action_knobs = RunActionKnobs {
             hash_all_commands: self.base_context.hash_all_commands,
+            use_network_action_output_cache: self.base_context.use_network_action_output_cache,
             ..Default::default()
         };
 
@@ -547,6 +551,11 @@ impl DiceDataProvider for DiceCommandDataProvider {
         };
         let has_cycle_detector = cycle_detector.is_some();
 
+        let mut run_action_knobs = self.run_action_knobs.dupe();
+        run_action_knobs.use_network_action_output_cache |= root_config
+            .parse::<bool>("buck2", "use_network_action_output_cache")?
+            .unwrap_or(false);
+
         let mut data = UserComputationData {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
@@ -575,7 +584,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_materializer(self.materializer.dupe());
         data.set_build_signals(self.build_signals.dupe());
-        data.set_run_action_knobs(self.run_action_knobs.dupe());
+        data.set_run_action_knobs(run_action_knobs);
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
         data.set_keep_going(self.keep_going);

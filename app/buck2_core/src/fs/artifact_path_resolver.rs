@@ -56,6 +56,10 @@ impl ArtifactFs {
         self.buck_path_resolver.resolve(source_artifact_path)
     }
 
+    pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+        self.buck_out_path_resolver.resolve_offline_cache(path)
+    }
+
     pub fn fs(&self) -> &ProjectRoot {
         &self.project_filesystem
     }

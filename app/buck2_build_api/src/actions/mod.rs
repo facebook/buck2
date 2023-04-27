@@ -40,6 +40,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::io::IoProvider;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -216,6 +217,10 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn run_action_knobs(&self) -> RunActionKnobs;
 
     fn cancellation_context(&self) -> &CancellationContext;
+
+    /// I/O layer access to add non-source files (e.g. downloaded files) to
+    /// offline archive trace. If None, tracing is not enabled.
+    fn io_provider(&self) -> Arc<dyn IoProvider>;
 }
 
 #[derive(Error, Debug)]
