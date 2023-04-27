@@ -58,16 +58,17 @@ impl Key for internal::BxlComputeKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let key = self.0.dupe();
-        ctx.temporary_spawn(move |ctx, _cancellation| {
+        ctx.temporary_spawn(move |ctx, cancellation| {
             async move {
                 {
                     let profiler = ctx.get_profile_mode_for_intermediate_analysis().await?;
-                    eval(ctx, key, profiler).await.shared_error().map(
-                        |(result, _, materializations)| BxlComputeResult {
+                    eval(ctx, key, profiler, cancellation)
+                        .await
+                        .shared_error()
+                        .map(|(result, _, materializations)| BxlComputeResult {
                             bxl_result: Arc::new(result),
                             materializations,
-                        },
-                    )
+                        })
                 }
             }
             .boxed()

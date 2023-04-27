@@ -112,6 +112,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             ctx,
                             bxl_key,
                             StarlarkProfileModeOrInstrumentation::Profile(profile_mode),
+                            server_ctx.cancellation_context(),
                         )
                         .await?
                         .1
