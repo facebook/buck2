@@ -165,8 +165,6 @@ jobs:
     steps:
       - checkout
       - setup_windows_env
-      - rust/clippy:
-          with_cache: false
       - rust/test:
           with_cache: false
       - rust/build:
