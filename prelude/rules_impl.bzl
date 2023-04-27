@@ -365,22 +365,6 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_go_toolchain": toolchains_common.go(),
     },
-    # The 'actual' attribute of configured_alias is a configured_label, which is
-    # currently unimplemented. Map it to dep so we can simply forward the providers.
-    "configured_alias": {
-        # TODO(nga): "actual" attribute exists here only to display it in query,
-        #   actual `actual` attribute used in rule implementation is named `configured_actual`.
-        #   Logically this should be `attrs.configuration_label`, but `configuration_label`
-        #   is currently an alias for `attrs.dep`, which makes non-transitioned dependency
-        #   also a dependency along with transitioned dependency. (See D40255132).
-        "actual": attrs.label(),
-        # We use a separate field instead of re-purposing `actual`, as we want
-        # to keep output format compatibility with v1.
-        "configured_actual": attrs.option(attrs.configured_dep(), default = None),
-        # If `configured_actual` is `None`, fallback to this unconfigured dep.
-        "fallback_actual": attrs.option(attrs.dep(), default = None),
-        "platform": attrs.option(attrs.configuration_label(), default = None),
-    },
     "cxx_binary": _cxx_binary_and_test_attrs(),
 
     #c++

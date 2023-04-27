@@ -230,12 +230,25 @@ configured_alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "actual": attrs.configuration_label(),
+            # The 'actual' attribute of configured_alias is a configured_label, which is
+            # currently unimplemented. Map it to dep so we can simply forward the providers.
+
+            # TODO(nga): "actual" attribute exists here only to display it in query,
+            #   actual `actual` attribute used in rule implementation is named `configured_actual`.
+            #   Logically this should be `attrs.configuration_label`, but `configuration_label`
+            #   is currently an alias for `attrs.dep`, which makes non-transitioned dependency
+            #   also a dependency along with transitioned dependency. (See D40255132).
+            "actual": attrs.label(),
+            "configured_actual": attrs.option(attrs.configured_dep(), default = None),
+            "fallback_actual": attrs.option(attrs.dep(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "platform": attrs.configuration_label(),
+            # We use a separate field instead of re-purposing `actual`, as we want
+            # to keep output format compatibility with v1.
+            # If `configured_actual` is `None`, fallback to this unconfigured dep.
+            "platform": attrs.option(attrs.configuration_label(), default = None),
             "propagate_flavors": attrs.bool(default = False),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
         }
