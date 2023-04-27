@@ -18,6 +18,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -40,6 +41,7 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use dupe::Dupe;
@@ -129,16 +131,14 @@ impl CasDownloader<'_> {
             IndexMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
-        let download_response = executor_stage_async(
-            stage,
-            self.materialize_files(
-                paths,
-                requested_outputs,
-                action_digest,
-                output_spec,
-                cancellations,
-            ),
-        )
+        let download_response = executor_stage_async(stage, async {
+            let outputs = self
+                .extract_artifacts(paths, requested_outputs, output_spec)
+                .await?;
+
+            self.materialize_outputs(outputs, action_digest, cancellations)
+                .await
+        })
         .await;
 
         let outputs = match download_response {
@@ -154,14 +154,12 @@ impl CasDownloader<'_> {
         ControlFlow::Continue((manager, outputs))
     }
 
-    async fn materialize_files<'a>(
+    async fn extract_artifacts<'a>(
         &self,
         paths: &CommandExecutionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
-        action_digest: &ActionDigest,
         output_spec: &dyn RemoteActionResult,
-        cancellations: &CancellationContext,
-    ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+    ) -> anyhow::Result<ExtractedArtifacts> {
         static FAIL_RE_DOWNLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_FAIL_RE_DOWNLOADS");
         if FAIL_RE_DOWNLOADS.get()?.copied().unwrap_or_default() {
             return Err(anyhow::anyhow!("Injected error"));
@@ -228,27 +226,42 @@ impl CasDownloader<'_> {
             }
         }
 
+        Ok(ExtractedArtifacts {
+            to_declare,
+            mapped_outputs,
+            now,
+            expires,
+            ttl,
+        })
+    }
+
+    async fn materialize_outputs<'a>(
+        &self,
+        artifacts: ExtractedArtifacts,
+        action_digest: &ActionDigest,
+        cancellations: &CancellationContext,
+    ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_execution(
                     TrackedActionDigest::new_expires(
                         action_digest.dupe(),
-                        expires,
+                        artifacts.expires,
                         self.digest_config.cas_digest_config(),
                     ),
                     self.re_use_case,
-                    now,
-                    ttl,
+                    artifacts.now,
+                    artifacts.ttl,
                 )),
-                to_declare,
+                artifacts.to_declare,
                 cancellations,
             )
             .boxed()
             .await
             .context(DownloadError::Materialization)?;
 
-        Ok(mapped_outputs)
+        Ok(artifacts.mapped_outputs)
     }
 }
 
@@ -271,4 +284,12 @@ enum DownloadError {
 
     #[error("Path received from RE is not normalized.")]
     InvalidPathFromRe,
+}
+
+struct ExtractedArtifacts {
+    to_declare: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    mapped_outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+    now: DateTime<Utc>,
+    expires: DateTime<Utc>,
+    ttl: Duration,
 }
