@@ -115,20 +115,27 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured)
     /// ```
     fn action_factory<'v>(this: &BxlActionsCtx<'v>) -> anyhow::Result<Value<'v>> {
-        let mut registry = this.ctx.as_ref().state.state.borrow_mut();
-        if (*registry).is_some() {
-            return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
-        } else {
-            let analysis_registry = AnalysisRegistry::new_from_owner(
-                BaseDeferredKey::BxlLabel(this.ctx.current_bxl.dupe()),
-                EXECUTION_PLATFORM.dupe(),
-            );
-
-            *registry = Some(analysis_registry);
-        }
+        validate_action_instantiation(this.ctx.as_ref())?;
 
         Ok(this.ctx.as_ref().state.to_value())
     }
+}
+
+pub(crate) fn validate_action_instantiation<'v>(this: &BxlContext<'v>) -> anyhow::Result<()> {
+    let mut registry = this.state.state.borrow_mut();
+
+    if (*registry).is_some() {
+        return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
+    } else {
+        let analysis_registry = AnalysisRegistry::new_from_owner(
+            BaseDeferredKey::BxlLabel(this.current_bxl.dupe()),
+            EXECUTION_PLATFORM.dupe(),
+        );
+
+        *registry = Some(analysis_registry);
+    }
+
+    Ok(())
 }
 
 #[derive(

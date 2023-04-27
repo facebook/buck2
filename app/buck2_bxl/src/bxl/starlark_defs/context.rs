@@ -70,6 +70,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
+use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
@@ -436,6 +437,14 @@ fn register_context(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn bxl_actions<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
         Ok(BxlActionsCtx::new(ValueTyped::new(this.value).unwrap()))
+    }
+
+    /// Returns the action context for creating and running actions.
+    #[starlark(attribute)]
+    fn actions_factory<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<Value<'v>> {
+        validate_action_instantiation(this.typed)?;
+
+        Ok(this.typed.state.to_value())
     }
 
     /// Runs analysis on the given `labels`, accepting an optional `target_platform` which is the
