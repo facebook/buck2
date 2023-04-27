@@ -192,6 +192,7 @@ mod imp {
             metadata,
             backtrace,
             quiet: options.quiet,
+            task: Some(options.task),
             soft_error_category: soft_error_category.map(ToOwned::to_owned),
         }
     }

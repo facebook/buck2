@@ -95,10 +95,20 @@ pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {
     HARD_ERROR_CONFIG.reload_hard_error_config(var_value)
 }
 
-#[derive(Default)]
 pub struct SoftErrorOptions {
     /// Log this error (to our event log and possibly to a task), but do not print it to stderr.
     pub quiet: bool,
+    /// Create a task for this error.
+    pub task: bool,
+}
+
+impl Default for SoftErrorOptions {
+    fn default() -> Self {
+        Self {
+            quiet: false,
+            task: true,
+        }
+    }
 }
 
 // Hidden because an implementation detail of `soft_error!`.

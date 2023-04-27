@@ -297,6 +297,8 @@ message StructuredError {
   bool quiet = 5;
   // If this was a soft error, its category.
   optional string soft_error_category = 6;
+  // Whether a tracking task should be created for this error.
+  optional bool task = 7;
 }
 
 // An event capturing the input, output, and context during the execution of an

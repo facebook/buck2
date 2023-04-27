@@ -130,6 +130,7 @@ mod fbcode {
                                     metadata: metadata::collect(),
                                     backtrace: Vec::new(),
                                     quiet: false,
+                                    task: Some(true),
                                     soft_error_category: Some("oversized_scribe".to_owned()),
                                 }
                                 .into(),
