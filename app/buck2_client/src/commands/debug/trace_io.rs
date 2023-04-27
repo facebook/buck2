@@ -101,14 +101,10 @@ impl StreamingCommand for TraceIoCommand {
                     read_state: Some(trace_io_request::ReadIoTracingState { with_trace: true }),
                 };
                 let resp = self.send_request(req, buckd, ctx).await??;
-                let mut entries = resp.trace;
-
-                // Incorporate buck2 executable files.
-                entries.push(".buck2".to_owned());
-                entries.push(".buck2-previous".to_owned());
 
                 let manifest = OfflineArchiveManifest {
-                    paths: entries
+                    paths: resp
+                        .trace
                         .into_iter()
                         // Note: Safe because these are all ProjectRelativePath's on the daemon side.
                         .map(ProjectRelativePathBuf::unchecked_new)
