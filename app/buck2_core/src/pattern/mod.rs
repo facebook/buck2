@@ -240,12 +240,14 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 
     pub fn parsed_opt_absolute(
-        cell_resolver: &CellAliasResolver,
-        relative_dir: Option<CellPathRef>,
         pattern: &str,
+        relative_dir: Option<CellPathRef>,
+        cell: CellName,
+        cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
+        let cell_alias_resolver = cell_resolver.get(cell)?.cell_alias_resolver();
         parse_target_pattern(
-            cell_resolver,
+            cell_alias_resolver,
             None,
             TargetParsingOptions {
                 relative: TargetParsingRel::RequireAbsolute(relative_dir),
@@ -1313,43 +1315,48 @@ mod tests {
         assert_eq!(
             mk_target("root", "other", "target"),
             ParsedPattern::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                "//other:target",
                 Some(package.as_ref()),
-                "//other:target"
+                CellName::testing_new("root"),
+                &resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
             ParsedPattern::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                ":target",
                 Some(package.as_ref()),
-                ":target"
+                CellName::testing_new("root"),
+                &resolver(),
             )?
         );
         // TODO(nga): this does not make sense, added this test to document the current behavior.
         assert_eq!(
             mk_target("root", "", "target"),
             ParsedPattern::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                ":target",
                 None,
-                ":target"
+                CellName::testing_new("root"),
+                &resolver(),
             )?
         );
         // But this should be fine.
         assert_eq!(
             mk_target("cell1", "", "target"),
             ParsedPattern::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                "cell1//:target",
                 None,
-                "cell1//:target"
+                CellName::testing_new("root"),
+                &resolver(),
             )?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                "foo/bar",
                 Some(package.as_ref()),
-                "foo/bar"
+                CellName::testing_new("root"),
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(
@@ -1361,9 +1368,10 @@ mod tests {
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                "foo/bar:bar",
                 Some(package.as_ref()),
-                "foo/bar:bar"
+                CellName::testing_new("root"),
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(
@@ -1374,9 +1382,10 @@ mod tests {
         );
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
-                resolver().root_cell_cell_alias_resolver(),
+                "foo/bar:bar",
                 None,
-                "foo/bar:bar"
+                CellName::testing_new("root"),
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(

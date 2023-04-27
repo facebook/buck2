@@ -526,11 +526,11 @@ impl BuckLspContext {
         let cell_resolver = self
             .with_dice_ctx(|dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
-        let cell = cell_resolver.get(current_package.cell())?;
         match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
-            cell.cell_alias_resolver(),
-            Some(current_package),
             literal,
+            Some(current_package),
+            current_package.cell(),
+            &cell_resolver,
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self

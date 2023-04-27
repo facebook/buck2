@@ -136,14 +136,11 @@ impl BuildAttrCoercionContext {
     }
 
     pub fn parse_pattern<P: PatternType>(&self, value: &str) -> anyhow::Result<ParsedPattern<P>> {
-        let cell_alias_resolver = self
-            .cell_resolver
-            .get(self.cell_name)?
-            .cell_alias_resolver();
         ParsedPattern::parsed_opt_absolute(
-            cell_alias_resolver,
-            self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
             value,
+            self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
+            self.cell_name,
+            &self.cell_resolver,
         )
     }
 
