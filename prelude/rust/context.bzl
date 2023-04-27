@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":build_params.bzl", "CrateType", "Emit")
 load(":link_info.bzl", "CrateName")
@@ -34,6 +35,7 @@ CrateMapArg = record(
 # by the same rule.
 CompileContext = record(
     toolchain_info = field(RustToolchainInfo.type),
+    cxx_toolchain_info = field(CxxToolchainInfo.type),
     # Symlink root containing all sources.
     symlinked_srcs = field("artifact"),
     # Linker args to pass the linker wrapper to rustc.
