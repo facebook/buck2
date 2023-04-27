@@ -38,6 +38,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use parking_lot::Mutex;
+use serde::Deserialize;
 use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 use tokio::sync::Semaphore;
@@ -57,6 +58,18 @@ pub struct EdenConnectionManager {
     semaphore: Semaphore,
 }
 
+#[derive(Deserialize, Debug)]
+struct Config {
+    root: String,
+    socket: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct EdenConfig {
+    #[serde(rename = "Config")]
+    config: Config,
+}
+
 impl EdenConnectionManager {
     pub fn new(
         fb: FacebookInit,
@@ -67,15 +80,7 @@ impl EdenConnectionManager {
         if !eden_root.exists() {
             return Ok(None);
         }
-        let root = fs_util::read_link(eden_root.as_path().join("root"))?
-            .to_str()
-            .context("Eden root is not UTF-8")?
-            .to_owned();
-        let root = Arc::new(root);
-
-        let socket = fs_util::read_link(eden_root.as_path().join("socket"))?;
-
-        let connector = EdenConnector { fb, root, socket };
+        let connector = Self::get_eden_connector(fb, eden_root)?;
 
         let connection = Mutex::new(EdenConnection {
             epoch: 0,
@@ -87,6 +92,26 @@ impl EdenConnectionManager {
             connection,
             semaphore,
         }))
+    }
+
+    fn get_eden_connector(fb: FacebookInit, eden_root: PathBuf) -> anyhow::Result<EdenConnector> {
+        // Based off of how watchman picks up the config: fbcode/watchman/watcher/eden.cpp:138
+        if cfg!(windows) {
+            let config_path = eden_root.as_path().join("config");
+            let config_contents = fs_util::read_to_string(config_path)?;
+            let config: EdenConfig = toml::from_str(&config_contents)?;
+            let root = Arc::new(config.config.root);
+            let socket = PathBuf::from(config.config.socket);
+            Ok(EdenConnector { fb, root, socket })
+        } else {
+            let root = fs_util::read_link(eden_root.as_path().join("root"))?
+                .to_str()
+                .context("Eden root is not UTF-8")?
+                .to_owned();
+            let root = Arc::new(root);
+            let socket = fs_util::read_link(eden_root.as_path().join("socket"))?;
+            Ok(EdenConnector { fb, root, socket })
+        }
     }
 
     pub fn get_root(&self) -> &str {
@@ -377,9 +402,6 @@ pub enum EdenError {
     #[error("Eden POSIX error: {}", .error.message)]
     PosixError {
         error: edenfs::types::EdenError,
-        #[cfg(unix)]
-        code: nix::errno::Errno,
-        #[cfg(not(unix))]
         code: i32,
     },
 
@@ -396,9 +418,6 @@ impl From<edenfs::types::EdenError> for EdenError {
             if let Some(error_code) = error.errorCode {
                 return Self::PosixError {
                     error,
-                    #[cfg(unix)]
-                    code: nix::errno::Errno::from_i32(error_code),
-                    #[cfg(not(unix))]
                     code: error_code,
                 };
             }

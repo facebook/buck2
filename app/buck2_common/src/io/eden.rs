@@ -26,6 +26,10 @@ use edenfs::types::SourceControlType;
 use edenfs::types::SyncBehavior;
 use edenfs::types::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
+use libc::EINVAL;
+use libc::EISDIR;
+use libc::ENOENT;
+use libc::ENOTDIR;
 use tokio::sync::Semaphore;
 
 use crate::cas_digest::CasDigestConfig;
@@ -167,18 +171,6 @@ impl IoProvider for EdenIoProvider {
         Ok(entries)
     }
 
-    #[cfg(not(unix))]
-    async fn read_path_metadata_if_exists(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        // `read_path_metadata_if_exists` is not implemented with eden on Windows
-        // because of dependency on nix crate.
-
-        self.fs.read_path_metadata_if_exists(path).await
-    }
-
-    #[cfg(unix)]
     async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
@@ -248,17 +240,15 @@ impl IoProvider for EdenIoProvider {
 
                 Ok(Some(RawPathMetadata::File(meta)))
             }
-            Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::EISDIR => {
+            Err(EdenError::PosixError { code, .. }) if code == EISDIR => {
                 tracing::debug!("getAttributesFromFiles({}): EISDIR", path);
                 Ok(Some(RawPathMetadata::Directory))
             }
-            Err(EdenError::PosixError { code, .. }) if code == nix::errno::Errno::ENOENT => {
+            Err(EdenError::PosixError { code, .. }) if code == ENOENT => {
                 tracing::debug!("getAttributesFromFiles({}): ENOENT", path);
                 Ok(None)
             }
-            Err(EdenError::PosixError { code, .. })
-                if code == nix::errno::Errno::EINVAL || code == nix::errno::Errno::ENOTDIR =>
-            {
+            Err(EdenError::PosixError { code, .. }) if code == EINVAL || code == ENOTDIR => {
                 // If we get EINVAL it means the target wasn't a file, and since we know it
                 // existed and it wasn't a dir, then that means it must be a symlink. If we get
                 // ENOTDIR, that means we tried to traverse a path component that was a
