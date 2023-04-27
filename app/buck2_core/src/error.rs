@@ -22,8 +22,12 @@ use thiserror::Error;
 use crate::env_helper::EnvHelper;
 use crate::is_open_source;
 
-type SoftErrorHandler =
-    Box<dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), bool) + Send + Sync + 'static>;
+type SoftErrorHandler = Box<
+    dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), SoftErrorOptions)
+        + Send
+        + Sync
+        + 'static,
+>;
 
 static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
 
@@ -122,7 +126,7 @@ pub fn handle_soft_error(
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
         if let Some(handler) = HANDLER.get() {
-            handler(category, &err, loc, options.quiet);
+            handler(category, &err, loc, options);
         }
     }
 
@@ -258,11 +262,16 @@ pub(crate) mod tests {
 
     static RESULT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-    fn mock_handler(category: &str, err: &anyhow::Error, loc: (&str, u32, u32), quiet: bool) {
-        RESULT
-            .lock()
-            .unwrap()
-            .push(format!("{:?}, : {} : {} : {}", loc, err, category, quiet));
+    fn mock_handler(
+        category: &str,
+        err: &anyhow::Error,
+        loc: (&str, u32, u32),
+        options: SoftErrorOptions,
+    ) {
+        RESULT.lock().unwrap().push(format!(
+            "{:?}, : {} : {} : {}",
+            loc, err, category, options.quiet
+        ));
     }
 
     pub(crate) fn test_init() -> MutexGuard<'static, ()> {

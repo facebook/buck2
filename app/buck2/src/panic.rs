@@ -25,7 +25,7 @@ pub fn initialize(fb: FacebookInit) -> anyhow::Result<()> {
         the_panic_hook(fb, info);
         hook(info);
     }));
-    buck2_core::error::initialize(Box::new(move |category, err, loc, quiet| {
+    buck2_core::error::initialize(Box::new(move |category, err, loc, options| {
         imp::write_soft_error(
             fb,
             category,
@@ -35,7 +35,7 @@ pub fn initialize(fb: FacebookInit) -> anyhow::Result<()> {
                 line: loc.1,
                 column: loc.2,
             },
-            quiet,
+            options,
         );
     }))
     .context("Error initializing soft errors")?;
@@ -58,6 +58,7 @@ mod imp {
     use std::time::Duration;
 
     use backtrace::Backtrace;
+    use buck2_core::error::SoftErrorOptions;
     use buck2_data::Location;
     use buck2_events::metadata;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
@@ -140,7 +141,7 @@ mod imp {
         });
         write_to_scribe(
             fb,
-            panic_payload(location, message, get_stack(), false, None),
+            panic_payload(location, message, get_stack(), &Default::default(), None),
         );
     }
 
@@ -149,13 +150,13 @@ mod imp {
         category: &str,
         err: &anyhow::Error,
         location: Location,
-        quiet: bool,
+        options: SoftErrorOptions,
     ) {
         let event = panic_payload(
             Some(location),
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
-            quiet,
+            &options,
             Some(category),
         );
 
@@ -167,7 +168,8 @@ mod imp {
                 dispatcher.instant_event(event.clone());
             }
             None => {
-                if !buck2_server::active_commands::broadcast_instant_event(&event) && !quiet {
+                if !buck2_server::active_commands::broadcast_instant_event(&event) && !options.quiet
+                {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
                 }
             }
@@ -180,7 +182,7 @@ mod imp {
         location: Option<Location>,
         message: String,
         backtrace: Vec<buck2_data::structured_error::StackFrame>,
-        quiet: bool,
+        options: &SoftErrorOptions,
         soft_error_category: Option<&str>,
     ) -> buck2_data::StructuredError {
         let metadata = get_metadata_for_panic();
@@ -189,7 +191,7 @@ mod imp {
             payload: message,
             metadata,
             backtrace,
-            quiet,
+            quiet: options.quiet,
             soft_error_category: soft_error_category.map(ToOwned::to_owned),
         }
     }
