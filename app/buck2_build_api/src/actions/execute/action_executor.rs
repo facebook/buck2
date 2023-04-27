@@ -413,7 +413,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         // the native method as the API does not load and materialize files or folders
         if let Some(eden_buck_out) = self.executor.materializer.eden_buck_out() {
             eden_buck_out
-                .remove_paths_recursive(self.fs().fs(), output_paths)
+                .remove_paths_recursive(self.fs().fs(), output_paths, self.cancellations)
                 .await?;
         } else {
             self.executor

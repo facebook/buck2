@@ -52,6 +52,7 @@ impl EdenBuckOut {
         &self,
         _project_fs: &buck2_core::fs::project::ProjectRoot,
         _paths: Vec<ProjectRelativePathBuf>,
+        _cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         self.not_implemented
     }

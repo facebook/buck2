@@ -81,11 +81,11 @@ impl Materializer for EdenMaterializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        _cancellations: &CancellationContext,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
-            .remove_paths_recursive(&self.fs, vec![path.to_owned()])
+            .remove_paths_recursive(&self.fs, vec![path.to_owned()], cancellations)
             .await?;
 
         // First upload the src to CAS if missing
@@ -156,11 +156,15 @@ impl Materializer for EdenMaterializer {
         &self,
         _info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        _cancellations: &CancellationContext,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
-            .remove_paths_recursive(&self.fs, artifacts.map(|(p, _)| p.to_owned()))
+            .remove_paths_recursive(
+                &self.fs,
+                artifacts.map(|(p, _)| p.to_owned()),
+                cancellations,
+            )
             .await?;
 
         let futs = artifacts.iter().map(|(path, value)| async move {
@@ -188,7 +192,7 @@ impl Materializer for EdenMaterializer {
     ) -> anyhow::Result<()> {
         // Use eden's remove_paths_recursive because it's faster.
         self.eden_buck_out
-            .remove_paths_recursive(&self.fs, vec![path.to_owned()])
+            .remove_paths_recursive(&self.fs, vec![path.to_owned()], cancellations)
             .await?;
 
         self.delegator.declare_http(path, info, cancellations).await

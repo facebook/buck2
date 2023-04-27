@@ -28,7 +28,7 @@ use edenfs::ObjectType;
 use edenfs::RemoveRecursivelyParams;
 use edenfs::SetPathObjectIdParams;
 use fbinit::FacebookInit;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::sync::Semaphore;
@@ -278,6 +278,7 @@ impl EdenBuckOut {
         &self,
         project_fs: &ProjectRoot,
         path: &ProjectRelativePathBuf,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // Existence check would not trigger materialization since EdenFS will fast
         // return by not materialization the path. So the only cost is Eden will load
@@ -293,30 +294,32 @@ impl EdenBuckOut {
             )
         })?;
 
-        critical_section(|| async move {
-            let params = RemoveRecursivelyParams {
-                mountPoint: self.connection_manager.get_mount_point(),
-                path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
-                ..Default::default()
-            };
+        cancellations
+            .critical_section(|| async move {
+                let params = RemoveRecursivelyParams {
+                    mountPoint: self.connection_manager.get_mount_point(),
+                    path: relpath_to_buck_out.as_str().as_bytes().to_vec(),
+                    ..Default::default()
+                };
 
-            self.connection_manager
-                .with_eden(move |eden| eden.removeRecursively(&params))
-                .await?;
-            Ok(())
-        })
-        .await
+                self.connection_manager
+                    .with_eden(move |eden| eden.removeRecursively(&params))
+                    .await?;
+                Ok(())
+            })
+            .await
     }
 
     pub async fn remove_paths_recursive(
         &self,
         project_fs: &ProjectRoot,
         paths: Vec<ProjectRelativePathBuf>,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<()> {
         // TODO(bobyf, torozco) does this need to be critical section
 
         let futs = paths.iter().map(|path| async move {
-            self.remove_path_recursive(project_fs, path)
+            self.remove_path_recursive(project_fs, path, cancellations)
                 .await
                 .with_context(|| format!("[eden] Error cleaning up path {}", path))
         });

@@ -738,7 +738,7 @@ pub async fn create_output_dirs(
         // the native method as the API does not load and materialize files or folders
         if let Some(eden_buck_out) = materializer.eden_buck_out() {
             eden_buck_out
-                .remove_paths_recursive(artifact_fs.fs(), output_paths)
+                .remove_paths_recursive(artifact_fs.fs(), output_paths, cancellations)
                 .await?;
         } else {
             blocking_executor
