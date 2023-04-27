@@ -783,7 +783,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
     }
 
     #[tokio::test]
