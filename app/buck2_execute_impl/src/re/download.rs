@@ -67,9 +67,6 @@ pub async fn download_action_results<'a>(
     response: &dyn RemoteActionResult,
     cancellations: &CancellationContext,
 ) -> CommandExecutionResult {
-    // Claim the request before starting the download.
-    let manager = manager.claim().await;
-
     let downloader = CasDownloader {
         materializer,
         re_client,
@@ -117,7 +114,7 @@ pub struct CasDownloader<'a> {
 impl CasDownloader<'_> {
     async fn download<'a>(
         &self,
-        manager: CommandExecutionManagerWithClaim,
+        manager: CommandExecutionManager,
         stage: buck2_data::executor_stage_start::Stage,
         paths: &CommandExecutionPaths,
         requested_outputs: impl Iterator<Item = CommandExecutionOutputRef<'a>>,
@@ -145,6 +142,9 @@ impl CasDownloader<'_> {
                     ));
                 }
             };
+
+            // Claim the request before starting the download.
+            let manager = manager.claim().await;
 
             let outputs = self
                 .materialize_outputs(artifacts, action_digest, cancellations)
