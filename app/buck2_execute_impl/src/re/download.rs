@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::ops::ControlFlow;
+use std::ops::FromResidual;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -66,7 +68,7 @@ pub async fn download_action_results<'a>(
     action_digest: &ActionDigest,
     response: &dyn RemoteActionResult,
     cancellations: &CancellationContext,
-) -> CommandExecutionResult {
+) -> DownloadResult {
     let downloader = CasDownloader {
         materializer,
         re_client,
@@ -96,12 +98,12 @@ pub async fn download_action_results<'a>(
     let (download, std_streams) = future::join(download, std_streams).await;
     let (manager, outputs) = download?;
 
-    manager.success(
+    DownloadResult::Result(manager.success(
         response.execution_kind(action_digest.dupe()),
         outputs,
         CommandStdStreams::Remote(std_streams),
         response.timing(),
-    )
+    ))
 }
 
 pub struct CasDownloader<'a> {
@@ -122,7 +124,7 @@ impl CasDownloader<'_> {
         output_spec: &dyn RemoteActionResult,
         cancellations: &CancellationContext,
     ) -> ControlFlow<
-        CommandExecutionResult,
+        DownloadResult,
         (
             CommandExecutionManagerWithClaim,
             IndexMap<CommandExecutionOutput, ArtifactValue>,
@@ -136,10 +138,10 @@ impl CasDownloader<'_> {
             let artifacts = match artifacts {
                 Ok(artifacts) => artifacts,
                 Err(e) => {
-                    return ControlFlow::Break(manager.error(
+                    return ControlFlow::Break(DownloadResult::Result(manager.error(
                         "extract_artifacts",
                         e.context(format!("action_digest={}", action_digest)),
-                    ));
+                    )));
                 }
             };
 
@@ -153,10 +155,10 @@ impl CasDownloader<'_> {
             let outputs = match outputs {
                 Ok(outputs) => outputs,
                 Err(e) => {
-                    return ControlFlow::Break(manager.error(
+                    return ControlFlow::Break(DownloadResult::Result(manager.error(
                         "materialize_outputs",
                         e.context(format!("action_digest={}", action_digest)),
-                    ));
+                    )));
                 }
             };
 
@@ -303,4 +305,20 @@ struct ExtractedArtifacts {
     now: DateTime<Utc>,
     expires: DateTime<Utc>,
     ttl: Duration,
+}
+
+/// Did this download work out?
+pub enum DownloadResult {
+    /// Got a result: might be a success, might be a failure. Caller needs to deal with this
+    /// result.
+    Result(CommandExecutionResult),
+}
+
+impl FromResidual<ControlFlow<Self, Infallible>> for DownloadResult {
+    fn from_residual(residual: ControlFlow<Self, Infallible>) -> Self {
+        match residual {
+            ControlFlow::Break(v) => v,
+            ControlFlow::Continue(_) => unreachable!(),
+        }
+    }
 }

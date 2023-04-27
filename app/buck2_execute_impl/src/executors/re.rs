@@ -50,6 +50,7 @@ use thiserror::Error;
 use tracing::info;
 
 use crate::re::download::download_action_results;
+use crate::re::download::DownloadResult;
 
 #[derive(Debug, Error)]
 pub enum RemoteExecutorError {
@@ -289,7 +290,7 @@ impl PreparedCommandExecutor for ReExecutor {
             )
             .await?;
 
-        download_action_results(
+        let res = download_action_results(
             request,
             &*self.materializer,
             &self.re_client,
@@ -307,7 +308,11 @@ impl PreparedCommandExecutor for ReExecutor {
             cancellations,
         )
         .boxed()
-        .await
+        .await;
+
+        let DownloadResult::Result(res) = res;
+
+        res
     }
 
     fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {

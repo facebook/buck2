@@ -58,6 +58,7 @@ use remote_execution::TTimestamp;
 use tracing::info;
 
 use crate::re::download::download_action_results;
+use crate::re::download::DownloadResult;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 static ERROR_ON_CACHE_UPLOAD: EnvHelper<bool> = EnvHelper::new("BUCK2_TEST_ERROR_ON_CACHE_UPLOAD");
@@ -128,27 +129,29 @@ impl CachingExecutor {
             Ok(None) => return ControlFlow::Continue(manager),
         };
 
-        ControlFlow::Break(
-            download_action_results(
-                request,
-                &*self.materializer,
-                &self.re_client,
-                self.re_use_case,
-                digest_config,
-                manager,
-                // TODO (torozco): We should deduplicate this and ActionExecutionKind.
-                buck2_data::CacheHit {
-                    action_digest: action_digest.to_string(),
-                }
-                .into(),
-                request.paths(),
-                request.outputs(),
-                action_digest,
-                &response,
-                cancellations,
-            )
-            .await,
+        let res = download_action_results(
+            request,
+            &*self.materializer,
+            &self.re_client,
+            self.re_use_case,
+            digest_config,
+            manager,
+            // TODO (torozco): We should deduplicate this and ActionExecutionKind.
+            buck2_data::CacheHit {
+                action_digest: action_digest.to_string(),
+            }
+            .into(),
+            request.paths(),
+            request.outputs(),
+            action_digest,
+            &response,
+            cancellations,
         )
+        .await;
+
+        let DownloadResult::Result(res) = res;
+
+        ControlFlow::Break(res)
     }
 
     /// Upload an action result to the RE action cache, assuming conditions for the upload are met:

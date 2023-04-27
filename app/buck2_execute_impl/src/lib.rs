@@ -9,6 +9,7 @@
 
 #![feature(try_blocks)]
 #![feature(box_patterns)]
+#![feature(try_trait_v2)]
 
 pub mod executors;
 pub mod low_pass_filter;
