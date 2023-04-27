@@ -7,7 +7,15 @@
 
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//apple/swift:swift_compilation.bzl", "compile_swift", "get_swift_anonymous_targets", "get_swift_dependency_info", "get_swift_pcm_uncompile_info", "uses_explicit_modules")
+load(
+    "@prelude//apple/swift:swift_compilation.bzl",
+    "SwiftDependencyInfo",  # @unused Used as a type
+    "compile_swift",
+    "get_swift_anonymous_targets",
+    "get_swift_dependency_info",
+    "get_swift_pcm_uncompile_info",
+    "uses_explicit_modules",
+)
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
@@ -131,7 +139,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     else:
         exported_pre = None
 
-    swift_providers = swift_compile.providers if swift_compile else [get_swift_dependency_info(ctx, exported_pre, None)]
+    swift_dependency_info = swift_compile.dependency_info if swift_compile else [get_swift_dependency_info(ctx, exported_pre, None)]
     swift_argsfile = swift_compile.swift_argsfile if swift_compile else None
 
     modular_pre = CPreprocessor(
@@ -160,7 +168,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             exported_pre,
         )
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
-        return providers + swift_providers
+        return providers + swift_dependency_info
 
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
@@ -170,7 +178,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_link_flags = [_get_linker_flags(ctx, swift_providers)],
+        extra_link_flags = [_get_linker_flags(ctx, swift_dependency_info)],
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
@@ -182,7 +190,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             # We need to add any swift modules that we include in the link, as
             # these will end up as `N_AST` entries that `dsymutil` will need to
             # follow.
-            external_debug_info = _get_external_debug_info(swift_providers),
+            external_debug_info = _get_external_debug_info(swift_dependency_info),
             subtargets = {
                 "swift-compile": [DefaultInfo(default_output = swift_compile.object_file if swift_compile else None)],
             },
@@ -250,19 +258,17 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_external_debug_info(swift_providers: ["provider"]) -> [ExternalDebugInfoTSet.type]:
+def _get_external_debug_info(swift_dependency_infos: [SwiftDependencyInfo.type]) -> [ExternalDebugInfoTSet.type]:
     tsets = []
-    for p in swift_providers:
-        if hasattr(p, "external_debug_info"):
-            if p.external_debug_info != None:
-                tsets.append(p.external_debug_info)
+    for info in swift_dependency_infos:
+        if info.external_debug_info:
+            tsets.append(info.external_debug_info)
     return tsets
 
-def _get_linker_flags(ctx: "context", swift_providers: ["provider"]) -> "cmd_args":
+def _get_linker_flags(ctx: "context", swift_dependency_infos: [SwiftDependencyInfo.type]) -> "cmd_args":
     cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))
-    for p in swift_providers:
-        if hasattr(p, "transitive_swiftmodule_paths"):
-            cmd.add(p.transitive_swiftmodule_paths.project_as_args("linker_args"))
+    for info in swift_dependency_infos:
+        cmd.add(info.transitive_swiftmodule_paths.project_as_args("linker_args"))
 
     return cmd
 

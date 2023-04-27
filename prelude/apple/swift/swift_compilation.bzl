@@ -65,9 +65,9 @@ SwiftCompilationOutput = record(
     object_file = field("artifact"),
     # The swiftmodule file output from compilation.
     swiftmodule = field("artifact"),
-    # The dependency info provider that provides the swiftmodule
-    # search paths required for compilation.
-    providers = field([SwiftDependencyInfo.type]),
+    # The dependency info providers that provide the swiftmodule
+    # search paths required for compilation and linking.
+    dependency_info = field([SwiftDependencyInfo.type]),
     # Preprocessor info required for ObjC compilation of this library.
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
@@ -215,7 +215,7 @@ def compile_swift(
     return SwiftCompilationOutput(
         object_file = output_object,
         swiftmodule = output_swiftmodule,
-        providers = [get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule)],
+        dependency_info = [get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule)],
         pre = pre,
         exported_pre = exported_pp_info,
         swift_argsfile = swift_argsfile,
