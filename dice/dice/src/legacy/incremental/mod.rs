@@ -38,7 +38,6 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
-use more_futures::cancellable_future::try_to_disable_cancellation;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_task;
 use more_futures::spawn::CompletionObserver;
@@ -565,7 +564,7 @@ where
             .eval(k, transaction_ctx, cancellation, extra)
             .await;
 
-        let _guard = match try_to_disable_cancellation() {
+        let _guard = match cancellation.try_to_disable_cancellation() {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");

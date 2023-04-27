@@ -23,7 +23,6 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
-use more_futures::cancellable_future::try_to_disable_cancellation;
 use tokio::sync::oneshot;
 use triomphe::Arc;
 
@@ -268,7 +267,7 @@ impl IncrementalEngine {
             .evaluate(k, cycles, task_handle.cancellation_ctx())
             .await;
 
-        let _guard = match try_to_disable_cancellation() {
+        let _guard = match task_handle.cancellation_ctx().try_to_disable_cancellation() {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
