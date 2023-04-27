@@ -15,8 +15,10 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 use crate::cancellable_future::critical_section;
+use crate::cancellable_future::try_to_disable_cancellation;
 use crate::cancellable_future::with_structured_cancellation;
 use crate::cancellable_future::CancellationObserver;
+use crate::cancellable_future::DisableCancellationGuard;
 
 static INSTANCE: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(Arc::new(CancellationContextShared {})));
@@ -74,6 +76,14 @@ impl CancellationContext {
         F: FnOnce(CancellationObserver) -> Fut + 'a,
     {
         with_structured_cancellation(make)
+    }
+
+    /// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
+    /// CancellableFuture but has already been cancelled.
+    ///
+    /// TODO(bobyf) this needs to be updated with the new implementation
+    pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
+        try_to_disable_cancellation()
     }
 }
 
