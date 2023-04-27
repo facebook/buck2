@@ -79,13 +79,12 @@ impl GlobalInterpreterState {
 
         let mut cell_configs = HashMap::new();
         for (cell_name, config) in legacy_configs.iter() {
-            let cell_instance = cell_resolver.get(cell_name).expect("Should have cell.");
             cell_configs.insert(
                 BuildFileCell::new(cell_name),
                 InterpreterCellInfo::new(
                     BuildFileCell::new(cell_name),
                     config,
-                    cell_instance.cell_alias_resolver().dupe(),
+                    cell_resolver.dupe(),
                 )?,
             );
         }

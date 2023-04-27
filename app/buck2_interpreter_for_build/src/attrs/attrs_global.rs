@@ -120,7 +120,7 @@ pub fn get_attr_coercion_context<'v>(
     Ok(BuildAttrCoercionContext::new_no_package(
         BuildContext::from_context(eval)?
             .cell_info()
-            .cell_alias_resolver()
+            .cell_alias_resolver()?
             .dupe(),
     ))
 }

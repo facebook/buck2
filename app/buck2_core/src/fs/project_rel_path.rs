@@ -434,6 +434,10 @@ impl ProjectRelativePathBuf {
         Self(ForwardRelativePathBuf::unchecked_new(s))
     }
 
+    pub fn testing_new(path: &str) -> ProjectRelativePathBuf {
+        ProjectRelativePathBuf::try_from(path.to_owned()).unwrap()
+    }
+
     /// Creates a new 'ProjectRelativePathBuf' with a given capacity used to create the internal
     /// 'String'. See 'with_capacity' defined on 'ForwardRelativePathBuf'
     pub fn with_capacity(cap: usize) -> Self {

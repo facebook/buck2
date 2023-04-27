@@ -7,16 +7,16 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -75,8 +75,11 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
     )
 }
 
-fn cell_alias_resolver() -> CellAliasResolver {
-    CellAliasResolver::new(CellName::testing_new("root"), HashMap::new()).unwrap()
+fn cell_resolver() -> CellResolver {
+    CellResolver::testing_with_name_and_path(
+        CellName::testing_new("root"),
+        CellRootPathBuf::testing_new(""),
+    )
 }
 
 pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
@@ -90,7 +93,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
         &LegacyBuckConfig::empty(),
-        cell_alias_resolver(),
+        cell_resolver(),
     )
     .unwrap();
     let buckconfig = LegacyBuckConfig::empty();

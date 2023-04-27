@@ -34,7 +34,7 @@ pub mod testing {
         fn label<'v>(s: &str, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Label> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
-                c.cell_info().cell_alias_resolver(),
+                c.cell_info().cell_alias_resolver()?,
                 s,
             )? {
                 ParsedPattern::Target(package, target_name, providers) => {
@@ -53,7 +53,7 @@ pub mod testing {
         ) -> anyhow::Result<StarlarkTargetLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<TargetPatternExtra>::parse_precise(
-                c.cell_info().cell_alias_resolver(),
+                c.cell_info().cell_alias_resolver()?,
                 s,
             )? {
                 ParsedPattern::Target(package, target_name, TargetPatternExtra) => {

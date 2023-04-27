@@ -90,11 +90,13 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
             PerFileTypeContext::Package(_, package_file_eval_ctx) => package_file_eval_ctx,
             _ => return Err(PackageFileError::NotPackage.into()),
         };
-        let visibility =
-            parse_visibility(&visibility, build_context.cell_info().cell_alias_resolver())?;
+        let visibility = parse_visibility(
+            &visibility,
+            build_context.cell_info().cell_alias_resolver()?,
+        )?;
         let within_view = parse_within_view(
             &within_view,
-            build_context.cell_info().cell_alias_resolver(),
+            build_context.cell_info().cell_alias_resolver()?,
         )?;
 
         match &mut *package_file_eval_ctx.visibility.borrow_mut() {

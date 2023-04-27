@@ -77,6 +77,10 @@ impl CellRootPathBuf {
         CellRootPathBuf(path)
     }
 
+    pub fn testing_new(path: &str) -> CellRootPathBuf {
+        CellRootPathBuf::new(ProjectRelativePathBuf::testing_new(path))
+    }
+
     /// Project relative path to the cell root.
     pub fn project_relative_path(&self) -> &ProjectRelativePath {
         &self.0
