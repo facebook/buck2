@@ -52,6 +52,7 @@ LinkableType = enum(
     "frameworks",
     "shared",
     "objects",
+    "swift_runtime",
 )
 
 # An archive.
@@ -97,6 +98,14 @@ FrameworksLinkable = record(
     _type = field(LinkableType.type, LinkableType("frameworks")),
 )
 
+# Represents the Swift runtime as a linker input.
+SwiftRuntimeLinkable = record(
+    # Only store whether the runtime is required, so that linker flags
+    # are only materialized _once_ (no duplicates) on the link line.
+    runtime_required = field(bool.type, False),
+    _type = field(LinkableType.type, LinkableType("swift_runtime")),
+)
+
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
@@ -106,7 +115,7 @@ LinkInfo = record(
     pre_flags = field([""], []),
     post_flags = field([""], []),
     # Primary input to the linker, one of the Linkable types above.
-    linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]], []),
+    linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]], []),
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
@@ -156,7 +165,7 @@ def wrap_link_info(
     )
 
 # Adds appropriate args representing `linkable` to `args`
-def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type]):
+def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]):
     if linkable._type == LinkableType("archive"):
         if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
@@ -186,7 +195,7 @@ def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, Shar
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif linkable._type == LinkableType("frameworks"):
+    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
@@ -220,7 +229,7 @@ def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
         elif linkable._type == LinkableType("objects"):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
-        elif linkable._type == LinkableType("frameworks"):
+        elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
             pass
         else:
             fail("unreachable")
@@ -326,6 +335,7 @@ MergedLinkInfo = provider(fields = [
     # To save on repeated computation of transitive LinkInfos, we store a dedupped
     # structure, based on the link-style.
     "frameworks",  # {LinkStyle.type: [FrameworksLinkable.type, None]}
+    "swift_runtime",  # {LinkStyle.type: [SwiftRuntimeLinkable.type, None]}
 ])
 
 # A map of linkages to all possible link styles it supports.
@@ -348,13 +358,15 @@ def create_merged_link_info(
         deps: ["MergedLinkInfo"] = [],
         # Link info to always propagate from exported deps.
         exported_deps: ["MergedLinkInfo"] = [],
-        frameworks_linkable: [FrameworksLinkable.type, None] = None) -> "MergedLinkInfo":
+        frameworks_linkable: [FrameworksLinkable.type, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> "MergedLinkInfo":
     """
     Create a `MergedLinkInfo` provider.
     """
 
     infos = {}
     frameworks = {}
+    swift_runtime = {}
 
     # We don't know how this target will be linked, so we generate the possible
     # link info given the target's preferred linkage, to be consumed by the
@@ -364,6 +376,7 @@ def create_merged_link_info(
 
         children = []
         framework_linkables = []
+        swift_runtime_linkables = []
 
         # When we're being linked statically, we also need to export all private
         # linkable input (e.g. so that any unresolved symbols we have are
@@ -375,15 +388,20 @@ def create_merged_link_info(
             framework_linkables.append(frameworks_linkable)
             framework_linkables += [dep_info.frameworks[link_style] for dep_info in exported_deps]
 
+            swift_runtime_linkables.append(swift_runtime_linkable)
+            swift_runtime_linkables += [dep_info.swift_runtime[link_style] for dep_info in exported_deps]
+
             for dep_info in deps:
                 children.append(dep_info._infos[link_style])
                 framework_linkables.append(dep_info.frameworks[link_style])
+                swift_runtime_linkables.append(dep_info.swift_runtime[link_style])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
             children.append(dep_info._infos[link_style])
 
         frameworks[link_style] = merge_framework_linkables(framework_linkables)
+        swift_runtime[link_style] = merge_swift_runtime_linkables(swift_runtime_linkables)
         if actual_link_style in link_infos:
             infos[link_style] = ctx.actions.tset(
                 LinkInfosTSet,
@@ -391,20 +409,22 @@ def create_merged_link_info(
                 children = children,
             )
 
-    return MergedLinkInfo(_infos = infos, frameworks = frameworks)
+    return MergedLinkInfo(_infos = infos, frameworks = frameworks, swift_runtime = swift_runtime)
 
 def merge_link_infos(
         ctx: "context",
         xs: ["MergedLinkInfo"]) -> "MergedLinkInfo":
     merged = {}
     frameworks = {}
+    swift_runtime = {}
     for link_style in LinkStyle:
         merged[link_style] = ctx.actions.tset(
             LinkInfosTSet,
             children = filter(None, [x._infos.get(link_style) for x in xs]),
         )
         frameworks[link_style] = merge_framework_linkables([x.frameworks[link_style] for x in xs])
-    return MergedLinkInfo(_infos = merged, frameworks = frameworks)
+        swift_runtime[link_style] = merge_swift_runtime_linkables([x.swift_runtime[link_style] for x in xs])
+    return MergedLinkInfo(_infos = merged, frameworks = frameworks, swift_runtime = swift_runtime)
 
 def get_link_info(
         infos: LinkInfos.type,
@@ -578,6 +598,12 @@ def get_link_styles_for_linkage(linkage: Linkage.type) -> [LinkStyle.type]:
     Return all possible `LinkStyle`s that apply for the given `Linkage`.
     """
     return _LINK_STYLE_FOR_LINKAGE[linkage]
+
+def merge_swift_runtime_linkables(linkables: [[SwiftRuntimeLinkable.type, None]]) -> SwiftRuntimeLinkable.type:
+    for linkable in linkables:
+        if linkable and linkable.runtime_required:
+            return SwiftRuntimeLinkable(runtime_required = True)
+    return SwiftRuntimeLinkable(runtime_required = False)
 
 def merge_framework_linkables(linkables: [[FrameworksLinkable.type, None]]) -> FrameworksLinkable.type:
     unique_framework_names = {}

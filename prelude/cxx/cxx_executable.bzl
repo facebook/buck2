@@ -225,6 +225,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     inherited_link = merge_link_infos(ctx, [d.merged_link_info for d in link_deps])
     frameworks_linkable = create_frameworks_linkable(ctx)
 
+    # `apple_binary()` / `cxx_binary()` _itself_ cannot contain Swift, so it does not
+    # _directly_ contribute a Swift runtime linkable
+    swift_runtime_linkable = None
+
     # Link group libs.
     link_group_libs = {}
     auto_link_groups = {}
@@ -238,6 +242,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             frameworks_linkable,
             link_style,
             prefer_stripped = impl_params.prefer_stripped_objects,
+            swift_runtime_linkable = swift_runtime_linkable,
         )
     else:
         linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
@@ -326,7 +331,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
         # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable)
+        frameworks_link_info = get_frameworks_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
         if frameworks_link_info:
             filtered_links.append(frameworks_link_info)
 

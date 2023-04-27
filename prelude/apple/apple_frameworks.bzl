@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple/swift:swift_runtime.bzl", "extract_swift_runtime_linkables", "get_swift_runtime_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "FrameworksLinkable",
@@ -14,8 +15,10 @@ load(
     "LinkInfos",
     "LinkInfosTSet",
     "LinkableType",
+    "SwiftRuntimeLinkable",  # @unused Used as a type
     "get_link_args",
     "merge_framework_linkables",
+    "merge_swift_runtime_linkables",
 )
 load("@prelude//utils:utils.bzl", "expect")
 load(":apple_framework_versions.bzl", "get_framework_linker_args")
@@ -122,8 +125,9 @@ def build_link_args_with_deduped_framework_flags(
         info: "MergedLinkInfo",
         frameworks_linkable: ["FrameworksLinkable", None],
         link_style: "LinkStyle",
-        prefer_stripped: bool.type = False) -> LinkArgs.type:
-    frameworks_link_info = _link_info_from_frameworks_linkable(ctx, [info.frameworks[link_style], frameworks_linkable])
+        prefer_stripped: bool.type = False,
+        swift_runtime_linkable: ["SwiftRuntimeLinkable", None] = None) -> LinkArgs.type:
+    frameworks_link_info = _link_info_from_frameworks_linkable(ctx, [info.frameworks[link_style], frameworks_linkable], [info.swift_runtime[link_style], swift_runtime_linkable])
     if not frameworks_link_info:
         return get_link_args(info, link_style, prefer_stripped)
 
@@ -138,7 +142,8 @@ def build_link_args_with_deduped_framework_flags(
 def get_frameworks_link_info_by_deduping_link_infos(
         ctx: "context",
         infos: [[LinkInfo.type, None]],
-        framework_linkable: [FrameworksLinkable.type, None]) -> [LinkInfo.type, None]:
+        framework_linkable: [FrameworksLinkable.type, None],
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None]) -> [LinkInfo.type, None]:
     # When building a framework or executable, all frameworks used by the statically-linked
     # deps in the subtree need to be linked.
     #
@@ -148,7 +153,10 @@ def get_frameworks_link_info_by_deduping_link_infos(
     if framework_linkable:
         framework_linkables.append(framework_linkable)
 
-    return _link_info_from_frameworks_linkable(ctx, framework_linkables)
+    swift_runtime_linkables = extract_swift_runtime_linkables(infos)
+    swift_runtime_linkables.append(swift_runtime_linkable)
+
+    return _link_info_from_frameworks_linkable(ctx, framework_linkables, swift_runtime_linkables)
 
 def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [FrameworksLinkable.type]:
     frameworks_type = LinkableType("frameworks")
@@ -161,8 +169,9 @@ def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [Framew
 
     return linkables
 
-def _link_info_from_frameworks_linkable(ctx: "context", framework_linkables: [[FrameworksLinkable.type, None]]) -> [LinkInfo.type, None]:
+def _link_info_from_frameworks_linkable(ctx: "context", framework_linkables: [[FrameworksLinkable.type, None]], swift_runtime_linkables: [[SwiftRuntimeLinkable.type, None]]) -> [LinkInfo.type, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
+    swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))
     return LinkInfo(
-        pre_flags = [framework_link_args],
+        pre_flags = [framework_link_args, swift_runtime_link_args],
     ) if framework_link_args else None
