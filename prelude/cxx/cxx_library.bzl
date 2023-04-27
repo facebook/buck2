@@ -972,9 +972,9 @@ def _get_shared_library_links(
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
     # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-    frameworks_link_info = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
-    if frameworks_link_info:
-        filtered_links.append(frameworks_link_info)
+    additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
+    if additional_links:
+        filtered_links.append(additional_links)
 
     return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets)
 
