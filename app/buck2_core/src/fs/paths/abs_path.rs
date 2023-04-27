@@ -139,6 +139,11 @@ impl AbsPath {
 }
 
 impl AbsPathBuf {
+    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+        let p = AbsPath::new(path.as_ref())?;
+        Ok(p.to_owned())
+    }
+
     pub fn into_path_buf(self) -> PathBuf {
         self.0
     }

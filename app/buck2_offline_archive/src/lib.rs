@@ -77,6 +77,14 @@ impl fmt::Display for RepositoryMetadata {
     }
 }
 
+pub fn hg<I, S>(args: I) -> anyhow::Result<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    hg_in(std::env::current_dir()?, args)
+}
+
 fn hg_in<I, S, P>(path: P, args: I) -> anyhow::Result<String>
 where
     I: IntoIterator<Item = S>,

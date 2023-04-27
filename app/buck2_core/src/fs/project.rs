@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::path::Component;
 use std::path::Path;
@@ -90,6 +91,10 @@ impl ProjectRoot {
 
     pub fn root(&self) -> &AbsNormPath {
         &self.root
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.root.file_name().and_then(OsStr::to_str)
     }
 
     ///
