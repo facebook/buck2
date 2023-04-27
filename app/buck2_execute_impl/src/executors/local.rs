@@ -19,26 +19,18 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
-use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::quiet_soft_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_entry;
-use buck2_execute::directory::new_symlink;
-use buck2_execute::directory::ActionDirectoryBuilder;
-use buck2_execute::directory::ActionDirectoryEntry;
-use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::entry::build_entry_from_disk;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
@@ -69,7 +61,6 @@ use buck2_forkserver::run::GatherOutputStatus;
 use buck2_util::process::background_command;
 use derive_more::From;
 use dupe::Dupe;
-use faccess::PathExt;
 use futures::future;
 use futures::future::select;
 use futures::future::FutureExt;
@@ -485,8 +476,7 @@ impl LocalExecutor {
         for output in request.outputs() {
             let path = output.resolve(&self.artifact_fs).into_path();
             let abspath = self.root.join(&path);
-            let entry = self
-                .build_entry_from_disk(abspath, digest_config)
+            let entry = build_entry_from_disk(abspath, digest_config)
                 .with_context(|| format!("collecting output {:?}", path))?;
             if let Some(entry) = entry {
                 insert_entry(&mut builder, &path, entry)?;
@@ -519,82 +509,6 @@ impl LocalExecutor {
         self.materializer.declare_existing(to_declare).await?;
 
         Ok(mapped_outputs)
-    }
-
-    fn build_entry_from_disk(
-        &self,
-        mut path: AbsNormPathBuf,
-        digest_config: DigestConfig,
-    ) -> anyhow::Result<Option<ActionDirectoryEntry<ActionDirectoryBuilder>>> {
-        fn build_dir_from_disk(
-            disk_path: &mut AbsNormPathBuf,
-            digest_config: DigestConfig,
-        ) -> anyhow::Result<ActionDirectoryBuilder> {
-            let mut builder = ActionDirectoryBuilder::empty();
-
-            for file in fs_util::read_dir(&disk_path)? {
-                let file = file?;
-                let filetype = file.file_type()?;
-                let filename = file.file_name();
-
-                let filename = filename
-                    .to_str()
-                    .context("Filename is not UTF-8")
-                    .and_then(|f| FileNameBuf::try_from(f.to_owned()))
-                    .with_context(|| format!("Invalid filename: {}", disk_path.display()))?;
-
-                disk_path.push(&filename);
-
-                if filetype.is_dir() {
-                    let dir = build_dir_from_disk(disk_path, digest_config)?;
-                    builder.insert(filename, DirectoryEntry::Dir(dir))?;
-                } else if filetype.is_symlink() {
-                    builder.insert(
-                        filename,
-                        DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&disk_path)?)?),
-                    )?;
-                } else if filetype.is_file() {
-                    let metadata = FileMetadata {
-                        digest: TrackedFileDigest::new(
-                            FileDigest::from_file(&disk_path, digest_config.cas_digest_config())?,
-                            digest_config.cas_digest_config(),
-                        ),
-                        is_executable: file.path().executable(),
-                    };
-                    builder.insert(
-                        filename,
-                        DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
-                    )?;
-                }
-                disk_path.pop();
-            }
-
-            Ok(builder)
-        }
-
-        // Get file metadata. If the file is missing, ignore it.
-        let m = match std::fs::symlink_metadata(&path) {
-            Ok(m) => m,
-            Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(err) => return Err(err.into()),
-        };
-
-        let value = if m.file_type().is_symlink() {
-            DirectoryEntry::Leaf(new_symlink(fs_util::read_link(&path)?)?)
-        } else if m.is_file() {
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
-                digest: TrackedFileDigest::new(
-                    FileDigest::from_file(&path, digest_config.cas_digest_config())?,
-                    digest_config.cas_digest_config(),
-                ),
-                is_executable: path.executable(),
-            }))
-        } else if m.is_dir() {
-            DirectoryEntry::Dir(build_dir_from_disk(&mut path, digest_config)?)
-        } else {
-            unimplemented!("Path {:?} is of an unknown file type.", path)
-        };
-        Ok(Some(value))
     }
 }
 

@@ -19,6 +19,7 @@ pub mod bxl;
 pub mod digest;
 pub mod digest_config;
 pub mod directory;
+pub mod entry;
 pub mod execute;
 pub mod knobs;
 pub mod materialize;

@@ -14,6 +14,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }
+faccess = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 indexmap = { workspace = true }
