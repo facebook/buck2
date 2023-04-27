@@ -30,7 +30,17 @@ enum AbsPathError {
 #[repr(transparent)]
 pub struct AbsPath(Path);
 
-#[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Clone, Allocative)]
+#[derive(
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Clone,
+    Allocative,
+    serde::Serialize,
+    serde::Deserialize
+)]
 pub struct AbsPathBuf(PathBuf);
 
 impl fmt::Debug for AbsPath {

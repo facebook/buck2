@@ -8,12 +8,13 @@
  */
 
 use buck2_cli_proto::trace_io_request;
+use buck2_cli_proto::trace_io_response;
+use buck2_common::file_ops::RawSymlink;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
-use crate::ctx::BaseServerCommandContext;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn trace_io_command(
@@ -26,7 +27,32 @@ pub(crate) async fn trace_io_command(
         data: Some(buck2_data::TraceIoCommandStart {}.into()),
     };
     span_async(start_event, async move {
-        let resp = trace_io(&context.base_context, &req);
+        let tracing_provider = &context
+            .base_context
+            .io
+            .as_any()
+            .downcast_ref::<TracingIoProvider>();
+        let respond_with_trace = matches!(
+            req.read_state,
+            Some(trace_io_request::ReadIoTracingState { with_trace: true })
+        );
+
+        let resp = match (tracing_provider, respond_with_trace) {
+            (Some(provider), true) => build_response_with_trace(provider),
+            (Some(_), false) => buck2_cli_proto::TraceIoResponse {
+                enabled: true,
+                trace: Vec::new(),
+                relative_symlinks: Vec::new(),
+                external_symlinks: Vec::new(),
+            },
+            (None, _) => buck2_cli_proto::TraceIoResponse {
+                enabled: false,
+                trace: Vec::new(),
+                relative_symlinks: Vec::new(),
+                external_symlinks: Vec::new(),
+            },
+        };
+
         let result = Ok(resp);
         let end_event = command_end(metadata, &result, buck2_data::TraceIoCommandEnd {});
         (result, end_event)
@@ -34,29 +60,37 @@ pub(crate) async fn trace_io_command(
     .await
 }
 
-fn trace_io(
-    server_ctx: &BaseServerCommandContext,
-    req: &buck2_cli_proto::TraceIoRequest,
-) -> buck2_cli_proto::TraceIoResponse {
-    if let Some(provider) = server_ctx.io.as_any().downcast_ref::<TracingIoProvider>() {
-        buck2_cli_proto::TraceIoResponse {
-            enabled: true,
-            trace: if let Some(trace_io_request::ReadIoTracingState { with_trace: true }) =
-                req.read_state
-            {
-                provider
-                    .trace()
-                    .iter()
-                    .map(|path| path.to_string())
-                    .collect()
-            } else {
-                Vec::new()
-            },
+fn build_response_with_trace(provider: &TracingIoProvider) -> buck2_cli_proto::TraceIoResponse {
+    let entries = provider
+        .trace()
+        .entries
+        .iter()
+        .map(|path| path.to_string())
+        .collect();
+    let mut relative_symlinks = Vec::new();
+    let mut external_symlinks = Vec::new();
+    for link in provider.trace().symlinks.iter() {
+        match &link.to {
+            RawSymlink::Relative(to) => {
+                relative_symlinks.push(trace_io_response::RelativeSymlink {
+                    link: link.at.to_string(),
+                    target: to.to_string(),
+                });
+            }
+            RawSymlink::External(external) => {
+                external_symlinks.push(trace_io_response::ExternalSymlink {
+                    link: link.at.to_string(),
+                    target: external.target_str().to_owned(),
+                    remaining_path: external.remaining_path().map(|path| path.to_string()),
+                });
+            }
         }
-    } else {
-        buck2_cli_proto::TraceIoResponse {
-            enabled: false,
-            trace: Vec::new(),
-        }
+    }
+
+    buck2_cli_proto::TraceIoResponse {
+        enabled: true,
+        trace: entries,
+        relative_symlinks,
+        external_symlinks,
     }
 }

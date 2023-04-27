@@ -15,49 +15,92 @@ use dashmap::DashSet;
 
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
+use crate::file_ops::RawSymlink;
 use crate::io::IoProvider;
+
+#[derive(Allocative, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Symlink {
+    pub at: ProjectRelativePathBuf,
+    pub to: RawSymlink<ProjectRelativePathBuf>,
+}
+
+#[derive(Allocative)]
+pub struct Trace {
+    pub entries: DashSet<ProjectRelativePathBuf>,
+    pub symlinks: DashSet<Symlink>,
+}
+
+impl Trace {
+    pub fn new() -> Self {
+        Self {
+            entries: DashSet::new(),
+            symlinks: DashSet::new(),
+        }
+    }
+}
 
 #[derive(Allocative)]
 pub struct TracingIoProvider {
     io: Box<dyn IoProvider>,
-    trace: DashSet<ProjectRelativePathBuf>,
+    trace: Trace,
 }
 
 impl TracingIoProvider {
     pub fn new(io: Box<dyn IoProvider>) -> Self {
         Self {
             io,
-            trace: DashSet::new(),
+            trace: Trace::new(),
         }
     }
 
-    pub fn add_all(&self, paths: impl Iterator<Item = ProjectRelativePathBuf>) {
-        for path in paths {
-            self.trace.insert(path);
+    pub fn add_entry(&self, entry: ProjectRelativePathBuf) {
+        self.trace.entries.insert(entry);
+    }
+
+    pub fn add_entries(&self, entries: impl Iterator<Item = ProjectRelativePathBuf>) {
+        for entry in entries {
+            self.trace.entries.insert(entry);
         }
     }
 
-    pub fn trace(&self) -> &DashSet<ProjectRelativePathBuf> {
+    pub fn add_symlink(&self, link: Symlink) {
+        self.trace.symlinks.insert(link);
+    }
+
+    pub fn trace(&self) -> &Trace {
         &self.trace
     }
 }
 
 #[async_trait::async_trait]
 impl IoProvider for TracingIoProvider {
+    /// Combination of read_file_if_exists from underlying fs struct and reading
+    /// the metadata. This is done so we get accurate path classification (e.g.
+    /// if the path is a real file/dir or a symlink pointing somewhere else).
+    ///
+    /// This makes code working with the exported I/O manifest much easier to
+    /// work with at the expense of some additional I/O during tracing builds.
     async fn read_file_if_exists(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
-        self.trace.insert(path.clone());
+        self.add_entry(path.clone());
         self.io.read_file_if_exists(path).await
     }
 
+    /// Combination of read_file_if_exists from underlying fs struct and reading
+    /// the metadata. This is done so we get accurate path classification (e.g.
+    /// if the path is a real file/dir or a symlink pointing somewhere else).
+    ///
+    /// This makes code working with the exported I/O manifest much easier to
+    /// work with at the expense of some additional I/O during tracing builds.
     async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
         let entries = self.io.read_dir(path.clone()).await?;
+        self.add_entry(path.clone());
         for entry in entries.iter() {
-            self.trace
-                .insert(path.join(ForwardRelativePath::unchecked_new(&entry.file_name)));
+            self.add_entry(path.join(ForwardRelativePath::unchecked_new(&entry.file_name)));
         }
+
         Ok(entries)
     }
 
@@ -65,8 +108,21 @@ impl IoProvider for TracingIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        self.trace.insert(path.clone());
-        self.io.read_path_metadata_if_exists(path).await
+        let res = self.io.read_path_metadata_if_exists(path.clone()).await?;
+        match &res {
+            Some(RawPathMetadata::File(_)) | Some(RawPathMetadata::Directory) => {
+                self.add_entry(path);
+            }
+            Some(RawPathMetadata::Symlink { at, to }) => {
+                self.add_symlink(Symlink {
+                    at: at.clone(),
+                    to: to.clone(),
+                });
+            }
+            _ => {}
+        }
+
+        Ok(res)
     }
 
     async fn settle(&self) -> anyhow::Result<()> {

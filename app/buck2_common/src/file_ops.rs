@@ -235,7 +235,7 @@ pub enum RawPathMetadata<T = Arc<CellPath>> {
     Directory,
 }
 
-#[derive(Debug, Dupe, PartialEq, Eq, Clone, Allocative)]
+#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative)]
 pub enum RawSymlink<T> {
     Relative(T),
     External(Arc<ExternalSymlink>),

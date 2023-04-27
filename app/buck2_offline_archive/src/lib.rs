@@ -15,7 +15,22 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::Context;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct RelativeSymlink {
+    pub link: ProjectRelativePathBuf,
+    pub target: ProjectRelativePathBuf,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ExternalSymlink {
+    pub link: ProjectRelativePathBuf,
+    pub target: AbsPathBuf,
+    pub remaining_path: Option<ForwardRelativePathBuf>,
+}
 
 /// Structured format for an "offline archive manifest", which contains information
 /// necessary to perform a fully offline build of a particular target.
@@ -28,6 +43,10 @@ pub struct OfflineArchiveManifest {
     pub repository: RepositoryMetadata,
     /// List of project-relative paths that are required to perform a build.
     pub paths: Vec<ProjectRelativePathBuf>,
+    /// List of project-relative symlinks with targets inside the project.
+    pub relative_symlinks: Vec<RelativeSymlink>,
+    /// List of project-relative symlinks with targets outside the project.
+    pub external_symlinks: Vec<ExternalSymlink>,
 }
 
 /// Repository information for an "offline archive manifest". Contains metadata

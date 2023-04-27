@@ -785,8 +785,21 @@ message TraceIoRequest {
 }
 
 message TraceIoResponse {
+  message RelativeSymlink {
+    string link = 1;
+    string target = 2;
+  }
+
+  message ExternalSymlink {
+    string link = 1;
+    string target = 2;
+    optional string remaining_path = 3;
+  }
+
   bool enabled = 1;
   repeated string trace = 2;
+  repeated RelativeSymlink relative_symlinks = 3;
+  repeated ExternalSymlink external_symlinks = 4;
 }
 
 // Note: When adding new request or response types, some of the declarations in

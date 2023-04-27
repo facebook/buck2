@@ -284,7 +284,7 @@ impl ServerCommandContext {
                     })
                     .ok()
             });
-            tracing_provider.add_all(project_configs);
+            tracing_provider.add_entries(project_configs);
         }
 
         let oncall = if client_context.oncall.is_empty() {
@@ -793,7 +793,7 @@ impl ServerCommandContextTrait for ServerCommandContext {
                     .map(Cow::into_owned)
                     .ok()
             });
-            tracing_provider.add_all(config_paths);
+            tracing_provider.add_entries(config_paths);
         }
 
         let root_cell_config = configs.get(cells.root_cell());

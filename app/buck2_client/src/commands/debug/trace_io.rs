@@ -25,8 +25,12 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_offline_archive::ExternalSymlink;
 use buck2_offline_archive::OfflineArchiveManifest;
+use buck2_offline_archive::RelativeSymlink;
 use buck2_offline_archive::RepositoryMetadata;
 
 /// Enable I/O tracing in the buck daemon so we keep track of which files
@@ -97,17 +101,37 @@ impl StreamingCommand for TraceIoCommand {
                     read_state: Some(trace_io_request::ReadIoTracingState { with_trace: true }),
                 };
                 let resp = self.send_request(req, buckd, ctx).await??;
-                let mut trace = resp.trace;
+                let mut entries = resp.trace;
 
                 // Incorporate buck2 executable files.
-                trace.push(".buck2".to_owned());
-                trace.push(".buck2-previous".to_owned());
+                entries.push(".buck2".to_owned());
+                entries.push(".buck2-previous".to_owned());
 
                 let manifest = OfflineArchiveManifest {
-                    paths: trace
+                    paths: entries
                         .into_iter()
                         // Note: Safe because these are all ProjectRelativePath's on the daemon side.
                         .map(ProjectRelativePathBuf::unchecked_new)
+                        .collect(),
+                    relative_symlinks: resp
+                        .relative_symlinks
+                        .into_iter()
+                        .map(|symlink| RelativeSymlink {
+                            link: ProjectRelativePathBuf::unchecked_new(symlink.link),
+                            target: ProjectRelativePathBuf::unchecked_new(symlink.target),
+                        })
+                        .collect(),
+                    external_symlinks: resp
+                        .external_symlinks
+                        .into_iter()
+                        .map(|symlink| ExternalSymlink {
+                            link: ProjectRelativePathBuf::unchecked_new(symlink.link),
+                            target: AbsPathBuf::try_from(symlink.target)
+                                .expect("got unexpected non-absolute path"),
+                            remaining_path: symlink
+                                .remaining_path
+                                .map(ForwardRelativePathBuf::unchecked_new),
+                        })
                         .collect(),
                     repository: RepositoryMetadata::from_cwd()
                         .context("creating repository metadata")?,
