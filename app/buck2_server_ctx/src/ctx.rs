@@ -150,6 +150,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                             dice_accessor.sanitized_argv,
                             exclusive_cmd,
                             dice_accessor.exit_when_different_state,
+                            self.cancellation_context(),
                         )
                         .await,
                     DiceCriticalSectionEnd {},

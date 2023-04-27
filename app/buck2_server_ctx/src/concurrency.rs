@@ -49,7 +49,7 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use itertools::Itertools;
-use more_futures::cancellable_future::critical_section;
+use more_futures::cancellation::CancellationContext;
 use parking_lot::lock_api::MutexGuard;
 use parking_lot::FairMutex;
 use parking_lot::RawFairMutex;
@@ -419,6 +419,7 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exclusive_cmd: Option<String>,
         exit_when_different_state: bool,
+        cancellations: &CancellationContext,
     ) -> anyhow::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -446,17 +447,18 @@ impl ConcurrencyHandler {
         let (_guard, transaction) = event_dispatcher
             .span_async(DiceSynchronizeSectionStart {}, async move {
                 (
-                    critical_section(|| {
-                        self.wait_for_others(
-                            data,
-                            updates,
-                            events,
-                            is_nested_invocation,
-                            sanitized_argv,
-                            exit_when_different_state,
-                        )
-                    })
-                    .await,
+                    cancellations
+                        .critical_section(|| {
+                            self.wait_for_others(
+                                data,
+                                updates,
+                                events,
+                                is_nested_invocation,
+                                sanitized_argv,
+                                exit_when_different_state,
+                            )
+                        })
+                        .await,
                     DiceSynchronizeSectionEnd {},
                 )
             })
@@ -867,6 +869,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -882,6 +885,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -897,6 +901,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -935,6 +940,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
 
         let fut2 = concurrency.enter(
@@ -951,6 +957,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -992,6 +999,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -1007,6 +1015,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -1022,6 +1031,7 @@ mod tests {
             Vec::new(),
             None,
             false,
+            CancellationContext::testing(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -1075,6 +1085,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1099,6 +1110,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1125,6 +1137,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1205,6 +1218,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1227,6 +1241,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1249,6 +1264,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1311,6 +1327,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1335,6 +1352,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1361,6 +1379,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
+                        CancellationContext::testing(),
                     )
                     .await
             }
@@ -1471,6 +1490,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
+                CancellationContext::testing(),
             )
             .await?;
 
@@ -1489,6 +1509,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
+                CancellationContext::testing(),
             )
             .await?;
 
@@ -1506,6 +1527,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
+                CancellationContext::testing(),
             )
             .await?;
 
@@ -1622,6 +1644,7 @@ mod tests {
                             Vec::new(),
                             exclusive_cmd,
                             false,
+                            CancellationContext::testing(),
                         )
                         .await
                 }
@@ -1722,6 +1745,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
+                CancellationContext::testing(),
             )
             .await?;
 
@@ -1742,6 +1766,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
+                CancellationContext::testing(),
             )
             .await?;
 
@@ -1778,6 +1803,7 @@ mod tests {
                     Vec::new(),
                     None,
                     false,
+                    CancellationContext::testing(),
                 )
                 .await
         });
