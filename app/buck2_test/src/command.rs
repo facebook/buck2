@@ -406,12 +406,9 @@ async fn test_targets(
         .launch(tpx_args)
         .await
         .context("Failed to launch executor")
-        .map_err(
-            |err| match soft_error!("executor_launch_failed", err, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false) {
-                Ok(e) => e,
-                Err(e) => e,
-            },
-        )?;
+        .or_else(|e| {
+            Err(soft_error!("executor_launch_failed", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
+        })?;
 
     let test_executor = Arc::new(test_executor) as Arc<dyn TestExecutor>;
 

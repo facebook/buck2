@@ -247,14 +247,9 @@ async fn copy_output<W: Write>(
 
     // we write the output to a file in buck-out as cache so we don't use memory caching it in
     // DICE. So now we open the file and read it all into the destination stream.
-    let mut file = match fs_util::open_file(loc) {
-        Ok(f) => f,
-        Err(e) => {
-            return Err(
-                soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?,
-            );
-        }
-    };
+    let mut file = fs_util::open_file(loc).or_else(|e|
+        Err(soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
+    )?;
     io::copy(&mut file, &mut output)?;
     Ok(())
 }

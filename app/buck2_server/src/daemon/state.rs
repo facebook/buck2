@@ -602,12 +602,9 @@ impl DaemonState {
             enable_restarter: data.as_ref().map_or(false, |d| d.enable_restarter),
         });
 
-        check_working_dir::check_working_dir().map_err(|e| {
+        check_working_dir::check_working_dir().or_else(|e| {
             // Always throw this error, but tag it via soft errors.
-            match soft_error!("eden_not_connected", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false) {
-                Ok(r) => r,
-                Err(e) => e,
-            }
+            Err(soft_error!("eden_not_connected", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
         })?;
 
         self.validate_buck_out_mount()
