@@ -15,6 +15,8 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 use crate::cancellable_future::critical_section;
+use crate::cancellable_future::with_structured_cancellation;
+use crate::cancellable_future::CancellationObserver;
 
 static INSTANCE: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(Arc::new(CancellationContextShared {})));
@@ -56,6 +58,22 @@ impl CancellationContext {
         // placeholder to just delegate to existing critical_section code for now until we migrate
         // the callsites
         critical_section(make)
+    }
+
+    /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
+    /// CancellationObserver is a future that resolves when cancellation is requested (or when this
+    /// section exits).
+    ///
+    /// TODO(bobyf) this needs to be updated with the new implementation
+    pub fn with_structured_cancellation<'a, F, Fut>(
+        &'a self,
+        make: F,
+    ) -> impl Future<Output = <Fut as Future>::Output> + 'a
+    where
+        Fut: Future + 'a,
+        F: FnOnce(CancellationObserver) -> Fut + 'a,
+    {
+        with_structured_cancellation(make)
     }
 }
 
