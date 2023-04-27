@@ -25,7 +25,8 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::soft_error;
+use buck2_core::tag_error;
+use buck2_core::tag_result;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -619,14 +620,14 @@ pub async fn materialize_inputs(
             Err(MaterializationError::NotFound { path, info, debug }) => {
                 let expired = info.origin.action_result_has_expired();
 
-                return Err(soft_error!(
+                return Err(tag_error!(
                     "cas_missing_fatal",
                     MaterializationError::NotFound { path, info, debug }.into(),
                     quiet: true,
                     task: false,
                     daemon_in_memory_state_is_corrupted: true,
                     action_cache_is_corrupted: !expired
-                )?);
+                ));
             }
             Err(e) => {
                 return Err(e.into());
@@ -652,7 +653,17 @@ async fn check_inputs(
                             if !artifact.is_source() {
                                 let path = artifact.resolve_path(artifact_fs)?;
                                 let abs_path = artifact_fs.fs().resolve(&path);
-                                fs_util::symlink_metadata(&abs_path).context("Missing input")?;
+
+                                // We ignore the result here because while we want to tag it, we'd
+                                // prefer to just show the normal error to the user, so we don't
+                                // want to propagate it.
+                                let _ignored = tag_result!(
+                                    "missing_local_inputs",
+                                    fs_util::symlink_metadata(&abs_path).context("Missing input"),
+                                    quiet: true,
+                                    task: false,
+                                    daemon_materializer_state_is_corrupted: true
+                                );
                             }
                         }
                     }
@@ -666,17 +677,9 @@ async fn check_inputs(
         })
         .await;
 
-    match res.map_err(|err| {
-        soft_error!(
-            "missing_local_inputs",
-            err,
-            quiet: true,
-            task: false,
-            daemon_materializer_state_is_corrupted: true
-        )
-    }) {
-        Ok(()) | Err(Ok(_)) => ControlFlow::Continue(manager),
-        Err(Err(err)) => ControlFlow::Break(manager.error("local_check_inputs", err)),
+    match res {
+        Ok(()) => ControlFlow::Continue(manager),
+        Err(err) => ControlFlow::Break(manager.error("local_check_inputs", err)),
     }
 }
 

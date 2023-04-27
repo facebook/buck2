@@ -39,6 +39,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::soft_error;
+use buck2_core::tag_result;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::parse_import::parse_import_with_config;
@@ -247,8 +248,12 @@ async fn copy_output<W: Write>(
 
     // we write the output to a file in buck-out as cache so we don't use memory caching it in
     // DICE. So now we open the file and read it all into the destination stream.
-    let mut file = fs_util::open_file(loc).or_else(|e|
-        Err(soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
+    let mut file = tag_result!(
+        "bxl_output_missing",
+        fs_util::open_file(loc),
+        quiet: true,
+        daemon_in_memory_state_is_corrupted: true,
+        task: false
     )?;
     io::copy(&mut file, &mut output)?;
     Ok(())

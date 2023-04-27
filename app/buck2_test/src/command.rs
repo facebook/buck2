@@ -46,7 +46,7 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::soft_error;
+use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_execute::materialize::materializer::HasMaterializer;
@@ -398,17 +398,24 @@ async fn test_targets(
         args
     };
 
+    let res = launcher
+        .launch(tpx_args)
+        .await
+        .context("Failed to launch executor");
+
+    let res = tag_result!(
+        "executor_launch_failed",
+        res,
+        quiet: true,
+        daemon_in_memory_state_is_corrupted: true,
+        task: false
+    )?;
+
     let ExecutorLaunch {
         handle: executor_handle,
         client: test_executor,
         make_server,
-    } = launcher
-        .launch(tpx_args)
-        .await
-        .context("Failed to launch executor")
-        .or_else(|e| {
-            Err(soft_error!("executor_launch_failed", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
-        })?;
+    } = res;
 
     let test_executor = Arc::new(test_executor) as Arc<dyn TestExecutor>;
 

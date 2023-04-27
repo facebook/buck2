@@ -33,6 +33,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
+use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -602,10 +603,13 @@ impl DaemonState {
             enable_restarter: data.as_ref().map_or(false, |d| d.enable_restarter),
         });
 
-        check_working_dir::check_working_dir().or_else(|e| {
-            // Always throw this error, but tag it via soft errors.
-            Err(soft_error!("eden_not_connected", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?)
-        })?;
+        tag_result!(
+            "eden_not_connected",
+            check_working_dir::check_working_dir(),
+            quiet: true,
+            daemon_in_memory_state_is_corrupted: true,
+            task: false
+        )?;
 
         self.validate_buck_out_mount()
             .context("Error validating buck-out mount")?;
