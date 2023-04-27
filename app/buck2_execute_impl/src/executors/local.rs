@@ -620,6 +620,7 @@ pub async fn materialize_inputs(
                 return Err(soft_error!(
                     "cas_missing_fatal", e.into(),
                     quiet: true,
+                    task: false,
                     daemon_in_memory_state_is_corrupted: true
                 )?);
             }
@@ -666,6 +667,7 @@ async fn check_inputs(
             "missing_local_inputs",
             err,
             quiet: true,
+            task: false,
             daemon_materializer_state_is_corrupted: true
         )
     }) {

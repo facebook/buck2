@@ -604,7 +604,7 @@ impl DaemonState {
 
         check_working_dir::check_working_dir().map_err(|e| {
             // Always throw this error, but tag it via soft errors.
-            match soft_error!("eden_not_connected", e, quiet: true, daemon_in_memory_state_is_corrupted: true) {
+            match soft_error!("eden_not_connected", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false) {
                 Ok(r) => r,
                 Err(e) => e,
             }

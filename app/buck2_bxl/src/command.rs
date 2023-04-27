@@ -251,7 +251,7 @@ async fn copy_output<W: Write>(
         Ok(f) => f,
         Err(e) => {
             return Err(
-                soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true)?,
+                soft_error!("bxl_output_missing", e, quiet: true, daemon_in_memory_state_is_corrupted: true, task: false)?,
             );
         }
     };
