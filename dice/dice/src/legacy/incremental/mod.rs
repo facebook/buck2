@@ -1243,7 +1243,6 @@ mod tests {
     use gazebo::cmp::PartialEqAny;
     use gazebo::prelude::*;
     use indexmap::indexset;
-    use more_futures::cancellable_future::with_structured_cancellation;
     use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use parking_lot::RwLock;
@@ -2482,7 +2481,7 @@ mod tests {
 
         let engine = IncrementalEngine::new({
             let notify = notify.dupe();
-            EvaluatorFn::new(move |_k, _cancellations| {
+            EvaluatorFn::new(move |_k, cancellations| {
                 async move {
                     let mut guard = exclusive
                         .try_lock()
@@ -2502,16 +2501,17 @@ mod tests {
                         // test is to prove that nobody will get to run before we exit and drop it.
                         *guard = true;
 
-                        with_structured_cancellation(|obs| async move {
-                            // Resume the rest of the code.
-                            notify.notify_one();
-                            // Wait for our cancellation.
-                            obs.await;
-                            // Yield. If the final evaluation is ready (that would be a bug!), it will
-                            // run now.
-                            tokio::task::yield_now().await;
-                        })
-                        .await;
+                        cancellations
+                            .with_structured_cancellation(|obs| async move {
+                                // Resume the rest of the code.
+                                notify.notify_one();
+                                // Wait for our cancellation.
+                                obs.await;
+                                // Yield. If the final evaluation is ready (that would be a bug!), it will
+                                // run now.
+                                tokio::task::yield_now().await;
+                            })
+                            .await;
 
                         // Never return, but this bit will be the one that's cancelled.
                         futures::future::pending().await

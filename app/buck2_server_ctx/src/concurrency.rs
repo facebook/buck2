@@ -779,7 +779,6 @@ mod tests {
     use dice::Key;
     use dice::UserComputationData;
     use dupe::Dupe;
-    use more_futures::cancellable_future::with_structured_cancellation;
     use more_futures::cancellation::CancellationContext;
     use parking_lot::Mutex;
     use tokio::sync::Barrier;
@@ -1427,13 +1426,15 @@ mod tests {
         async fn compute(
             &self,
             _ctx: &DiceComputations,
-            _cancellation: &CancellationContext,
+            cancellation: &CancellationContext,
         ) -> Self::Value {
             let _guard = self.is_executing.lock();
 
             // TODO: use critical_section as it's simpler, but this stack doesn't have it and
             // this works equally well here :)
-            with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1))).await;
+            cancellation
+                .with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1)))
+                .await;
         }
 
         fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
