@@ -11,7 +11,14 @@ load("@prelude//apple/swift:swift_compilation.bzl", "compile_swift", "get_swift_
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
-load("@prelude//cxx:cxx_types.bzl", "CxxRuleAdditionalParams", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load(
+    "@prelude//cxx:cxx_types.bzl",
+    "CxxAdditionalArgsfileParams",  # @unused Used as a type
+    "CxxRuleAdditionalParams",
+    "CxxRuleConstructorParams",
+    "CxxRuleProviderParams",
+    "CxxRuleSubTargetParams",
+)
 load(
     "@prelude//cxx:debug.bzl",
     "ExternalDebugInfoTSet",  # @unused Used as a type
@@ -29,6 +36,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorInfo",  # @unused Used as a type
 )
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
@@ -142,7 +150,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         ],
     )
 
-    def additional_providers_factory(propagated_exported_preprocessor_info: ["CPreprocessorInfo", None]) -> ["provider"]:
+    def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None]) -> ["provider"]:
         # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
         # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
         # This is used for Swift Explicit Modules, and allows compiling a PCM file out of the exported headers.
@@ -262,7 +270,7 @@ def _xcode_populate_attributes(
         ctx,
         srcs: ["CxxSrcWithFlags"],
         argsfiles_by_ext: {str.type: "artifact"},
-        swift_argsfile: ["CxxAdditionalArgsfileParams", None],
+        swift_argsfile: [CxxAdditionalArgsfileParams.type, None],
         populate_xcode_attributes_func: "function",
         **_kwargs) -> {str.type: ""}:
     if swift_argsfile:

@@ -16,7 +16,7 @@ load(
 )
 load(":apple_utility.bzl", "get_module_name")
 
-def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CHeader.type], swift_header: ["artifact", None]) -> "CPreprocessor":
+def preprocessor_info_for_modulemap(ctx: "context", name: str.type, headers: [CHeader.type], swift_header: ["artifact", None]) -> CPreprocessor.type:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")

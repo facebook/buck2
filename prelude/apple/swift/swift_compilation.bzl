@@ -23,6 +23,7 @@ load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorInfo",  # @unused Used as a type
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
@@ -66,13 +67,13 @@ SwiftCompilationOutput = record(
     swiftmodule = field("artifact"),
     # The dependency info provider that provides the swiftmodule
     # search paths required for compilation.
-    providers = field(["SwiftDependencyInfo"]),
+    providers = field([SwiftDependencyInfo.type]),
     # Preprocessor info required for ObjC compilation of this library.
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
     exported_pre = field(CPreprocessor.type),
     # Argsfile to compile an object file which is used by some subtargets.
-    swift_argsfile = field("CxxAdditionalArgsfileParams"),
+    swift_argsfile = field(CxxAdditionalArgsfileParams.type),
 )
 
 REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
@@ -135,8 +136,8 @@ def compile_swift(
         srcs: [CxxSrcWithFlags.type],
         deps_providers: list.type,
         exported_headers: [CHeader.type],
-        objc_modulemap_pp_info: ["CPreprocessor", None],
-        extra_search_paths_flags: ["_arglike"] = []) -> ["SwiftCompilationOutput", None]:
+        objc_modulemap_pp_info: [CPreprocessor.type, None],
+        extra_search_paths_flags: ["_arglike"] = []) -> [SwiftCompilationOutput.type, None]:
     if not srcs:
         return None
 
@@ -254,7 +255,7 @@ def _compile_swiftmodule(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         output_swiftmodule: "artifact",
-        output_header: "artifact") -> "CxxAdditionalArgsfileParams":
+        output_header: "artifact") -> CxxAdditionalArgsfileParams.type:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-Xfrontend",
@@ -275,7 +276,7 @@ def _compile_object(
         toolchain: "SwiftToolchainInfo",
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
-        output_object: "artifact") -> "CxxAdditionalArgsfileParams":
+        output_object: "artifact") -> CxxAdditionalArgsfileParams.type:
     cmd = cmd_args([
         "-emit-object",
         "-o",
@@ -289,7 +290,7 @@ def _compile_with_argsfile(
         shared_flags: "cmd_args",
         srcs: [CxxSrcWithFlags.type],
         additional_flags: "cmd_args",
-        toolchain: "SwiftToolchainInfo") -> "CxxAdditionalArgsfileParams":
+        toolchain: "SwiftToolchainInfo") -> CxxAdditionalArgsfileParams.type:
     shell_quoted_cmd = cmd_args(shared_flags, quote = "shell")
     argfile, _ = ctx.actions.write(name + ".argsfile", shell_quoted_cmd, allow_args = True)
 
@@ -329,7 +330,7 @@ def _get_shared_flags(
         underlying_module: ["SwiftPCMCompiledInfo", None],
         module_name: str.type,
         objc_headers: [CHeader.type],
-        objc_modulemap_pp_info: ["CPreprocessor", None],
+        objc_modulemap_pp_info: [CPreprocessor.type, None],
         extra_search_paths_flags: ["_arglike"] = []) -> "cmd_args":
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
@@ -483,7 +484,7 @@ def _add_mixed_library_flags_to_cmd(
         cmd: "cmd_args",
         underlying_module: ["SwiftPCMCompiledInfo", None],
         objc_headers: [CHeader.type],
-        objc_modulemap_pp_info: ["CPreprocessor", None]) -> None:
+        objc_modulemap_pp_info: [CPreprocessor.type, None]) -> None:
     if uses_explicit_modules(ctx):
         if underlying_module:
             cmd.add(ctx.actions.tset(
@@ -510,14 +511,14 @@ def _add_mixed_library_flags_to_cmd(
 
     cmd.add("-import-underlying-module")
 
-def _get_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
+def _get_swift_paths_tsets(deps: ["dependency"]) -> [SwiftmodulePathsTSet.type]:
     return [
         d[SwiftDependencyInfo].exported_swiftmodule_paths
         for d in deps
         if SwiftDependencyInfo in d
     ]
 
-def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> ["SwiftmodulePathsTSet"]:
+def _get_transitive_swift_paths_tsets(deps: ["dependency"]) -> [SwiftmodulePathsTSet.type]:
     return [
         d[SwiftDependencyInfo].transitive_swiftmodule_paths
         for d in deps
@@ -531,7 +532,7 @@ def _get_external_debug_info_tsets(deps: ["dependency"]) -> [ExternalDebugInfoTS
         if SwiftDependencyInfo in d and d[SwiftDependencyInfo].external_debug_info != None
     ]
 
-def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> "ExportedHeadersTSet":
+def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], None] = None) -> ExportedHeadersTSet.type:
     return ctx.actions.tset(
         ExportedHeadersTSet,
         value = {get_module_name(ctx): exported_headers} if exported_headers else None,
@@ -544,8 +545,8 @@ def _get_exported_headers_tset(ctx: "context", exported_headers: [["string"], No
 
 def get_swift_pcm_uncompile_info(
         ctx: "context",
-        propagated_exported_preprocessor_info: ["CPreprocessorInfo", None],
-        exported_pre: ["CPreprocessor", None]) -> ["SwiftPCMUncompiledInfo", None]:
+        propagated_exported_preprocessor_info: [CPreprocessorInfo.type, None],
+        exported_pre: [CPreprocessor.type, None]) -> [SwiftPCMUncompiledInfo.type, None]:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
     if is_sdk_modules_provided(swift_toolchain):
@@ -562,8 +563,8 @@ def get_swift_pcm_uncompile_info(
 
 def get_swift_dependency_info(
         ctx: "context",
-        exported_pre: ["CPreprocessor", None],
-        output_module: ["artifact", None]) -> "SwiftDependencyInfo":
+        exported_pre: [CPreprocessor.type, None],
+        output_module: ["artifact", None]) -> SwiftDependencyInfo.type:
     all_deps = ctx.attrs.exported_deps + ctx.attrs.deps
     if ctx.attrs.reexport_all_header_dependencies:
         exported_deps = all_deps

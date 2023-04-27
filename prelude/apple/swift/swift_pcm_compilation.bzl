@@ -8,7 +8,12 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_explicit_modules_env_var", "get_module_name", "get_versioned_target_triple")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
-load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps")
+load(
+    ":apple_sdk_modules_utility.bzl",
+    "SDKDepTSet",  # @unused Used as a type
+    "get_compiled_sdk_deps_tset",
+    "get_uncompiled_sdk_deps",
+)
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMCompiledInfo", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
@@ -16,7 +21,7 @@ load(":swift_toolchain_types.bzl", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
-def _project_as_clang_deps(value: "SwiftPCMCompiledInfo"):
+def _project_as_clang_deps(value: SwiftPCMCompiledInfo.type):
     return cmd_args([
         "-Xcc",
         cmd_args(["-fmodule-file=", value.name, "=", value.pcm_output], delimiter = ""),
@@ -29,7 +34,7 @@ PcmDepTSet = transitive_set(args_projections = {
     "clang_deps": _project_as_clang_deps,
 })
 
-def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list.type) -> "PcmDepTSet":
+def get_compiled_pcm_deps_tset(ctx: "context", pcm_deps_providers: list.type) -> PcmDepTSet.type:
     pcm_deps = [
         pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
         for pcm_deps_provider in pcm_deps_providers
@@ -251,9 +256,9 @@ def compile_underlying_pcm(
 def _get_base_pcm_flags(
         ctx: "context",
         module_name: str.type,
-        uncompiled_pcm_info: "SwiftPCMUncompiledInfo",
-        sdk_deps_tset: "SDKDepTSet",
-        pcm_deps_tset: "PcmDepTSet",
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo.type,
+        sdk_deps_tset: SDKDepTSet.type,
+        pcm_deps_tset: PcmDepTSet.type,
         swift_cxx_args: [str.type]) -> ("cmd_args", "cmd_args", "artifact"):
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 

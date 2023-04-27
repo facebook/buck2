@@ -5,16 +5,21 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    ":swift_toolchain_types.bzl",
+    "SdkCompiledModuleInfo",  # @unused Used as a type
+)
+
 def write_swift_module_map(
         ctx: "context",
         module_name: str.type,
-        sdk_deps: ["SdkCompiledModuleInfo"]) -> "artifact":
+        sdk_deps: [SdkCompiledModuleInfo.type]) -> "artifact":
     return write_swift_module_map_with_swift_deps(ctx, module_name, sdk_deps, [])
 
 def write_swift_module_map_with_swift_deps(
         ctx: "context",
         module_name: str.type,
-        sdk_swift_deps: ["SdkCompiledModuleInfo"],
+        sdk_swift_deps: [SdkCompiledModuleInfo.type],
         swift_deps: ["artifact"]) -> "artifact":
     deps = {}
     for sdk_dep in sdk_swift_deps:
