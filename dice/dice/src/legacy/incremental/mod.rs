@@ -1314,14 +1314,19 @@ mod tests {
         let graph_node: Arc<dyn GraphNodeDyn> = node.dupe();
 
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
-        let eval_fn = move |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps {
-                deps: HashSet::default(),
-                rdeps: vec![graph_node.dupe()],
-            },
+        let eval_fn = move |k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps {
+                        deps: HashSet::default(),
+                        rdeps: vec![graph_node.dupe()],
+                    },
+                }
+            }
+            .boxed()
         };
-        let engine = IncrementalEngine::new(EvaluatorFn::new(async move |k| eval_fn(k)));
+        let engine = IncrementalEngine::new(EvaluatorFn::new(|k| eval_fn(k)));
 
         let vt = VersionTracker::new(Box::new(|_| {}));
 
@@ -1382,20 +1387,25 @@ mod tests {
         let evaluator = {
             let counter0 = counter0.dupe();
             let counter1 = counter1.dupe();
-            async move |k| {
-                if k == 0 {
-                    counter0.fetch_add(1, Ordering::SeqCst);
-                    ValueWithDeps {
-                        value: 1i32,
-                        both_deps: BothDeps::default(),
-                    }
-                } else {
-                    counter1.fetch_add(1, Ordering::SeqCst);
-                    ValueWithDeps {
-                        value: 2i32,
-                        both_deps: BothDeps::default(),
+            |k| {
+                async move {
+                    {
+                        if k == 0 {
+                            counter0.fetch_add(1, Ordering::SeqCst);
+                            ValueWithDeps {
+                                value: 1i32,
+                                both_deps: BothDeps::default(),
+                            }
+                        } else {
+                            counter1.fetch_add(1, Ordering::SeqCst);
+                            ValueWithDeps {
+                                value: 2i32,
+                                both_deps: BothDeps::default(),
+                            }
+                        }
                     }
                 }
+                .boxed()
             }
         };
 
@@ -1473,15 +1483,18 @@ mod tests {
         let barrier = Arc::new(Barrier::new(n_thread));
 
         rt.block_on(async move {
-            let engine = IncrementalEngine::new(EvaluatorFn::new(async move |_k| {
-                let b = barrier.dupe();
-                // spawned tasks that can only proceed if all are
-                // concurrently running
-                b.wait();
-                ValueWithDeps {
-                    value: 1usize,
-                    both_deps: BothDeps::default(),
+            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k| {
+                async move {
+                    let b = barrier.dupe();
+                    // spawned tasks that can only proceed if all are
+                    // concurrently running
+                    b.wait();
+                    ValueWithDeps {
+                        value: 1usize,
+                        both_deps: BothDeps::default(),
+                    }
                 }
+                .boxed()
             }));
             let engine = &engine;
 
@@ -1778,20 +1791,22 @@ mod tests {
             let is_ran = is_ran.dupe();
             let dep = dep.dupe();
             let eval_result = eval_result.dupe();
-            async move |k| {
-                if k == 10 && !is_ran.load(Ordering::SeqCst) {
-                    is_ran.store(true, Ordering::SeqCst);
-                    return ValueWithDeps {
-                        value: eval_result.load(Ordering::SeqCst),
-                        both_deps: BothDeps {
-                            deps: HashSet::from_iter([
-                                Box::new(dep.lock().take().unwrap()) as Box<dyn ComputedDependency>
-                            ]),
-                            rdeps: Vec::new(),
-                        },
-                    };
+            |k| {
+                async move {
+                    if k == 10 && !is_ran.load(Ordering::SeqCst) {
+                        is_ran.store(true, Ordering::SeqCst);
+                        return ValueWithDeps {
+                            value: eval_result.load(Ordering::SeqCst),
+                            both_deps: BothDeps {
+                                deps: HashSet::from_iter([Box::new(dep.lock().take().unwrap())
+                                    as Box<dyn ComputedDependency>]),
+                                rdeps: Vec::new(),
+                            },
+                        };
+                    }
+                    panic!("never called. should be cached not evaluated")
                 }
-                panic!("never called. should be cached not evaluated")
+                .boxed()
             }
         };
 
@@ -1988,45 +2003,65 @@ mod tests {
             ActiveTransactionCountGuard::testing_new(),
         ));
 
-        let engine0 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps {
-                deps: HashSet::default(),
-                rdeps: Vec::new(),
-            },
+        let engine0 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps {
+                        deps: HashSet::default(),
+                        rdeps: Vec::new(),
+                    },
+                }
+            }
+            .boxed()
         }));
         let node0 = engine0
             .eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine1 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps {
-                deps: HashSet::default(),
-                rdeps: vec![node0.into_dyn()],
-            },
+        let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps {
+                        deps: HashSet::default(),
+                        rdeps: vec![node0.into_dyn()],
+                    },
+                }
+            }
+            .boxed()
         }));
         let node1 = engine1
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine2 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps {
-                deps: HashSet::default(),
-                rdeps: vec![node1.into_dyn()],
-            },
+        let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps {
+                        deps: HashSet::default(),
+                        rdeps: vec![node1.into_dyn()],
+                    },
+                }
+            }
+            .boxed()
         }));
         let node2 = engine2
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
             .await?;
 
-        let engine3 = IncrementalEngine::new(EvaluatorFn::new(async move |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps {
-                deps: HashSet::default(),
-                rdeps: vec![node2.into_dyn()],
-            },
+        let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps {
+                        deps: HashSet::default(),
+                        rdeps: vec![node2.into_dyn()],
+                    },
+                }
+            }
+            .boxed()
         }));
         let _node3 = engine3
             .eval_entry_versioned(&3, &ctx, ComputationData::testing_new())
@@ -2095,26 +2130,29 @@ mod tests {
             let cg = check_guard.dupe();
             let c = ran_counter.dupe();
 
-            let engine = IncrementalEngine::new(EvaluatorFn::new(async move |_k| {
-                // spawned tasks that can only proceed if all are
-                // concurrently running
-                let _c_guard = cg.read().await;
-                s.wait().await;
-                let _g_guard = g.lock().await;
+            let engine = IncrementalEngine::new(EvaluatorFn::new(|_k| {
+                async move {
+                    // spawned tasks that can only proceed if all are
+                    // concurrently running
+                    let _c_guard = cg.read().await;
+                    s.wait().await;
+                    let _g_guard = g.lock().await;
 
-                // DICE only can guarantee cancels at await points, so add an await point to
-                // ensure that the task has been canceled before hitting the code below.
-                tokio::task::yield_now().await;
+                    // DICE only can guarantee cancels at await points, so add an await point to
+                    // ensure that the task has been canceled before hitting the code below.
+                    tokio::task::yield_now().await;
 
-                c.store(true, Ordering::SeqCst);
+                    c.store(true, Ordering::SeqCst);
 
-                ValueWithDeps {
-                    value: 1usize,
-                    both_deps: BothDeps {
-                        deps: HashSet::default(),
-                        rdeps: Vec::new(),
-                    },
+                    ValueWithDeps {
+                        value: 1usize,
+                        both_deps: BothDeps {
+                            deps: HashSet::default(),
+                            rdeps: Vec::new(),
+                        },
+                    }
                 }
+                .boxed()
             }));
 
             let v = VersionNumber::new(0);
@@ -2384,16 +2422,19 @@ mod tests {
 
         let engine = {
             let instance_count = instance.dupe();
-            IncrementalEngine::new(EvaluatorFn::new(move |_k| async move {
-                ValueWithDeps {
-                    value: InstanceEqual {
-                        instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
-                    },
-                    both_deps: BothDeps {
-                        deps: HashSet::default(),
-                        rdeps: Vec::new(),
-                    },
+            IncrementalEngine::new(EvaluatorFn::new(move |_k| {
+                async move {
+                    ValueWithDeps {
+                        value: InstanceEqual {
+                            instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
+                        },
+                        both_deps: BothDeps {
+                            deps: HashSet::default(),
+                            rdeps: Vec::new(),
+                        },
+                    }
                 }
+                .boxed()
             }))
         };
 
@@ -2440,39 +2481,42 @@ mod tests {
 
         let engine = IncrementalEngine::new({
             let notify = notify.dupe();
-            EvaluatorFn::new(move |_k| async move {
-                let mut guard = exclusive
-                    .try_lock()
-                    .expect("Can only have one concurrent execution");
+            EvaluatorFn::new(move |_k| {
+                async move {
+                    let mut guard = exclusive
+                        .try_lock()
+                        .expect("Can only have one concurrent execution");
 
-                if *guard {
-                    // Last attempt, return.
-                    ValueWithDeps {
-                        value: (),
-                        both_deps: BothDeps {
-                            deps: HashSet::default(),
-                            rdeps: Vec::new(),
-                        },
+                    if *guard {
+                        // Last attempt, return.
+                        ValueWithDeps {
+                            value: (),
+                            both_deps: BothDeps {
+                                deps: HashSet::default(),
+                                rdeps: Vec::new(),
+                            },
+                        }
+                    } else {
+                        // Note that we did our first execution. Keep the lock held. The point of the
+                        // test is to prove that nobody will get to run before we exit and drop it.
+                        *guard = true;
+
+                        with_structured_cancellation(|obs| async move {
+                            // Resume the rest of the code.
+                            notify.notify_one();
+                            // Wait for our cancellation.
+                            obs.await;
+                            // Yield. If the final evaluation is ready (that would be a bug!), it will
+                            // run now.
+                            tokio::task::yield_now().await;
+                        })
+                        .await;
+
+                        // Never return, but this bit will be the one that's cancelled.
+                        futures::future::pending().await
                     }
-                } else {
-                    // Note that we did our first execution. Keep the lock held. The point of the
-                    // test is to prove that nobody will get to run before we exit and drop it.
-                    *guard = true;
-
-                    with_structured_cancellation(|obs| async move {
-                        // Resume the rest of the code.
-                        notify.notify_one();
-                        // Wait for our cancellation.
-                        obs.await;
-                        // Yield. If the final evaluation is ready (that would be a bug!), it will
-                        // run now.
-                        tokio::task::yield_now().await;
-                    })
-                    .await;
-
-                    // Never return, but this bit will be the one that's cancelled.
-                    futures::future::pending().await
                 }
+                .boxed()
             })
         });
 
@@ -2542,6 +2586,7 @@ mod tests {
                         },
                     }
                 }
+                .boxed()
             })
         });
 

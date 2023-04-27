@@ -52,14 +52,13 @@ pub(crate) mod testing {
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Display;
-    use std::future::Future;
     use std::hash::Hash;
-    use std::pin::Pin;
     use std::sync::Arc;
 
     use allocative::Allocative;
     use async_trait::async_trait;
     use dupe::Dupe;
+    use futures::future::BoxFuture;
     use gazebo::prelude::*;
     use more_futures::cancellation::CancellationContext;
 
@@ -159,24 +158,18 @@ pub(crate) mod testing {
     #[allocative(bound = "")]
     pub(crate) struct EvaluatorFn<K, V> {
         #[allocative(skip)]
-        f: Box<
-            dyn Fn(K) -> Pin<Box<dyn Future<Output = ValueWithDeps<V>> + Sync + Send + 'static>>
-                + Send
-                + Sync
-                + 'static,
-        >,
+        f: Box<dyn Fn(K) -> BoxFuture<'static, ValueWithDeps<V>> + Send + Sync + 'static>,
     }
 
     impl<K, V> EvaluatorFn<K, V> {
-        pub(crate) fn new<F, FUT>(f: F) -> Self
+        pub(crate) fn new<F>(f: F) -> Self
         where
-            FUT: Future<Output = ValueWithDeps<V>> + Sync + Send + 'static,
-            F: FnOnce(K) -> FUT + Clone + 'static + Sync + Send + 'static,
+            F: FnOnce(K) -> BoxFuture<'static, ValueWithDeps<V>> + Clone + Sync + Send + 'static,
         {
             Self {
                 f: Box::new(move |k| {
                     let f = f.clone();
-                    Box::pin(f(k))
+                    f(k)
                 }),
             }
         }

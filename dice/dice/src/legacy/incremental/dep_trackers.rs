@@ -406,6 +406,7 @@ mod tests {
     use std::sync::Arc;
 
     use dupe::Dupe;
+    use futures::FutureExt;
 
     use crate::impls::core::graph::history::CellHistory;
     use crate::legacy::ctx::testing::ComputationDataExt;
@@ -442,12 +443,17 @@ mod tests {
     async fn recording_deps_tracker_tracks_deps() -> anyhow::Result<()> {
         let mut deps_tracker = RecordingDepsTracker::new();
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
-        let fn_for_2_and_3 = |k| ValueWithDeps {
-            value: k,
-            both_deps: BothDeps::default(),
+        let fn_for_2_and_3 = |k| {
+            async move {
+                ValueWithDeps {
+                    value: k,
+                    both_deps: BothDeps::default(),
+                }
+            }
+            .boxed()
         };
 
-        let engine = IncrementalEngine::new(EvaluatorFn::new(async move |k| fn_for_2_and_3(k)));
+        let engine = IncrementalEngine::new(EvaluatorFn::new(move |k| fn_for_2_and_3(k)));
 
         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
 
