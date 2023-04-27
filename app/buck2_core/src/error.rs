@@ -22,14 +22,14 @@ use thiserror::Error;
 use crate::env_helper::EnvHelper;
 use crate::is_open_source;
 
-type SoftErrorHandler = Box<
-    dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), SoftErrorOptions)
+type StructuredErrorHandler = Box<
+    dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), StructuredErrorOptions)
         + Send
         + Sync
         + 'static,
 >;
 
-static HANDLER: OnceCell<SoftErrorHandler> = OnceCell::new();
+static HANDLER: OnceCell<StructuredErrorHandler> = OnceCell::new();
 
 pub static BUCK2_HARD_ERROR_ENV_VAR: EnvHelper<String> = EnvHelper::new("BUCK2_HARD_ERROR");
 
@@ -66,7 +66,7 @@ macro_rules! soft_error(
             &COUNT,
             &ONCE,
             (file!(), line!(), column!()),
-            $crate::error::SoftErrorOptions {
+            $crate::error::StructuredErrorOptions {
                 $($k: $v,)*
                 ..Default::default()
             }
@@ -95,7 +95,7 @@ pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {
     HARD_ERROR_CONFIG.reload_hard_error_config(var_value)
 }
 
-pub struct SoftErrorOptions {
+pub struct StructuredErrorOptions {
     /// Log this error (to our event log and possibly to a task), but do not print it to stderr.
     pub quiet: bool,
     /// Create a task for this error.
@@ -105,7 +105,7 @@ pub struct SoftErrorOptions {
     pub action_cache_is_corrupted: bool,
 }
 
-impl Default for SoftErrorOptions {
+impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
             quiet: false,
@@ -125,7 +125,7 @@ pub fn handle_soft_error(
     count: &'static AtomicUsize,
     once: &std::sync::Once,
     loc: (&'static str, u32, u32),
-    options: SoftErrorOptions,
+    options: StructuredErrorOptions,
 ) -> anyhow::Result<anyhow::Error> {
     validate_category(category)?;
 
@@ -160,11 +160,11 @@ pub fn reset_soft_error_counters() {
     }
 }
 
-pub fn initialize(handler: SoftErrorHandler) -> anyhow::Result<()> {
+pub fn initialize(handler: StructuredErrorHandler) -> anyhow::Result<()> {
     hard_error_config()?;
 
     if let Err(_e) = HANDLER.set(handler) {
-        panic!("Cannot initialize soft_error handler more than once");
+        panic!("Cannot initialize StructuredErrorHandler handler more than once");
     }
 
     Ok(())
@@ -282,7 +282,7 @@ pub(crate) mod tests {
         category: &str,
         err: &anyhow::Error,
         loc: (&str, u32, u32),
-        options: SoftErrorOptions,
+        options: StructuredErrorOptions,
     ) {
         RESULT.lock().unwrap().push(format!(
             "{:?}, : {} : {} : {}",

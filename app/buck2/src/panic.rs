@@ -58,7 +58,7 @@ mod imp {
     use std::time::Duration;
 
     use backtrace::Backtrace;
-    use buck2_core::error::SoftErrorOptions;
+    use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::metadata;
     use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
@@ -150,7 +150,7 @@ mod imp {
         category: &str,
         err: &anyhow::Error,
         location: Location,
-        options: SoftErrorOptions,
+        options: StructuredErrorOptions,
     ) {
         let event = panic_payload(
             Some(location),
@@ -182,7 +182,7 @@ mod imp {
         location: Option<Location>,
         message: String,
         backtrace: Vec<buck2_data::structured_error::StackFrame>,
-        options: &SoftErrorOptions,
+        options: &StructuredErrorOptions,
         soft_error_category: Option<&str>,
     ) -> buck2_data::StructuredError {
         let metadata = get_metadata_for_panic();
