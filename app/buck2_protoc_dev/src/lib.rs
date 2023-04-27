@@ -36,7 +36,7 @@ fn set_var(var: &str, override_var: &str, path: Result<PathBuf, protoc_bin_vendo
         }
     };
 
-    let path = dunce::canonicalize(&path).expect("Failed to canonicalize path");
+    let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
     env::set_var(var, path);
 }

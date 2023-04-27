@@ -29,7 +29,7 @@ use rand::Rng;
 
 #[derive(Debug, thiserror::Error)]
 enum EventLogOptionsError {
-    #[error("Manifold failed; stderr:\n{}", indent("  ", &_0))]
+    #[error("Manifold failed; stderr:\n{}", indent("  ", _0))]
     ManifoldFailed(String),
     #[error(
         "Log not found locally by trace id `{0}`; try `--allow-remote` to download from manifold"

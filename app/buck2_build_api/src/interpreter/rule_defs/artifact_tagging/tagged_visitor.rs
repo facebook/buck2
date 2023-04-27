@@ -26,9 +26,9 @@ impl<'a, 'b> TaggedVisitor<'a, 'b> {
         inner: &'b mut dyn CommandLineArtifactVisitor,
     ) -> Self {
         Self {
+            inner,
             tag,
             inputs_only,
-            inner,
         }
     }
 }

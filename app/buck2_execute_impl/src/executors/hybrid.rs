@@ -155,7 +155,7 @@ impl PreparedCommandExecutor for HybridExecutor {
         );
 
         if executor_preference.requires_local()
-            || self.remote.is_action_too_large(&command.request.paths())
+            || self.remote.is_action_too_large(command.request.paths())
         {
             return local_result.await;
         };

@@ -114,7 +114,7 @@ pub(crate) fn filter_incompatible(
     }
 
     if !incompatible_targets.is_empty() {
-        let _result = bxl_ctx.print_to_error_stream(
+        bxl_ctx.print_to_error_stream(
             IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
         )?;
     }

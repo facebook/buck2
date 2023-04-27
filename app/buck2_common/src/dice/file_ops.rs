@@ -195,8 +195,8 @@ async fn get_default_file_ops(dice: &DiceComputations) -> SharedResult<Arc<dyn F
                         }
                     };
                     included_entries.push(SimpleDirEntry {
-                        file_type,
                         file_name,
+                        file_type,
                     });
                 }
             }

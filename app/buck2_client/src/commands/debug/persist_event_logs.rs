@@ -231,9 +231,9 @@ async fn upload_write(manifold_path: &str, buf: &[u8], cert: &OsString) -> anyho
     // TODO T149151673: support windows uploads
     let upload = manifold::curl_write_command(
         manifold::Bucket::EventLogs.info(),
-        &manifold_path,
+        manifold_path,
         MANIFOLD_TTL_S.get_copied()?,
-        &cert,
+        cert,
     )?;
     if let Some(mut upload) = upload {
         let mut child = upload
@@ -261,7 +261,7 @@ async fn upload_append(
     // TODO T149151673: support windows uploads
     let upload = manifold::curl_append_command(
         manifold::Bucket::EventLogs.info(),
-        &manifold_path,
+        manifold_path,
         offset,
         cert,
     )?;

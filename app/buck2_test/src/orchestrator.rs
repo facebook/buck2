@@ -159,9 +159,9 @@ impl<'a> BuckTestOrchestrator<'a> {
         Self {
             dice,
             session,
-            liveliness_observer,
             results_channel,
             events,
+            liveliness_observer,
             digest_config,
             cancellations,
         }

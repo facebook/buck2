@@ -123,7 +123,7 @@ impl<'c> TimedListBodyInner<'c> {
             event_string,
             display::duration_as_secs_elapsed(info_elapsed, time_speed.speed()),
             info_elapsed.mul_f64(time_speed.speed()),
-            &self.cutoffs,
+            self.cutoffs,
         )
     }
 
@@ -149,7 +149,7 @@ impl<'c> TimedListBodyInner<'c> {
                     0,
                     info,
                     time_speed.speed(),
-                    &self.cutoffs,
+                    self.cutoffs,
                     display_platform,
                 )?);
 
@@ -158,7 +158,7 @@ impl<'c> TimedListBodyInner<'c> {
                         2,
                         child.info(),
                         time_speed.speed(),
-                        &self.cutoffs,
+                        self.cutoffs,
                         display_platform,
                     )?);
                 }
@@ -206,7 +206,7 @@ impl<'c> Component for TimedListBodyInner<'c> {
                 remaining_msg.italic(),
                 formatted_count.italic(),
                 longest_count.mul_f64(time_speed.speed()),
-                &self.cutoffs,
+                self.cutoffs,
             )?);
         }
 

@@ -20,7 +20,7 @@ pub fn check_working_dir() -> anyhow::Result<()> {
     // work reliably.
     let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
 
-    let err = match fs::metadata(&name) {
+    let err = match fs::metadata(name) {
         Ok(..) => return Ok(()),
         Err(e) => e,
     };

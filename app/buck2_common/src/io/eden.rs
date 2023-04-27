@@ -158,8 +158,8 @@ impl IoProvider for EdenIoProvider {
                 };
 
                 anyhow::Ok(RawDirEntry {
-                    file_type,
                     file_name,
+                    file_type,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
