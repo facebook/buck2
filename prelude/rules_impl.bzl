@@ -365,11 +365,6 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_go_toolchain": toolchains_common.go(),
     },
-    "command_alias": {
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_find_and_replace_bat": attrs.default_only(attrs.exec_dep(default = "prelude//tools:find_and_replace.bat")),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
     # The 'actual' attribute of configured_alias is a configured_label, which is
     # currently unimplemented. Map it to dep so we can simply forward the providers.
     "configured_alias": {

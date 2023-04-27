@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "OnDuplicateEntry", "prelude_rule", "validate_uri")
+load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
 
@@ -200,6 +200,9 @@ command_alias = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "resources": attrs.list(attrs.source(), default = []),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_find_and_replace_bat": attrs.default_only(attrs.exec_dep(default = "prelude//tools:find_and_replace.bat")),
+            "_target_os_type": buck.target_os_type_arg(),
         }
     ),
 )
