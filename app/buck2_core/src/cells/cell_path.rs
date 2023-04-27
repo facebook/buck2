@@ -118,12 +118,12 @@ impl CellPath {
     /// use buck2_core::cells::paths::{CellRelativePathBuf};
     /// use buck2_core::cells::name::CellName;
     ///
-    /// let path = CellPath::testing_new("cell", "foo/bar");
+    /// let path = CellPath::testing_new("cell//foo/bar");
     /// let mut ancestors = path.ancestors();
     ///
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo/bar").as_ref()));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "foo").as_ref()));
-    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell", "").as_ref()));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//foo/bar").as_ref()));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//foo").as_ref()));
+    /// assert_eq!(ancestors.next(), Some(CellPath::testing_new("cell//").as_ref()));
     /// assert_eq!(ancestors.next(), None);
     ///
     /// # anyhow::Ok(())
@@ -254,10 +254,11 @@ impl CellPath {
         (self.cell, self.path)
     }
 
-    pub fn testing_new(cell_name: &str, relative_path: &str) -> CellPath {
+    pub fn testing_new(path: &str) -> CellPath {
+        let (cell_name, relative_path) = path.split_once("//").unwrap();
         CellPath::new(
             CellName::testing_new(cell_name),
-            CellRelativePathBuf::unchecked_new(relative_path.into()),
+            CellRelativePathBuf::testing_new(relative_path),
         )
     }
 

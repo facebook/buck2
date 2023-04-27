@@ -390,6 +390,10 @@ impl CellRelativePathBuf {
         Self(ForwardRelativePathBuf::unchecked_new(s))
     }
 
+    pub fn testing_new(s: &str) -> CellRelativePathBuf {
+        CellRelativePathBuf::try_from(s.to_owned()).unwrap()
+    }
+
     /// Creates a new 'CellRelativePathBuf' with a given capacity used to create the internal
     /// 'String'. See 'with_capacity' defined on 'ForwardRelativePathBuf'
     pub fn with_capacity(cap: usize) -> Self {

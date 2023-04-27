@@ -144,27 +144,27 @@ mod tests {
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("//foo/bar", &cell_alias_resolver)?.unwrap();
-        let expected_cell_path = CellPath::testing_new("cell1", "foo/bar");
+        let expected_cell_path = CellPath::testing_new("cell1//foo/bar");
         assert_eq!(actual_cell_path, expected_cell_path);
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("@//foo/bar", &cell_alias_resolver)?.unwrap();
-        let expected_cell_path = CellPath::testing_new("cell1", "foo/bar");
+        let expected_cell_path = CellPath::testing_new("cell1//foo/bar");
         assert_eq!(actual_cell_path, expected_cell_path);
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("@cell1//foo/bar", &cell_alias_resolver)?.unwrap();
-        let expected_cell_path = CellPath::testing_new("cell1", "foo/bar");
+        let expected_cell_path = CellPath::testing_new("cell1//foo/bar");
         assert_eq!(actual_cell_path, expected_cell_path);
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("cell2//foo/bar", &cell_alias_resolver)?.unwrap();
-        let expected_cell_path = CellPath::testing_new("cell2", "foo/bar");
+        let expected_cell_path = CellPath::testing_new("cell2//foo/bar");
         assert_eq!(actual_cell_path, expected_cell_path);
 
         let actual_cell_path =
             parse_cell_path_as_file_expr_literal("@cell3//foo/bar", &cell_alias_resolver)?.unwrap();
-        let expected_cell_path = CellPath::testing_new("cell3", "foo/bar");
+        let expected_cell_path = CellPath::testing_new("cell3//foo/bar");
         assert_eq!(actual_cell_path, expected_cell_path);
 
         assert!(
