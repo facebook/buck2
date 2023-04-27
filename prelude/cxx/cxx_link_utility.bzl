@@ -161,8 +161,7 @@ def make_link_args(
         links, dwo_dir = map_link_args_for_dwo(ctx, links, output_short_path)
 
     pdb_artifact = None
-    if linker_info.is_pdb_generated:
-        expect(output_short_path != None)
+    if linker_info.is_pdb_generated and output_short_path != None:
         pdb_filename = paths.replace_extension(output_short_path, ".pdb")
         pdb_artifact = ctx.actions.declare_output(pdb_filename)
         hidden.append(pdb_artifact.as_output())
