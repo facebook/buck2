@@ -183,8 +183,7 @@ fn gather_clean_futures_for_stale_artifacts(
                 stats,
             };
             // quiet just because it's also returned, soft_error to log to scribe
-            soft_error!("clean_stale_error", error.clone().into(), quiet: true).unwrap();
-            return Err(anyhow::anyhow!(error));
+            return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
         }
     }
 
