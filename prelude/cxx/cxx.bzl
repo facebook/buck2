@@ -9,6 +9,7 @@ load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
 )
+load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -542,6 +543,14 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
 
     # TODO(T107163344) this shouldn't be in prebuilt_cxx_library itself, use overlays to remove it.
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, first_order_deps + exported_first_order_deps))
+
+    apple_resource_graph = create_resource_graph(
+        ctx = ctx,
+        labels = ctx.attrs.labels,
+        deps = first_order_deps,
+        exported_deps = exported_first_order_deps,
+    )
+    providers += [apple_resource_graph]
 
     return providers
 
