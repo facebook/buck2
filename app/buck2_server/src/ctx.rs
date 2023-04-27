@@ -105,6 +105,7 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
+use more_futures::cancellation::CancellationContext;
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -220,6 +221,9 @@ pub struct ServerCommandContext {
 
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
+
+    // TODO(bobyf) ServerCommandContext should have lifetime and this be a reference
+    cancellations: CancellationContext,
 }
 
 impl ServerCommandContext {
@@ -322,6 +326,7 @@ impl ServerCommandContext {
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
             debugger_handle,
+            cancellations: CancellationContext::todo(),
         })
     }
 
@@ -861,5 +866,9 @@ impl ServerCommandContextTrait for ServerCommandContext {
             .instant_event(buck2_data::ResolvedTargetPatterns {
                 target_patterns: patterns,
             })
+    }
+
+    fn cancellation_context(&self) -> &CancellationContext {
+        &self.cancellations
     }
 }
