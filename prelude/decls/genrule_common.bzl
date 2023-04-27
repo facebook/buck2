@@ -29,7 +29,7 @@ def _cmd_arg():
      fallback for `bash` and `cmd_exe` arguments. The following environment variables are populated by
      Buck and available to the shell command. They are accessed using
      the syntax:
- 
+
 
     ```
     ${<variable>}
@@ -37,7 +37,7 @@ def _cmd_arg():
 
 
      Example:
- 
+
 
     ```
     ${SRCS}
@@ -50,14 +50,14 @@ def _cmd_arg():
      by the `environment_expansion_separator` argument
      where each element of `srcs` will be translated
      into an absolute path.
- 
+
 
     `${SRCDIR}`
 
 
      The absolute path to a directory to which sources are copied
      prior to running the command.
- 
+
 
     `${OUT}`
 
@@ -67,26 +67,26 @@ def _cmd_arg():
      the `out` argument if not using\302\240
      named outputs
      using named outputs, this variable will be the output directory.
- 
+
 
      The value should be a valid filepath. The semantics of the shell
      command determine whether this filepath is treated as a file or a
      directory. If the filepath is a directory, then the shell command
      needs to create it if not using named outputs. Otherwise, it will
      be automatically created.
- 
+
 
      The file or directory specified by this variable must always
      be written by this command. If not, the execution of this
      rule will be considered a failure, halting the build process.
- 
+
 
     `${TMP}`
 
 
      A temporary directory which can be used for intermediate
      results and will not be bundled into the output.
- 
+
 
 
     ##### String parameter macros
@@ -96,20 +96,20 @@ def _cmd_arg():
     .
      All build rules expanded in the command are automatically considered
      to be dependencies of the `genrule()`.
- 
+
 
      Note that the paths returned by these macros are *absolute* paths. You should convert these paths to be relative paths before
      embedding them in, for example, a shell script or batch file. Using
      relative paths ensures that your builds are *hermetic*, that
      is, they are reproducible across different machine environments.
- 
+
 
      Additionally, if you embed these paths in a shell script, you should
      execute that script using the `sh\\_binary()`rule and include
      the targets for these paths in the `resources` argument of
      that `sh_binary` rule. These are the same targets that you
      pass to the string parameter macros.
- 
+
 
     `$(classpath //path/to:target)`
 
@@ -118,7 +118,7 @@ def _cmd_arg():
      rule, provided that the rule has a Java classpath. If the rule
      does not have (or contribute to) a classpath, then an
      exception is thrown and the build breaks.
- 
+
 
     `$(exe //path/to:target)`
 
@@ -131,7 +131,7 @@ def _cmd_arg():
      are also expanded. If the build rule does not generate an
      executable output, then an exception is thrown and the build
      breaks.
- 
+
 
     `$(location //path/to:target)`
 
@@ -140,7 +140,7 @@ def _cmd_arg():
      rule. This means that you can refer to the output without
      needing to be aware of how Buck is storing data on the disk
      mid-build.
- 
+
 
     `$(maven_coords //path/to:target)`
 
@@ -189,11 +189,11 @@ def _type_arg():
     Specifies the *type* of this genrule. This is used for logging
      and is particularly useful for grouping genrules that share an
      underlying logical "type".
- 
+
 
      For example, if you have the following `cxx_genrule` defined
      in the root directory of your Buck project
- 
+
 
 
     ```
@@ -211,7 +211,7 @@ def _type_arg():
 
 
      then the following `buck query` command
- 
+
 
 
     ```
@@ -224,7 +224,7 @@ def _type_arg():
 
 
      returns
- 
+
 
 
     ```

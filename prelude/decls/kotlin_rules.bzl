@@ -94,7 +94,7 @@ kotlin_library = prelude_rule(
                  This takes a map, with each entry specify one plugin. Entry's key is plugin source path,
                  and value is a map of plugin option key value pair. Unlike `extra_kotlinc_arguments`,
                  these can be *source paths*, not just strings.
- 
+
                  A special option value is
                  `__codegen_dir__`, in which case Buck will provide a default codegen folder's path as
                  option value instead.
@@ -112,7 +112,7 @@ kotlin_library = prelude_rule(
                 ```
                 Each plugin source path will be prefixed with `-Xplugin=` and passed as extra
                  arguments to the compiler. Plugin options will be appended after its plugin with `-P`.
- 
+
                  A specific example is, if you want to use [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)
                  with `kotlin_library()`, you need to specify `kotlinx-serialization-compiler-plugin.jar` under `kotlin_compiler_plugins` and `kotlinx-serialization-runtime.jar` (which you may have to fetch from Maven) in your `deps`:
 

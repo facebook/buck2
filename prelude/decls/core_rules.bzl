@@ -41,20 +41,20 @@ alias = prelude_rule(
 command_alias = prelude_rule(
     name = "command_alias",
     docs = """
-        The `command_alias` rule enables you to wrap build 
-         rules that create binaries and to pre-apply command-line 
+        The `command_alias` rule enables you to wrap build
+         rules that create binaries and to pre-apply command-line
          arguments and environment variables.
- 
 
-         Example uses include running a command written in a scripting 
-         language with a specific interpreter, and transparently wrapping 
+
+         Example uses include running a command written in a scripting
+         language with a specific interpreter, and transparently wrapping
          sub-commands of a binary.
- 
 
-         You can reference a `command_alias` target in 
-         the `cmd` parameter of a `genrule()`by 
-         using the `exe` macro: 
- 
+
+         You can reference a `command_alias` target in
+         the `cmd` parameter of a `genrule()`by
+         using the `exe` macro:
+
 
 
         ```
@@ -175,7 +175,7 @@ command_alias = prelude_rule(
 
 
                 Valid platforms are all values of the [`Platform` enum](https://dev.buck.build/javadoc/com/facebook/buck/util/environment/Platform.html) :
- 
+
 
 
                 * `FREEBSD`
@@ -185,9 +185,9 @@ command_alias = prelude_rule(
             """),
             "args": attrs.list(attrs.arg(), default = [], doc = """
                 A string of arguments that is passed to the executable specified by
-                 `exe` at startup. These arguments support a subset of 
+                 `exe` at startup. These arguments support a subset of
                  Buck's `string parameter macros`
-                . Only the 
+                . Only the
                  `$(location ...)` and `$(exe ...)` macros are supported currently.
             """),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
@@ -369,9 +369,9 @@ export_file = prelude_rule(
                  already has.
             """),
             "mode": attrs.option(attrs.enum(ExportFileDescriptionMode), default = None, doc = """
-                How files are referenced internally in buck. 
+                How files are referenced internally in buck.
                  If set to 'copy', then a full copy will be made into the new location in buck-out.
-                 If set to 'reference', the original file will be used by internal build rules in-place. 
+                 If set to 'reference', the original file will be used by internal build rules in-place.
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
             """),
@@ -406,7 +406,7 @@ filegroup = prelude_rule(
     name = "filegroup",
     docs = """
         This rule provides access to a set of files.
- 
+
 
          Files are accessible to `genrule()`s by using their relative path
          after a `$(location)` string parameter macro.
@@ -459,9 +459,9 @@ genrule = prelude_rule(
     examples = """
         This genrule() uses a Python script to derive a new
          `AndroidManifest.xml` from an
-         `AndroidManifest.xml` in the source tree. 
-        Note you don't need to prepend execution commands with 
-         `python`: Buck knows how to execute different 
+         `AndroidManifest.xml` in the source tree.
+        Note you don't need to prepend execution commands with
+         `python`: Buck knows how to execute different
         kinds of binaries using `$(exe)` command.
 
 
@@ -562,10 +562,10 @@ genrule = prelude_rule(
                 Mapping defining `named outputs`
                   to output paths relative to the rule's output directory. Only one of
                   `out` or `outs` may be present.
- 
+
 
                  Example:
- 
+
 
                 ```
 
@@ -614,21 +614,21 @@ genrule = prelude_rule(
             """),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None, doc = """
                 Default output which must be present if the `outs` arg is present. Otherwise does not apply.
- 
+
 
                  If a rule with `outs` is consumed without an output label, the default output is returned. The
                  default output does not need to be present in any of the named outputs defined in `outs`.
- 
+
 
                  Note that a maximum of one value may be present in this list. For example:
 
- 
+
                 ```
                 default_outs = [ "output_one", ]
                 ```
                 is valid, whereas
 
- 
+
                 ```
                 default_outs = [ "output_one", "output_two", ]
                 ```
@@ -715,8 +715,8 @@ http_archive = prelude_rule(
             """),
             "strip_prefix": attrs.option(attrs.string(), default = None, doc = """
                 If set, files under this path will be extracted to the root of the output
-                 directory. Siblings or cousins to this prefix will not be extracted at all.  
-  
+                 directory. Siblings or cousins to this prefix will not be extracted at all.
+
 
                  For example, if a tarball has the layout:
                  * foo/bar/bar-0.1.2/data.dat
@@ -732,8 +732,8 @@ http_archive = prelude_rule(
             """),
             "type": attrs.option(attrs.string(), default = None, doc = """
                 Normally, archive type is determined by the file's extension. If `type` is set,
-                 then autodetection is overridden, and the specified type is used instead.  
-  
+                 then autodetection is overridden, and the specified type is used instead.
+
 
 
                  Supported values are: `zip`, `tar`, `tar.gz`,
@@ -834,7 +834,7 @@ http_file = prelude_rule(
             """),
             "executable": attrs.option(attrs.bool(), default = None, doc = """
                 Whether or not the file should be made executable after downloading. If true,
-                 this can also be used via `run`and the 
+                 this can also be used via `run`and the
                  `$(exe )` `string parameter macros`
             """),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -955,13 +955,13 @@ remote_file = prelude_rule(
             """),
             "type": attrs.option(attrs.enum(RemoteFileType), default = None, doc = """
                 An optional type of the downloaded file.
- 
+
                 `data`
                 Regular data file.
                 `executable`
 
                  Executable file. Buck will ensure that output has appropriate permissions if applicable.
- 
+
                 `exploded_zip`
 
                  Zip archive which will be automatically unzipped into an output directory.
@@ -1093,11 +1093,11 @@ worker_tool = prelude_rule(
          in conjunction with `genrule()`.
          Buck then starts the external tool once and reuses it by communicating with it
          over `stdin` and `stdout` using a simple JSON protocol.
- 
+
 
          A `worker_tool` rule can be referenced in the `cmd` parameter of
          a `genrule` by using the macro:
- 
+
 
 
         ```
@@ -1348,15 +1348,15 @@ zip_file = prelude_rule(
         zip_file(
           # The output will be "example.zip"
           name = 'example',
-          srcs = 
+          srcs =
             # These files will be found in the zip under "dir/"
             glob(['dir/**/*']) +
             [
-              # Imagine this generates the output 
-              # "buck-out/gen/foo/hello.txt". This output will 
+              # Imagine this generates the output
+              # "buck-out/gen/foo/hello.txt". This output will
               # be found in the zip at "hello.txt"
               '//some/other:target',
-  
+
             ],
           zip_srcs = [
              # The contents of this zip will be added to the generated zip.
@@ -1397,7 +1397,7 @@ zip_file = prelude_rule(
             """),
             "srcs": attrs.list(attrs.source(), default = [], doc = """
                 The set of files to include in the zip.
- 
+
                  Each `src` will be added to the zip as follows:
                  * If the `src` is the output of another rule, the output
                  will be included using just the output's file name.
@@ -1407,7 +1407,7 @@ zip_file = prelude_rule(
             """),
             "zip_srcs": attrs.list(attrs.source(), default = [], doc = """
                 The set of zip files whose content to include in the output zip file.
- 
+
 
                  Note that the order of files in `zip_srcs` matters because the same zip entry can be
                  included from multiple files. See the `on_duplicate_entry` argument to learn how to

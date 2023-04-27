@@ -125,7 +125,7 @@ java_binary = prelude_rule(
             """),
             "meta_inf_directory": attrs.option(attrs.source(), default = None, doc = """
                 Note: This has beta support currently.
-                 If provided, the contents in this directory will end up in the 
+                 If provided, the contents in this directory will end up in the
                  `META-INF` directory inside the generated JAR file.
             """),
             "blacklist": attrs.list(attrs.regex(), default = [], doc = """

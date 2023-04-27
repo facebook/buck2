@@ -403,7 +403,7 @@ android_build_config = prelude_rule(
                  non-constant-expressions that evaluate to the value specified in the file at compilation
                  time.
                  To override the values in an APK, specify build\\_config\\_values or build\\_config\\_values\\_file in `android\\_binary()`.
- 
+
                  Note that values\\_file can be a generated file, as can build\\_config\\_values\\_file as
                  demonstrated in the example below.
             """),
@@ -688,7 +688,7 @@ android_library = prelude_rule(
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to include among the compiled `.class`
                  files. These files can be loaded via [Class.getResource()](http://docs.oracle.com/javase/7/docs/api/java/lang/Class.html#getResource(java.lang.String)).
- 
+
                 **Note:** Buck uses the `src_roots` property in
                  `.buckconfig`
                  to help determine where resources should be placed within the generated JAR file.
@@ -1139,7 +1139,7 @@ gen_aidl = prelude_rule(
             """),
             "import_paths": attrs.list(attrs.string(), default = [], doc = """
                 A list of additional import statements for the aidl command.
-                 (This appends an `-I` argument for each of the provided paths when 
+                 (This appends an `-I` argument for each of the provided paths when
                  invoking aidl from the command line.
             """),
             "aidl_srcs": attrs.set(attrs.source(), sorted = True, default = [], doc = """
@@ -1176,7 +1176,7 @@ keystore = prelude_rule(
             """),
             "properties": attrs.source(doc = """
                 The path to the `.properties` file that contains the following values:
- 
+
                 ```
 
                 # The value that you passed as the argument to -alias

@@ -22,11 +22,11 @@ def _srcs_arg():
 def _platform_srcs_arg():
     return {
         "platform_srcs": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = [], doc = """
-    Python-platform-specific source files. These should be specified as a 
-     list of pairs where the first element in each pair is an un-anchored 
-     regex against which the platform name is matched, and the second element 
-     is a list of source files. The regex should use `java.util.regex.Pattern` syntax. 
-     The platform name is a Python platform *flavor* defined in 
+    Python-platform-specific source files. These should be specified as a
+     list of pairs where the first element in each pair is an un-anchored
+     regex against which the platform name is matched, and the second element
+     is a list of source files. The regex should use `java.util.regex.Pattern` syntax.
+     The platform name is a Python platform *flavor* defined in
      the buckconfig#`python`section of `.buckconfig`.
 """),
     }
@@ -34,9 +34,9 @@ def _platform_srcs_arg():
 def _resources_arg():
     return {
         "resources": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
-    Static files to be packaged along with the Python sources. 
-     These resources can be accessed at runtime using 
-     the [pkg\\_resources](http://setuptools.readthedocs.io/en/latest/pkg_resources.html) module distributed 
+    Static files to be packaged along with the Python sources.
+     These resources can be accessed at runtime using
+     the [pkg\\_resources](http://setuptools.readthedocs.io/en/latest/pkg_resources.html) module distributed
      with Python's setuptools.
 """),
     }
@@ -44,11 +44,11 @@ def _resources_arg():
 def _platform_resources_arg():
     return {
         "platform_resources": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = [], doc = """
-    Python-platform-specific resource files. These should be specified as a 
-     list of pairs where the first element in each pair is an un-anchored 
-     regex against which the platform name is matched, and the second element 
-     is a list of resource files. The regex should use `java.util.regex.Pattern` syntax. 
-     The platform name is a Python platform *flavor* defined in 
+    Python-platform-specific resource files. These should be specified as a
+     list of pairs where the first element in each pair is an un-anchored
+     regex against which the platform name is matched, and the second element
+     is a list of resource files. The regex should use `java.util.regex.Pattern` syntax.
+     The platform name is a Python platform *flavor* defined in
      the buckconfig#`python`section of `.buckconfig`.
 """),
     }
@@ -57,7 +57,7 @@ def _base_module_arg():
     return {
         "base_module": attrs.option(attrs.string(), default = None, doc = """
     The package in which the specified source files and resources should reside in their final
-     location in the top-level binary. If unset, Buck uses the project-relative directory 
+     location in the top-level binary. If unset, Buck uses the project-relative directory
      that contains the BUCK file.
 """),
     }
@@ -65,7 +65,7 @@ def _base_module_arg():
 def _platform_arg():
     return {
         "platform": attrs.option(attrs.string(), default = None, doc = """
-    The name of the Python platform *flavor* to build against by default as defined in 
+    The name of the Python platform *flavor* to build against by default as defined in
      the buckconfig#`python`section of `.buckconfig`.
 """),
     }
@@ -76,7 +76,7 @@ def _linker_flags_arg():
     Additional linker flags that should be applied to any linking which is specific to this rule.
      Note that whether these flags are used is dependent on the native link strategy selected in
      `.buckconfig` and currently applies only to the `merged` ``.buckconfig``;
-     the `separate` link strategy pulls in shared libraries that are linked in the 
+     the `separate` link strategy pulls in shared libraries that are linked in the
      context of the rules that own them, such as `cxx\\_library()`.
 """),
     }
@@ -92,8 +92,8 @@ def _package_style_arg():
 def _preload_deps_arg():
     return {
         "preload_deps": attrs.list(attrs.dep(), default = [], doc = """
-    A list of C/C++ library dependencies that need to be loaded before any 
-     other libraries when the PEX starts up. This requires dynamic loader support, 
+    A list of C/C++ library dependencies that need to be loaded before any
+     other libraries when the PEX starts up. This requires dynamic loader support,
      such as `LD_PRELOAD`, found on most systems. This list is order-
      sensitive and the preload libraries listed here are passed down to the dynamic
      linker in the same order.

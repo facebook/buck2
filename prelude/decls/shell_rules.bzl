@@ -62,12 +62,12 @@ sh_binary = prelude_rule(
                 A list of files or build rules that this rule requires in order to run. These could be things such as
                  random data files.
 
- 
+
                  When the script runs, the `$BUCK_DEFAULT_RUNTIME_RESOURCES`
                  environment variable specifies the directory that contains these resources.
                  This directory's location is determined entirely by Buck; the script should
                  not assume the directory's location.
- 
+
 
                  The resources are also made available in a tree structure that mirrors
                  their locations in the source and `buck-out` trees. The

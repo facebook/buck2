@@ -51,7 +51,7 @@ def _header_path_prefix_arg():
         "header_path_prefix": attrs.option(attrs.string(), default = None, doc = """
     A path prefix when including headers of this target. For example, headers from a library defined
      using
- 
+
     ```
 
     apple_library(
@@ -62,12 +62,12 @@ def _header_path_prefix_arg():
 
     ```
     can be imported using following mapping
- 
+
     ```
 
     Library/SubDir/Header1.h -> Lib/Header1.h
     Library/Header2.h -> Lib/Header2.h
-  
+
     ```
     Defaults to the short name of the target. Can contain forward slashes (`/`), but
      cannot start with one. See `headers` for more information.

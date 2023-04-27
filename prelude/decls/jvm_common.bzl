@@ -22,10 +22,10 @@ def _test_env():
 def _resources_arg():
     return {
         "resources": attrs.list(attrs.source(), default = [], doc = """
-    Static files to include with the compiled `.class` files. 
-     These files can be loaded 
+    Static files to include with the compiled `.class` files.
+     These files can be loaded
      via [Class.getResource()](http://docs.oracle.com/javase/7/docs/api/java/lang/Class.html#getResource(java.lang.String)).
- 
+
 
     **Note:** If `resources_root` isn't set,
      Buck uses the ``.buckconfig``
@@ -88,16 +88,16 @@ def _exported_provided_deps():
 def _source_only_abi_deps():
     return {
         "source_only_abi_deps": attrs.list(attrs.dep(), default = [], doc = """
-    These are dependencies that must be present during 
+    These are dependencies that must be present during
      `source-only ABI generation`.
      Typically such dependencies are added when some property of the code in this rule prevents source-only ABI
      generation from being correct without these dependencies being present.
- 
+
 
      Having `source_only_abi_deps` prevents Buck from
      completely flattening the build graph, thus reducing the performance win from source-only
      ABI generation. They should be avoided when possible. Often only a small code change is needed to avoid them.
-     For more information on such code changes, read about 
+     For more information on such code changes, read about
      `source-only ABI generation`.
 """),
     }
@@ -113,11 +113,11 @@ def _abi_generation_mode():
 def _required_for_source_only_abi():
     return {
         "required_for_source_only_abi": attrs.bool(default = False, doc = """
-    Indicates that this rule must be present on the classpath during 
-     `source-only ABI generation` 
+    Indicates that this rule must be present on the classpath during
+     `source-only ABI generation`
      of any rule that depends on it. Typically this is done when a rule contains annotations,
      enums, constants, or interfaces.
- 
+
 
      Having rules present on the classpath during source-only ABI generation prevents Buck from
      completely flattening the build graph, thus reducing the performance win from source-only
@@ -142,7 +142,7 @@ def _on_unused_dependencies():
 
 
 
-    This option overrides the default value from 
+    This option overrides the default value from
     .
 """),
     }

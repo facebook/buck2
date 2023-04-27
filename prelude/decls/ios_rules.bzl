@@ -84,13 +84,13 @@ apple_asset_catalog = prelude_rule(
 apple_binary = prelude_rule(
     name = "apple_binary",
     docs = """
-        An `apple_binary()` rule builds a native executable\342\200\224such as an iOS or OSX app\342\200\224from 
+        An `apple_binary()` rule builds a native executable\342\200\224such as an iOS or OSX app\342\200\224from
         the supplied set of Objective-C/C++ source files and dependencies. It is similar to
-        a `cxx\\_binary()`rule with which it shares many attributes. In addition 
-        to those common attributes, `apple_binary()` has a some additional attributes 
-        that are specific to binaries intended to be built using the Apple toolchain. 
-        Note, however, that `apple_binary()` and `cxx_binary()` differ 
-        in the way that they import header files, in order to better accommodate existing conventions. 
+        a `cxx\\_binary()`rule with which it shares many attributes. In addition
+        to those common attributes, `apple_binary()` has a some additional attributes
+        that are specific to binaries intended to be built using the Apple toolchain.
+        Note, however, that `apple_binary()` and `cxx_binary()` differ
+        in the way that they import header files, in order to better accommodate existing conventions.
         See the sections for the `headers` and `exported_headers` attributes for more details.
 
 
@@ -381,10 +381,10 @@ apple_library = prelude_rule(
     docs = """
         An `apple_library()` rule represents a set of Objective-C/C++/Swift
         source files and is similar to a `cxx_library()` rule with which it shares many
-        attributes. In addition to those common attributes, `apple_library()` has a some additional attributes 
-        that are specific to binaries intended to be built using the Apple toolchain. 
-        Note, however, that `apple_library()` and `cxx_library()` differ 
-        in the way that they import header files, in order to better accommodate existing conventions. 
+        attributes. In addition to those common attributes, `apple_library()` has a some additional attributes
+        that are specific to binaries intended to be built using the Apple toolchain.
+        Note, however, that `apple_library()` and `cxx_library()` differ
+        in the way that they import header files, in order to better accommodate existing conventions.
         See the sections for the `headers` and `exported_headers` attributes for more details.
 
 
@@ -899,7 +899,7 @@ prebuilt_apple_framework = prelude_rule(
             'PUBLIC'
           ]
         )
-          
+
         ```
     """,
     further = None,

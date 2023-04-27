@@ -194,9 +194,9 @@ prebuilt_python_library = prelude_rule(
 python_binary = prelude_rule(
     name = "python_binary",
     docs = """
-        A `python_binary()` rule is used to build 
-        a [PEX](http://pantsbuild.github.io/pex_design.html) file\342\200\224an 
-        executable Python package\342\200\224that includes Python sources and resources from 
+        A `python_binary()` rule is used to build
+        a [PEX](http://pantsbuild.github.io/pex_design.html) file\342\200\224an
+        executable Python package\342\200\224that includes Python sources and resources from
         all transitive `python\\_library()`dependencies.
     """,
     examples = """
@@ -224,8 +224,8 @@ python_binary = prelude_rule(
 
         ```
 
-        Use the `platform` argument to select 
-        the `[python#py2]` platform as defined 
+        Use the `platform` argument to select
+        the `[python#py2]` platform as defined
         in `.buckconfig`.
 
 
@@ -269,7 +269,7 @@ python_binary = prelude_rule(
             """),
             "base_module": attrs.option(attrs.string(), default = None, doc = """
                 The package in which the main module should reside in its final
-                 location in the binary. If unset, Buck uses the project-relative directory 
+                 location in the binary. If unset, Buck uses the project-relative directory
                  that contains the BUCK file.
             """),
         } |
@@ -277,7 +277,7 @@ python_binary = prelude_rule(
         {
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 A list of `python\\_library()`rules that specify Python
-                 modules to include in the PEX file\342\200\224including all transitive 
+                 modules to include in the PEX file\342\200\224including all transitive
                  dependencies of these rules.
             """),
         } |
@@ -311,7 +311,7 @@ python_library = prelude_rule(
     name = "python_library",
     docs = """
         A `python_library()` rule is used to group together Python
-        source files and resources to package them into a PEX using a 
+        source files and resources to package them into a PEX using a
         top-level `python\\_binary()`rule.
     """,
     examples = """
@@ -320,7 +320,7 @@ python_library = prelude_rule(
 
         ```
 
-        # BUCK 
+        # BUCK
 
         # A rule that includes a single Python file.
         python_library(
@@ -332,7 +332,7 @@ python_library = prelude_rule(
         )
 
         # A rule that uses glob() to include all Python source files in the
-        # directory in which the rule is defined. The rule also specifies a 
+        # directory in which the rule is defined. The rule also specifies a
         # resource file that gets packaged with the source file.
         python_library(
           name = 'testutil',
@@ -344,7 +344,7 @@ python_library = prelude_rule(
 
         ```
 
-        Use the `platform_srcs` and `platform_resources` arguments 
+        Use the `platform_srcs` and `platform_resources` arguments
         to pull in source files and resources only when building for a specific Python platform.
 
 
@@ -418,7 +418,7 @@ python_test = prelude_rule(
         A `python_test()` rule defines a set of `.py` files that contain tests to run via the [Python unit testing framework](https://docs.python.org/2/library/unittest.html).
 
 
-         If your test requires static files you should specify these in 
+         If your test requires static files you should specify these in
          the **resources** or **platform\\_resources** arguments.
          If you do not specify these files, they won't be available when your
          test runs.
@@ -521,13 +521,13 @@ python_test = prelude_rule(
         {
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
                 A map of environment names and values to set when running the test.
-   
-  
+
+
 
                  It is also possible to expand references to other rules within the **values** of
                  these environment variables, using builtin `string parameter macros`
                 :
- 
+
                 `$(location //path/to:target)`
                 Expands to the location of the output of the build rule. This
                  means that you can refer to these without needing to be aware of how

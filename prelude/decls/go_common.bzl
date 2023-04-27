@@ -99,7 +99,7 @@ def _embedcfg_arg():
     The embedcfg.json file used by compiler to embed files defined by `//go:embed` directive.
      This generation of this file is included in the `go` toolkit.
      For example:
- 
+
     ```
 
     //go:embed *.txt
@@ -107,7 +107,7 @@ def _embedcfg_arg():
 
     ```
     If the folder contains two files (file1.txt and file2.txt), the embedcfg.json is:
- 
+
     ```
 
     {
