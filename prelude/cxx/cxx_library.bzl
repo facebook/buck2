@@ -916,6 +916,8 @@ def _get_shared_library_links(
         force_static_follows_dependents: bool.type = True,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None]):
     """
+    Returns LinkArgs with the content to link, and a link group map json output if applicable.
+
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
     other forms of shared libraries. Ideally we consolidate this logic and
