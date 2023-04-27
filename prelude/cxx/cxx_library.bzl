@@ -45,6 +45,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
+    "FrameworksLinkable",  # @unused Used as a type
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",
@@ -54,6 +55,7 @@ load(
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
     "SharedLibLinkable",
+    "SwiftRuntimeLinkable",  # @unused Used as a type
     "create_merged_link_info",
     "get_actual_link_style",
     "get_link_args",
@@ -774,7 +776,7 @@ def _form_library_outputs(
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
-        extra_static_linkables: [["FrameworksLinkable", "SwiftRuntimeLinkable"]],
+        extra_static_linkables: [[FrameworksLinkable.type, SwiftRuntimeLinkable.type]],
         gnu_use_link_groups: bool.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
@@ -910,9 +912,9 @@ def _get_shared_library_links(
         exported_deps: ["dependency"],
         non_exported_deps: ["dependency"],
         force_link_group_linking,
-        frameworks_linkable: ["FrameworksLinkable", None],
+        frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool.type = True,
-        swift_runtime_linkable: ["SwiftRuntimeLinkable", None] = None) -> ("LinkArgs", [DefaultInfo.type, None]):
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None]):
     """
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
@@ -991,7 +993,7 @@ def _static_library(
         objects: ["artifact"],
         pic: bool.type,
         stripped: bool.type,
-        extra_linkables: [["FrameworksLinkable", "SwiftRuntimeLinkable"]],
+        extra_linkables: [[FrameworksLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool.type = False,
         external_debug_info: [ExternalDebugInfoTSet.type, None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:

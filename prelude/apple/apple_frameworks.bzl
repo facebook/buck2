@@ -123,10 +123,10 @@ def _non_sdk_unresolved_framework_directory(framework_path: str.type) -> [str.ty
 def apple_build_link_args_with_deduped_flags(
         ctx: "context",
         info: "MergedLinkInfo",
-        frameworks_linkable: ["FrameworksLinkable", None],
+        frameworks_linkable: [FrameworksLinkable.type, None],
         link_style: "LinkStyle",
         prefer_stripped: bool.type = False,
-        swift_runtime_linkable: ["SwiftRuntimeLinkable", None] = None) -> LinkArgs.type:
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> LinkArgs.type:
     frameworks_link_info = _link_info_from_frameworks_linkable(ctx, [info.frameworks[link_style], frameworks_linkable], [info.swift_runtime[link_style], swift_runtime_linkable])
     if not frameworks_link_info:
         return get_link_args(info, link_style, prefer_stripped)
