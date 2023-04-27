@@ -52,6 +52,7 @@ The following sub-sections contain a list of links to key points in the Buck2 Do
 
 * [Rust `cxx` library](https://github.com/dtolnay/cxx) has examples and tests with a wide variety of build systems, including Buck2.
 * [`ocamlrep` library](https://github.com/facebook/ocamlrep) allows for interop between OCaml and Rust code, and can be [built with Buck2](https://github.com/facebook/ocamlrep/blob/main/README-BUCK.md).
+* [`buck2-nix`](https://github.com/thoughtpolice/buck2-nix) is an experiment to integrate Buck2, [Sapling](https://sapling-scm.com) and [Nix](https://nixos.org) together in a harmonious way.
 
 Feel free to [send a PR](https://github.com/facebook/buck2/edit/main/docs/index.md) adding your project.
 
