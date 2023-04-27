@@ -20,7 +20,6 @@ use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::soft_error;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::compatibility::MaybeCompatible;
@@ -35,6 +34,7 @@ use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use itertools::Itertools;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::artifact_type::BaseArtifactKind;
@@ -86,32 +86,18 @@ impl BuildTargetResult {
         while let Some(BuildEvent { label, variant }) = stream.try_next().await? {
             match variant {
                 BuildEventVariant::SkippedIncompatible => {
-                    let prev = res.insert((*label).clone(), None);
-                    if prev.is_some() {
-                        soft_error!(
-                            "build_target_result_duplicate_signal",
-                            anyhow::anyhow!("Duplicate signal for {} (internal error)", label)
-                        )?;
-                    }
+                    res.entry((*label).clone()).or_insert(None);
                 }
                 BuildEventVariant::Prepared {
                     providers,
                     run_args,
                 } => {
-                    let prev = res.insert(
-                        (*label).clone(),
-                        Some(BuildTargetResultGen {
+                    res.entry((*label).clone())
+                        .or_insert(Some(BuildTargetResultGen {
                             outputs: Vec::new(),
                             providers,
                             run_args,
-                        }),
-                    );
-                    if prev.is_some() {
-                        soft_error!(
-                            "build_target_result_duplicate_signal",
-                            anyhow::anyhow!("Duplicate signal for {} (internal error)", label)
-                        )?;
-                    }
+                        }));
                 }
                 BuildEventVariant::Output { index, output } => {
                     let is_err = output.is_err();
@@ -142,12 +128,17 @@ impl BuildTargetResult {
                         run_args,
                     } = result;
 
-                    // No need for a stable sort: the indices are unique.
+                    // No need for a stable sort: the indices are unique (see below).
                     outputs.sort_unstable_by_key(|(index, _outputs)| *index);
 
+                    // TODO: This whole building thing needs quite a bit of refactoring. We might
+                    // request the same targets multiple times here, but since we know that
+                    // ConfiguredTargetLabel -> Output is going to be deterministic, we just dedupe
+                    // them using the index.
                     BuildTargetResult {
                         outputs: outputs
                             .into_iter()
+                            .unique_by(|(index, _outputs)| *index)
                             .map(|(_index, outputs)| outputs)
                             .collect(),
                         providers,
