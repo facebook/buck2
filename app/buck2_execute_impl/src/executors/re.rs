@@ -67,7 +67,8 @@ pub struct ReExecutor {
     pub re_action_key: Option<String>,
     pub re_max_input_files_bytes: u64,
     pub knobs: ExecutorGlobalKnobs,
-    pub skip_cache_lookup: bool,
+    pub skip_cache_read: bool,
+    pub skip_cache_write: bool,
     pub re_max_queue_time_ms: Option<u64>,
 }
 
@@ -144,7 +145,8 @@ impl ReExecutor {
                 self.re_use_case,
                 &identity,
                 &mut manager,
-                self.skip_cache_lookup,
+                self.skip_cache_read,
+                self.skip_cache_write,
                 self.re_max_queue_time_ms.map(Duration::from_millis),
             )
             .await;

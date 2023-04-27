@@ -355,6 +355,10 @@ pub struct CommonBuildOptions {
     #[clap(long)]
     no_remote_cache: bool,
 
+    /// Could be used to enable the action cache writes on the RE worker when no_remote_cache is specified
+    #[clap(long, requires("no-remote-cache"))]
+    write_to_cache_anyway: bool,
+
     /// Process dep files when they are generated (i.e. after running a command that produces dep
     /// files), rather than when they are used (i.e. before re-running a command that previously
     /// produced dep files). Use this when debugging commands that produce dep files. Note that
@@ -415,7 +419,8 @@ impl CommonBuildOptions {
             unstable_build_report_filename,
             eager_dep_files: self.eager_dep_files,
             upload_all_actions: self.upload_all_actions,
-            no_remote_cache: self.no_remote_cache,
+            skip_cache_read: self.no_remote_cache,
+            skip_cache_write: self.no_remote_cache && !self.write_to_cache_anyway,
             exit_when_different_state: self.exit_when_different_state,
             fail_fast: self.fail_fast,
             keep_going: self.keep_going,

@@ -334,10 +334,16 @@ impl ServerCommandContext {
                 ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
             });
 
-        let no_remote_cache = self
+        let skip_cache_read = self
             .build_options
             .as_ref()
-            .map(|opts| opts.no_remote_cache)
+            .map(|opts| opts.skip_cache_read)
+            .unwrap_or_default();
+
+        let skip_cache_write = self
+            .build_options
+            .as_ref()
+            .map(|opts| opts.skip_cache_write)
             .unwrap_or_default();
 
         let mut run_action_knobs = RunActionKnobs {
@@ -385,7 +391,8 @@ impl ServerCommandContext {
             build_signals,
             forkserver,
             upload_all_actions,
-            no_remote_cache,
+            skip_cache_read,
+            skip_cache_write,
             create_unhashed_symlink_lock,
             starlark_debugger: self.debugger_handle.dupe(),
             keep_going: self
@@ -484,7 +491,8 @@ struct DiceCommandDataProvider {
     forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
-    no_remote_cache: bool,
+    skip_cache_read: bool,
+    skip_cache_write: bool,
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
@@ -569,7 +577,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
             executor_global_knobs,
             self.upload_all_actions,
             self.forkserver.dupe(),
-            self.no_remote_cache,
+            self.skip_cache_read,
+            self.skip_cache_write,
             ctx.global_data()
                 .get_io_provider()
                 .project_root()

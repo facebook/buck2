@@ -309,7 +309,8 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
-        skip_cache_lookup: bool,
+        skip_cache_read: bool,
+        skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
@@ -323,7 +324,8 @@ impl RemoteExecutionClient {
                     use_case,
                     identity,
                     manager,
-                    skip_cache_lookup,
+                    skip_cache_read,
+                    skip_cache_write,
                     re_max_queue_time,
                 )
                 .map_err(|e| self.decorate_error(e)))
@@ -901,7 +903,8 @@ impl RemoteExecutionClientImpl {
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
-        skip_cache_lookup: bool,
+        skip_cache_read: bool,
+        skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
@@ -916,10 +919,11 @@ impl RemoteExecutionClientImpl {
                 ..Default::default()
             }),
             platform: Some(re_platform(platform)),
+            do_not_cache: skip_cache_write,
             ..use_case.metadata()
         };
         let request = ExecuteRequest {
-            skip_cache_lookup: self.skip_remote_cache || skip_cache_lookup,
+            skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy::default()),
             // Cache for as long as we can
             results_cache_policy: Some(TResultsCachePolicy {

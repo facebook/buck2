@@ -30,5 +30,6 @@ pub struct RemoteExecutionMetadata {
     pub host_resource_requirements: Option<HostResourceRequirements>,
     pub platform: Option<TPlatform>,
     pub use_case_id: String,
+    pub do_not_cache: bool,
     pub _dot_dot: (),
 }

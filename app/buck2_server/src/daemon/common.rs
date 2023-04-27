@@ -71,7 +71,8 @@ pub struct CommandExecutorFactory {
     pub executor_global_knobs: ExecutorGlobalKnobs,
     pub upload_all_actions: bool,
     pub forkserver: Option<ForkserverClient>,
-    pub no_remote_cache: bool,
+    pub skip_cache_read: bool,
+    pub skip_cache_write: bool,
     project_root: ProjectRoot,
 }
 
@@ -86,7 +87,8 @@ impl CommandExecutorFactory {
         executor_global_knobs: ExecutorGlobalKnobs,
         upload_all_actions: bool,
         forkserver: Option<ForkserverClient>,
-        no_remote_cache: bool,
+        skip_cache_read: bool,
+        skip_cache_write: bool,
         project_root: ProjectRoot,
     ) -> Self {
         Self {
@@ -99,7 +101,8 @@ impl CommandExecutorFactory {
             executor_global_knobs,
             upload_all_actions,
             forkserver,
-            no_remote_cache,
+            skip_cache_read,
+            skip_cache_write,
             project_root,
         }
     }
@@ -159,7 +162,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
                     re_max_queue_time_ms: options.re_max_queue_time_ms,
                     knobs: self.executor_global_knobs.dupe(),
-                    skip_cache_lookup: self.no_remote_cache,
+                    skip_cache_read: self.skip_cache_read,
+                    skip_cache_write: self.skip_cache_write,
                 }
             };
 
@@ -210,7 +214,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 let disable_caching = DISABLE_CACHING
                     .get_copied()?
-                    .unwrap_or(self.no_remote_cache);
+                    .unwrap_or(self.skip_cache_read);
 
                 let executor = if disable_caching || !remote_cache_enabled {
                     inner_executor

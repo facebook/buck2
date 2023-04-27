@@ -365,7 +365,8 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
-        skip_cache_lookup: bool,
+        skip_cache_read: bool,
+        skip_cache_write: bool,
         re_max_queue_time: Option<Duration>,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.lock()?
@@ -377,7 +378,8 @@ impl ManagedRemoteExecutionClient {
                 use_case,
                 identity,
                 manager,
-                skip_cache_lookup,
+                skip_cache_read,
+                skip_cache_write,
                 re_max_queue_time,
             )
             .await
