@@ -12,7 +12,8 @@ use std::fmt;
 use std::fmt::Debug;
 
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellResolver;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -62,7 +63,8 @@ enum BuildAttrCoercionContextError {
 /// An incomplete attr coercion context. Will be replaced with a real one later.
 pub struct BuildAttrCoercionContext {
     /// Used to coerce targets
-    cell_alias_resolver: CellAliasResolver,
+    cell_resolver: CellResolver,
+    cell_name: CellName,
     /// Used to resolve relative targets. This is present when a build file
     /// is being evaluated, however it is absent if an extension file is being
     /// evaluated. The latter case occurs when default values for attributes
@@ -97,12 +99,14 @@ impl Debug for BuildAttrCoercionContext {
 
 impl BuildAttrCoercionContext {
     fn new(
-        cell_alias_resolver: CellAliasResolver,
+        cell_resolver: CellResolver,
+        cell_name: CellName,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
     ) -> Self {
         Self {
-            cell_alias_resolver,
+            cell_resolver,
+            cell_name,
             enclosing_package,
             package_boundary_exception,
             alloc: Bump::new(),
@@ -114,25 +118,30 @@ impl BuildAttrCoercionContext {
         }
     }
 
-    pub fn new_no_package(cell_alias_resolver: CellAliasResolver) -> Self {
-        Self::new(cell_alias_resolver, None, false)
+    pub fn new_no_package(cell_resolver: CellResolver, cell_name: CellName) -> Self {
+        Self::new(cell_resolver, cell_name, None, false)
     }
 
     pub fn new_with_package(
-        cell_alias_resolver: CellAliasResolver,
+        cell_resolver: CellResolver,
         enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
     ) -> Self {
         Self::new(
-            cell_alias_resolver,
+            cell_resolver,
+            enclosing_package.0.cell_name(),
             Some(enclosing_package),
             package_boundary_exception,
         )
     }
 
     pub fn parse_pattern<P: PatternType>(&self, value: &str) -> anyhow::Result<ParsedPattern<P>> {
+        let cell_alias_resolver = self
+            .cell_resolver
+            .get(self.cell_name)?
+            .cell_alias_resolver();
         ParsedPattern::parsed_opt_absolute(
-            &self.cell_alias_resolver,
+            cell_alias_resolver,
             self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
             value,
         )

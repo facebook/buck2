@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
@@ -15,7 +17,6 @@ use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
@@ -68,11 +69,20 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
     ];
 
-    BuildAttrCoercionContext::new_with_package(
-        CellAliasResolver::new(package.cell_name(), aliases).unwrap(),
-        (package, package_listing),
-        false,
-    )
+    let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
+        (
+            package.cell_name(),
+            CellRootPathBuf::testing_new(""),
+            aliases,
+        ),
+        (
+            CellName::testing_new("cell1"),
+            CellRootPathBuf::testing_new("cell1"),
+            HashMap::new(),
+        ),
+    ]);
+
+    BuildAttrCoercionContext::new_with_package(cell_resolver, (package, package_listing), false)
 }
 
 fn cell_resolver() -> CellResolver {

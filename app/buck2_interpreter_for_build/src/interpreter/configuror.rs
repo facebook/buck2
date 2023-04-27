@@ -198,7 +198,7 @@ impl BuildInterpreterConfiguror {
             )
         });
         let attr_coercer = BuildAttrCoercionContext::new_with_package(
-            cell_info.cell_alias_resolver()?.dupe(),
+            cell_info.cell_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
         );

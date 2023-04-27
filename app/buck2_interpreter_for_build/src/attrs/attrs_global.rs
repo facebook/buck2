@@ -117,11 +117,10 @@ impl AttributeExt for Attribute {
 pub fn get_attr_coercion_context<'v>(
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<BuildAttrCoercionContext> {
+    let build_context = BuildContext::from_context(eval)?;
     Ok(BuildAttrCoercionContext::new_no_package(
-        BuildContext::from_context(eval)?
-            .cell_info()
-            .cell_alias_resolver()?
-            .dupe(),
+        build_context.cell_info().cell_resolver().dupe(),
+        build_context.cell_info().name().name(),
     ))
 }
 

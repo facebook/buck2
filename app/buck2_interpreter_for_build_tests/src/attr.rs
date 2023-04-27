@@ -11,6 +11,7 @@ use buck2_build_api::nodes::hacks::value_to_string;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -111,14 +112,14 @@ fn enum_works() -> SharedResult<()> {
 fn attr_coercer_coerces() -> anyhow::Result<()> {
     let heap = Heap::new();
     let some_cells = cells(None)?;
-    let cell_alias_resolver = some_cells.0;
+    let cell_resolver = some_cells.1;
     let package = PackageLabel::new(
-        cell_alias_resolver.resolve_self(),
+        CellName::testing_new("root"),
         CellRelativePath::unchecked_new("foo"),
     );
     let enclosing_package = (package.dupe(), PackageListing::testing_empty());
     let coercer_ctx =
-        BuildAttrCoercionContext::new_with_package(cell_alias_resolver, enclosing_package, false);
+        BuildAttrCoercionContext::new_with_package(cell_resolver, enclosing_package, false);
     let label_coercer = AttrType::dep(ProviderIdSet::EMPTY);
     let string_coercer = AttrType::string();
     let enum_coercer = AttrType::enumeration(vec![
@@ -278,20 +279,21 @@ fn source_works() -> SharedResult<()> {
 
 #[test]
 fn coercing_src_to_path_works() -> anyhow::Result<()> {
-    let cell_alias_resolver = cells(None).unwrap().0;
+    let cell_resolver = cells(None).unwrap().1;
     let package = PackageLabel::new(
-        cell_alias_resolver.resolve("")?,
+        CellName::testing_new("root"),
         CellRelativePath::unchecked_new("foo/bar"),
     );
     let package_ctx = BuildAttrCoercionContext::new_with_package(
-        cell_alias_resolver.dupe(),
+        cell_resolver.dupe(),
         (
             package.dupe(),
             PackageListing::testing_files(&["baz/quz.cpp"]),
         ),
         false,
     );
-    let no_package_ctx = BuildAttrCoercionContext::new_no_package(cell_alias_resolver);
+    let no_package_ctx =
+        BuildAttrCoercionContext::new_no_package(cell_resolver, CellName::testing_new("root"));
 
     let err = no_package_ctx
         .coerce_path("baz/quz.cpp", false)
