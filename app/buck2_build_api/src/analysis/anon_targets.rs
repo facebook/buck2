@@ -319,12 +319,12 @@ impl AnonTargetKey {
         unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
     }
 
-    fn deps(&self) -> anyhow::Result<Vec<&ConfiguredTargetLabel>> {
-        struct Traversal<'a>(Vec<&'a ConfiguredTargetLabel>);
+    fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+        struct Traversal(Vec<ConfiguredTargetLabel>);
 
-        impl<'a> ConfiguredAttrTraversal<'a> for Traversal<'a> {
+        impl<'a> ConfiguredAttrTraversal<'a> for Traversal {
             fn dep(&mut self, dep: &'a ConfiguredProvidersLabel) -> anyhow::Result<()> {
-                self.0.push(dep.target());
+                self.0.push(dep.target().dupe());
                 Ok(())
             }
         }
@@ -335,12 +335,11 @@ impl AnonTargetKey {
         }
         Ok(traversal.0)
     }
-
     async fn run_analysis_impl(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
+        let deps = self.deps()?;
         let dep_analysis_results: HashMap<_, _> = keep_going::try_join_all(
             dice,
-            self.deps()?
-                .into_iter()
+            deps.iter()
                 .map(async move |dep| {
                     let res = dice
                         .get_analysis_result(dep)
