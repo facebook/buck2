@@ -434,6 +434,13 @@ impl CasDownloadInfoOrigin {
     pub fn as_display_for_not_found(&self) -> CasDownloadInfoOriginNotFound<'_> {
         CasDownloadInfoOriginNotFound { inner: self }
     }
+
+    pub fn action_result_has_expired(&self) -> bool {
+        match self {
+            Self::Execution(execution) => execution.action_age() >= execution.ttl,
+            Self::Declared => false,
+        }
+    }
 }
 
 /// A Display wrapper for CasDownloadInfoOrigin in cases where this origin was not found (in those
@@ -445,14 +452,8 @@ pub struct CasDownloadInfoOriginNotFound<'a> {
 impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)?;
-
-        match self.inner {
-            CasDownloadInfoOrigin::Execution(execution) => {
-                if execution.action_age() < execution.ttl {
-                    write!(f, " (not expired: action cache corruption)")?;
-                }
-            }
-            CasDownloadInfoOrigin::Declared => {}
+        if !self.inner.action_result_has_expired() {
+            write!(f, " (not expired: action cache corruption)")?;
         }
 
         Ok(())
