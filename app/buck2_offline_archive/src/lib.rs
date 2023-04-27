@@ -15,6 +15,8 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::Context;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -25,11 +27,47 @@ pub struct RelativeSymlink {
     pub target: ProjectRelativePathBuf,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct AbsoluteSymlink {
+    pub link: AbsPathBuf,
+    pub target: AbsNormPathBuf,
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ExternalSymlink {
     pub link: ProjectRelativePathBuf,
     pub target: AbsPathBuf,
     pub remaining_path: Option<ForwardRelativePathBuf>,
+}
+
+impl ExternalSymlink {
+    pub fn full_target(&self) -> AbsPathBuf {
+        if let Some(remaining_path) = &self.remaining_path {
+            self.target.join(remaining_path.as_path())
+        } else {
+            self.target.clone()
+        }
+    }
+
+    /// ExternalSymlink "remaining_path"s can themselves contain symlinks. When
+    /// assembling the final archive, we need to preserve these interior links
+    /// and materialize their targets in the offline archive.
+    pub fn interior_links(&self) -> anyhow::Result<Vec<AbsoluteSymlink>> {
+        let mut targets = Vec::new();
+        if let Some(remaining_path) = &self.remaining_path {
+            for ancestor in remaining_path.as_path().ancestors() {
+                let path = self.target.join(ancestor);
+                if let Some(meta) = fs_util::symlink_metadata_if_exists(&path)? {
+                    if meta.file_type().is_symlink() {
+                        let target = fs_util::canonicalize(&path)?;
+                        targets.push(AbsoluteSymlink { link: path, target });
+                    }
+                }
+            }
+        }
+
+        Ok(targets)
+    }
 }
 
 /// Structured format for an "offline archive manifest", which contains information
@@ -108,5 +146,167 @@ where
     } else {
         let err = String::from_utf8(result.stderr).context("hg stderr to string")?;
         Err(anyhow::anyhow!(err))
+    }
+}
+
+/// TODO(skarlage): Symlinks are weird on Windows; this crate won't actually
+/// be used for windows for now.
+#[cfg(all(test, not(windows)))]
+mod tests {
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    struct Symlink {
+        pub link: &'static str,
+        pub target: &'static str,
+    }
+
+    enum Entry {
+        File(&'static str),
+        Dir(&'static str),
+        RelativeSymlink(Symlink),
+        /// Separate so we can make 'target' absolute, which needs tree root.
+        AbsoluteSymlink(Symlink),
+    }
+
+    /// Creates a tree of entries rooted at
+    fn create_tree(entries: Vec<Entry>) -> anyhow::Result<TempDir> {
+        let working_dir = TempDir::new()?;
+        for entry in entries {
+            match entry {
+                Entry::File(path) => {
+                    fs_util::create_file(working_dir.path().join(path))?;
+                }
+                Entry::Dir(dir) => {
+                    fs_util::create_dir_all(working_dir.path().join(dir))?;
+                }
+                Entry::RelativeSymlink(symlink) => {
+                    fs_util::symlink(symlink.target, working_dir.path().join(symlink.link))?;
+                }
+                Entry::AbsoluteSymlink(symlink) => {
+                    fs_util::symlink(
+                        working_dir.path().join(symlink.target),
+                        working_dir.path().join(symlink.link),
+                    )?;
+                }
+            }
+        }
+
+        Ok(working_dir)
+    }
+
+    #[test]
+    fn test_full_target_no_remaining() -> anyhow::Result<()> {
+        let external_link = ExternalSymlink {
+            link: ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
+            target: AbsPathBuf::new("/some/absolute/path")?,
+            remaining_path: None,
+        };
+        assert_eq!(
+            AbsPathBuf::new("/some/absolute/path")?,
+            external_link.full_target()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_full_target_with_remaining() -> anyhow::Result<()> {
+        let external_link = ExternalSymlink {
+            link: ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
+            target: AbsPathBuf::new("/some/absolute/path")?,
+            remaining_path: Some(ForwardRelativePathBuf::new("and/some/extra".to_owned())?),
+        };
+        assert_eq!(
+            AbsPathBuf::new("/some/absolute/path/and/some/extra")?,
+            external_link.full_target()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_interior_links_no_remaining() -> anyhow::Result<()> {
+        let external_link = ExternalSymlink {
+            link: ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned()),
+            target: AbsPathBuf::new("/some/absolute/path")?,
+            remaining_path: None,
+        };
+        assert!(external_link.interior_links()?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_interior_links_relative() -> anyhow::Result<()> {
+        let tree = create_tree(vec![
+            Entry::Dir("foo/bar/baz"),
+            Entry::File("foo/bar/stuff.txt"),
+            Entry::RelativeSymlink(Symlink {
+                link: "foo/bar/baz/link",
+                target: "..",
+            }),
+        ])?;
+
+        // Canonicalize this because the canonicalize() call in `interior_links()`
+        // resolves to /private/var/... on macOS.
+        let working_dir = fs_util::canonicalize(tree.path())?;
+
+        let external_link = ExternalSymlink {
+            link: ProjectRelativePathBuf::unchecked_new("unused".to_owned()),
+            target: working_dir
+                .join(ForwardRelativePath::unchecked_new("foo/bar/baz"))
+                .as_abs_path()
+                .to_owned(),
+            remaining_path: Some(ForwardRelativePathBuf::new("link/stuff.txt".to_owned())?),
+        };
+
+        assert_eq!(
+            vec![AbsoluteSymlink {
+                link: AbsPathBuf::new(
+                    working_dir.join(ForwardRelativePath::unchecked_new("foo/bar/baz/link"))
+                )?,
+                target: working_dir.join(ForwardRelativePath::unchecked_new("foo/bar")),
+            }],
+            external_link.interior_links()?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_interior_links_absolute() -> anyhow::Result<()> {
+        let tree = create_tree(vec![
+            Entry::Dir("foo/bar/baz"),
+            Entry::File("foo/bar/stuff.txt"),
+            Entry::AbsoluteSymlink(Symlink {
+                link: "foo/bar/baz/link",
+                target: "foo/bar",
+            }),
+        ])?;
+
+        // Canonicalize this because the canonicalize() call in `interior_links()`
+        // resolves to /private/var/... on macOS.
+        let working_dir = fs_util::canonicalize(tree.path())?;
+
+        let external_link = ExternalSymlink {
+            link: ProjectRelativePathBuf::unchecked_new("unused".to_owned()),
+            target: working_dir
+                .join(ForwardRelativePath::unchecked_new("foo/bar/baz"))
+                .as_abs_path()
+                .to_owned(),
+            remaining_path: Some(ForwardRelativePathBuf::new("link/stuff.txt".to_owned())?),
+        };
+
+        assert_eq!(
+            vec![AbsoluteSymlink {
+                link: AbsPathBuf::new(
+                    working_dir.join(ForwardRelativePath::unchecked_new("foo/bar/baz/link"))
+                )?,
+                target: working_dir.join(ForwardRelativePath::unchecked_new("foo/bar")),
+            }],
+            external_link.interior_links()?
+        );
+
+        Ok(())
     }
 }

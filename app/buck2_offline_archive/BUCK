@@ -5,6 +5,9 @@ oncall("buck2")
 rust_library(
     name = "buck2_offline_archive",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:tempfile",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde",

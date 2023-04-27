@@ -7,6 +7,8 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 serde = { workspace = true }
-tempfile = { workspace = true }
 
 buck2_core = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
+use derive_more::Display;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -38,9 +39,11 @@ pub struct AbsPath(Path);
     PartialOrd,
     Clone,
     Allocative,
+    Display,
     serde::Serialize,
     serde::Deserialize
 )]
+#[display(fmt = "{}", "_0.display()")]
 pub struct AbsPathBuf(PathBuf);
 
 impl fmt::Debug for AbsPath {
