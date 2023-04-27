@@ -22,7 +22,7 @@ use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -431,14 +431,15 @@ impl OutputType {
     ) -> anyhow::Result<()> {
         if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
             // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
-            quiet_soft_error!(
+            soft_error!(
                 "declare_wrong_type",
                 OutputTypeError::CheckPath(
                     path_for_error_message.to_string(),
                     self,
                     OutputType::File
                 )
-                .into()
+                .into(),
+                quiet: true
             )?;
             Ok(())
         } else if self == output_type

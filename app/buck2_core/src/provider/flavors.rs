@@ -13,7 +13,7 @@ use regex::RegexSet;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
-use crate::quiet_soft_error;
+use crate::soft_error;
 
 static PLATFORM_REGEX_SET: OnceCell<RegexSet> = OnceCell::new();
 
@@ -53,9 +53,10 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
             // remove platform flavor from the vector of flavors
             // We log the target with the offending flavor here, though in practice we'll have to
             // rely on the wrapping span in order to find
-            quiet_soft_error!(
+            soft_error!(
                 "platform_flavor",
-                anyhow::anyhow!("Platform flavor found in target: {}", full_target)
+                anyhow::anyhow!("Platform flavor found in target: {}", full_target),
+                quiet: true
             )?;
             flavors_parts.remove(index);
         }

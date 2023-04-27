@@ -21,7 +21,6 @@ use std::time::Instant;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::package::PackageLabel;
-use buck2_core::quiet_soft_error;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
@@ -722,7 +721,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         let res = res.or_else(|err| match err {
             e @ PushError::Overflow => Err(e.into()),
             e @ PushError::DuplicateKey { .. } => {
-                quiet_soft_error!("critical_path_duplicate_key", e.into())?;
+                soft_error!("critical_path_duplicate_key", e.into(), quiet: true)?;
                 anyhow::Ok(())
             }
         });

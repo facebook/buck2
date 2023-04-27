@@ -31,8 +31,8 @@ use buck2_core::facebook_only;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::quiet_soft_error;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::scribe;
 use buck2_events::sink::tee::TeeSink;
@@ -604,7 +604,7 @@ impl DaemonState {
 
         check_working_dir::check_working_dir().map_err(|e| {
             // Always throw this error, but tag it via soft errors.
-            match quiet_soft_error!("eden_not_connected", e) {
+            match soft_error!("eden_not_connected", e, quiet: true) {
                 Ok(r) => r,
                 Err(e) => e,
             }
@@ -665,8 +665,6 @@ impl DaemonState {
     fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
-            use buck2_core::soft_error;
-
             let project_root = self.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {
                 return Ok(());

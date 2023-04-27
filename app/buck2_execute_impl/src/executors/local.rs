@@ -25,7 +25,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -617,7 +617,7 @@ pub async fn materialize_inputs(
         match res {
             Ok(()) => {}
             Err(e @ MaterializationError::NotFound { .. }) => {
-                return Err(quiet_soft_error!("cas_missing_fatal", e.into())?);
+                return Err(soft_error!("cas_missing_fatal", e.into(), quiet: true)?);
             }
             Err(e) => {
                 return Err(e.into());
@@ -657,7 +657,7 @@ async fn check_inputs(
         })
         .await;
 
-    match res.map_err(|err| quiet_soft_error!("missing_local_inputs", err)) {
+    match res.map_err(|err| soft_error!("missing_local_inputs", err, quiet: true)) {
         Ok(()) | Err(Ok(_)) => ControlFlow::Continue(manager),
         Err(Err(err)) => ControlFlow::Break(manager.error("local_check_inputs", err)),
     }

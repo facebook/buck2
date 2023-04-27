@@ -41,7 +41,7 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
@@ -1532,9 +1532,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             .materializer_state_table()
                             .update_access_time(path, timestamp)
                         {
-                            quiet_soft_error!(
+                            soft_error!(
                                 "materializer_materialize_error",
-                                e.context(self.log_buffer.clone())
+                                e.context(self.log_buffer.clone()),
+                                quiet: true
                             )
                             .unwrap();
                         }
@@ -1778,7 +1779,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            quiet_soft_error!(error_name, e.context(log_buffer.clone())).unwrap();
+            soft_error!(error_name, e.context(log_buffer.clone()), quiet: true).unwrap();
         }
     }
 
@@ -1900,7 +1901,7 @@ impl ArtifactTree {
             }
             Err(e) => {
                 // NOTE: This shouldn't normally happen?
-                quiet_soft_error!("cleanup_finished_vacant", e).unwrap();
+                soft_error!("cleanup_finished_vacant", e, quiet: true).unwrap();
             }
         }
     }

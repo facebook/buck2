@@ -38,7 +38,6 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
-use buck2_core::quiet_soft_error;
 use buck2_core::soft_error;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_events::dispatch::get_dispatcher;
@@ -251,7 +250,7 @@ async fn copy_output<W: Write>(
     let mut file = match fs_util::open_file(loc) {
         Ok(f) => f,
         Err(e) => {
-            return Err(quiet_soft_error!("bxl_output_missing", e)?);
+            return Err(soft_error!("bxl_output_missing", e, quiet: true)?);
         }
     };
     io::copy(&mut file, &mut output)?;

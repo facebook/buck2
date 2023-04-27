@@ -46,7 +46,7 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_execute::materialize::materializer::HasMaterializer;
@@ -407,7 +407,7 @@ async fn test_targets(
         .await
         .context("Failed to launch executor")
         .map_err(
-            |err| match quiet_soft_error!("executor_launch_failed", err) {
+            |err| match soft_error!("executor_launch_failed", err, quiet: true) {
                 Ok(e) => e,
                 Err(e) => e,
             },

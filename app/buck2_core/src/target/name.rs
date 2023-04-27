@@ -86,15 +86,17 @@ impl TargetName {
             soft_error!("label_is_dot_dot_dot", TargetNameError::DotDotDot.into())?;
         }
         if name.contains(',') {
-            quiet_soft_error!(
+            soft_error!(
                 "label_has_comma",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into(),
+                quiet: true
             )?;
         }
         if name.contains('$') {
-            quiet_soft_error!(
+            soft_error!(
                 "label_has_dollar_sign",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into()
+                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into(),
+                quiet: true
             )?;
         }
 

@@ -19,7 +19,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::quiet_soft_error;
+use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
@@ -183,7 +183,7 @@ fn gather_clean_futures_for_stale_artifacts(
                 stats,
             };
             // quiet just because it's also returned, soft_error to log to scribe
-            quiet_soft_error!("clean_stale_error", error.clone().into()).unwrap();
+            soft_error!("clean_stale_error", error.clone().into(), quiet: true).unwrap();
             return Err(anyhow::anyhow!(error));
         }
     }
