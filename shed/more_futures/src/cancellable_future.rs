@@ -428,7 +428,7 @@ where
 /// during the critical section. If it *was* cancelled before entering the critical section (i.e.
 /// the last ref was dropped during `poll`), then the future is allowed to continue executing until
 /// this future resolves.
-pub fn critical_section<F, Fut>(make: F) -> impl Future<Output = <Fut as Future>::Output>
+pub(crate) fn critical_section<F, Fut>(make: F) -> impl Future<Output = <Fut as Future>::Output>
 where
     F: FnOnce() -> Fut,
     Fut: Future,
