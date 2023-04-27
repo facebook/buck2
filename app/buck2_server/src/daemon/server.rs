@@ -65,6 +65,7 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryFutureExt;
+use more_futures::cancellation::CancellationContext;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_dropcancel;
 use tokio::sync::oneshot;
@@ -458,7 +459,7 @@ impl BuckdServer {
             state,
             dispatch.dupe(),
             daemon_shutdown_channel,
-            move |req| async move {
+            move |req, cancellations| async move {
                 let result: anyhow::Result<Res> = try {
                     let base_context = daemon_state.prepare_command(dispatch.dupe(), guard).await?;
                     build_listener::scope(
@@ -473,6 +474,7 @@ impl BuckdServer {
                                 req.build_options(),
                                 daemon_state.paths.buck_out_dir(),
                                 req.record_target_call_stacks(),
+                                cancellations,
                             )?;
 
                             func(context, PartialResultDispatcher::new(dispatch.dupe()), req).await
@@ -669,7 +671,7 @@ fn pump_events<E: EventSource>(
 async fn streaming<
     Req: Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
-    F: FnOnce(Req) -> Fut,
+    F: FnOnce(Req, CancellationContext) -> Fut,
     E: EventSource + 'static,
 >(
     req: Request<Req>,
@@ -705,7 +707,7 @@ where
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
     let cancellable = spawn_dropcancel(
-        func(req),
+        func(req, CancellationContext::todo()), // TODO(bobyf) this should not be a drop cancel but explicit cancellation
         &BuckSpawner::default(),
         &events_ctx,
         debug_span!(parent: None, "running-command",),
@@ -1193,7 +1195,7 @@ impl DaemonApi for BuckdServer {
             state,
             dispatcher.dupe(),
             daemon_shutdown_channel,
-            move |req| async move {
+            move |req, _| async move {
                 let result = try {
                     spawn_allocative(
                         this,

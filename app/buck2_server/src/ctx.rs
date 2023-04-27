@@ -235,6 +235,7 @@ impl ServerCommandContext {
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
         record_target_call_stacks: bool,
+        cancellations: CancellationContext,
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -326,7 +327,7 @@ impl ServerCommandContext {
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
             debugger_handle,
-            cancellations: CancellationContext::todo(),
+            cancellations,
         })
     }
 
