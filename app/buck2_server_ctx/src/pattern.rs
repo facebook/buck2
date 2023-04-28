@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -21,13 +19,12 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::ctx::ServerCommandContextTrait;
 
 pub struct PatternParser {
-    cell: CellInstance,
+    cell_resolver: CellResolver,
     cwd: CellPath,
     target_alias_resolver: BuckConfigTargetAliasResolver,
 }
@@ -39,17 +36,10 @@ impl PatternParser {
         let cwd = cell_resolver.get_cell_path(&cwd)?;
         let cell_name = cwd.cell();
 
-        // Targets with cell aliases should be resolved against the cell mapping
-        // as defined the cell derived from the cwd.
-        let cell = cell_resolver
-            .get(cell_name)
-            .with_context(|| format!("Cell does not exist: `{}`", cell_name))?
-            .dupe();
-
         let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
         Ok(Self {
-            cell,
+            cell_resolver,
             cwd,
             target_alias_resolver,
         })
@@ -58,9 +48,9 @@ impl PatternParser {
     pub fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
         ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
-            self.cell.cell_alias_resolver(),
             self.cwd.as_ref(),
             pattern,
+            &self.cell_resolver,
         )
     }
 }

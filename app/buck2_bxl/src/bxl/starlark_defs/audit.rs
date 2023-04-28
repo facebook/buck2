@@ -134,7 +134,8 @@ fn register_audit(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Option<Value<'v>>> {
         let target_platform = target_platform.parse_target_platforms(
             &this.ctx.target_alias_resolver,
-            &this.ctx.cell,
+            &this.ctx.cell_resolver,
+            this.ctx.cell_name,
             &this.global_target_platform,
         )?;
 

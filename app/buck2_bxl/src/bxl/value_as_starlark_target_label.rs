@@ -9,8 +9,9 @@
 
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::cells::instance::CellInstance;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
@@ -29,7 +30,8 @@ pub trait ValueAsStarlarkTargetLabel {
     fn parse_target_platforms(
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,
-        cell: &CellInstance,
+        cell_resolver: &CellResolver,
+        cell_name: CellName,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<Option<TargetLabel>>;
 }
@@ -38,7 +40,8 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
     fn parse_target_platforms(
         self,
         target_alias_resolver: &BuckConfigTargetAliasResolver,
-        cell: &CellInstance,
+        cell_resolver: &CellResolver,
+        cell_name: CellName,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<Option<TargetLabel>> {
         let target_platform = if self.is_none() {
@@ -47,10 +50,10 @@ impl<'v> ValueAsStarlarkTargetLabel for Value<'v> {
             Some(
                 ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     target_alias_resolver,
-                    cell.cell_alias_resolver(),
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(cell.name(), CellRelativePath::empty()),
+                    CellPathRef::new(cell_name, CellRelativePath::empty()),
                     s,
+                    cell_resolver,
                 )?
                 .as_target_label(s)?,
             )

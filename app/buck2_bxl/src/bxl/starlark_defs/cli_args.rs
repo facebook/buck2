@@ -422,9 +422,9 @@ impl CliArgType {
                         CliArgValue::TargetLabel(
                             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
-                                &ctx.cell_resolver,
                                 ctx.relative_dir.as_cell_path(),
                                 x,
+                                &ctx.cell_resolver,
                             )?
                             .as_target_label(x)?,
                         )
@@ -436,9 +436,9 @@ impl CliArgType {
                         CliArgValue::ProvidersLabel(
                             ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
-                                &ctx.cell_resolver,
                                 ctx.relative_dir.as_cell_path(),
                                 x,
+                                &ctx.cell_resolver,
                             )?
                             .as_providers_label(x)?,
                         )
@@ -449,9 +449,9 @@ impl CliArgType {
                     let x = clap.value_of().unwrap_or("");
                     let pattern = ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                         &ctx.target_alias_resolver,
-                        &ctx.cell_resolver,
                         ctx.relative_dir.as_cell_path(),
                         x,
+                        &ctx.cell_resolver,
                     )?;
                     let loaded =
                         load_patterns(ctx.dice, vec![pattern], MissingTargetBehavior::Fail).await?;

@@ -302,12 +302,14 @@ impl<T: PatternType> ParsedPattern<T> {
     /// generally preferred elsewhere.
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
-        cell_resolver: &CellAliasResolver,
         relative_dir: CellPathRef,
         pattern: &str,
+        cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
-            cell_resolver,
+            cell_resolver
+                .get(relative_dir.cell())?
+                .cell_alias_resolver(),
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -1193,27 +1195,22 @@ mod tests {
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "//package/path"
+                "//package/path",
+                &resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
-            ParsedPattern::parse_relaxed(
-                &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "path"
-            )?
+            ParsedPattern::parse_relaxed(&NoAliases, package.as_ref(), "path", &resolver(),)?
         );
         assert_eq!(
             mk_providers("root", "package/path", "path", Some(&["provider"])),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "path[provider]"
+                "path[provider]",
+                &resolver(),
             )?
         );
         assert_eq!(
@@ -1225,57 +1222,52 @@ mod tests {
             ),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "path/subpath[provider]"
+                "path/subpath[provider]",
+                &resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path/subpath", "subpath"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "path/subpath"
+                "path/subpath",
+                &resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "//package/path/"
+                "//package/path/",
+                &resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "//package/path/:target"
+                "//package/path/:target",
+                &resolver(),
             )?
         );
 
         // Awkward but technically valid?
         assert_eq!(
             mk_target("root", "package", "foo"),
-            ParsedPattern::parse_relaxed(
-                &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "/:foo"
-            )?
+            ParsedPattern::parse_relaxed(&NoAliases, package.as_ref(), "/:foo", &resolver(),)?
         );
 
         // There's no target here so this is invalid.
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "/"
+                "/",
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(
@@ -1405,20 +1397,15 @@ mod tests {
 
         assert_eq!(
             mk_target("cell1", "foo/bar", "target"),
-            ParsedPattern::parse_relaxed(
-                &config,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "foo"
-            )?
+            ParsedPattern::parse_relaxed(&config, package.as_ref(), "foo", &resolver(),)?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "invalid/alias"
+                "invalid/alias",
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(
@@ -1431,9 +1418,9 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "badalias"
+                "badalias",
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(
@@ -1503,12 +1490,7 @@ mod tests {
 
         assert_eq!(
             mk_providers("cell1", "foo/bar", "target", Some(&["qux"])),
-            ParsedPattern::parse_relaxed(
-                &config,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "foo[qux]"
-            )?
+            ParsedPattern::parse_relaxed(&config, package.as_ref(), "foo[qux]", &resolver(),)?
         );
 
         Ok(())

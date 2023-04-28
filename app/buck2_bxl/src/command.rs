@@ -212,10 +212,6 @@ pub(crate) async fn get_bxl_cli_args(
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
 
-    // Targets with cell aliases should be resolved against the cell mapping
-    // as defined the cell derived from the cwd.
-    let cell = cell_resolver.get(cell_name)?.dupe();
-
     let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
 
     let bxl_module = ctx
@@ -225,7 +221,7 @@ pub(crate) async fn get_bxl_cli_args(
     let frozen_callable = get_bxl_callable(bxl_label, &bxl_module)?;
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
-        cell_resolver: cell.cell_alias_resolver().dupe(),
+        cell_resolver: cell_resolver.dupe(),
         relative_dir: cur_package,
         dice: ctx,
     };

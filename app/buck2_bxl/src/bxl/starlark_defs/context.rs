@@ -29,7 +29,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::cells::instance::CellInstance;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;
@@ -108,8 +109,9 @@ pub struct BxlContext<'v> {
     pub(crate) current_bxl: BxlKey,
     #[derivative(Debug = "ignore")]
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
+    pub(crate) cell_name: CellName,
     #[derivative(Debug = "ignore")]
-    pub(crate) cell: CellInstance,
+    pub(crate) cell_resolver: CellResolver,
     cli_args: Value<'v>, // Struct of the cli args
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
@@ -134,7 +136,8 @@ impl<'v> BxlContext<'v> {
         target_alias_resolver: BuckConfigTargetAliasResolver,
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
-        cell: CellInstance,
+        cell_resolver: CellResolver,
+        cell_name: CellName,
         async_ctx: BxlSafeDiceComputations<'v>,
         output_sink: RefCell<Box<dyn Write>>,
         error_sink: RefCell<Box<dyn Write>>,
@@ -144,7 +147,8 @@ impl<'v> BxlContext<'v> {
         Self {
             current_bxl,
             target_alias_resolver,
-            cell,
+            cell_name,
+            cell_resolver,
             cli_args,
             async_ctx: async_ctx.clone(),
             state: heap.alloc_typed(AnalysisActions {
@@ -186,7 +190,8 @@ impl<'v> BxlContext<'v> {
         let ctx = self.async_ctx.0;
         let cell_resolver = ctx.get_cell_resolver().await?;
 
-        let working_dir = self.cell.path().as_project_relative_path().to_owned();
+        let cell = self.cell_resolver.get(self.cell_name)?;
+        let working_dir = cell.path().as_project_relative_path().to_owned();
         let project_root = self.project_root().clone();
 
         let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
@@ -332,7 +337,8 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let target_platform = target_platform.parse_target_platforms(
             &this.target_alias_resolver,
-            &this.cell,
+            &this.cell_resolver,
+            this.cell_name,
             &this.global_target_platform,
         )?;
 
@@ -536,14 +542,18 @@ fn register_context(builder: &mut MethodsBuilder) {
             &this.async_ctx,
             &this.output_stream.project_fs,
             &this.output_stream.artifact_fs,
-            &this.cell,
+            this.cell_resolver.get(this.cell_name)?,
         ))
     }
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
     fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
         this.async_ctx.via_dice(|ctx| async move {
-            let working_dir = this.cell.path().as_project_relative_path();
+            let working_dir = this
+                .cell_resolver
+                .get(this.cell_name)?
+                .path()
+                .as_project_relative_path();
             let cell_resolver = ctx.get_cell_resolver().await?;
 
             StarlarkAuditCtx::new(

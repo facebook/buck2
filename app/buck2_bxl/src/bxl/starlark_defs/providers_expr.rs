@@ -62,7 +62,8 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     ) -> anyhow::Result<Self> {
         let target_platform = target_platform.parse_target_platforms(
             &ctx.target_alias_resolver,
-            &ctx.cell,
+            &ctx.cell_resolver,
+            ctx.cell_name,
             &ctx.global_target_platform,
         )?;
 
@@ -106,10 +107,10 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                 Some(
                     ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                         &ctx.target_alias_resolver,
-                        ctx.cell.cell_alias_resolver(),
                         // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                        CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
+                        CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
                         s,
+                        &ctx.cell_resolver,
                     )?
                     .as_providers_label(s)?,
                 )

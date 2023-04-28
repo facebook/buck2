@@ -208,10 +208,10 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
         } else if let Some(s) = value.unpack_str() {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
-                ctx.cell.cell_alias_resolver(),
                 // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
+                CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
                 s,
+                &ctx.cell_resolver,
             )? {
                 ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                     Ok(Some(Self::Label(Cow::Owned(
@@ -341,10 +341,10 @@ impl<'v> TargetExpr<'v, TargetNode> {
         } else if let Some(s) = value.unpack_str() {
             match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &ctx.target_alias_resolver,
-                ctx.cell.cell_alias_resolver(),
                 // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                CellPathRef::new(ctx.cell.name(), CellRelativePath::empty()),
+                CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
                 s,
+                &ctx.cell_resolver,
             )? {
                 ParsedPattern::Target(pkg, name, TargetPatternExtra) => Ok(Some(Self::Label(
                     Cow::Owned(TargetLabel::new(pkg, name.as_ref())),

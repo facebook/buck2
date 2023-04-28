@@ -24,7 +24,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -164,7 +164,8 @@ pub async fn eval(
                             target_alias_resolver,
                             project_fs,
                             artifact_fs,
-                            bxl_cell,
+                            cell_resolver,
+                            bxl_cell.name(),
                             BxlSafeDiceComputations::new(&ctx, &cancellation),
                             file,
                             error_file,
@@ -290,7 +291,7 @@ pub fn get_bxl_callable<'a>(
 
 pub struct CliResolutionCtx<'a> {
     pub target_alias_resolver: BuckConfigTargetAliasResolver,
-    pub cell_resolver: CellAliasResolver,
+    pub cell_resolver: CellResolver,
     pub relative_dir: PackageLabel,
     pub dice: &'a DiceComputations,
 }
