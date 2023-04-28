@@ -42,6 +42,7 @@ load(
     "post_order_traversal",
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
+load("//open_source.bzl", "is_open_source")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":linker.bzl",
@@ -954,11 +955,9 @@ def use_hybrid_links_for_libomnibus(ctx: "context") -> bool.type:
 
 def omnibus_environment_attr():
     default = select({
+        # In open source, we don't want to use omnibus
         "DEFAULT": "fbcode//buck2/platform/omnibus:omnibus_environment",
         "fbcode//buck2/platform/omnibus:do_not_inject_omnibus_environment": None,
-    })
-
-    # In open source, we don't want to use omnibus
-    default = None # @oss-enable
+    }) if not is_open_source() else select({"DEFAULT": None})
 
     return attrs.option(attrs.dep(), default = default)

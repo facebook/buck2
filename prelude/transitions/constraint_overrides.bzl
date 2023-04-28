@@ -5,8 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("//open_source.bzl", "is_open_source")
+
 # NOTE: Currently, constraints can't be propagated via rule attrs and so need
 # to be hard-coded here.
+
 _CONSTRAINTS = [
     "ovr_config//third-party/cuda/constraints:11.0.2",
     "ovr_config//third-party/cuda/constraints:11.4.2",
@@ -20,9 +23,7 @@ _CONSTRAINTS = [
     "ovr_config//third-party/python/constraints:cinder.3.8",
     "ovr_config//third-party/zstd/constraints:1.4.x",
     "ovr_config//third-party/zstd/constraints:1.4.x-tp2",
-]
-
-_CONSTRAINTS = [] # @oss-enable
+] if not is_open_source() else []
 
 # Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so
 # impl a hacky eq impl to workaround.
