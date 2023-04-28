@@ -503,12 +503,6 @@ inlined_extra_attributes = {
     },
     "rust_test": {},
     "sh_test": {},
-    "worker_tool": {
-        # overridden to handle buck1's use of @Value.Default
-        "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = []),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_worker_tool_runner": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner")),
-    },
 }
 
 all_extra_attributes = _merge_dictionaries([

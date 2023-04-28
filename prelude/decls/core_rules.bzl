@@ -1326,7 +1326,7 @@ worker_tool = prelude_rule(
                  an executable, such as an `sh\\_binary()`.
                  Buck runs this executable only once per build.
             """),
-            "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), doc = """
+            "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = [], doc = """
                 A string of args that is passed to the executable represented by `exe` on
                  initial startup.
             """),
@@ -1355,6 +1355,8 @@ worker_tool = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
+            # FIXME: prelude// should be standalone (not refer to fbsource//)
+            "_worker_tool_runner": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner")),
         }
     ),
 )
