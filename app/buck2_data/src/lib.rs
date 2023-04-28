@@ -168,39 +168,6 @@ pub trait ToProtoMessage {
     fn as_proto(&self) -> Self::Message;
 }
 
-impl ToProtoMessage for buck2_core::target::label::TargetLabel {
-    type Message = crate::TargetLabel;
-
-    fn as_proto(&self) -> Self::Message {
-        crate::TargetLabel {
-            package: self.pkg().to_string(),
-            name: self.name().to_string(),
-        }
-    }
-}
-
-impl ToProtoMessage for buck2_core::target::label::ConfiguredTargetLabel {
-    type Message = crate::ConfiguredTargetLabel;
-
-    fn as_proto(&self) -> Self::Message {
-        crate::ConfiguredTargetLabel {
-            label: Some(self.unconfigured().as_proto()),
-            configuration: Some(self.cfg().as_proto()),
-            execution_configuration: self.exec_cfg().map(ToProtoMessage::as_proto),
-        }
-    }
-}
-
-impl ToProtoMessage for buck2_core::configuration::data::ConfigurationData {
-    type Message = crate::Configuration;
-
-    fn as_proto(&self) -> Self::Message {
-        crate::Configuration {
-            full_name: self.full_name().to_owned(),
-        }
-    }
-}
-
 /// Write out a human-readable description of the error tags
 /// that is printed out in the context stack when program fails.
 impl fmt::Display for ErrorCategory {

@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use internment_tweaks::Equiv;
 use internment_tweaks::Intern;
@@ -272,6 +273,16 @@ impl Serialize for ConfigurationData {
         S: Serializer,
     {
         s.collect_str(self)
+    }
+}
+
+impl ToProtoMessage for ConfigurationData {
+    type Message = buck2_data::Configuration;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::Configuration {
+            full_name: self.full_name().to_owned(),
+        }
     }
 }
 

@@ -16,6 +16,7 @@ use std::hash::Hasher;
 use std::str;
 
 use allocative::Allocative;
+use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
@@ -183,6 +184,17 @@ impl Serialize for TargetLabel {
     }
 }
 
+impl ToProtoMessage for TargetLabel {
+    type Message = buck2_data::TargetLabel;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::TargetLabel {
+            package: self.pkg().to_string(),
+            name: self.name().to_string(),
+        }
+    }
+}
+
 /// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
@@ -244,6 +256,18 @@ impl Serialize for ConfiguredTargetLabel {
         S: Serializer,
     {
         serializer.collect_str(self)
+    }
+}
+
+impl ToProtoMessage for ConfiguredTargetLabel {
+    type Message = buck2_data::ConfiguredTargetLabel;
+
+    fn as_proto(&self) -> Self::Message {
+        buck2_data::ConfiguredTargetLabel {
+            label: Some(self.unconfigured().as_proto()),
+            configuration: Some(self.cfg().as_proto()),
+            execution_configuration: self.exec_cfg().map(ToProtoMessage::as_proto),
+        }
     }
 }
 
