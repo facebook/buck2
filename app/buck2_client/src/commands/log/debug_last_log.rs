@@ -11,18 +11,18 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::soft_error;
 
-use crate::commands::log::last_log::LastLogCommand;
+use crate::commands::log::path_log::PathLogCommand;
 
 #[derive(Debug, thiserror::Error)]
 enum DebugLastLogCommandError {
-    #[error("`buck2 debug last-log` is deprecated. Use `buck2 log last` instead.")]
+    #[error("`buck2 debug last-log` is deprecated. Use `buck2 log path` instead.")]
     Deprecated,
 }
 
 #[derive(clap::Parser, Debug)]
 pub struct DebugLastLogCommand {
     #[clap(flatten)]
-    show_log: LastLogCommand,
+    path_log: PathLogCommand,
 }
 
 impl DebugLastLogCommand {
@@ -35,6 +35,6 @@ impl DebugLastLogCommand {
             "debug_last_log",
             DebugLastLogCommandError::Deprecated.into()
         )?;
-        self.show_log.exec(matches, ctx)
+        self.path_log.exec(matches, ctx)
     }
 }

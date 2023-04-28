@@ -15,7 +15,7 @@ use buck2_client_ctx::subscribers::event_log::file_names::retrieve_nth_recent_lo
 /// This command outputs the path to a recent log.
 #[derive(Debug, clap::Parser)]
 #[clap(group = clap::ArgGroup::with_name("event_log"))]
-pub struct LastLogCommand {
+pub struct PathLogCommand {
     /// Find the log from the Nth most recent command (`--recent 0` is the most recent).
     #[clap(
         long,
@@ -30,7 +30,7 @@ pub struct LastLogCommand {
     all: bool,
 }
 
-impl LastLogCommand {
+impl PathLogCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { recent, all } = self;
         let paths = if all {

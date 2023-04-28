@@ -10,8 +10,8 @@
 mod critical_path;
 pub(crate) mod debug_last_log;
 pub(crate) mod debug_what_ran;
-pub(crate) mod last_log;
 pub(crate) mod options;
+pub(crate) mod path_log;
 mod show_log;
 mod what_cmd;
 mod what_failed;
@@ -51,7 +51,8 @@ pub enum LogCommand {
     WhatFailed(what_failed::WhatFailedCommand),
 
     /// Shows the path to the most recent event log
-    Last(last_log::LastLogCommand),
+    #[clap(alias = "last")]
+    Path(path_log::PathLogCommand),
 
     /// Prints the most recent log to console
     Show(show_log::ShowLogCommand),
@@ -78,7 +79,7 @@ impl LogCommand {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
-            Self::Last(cmd) => cmd.exec(matches, ctx),
+            Self::Path(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
             Self::WhatCmd(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
