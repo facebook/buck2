@@ -41,11 +41,11 @@ def _impl_example(ctx):
 
 ## Running actions
 
-You can create actions within BXL via the `action_factory()`. This is called once globally then used on demand:
+You can create actions within BXL via the `actions_factory`. This is called once globally then used on demand:
 
 ```python
 def _impl_example(ctx):
-    actions = ctx.bxl_actions.action_factory() # call once, reuse wherever needed
+    actions = ctx.actions_factory # call once, reuse wherever needed
     output = actions.write("my_output", "out")
 ```
 

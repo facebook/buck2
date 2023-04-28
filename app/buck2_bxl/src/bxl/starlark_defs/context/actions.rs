@@ -42,7 +42,7 @@ use crate::bxl::starlark_defs::context::BxlContext;
 #[derive(Debug, Error)]
 enum BxlActionsError {
     #[error(
-        "An action registry was already requested via `action_factory()`. Only one action registry is allowed"
+        "An action registry was already requested via `actions_factory`. Only one action registry is allowed"
     )]
     RegistryAlreadyCreated,
 }
@@ -109,7 +109,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_write_action(ctx):
-    ///     actions = ctx.bxl_actions.action_factory()
+    ///     actions = ctx.actions_factory
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output)
     ///     ctx.output.print(ensured)

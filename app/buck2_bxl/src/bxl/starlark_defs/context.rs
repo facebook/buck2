@@ -562,7 +562,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// load("//path/to/rules:rules.bzl", "my_anon_targets_rule", "my_map_function")
     ///
     /// def _resolve_impl(ctx):
-    ///     actions = ctx.bxl_actions.action_factory()
+    ///     actions = ctx.actions_factory
     ///     my_attrs = {
     ///         "false": False,
     ///         "int": 42,

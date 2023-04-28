@@ -372,7 +372,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_abs_path(ctx):
-    ///     actions = ctx.bxl_actions.action_factory()
+    ///     actions = ctx.actions_factory
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
     ///
@@ -411,7 +411,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_rel_path(ctx):
-    ///     actions = ctx.bxl_actions.action_factory()
+    ///     actions = ctx.actions_factory
     ///     output = actions.write("my_output", "my_content")
     ///     ensured = ctx.output.ensure(output) # currently defaults to creating an EnsuredArtifact with a relative path
     ///
