@@ -21,34 +21,24 @@ load("@prelude//utils:utils.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def linker_map_args(ctx, linker_map) -> LinkArgs.type:
-    darwin_flags = [
-        "-Xlinker",
-        "-map",
-        "-Xlinker",
-        linker_map,
-    ]
-    gnu_flags = [
-        "-Xlinker",
-        "-Map",
-        "-Xlinker",
-        linker_map,
-        "-Xlinker",
-        # A linker map is useful even when the output executable can't be correctly created
-        # (e.g. due to relocation overflows). Turn errors into warnings so the
-        # path/to:binary[linker-map] sub-target successfully runs and produces the linker map file.
-        "-noinhibit-exec",
-    ]
-    extra_clang_flags = [
-        # If linking hits relocation overflows these will produce a huge amount of almost identical logs.
-        "-Xlinker",
-        "--error-limit=1",
-    ]
-
-    if get_cxx_toolchain_info(ctx).linker_info.type == "darwin":
-        return LinkArgs(flags = darwin_flags)
-    if get_cxx_toolchain_info(ctx).c_compiler_info.compiler_type == "gcc":
-        return LinkArgs(flags = gnu_flags)
-    return LinkArgs(flags = gnu_flags + extra_clang_flags)
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    if linker_type == "darwin":
+        flags = [
+            "-Xlinker",
+            "-map",
+            "-Xlinker",
+            linker_map,
+        ]
+    elif linker_type == "gnu":
+        flags = [
+            "-Xlinker",
+            "-Map",
+            "-Xlinker",
+            linker_map,
+        ]
+    else:
+        fail("Linker type {} not supported".format(linker_type))
+    return LinkArgs(flags = flags)
 
 def map_link_args_for_dwo(ctx: "context", links: ["LinkArgs"], output_short_path: [str.type, None]) -> (["LinkArgs"], ["artifact", None]):
     """
