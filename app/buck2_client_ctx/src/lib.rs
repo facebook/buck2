@@ -29,7 +29,6 @@ pub mod ide_support;
 pub mod manifold;
 pub mod output_destination_arg;
 pub mod path_arg;
-pub mod protobuf_util;
 pub mod replayer;
 pub mod restarter;
 pub mod startup_deadline;

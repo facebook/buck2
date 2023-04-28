@@ -9,6 +9,7 @@
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -18,7 +19,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::protobuf_util::ProtobufSplitter;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_subscription_proto::SubscriptionRequest;

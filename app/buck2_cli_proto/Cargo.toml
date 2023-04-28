@@ -7,10 +7,12 @@ version = "0.1.0"
 [dependencies]
 allocative = { workspace = true }
 anyhow = { workspace = true }
+bytes = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tokio-util = { workspace = true }
 tonic = { workspace = true }
 
 buck2_data = { workspace = true }
@@ -18,3 +20,7 @@ buck2_subscription_proto = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }
+
+[dev-dependencies]
+futures = { workspace = true }
+tokio = { workspace = true }

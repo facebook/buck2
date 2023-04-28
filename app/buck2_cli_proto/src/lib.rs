@@ -14,6 +14,8 @@ use thiserror::Error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
 
+pub mod protobuf_util;
+
 tonic::include_proto!("buck.daemon");
 
 #[derive(Debug, Error)]

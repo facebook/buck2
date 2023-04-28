@@ -58,6 +58,7 @@ def rust_protobuf_library(
         protos,
         build_env = None,
         deps = [],
+        test_deps = None,
         doctests = True):
     deps = _maybe_select_map(deps, _fix_deps)
     if build_env:
@@ -110,6 +111,7 @@ def rust_protobuf_library(
             "fbsource//third-party/rust:prost-types",
             "fbsource//third-party/rust:tonic",
         ] + (deps or []),
+        test_deps = test_deps,
     )
 
     # For python tests only

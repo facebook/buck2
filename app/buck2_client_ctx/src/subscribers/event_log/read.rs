@@ -18,6 +18,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::bufread::ZstdDecoder;
+use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_cli_proto::*;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -37,7 +38,6 @@ use tokio::io::ReadBuf;
 use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::FramedRead;
 
-use crate::protobuf_util::ProtobufSplitter;
 use crate::stream_value::StreamValue;
 use crate::subscribers::event_log::utils::Compression;
 use crate::subscribers::event_log::utils::Encoding;

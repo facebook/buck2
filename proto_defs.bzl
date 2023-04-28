@@ -17,6 +17,7 @@ def rust_protobuf_library(
         protos,
         build_env = None,
         deps = None,
+        test_deps = None,
         doctests = True):
     build_name = name + "-build"
     proto_name = name + "-proto"
@@ -60,6 +61,7 @@ def rust_protobuf_library(
             "fbsource//third-party/rust:prost",
             "fbsource//third-party/rust:tonic",
         ] + (deps or []),
+        test_deps = test_deps,
     )
 
     # For python tests only
