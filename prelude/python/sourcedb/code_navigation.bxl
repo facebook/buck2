@@ -11,7 +11,7 @@ load(":query.bxl", "do_query")
 
 def _build_entry_point(ctx: "bxl_ctx") -> None:
     query = ctx.cquery()
-    actions = ctx.bxl_actions.action_factory()
+    actions = ctx.actions_factory
     root = ctx.root()
 
     sources = ["{}/{}".format(root, source) for source in ctx.cli_args.source]
