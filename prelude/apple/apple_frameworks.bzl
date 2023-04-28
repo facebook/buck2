@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags", "merge_swiftmodule_linkables")
 load("@prelude//apple/swift:swift_runtime.bzl", "extract_swift_runtime_linkables", "get_swift_runtime_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
@@ -16,6 +17,7 @@ load(
     "LinkInfosTSet",
     "LinkableType",
     "SwiftRuntimeLinkable",  # @unused Used as a type
+    "SwiftmoduleLinkable",  # @unused Used as a type
     "get_link_args",
     "merge_framework_linkables",
     "merge_swift_runtime_linkables",
@@ -126,8 +128,9 @@ def apple_build_link_args_with_deduped_flags(
         frameworks_linkable: [FrameworksLinkable.type, None],
         link_style: "LinkStyle",
         prefer_stripped: bool.type = False,
+        swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> LinkArgs.type:
-    link_info = _link_info_from_linkables(ctx, [info.frameworks[link_style], frameworks_linkable], [info.swift_runtime[link_style], swift_runtime_linkable])
+    link_info = _link_info_from_linkables(ctx, [info.frameworks[link_style], frameworks_linkable], [swiftmodule_linkable], [info.swift_runtime[link_style], swift_runtime_linkable])
     if not link_info:
         return get_link_args(info, link_style, prefer_stripped)
 
@@ -142,8 +145,9 @@ def apple_build_link_args_with_deduped_flags(
 def apple_get_link_info_by_deduping_link_infos(
         ctx: "context",
         infos: [[LinkInfo.type, None]],
-        framework_linkable: [FrameworksLinkable.type, None],
-        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None]) -> [LinkInfo.type, None]:
+        framework_linkable: [FrameworksLinkable.type, None] = None,
+        swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> [LinkInfo.type, None]:
     # When building a framework or executable, all frameworks used by the statically-linked
     # deps in the subtree need to be linked.
     #
@@ -153,10 +157,13 @@ def apple_get_link_info_by_deduping_link_infos(
     if framework_linkable:
         framework_linkables.append(framework_linkable)
 
+    swiftmodule_linkables = extract_swiftmodule_linkables(infos)
+    swiftmodule_linkables.append(swiftmodule_linkable)
+
     swift_runtime_linkables = extract_swift_runtime_linkables(infos)
     swift_runtime_linkables.append(swift_runtime_linkable)
 
-    return _link_info_from_linkables(ctx, framework_linkables, swift_runtime_linkables)
+    return _link_info_from_linkables(ctx, framework_linkables, swiftmodule_linkables, swift_runtime_linkables)
 
 def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [FrameworksLinkable.type]:
     frameworks_type = LinkableType("frameworks")
@@ -169,9 +176,14 @@ def _extract_framework_linkables(link_infos: [[LinkInfo.type], None]) -> [Framew
 
     return linkables
 
-def _link_info_from_linkables(ctx: "context", framework_linkables: [[FrameworksLinkable.type, None]], swift_runtime_linkables: [[SwiftRuntimeLinkable.type, None]]) -> [LinkInfo.type, None]:
+def _link_info_from_linkables(
+        ctx: "context",
+        framework_linkables: [[FrameworksLinkable.type, None]],
+        swiftmodule_linkables: [[SwiftmoduleLinkable.type, None]] = [],
+        swift_runtime_linkables: [[SwiftRuntimeLinkable.type, None]] = []) -> [LinkInfo.type, None]:
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, merge_framework_linkables(framework_linkables))
+    swift_module_link_args = get_swiftmodule_linker_flags(merge_swiftmodule_linkables(ctx, swiftmodule_linkables))
     swift_runtime_link_args = get_swift_runtime_linker_flags(ctx, merge_swift_runtime_linkables(swift_runtime_linkables))
     return LinkInfo(
-        pre_flags = [framework_link_args, swift_runtime_link_args],
-    ) if (framework_link_args or swift_runtime_link_args) else None
+        pre_flags = [framework_link_args, swift_module_link_args, swift_runtime_link_args],
+    ) if (framework_link_args or swift_module_link_args or swift_runtime_link_args) else None

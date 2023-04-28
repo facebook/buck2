@@ -242,6 +242,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             frameworks_linkable,
             link_style,
             prefer_stripped = impl_params.prefer_stripped_objects,
+            swiftmodule_linkable = impl_params.swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         )
     else:
@@ -331,7 +332,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
         # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-        additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
+        additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, impl_params.swiftmodule_linkable, swift_runtime_linkable)
         if additional_links:
             filtered_links.append(additional_links)
 

@@ -27,6 +27,12 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkInfo",  # @unused Used as a type
+    "LinkableType",
+    "SwiftmoduleLinkable",
+)
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_deps_tset", "get_uncompiled_sdk_deps", "is_sdk_modules_provided")
 load(":swift_module_map.bzl", "write_swift_module_map_with_swift_deps")
 load(":swift_pcm_compilation.bzl", "PcmDepTSet", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
@@ -604,3 +610,23 @@ def _header_basename(header: ["artifact", "string"]) -> "string":
 def uses_explicit_modules(ctx: "context") -> bool.type:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
+
+def get_swiftmodule_linkable(ctx: "context", dependency_infos: [SwiftDependencyInfo.type]) -> SwiftmoduleLinkable.type:
+    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [d.transitive_swiftmodule_paths for d in dependency_infos]))
+
+def extract_swiftmodule_linkables(link_infos: [[LinkInfo.type], None]) -> [SwiftmoduleLinkable.type]:
+    swift_module_type = LinkableType("swiftmodule")
+
+    linkables = []
+    for info in link_infos:
+        for linkable in info.linkables:
+            if linkable._type == swift_module_type:
+                linkables.append(linkable)
+
+    return linkables
+
+def merge_swiftmodule_linkables(ctx: "context", swiftmodule_linkables: [[SwiftmoduleLinkable.type, None]]) -> SwiftmoduleLinkable.type:
+    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [linkable.tset for linkable in swiftmodule_linkables if linkable]))
+
+def get_swiftmodule_linker_flags(swiftmodule_linkable: [SwiftmoduleLinkable.type, None]) -> "cmd_args":
+    return cmd_args(swiftmodule_linkable.tset.project_as_args("linker_args")) if swiftmodule_linkable else cmd_args()

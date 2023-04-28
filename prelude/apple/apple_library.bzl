@@ -14,6 +14,7 @@ load(
     "get_swift_anonymous_targets",
     "get_swift_dependency_info",
     "get_swift_pcm_uncompile_info",
+    "get_swiftmodule_linkable",
     "uses_explicit_modules",
 )
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
@@ -139,6 +140,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     else:
         exported_pre = None
 
+    # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
+    swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_compile.dependency_info) if swift_compile else None
     swift_dependency_info = swift_compile.dependency_info if swift_compile else [get_swift_dependency_info(ctx, exported_pre, None)]
     swift_argsfile = swift_compile.swift_argsfile if swift_compile else None
 
@@ -173,12 +176,14 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
     )
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_link_flags = [_get_linker_flags(ctx, swift_dependency_info)],
+        extra_link_flags = [_get_linker_flags(ctx)],
+        swiftmodule_linkable = swiftmodule_linkable,
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
@@ -265,12 +270,8 @@ def _get_external_debug_info(swift_dependency_infos: [SwiftDependencyInfo.type])
             tsets.append(info.external_debug_info)
     return tsets
 
-def _get_linker_flags(ctx: "context", swift_dependency_infos: [SwiftDependencyInfo.type]) -> "cmd_args":
-    cmd = cmd_args(get_min_deployment_version_target_linker_flags(ctx))
-    for info in swift_dependency_infos:
-        cmd.add(info.transitive_swiftmodule_paths.project_as_args("linker_args"))
-
-    return cmd
+def _get_linker_flags(ctx: "context") -> "cmd_args":
+    return cmd_args(get_min_deployment_version_target_linker_flags(ctx))
 
 def _xcode_populate_attributes(
         ctx,

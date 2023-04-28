@@ -56,6 +56,7 @@ load(
     "ObjectsLinkable",
     "SharedLibLinkable",
     "SwiftRuntimeLinkable",  # @unused Used as a type
+    "SwiftmoduleLinkable",  # @unused Used as a type
     "create_merged_link_info",
     "get_actual_link_style",
     "get_link_args",
@@ -363,6 +364,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     )
 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
+    swiftmodule_linkable = impl_params.swiftmodule_linkable
     swift_runtime_linkable = create_swift_runtime_linkable(ctx)
     shared_links, link_group_map = _get_shared_library_links(
         ctx,
@@ -376,6 +378,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         impl_params.force_link_group_linking,
         frameworks_linkable,
         force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
+        swiftmodule_linkable = swiftmodule_linkable,
         swift_runtime_linkable = swift_runtime_linkable,
     )
     if impl_params.generate_sub_targets.link_group_map and link_group_map:
@@ -384,6 +387,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     extra_static_linkables = []
     if frameworks_linkable:
         extra_static_linkables.append(frameworks_linkable)
+    if swiftmodule_linkable:
+        extra_static_linkables.append(swiftmodule_linkable)
     if swift_runtime_linkable:
         extra_static_linkables.append(swift_runtime_linkable)
 
@@ -776,7 +781,7 @@ def _form_library_outputs(
         compiled_srcs: _CxxCompiledSourcesOutput.type,
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
-        extra_static_linkables: [[FrameworksLinkable.type, SwiftRuntimeLinkable.type]],
+        extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         gnu_use_link_groups: bool.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
@@ -914,6 +919,7 @@ def _get_shared_library_links(
         force_link_group_linking,
         frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool.type = True,
+        swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
         swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None]):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
@@ -948,6 +954,7 @@ def _get_shared_library_links(
             link,
             frameworks_linkable,
             LinkStyle(link_style_value),
+            swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
         ), None
 
@@ -973,8 +980,7 @@ def _get_shared_library_links(
 
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
-    # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-    additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swift_runtime_linkable)
+    additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swiftmodule_linkable, swift_runtime_linkable)
     if additional_links:
         filtered_links.append(additional_links)
 
@@ -995,7 +1001,7 @@ def _static_library(
         objects: ["artifact"],
         pic: bool.type,
         stripped: bool.type,
-        extra_linkables: [[FrameworksLinkable.type, SwiftRuntimeLinkable.type]],
+        extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool.type = False,
         external_debug_info: [ExternalDebugInfoTSet.type, None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:

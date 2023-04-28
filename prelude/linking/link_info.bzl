@@ -52,6 +52,7 @@ LinkableType = enum(
     "frameworks",
     "shared",
     "objects",
+    "swiftmodule",
     "swift_runtime",
 )
 
@@ -98,6 +99,11 @@ FrameworksLinkable = record(
     _type = field(LinkableType.type, LinkableType("frameworks")),
 )
 
+SwiftmoduleLinkable = record(
+    tset = field("SwiftmodulePathsTSet"),
+    _type = field(LinkableType.type, LinkableType("swiftmodule")),
+)
+
 # Represents the Swift runtime as a linker input.
 SwiftRuntimeLinkable = record(
     # Only store whether the runtime is required, so that linker flags
@@ -106,7 +112,7 @@ SwiftRuntimeLinkable = record(
     _type = field(LinkableType.type, LinkableType("swift_runtime")),
 )
 
-LinkableTypes = [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]
+LinkableTypes = [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]
 
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
@@ -197,7 +203,7 @@ def append_linkable_args(args: "cmd_args", linkable: LinkableTypes):
                 args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
             else:
                 args.add(linkable.objects)
-    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
+    elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swiftmodule") or linkable._type == LinkableType("swift_runtime"):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
@@ -231,7 +237,7 @@ def link_info_filelist(value: LinkInfo.type) -> ["artifact"]:
         elif linkable._type == LinkableType("objects"):
             if linkable.linker_type == "darwin":
                 filelists += linkable.objects
-        elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swift_runtime"):
+        elif linkable._type == LinkableType("frameworks") or linkable._type == LinkableType("swiftmodule") or linkable._type == LinkableType("swift_runtime"):
             pass
         else:
             fail("Encountered unhandled linkable of type {}".format(linkable._type))

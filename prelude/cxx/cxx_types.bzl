@@ -8,6 +8,7 @@
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
+    "SwiftmoduleLinkable",  # @unused Used as a type
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -129,6 +130,8 @@ CxxRuleConstructorParams = record(
     extra_link_input_has_external_debug_info = field(bool.type, False),
     # Additional args to be used to link the target.
     extra_link_args = field([LinkArgs.type], []),
+    # The swift module linkable that should be included for linking.
+    swiftmodule_linkable = field([SwiftmoduleLinkable.type, None], None),
     # The source files to compile as part of this rule. This list can be generated
     # from ctx.attrs with the `get_srcs_with_flags` function.
     srcs = field([CxxSrcWithFlags.type]),
