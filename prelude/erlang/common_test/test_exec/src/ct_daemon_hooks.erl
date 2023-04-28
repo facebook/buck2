@@ -22,7 +22,8 @@
     set_state/2,
     get_state/1,
     wrap/3,
-    format_ct_error/3
+    format_ct_error/3,
+    get_hooks/0
 ]).
 
 %% gen_server callbacks
@@ -78,6 +79,10 @@ wrap(Part, Path, Fun) ->
     WrappedFun = gen_server:call(?MODULE, {wrap, Part, Fun}),
     %% apply path as closure
     fun(Config) -> WrappedFun(Path, Config) end.
+
+-spec get_hooks() -> [module()].
+get_hooks() ->
+    [get_hook_module(Hook) || Hook <- get_hooks_config()].
 
 %% @doc
 %% Starts the server within supervision tree

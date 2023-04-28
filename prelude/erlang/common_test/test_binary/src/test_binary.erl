@@ -68,7 +68,7 @@ main([TestInfoFile, "run", OutputDir | Tests]) ->
 main([TestInfoFile]) ->
     %% without test runner support we run all tests and need to create our own test dir
     OutputDir = string:trim(os:cmd("mktemp -d")),
-    test_logger:set_up_logger(OutputDir, test_runner, false),
+    test_logger:set_up_logger(OutputDir, test_runner, true),
     try list_and_run(TestInfoFile, OutputDir) of
         true ->
             io:format("~nAt leas one test didn't pass!~nYou can find the test output directory here: ~s~n", [OutputDir]),
@@ -133,6 +133,17 @@ load_suite(SuitePath) ->
     {module, Module} = code:load_abs(filename:rootname(filename:absname(SuitePath))),
     {Module, filename:absname(SuitePath)}.
 
+-spec get_hooks(#test_info{}) -> [module()].
+get_hooks(TestInfo) ->
+    Hooks = lists:append(proplists:get_all_values(ct_hooks, TestInfo#test_info.ct_opts)),
+    [
+        case HookSpec of
+            {HookModule, _InitArguments} -> HookModule;
+            HookModule when is_atom(HookModule) -> HookModule
+        end
+     || HookSpec <- Hooks
+    ].
+
 -spec listing(string(), string()) -> ok.
 listing(TestInfoFile, OutputDir) ->
     TestInfo = load_test_info(TestInfoFile),
@@ -154,8 +165,9 @@ get_listing(TestInfo, OutputDir) ->
         buck_ct_provider:do_init(Provider, InitProviderState)
      || Provider <- TestInfo#test_info.providers
     ],
+    HookModules = get_hooks(TestInfo),
     Providers1 = [buck_ct_provider:do_pre_listing(Provider) || Provider <- Providers0],
-    Listing = list_test:list_tests(Suite),
+    Listing = list_test:list_tests(Suite, HookModules),
     Providers2 = [buck_ct_provider:do_post_listing(Provider) || Provider <- Providers1],
     [buck_ct_provider:do_terminate(Provider) || Provider <- Providers2],
     Listing.

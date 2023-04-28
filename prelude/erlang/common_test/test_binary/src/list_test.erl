@@ -12,7 +12,10 @@
 
 -include_lib("common/include/tpx_records.hrl").
 
--export([list_tests/1, list_test_spec/1]).
+-export([
+    list_tests/2,
+    list_test_spec/1, list_test_spec/2
+]).
 
 %% Fallback oncall
 -define(FALLBACK_ONCALL, <<"fallback_oncall">>).
@@ -34,13 +37,22 @@
 
 %% coming from the output of the group/0 method.
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:groups-0 for the upstream type.
--type groups_output() :: [group_def()] | map().
+-type groups_output() :: [group_def()].
 -type group_def() ::
     {group_name(), properties(), [subgroup_and_test_case()]}
     | {group_name(), [subgroup_and_test_case()]}.
--type subgroup_and_test_case() :: sub_group() | sub_test().
+-type subgroup_and_test_case() :: sub_group() | testcase().
 -type sub_group() :: group_def() | {group, group_name()}.
--type sub_test() :: test_name() | {testcase, test_name(), properties()}.
+-type testcase() :: test_name().
+
+%% coming from the output of the all/0 method.
+%% See https://www.erlang.org/doc/man/ct_suite.html#Module:all-0 for the upstream type.
+-type all_output() :: [ct_test_def()].
+-type ct_test_def() ::
+    {group, group_name()}
+    | {group, group_name(), properties()}
+    | {group, group_name(), properties(), sub_groups_all()}.
+-type sub_groups_all() :: [{group_name(), properties()} | {group_name(), properties(), sub_groups_all()}].
 
 -type properties() :: [term()].
 
@@ -50,9 +62,9 @@
 %% of the tests in the suite, as a XML
 %% as defined by tpx-buck2 specifications
 %% (see https://www.internalfb.com/code/fbsource/fbcode/buck2/docs/test_execution.md#test-spec-integration-with-tpx)
--spec list_tests(suite()) -> #test_spec_test_case{}.
-list_tests(Suite) ->
-    TestNames = list_test_spec(Suite),
+-spec list_tests(suite(), [module()]) -> #test_spec_test_case{}.
+list_tests(Suite, Hooks) ->
+    TestNames = list_test_spec(Suite, Hooks),
     listing_interfacer:test_case_constructor(Suite, TestNames).
 
 %% -------------- Internal functions ----------------
@@ -74,10 +86,47 @@ test_exported_test(Suite, Test) ->
             ok
     end.
 
+-spec load_hooks([module()]) -> ok.
+load_hooks(Hooks) ->
+    lists:map(fun code:ensure_loaded/1, Hooks),
+    ok.
+
 %% We extract the call to the groups() method so that we can type it.
--spec suite_groups(suite()) -> groups_output().
-suite_groups(Suite) ->
-    Suite:groups().
+-spec suite_groups(suite(), [module()]) -> groups_output().
+suite_groups(Suite, Hooks) ->
+    GroupDef =
+        case erlang:function_exported(Suite, groups, 0) of
+            true -> Suite:groups();
+            false -> []
+        end,
+    lists:foldl(
+        fun(Hook, CurrGroupDef) ->
+            case erlang:function_exported(Hook, post_groups, 2) of
+                true ->
+                    Hook:post_groups(Suite, CurrGroupDef);
+                false ->
+                    CurrGroupDef
+            end
+        end,
+        GroupDef,
+        Hooks
+    ).
+
+-spec suite_all(suite(), [module()], groups_output) -> all_output().
+suite_all(Suite, Hooks, GroupsDef) ->
+    TestsDef = Suite:all(),
+    lists:foldl(
+        fun(Hook, CurrTestsDef) ->
+            case erlang:function_exported(Hook, post_all, 3) of
+                true ->
+                    Hook:post_all(Suite, CurrTestsDef, GroupsDef);
+                false ->
+                    CurrTestsDef
+            end
+        end,
+        TestsDef,
+        Hooks
+    ).
 
 -spec list_test([subgroup_and_test_case()], [group_name()], groups_output(), suite()) -> [binary()].
 list_test(Node, Groups, SuiteGroups, Suite) ->
@@ -159,19 +208,19 @@ test_format(Suite, Groups, Test) ->
         Binary -> Binary
     end.
 
-%% @doc Creates a Xml representation of all the group / tests
-%% of the suite by exploring the suite
 -spec list_test_spec(suite()) -> [binary()].
 list_test_spec(Suite) ->
+    list_test_spec(Suite, []).
+
+%% @doc Creates a Xml representation of all the group / tests
+%% of the suite by exploring the suite
+-spec list_test_spec(suite(), [module()]) -> [binary()].
+list_test_spec(Suite, Hooks) ->
+    ok = load_hooks(Hooks),
     _Contacts = get_contacts(Suite),
-    AllResult = Suite:all(),
-    SuiteGroups =
-        try suite_groups(Suite) of
-            Result -> Result
-        catch
-            error:undef -> #{}
-        end,
-    lists:reverse(list_test(AllResult, [], SuiteGroups, Suite)).
+    GroupsDef = suite_groups(Suite, Hooks),
+    AllResult = suite_all(Suite, Hooks, GroupsDef),
+    lists:reverse(list_test(AllResult, [], GroupsDef, Suite)).
 
 -spec get_contacts(suite()) -> [binary()].
 get_contacts(Suite) ->

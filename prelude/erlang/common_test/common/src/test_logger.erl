@@ -4,7 +4,7 @@
 %% LICENSE-MIT file in the root directory of this source tree and the Apache
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
-
+%% % @format
 -module(test_logger).
 -compile(warn_missing_spec).
 
@@ -12,23 +12,22 @@
 
 -spec set_up_logger(file:filename(), atom()) -> ok.
 set_up_logger(LogDir, AppName) ->
-    set_up_logger(LogDir, AppName, true).
+    set_up_logger(LogDir, AppName, false).
 
 -spec set_up_logger(file:filename(), atom(), boolean()) -> ok.
-set_up_logger(LogDir, AppName, CaptureStdout) ->
-    [logger:remove_handler(Id) || Id <- logger:get_handler_ids()],
+set_up_logger(LogDir, AppName, StandaloneConfig) ->
     Log = get_log_file(LogDir, AppName),
     filelib:ensure_dir(Log),
     StdOut = get_std_out(LogDir, AppName),
     filelib:ensure_dir(StdOut),
     {ok, LogFileOpened} = file:open(StdOut, [write]),
-    case CaptureStdout of
+    case StandaloneConfig of
         true ->
+            [logger:remove_handler(Id) || Id <- logger:get_handler_ids()];
+        false ->
             group_leader(
                 LogFileOpened, self()
-            );
-        false ->
-            ok
+            )
     end,
     configure_logger(Log),
     test_artifact_directory:link_to_artifact_dir(StdOut, LogDir),

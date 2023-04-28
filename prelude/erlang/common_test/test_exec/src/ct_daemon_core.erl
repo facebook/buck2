@@ -110,7 +110,7 @@ list(Suite) ->
             {error, {could_not_find_module, Suite}};
         _ ->
             #test_spec_test_case{suite = SuiteName, testcases = TestCases} = list_test:list_tests(
-                Suite
+                Suite, ct_daemon_hooks:get_hooks()
             ),
             [
                 FullTestName
