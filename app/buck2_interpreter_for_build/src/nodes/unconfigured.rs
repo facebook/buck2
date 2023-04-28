@@ -159,7 +159,7 @@ pub(crate) fn parse_visibility(
             .push(VisibilityPattern(ctx.coerce_target_pattern(value)?));
     }
     match specs {
-        None => Ok(VisibilitySpecification::Default),
+        None => Ok(VisibilitySpecification::DEFAULT),
         Some(specs) => Ok(VisibilitySpecification::VisibleTo(
             specs.into_iter().collect(),
         )),

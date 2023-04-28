@@ -268,7 +268,6 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::OneOf(box l, _) => l.to_value(pkg, heap)?,
             AttrLiteral::Visibility(specs) => match specs {
                 VisibilitySpecification::Public => heap.alloc(AllocList(["PUBLIC"])),
-                VisibilitySpecification::Default => heap.alloc(AllocList::EMPTY),
                 VisibilitySpecification::VisibleTo(specs) => {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
                 }

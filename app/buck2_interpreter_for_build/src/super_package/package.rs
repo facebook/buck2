@@ -13,6 +13,7 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
+use buck2_util::arc_str::ThinArcSlice;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -53,7 +54,7 @@ fn parse_visibility(
     }
     Ok(match specs {
         Some(specs) => VisibilitySpecification::VisibleTo(specs.into_iter().collect()),
-        None => VisibilitySpecification::Default,
+        None => VisibilitySpecification::DEFAULT,
     })
 }
 
@@ -77,7 +78,7 @@ fn parse_within_view(
     }
     Ok(match specs {
         Some(specs) => WithinViewSpecification::VisibleTo(specs.into_iter().collect()),
-        None => WithinViewSpecification::Default,
+        None => WithinViewSpecification::VisibleTo(ThinArcSlice::empty()),
     })
 }
 

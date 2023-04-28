@@ -237,11 +237,12 @@ impl TargetNode {
                 )
                 .into());
             }
-            None => &VisibilitySpecification::Default,
+            None => {
+                static DEFAULT: VisibilitySpecification = VisibilitySpecification::DEFAULT;
+                &DEFAULT
+            }
         };
-        if self.0.package.default_visibility_to_public
-            && visibility == &VisibilitySpecification::Default
-        {
+        if self.0.package.default_visibility_to_public && visibility.is_default() {
             visibility = &VisibilitySpecification::Public;
         }
         Ok(visibility)

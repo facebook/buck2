@@ -36,13 +36,17 @@ impl VisibilityPattern {
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
-#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
-    #[default]
-    Default,
     VisibleTo(ThinArcSlice<VisibilityPattern>),
+}
+
+impl Default for VisibilitySpecification {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 #[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
@@ -50,15 +54,23 @@ pub enum WithinViewSpecification {
     // Default is used when a target doesn't specify any visibility.
     #[default]
     Public,
-    Default,
     VisibleTo(ThinArcSlice<VisibilityPattern>),
 }
 
 impl VisibilitySpecification {
+    pub const DEFAULT: VisibilitySpecification =
+        VisibilitySpecification::VisibleTo(ThinArcSlice::empty());
+
+    pub(crate) fn is_default(&self) -> bool {
+        match self {
+            VisibilitySpecification::Public => false,
+            VisibilitySpecification::VisibleTo(patterns) => patterns.is_empty(),
+        }
+    }
+
     pub fn is_visible_to(&self, target: &TargetLabel) -> bool {
         match self {
             VisibilitySpecification::Public => true,
-            VisibilitySpecification::Default => false,
             VisibilitySpecification::VisibleTo(patterns) => {
                 for pattern in patterns {
                     if pattern.0.matches(target) {
@@ -75,7 +87,6 @@ impl VisibilitySpecification {
             VisibilitySpecification::Public => vec![serde_json::Value::String(
                 VisibilityPattern::PUBLIC.to_owned(),
             )],
-            VisibilitySpecification::Default => Vec::new(),
             VisibilitySpecification::VisibleTo(patterns) => {
                 patterns.map(|p| serde_json::Value::String(p.to_string()))
             }
@@ -88,8 +99,6 @@ impl VisibilitySpecification {
             (VisibilitySpecification::Public, _) | (_, VisibilitySpecification::Public) => {
                 VisibilitySpecification::Public
             }
-            (VisibilitySpecification::Default, other) => other.dupe(),
-            (this, VisibilitySpecification::Default) => this.dupe(),
             (
                 VisibilitySpecification::VisibleTo(this),
                 VisibilitySpecification::VisibleTo(other),
@@ -102,7 +111,6 @@ impl Display for VisibilitySpecification {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             VisibilitySpecification::Public => write!(f, "[\"{}\"]", VisibilityPattern::PUBLIC),
-            VisibilitySpecification::Default => write!(f, "[]"),
             VisibilitySpecification::VisibleTo(patterns) => {
                 write!(f, "[")?;
                 for (i, pattern) in patterns.iter().enumerate() {
@@ -123,8 +131,6 @@ impl WithinViewSpecification {
             (WithinViewSpecification::Public, _) | (_, WithinViewSpecification::Public) => {
                 WithinViewSpecification::Public
             }
-            (WithinViewSpecification::Default, other) => other.dupe(),
-            (this, WithinViewSpecification::Default) => this.dupe(),
             (
                 WithinViewSpecification::VisibleTo(this),
                 WithinViewSpecification::VisibleTo(other),

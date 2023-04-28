@@ -92,7 +92,7 @@ fn exec_compatible_with_attribute() -> Attribute {
 fn visibility_attribute() -> Attribute {
     Attribute::new(
         Some(Arc::new(CoercedAttr::Literal(AttrLiteral::Visibility(
-            VisibilitySpecification::Default,
+            VisibilitySpecification::DEFAULT,
         )))),
         "a list of visibility patterns restricting what targets can depend on this one",
         AttrType::visibility(),
