@@ -779,7 +779,7 @@ where
             debug_assert!(self.module.load_relaxed().is_some());
         }
         let res =
-            eval.with_function_context(self.module.load_relaxed(), |eval| self.bc().run(eval));
+            eval.with_function_context(self.module.load_relaxed(), |eval| eval.eval_bc(self.bc()));
 
         res.map_err(|EvalException(e)| e)
     }
