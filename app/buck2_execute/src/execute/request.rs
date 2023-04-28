@@ -13,6 +13,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::collections::sorted_set::SortedSet;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
@@ -253,6 +255,7 @@ pub struct CommandExecutionRequest {
     force_full_hybrid_if_capable: bool,
     /// Whether to disable capturing performance counters for this execution.
     disable_miniperf: bool,
+    required_local_resources: SortedSet<LocalResourceState>,
 }
 
 impl CommandExecutionRequest {
@@ -276,6 +279,7 @@ impl CommandExecutionRequest {
             allow_cache_upload: false,
             force_full_hybrid_if_capable: false,
             disable_miniperf: false,
+            required_local_resources: SortedSet::new(),
         }
     }
 
@@ -402,6 +406,24 @@ impl CommandExecutionRequest {
 
     pub fn disable_miniperf(&self) -> bool {
         self.disable_miniperf
+    }
+
+    pub fn with_required_local_resources(
+        mut self,
+        required_local_resources: Vec<LocalResourceState>,
+    ) -> anyhow::Result<Self> {
+        let original_len = required_local_resources.len();
+        self.required_local_resources = required_local_resources.into_iter().collect();
+        if self.required_local_resources.len() != original_len {
+            return Err(anyhow::anyhow!(
+                "Each provided local resource state is supposed to come from a different target."
+            ));
+        }
+        Ok(self)
+    }
+
+    pub fn required_local_resources(&self) -> &SortedSet<LocalResourceState> {
+        &self.required_local_resources
     }
 }
 

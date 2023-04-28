@@ -1192,6 +1192,7 @@ message LocalStage {
     LocalExecute execute = 2;
     LocalMaterializeInputs materialize_inputs = 3;
     LocalPrepareOutputDirs prepare_outputs = 4;
+    AcquireLocalResource acquire_local_resource = 5;
   }
 }
 
@@ -1204,6 +1205,8 @@ message LocalExecute {
 message LocalMaterializeInputs {}
 
 message LocalPrepareOutputDirs {}
+
+message AcquireLocalResource {}
 
 message ExecutorStageEnd {}
 

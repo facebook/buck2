@@ -21,6 +21,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
+use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -200,6 +201,7 @@ impl LocalExecutor {
         cancellation: CancellationObserver,
         cancellations: &CancellationContext,
         digest_config: DigestConfig,
+        local_resource_holders: &[LocalResourceHolder],
     ) -> CommandExecutionResult {
         let args = request.args();
         if args.is_empty() {
@@ -313,6 +315,18 @@ impl LocalExecutor {
             vec![]
         };
 
+        let local_resource_env_vars: Vec<(&str, StrOrOsStr)> = local_resource_holders
+            .iter()
+            .flat_map(|h| {
+                h.as_ref().0.iter().map(|env_var| {
+                    (
+                        env_var.key.as_str(),
+                        StrOrOsStr::from(env_var.value.as_str()),
+                    )
+                })
+            })
+            .collect();
+
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
 
         let iter_env = || {
@@ -325,6 +339,7 @@ impl LocalExecutor {
                         .iter()
                         .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
                 )
+                .chain(local_resource_env_vars.iter().cloned())
                 .chain(std::iter::once((
                     "BUCK2_DAEMON_UUID",
                     StrOrOsStr::from(daemon_uuid),
@@ -531,6 +546,28 @@ impl PreparedCommandExecutor for LocalExecutor {
             digest_config,
         } = command;
 
+        let local_resource_holders = executor_stage_async(
+            {
+                let a = buck2_data::AcquireLocalResource {};
+                buck2_data::LocalStage {
+                    stage: Some(a.into()),
+                }
+            },
+            async move {
+                let mut holders = vec![];
+                // Acquire resources in a sorted way to avoid deadlock.
+                // It might happen if 2 tests both requiring resources A and B are run simultaneously and there is only 1 instance of resource per type.
+                // If tests are not acquiring them in a sorted way the following situation might happen:
+                // Test 1 acquires resource B and test 2 acquires resource A.
+                // Now test 1 is waiting on resource B and test 2 is waiting on resource A.
+                for r in request.required_local_resources() {
+                    holders.push(r.acquire_resource().await);
+                }
+                holders
+            },
+        )
+        .await;
+
         let _permit = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalQueued {}.into()),
@@ -552,6 +589,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                     cancellation,
                     cancellations,
                     *digest_config,
+                    &local_resource_holders,
                 )
             })
             .await
