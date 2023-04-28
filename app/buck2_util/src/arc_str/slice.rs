@@ -17,6 +17,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 use triomphe::Arc;
 
+use crate::arc_str::iterator_as_exact_size_iterator::IteratorAsExactSizeIterator;
+
 /// `Arc<[T]>` but more efficient.
 #[derive(Debug, Allocative)]
 pub struct ArcSlice<T> {
@@ -100,26 +102,6 @@ impl<T> FromIterator<T> for ArcSlice<T> {
         if upper == Some(0) {
             ArcSlice::default()
         } else if Some(lower) == upper {
-            struct IteratorAsExactSizeIterator<J>(J);
-
-            impl<J: Iterator> Iterator for IteratorAsExactSizeIterator<J> {
-                type Item = J::Item;
-
-                fn next(&mut self) -> Option<Self::Item> {
-                    self.0.next()
-                }
-
-                fn size_hint(&self) -> (usize, Option<usize>) {
-                    self.0.size_hint()
-                }
-            }
-
-            impl<J: Iterator> ExactSizeIterator for IteratorAsExactSizeIterator<J> {
-                fn len(&self) -> usize {
-                    self.0.size_hint().0
-                }
-            }
-
             let arc = Arc::from_header_and_iter((), IteratorAsExactSizeIterator(iter));
             let arc: Arc<[T]> = arc.into();
             if arc.is_empty() {
