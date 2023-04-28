@@ -94,18 +94,70 @@ def run(
         sys.exit(1)
 
 
-def check_no_changes():
-    hg_status = run(["hg", "status", "-mard"], capture_output=True)
-    # If hg status -mard has nonempty stdout, then there's uncommitted changes.
-    if hg_status.stdout.strip():
-        run(["hg", "diff", "--pager=none"])
+def check_no_changes(git: bool):
+    status_cmd = []
+    diff_cmd = []
+    if git:
+        status_cmd = ["git", "status", "--porcelain"]
+        diff_cmd = ["git", "diff"]
+
+    else:
+        status_cmd = ["hg", "status", "-mard"]
+        diff_cmd = ["hg", "diff", "--pager=none"]
+
+    status = run(status_cmd, capture_output=True)
+    if status.stdout.strip():
+        run(diff_cmd)
         print_error(
             "File changed from commit. This means you need to run cargo-fmt locally and amend this commit."
         )
         sys.exit(1)
 
 
-def rustfmt(buck2_dir: Path, ci: bool) -> None:
+def list_starlark_files(git: bool):
+    cmd = None
+    includes = [
+        "**.bxl",
+        "**.bzl",
+        "**/TARGETS",
+        "**/TARGETS.v2",
+    ]
+    excludes = [
+        "starlark-rust/starlark/testcases",
+        "tests/targets/lsp/bad_syntax.bzl",
+        "tests/targets/lsp/query.bxl",
+        "tests/targets/lsp/globals.bzl",
+        "tests/targets/lsp/cell/sub/defs.bzl",
+    ]
+
+    if git:
+        excludes = [f":!:{s}" for s in excludes]
+        cmd = ["git", "ls-files", "--"] + includes + excludes
+    else:
+        includes = [f"--include={s}" for s in includes]
+        excludes = [f"--exclude={s}" for s in excludes]
+        cmd = (
+            [
+                "hg",
+                "files",
+                ".",
+            ]
+            + includes
+            + excludes
+        )
+
+    starlark_files = (
+        run(
+            cmd,
+            capture_output=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    return starlark_files
+
+
+def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
     """
     Make the formatting consistent, using the custom rustfmt,
     which is a pre-release of rustfmt 2.0.
@@ -129,7 +181,7 @@ def rustfmt(buck2_dir: Path, ci: bool) -> None:
     # On CI, fail if any committed files have changed,
     # mainly because of cargo fmt changing a source file
     if ci:
-        check_no_changes()
+        check_no_changes(git)
 
 
 CLIPPY_ALLOW = [
@@ -293,29 +345,9 @@ def clippy(package_args: List[str], fix: bool) -> None:
     )
 
 
-def starlark_linter() -> None:
+def starlark_linter(git: bool) -> None:
     print_running("starlark linter")
-    starlark_files = (
-        run(
-            [
-                "hg",
-                "files",
-                ".",
-                "--include=**.bxl",
-                "--include=**.bzl",
-                "--include=**/TARGETS",
-                "--include=**/TARGETS.v2",
-                "--exclude=starlark-rust/starlark/testcases",
-                "--exclude=tests/targets/lsp/bad_syntax.bzl",
-                "--exclude=tests/targets/lsp/query.bxl",
-                "--exclude=tests/targets/lsp/globals.bzl",
-                "--exclude=tests/targets/lsp/cell/sub/defs.bzl",
-            ],
-            capture_output=True,
-        )
-        .stdout.strip()
-        .splitlines()
-    )
+    starlark_files = list_starlark_files(git)
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:
         fp.writelines([x + "\n" for x in starlark_files])
         fp.flush()
@@ -405,6 +437,12 @@ def main() -> None:
         help="Whether to run CI workflow",
     )
     parser.add_argument(
+        "--git",
+        action="store_true",
+        default=False,
+        help="Use `git` to check repo state, the script defaults to `hg`",
+    )
+    parser.add_argument(
         "--lint-only",
         action="store_true",
         default=False,
@@ -458,7 +496,7 @@ def main() -> None:
 
     if package_args == [] and not (args.lint_rust_only or args.rustfmt_only):
         with timing():
-            starlark_linter()
+            starlark_linter(args.git)
 
     if not (args.rustfmt_only or args.lint_starlark_only):
         with timing():
@@ -466,7 +504,7 @@ def main() -> None:
 
     if not args.lint_starlark_only:
         with timing():
-            rustfmt(buck2_dir, args.ci)
+            rustfmt(buck2_dir, args.ci, args.git)
 
     if not (
         args.lint_only
@@ -482,7 +520,7 @@ def main() -> None:
 
     # On CI, check to make sure our test doesn't overwrite existing files
     if args.ci:
-        check_no_changes()
+        check_no_changes(args.git)
 
 
 if __name__ == "__main__":
