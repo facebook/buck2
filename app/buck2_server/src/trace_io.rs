@@ -19,7 +19,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn trace_io_command(
-    context: ServerCommandContext,
+    context: &ServerCommandContext,
     req: buck2_cli_proto::TraceIoRequest,
 ) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
     let metadata = context.request_metadata().await?;

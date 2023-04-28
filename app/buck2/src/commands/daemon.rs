@@ -111,7 +111,7 @@ struct BuckdServerDependenciesImpl;
 impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     async fn test(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TestRequest,
     ) -> anyhow::Result<buck2_cli_proto::TestResponse> {
@@ -119,7 +119,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn build(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::BuildRequest,
     ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
@@ -127,7 +127,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn install(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::InstallRequest,
     ) -> anyhow::Result<buck2_cli_proto::InstallResponse> {
@@ -135,7 +135,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn bxl(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
     ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
@@ -143,7 +143,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn audit(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
@@ -151,7 +151,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn starlark(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
@@ -159,7 +159,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn profile(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
     ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
@@ -174,7 +174,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn uquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::UqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::UqueryResponse> {
@@ -182,7 +182,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn cquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::CqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::CqueryResponse> {
@@ -190,7 +190,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn aquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::AqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
@@ -198,7 +198,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn targets(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsResponse> {
@@ -206,7 +206,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn targets_show_outputs(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::TargetsShowOutputsResponse> {
@@ -214,7 +214,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn ctargets(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: ConfiguredTargetsRequest,
     ) -> anyhow::Result<ConfiguredTargetsResponse> {
@@ -222,7 +222,7 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
     }
     async fn docs(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {

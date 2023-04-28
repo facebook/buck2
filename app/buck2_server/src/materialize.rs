@@ -17,7 +17,7 @@ use crate::ctx::BaseServerCommandContext;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn materialize_command(
-    context: ServerCommandContext,
+    context: &ServerCommandContext,
     req: buck2_cli_proto::MaterializeRequest,
 ) -> anyhow::Result<buck2_cli_proto::MaterializeResponse> {
     let metadata = context.request_metadata().await?;

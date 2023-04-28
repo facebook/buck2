@@ -89,7 +89,7 @@ pub enum AuditCommand {
 pub trait AuditSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
@@ -100,7 +100,7 @@ pub trait AuditSubcommand: Send + Sync + 'static {
 impl AuditCommand {
     pub async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()> {

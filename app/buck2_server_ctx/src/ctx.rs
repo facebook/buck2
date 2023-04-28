@@ -95,7 +95,7 @@ pub trait ServerCommandDiceContext {
 }
 
 #[async_trait]
-impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
+impl ServerCommandDiceContext for dyn ServerCommandContextTrait {
     /// Allows running a section of code that uses the shared DiceTransaction
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
     where
@@ -139,7 +139,7 @@ impl ServerCommandDiceContext for Box<dyn ServerCommandContextTrait> {
                                         },
                                         async move {
                                             (
-                                                exec(&**self, dice).await,
+                                                exec(self, dice).await,
                                                 CommandCriticalEnd { metadata },
                                             )
                                         },

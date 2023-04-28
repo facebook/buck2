@@ -35,7 +35,7 @@ use crate::command::get_bxl_cli_args;
 use crate::command::parse_bxl_label_from_cli;
 
 pub async fn bxl_profile_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ProfileRequest,
 ) -> anyhow::Result<ProfileResponse> {

@@ -19,7 +19,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use crate::AuditCommand;
 
 pub async fn server_audit_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
@@ -44,7 +44,7 @@ pub async fn server_audit_command(
 
 async fn server_audit_command_inner(
     metadata: HashMap<String, String>,
-    context: Box<dyn ServerCommandContextTrait>,
+    context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> (
@@ -70,7 +70,7 @@ async fn server_audit_command_inner(
 }
 
 async fn parse_command_and_execute(
-    context: Box<dyn ServerCommandContextTrait>,
+    context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {

@@ -38,7 +38,7 @@ pub struct StarlarkModuleCommand {
 impl StarlarkModuleCommand {
     pub async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {

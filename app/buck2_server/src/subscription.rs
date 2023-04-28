@@ -22,7 +22,7 @@ use crate::active_commands;
 use crate::streaming_request_handler::StreamingRequestHandler;
 
 pub(crate) async fn run_subscription_server_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     mut partial_result_dispatcher: PartialResultDispatcher<
         buck2_cli_proto::SubscriptionResponseWrapper,
     >,

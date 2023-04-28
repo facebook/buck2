@@ -104,7 +104,7 @@ impl Outputter {
 }
 
 pub async fn targets_command(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: TargetsRequest,
 ) -> anyhow::Result<TargetsResponse> {

@@ -42,7 +42,7 @@ impl ToClientMessage {
 
 /// Wraps `run_dap_server` with a command start/end span.
 pub(crate) async fn run_dap_server_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,
 ) -> anyhow::Result<buck2_cli_proto::DapResponse> {
@@ -64,7 +64,7 @@ pub(crate) async fn run_dap_server_command(
 }
 
 async fn run_dap_server(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     mut partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     mut req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,
 ) -> anyhow::Result<buck2_cli_proto::DapResponse> {

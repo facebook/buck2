@@ -132,7 +132,7 @@ async fn get_installer_log_directory(
 }
 
 pub async fn install_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: InstallRequest,
 ) -> anyhow::Result<InstallResponse> {

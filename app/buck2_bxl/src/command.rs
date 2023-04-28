@@ -66,7 +66,7 @@ use crate::bxl::eval::CliResolutionCtx;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub async fn bxl_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: BxlRequest,
 ) -> anyhow::Result<BxlResponse> {

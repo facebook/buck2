@@ -12,6 +12,7 @@ use std::future::Future;
 use std::io;
 use std::io::ErrorKind;
 use std::path::Path;
+use std::thread;
 
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
@@ -360,8 +361,8 @@ pub fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf
     }
 }
 
-struct BuckLspContext {
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+struct BuckLspContext<'a> {
+    server_ctx: &'a dyn ServerCommandContextTrait,
     fs: ProjectRoot,
     docs_cache_manager: DocsCacheManager,
     runtime: Handle,
@@ -374,8 +375,10 @@ enum BuckLspContextError {
     WrongScheme(String, LspUrl),
 }
 
-impl BuckLspContext {
-    async fn new(server_ctx: Box<dyn ServerCommandContextTrait>) -> anyhow::Result<Self> {
+impl<'a> BuckLspContext<'a> {
+    async fn new(
+        server_ctx: &'a dyn ServerCommandContextTrait,
+    ) -> anyhow::Result<BuckLspContext<'a>> {
         let (fs, docs_cache_manager) = server_ctx
             .with_dice_ctx(async move |server_ctx, dice_ctx| {
                 let fs = server_ctx.project_root().clone();
@@ -570,7 +573,7 @@ impl BuckLspContext {
     }
 }
 
-impl LspContext for BuckLspContext {
+impl<'a> LspContext for BuckLspContext<'a> {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
@@ -734,7 +737,7 @@ impl LspContext for BuckLspContext {
 }
 
 pub(crate) async fn run_lsp_server_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
 ) -> anyhow::Result<buck2_cli_proto::LspResponse> {
@@ -753,7 +756,7 @@ pub(crate) async fn run_lsp_server_command(
 
 /// Run an LSP server for a given client.
 async fn run_lsp_server(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     mut partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     mut req: StreamingRequestHandler<LspRequest>,
 ) -> anyhow::Result<LspResponse> {
@@ -780,39 +783,51 @@ async fn run_lsp_server(
         receiver: server_receiver,
     };
 
-    let recv_thread = std::thread::spawn(move || {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
-        runtime.block_on(recv_from_lsp(client_receiver, events_from_server))
-    });
-
     let dispatcher = ctx.events().dupe();
     let buck_lsp_ctx = BuckLspContext::new(ctx).await?;
 
-    let server_thread = std::thread::spawn(with_dispatcher(dispatcher, || {
-        move || server_with_connection(connection, buck_lsp_ctx)
-    }));
+    tokio::task::block_in_place(|| {
+        thread::scope(|scope| {
+            let recv_thread = scope.spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .build()
+                    .unwrap();
+                runtime.block_on(recv_from_lsp(client_receiver, events_from_server))
+            });
 
-    let res = loop {
-        let message_handler_res = tokio::select! {
-            m = req.message().fuse() => {
-                handle_incoming_lsp_message(&send_to_server, m)
-            },
-            m = events_to_client.next() => {
-                Ok(handle_outgoing_lsp_message(&mut partial_result_dispatcher, m))
-            },
-        };
-        match message_handler_res {
-            Ok(Some(res)) => break Ok(res),
-            Ok(None) => {}
-            Err(e) => break Err(e),
-        };
-    };
+            let server_thread = scope.spawn(with_dispatcher(dispatcher, || {
+                move || server_with_connection(connection, buck_lsp_ctx)
+            }));
 
-    let _ignored = recv_thread.join();
-    let _ignored = server_thread.join();
-    res
+            let res = {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .build()
+                    .unwrap();
+
+                runtime.block_on(async move {
+                    loop {
+                        let message_handler_res = tokio::select! {
+                            m = req.message().fuse() => {
+                                handle_incoming_lsp_message(&send_to_server, m)
+                            },
+                            m = events_to_client.next() => {
+                                Ok(handle_outgoing_lsp_message(&mut partial_result_dispatcher, m))
+                            },
+                        };
+                        match message_handler_res {
+                            Ok(Some(res)) => break Ok(res),
+                            Ok(None) => {}
+                            Err(e) => break Err(e),
+                        }
+                    }
+                })
+            };
+
+            let _ignored = recv_thread.join();
+            let _ignored = server_thread.join();
+            res
+        })
+    })
 }
 
 /// Receive messages from the LSP's channel, and pass them to the client after encapsulating them.

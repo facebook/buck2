@@ -77,7 +77,7 @@ mod results;
 mod unhashed_outputs;
 
 pub async fn build_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::BuildRequest,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {

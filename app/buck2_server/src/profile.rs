@@ -109,7 +109,7 @@ async fn generate_profile_loading(
 }
 
 pub async fn profile_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::ProfileRequest,
 ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {

@@ -219,7 +219,7 @@ async fn get_docs_from_module(
 }
 
 pub async fn docs_command(
-    context: Box<dyn ServerCommandContextTrait>,
+    context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: UnstableDocsRequest,
 ) -> anyhow::Result<UnstableDocsResponse> {

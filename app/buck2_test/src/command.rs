@@ -196,7 +196,7 @@ impl TestStatuses {
 }
 
 pub async fn test_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TestRequest,
 ) -> anyhow::Result<TestResponse> {

@@ -65,7 +65,7 @@ pub struct StarlarkCommandCommonOptions {
 pub trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
@@ -76,7 +76,7 @@ pub trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
 impl StarlarkOpaqueCommand {
     pub async fn server_execute(
         &self,
-        server_ctx: Box<dyn ServerCommandContextTrait>,
+        server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()> {

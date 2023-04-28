@@ -62,7 +62,7 @@ pub trait ServerCommandTemplate: Send + Sync {
 /// Call this function to run the command template implementation.
 pub async fn run_server_command<T: ServerCommandTemplate>(
     command: T,
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<<T as ServerCommandTemplate>::PartialResult>,
 ) -> anyhow::Result<T::Response> {
     let metadata = server_ctx.request_metadata().await?;

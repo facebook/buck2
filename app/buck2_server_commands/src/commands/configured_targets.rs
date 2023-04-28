@@ -29,7 +29,7 @@ use dice::DiceTransaction;
 use crate::commands::targets::fmt::print_target_call_stack_after_target;
 
 pub async fn configured_targets_command(
-    server_ctx: Box<dyn ServerCommandContextTrait>,
+    server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ConfiguredTargetsRequest,
 ) -> anyhow::Result<ConfiguredTargetsResponse> {

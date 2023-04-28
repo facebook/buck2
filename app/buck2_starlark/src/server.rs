@@ -17,7 +17,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use crate::StarlarkOpaqueCommand;
 
 pub async fn server_starlark_command(
-    ctx: Box<dyn ServerCommandContextTrait>,
+    ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
@@ -36,7 +36,7 @@ pub async fn server_starlark_command(
 
 async fn server_starlark_command_inner(
     metadata: HashMap<String, String>,
-    context: Box<dyn ServerCommandContextTrait>,
+    context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> (
@@ -62,7 +62,7 @@ async fn server_starlark_command_inner(
 }
 
 async fn parse_command_and_execute(
-    context: Box<dyn ServerCommandContextTrait>,
+    context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {

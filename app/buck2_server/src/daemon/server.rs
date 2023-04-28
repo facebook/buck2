@@ -164,85 +164,85 @@ impl BuckdServerInitPreferences {
 pub trait BuckdServerDependencies: Send + Sync + 'static {
     async fn test(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: TestRequest,
     ) -> anyhow::Result<TestResponse>;
     async fn build(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: BuildRequest,
     ) -> anyhow::Result<BuildResponse>;
     async fn install(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: InstallRequest,
     ) -> anyhow::Result<InstallResponse>;
     async fn bxl(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
     ) -> anyhow::Result<BxlResponse>;
     async fn audit(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
     async fn starlark(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
     async fn profile(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
     ) -> anyhow::Result<buck2_cli_proto::ProfileResponse>;
     async fn uquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::UqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::UqueryResponse>;
     async fn cquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::CqueryRequest,
     ) -> anyhow::Result<CqueryResponse>;
     async fn aquery(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::AqueryRequest,
     ) -> anyhow::Result<buck2_cli_proto::AqueryResponse>;
     async fn targets(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: TargetsRequest,
     ) -> anyhow::Result<TargetsResponse>;
     async fn ctargets(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: ConfiguredTargetsRequest,
     ) -> anyhow::Result<ConfiguredTargetsResponse>;
     async fn targets_show_outputs(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: TargetsRequest,
     ) -> anyhow::Result<TargetsShowOutputsResponse>;
     async fn docs(
         &self,
-        ctx: Box<dyn ServerCommandContextTrait>,
+        ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
@@ -371,12 +371,12 @@ impl BuckdServer {
         func: F,
     ) -> Result<Response<ResponseStream>, Status>
     where
-        F: FnOnce(
-                ServerCommandContext,
+        F: for<'a> FnOnce(
+                &'a ServerCommandContext,
                 PartialResultDispatcher<PartialRes>,
                 &ClientContext,
                 StreamingRequestHandler<Req>,
-            ) -> BoxFuture<'static, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
         Req: TryFrom<StreamingRequest, Error = Status> + Send + Sync + 'static,
@@ -421,11 +421,11 @@ impl BuckdServer {
         func: F,
     ) -> anyhow::Result<Response<ResponseStream>>
     where
-        F: FnOnce(
-                ServerCommandContext,
+        F: for<'a> FnOnce(
+                &'a ServerCommandContext,
                 PartialResultDispatcher<PartialRes>,
                 Req,
-            ) -> BoxFuture<'static, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
@@ -480,7 +480,7 @@ impl BuckdServer {
                                 cancellations,
                             )?;
 
-                            func(context, PartialResultDispatcher::new(dispatch.dupe()), req).await
+                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await
                         },
                     )
                     .await?
@@ -504,11 +504,11 @@ impl BuckdServer {
         func: F,
     ) -> Result<Response<ResponseStream>, Status>
     where
-        F: FnOnce(
-                ServerCommandContext,
+        F: for<'a> FnOnce(
+                &'a ServerCommandContext,
                 PartialResultDispatcher<PartialRes>,
                 Req,
-            ) -> BoxFuture<'static, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
@@ -915,7 +915,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.build(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.build(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -928,7 +928,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.bxl(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.bxl(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -941,7 +941,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.test(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.test(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -957,7 +957,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.aquery(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.aquery(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -973,7 +973,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.uquery(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.uquery(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -989,7 +989,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.cquery(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.cquery(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1005,7 +1005,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.targets(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1021,7 +1021,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.ctargets(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.ctargets(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1037,7 +1037,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.targets_show_outputs(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.targets_show_outputs(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1053,7 +1053,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.audit(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.audit(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1069,7 +1069,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.starlark(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.starlark(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1085,7 +1085,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.install(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.install(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1231,7 +1231,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.docs(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.docs(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1260,7 +1260,7 @@ impl DaemonApi for BuckdServer {
             req,
             ProfileCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.profile(Box::new(ctx), partial_result_dispatcher, req)
+                callbacks.profile(ctx, partial_result_dispatcher, req)
             },
         )
         .await
@@ -1308,7 +1308,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<LspRequest>| {
-                run_lsp_server_command(Box::new(ctx), partial_result_dispatcher, req).boxed()
+                run_lsp_server_command(ctx, partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1326,8 +1326,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<SubscriptionRequestWrapper>| {
-                run_subscription_server_command(Box::new(ctx), partial_result_dispatcher, req)
-                    .boxed()
+                run_subscription_server_command(ctx, partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1345,7 +1344,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<DapRequest>| {
-                run_dap_server_command(Box::new(ctx), partial_result_dispatcher, req).boxed()
+                run_dap_server_command(ctx, partial_result_dispatcher, req).boxed()
             },
         )
         .await

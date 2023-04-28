@@ -41,7 +41,7 @@ pub struct AuditConfigurationsCommand {
 impl AuditSubcommand for AuditConfigurationsCommand {
     async fn server_execute(
         &self,
-        _server_ctx: Box<dyn ServerCommandContextTrait>,
+        _server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> anyhow::Result<()> {
