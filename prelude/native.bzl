@@ -16,6 +16,7 @@ load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
+load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
@@ -324,15 +325,23 @@ def _apple_package_macro_stub(**kwargs):
 
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
-        cxx_toolchain_inheriting_target_platform(**kwargs)
+        rule = cxx_toolchain_inheriting_target_platform
     else:
-        __rules__["cxx_toolchain"](**kwargs)
+        rule = __rules__["cxx_toolchain"]
+    cxx_toolchain_macro_impl(
+        cxx_toolchain_rule = rule,
+        **kwargs
+    )
 
 def _cxx_toolchain_override_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
-        _user_rules["cxx_toolchain_override_inheriting_target_platform"](**kwargs)
+        rule = _user_rules["cxx_toolchain_override_inheriting_target_platform"]
     else:
-        _user_rules["cxx_toolchain_override"](**kwargs)
+        rule = _user_rules["cxx_toolchain_override"]
+    cxx_toolchain_macro_impl(
+        cxx_toolchain_rule = rule,
+        **kwargs
+    )
 
 def _erlang_application_macro_stub(**kwargs):
     _erlang_application(
