@@ -19,7 +19,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn trace_io_command(
-    context: &ServerCommandContext,
+    context: &ServerCommandContext<'_>,
     req: buck2_cli_proto::TraceIoRequest,
 ) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
     let metadata = context.request_metadata().await?;
@@ -63,7 +63,7 @@ pub(crate) async fn trace_io_command(
 }
 
 async fn build_response_with_trace(
-    context: &ServerCommandContext,
+    context: &ServerCommandContext<'_>,
     provider: &TracingIoProvider,
 ) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
     // Materialize buck-out paths so they can be archived.

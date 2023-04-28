@@ -21,7 +21,7 @@ use dice::DiceTransaction;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn clean_stale_command(
-    ctx: &ServerCommandContext,
+    ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::CleanStaleRequest,
 ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {

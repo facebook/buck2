@@ -477,7 +477,7 @@ impl BuckdServer {
                                 req.build_options(),
                                 daemon_state.paths.buck_out_dir(),
                                 req.record_target_call_stacks(),
-                                cancellations,
+                                &cancellations,
                             )?;
 
                             func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await

@@ -168,7 +168,7 @@ pub struct BaseServerCommandContext {
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
 /// the implementation of DaemonApi endpoints (ex. targets, query, build).
-pub struct ServerCommandContext {
+pub struct ServerCommandContext<'a> {
     pub base_context: BaseServerCommandContext,
 
     /// The working directory of the client. This is used for resolving things in the request in a
@@ -223,10 +223,10 @@ pub struct ServerCommandContext {
     pub(crate) sanitized_argv: Vec<String>,
 
     // TODO(bobyf) ServerCommandContext should have lifetime and this be a reference
-    cancellations: CancellationContext,
+    cancellations: &'a CancellationContext,
 }
 
-impl ServerCommandContext {
+impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
@@ -235,7 +235,7 @@ impl ServerCommandContext {
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
         record_target_call_stacks: bool,
-        cancellations: CancellationContext,
+        cancellations: &'a CancellationContext,
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -672,7 +672,7 @@ impl DiceUpdater for DiceCommandUpdater {
     }
 }
 
-impl Drop for ServerCommandContext {
+impl<'a> Drop for ServerCommandContext<'a> {
     fn drop(&mut self) {
         // Ensure we cancel the heartbeat guard first.
         std::mem::drop(self.heartbeat_guard_handle.take());
@@ -680,7 +680,7 @@ impl Drop for ServerCommandContext {
 }
 
 #[async_trait]
-impl ServerCommandContextTrait for ServerCommandContext {
+impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     fn working_dir(&self) -> &ProjectRelativePath {
         &self.working_dir
     }

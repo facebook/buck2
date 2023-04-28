@@ -35,7 +35,7 @@ use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
 #[async_trait]
-pub trait ServerCommandContextTrait: Send + Sync + 'static {
+pub trait ServerCommandContextTrait: Send + Sync {
     fn working_dir(&self) -> &ProjectRelativePath;
 
     fn working_dir_abs(&self) -> &WorkingDir;
@@ -95,7 +95,7 @@ pub trait ServerCommandDiceContext {
 }
 
 #[async_trait]
-impl ServerCommandDiceContext for dyn ServerCommandContextTrait {
+impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
     /// Allows running a section of code that uses the shared DiceTransaction
     async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
     where

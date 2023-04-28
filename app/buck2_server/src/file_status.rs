@@ -42,7 +42,7 @@ use thiserror::Error;
 use crate::ctx::ServerCommandContext;
 
 pub(crate) async fn file_status_command(
-    ctx: &ServerCommandContext,
+    ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::FileStatusRequest,
 ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
