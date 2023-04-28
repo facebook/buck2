@@ -1,4 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("buck2")
@@ -13,5 +14,15 @@ rust_protobuf_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
+    ],
+)
+
+grpc_library(
+    name = "subscription",
+    srcs = [
+        "subscription.proto",
+    ],
+    languages = [
+        "py",
     ],
 )
