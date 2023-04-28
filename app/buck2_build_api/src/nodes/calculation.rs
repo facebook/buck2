@@ -881,8 +881,6 @@ mod tests {
     use buck2_core::target::label::TargetLabel;
     use buck2_core::target::name::TargetName;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
-    use buck2_interpreter_for_build::attrs::coerce::testing::CoercedAttrExt;
-    use buck2_interpreter_for_build::attrs::coerce::testing::ConfiguredAttrExt;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
@@ -934,18 +932,18 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::from_literal(AttrLiteral::Bool(false)),
+                CoercedAttr::new_literal(AttrLiteral::Bool(false)),
             ),
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::from_literal(AttrLiteral::String("some_string".into())),
+                CoercedAttr::new_literal(AttrLiteral::String("some_string".into())),
             ),
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::from_literal(AttrLiteral::List(ArcSlice::new([
-                    CoercedAttr::from_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(
+                CoercedAttr::new_literal(AttrLiteral::List(ArcSlice::new([
+                    CoercedAttr::new_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(
                         Box::new(DepAttr {
                             attr_type: DepAttrType::new(
                                 ProviderIdSet::EMPTY,
@@ -964,12 +962,12 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::from_literal(AttrLiteral::Bool(true)),
+                CoercedAttr::new_literal(AttrLiteral::Bool(true)),
             ),
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::from_literal(AttrLiteral::String("another_string".into())),
+                CoercedAttr::new_literal(AttrLiteral::String("another_string".into())),
             ),
             (
                 "some_deps",
@@ -1004,12 +1002,12 @@ mod tests {
         assert_eq!(node.0, node2.0);
 
         let conf_attrs1 = smallmap![
-            "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(false)),
+            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(false)),
             "another_field" =>
-             ConfiguredAttr::from_literal(AttrLiteral::String("some_string".into())),
+             ConfiguredAttr(AttrLiteral::String("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr::from_literal(AttrLiteral::List(ArcSlice::new([
-                ConfiguredAttr::from_literal(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
+             ConfiguredAttr(AttrLiteral::List(ArcSlice::new([
+                ConfiguredAttr(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
@@ -1018,10 +1016,10 @@ mod tests {
         ];
 
         let conf_attrs2 = smallmap![
-            "bool_field" => ConfiguredAttr::from_literal(AttrLiteral::Bool(true)),
+            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(true)),
             "another_field" =>
-             ConfiguredAttr::from_literal(AttrLiteral::String("another_string".into())),
-            "some_deps" => ConfiguredAttr::from_literal(AttrLiteral::List(
+             ConfiguredAttr(AttrLiteral::String("another_string".into())),
+            "some_deps" => ConfiguredAttr(AttrLiteral::List(
                 ArcSlice::new([])
             )),
         ];

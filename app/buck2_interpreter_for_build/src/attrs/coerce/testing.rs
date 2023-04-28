@@ -22,10 +22,7 @@ use buck2_core::package::PackageLabel;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use maplit::hashmap;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -38,26 +35,6 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::functions::host_info::HostInfo;
-
-pub trait CoercedAttrExt {
-    fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self;
-}
-
-impl CoercedAttrExt for CoercedAttr {
-    fn from_literal(lit: AttrLiteral<CoercedAttr>) -> Self {
-        CoercedAttr::new_literal(lit)
-    }
-}
-
-pub trait ConfiguredAttrExt {
-    fn from_literal(lit: AttrLiteral<ConfiguredAttr>) -> Self;
-}
-
-impl ConfiguredAttrExt for ConfiguredAttr {
-    fn from_literal(lit: AttrLiteral<ConfiguredAttr>) -> Self {
-        ConfiguredAttr(lit)
-    }
-}
 
 pub fn coercion_ctx() -> impl AttrCoercionContext {
     coercion_ctx_listing(PackageListing::testing_empty())
