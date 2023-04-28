@@ -14,6 +14,8 @@ use allocative::Allocative;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_util::arc_str::ThinArcSlice;
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
@@ -34,22 +36,22 @@ impl VisibilityPattern {
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
-#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum VisibilitySpecification {
     Public,
     // Default is used when a target doesn't specify any visibility.
     #[default]
     Default,
-    VisibleTo(Box<Box<[VisibilityPattern]>>),
+    VisibleTo(ThinArcSlice<VisibilityPattern>),
 }
 
-#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum WithinViewSpecification {
     // Default is used when a target doesn't specify any visibility.
     #[default]
     Public,
     Default,
-    VisibleTo(Box<Box<[VisibilityPattern]>>),
+    VisibleTo(ThinArcSlice<VisibilityPattern>),
 }
 
 impl VisibilitySpecification {
@@ -58,7 +60,7 @@ impl VisibilitySpecification {
             VisibilitySpecification::Public => true,
             VisibilitySpecification::Default => false,
             VisibilitySpecification::VisibleTo(patterns) => {
-                for pattern in &***patterns {
+                for pattern in patterns {
                     if pattern.0.matches(target) {
                         return true;
                     }
@@ -86,14 +88,12 @@ impl VisibilitySpecification {
             (VisibilitySpecification::Public, _) | (_, VisibilitySpecification::Public) => {
                 VisibilitySpecification::Public
             }
-            (VisibilitySpecification::Default, other) => other.clone(),
-            (this, VisibilitySpecification::Default) => this.clone(),
+            (VisibilitySpecification::Default, other) => other.dupe(),
+            (this, VisibilitySpecification::Default) => this.dupe(),
             (
                 VisibilitySpecification::VisibleTo(this),
                 VisibilitySpecification::VisibleTo(other),
-            ) => VisibilitySpecification::VisibleTo(Box::new(
-                this.iter().chain(&***other).cloned().collect(),
-            )),
+            ) => VisibilitySpecification::VisibleTo(this.iter().chain(other).cloned().collect()),
         }
     }
 }
@@ -123,14 +123,12 @@ impl WithinViewSpecification {
             (WithinViewSpecification::Public, _) | (_, WithinViewSpecification::Public) => {
                 WithinViewSpecification::Public
             }
-            (WithinViewSpecification::Default, other) => other.clone(),
-            (this, WithinViewSpecification::Default) => this.clone(),
+            (WithinViewSpecification::Default, other) => other.dupe(),
+            (this, WithinViewSpecification::Default) => this.dupe(),
             (
                 WithinViewSpecification::VisibleTo(this),
                 WithinViewSpecification::VisibleTo(other),
-            ) => WithinViewSpecification::VisibleTo(Box::new(
-                this.iter().chain(&***other).cloned().collect(),
-            )),
+            ) => WithinViewSpecification::VisibleTo(this.iter().chain(other).cloned().collect()),
         }
     }
 }

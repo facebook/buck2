@@ -52,7 +52,7 @@ fn parse_visibility(
             )?));
     }
     Ok(match specs {
-        Some(specs) => VisibilitySpecification::VisibleTo(Box::new(specs.into_boxed_slice())),
+        Some(specs) => VisibilitySpecification::VisibleTo(specs.into_iter().collect()),
         None => VisibilitySpecification::Default,
     })
 }
@@ -76,7 +76,7 @@ fn parse_within_view(
             )?));
     }
     Ok(match specs {
-        Some(specs) => WithinViewSpecification::VisibleTo(Box::new(specs.into_boxed_slice())),
+        Some(specs) => WithinViewSpecification::VisibleTo(specs.into_iter().collect()),
         None => WithinViewSpecification::Default,
     })
 }

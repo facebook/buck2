@@ -182,7 +182,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 VisibilitySpecification::Public => filter("PUBLIC"),
                 VisibilitySpecification::Default => filter(":"),
                 VisibilitySpecification::VisibleTo(patterns) => {
-                    for p in &***patterns {
+                    for p in patterns {
                         if filter(&p.to_string())? {
                             return Ok(true);
                         }
