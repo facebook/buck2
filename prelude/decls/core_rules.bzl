@@ -764,6 +764,8 @@ http_archive = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
+            "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
+            "_exec_os_type": buck.exec_os_type_arg(),
         }
     ),
 )

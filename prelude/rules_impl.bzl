@@ -437,19 +437,6 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
     },
-
-    # http things get only 1 hash in v1 but in v2 we allow multiple. Also,
-    # don't default hashes to empty strings.
-    "http_archive": {
-        "sha1": attrs.option(attrs.string(), default = None),
-        "sha256": attrs.option(attrs.string(), default = None),
-        "_create_exclusion_list": attrs.default_only(attrs.exec_dep(default = "prelude//http_archive/tools:create_exclusion_list")),
-        "_exec_os_type": buck.exec_os_type_arg(),
-    },
-    "http_file": {
-        "sha1": attrs.option(attrs.string(), default = None),
-        "sha256": attrs.option(attrs.string(), default = None),
-    },
     "ndk_toolchain": {
         "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
     },
