@@ -59,6 +59,7 @@ use dupe::Dupe;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
+use futures::future::BoxFuture;
 use futures::stream;
 use futures::Future;
 use futures::FutureExt;
@@ -363,7 +364,7 @@ impl BuckdServer {
     /// This mostly just ensures that a client context has been sent first, and passes a client
     /// stream to `func` that converts to the correct type (or returns an error and shuts the
     /// stream down)
-    async fn run_bidirectional<Req, Res, PartialRes, Fut, F>(
+    async fn run_bidirectional<Req, Res, PartialRes, F>(
         &self,
         req: Request<tonic::Streaming<StreamingRequest>>,
         opts: impl StreamingCommandOptions<StreamingRequest>,
@@ -375,10 +376,9 @@ impl BuckdServer {
                 PartialResultDispatcher<PartialRes>,
                 &ClientContext,
                 StreamingRequestHandler<Req>,
-            ) -> Fut
+            ) -> BoxFuture<'static, anyhow::Result<Res>>
             + Send
             + 'static,
-        Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: TryFrom<StreamingRequest, Error = Status> + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
@@ -414,17 +414,20 @@ impl BuckdServer {
         .await
     }
 
-    async fn run_streaming_anyhow<Req, Res, PartialRes, Fut, F>(
+    async fn run_streaming_anyhow<Req, Res, PartialRes, F>(
         &self,
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
         func: F,
     ) -> anyhow::Result<Response<ResponseStream>>
     where
-        F: FnOnce(ServerCommandContext, PartialResultDispatcher<PartialRes>, Req) -> Fut
+        F: FnOnce(
+                ServerCommandContext,
+                PartialResultDispatcher<PartialRes>,
+                Req,
+            ) -> BoxFuture<'static, anyhow::Result<Res>>
             + Send
             + 'static,
-        Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
@@ -494,17 +497,20 @@ impl BuckdServer {
     /// Runs a single command (given by the func F). Prior to running the command, calls the
     /// `opts`'s `pre_run` hook.  then bootstraps an event source and command context so that the
     /// invoked function has the ability to stream events to the caller.
-    async fn run_streaming<Req, Res, PartialRes, Fut, F>(
+    async fn run_streaming<Req, Res, PartialRes, F>(
         &self,
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
         func: F,
     ) -> Result<Response<ResponseStream>, Status>
     where
-        F: FnOnce(ServerCommandContext, PartialResultDispatcher<PartialRes>, Req) -> Fut
+        F: FnOnce(
+                ServerCommandContext,
+                PartialResultDispatcher<PartialRes>,
+                Req,
+            ) -> BoxFuture<'static, anyhow::Result<Res>>
             + Send
             + 'static,
-        Fut: Future<Output = anyhow::Result<Res>> + Send,
         Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
@@ -896,7 +902,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |context, partial_result_dispatcher, req| {
-                file_status_command(context, partial_result_dispatcher, req)
+                file_status_command(context, partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1269,7 +1275,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |context, _: PartialResultDispatcher<NoPartialResult>, req| {
-                materialize_command(context, req)
+                materialize_command(context, req).boxed()
             },
         )
         .await
@@ -1284,7 +1290,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |context, partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>, req| {
-                clean_stale_command(context, partial_result_dispatcher, req)
+                clean_stale_command(context, partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1302,7 +1308,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<LspRequest>| {
-                run_lsp_server_command(Box::new(ctx), partial_result_dispatcher, req)
+                run_lsp_server_command(Box::new(ctx), partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1321,6 +1327,7 @@ impl DaemonApi for BuckdServer {
              _client_ctx,
              req: StreamingRequestHandler<SubscriptionRequestWrapper>| {
                 run_subscription_server_command(Box::new(ctx), partial_result_dispatcher, req)
+                    .boxed()
             },
         )
         .await
@@ -1338,7 +1345,7 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<DapRequest>| {
-                run_dap_server_command(Box::new(ctx), partial_result_dispatcher, req)
+                run_dap_server_command(Box::new(ctx), partial_result_dispatcher, req).boxed()
             },
         )
         .await
@@ -1382,7 +1389,7 @@ impl DaemonApi for BuckdServer {
             req,
             DefaultCommandOptions,
             |context, _: PartialResultDispatcher<NoPartialResult>, req| {
-                trace_io_command(context, req)
+                trace_io_command(context, req).boxed()
             },
         )
         .await
