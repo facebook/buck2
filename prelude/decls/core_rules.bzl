@@ -651,6 +651,7 @@ genrule = prelude_rule(
                 ```
                 is not.
             """),
+            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         } |
         genrule_common.environment_expansion_separator() |
         {
@@ -676,6 +677,7 @@ genrule = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
+            "_exec_os_type": buck.exec_os_type_arg(),
         }
     ),
 )

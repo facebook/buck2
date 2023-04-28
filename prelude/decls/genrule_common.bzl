@@ -12,7 +12,7 @@
 
 def _srcs_arg():
     return {
-        "srcs": attrs.named_set(attrs.source(), sorted = False, default = [], doc = """
+        "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = [], doc = """
     Either a list or a map of the source files which Buck makes available to the shell
      command at the path in the `SRCDIR` environment variable.
      If you specify a list, the source files are the names in the list.

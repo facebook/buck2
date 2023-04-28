@@ -398,11 +398,7 @@ inlined_extra_attributes = {
         **_cxx_binary_and_test_attrs()
     ),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
-    "genrule": genrule_attributes() | {
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
-        "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
-        "_exec_os_type": buck.exec_os_type_arg(),
-    },
+    "genrule": genrule_attributes(),
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
