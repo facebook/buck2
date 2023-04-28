@@ -28,9 +28,21 @@ use crate::values::FrozenValue;
 pub(crate) const BC_INSTR_ALIGN: usize = mem::align_of::<FrozenValue>();
 
 /// Instruction header.
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub(crate) struct BcInstrHeader {
     pub(crate) opcode: BcOpcode,
+}
+impl BcInstrHeader {
+    fn for_instr<I: BcInstr>() -> BcInstrHeader {
+        Self {
+            opcode: BcOpcode::for_instr::<I>(),
+        }
+    }
+
+    pub(crate) const fn for_opcode(opcode: BcOpcode) -> Self {
+        Self { opcode }
+    }
 }
 
 /// How instructions are stored in memory.
@@ -46,9 +58,7 @@ impl<I: BcInstr> BcInstrRepr<I> {
     pub(crate) fn new(arg: I::Arg) -> BcInstrRepr<I> {
         BcInstrRepr::<I>::assert_align();
         BcInstrRepr {
-            header: BcInstrHeader {
-                opcode: BcOpcode::for_instr::<I>(),
-            },
+            header: BcInstrHeader::for_instr::<I>(),
             arg,
             _align: [],
         }

@@ -42,6 +42,7 @@ use crate::eval::bc::instr_impl::InstrStoreLocalCaptured;
 use crate::eval::bc::instrs::BcInstrsWriter;
 use crate::eval::bc::instrs::PatchAddr;
 use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlot;
 use crate::eval::bc::stack_ptr::BcSlotIn;
@@ -57,6 +58,56 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+
+#[derive(Debug)]
+#[allow(unused)] // Should be removed in following diff
+pub(crate) struct BcStmtLoc {
+    pub(crate) span: FrameSpan,
+}
+
+/// This records the locations of the first instruction for each starlark statement. It's effectively
+/// Map<BcAddr, BcStmtLoc>. This is very performance sensitive (when profiling/debugging are enabled we
+/// do a lookup for every instruction) and so it's implemented as a vec of statements and then a vec of
+/// statement indexes for each possible BcAddr in a bytecode Bc.
+pub(crate) struct BcStatementLocations {
+    pub(crate) locs: Vec<BcStmtLoc>,
+    /// Map bytecode offset to index in `locs`.
+    pub(crate) stmts: Vec<u32>,
+}
+
+impl BcStatementLocations {
+    pub(crate) fn new() -> Self {
+        Self {
+            locs: Vec::new(),
+            stmts: Vec::new(),
+        }
+    }
+
+    fn idx_for(addr: BcAddr) -> usize {
+        let addr = addr.0 as usize;
+        debug_assert!(addr % BC_INSTR_ALIGN == 0);
+        addr / BC_INSTR_ALIGN
+    }
+
+    fn push(&mut self, addr: BcAddr, span: BcStmtLoc) {
+        let idx = Self::idx_for(addr);
+        let stmt_idx = self.locs.len().try_into().unwrap();
+        self.locs.push(span);
+        while self.stmts.len() <= idx {
+            self.stmts.push(u32::MAX);
+        }
+        // we could use .push() to get this in place, but doing by index just makes it clearer that we're doing it correctly.
+        self.stmts[idx] = stmt_idx;
+    }
+
+    #[allow(unused)]
+    pub(crate) fn stmt_at(&self, offset: BcAddr) -> Option<&BcStmtLoc> {
+        match self.stmts.get(Self::idx_for(offset)) {
+            None | Some(&u32::MAX) => None,
+            Some(v) => Some(&self.locs[*v as usize]),
+        }
+    }
+}
 
 /// For loop during bytecode write.
 struct BcWriterForLoop {
@@ -81,6 +132,8 @@ pub(crate) struct BcWriter<'f> {
     instrs: BcInstrsWriter,
     /// Instruction spans, used for errors.
     slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
+    /// For each statement, will store the span and the BcAddr for the first instruction.
+    stmt_locs: BcStatementLocations,
     /// Current stack size.
     stack_size: u32,
     /// Local slot count.
@@ -118,6 +171,7 @@ impl<'f> BcWriter<'f> {
             record_call_enter_exit: call_enter_exit,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
+            stmt_locs: BcStatementLocations::new(),
             stack_size: 0,
             local_names,
             definitely_assigned,
@@ -136,6 +190,7 @@ impl<'f> BcWriter<'f> {
             record_call_enter_exit: call_enter_exit,
             instrs,
             slow_args: spans,
+            stmt_locs,
             stack_size,
             local_names,
             definitely_assigned,
@@ -159,7 +214,7 @@ impl<'f> BcWriter<'f> {
             )
         };
         Bc {
-            instrs: instrs.finish(spans, local_names),
+            instrs: instrs.finish(spans, stmt_locs, local_names),
             local_count: local_names.len().try_into().unwrap(),
             max_stack_size,
             max_loop_depth,
@@ -192,6 +247,10 @@ impl<'f> BcWriter<'f> {
         }
         self.slow_args.push((self.ip(), slow_arg));
         self.instrs.write::<I>(arg)
+    }
+
+    pub(crate) fn mark_before_stmt(&mut self, span: FrameSpan) {
+        self.stmt_locs.push(self.ip(), BcStmtLoc { span })
     }
 
     /// Write an instruction, return address and argument.

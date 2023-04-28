@@ -42,6 +42,7 @@ use crate::eval::bc::repr::BcInstrRepr;
 use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
+use crate::eval::bc::writer::BcStatementLocations;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 
@@ -94,9 +95,7 @@ unsafe fn drop_instrs(instrs: &[usize]) {
 /// and evaluation start [is free](https://rust.godbolt.org/z/3nEhWGo4Y).
 fn empty_instrs() -> &'static [usize] {
     static END_OF_BC: BcInstrRepr<InstrEnd> = BcInstrRepr {
-        header: BcInstrHeader {
-            opcode: BcOpcode::End,
-        },
+        header: BcInstrHeader::for_opcode(BcOpcode::End),
         arg: BcInstrEndArg {
             end_addr: BcAddr(0),
             slow_args: Vec::new(),
@@ -116,6 +115,8 @@ pub(crate) struct BcInstrs {
     // We use `usize` here to guarantee the buffer is properly aligned
     // to store `BcInstrLayout`.
     instrs: Either<Box<[usize]>, &'static [usize]>,
+    #[allow(unused)]
+    pub(crate) stmt_locs: BcStatementLocations,
 }
 
 /// Raw instructions writer.
@@ -127,9 +128,7 @@ pub(crate) struct BcInstrsWriter {
 
 impl Default for BcInstrs {
     fn default() -> Self {
-        BcInstrs {
-            instrs: Either::Right(empty_instrs()),
-        }
+        Self::for_instrs(Either::Right(empty_instrs()), BcStatementLocations::new())
     }
 }
 
@@ -160,6 +159,13 @@ pub(crate) struct PatchAddr {
 impl BcInstrs {
     pub(crate) fn start_ptr(&self) -> BcPtrAddr {
         BcPtrAddr::for_slice_start(&self.instrs)
+    }
+
+    pub(crate) fn for_instrs(
+        instrs: Either<Box<[usize]>, &'static [usize]>,
+        stmt_locs: BcStatementLocations,
+    ) -> Self {
+        Self { instrs, stmt_locs }
     }
 
     pub(crate) fn end(&self) -> BcAddr {
@@ -334,6 +340,7 @@ impl BcInstrsWriter {
     pub(crate) fn finish(
         mut self,
         slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
+        stmt_locs: BcStatementLocations,
         local_names: FrozenRef<'static, [FrozenStringValue]>,
     ) -> BcInstrs {
         self.write::<InstrEnd>(BcInstrEndArg {
@@ -346,9 +353,7 @@ impl BcInstrsWriter {
         let instrs = mem::take(&mut self.instrs);
         let instrs = instrs.into_boxed_slice();
         assert!((instrs.as_ptr() as usize) % BC_INSTR_ALIGN == 0);
-        BcInstrs {
-            instrs: Either::Left(instrs),
-        }
+        BcInstrs::for_instrs(Either::Left(instrs), stmt_locs)
     }
 }
 
@@ -364,6 +369,7 @@ mod tests {
     use crate::eval::bc::instrs::BcInstrs;
     use crate::eval::bc::instrs::BcInstrsWriter;
     use crate::eval::bc::stack_ptr::BcSlot;
+    use crate::eval::bc::writer::BcStatementLocations;
     use crate::values::FrozenHeap;
     use crate::values::FrozenValue;
 
@@ -391,7 +397,7 @@ mod tests {
         let mut bc = BcInstrsWriter::new();
         bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
         bc.write::<InstrReturn>(BcSlot(0).to_in());
-        let bc = bc.finish(Vec::new(), local_names);
+        let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
         if mem::size_of::<usize>() == 8 {
             assert_eq!(
                 "0: Const True &abc; 24: Return &abc; 32: End",

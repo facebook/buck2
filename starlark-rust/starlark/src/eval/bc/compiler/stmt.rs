@@ -141,6 +141,7 @@ impl IrSpanned<StmtCompiled> {
                 _ => bc.write_instr::<InstrBeforeStmt>(self.span, self.span),
             }
         }
+        bc.mark_before_stmt(self.span);
         self.write_bc_inner(compiler, bc);
         self.mark_definitely_assigned_after(bc);
     }
