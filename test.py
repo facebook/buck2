@@ -345,7 +345,7 @@ def clippy(package_args: List[str], fix: bool) -> None:
     )
 
 
-def starlark_linter(git: bool) -> None:
+def starlark_linter(buck2: str, git: bool) -> None:
     print_running("starlark linter")
     starlark_files = list_starlark_files(git)
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:
@@ -353,7 +353,7 @@ def starlark_linter(git: bool) -> None:
         fp.flush()
         run(
             [
-                "buck2",
+                buck2,
                 "--isolation-dir=starlark-linter",
                 "starlark",
                 "lint",
@@ -443,6 +443,12 @@ def main() -> None:
         help="Use `git` to check repo state, the script defaults to `hg`",
     )
     parser.add_argument(
+        "--buck2",
+        action="store",
+        default="buck2",
+        help="Path to a buck2 binary",
+    )
+    parser.add_argument(
         "--lint-only",
         action="store_true",
         default=False,
@@ -496,7 +502,7 @@ def main() -> None:
 
     if package_args == [] and not (args.lint_rust_only or args.rustfmt_only):
         with timing():
-            starlark_linter(args.git)
+            starlark_linter(args.buck2, args.git)
 
     if not (args.rustfmt_only or args.lint_starlark_only):
         with timing():
