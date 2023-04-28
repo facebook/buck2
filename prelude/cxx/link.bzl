@@ -285,12 +285,15 @@ def cxx_link_shared_library(
         **shared_link_and_linker_map_args
     )
 
-    linker_map_data = _linker_map(
-        ctx,
-        links_with_extra_args,
-        exe,
-        **shared_link_and_linker_map_args
-    )
+    if linker_info.generate_linker_maps:
+        linker_map_data = _linker_map(
+            ctx,
+            links_with_extra_args,
+            exe,
+            **shared_link_and_linker_map_args
+        )
+    else:
+        linker_map_data = None
 
     return (exe, linker_map_data)
 

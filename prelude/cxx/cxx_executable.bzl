@@ -606,12 +606,16 @@ def _link_into_executable(
         **shared_link_and_linker_map_args
     )
 
-    linker_map_data = _linker_map(
-        ctx,
-        links,
-        exe,
-        **shared_link_and_linker_map_args
-    )
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    if linker_info.generate_linker_maps:
+        linker_map_data = _linker_map(
+            ctx,
+            links,
+            exe,
+            **shared_link_and_linker_map_args
+        )
+    else:
+        linker_map_data = None
 
     return _CxxLinkExecutableResult(
         exe = exe,
