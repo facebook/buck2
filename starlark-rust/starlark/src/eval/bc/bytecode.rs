@@ -32,6 +32,7 @@ use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::compiler::EvalException;
+use crate::eval::runtime::evaluator::EvaluationCallbacks;
 use crate::eval::Evaluator;
 use crate::values::Value;
 
@@ -90,10 +91,14 @@ impl Bc {
     ///
     /// Frame must be allocated properly, otherwise it will likely result in memory corruption.
     #[inline(always)]
-    pub(crate) fn run<'v>(&self, eval: &mut Evaluator<'v, '_>) -> Result<Value<'v>, EvalException> {
+    pub(crate) fn run<'v, EC: EvaluationCallbacks>(
+        &self,
+        eval: &mut Evaluator<'v, '_>,
+        ec: &mut EC,
+    ) -> Result<Value<'v>, EvalException> {
         debug_assert!(eval.current_frame.is_inititalized());
         debug_assert_eq!(self.max_stack_size, eval.current_frame.max_stack_size());
-        run_block(eval, self.instrs.start_ptr())
+        run_block(eval, ec, self.instrs.start_ptr())
     }
 
     pub(crate) fn dump_debug(&self) -> String {
@@ -110,8 +115,9 @@ impl Bc {
 
 /// Execute one instruction.
 #[cfg_attr(not(debug_assertions), inline(always))]
-fn step<'v, 'b>(
+fn step<'v, 'b, EC: EvaluationCallbacks>(
     eval: &mut Evaluator<'v, '_>,
+    _ec: &mut EC,
     frame: BcFramePtr<'v>,
     ip: BcPtrAddr<'b>,
 ) -> InstrControl<'v, 'b> {
@@ -138,8 +144,9 @@ fn step<'v, 'b>(
 
 /// Execute the code block, either a module, a function body or a loop body.
 // Do not inline this function because it is called from two places: function and loop.
-pub(crate) fn run_block<'v>(
+pub(crate) fn run_block<'v, EC: EvaluationCallbacks>(
     eval: &mut Evaluator<'v, '_>,
+    ec: &mut EC,
     mut ip: BcPtrAddr,
 ) -> Result<Value<'v>, EvalException> {
     // Copy frame pointer to local variable to generate more efficient code.
@@ -151,7 +158,7 @@ pub(crate) fn run_block<'v>(
         //
         // We do inline always only in release mode because otherwise
         // generated stack frame is too large which leads to C stack overflow in debug more.
-        ip = match step(eval, frame, ip) {
+        ip = match step(eval, ec, frame, ip) {
             InstrControl::Next(ip) => ip,
             InstrControl::Return(v) => return Ok(v),
             InstrControl::Err(e) => return Err(Bc::wrap_error_for_instr_ptr(ip, e, eval)),

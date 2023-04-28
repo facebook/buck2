@@ -737,6 +737,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     #[inline(always)]
     pub(crate) fn eval_bc(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
-        bc.run(self)
+        bc.run(self, &mut EvalCallbacksDisabled)
     }
 }
+
+pub(crate) trait EvaluationCallbacks {}
+
+pub(crate) struct EvalCallbacksDisabled;
+
+impl EvaluationCallbacks for EvalCallbacksDisabled {}
