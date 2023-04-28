@@ -256,6 +256,11 @@ def generate_rustdoc_test(
         allow_args = True,
     )
 
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+        runtool = ["--runtool=cmd.exe", "--runtool-arg=/C"]
+    else:
+        runtool = ["--runtool=/usr/bin/env"]
+
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
         "--test",
@@ -268,7 +273,7 @@ def generate_rustdoc_test(
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
         compile_ctx.linker_args,
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
-        "--runtool=/usr/bin/env",
+        runtool,
         cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
