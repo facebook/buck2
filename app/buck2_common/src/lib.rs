@@ -44,6 +44,7 @@ pub mod invocation_roots;
 pub mod io;
 pub mod legacy_configs;
 pub mod liveliness_observer;
+pub mod local_resource_state;
 pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
