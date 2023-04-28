@@ -258,7 +258,10 @@ enum CannotProject {
     DeclaredElsewhere(BaseDeferredKeyDyn),
 }
 
-/// A single input or output for an action
+/// A single input or output file for an action.
+///
+/// There is no `.parent` method on `artifact`, but in most cases
+/// `cmd_args(my_artifact).parent()` can be used to similar effect.
 #[starlark_module]
 fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
