@@ -11,13 +11,12 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStyle",
-    "Linkage",
+    "MergedLinkInfo",
     "ObjectsLinkable",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
-    "LinkableGraph",
     "LinkableRootInfo",
 )
 load(
@@ -69,12 +68,7 @@ def merge_cxx_extension_info(
         # should *just* use `preferred_linkage` (and so it supports non-prebuilt
         # libs too), but this will require hoisting the rules first-order deps
         # up the tree as `dlopen_deps` so that we link them properly.
-        if (
-            LinkableRootInfo not in dep and
-            LinkableGraph in dep and
-            dep[LinkableGraph].nodes.value.linkable != None and
-            dep[LinkableGraph].nodes.value.linkable.preferred_linkage == Linkage("shared")
-        ):
+        if MergedLinkInfo in dep and LinkableRootInfo not in dep:
             shared_only_libs[dep.label] = linkable(dep)
 
     for dep in deps:

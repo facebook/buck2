@@ -24,6 +24,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableRootInfo",
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
@@ -336,7 +337,14 @@ def python_library_impl(ctx: "context") -> ["provider"]:
             roots = get_roots(ctx.label, deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
-            excluded = get_excluded(deps = (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else [])),
+            excluded = get_excluded(
+                deps = (
+                    (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
+                    # We also need to exclude deps that can't be re-linked, via
+                    # the `LinkableRootInfo` provider (i.e. `prebuilt_cxx_library_group`).
+                    [d for d in deps if LinkableRootInfo not in d]
+                ),
+            ),
         ),
         deps = deps,
     )

@@ -341,6 +341,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     # Set up shared libraries symlink tree only when needed
     shared_libs = {}
 
+    # Add in extra, rule-specific shared libs.
+    for name, shlib in impl_params.extra_shared_libs.items():
+        shared_libs[name] = shlib.lib
+
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
     if link_style == LinkStyle("shared") or gnu_use_link_groups:

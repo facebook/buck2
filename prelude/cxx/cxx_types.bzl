@@ -14,6 +14,10 @@ load(
     "LinkableProviders",
 )
 load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibrary",  # @unused Used as a type
+)
+load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
@@ -166,6 +170,8 @@ CxxRuleConstructorParams = record(
     # result (e.g. added to link group linking or needs to be searched for
     # shared libs to include in the symlink tree).
     extra_link_roots = field([LinkableProviders.type], []),
+    # Additional shared libs to "package".
+    extra_shared_libs = field({str.type: SharedLibrary.type}, {}),
     auto_link_group_specs = field([[LinkGroupLibSpec.type], None], None),
     link_group_info = field([LinkGroupInfo.type, None], None),
     # Whether to use pre-stripped objects when linking.
