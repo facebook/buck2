@@ -392,7 +392,7 @@ impl SpanTrackable for Arc<BuckEvent> {
                         use buck2_data::local_stage::Stage;
 
                         match stage.stage.as_ref() {
-                            Some(Stage::Queued(..)) => true,
+                            Some(Stage::Queued(..) | Stage::AcquireLocalResource(..)) => true,
                             _ => false,
                         }
                     }
