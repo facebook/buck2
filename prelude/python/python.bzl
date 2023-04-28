@@ -122,12 +122,16 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet.type) -> Python
     return PythonLibraryManifestsInterface(
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
+        src_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.srcs != None for a, p in m.srcs.artifacts],
         src_type_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_type_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
+        src_type_artifacts_with_path = lambda: [(a, p) for m in manifests.traverse() if m != None and m.src_types != None for a, p in m.src_types.artifacts],
         bytecode_manifests = lambda: [manifests.project_as_args("bytecode_manifests")],
         bytecode_artifacts = lambda: [manifests.project_as_args("bytecode_artifacts")],
+        bytecode_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.bytecode != None for a, p in m.bytecode.artifacts],
         resource_manifests = lambda: [manifests.project_as_args("resource_manifests")],
         resource_artifacts = lambda: [manifests.project_as_args("resource_artifacts")],
+        resource_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.resources != None for a, p in m.resources[0].artifacts],
     )
 
 def get_python_deps(ctx: "context"):

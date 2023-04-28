@@ -12,7 +12,7 @@ load(
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
-load(":make_pex.bzl", "PexProviders")
+load(":make_pex.bzl", "PexProviders", "make_default_info")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 
@@ -76,8 +76,4 @@ def python_test_impl(ctx: "context") -> ["provider"]:
             run_from_project_root = re_executor != None,
             use_project_relative_paths = re_executor != None,
         ),
-    ) + [DefaultInfo(
-        default_output = pex.default_output,
-        other_outputs = pex.other_outputs,
-        sub_targets = pex.sub_targets,
-    )]
+    ) + [make_default_info(pex)]

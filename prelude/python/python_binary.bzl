@@ -72,7 +72,7 @@ load(
     ":interface.bzl",
     "PythonLibraryInterface",  # @unused Used as a type
 )
-load(":make_pex.bzl", "PexModules", "PexProviders", "make_pex")
+load(":make_pex.bzl", "PexModules", "PexProviders", "make_default_info", "make_pex")
 load(
     ":manifest.bzl",
     "create_dep_manifest_for_source_map",
@@ -622,10 +622,6 @@ def python_binary_impl(ctx: "context") -> ["provider"]:
         compile = value_or(ctx.attrs.compile, False),
     )
     return [
-        DefaultInfo(
-            default_output = pex.default_output,
-            other_outputs = pex.other_outputs,
-            sub_targets = pex.sub_targets,
-        ),
+        make_default_info(pex),
         RunInfo(pex.run_cmd),
     ]

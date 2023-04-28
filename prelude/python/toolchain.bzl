@@ -57,6 +57,7 @@ PythonToolchainInfo = provider(fields = [
     "emit_omnibus_metadata",
     "fail_with_message",
     "emit_dependency_metadata",
+    "installer",
 ])
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments

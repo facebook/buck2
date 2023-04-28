@@ -35,20 +35,46 @@ PexModules = record(
 # providers.
 PexProviders = record(
     default_output = field("artifact"),
-    other_outputs = ["artifact", "_arglike"],
+    other_outputs = [("_arglike", str.type)],
+    other_outputs_prefix = [str.type, None],
+    hidden_resources = [("_arglike")],
     sub_targets = {str.type: ["provider"]},
     run_cmd = cmd_args.type,
 )
 
-def make_pex_providers(pex: PexProviders.type) -> ["provider"]:
-    return [
-        DefaultInfo(
-            default_output = pex.default_output,
-            other_outputs = pex.other_outputs,
-            sub_targets = pex.sub_targets,
-        ),
-        RunInfo(pex.run_cmd),
+def make_pex_providers(
+        python_toolchain: PythonToolchainInfo.type,
+        pex: PexProviders.type) -> ["provider"]:
+    providers = [
+        make_default_info(pex),
+        make_run_info(pex),
     ]
+    if python_toolchain.installer != None:
+        providers.append(make_install_info(python_toolchain.installer, pex))
+    return providers
+
+def make_install_info(installer: "_arglike", pex: PexProviders.type) -> "provider":
+    prefix = "{}/".format(pex.other_outputs_prefix) if pex.other_outputs_prefix != None else ""
+    files = {
+        "{}{}".format(prefix, path): artifact
+        for artifact, path in pex.other_outputs
+        if path != pex.other_outputs_prefix  # don't include prefix dir
+    }
+    files[pex.default_output.basename] = pex.default_output
+    return InstallInfo(
+        installer = installer,
+        files = files,
+    )
+
+def make_default_info(pex: PexProviders.type) -> "provider":
+    return DefaultInfo(
+        default_output = pex.default_output,
+        other_outputs = [a for a, _ in pex.other_outputs] + pex.hidden_resources,
+        sub_targets = pex.sub_targets,
+    )
+
+def make_run_info(pex: PexProviders.type) -> "provider":
+    return RunInfo(pex.run_cmd)
 
 def _srcs(srcs: [""], format = "{}") -> "cmd_args":
     args = cmd_args()
@@ -71,6 +97,8 @@ def _fail_at_build_time(
     return PexProviders(
         default_output = dummy_output,
         other_outputs = [],
+        other_outputs_prefix = None,
+        hidden_resources = [],
         sub_targets = {},
         run_cmd = cmd_args(),
     )
@@ -101,7 +129,7 @@ def make_pex(
         pex_modules: PexModules.type,
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
         main_module: str.type,
-        hidden_resources: [None, "_arglike"]) -> PexProviders.type:
+        hidden_resources: [None, ["_arglike"]]) -> PexProviders.type:
     """
     Passes a standardized set of flags to a `make_pex` binary to create a python
     "executable".
@@ -160,7 +188,7 @@ def make_pex(
             pex_modules,
             output_suffix = "-{}".format(style),
         )
-        default.sub_targets[style] = make_pex_providers(pex_providers)
+        default.sub_targets[style] = make_pex_providers(python_toolchain, pex_providers)
     return default
 
 def _make_pex_impl(
@@ -172,9 +200,9 @@ def _make_pex_impl(
         shared_libraries: {str.type: (LinkedObject.type, bool.type)},
         preload_libraries: "cmd_args",
         common_modules_args: "cmd_args",
-        dep_artifacts: ["_arglike"],
+        dep_artifacts: [("_arglike", str.type)],
         main_module: str.type,
-        hidden_resources: [None, "_arglike"],
+        hidden_resources: [None, ["_arglike"]],
         manifest_module: [None, "_arglike"],
         pex_modules: PexModules.type,
         output_suffix: str.type) -> PexProviders.type:
@@ -187,8 +215,6 @@ def _make_pex_impl(
         error_msg = "standalone builds don't support hidden resources" if output_suffix else _hidden_resources_error_message(ctx.label, hidden_resources)
 
         return _fail(ctx, python_toolchain, output_suffix, error_msg)
-    if hidden_resources != None:
-        runtime_files.extend(hidden_resources)
 
     if not (standalone or
             package_style == PackageStyle("inplace") or
@@ -256,7 +282,7 @@ def _make_pex_impl(
 
     else:
         runtime_files.extend(dep_artifacts)
-        runtime_files.append(symlink_tree_path)
+        runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
         if make_pex_cmd != None:
             cmd = cmd_args(make_pex_cmd)
             cmd.add(modules_args)
@@ -278,11 +304,16 @@ def _make_pex_impl(
         run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
     run_args.append(output)
 
+    if hidden_resources == None:
+        hidden_resources = []
+
     return PexProviders(
         default_output = output,
         other_outputs = runtime_files,
+        other_outputs_prefix = symlink_tree_path.short_path if symlink_tree_path != None else None,
+        hidden_resources = hidden_resources,
         sub_targets = {},
-        run_cmd = cmd_args(run_args).hidden(runtime_files),
+        run_cmd = cmd_args(run_args).hidden([a for a, _ in runtime_files] + hidden_resources),
     )
 
 def _preload_libraries_args(ctx: "context", shared_libraries: {str.type: (LinkedObject.type, bool.type)}) -> "cmd_args":
@@ -331,23 +362,23 @@ def _pex_bootstrap_args(
 def _pex_modules_common_args(
         ctx: "context",
         pex_modules: PexModules.type,
-        shared_libraries: {str.type: LinkedObject.type}) -> ("cmd_args", ["_arglike"]):
+        shared_libraries: {str.type: LinkedObject.type}) -> ("cmd_args", [("_arglike", str.type)]):
     srcs = []
     src_artifacts = []
 
     srcs.extend(pex_modules.manifests.src_manifests())
-    src_artifacts.extend(pex_modules.manifests.src_artifacts())
+    src_artifacts.extend(pex_modules.manifests.src_artifacts_with_paths())
 
     if pex_modules.extensions:
         srcs.append(pex_modules.extensions.manifest)
-        src_artifacts.extend([a for a, _ in pex_modules.extensions.artifacts])
+        src_artifacts.extend(pex_modules.extensions.artifacts)
 
     if pex_modules.extra_manifests:
         srcs.append(pex_modules.extra_manifests.manifest)
-        src_artifacts.extend([a for a, _ in pex_modules.extra_manifests.artifacts])
+        src_artifacts.extend(pex_modules.extra_manifests.artifacts)
 
     resources = pex_modules.manifests.resource_manifests()
-    resource_artifacts = pex_modules.manifests.resource_artifacts()
+    resource_artifacts = pex_modules.manifests.resource_artifacts_with_paths()
 
     src_manifests_path = ctx.actions.write(
         "__src_manifests.txt",
@@ -392,21 +423,26 @@ def _pex_modules_common_args(
         dwp_srcs_args = cmd_args(dwp_srcs_path)
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
-    deps = (src_artifacts +
-            resource_artifacts +
-            native_libraries +
-            dwp +
-            project_external_debug_info(
-                ctx.actions,
-                label = ctx.label,
-                infos = [lib.external_debug_info for lib in shared_libraries.values()],
-            ))
+
+    debuginfos = []
+    for name, lib in shared_libraries.items():
+        if lib.external_debug_info != None:
+            for debuginfo in project_external_debug_info(ctx.actions, ctx.label, [lib.external_debug_info]):
+                debuginfos.append((debuginfo, name))
+
+    deps = (
+        src_artifacts +
+        resource_artifacts +
+        [(lib.output, name) for name, lib in shared_libraries.items()] +
+        [(lib.dwp, name) for name, lib in shared_libraries.items() if lib.dwp != None] +
+        debuginfos
+    )
     return (cmd, deps)
 
 def _pex_modules_args(
         ctx: "context",
         common_args: "cmd_args",
-        dep_artifacts: ["_arglike"],
+        dep_artifacts: [("_arglike", str.type)],
         symlink_tree_path: [None, "artifact"],
         manifest_module: ["_arglike", None],
         pex_modules: PexModules.type) -> "cmd_args":
@@ -436,11 +472,11 @@ def _pex_modules_args(
             )
             cmd.add(cmd_args(bytecode_manifests_path, format = "@{}"))
             cmd.hidden(bytecode_manifests)
-            dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts())
+            dep_artifacts.extend(pex_modules.manifests.bytecode_artifacts_with_paths())
 
         # Accumulate all the artifacts we depend on. Only add them to the command
         # if we are not going to create symlinks.
-        cmd.hidden(dep_artifacts)
+        cmd.hidden([a for a, _ in dep_artifacts])
 
     return cmd
 

@@ -40,6 +40,7 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
     src_artifacts = field("function"),
+    src_artifacts_with_paths = field("function"),
 
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests
@@ -48,6 +49,7 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
     src_type_artifacts = field("function"),
+    src_type_artifacts_with_path = field("function"),
 
     # Returns the bytecode manifests for this Python library.
     # [_arglike] of bytecode manifests
@@ -56,6 +58,7 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by bytecode manifests for this Python library.
     # [_arglike] of bytecode artifacts
     bytecode_artifacts = field("function"),
+    bytecode_artifacts_with_paths = field("function"),
 
     # Returns the resources manifests for this Python library.
     # [_arglike] of resource manifests
@@ -64,4 +67,5 @@ PythonLibraryManifestsInterface = record(
     # Returns the files referenced by resource manifests for this Python library.
     # [_arglike] of resource artifacts
     resource_artifacts = field("function"),
+    resource_artifacts_with_paths = field("function"),
 )
