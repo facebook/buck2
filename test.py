@@ -166,6 +166,11 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
     Mixing and matching cargo-fmt and rust-fmt doesn't work on Windows,
     so skip formatting for now.
     """
+    # @oss-disable: internal = True 
+    internal = False # @oss-enable
+    if not internal:
+        return
+
     print_running("rustfmt")
     cargo_fmt = run(
         ["rustup", "which", "cargo-fmt"], capture_output=True
