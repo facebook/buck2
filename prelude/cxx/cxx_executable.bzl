@@ -587,12 +587,17 @@ def _link_into_executable(
     )
     links = [LinkArgs(flags = extra_args)] + links
 
-    shared_link_and_linker_map_args = {
-        "force_full_hybrid_if_capable": force_full_hybrid_if_capable,
-        "link_ordering": link_ordering,
-        "link_weight": link_weight,
-        "prefer_local": prefer_local,
-    }
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    if linker_info.generate_linker_maps:
+        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
+        linker_map_data = CxxLinkerMapData(
+            map = linker_map,
+            binary = output,
+        )
+        kwargs = {"linker_map": linker_map}
+    else:
+        linker_map_data = None
+        kwargs = {}
 
     exe = cxx_link(
         ctx,
@@ -603,49 +608,18 @@ def _link_into_executable(
         category_suffix = category_suffix,
         strip = strip,
         strip_args_factory = strip_args_factory,
-        **shared_link_and_linker_map_args
+        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
+        link_ordering = link_ordering,
+        link_weight = link_weight,
+        prefer_local = prefer_local,
+        **kwargs
     )
-
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
-    if linker_info.generate_linker_maps:
-        linker_map_data = _linker_map(
-            ctx,
-            links,
-            exe,
-            **shared_link_and_linker_map_args
-        )
-    else:
-        linker_map_data = None
 
     return _CxxLinkExecutableResult(
         exe = exe,
         runtime_files = runtime_files,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
         linker_map_data = linker_map_data,
-    )
-
-def _linker_map(
-        ctx: "context",
-        links: [LinkArgs.type],
-        binary: LinkedObject.type,
-        **kwargs) -> CxxLinkerMapData.type:
-    identifier = binary.output.short_path + ".linker-map-binary"
-    binary_for_linker_map = ctx.actions.declare_output(identifier)
-    linker_map = ctx.actions.declare_output(binary.output.short_path + "-LinkMap.txt")
-    cxx_link(
-        ctx,
-        links,
-        binary_for_linker_map,
-        CxxLinkResultType("executable"),
-        category_suffix = "linker_map",
-        linker_map = linker_map,
-        identifier = identifier,
-        allow_bolt_optimization_and_dwp_generation = False,
-        **kwargs
-    )
-    return CxxLinkerMapData(
-        map = linker_map,
-        binary = binary_for_linker_map,
     )
 
 def get_cxx_executable_product_name(ctx: "context") -> str.type:
