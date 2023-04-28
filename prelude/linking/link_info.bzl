@@ -106,6 +106,8 @@ SwiftRuntimeLinkable = record(
     _type = field(LinkableType.type, LinkableType("swift_runtime")),
 )
 
+LinkableTypes = [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]
+
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
@@ -115,7 +117,7 @@ LinkInfo = record(
     pre_flags = field([""], []),
     post_flags = field([""], []),
     # Primary input to the linker, one of the Linkable types above.
-    linkables = field([[ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]], []),
+    linkables = field([LinkableTypes], []),
     # Debug info which is referenced -- but not included -- by linkables in the
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
@@ -165,7 +167,7 @@ def wrap_link_info(
     )
 
 # Adds appropriate args representing `linkable` to `args`
-def append_linkable_args(args: "cmd_args", linkable: [ArchiveLinkable.type, SharedLibLinkable.type, ObjectsLinkable.type, FrameworksLinkable.type, SwiftRuntimeLinkable.type]):
+def append_linkable_args(args: "cmd_args", linkable: LinkableTypes):
     if linkable._type == LinkableType("archive"):
         if linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
