@@ -462,32 +462,37 @@ impl BuckdServer {
             state,
             dispatch.dupe(),
             daemon_shutdown_channel,
-            move |req, cancellations| async move {
-                let result: anyhow::Result<Res> = try {
-                    let base_context = daemon_state.prepare_command(dispatch.dupe(), guard).await?;
-                    build_listener::scope(
-                        base_context.events.dupe(),
-                        data.critical_path_backend,
-                        |build_sender| async {
-                            let context = ServerCommandContext::new(
-                                base_context,
-                                req.client_context()?,
-                                build_sender,
-                                opts.starlark_profiler_instrumentation_override(&req)?,
-                                req.build_options(),
-                                daemon_state.paths.buck_out_dir(),
-                                req.record_target_call_stacks(),
-                                &cancellations,
-                            )?;
+            move |req, cancellations| {
+                async move {
+                    let result: anyhow::Result<Res> = try {
+                        let base_context =
+                            daemon_state.prepare_command(dispatch.dupe(), guard).await?;
+                        build_listener::scope(
+                            base_context.events.dupe(),
+                            data.critical_path_backend,
+                            |build_sender| async {
+                                let context = ServerCommandContext::new(
+                                    base_context,
+                                    req.client_context()?,
+                                    build_sender,
+                                    opts.starlark_profiler_instrumentation_override(&req)?,
+                                    req.build_options(),
+                                    daemon_state.paths.buck_out_dir(),
+                                    req.record_target_call_stacks(),
+                                    cancellations,
+                                )?;
 
-                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await
-                        },
-                    )
-                    .await?
-                };
+                                func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
+                                    .await
+                            },
+                        )
+                        .await?
+                    };
 
-                let result: CommandResult = result_to_command_result(result);
-                dispatch.control_event(ControlEvent::CommandResult(Box::new(result)));
+                    let result: CommandResult = result_to_command_result(result);
+                    dispatch.control_event(ControlEvent::CommandResult(Box::new(result)));
+                }
+                .boxed()
             },
         )
         .await;
@@ -676,8 +681,7 @@ fn pump_events<E: EventSource>(
 #[allow(clippy::mut_mut)] // select! does this internally
 async fn streaming<
     Req: Send + Sync + 'static,
-    Fut: Future<Output = ()> + Send + 'static,
-    F: FnOnce(Req, CancellationContext) -> Fut,
+    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()>,
     E: EventSource + 'static,
 >(
     req: Request<Req>,
@@ -713,7 +717,7 @@ where
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
     let cancellable = spawn_dropcancel(
-        func(req, CancellationContext::todo()), // TODO(bobyf) this should not be a drop cancel but explicit cancellation
+        async move { func(req, &CancellationContext::todo()).await }, // TODO(bobyf) this should not be a drop cancel but explicit cancellation
         &BuckSpawner::default(),
         &events_ctx,
         debug_span!(parent: None, "running-command",),
@@ -1201,21 +1205,24 @@ impl DaemonApi for BuckdServer {
             state,
             dispatcher.dupe(),
             daemon_shutdown_channel,
-            move |req, _| async move {
-                let result = try {
-                    spawn_allocative(
-                        this,
-                        AbsPathBuf::try_from(req.output_path)?,
-                        dispatcher.dupe(),
-                    )
-                    .await?;
-                    AllocativeResponse {}
-                };
+            move |req, _| {
+                async move {
+                    let result = try {
+                        spawn_allocative(
+                            this,
+                            AbsPathBuf::try_from(req.output_path)?,
+                            dispatcher.dupe(),
+                        )
+                        .await?;
+                        AllocativeResponse {}
+                    };
 
-                let result: CommandResult = result_to_command_result(result);
-                dispatcher.control_event(ControlEvent::CommandResult(Box::new(result)));
+                    let result: CommandResult = result_to_command_result(result);
+                    dispatcher.control_event(ControlEvent::CommandResult(Box::new(result)));
 
-                drop(guard);
+                    drop(guard);
+                }
+                .boxed()
             },
         )
         .await)
