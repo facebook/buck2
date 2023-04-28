@@ -9,6 +9,8 @@
 
 use std::sync::Arc;
 
+use buck2_core::target::label::ConfiguredTargetLabel;
+use derivative::Derivative;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -50,15 +52,41 @@ impl AsRef<LocalResource> for LocalResourceHolder {
 }
 
 /// Blocking resource pool to manage access to prepared local resources.
-#[derive(Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalResourceState {
+    // Set of resources of same type should be uniquely identified by configured target label providing `LocalResourceInfo`.
+    // This is the assumption for equiality, ordering and hash implementations.
+    source_target: ConfiguredTargetLabel,
+    #[derivative(
+        Hash = "ignore",
+        PartialEq = "ignore",
+        PartialOrd = "ignore",
+        Ord = "ignore"
+    )]
     owning_pid: i32,
+    #[derivative(
+        Hash = "ignore",
+        PartialEq = "ignore",
+        PartialOrd = "ignore",
+        Ord = "ignore"
+    )]
     sender: UnboundedSender<LocalResource>,
+    #[derivative(
+        Hash = "ignore",
+        PartialEq = "ignore",
+        PartialOrd = "ignore",
+        Ord = "ignore"
+    )]
     receiver: Arc<Mutex<UnboundedReceiver<LocalResource>>>,
 }
 
 impl LocalResourceState {
-    pub fn new(owning_pid: i32, specs: Vec<LocalResource>) -> Self {
+    pub fn new(
+        source_target: ConfiguredTargetLabel,
+        owning_pid: i32,
+        specs: Vec<LocalResource>,
+    ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         for spec in specs {
             sender.send(spec).expect(
@@ -66,6 +94,7 @@ impl LocalResourceState {
             );
         }
         LocalResourceState {
+            source_target,
             owning_pid,
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
@@ -92,12 +121,17 @@ impl LocalResourceState {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::target::label::ConfiguredTargetLabel;
+
     use super::EnvironmentVariable;
     use crate::local_resource_state::LocalResource;
     use crate::local_resource_state::LocalResourceState;
 
     #[tokio::test]
     async fn test_canary() -> anyhow::Result<()> {
+        let target =
+            ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
         let specs = vec![
             LocalResource(vec![EnvironmentVariable {
                 key: "FOO".to_owned(),
@@ -109,7 +143,7 @@ mod tests {
             }]),
         ];
 
-        let state = LocalResourceState::new(0, specs);
+        let state = LocalResourceState::new(target, 0, specs);
         let handle = tokio::spawn(async move {
             {
                 let _holder1 = state.acquire_resource().await;
