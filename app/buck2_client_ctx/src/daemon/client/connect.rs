@@ -274,10 +274,31 @@ impl<'a> BuckdLifecycle<'a> {
             args.push(r);
         }
 
+        let daemon_env_vars = if env::var_os("RUST_BACKTRACE").is_some()
+            || env::var_os("RUST_LIB_BACKTRACE").is_some()
+        {
+            // Inherit.
+            [].as_slice()
+        } else {
+            [
+                ("RUST_BACKTRACE", "1"),
+                // TODO(nga): somewhere we capture too many backtraces, probably
+                //   we create too many `anyhow::Error` on non-error paths.
+                //   Probably somewhere in Starlark, because of "evaluating build file" spans.
+                //   Can be reproduced with this command:
+                //   ```
+                //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
+                //   ```
+                //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
+                ("RUST_LIB_BACKTRACE", "0"),
+            ]
+            .as_slice()
+        };
+
         if cfg!(unix) {
             // On Unix we spawn a process which forks and exits,
             // and here we wait for that spawned process to terminate.
-            self.start_server_unix(args).await
+            self.start_server_unix(args, daemon_env_vars).await
         } else {
             // TODO(nga): pass `RUST_BACKTRACE=1`.
             self.start_server_windows(args)
@@ -293,7 +314,11 @@ impl<'a> BuckdLifecycle<'a> {
         )
     }
 
-    async fn start_server_unix(&self, args: Vec<&str>) -> anyhow::Result<()> {
+    async fn start_server_unix(
+        &self,
+        args: Vec<&str>,
+        daemon_env_vars: &[(&str, &str)],
+    ) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
             t.parse::<u64>()
@@ -314,19 +339,8 @@ impl<'a> BuckdLifecycle<'a> {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());
         }
 
-        if env::var_os("RUST_BACKTRACE").is_some() || env::var_os("RUST_LIB_BACKTRACE").is_some() {
-            // Inherit.
-        } else {
-            cmd.env("RUST_BACKTRACE", "1");
-            // TODO(nga): somewhere we capture too many backtraces, probably
-            //   we create too many `anyhow::Error` on non-error paths.
-            //   Probably somewhere in Starlark, because of "evaluating build file" spans.
-            //   Can be reproduced with this command:
-            //   ```
-            //   buck2 --isolation-dir=xx audit providers fbcode//buck2:buck2 --quiet
-            //   ```
-            //   Which regresses from 15s to 80s when `RUST_LIB_BACKTRACE` is set.
-            cmd.env("RUST_LIB_BACKTRACE", "0");
+        for (key, val) in daemon_env_vars {
+            cmd.env(key, val);
         }
 
         // For Unix, set a daemon process title
