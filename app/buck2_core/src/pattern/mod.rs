@@ -269,12 +269,14 @@ impl<T: PatternType> ParsedPattern<T> {
     /// Allows everything from `parse_absolute`, plus relative patterns.
     pub fn parse_relative(
         target_alias_resolver: &dyn TargetAliasResolver,
-        cell_resolver: &CellAliasResolver,
         relative_dir: CellPathRef,
         pattern: &str,
+        cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
-            cell_resolver,
+            cell_resolver
+                .get(relative_dir.cell())?
+                .cell_alias_resolver(),
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -1128,21 +1130,16 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(
-                &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "..."
-            )
-            .unwrap()
+            ParsedPattern::<T>::parse_relative(&NoAliases, package.as_ref(), "...", &resolver(),)
+                .unwrap()
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
             ParsedPattern::<T>::parse_relative(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "foo/..."
+                "foo/...",
+                &resolver(),
             )
             .unwrap()
         );
@@ -1165,12 +1162,7 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(
-                &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
-                package.as_ref(),
-                "foo:target"
-            )?
+            ParsedPattern::parse_relative(&NoAliases, package.as_ref(), "foo:target", &resolver(),)?
         );
         Ok(())
     }
@@ -1185,9 +1177,9 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relative(
                 &NoAliases,
-                resolver().root_cell_cell_alias_resolver(),
                 package.as_ref(),
-                "path"
+                "path",
+                &resolver(),
             ),
             Err(e) => {
                 assert_matches!(

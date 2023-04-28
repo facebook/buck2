@@ -117,9 +117,9 @@ impl LiteralParser {
     ) -> anyhow::Result<ParsedPattern<ProvidersPatternExtra>> {
         ParsedPattern::parse_relative(
             &self.target_alias_resolver,
-            &self.cell_alias_resolver,
             self.working_dir.as_ref(),
             value,
+            &self.cell_resolver,
         )
     }
 
