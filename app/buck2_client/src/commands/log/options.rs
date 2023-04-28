@@ -107,7 +107,9 @@ impl EventLogOptions {
             return Ok(log_path.into_abs_path_buf());
         }
 
-        let temp_path = ctx.paths()?.tmp_dir().join(FileName::new(&format!(
+        let tmp_dir = ctx.paths()?.tmp_dir();
+        fs_util::create_dir_if_not_exists(&tmp_dir)?;
+        let temp_path = tmp_dir.join(FileName::new(&format!(
             "dl.{}.{}.tmp",
             manifold_file_name,
             Self::random_string()
