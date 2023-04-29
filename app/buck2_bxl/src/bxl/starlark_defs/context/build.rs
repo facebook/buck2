@@ -17,6 +17,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
 use derive_more::Display;
 use dupe::Dupe;
@@ -127,13 +128,14 @@ where
 }
 
 pub(crate) fn build<'v>(
-    ctx: &'v BxlContext,
+    ctx: &'v BxlContext<'v>,
     spec: Value<'v>,
     target_platform: Value<'v>,
     materializations: Materializations,
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<SmallMap<Value<'v>, Value<'v>>> {
-    let build_spec = ProvidersExpr::unpack(spec, target_platform, ctx, eval)?;
+    let build_spec =
+        ProvidersExpr::<ConfiguredProvidersLabel>::unpack(spec, target_platform, ctx, eval)?;
 
     let materializations =
         ConvertMaterializationContext::with_existing_map(materializations, &ctx.materializations);

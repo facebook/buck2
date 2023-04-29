@@ -33,6 +33,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -470,13 +471,14 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// or a dict keyed by sub target labels of [`StarlarkAnalysisResult`] if the given `labels`
     /// is list-like
     fn analysis<'v>(
-        this: &BxlContext<'v>,
+        this: &'v BxlContext<'v>,
         labels: Value<'v>,
         #[starlark(default = NoneType)] target_platform: Value<'v>,
         #[starlark(default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        let providers = ProvidersExpr::unpack(labels, target_platform, this, eval)?;
+        let providers =
+            ProvidersExpr::<ConfiguredProvidersLabel>::unpack(labels, target_platform, this, eval)?;
 
         let res: anyhow::Result<_> = this
             .async_ctx

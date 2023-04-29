@@ -70,9 +70,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         Ok(
             if let Some(resolved) = Self::unpack_literal(value, &target_platform, ctx)? {
                 resolved
-            } else if let Some(resolved) =
-                Self::unpack_iterable(value, &target_platform, ctx, eval)?
-            {
+            } else if let Some(resolved) = Self::unpack_iterable(value, ctx, eval, |v, ctx| {
+                Self::unpack_literal(v, &target_platform, ctx)
+            })? {
                 resolved
             } else {
                 return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
@@ -102,34 +102,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         } else if let Some(configured_target) = value.downcast_ref::<Label>() {
             Ok(Some(Self::Literal(configured_target.label().clone())))
         } else {
-            #[allow(clippy::manual_map)] // `if else if` looks better here
-            if let Some(s) = value.unpack_str() {
-                Some(
-                    ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
-                        &ctx.target_alias_resolver,
-                        // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                        CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
-                        s,
-                        &ctx.cell_resolver,
-                    )?
-                    .as_providers_label(s)?,
-                )
-            } else if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-                Some(ProvidersLabel::new(
-                    target.label().dupe(),
-                    ProvidersName::Default,
-                ))
-            } else if let Some(label) = value.downcast_ref::<StarlarkProvidersLabel>() {
-                Some(label.label().clone())
-            } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-                Some(ProvidersLabel::new(
-                    node.0.label().dupe(),
-                    ProvidersName::Default,
-                ))
-            } else {
-                None
-            }
-            .map_or(Ok(None), |label| {
+            Self::unpack_providers_label(value, ctx)?.map_or(Ok(None), |label| {
                 let result: anyhow::Result<_> = try {
                     Self::Literal(ctx.async_ctx.via_dice(|ctx| async {
                         ctx.get_configured_target(&label, target_platform.as_ref())
@@ -140,13 +113,85 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             })
         }
     }
+}
+
+impl ProvidersExpr<ProvidersLabel> {
+    #[allow(unused)]
+    pub fn unpack<'v>(
+        value: Value<'v>,
+        ctx: &BxlContext<'_>,
+        eval: &Evaluator<'v, '_>,
+    ) -> anyhow::Result<Self> {
+        Ok(if let Some(resolved) = Self::unpack_literal(value, ctx)? {
+            resolved
+        } else if let Some(resolved) =
+            Self::unpack_iterable(value, ctx, eval, Self::unpack_literal)?
+        {
+            resolved
+        } else {
+            return Err(anyhow::anyhow!(ProviderExprError::NotAListOfTargets(
+                value.to_repr()
+            )));
+        })
+    }
+
+    #[allow(unused)]
+    fn unpack_literal<'v>(value: Value<'v>, ctx: &BxlContext<'_>) -> anyhow::Result<Option<Self>> {
+        Self::unpack_providers_label(value, ctx)?
+            .map_or(Ok(None), |label| Ok(Some(Self::Literal(label))))
+    }
+}
+
+impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
+    pub fn labels(&self) -> impl Iterator<Item = &P> {
+        match &self {
+            ProvidersExpr::Literal(item) => Either::Left(std::iter::once(item)),
+            ProvidersExpr::Iterable(iter) => Either::Right(iter.iter()),
+        }
+    }
+
+    fn unpack_providers_label<'v>(
+        value: Value<'v>,
+        ctx: &BxlContext<'_>,
+    ) -> anyhow::Result<Option<ProvidersLabel>> {
+        #[allow(clippy::manual_map)] // `if else if` looks better here
+        Ok(if let Some(s) = value.unpack_str() {
+            Some(
+                ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
+                    &ctx.target_alias_resolver,
+                    // TODO(nga): Parse relaxed relative to cell root is incorrect.
+                    CellPathRef::new(ctx.cell_name, CellRelativePath::empty()),
+                    s,
+                    &ctx.cell_resolver,
+                )?
+                .as_providers_label(s)?,
+            )
+        } else if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
+            Some(ProvidersLabel::new(
+                target.label().dupe(),
+                ProvidersName::Default,
+            ))
+        } else if let Some(label) = value.downcast_ref::<StarlarkProvidersLabel>() {
+            Some(label.label().clone())
+        } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
+            Some(ProvidersLabel::new(
+                node.0.label().dupe(),
+                ProvidersName::Default,
+            ))
+        } else {
+            None
+        })
+    }
 
     fn unpack_iterable<'v>(
         value: Value<'v>,
-        target_platform: &Option<TargetLabel>,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'_>,
         eval: &Evaluator<'v, '_>,
-    ) -> anyhow::Result<Option<Self>> {
+        unpack_literal: impl for<'a> Fn(
+            Value<'v>,
+            &BxlContext<'a>,
+        ) -> anyhow::Result<Option<ProvidersExpr<P>>>,
+    ) -> anyhow::Result<Option<ProvidersExpr<P>>> {
         Ok(Some(Self::Iterable(
             #[allow(clippy::manual_map)] // `if else if` looks better here
             if let Some(s) = value.downcast_ref::<StarlarkTargetSet<TargetNode>>() {
@@ -161,9 +206,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             }
             .ok_or_else(|| ProviderExprError::NotATarget(value.to_repr()))?
             .map(|val| {
-                if let Some(ProvidersExpr::Literal(resolved_val)) =
-                    Self::unpack_literal(val, target_platform, ctx)?
-                {
+                if let Some(ProvidersExpr::Literal(resolved_val)) = unpack_literal(val, ctx)? {
                     Ok(resolved_val)
                 } else {
                     Err(anyhow::anyhow!(ProviderExprError::NotATarget(
@@ -173,12 +216,5 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             })
             .collect::<anyhow::Result<_>>()?,
         )))
-    }
-
-    pub fn labels(&self) -> impl Iterator<Item = &ConfiguredProvidersLabel> {
-        match &self {
-            ProvidersExpr::Literal(item) => itertools::Either::Left(std::iter::once(item)),
-            ProvidersExpr::Iterable(iter) => itertools::Either::Right(iter.iter()),
-        }
     }
 }
