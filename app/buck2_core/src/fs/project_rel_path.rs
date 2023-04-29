@@ -103,8 +103,8 @@ pub struct ProjectRelativePath(
     Eq,
     PartialOrd,
     Ord,
-    Deserialize,
     Serialize,
+    Deserialize,
     Allocative
 )]
 #[derivative(Debug)]
@@ -702,5 +702,26 @@ mod tests {
         assert_ne!(path1, string_abs);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_serde() {
+        fn test_roundtrip(path: &str, json: &str) {
+            let path = ProjectRelativePathBuf::try_from(path.to_owned()).unwrap();
+            assert_eq!(json, serde_json::to_string(&path).unwrap());
+            assert_eq!(
+                path,
+                serde_json::from_str::<ProjectRelativePathBuf>(json).unwrap()
+            );
+        }
+
+        test_roundtrip("", r#""""#);
+        test_roundtrip("foo", r#""foo""#);
+        test_roundtrip("foo/bar", r#""foo/bar""#);
+
+        let err = serde_json::from_str::<ProjectRelativePathBuf>(r#""a//b""#)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("expected a normalized path"), "{}", err);
     }
 }

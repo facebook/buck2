@@ -21,6 +21,7 @@ use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -49,20 +50,20 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Clone,
-    Display,
-    Debug,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Allocative
+    Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePathBuf(String);
+
+impl<'de> Deserialize<'de> for ForwardRelativePathBuf {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        ForwardRelativePathBuf::try_from(s).map_err(serde::de::Error::custom)
+    }
+}
 
 impl AsRef<RelativePath> for ForwardRelativePath {
     #[inline]
@@ -1323,5 +1324,26 @@ mod tests {
         assert_eq!(from_iter::<2, _>(parts.iter().copied()), expected);
         assert_eq!(from_iter::<3, _>(parts.iter().copied()), expected);
         assert_eq!(from_iter::<4, _>(parts.iter().copied()), expected);
+    }
+
+    #[test]
+    fn test_serde() {
+        fn test_roundtrip(path: &str, json: &str) {
+            let path = ForwardRelativePathBuf::try_from(path.to_owned()).unwrap();
+            assert_eq!(json, serde_json::to_string(&path).unwrap());
+            assert_eq!(
+                path,
+                serde_json::from_str::<ForwardRelativePathBuf>(json).unwrap()
+            );
+        }
+
+        test_roundtrip("", r#""""#);
+        test_roundtrip("foo", r#""foo""#);
+        test_roundtrip("foo/bar", r#""foo/bar""#);
+
+        let err = serde_json::from_str::<ForwardRelativePathBuf>(r#""a//b""#)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("expected a normalized path"), "{}", err);
     }
 }

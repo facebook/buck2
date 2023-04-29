@@ -57,6 +57,7 @@ buck2_util = { workspace = true }
 [dev-dependencies]
 maplit = { workspace = true }
 test-case = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
