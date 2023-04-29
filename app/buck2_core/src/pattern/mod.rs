@@ -36,7 +36,6 @@ use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
@@ -226,7 +225,8 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
-            cell_resolver.get(cell)?.cell_alias_resolver(),
+            cell,
+            cell_resolver,
             None,
             TargetParsingOptions::precise(),
             pattern,
@@ -245,9 +245,9 @@ impl<T: PatternType> ParsedPattern<T> {
         cell: CellName,
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
-        let cell_alias_resolver = cell_resolver.get(cell)?.cell_alias_resolver();
         parse_target_pattern(
-            cell_alias_resolver,
+            cell,
+            cell_resolver,
             None,
             TargetParsingOptions {
                 relative: TargetParsingRel::RequireAbsolute(relative_dir),
@@ -274,9 +274,8 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
-            cell_resolver
-                .get(relative_dir.cell())?
-                .cell_alias_resolver(),
+            relative_dir.cell(),
+            cell_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -307,9 +306,8 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         parse_target_pattern(
-            cell_resolver
-                .get(relative_dir.cell())?
-                .cell_alias_resolver(),
+            relative_dir.cell(),
+            cell_resolver,
             Some(target_alias_resolver),
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(relative_dir),
@@ -737,7 +735,8 @@ impl<'a> TargetParsingOptions<'a> {
 /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
 /// targets via `enclosing_package`, if provided.
 fn parse_target_pattern<T>(
-    cell_resolver: &CellAliasResolver,
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
@@ -752,10 +751,10 @@ where
     } = opts;
 
     if let Some(dir) = relative.dir() {
-        if dir.cell() != cell_resolver.resolve_self() {
+        if dir.cell() != cell_name {
             return Err(
                 TargetPatternParseError::CellResolverCellDoesNotMatchWorkingDir(
-                    cell_resolver.resolve_self(),
+                    cell_name,
                     dir.to_owned(),
                 )
                 .into(),
@@ -763,10 +762,14 @@ where
         }
     }
 
+    let cell_alias_resolver = cell_resolver.get(cell_name)?.cell_alias_resolver();
+
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
     if let Some(target_alias_resolver) = target_alias_resolver {
-        if let Some(aliased) = resolve_target_alias(cell_resolver, target_alias_resolver, &lex)? {
+        if let Some(aliased) =
+            resolve_target_alias(cell_name, cell_resolver, target_alias_resolver, &lex)?
+        {
             return Ok(aliased);
         }
     }
@@ -799,7 +802,7 @@ where
     }
 
     // We ask for the cell, but if the pattern is relative we might not use it
-    let cell = cell_resolver.resolve(cell_alias.unwrap_or_default())?;
+    let cell = cell_alias_resolver.resolve(cell_alias.unwrap_or_default())?;
 
     let package_path = pattern.package_path();
 
@@ -840,7 +843,8 @@ enum ResolveTargetAliasError {
 }
 
 fn resolve_target_alias<T>(
-    cell_resolver: &CellAliasResolver,
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
     target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
 ) -> anyhow::Result<Option<ParsedPattern<T>>>
@@ -880,6 +884,7 @@ where
 
     // We found a matching alias. Parse the alias as a target.
     let res = parse_target_pattern::<TargetPatternExtra>(
+        cell_name,
         cell_resolver,
         None,
         TargetParsingOptions::precise(),
