@@ -17,7 +17,7 @@ use buck2_query::query::environment::QueryTarget;
 use dupe::Dupe;
 use serde::Serializer;
 
-use crate::attrs::attr_type::attr_config::AttrConfig;
+use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;

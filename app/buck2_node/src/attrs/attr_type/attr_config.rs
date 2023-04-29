@@ -22,6 +22,7 @@ use serde_json::to_value;
 use super::arg::StringWithMacros;
 use super::dep::DepAttr;
 use super::query::QueryAttr;
+use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
@@ -54,21 +55,17 @@ use crate::attrs::fmt_context::AttrFmtContext;
 ///
 /// There's really just two implementations of this, one for coerced attrs with
 /// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike + AttrDisplayWithContext {
+pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches {
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     // Used to encapsulate the type encodings for various attr types.
     type ExtraTypes: AttrConfigExtraTypes + AttrDisplayWithContext + Allocative;
 
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
 
 /// Needed to support `ExtraTypes` for within `AttrConfig`.
-pub trait AttrConfigExtraTypes {
+pub trait AttrConfigExtraTypes: AnyMatches {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
-
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
 }
 
 /// Attribute literal type encoding for ConfiguredAttrs.
@@ -101,7 +98,9 @@ impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
             Self::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
+}
 
+impl AnyMatches for ConfiguredAttrExtraTypes {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
@@ -140,7 +139,9 @@ impl AttrConfig for ConfiguredAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         self.0.to_json(ctx)
     }
+}
 
+impl AnyMatches for ConfiguredAttr {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         self.0.any_matches(filter)
     }
@@ -178,7 +179,9 @@ impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
             Self::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
+}
 
+impl AnyMatches for CoercedAttrExtraTypes {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
@@ -257,7 +260,9 @@ impl AttrConfig for CoercedAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         CoercedAttr::to_json(self, ctx)
     }
+}
 
+impl AnyMatches for CoercedAttr {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
         CoercedAttr::any_matches(self, filter)
     }
