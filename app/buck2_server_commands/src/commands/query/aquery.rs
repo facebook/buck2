@@ -12,8 +12,6 @@ use std::io::Write;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::query::aquery::evaluator::get_aquery_evaluator;
-use buck2_cli_proto::AqueryRequest;
-use buck2_cli_proto::AqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -69,8 +67,8 @@ async fn aquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
     ctx: DiceTransaction,
-    request: &AqueryRequest,
-) -> anyhow::Result<AqueryResponse> {
+    request: &buck2_cli_proto::AqueryRequest,
+) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let output_configuration = QueryResultPrinter::from_request_options(
@@ -79,7 +77,7 @@ async fn aquery(
         request.unstable_output_format,
     )?;
 
-    let AqueryRequest {
+    let buck2_cli_proto::AqueryRequest {
         query,
         query_args,
         context,
@@ -113,5 +111,5 @@ async fn aquery(
         Ok(_) => vec![],
         Err(e) => vec![format!("{:#}", e)],
     };
-    Ok(AqueryResponse { error_messages })
+    Ok(buck2_cli_proto::AqueryResponse { error_messages })
 }
