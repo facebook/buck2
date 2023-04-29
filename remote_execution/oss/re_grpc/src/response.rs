@@ -180,7 +180,7 @@ pub struct ExecuteWithProgressResponse {
     pub metadata: OperationMetadata,
 }
 
-#[derive(Clone, Dupe, Default)]
+#[derive(Clone, Debug, Dupe, Default)]
 pub struct UploadResponse {}
 
 #[derive(Clone, Default)]
