@@ -1,2 +1,1 @@
 cargo_env = true
-extra_deps = [":pico-args"]
