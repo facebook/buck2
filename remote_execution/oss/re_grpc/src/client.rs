@@ -203,6 +203,8 @@ pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_msg_size: usize,
+    /// Does the remote server support execution.
+    exec_enabled: bool,
 }
 
 pub struct REClientBuilder;
@@ -270,6 +272,10 @@ impl REClientBuilder {
         };
 
         let capabilities = Self::fetch_rbe_capabilities(&mut grpc_clients).await?;
+        if !capabilities.exec_enabled {
+            return Err(anyhow::anyhow!("Server has remote execution disabled."));
+        }
+
         Ok(REClient::new(grpc_clients, capabilities))
     }
 
@@ -284,12 +290,14 @@ impl REClientBuilder {
                 instance_name: INSTANCE_NAME.into(),
             })
             .await
-            .context("Failed to query capabilities of remote")?;
+            .context("Failed to query capabilities of remote")?
+            .into_inner();
         // Default is a reasonable size for the gRPC transport
         // with enough room for headers.
         let mut max_msg_size = 1000 * 1000 * 4;
+        let mut exec_enabled = true;
 
-        if let Some(cache_cap) = resp.into_inner().cache_capabilities {
+        if let Some(cache_cap) = resp.cache_capabilities {
             let size = cache_cap.max_batch_total_size_bytes as usize;
             // A value of 0 means no limit is set
             if size != 0 {
@@ -297,7 +305,14 @@ impl REClientBuilder {
             }
         }
 
-        Ok(RECapabilities { max_msg_size })
+        if let Some(exec_cap) = resp.execution_capabilities {
+            exec_enabled = exec_cap.exec_enabled;
+        }
+
+        Ok(RECapabilities {
+            max_msg_size,
+            exec_enabled,
+        })
     }
 }
 
