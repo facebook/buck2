@@ -26,7 +26,6 @@ use buck2_build_api::query::dice::get_dice_query_delegate;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
-use buck2_cli_proto::BuildRequest;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -125,7 +124,7 @@ enum TargetResolutionConfig {
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
-    request: &BuildRequest,
+    request: &buck2_cli_proto::BuildRequest,
 ) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
     // TODO(nmj): Move build report printing logic out of here.
     let fs = server_ctx.project_root();
