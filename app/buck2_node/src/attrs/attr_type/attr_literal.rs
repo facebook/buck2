@@ -22,7 +22,6 @@ use super::attr_config::CoercedAttrExtraTypes;
 use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
-use crate::attrs::attr_type::attr_config::AttrConfigExtraTypes;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -30,6 +29,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::visibility::VisibilitySpecification;
 

@@ -42,6 +42,7 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::json::ToJsonWithContext;
 
 /// AttrConfig is used to implement things just once to cover both the configured and
 /// unconfigured case. ExtraTypes contains the specifications for the configured vs
@@ -55,18 +56,14 @@ use crate::attrs::fmt_context::AttrFmtContext;
 ///
 /// There's really just two implementations of this, one for coerced attrs with
 /// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches {
+pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWithContext {
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
     // Used to encapsulate the type encodings for various attr types.
     type ExtraTypes: AttrConfigExtraTypes + AttrDisplayWithContext + Allocative;
-
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
 }
 
 /// Needed to support `ExtraTypes` for within `AttrConfig`.
-pub trait AttrConfigExtraTypes: AnyMatches {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value>;
-}
+pub trait AttrConfigExtraTypes: AnyMatches + ToJsonWithContext {}
 
 /// Attribute literal type encoding for ConfiguredAttrs.
 #[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
@@ -84,7 +81,9 @@ pub enum ConfiguredAttrExtraTypes {
     SourceFile(CoercedPath),
 }
 
-impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {
+impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {}
+
+impl ToJsonWithContext for ConfiguredAttrExtraTypes {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
@@ -135,7 +134,9 @@ impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
 impl AttrConfig for ConfiguredAttr {
     type ProvidersType = ConfiguredProvidersLabel;
     type ExtraTypes = ConfiguredAttrExtraTypes;
+}
 
+impl ToJsonWithContext for ConfiguredAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         self.0.to_json(ctx)
     }
@@ -164,7 +165,9 @@ pub enum CoercedAttrExtraTypes {
     SourceFile(CoercedPath),
 }
 
-impl AttrConfigExtraTypes for CoercedAttrExtraTypes {
+impl AttrConfigExtraTypes for CoercedAttrExtraTypes {}
+
+impl ToJsonWithContext for CoercedAttrExtraTypes {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         match self {
             Self::ExplicitConfiguredDep(e) => e.to_json(),
@@ -256,7 +259,9 @@ impl CoercedAttrExtraTypes {
 impl AttrConfig for CoercedAttr {
     type ProvidersType = ProvidersLabel;
     type ExtraTypes = CoercedAttrExtraTypes;
+}
 
+impl ToJsonWithContext for CoercedAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         CoercedAttr::to_json(self, ctx)
     }

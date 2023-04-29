@@ -19,12 +19,12 @@ use serde::Serializer;
 use starlark_map::small_map;
 
 use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
-use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 
 #[derive(Debug, thiserror::Error)]
