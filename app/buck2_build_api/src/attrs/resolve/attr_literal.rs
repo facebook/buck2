@@ -134,7 +134,9 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         match self {
             AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
-            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(ctx.heap().alloc(&**v)),
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => {
+                Ok(ctx.heap().alloc(v.as_str()))
+            }
             AttrLiteral::List(list) => {
                 let mut values = Vec::with_capacity(list.len());
                 for v in list.iter() {
@@ -247,7 +249,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         Ok(match &self {
             AttrLiteral::Bool(v) => heap.alloc(*v),
             AttrLiteral::Int(v) => heap.alloc(*v),
-            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(&**s),
+            AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s.as_str()),
             AttrLiteral::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg.dupe(), heap))?),
             AttrLiteral::Tuple(v) => {
                 heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg.dupe(), heap))?))

@@ -155,6 +155,7 @@ mod tests {
     use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+    use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_attr::CoercedSelector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
@@ -308,7 +309,7 @@ mod tests {
             CoercedAttr::Literal(AttrLiteral::Bool(true))
         }
         fn literal_str() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("linux")))
+            CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("linux"))))
         }
 
         // Test more specific is selected even if it is not first.
@@ -350,10 +351,10 @@ mod tests {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
             CoercedAttr::Concat(Box::new([
-                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("a"))),
-                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("b"))),
-                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("c"))),
-                CoercedAttr::Literal(AttrLiteral::String(ArcStr::from("d"))),
+                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("a")))),
+                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("b")))),
+                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("c")))),
+                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("d")))),
             ]))
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
@@ -377,8 +378,8 @@ mod tests {
                             CoercedAttr::Literal(AttrLiteral::Int(10))
                         ),
                     ]),
-                    Some(CoercedAttr::Literal(AttrLiteral::String(ArcStr::from(
-                        "ddd"
+                    Some(CoercedAttr::Literal(AttrLiteral::String(StringLiteral(
+                        ArcStr::from("ddd")
                     )))),
                 )
                 .unwrap()

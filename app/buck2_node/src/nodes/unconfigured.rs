@@ -23,6 +23,7 @@ use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
@@ -180,8 +181,9 @@ impl TargetNode {
     }
 
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
-        let typ_attr =
-            CoercedAttr::new_literal(AttrLiteral::String(self.rule_type().name().into()));
+        let typ_attr = CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
+            self.rule_type().name().into(),
+        )));
         let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
             self.deps()
                 .map(|t| {
@@ -191,8 +193,8 @@ impl TargetNode {
                 })
                 .collect(),
         ));
-        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(ArcStr::from(
-            self.buildfile_path().to_string(),
+        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
+            ArcStr::from(self.buildfile_path().to_string()),
         )));
         vec![
             (TYPE, typ_attr),
@@ -214,7 +216,7 @@ impl TargetNode {
                 ONCALL,
                 CoercedAttr::new_literal(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(ArcStr::from(x)),
+                    Some(x) => AttrLiteral::String(StringLiteral(ArcStr::from(x))),
                 }),
             ),
         ]
@@ -482,7 +484,9 @@ pub mod testing {
 
             attributes.push_sorted(
                 AttributeSpec::name_attr_id(),
-                CoercedAttr::Literal(AttrLiteral::String(label.name().as_str().into())),
+                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(
+                    label.name().as_str().into(),
+                ))),
             );
 
             let mut deps_cache = CoercedDepsCollector::new();

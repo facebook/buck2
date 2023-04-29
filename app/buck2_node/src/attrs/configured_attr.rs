@@ -20,6 +20,7 @@ use starlark_map::small_map;
 
 use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -161,14 +162,14 @@ impl ConfiguredAttr {
                 if items.peek().is_none() {
                     Ok(Self(AttrLiteral::String(res)))
                 } else {
-                    let mut res = str::to_owned(&res);
+                    let mut res = str::to_owned(&res.0);
                     for x in items {
                         match x?.0 {
-                            AttrLiteral::String(right) => res.push_str(&right),
+                            AttrLiteral::String(right) => res.push_str(&right.0),
                             attr => return mismatch("string", attr),
                         }
                     }
-                    Ok(Self(AttrLiteral::String(ArcStr::from(res))))
+                    Ok(Self(AttrLiteral::String(StringLiteral(ArcStr::from(res)))))
                 }
             }
             AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(left)) => {

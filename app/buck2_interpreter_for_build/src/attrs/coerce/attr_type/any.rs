@@ -9,6 +9,7 @@
 
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -47,10 +48,10 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral<Coerce
             ),
         )
     } else {
-        AttrLiteral::String(match value.unpack_str() {
+        AttrLiteral::String(StringLiteral(match value.unpack_str() {
             Some(s) => ctx.intern_str(s),
             None => ctx.intern_str(&value.to_str()),
-        })
+        }))
     }
 }
 

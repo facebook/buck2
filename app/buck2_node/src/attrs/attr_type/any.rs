@@ -9,9 +9,9 @@
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
-use buck2_util::arc_str::ArcStr;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
@@ -19,7 +19,7 @@ pub struct AnyAttrType;
 
 impl AnyAttrType {
     pub fn empty_string() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::String(ArcStr::default()))
+        CoercedAttr::new_literal(AttrLiteral::String(StringLiteral::default()))
     }
 
     pub fn empty_list() -> CoercedAttr {

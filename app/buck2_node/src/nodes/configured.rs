@@ -45,6 +45,7 @@ use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -460,7 +461,9 @@ impl ConfiguredTargetNode {
     }
 
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
-        let typ_attr = ConfiguredAttr::new(AttrLiteral::String(self.rule_type().name().into()));
+        let typ_attr = ConfiguredAttr::new(AttrLiteral::String(StringLiteral(
+            self.rule_type().name().into(),
+        )));
         let deps_attr = ConfiguredAttr::new(AttrLiteral::List(
             self.deps()
                 .map(|t| {
@@ -474,9 +477,9 @@ impl ConfiguredTargetNode {
                 .collect::<Vec<_>>()
                 .into(),
         ));
-        let package_attr = ConfiguredAttr::new(AttrLiteral::String(ArcStr::from(
+        let package_attr = ConfiguredAttr::new(AttrLiteral::String(StringLiteral(ArcStr::from(
             self.buildfile_path().to_string(),
-        )));
+        ))));
         vec![
             (TYPE, typ_attr),
             (DEPS, deps_attr),
@@ -485,23 +488,23 @@ impl ConfiguredTargetNode {
                 ONCALL,
                 ConfiguredAttr::new(match self.oncall() {
                     None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(ArcStr::from(x)),
+                    Some(x) => AttrLiteral::String(StringLiteral(ArcStr::from(x))),
                 }),
             ),
             (
                 TARGET_CONFIGURATION,
-                ConfiguredAttr::new(AttrLiteral::String(ArcStr::from(
+                ConfiguredAttr::new(AttrLiteral::String(StringLiteral(ArcStr::from(
                     self.0.label.cfg().to_string(),
-                ))),
+                )))),
             ),
             (
                 EXECUTION_PLATFORM,
-                ConfiguredAttr::new(AttrLiteral::String(
+                ConfiguredAttr::new(AttrLiteral::String(StringLiteral(
                     self.0
                         .execution_platform_resolution
                         .platform()
                         .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
-                )),
+                ))),
             ),
         ]
         .into_iter()

@@ -13,6 +13,7 @@ use anyhow::Context;
 use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
@@ -62,7 +63,7 @@ impl AttributeSpecExt for AttributeSpec {
 
                 attr_values.push_sorted(
                     attr_idx,
-                    CoercedAttr::Literal(AttrLiteral::String(ArcStr::from(name))),
+                    CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from(name)))),
                 );
 
                 TargetName::new(name)?

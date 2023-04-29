@@ -13,7 +13,6 @@ use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_util::arc_str::ArcSlice;
-use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
@@ -22,6 +21,7 @@ use super::attr_config::CoercedAttrExtraTypes;
 use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
+use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -45,9 +45,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     //
     // So when working with configured attributes with pay with CPU for string copies,
     // but don't increase total memory usage, because these string copies are short living.
-    String(ArcStr),
+    String(StringLiteral),
     // Like String, but drawn from a set of variants, so doesn't support concat
-    EnumVariant(ArcStr),
+    EnumVariant(StringLiteral),
     List(ArcSlice<C>),
     Tuple(ArcSlice<C>),
     Dict(ArcSlice<(C, C)>),
@@ -76,13 +76,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::Int(v) => {
                 write!(f, "{}", v)
             }
-            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => {
-                if f.alternate() {
-                    f.write_str(v)
-                } else {
-                    write!(f, "\"{}\"", v)
-                }
-            }
+            AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Display::fmt(v, f),
             AttrLiteral::List(list) => {
                 write!(f, "[")?;
                 for (i, v) in list.iter().enumerate() {

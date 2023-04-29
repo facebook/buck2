@@ -891,6 +891,7 @@ mod tests {
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
+    use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::configured_attr::ConfiguredAttr;
@@ -937,7 +938,7 @@ mod tests {
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::new_literal(AttrLiteral::String("some_string".into())),
+                CoercedAttr::new_literal(AttrLiteral::String(StringLiteral("some_string".into()))),
             ),
             (
                 "some_deps",
@@ -967,7 +968,9 @@ mod tests {
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::new_literal(AttrLiteral::String("another_string".into())),
+                CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
+                    "another_string".into(),
+                ))),
             ),
             (
                 "some_deps",
@@ -1004,7 +1007,7 @@ mod tests {
         let conf_attrs1 = smallmap![
             "bool_field" => ConfiguredAttr(AttrLiteral::Bool(false)),
             "another_field" =>
-             ConfiguredAttr(AttrLiteral::String("some_string".into())),
+             ConfiguredAttr(AttrLiteral::String(StringLiteral("some_string".into()))),
             "some_deps" =>
              ConfiguredAttr(AttrLiteral::List(ArcSlice::new([
                 ConfiguredAttr(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
@@ -1018,7 +1021,7 @@ mod tests {
         let conf_attrs2 = smallmap![
             "bool_field" => ConfiguredAttr(AttrLiteral::Bool(true)),
             "another_field" =>
-             ConfiguredAttr(AttrLiteral::String("another_string".into())),
+             ConfiguredAttr(AttrLiteral::String(StringLiteral("another_string".into()))),
             "some_deps" => ConfiguredAttr(AttrLiteral::List(
                 ArcSlice::new([])
             )),
