@@ -5,7 +5,7 @@ title: Remote Execution
 
 Buck2 can use services that expose [Bazel's remote execution API](https://github.com/bazelbuild/remote-apis) in order to run actions remotely.
 
-Buck2 projects have been successfully tested for remote execution against [EngFlow](https://www.engflow.com/) and [BuildBarn](https://github.com/buildbarn/bb-remote-execution). Sample project configurations for those providers are available under [examples/remote_execution](https://github.com/facebook/buck2/tree/main/examples/remote_execution).
+Buck2 projects have been successfully tested for remote execution against [EngFlow](https://www.engflow.com/), [BuildBarn](https://github.com/buildbarn/bb-remote-execution) and [BuildBuddy](https://www.buildbuddy.io). Sample project configurations for those providers are available under [examples/remote_execution](https://github.com/facebook/buck2/tree/main/examples/remote_execution).
 
 ## RE configuration in `.buckconfig`
 
@@ -30,7 +30,7 @@ digest_algorithms = BLAKE3
 
 ## RE platform configuration
 
-Next, your build will need an [execution platform](https://buck2.build/docs/concepts/glossary/#execution-platform) that specifies how and where actions should be executed. For a sample platform definition that sets up an execution platform to utilize RE, take a look at the [EngFlow example](https://github.com/facebook/buck2/blob/main/examples/remote_execution/engflow/platforms/defs.bzl).
+Next, your build will need an [execution platform](https://buck2.build/docs/concepts/glossary/#execution-platform) that specifies how and where actions should be executed. For a sample platform definition that sets up an execution platform to utilize RE, take a look at the [EngFlow example](https://github.com/facebook/buck2/blob/main/examples/remote_execution/engflow/platforms/defs.bzl), [BuildBarn example](https://github.com/facebook/buck2/blob/main/examples/remote_execution/buildbarn/platforms/defs.bzl), or the [BuildBuddy example](https://github.com/facebook/buck2/blob/main/examples/remote_execution/buildbuddy/platforms/defs.bzl).
 
 To enable remote execution, configure the following fields in [CommandExecutorConfig](https://buck2.build/docs/api/build/build/#commandexecutorconfig) as follows:
 
