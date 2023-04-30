@@ -11,7 +11,7 @@ Note that the resulting binary will be compiled without optimisations or [jemall
 
 First, install `reindeer` with `Cargo`:
 ```sh
-cargo install --git  https://github.com/facebookincubator/reindeer
+cargo install --git  https://github.com/facebookincubator/reindeer --rev c78947234f5b61d5b8e56831c75790bb326a28c9
 ```
 
 Next, run the following to pull in dependencies and buckify:
