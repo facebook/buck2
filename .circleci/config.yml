@@ -10,9 +10,14 @@ commands:
             cargo --version
             rustup --version
 
-  print_ocaml_config:
-    description: OCaml Configuration Info
+  init_opam:
+    description: Init Opam
     steps:
+      - run:
+          name: Init opam
+          command: |
+            opam init --disable-sandboxing -y
+            opam install menhir ppxlib -y
       - run:
           name: OCaml Configuration Info
           command: |
@@ -25,13 +30,7 @@ commands:
     steps:
       - run: sudo apt-get update
       - run: sudo apt-get install libssl-dev cmake clang lld opam
-      - run:
-          name: Init opam
-          command: |
-            opam init --disable-sandboxing -y
-            opam install menhir ppxlib -y
       - print_versions
-      - print_ocaml_config
 
   setup_macos_env:
     description: Setup env for macOS
@@ -45,13 +44,7 @@ commands:
             rm -f '/usr/local/lib/python3.9/site-packages/six.py'
             brew unlink python@3.9
             brew install cmake coreutils opam llvm
-      - run:
-          name: Init opam
-          command: |
-            opam init --disable-sandboxing -y
-            opam install menhir ppxlib -y
       - print_versions
-      - print_ocaml_config
 
   setup_windows_env:
     description: Setup env for Windows
@@ -66,7 +59,6 @@ commands:
 
 version: 2.1
 orbs:
-  rust: circleci/rust@1.6.0
   win: circleci/windows@2.2.0
 jobs:
   linux-build-and-test:
@@ -78,17 +70,18 @@ jobs:
     steps:
       - checkout
       - setup_linux_env
-      - rust/clippy:
-          with_cache: false
-          flags: -- --allow=clippy::almost-swapped
       - run:
           # the xlarge linux resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
           name: "Set CARGO_BUILD_JOBS=6 to limit the number of CPUs used"
           command: echo 'export CARGO_BUILD_JOBS="6"' >> "$BASH_ENV"
-      - rust/build:
-          with_cache: false
-      - rust/test:
-          with_cache: false
+      - run:
+          name: Build buck2 binary (debug)
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
+      - run:
+          name: Run test.py
+          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
 
   linux-build-examples:
     description: Build example projects
@@ -98,8 +91,9 @@ jobs:
     steps:
       - checkout
       - setup_linux_env
+      - init_opam
       - run:
-          name: Build buck2 binary
+          name: Build buck2 binary (release)
           command: |
             mkdir /tmp/artifacts
             cargo build --bin=buck2 --release -Z unstable-options --out-dir=/tmp/artifacts
@@ -125,8 +119,14 @@ jobs:
     steps:
       - checkout
       - setup_macos_env
-      - rust/build:
-          with_cache: false
+      - run:
+          name: Build buck2 binary (debug)
+          command: |
+            mkdir /tmp/artifacts
+            cargo build --bin=buck2 -Z unstable-options --out-dir=/tmp/artifacts
+      - run:
+          name: Run test.py
+          command: python3 test.py --ci --git --buck2=/tmp/artifacts/buck2
 
   macos-build-examples:
     description: Build example projects
@@ -136,8 +136,9 @@ jobs:
     steps:
       - checkout
       - setup_macos_env
+      - init_opam
       - run:
-          name: Build buck2 binary
+          name: Build buck2 binary (release)
           command: |
             mkdir /tmp/artifacts
             # the large resource class has 8 CPUs, limit the number of jobs to 6 to avoid running out of resources
@@ -166,10 +167,14 @@ jobs:
     steps:
       - checkout
       - setup_windows_env
-      - rust/build:
-          with_cache: false
-      - rust/test:
-          with_cache: false
+      - run:
+          name: Build buck2 binary (debug)
+          command: |
+            mkdir C:/tmp/artifacts
+            cargo build --bin=buck2 -Z unstable-options --out-dir=C:/tmp/artifacts
+      - run:
+          name: Run test.py
+          command: python test.py --ci --git --buck2=/tmp/artifacts/buck2
 
   windows-build-examples:
     description: Build example projects
@@ -181,7 +186,7 @@ jobs:
       - checkout
       - setup_windows_env
       - run:
-          name: Build buck2 binary
+          name: Build buck2 binary (release)
           command: |
             mkdir C:/tmp/artifacts
             cargo build --bin=buck2 --release -Z unstable-options --out-dir=C:/tmp/artifacts
