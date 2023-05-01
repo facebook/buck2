@@ -409,7 +409,6 @@ def _pex_modules_common_args(
     cmd.add(cmd_args(native_library_srcs_args, format = "@{}"))
     cmd.add(cmd_args(native_library_dests_path, format = "@{}"))
 
-    dwp = []
     if ctx.attrs.package_split_dwarf_dwp:
         dwp = [s.dwp for s in shared_libraries.values() if s.dwp != None]
         dwp_srcs_path = ctx.actions.write(
@@ -424,19 +423,22 @@ def _pex_modules_common_args(
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-    debuginfos = []
-    for name, lib in shared_libraries.items():
-        if lib.external_debug_info != None:
-            for debuginfo in project_external_debug_info(ctx.actions, ctx.label, [lib.external_debug_info]):
-                debuginfos.append((debuginfo, name))
-
     deps = (
         src_artifacts +
         resource_artifacts +
-        [(lib.output, name) for name, lib in shared_libraries.items()] +
-        [(lib.dwp, name) for name, lib in shared_libraries.items() if lib.dwp != None] +
-        debuginfos
+        [(lib.output, name) for name, lib in shared_libraries.items()]
     )
+
+    for name, lib in shared_libraries.items():
+        if lib.external_debug_info != None:
+            for debuginfo in project_external_debug_info(ctx.actions, ctx.label, [lib.external_debug_info]):
+                deps.append((debuginfo, name))
+
+    if ctx.attrs.package_split_dwarf_dwp:
+        for name, lib in shared_libraries.items():
+            if lib.dwp:
+                deps.append((lib.dwp, name))
+
     return (cmd, deps)
 
 def _pex_modules_args(
