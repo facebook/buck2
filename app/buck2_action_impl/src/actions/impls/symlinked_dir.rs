@@ -97,8 +97,8 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args(
         srcs: Value,
-    ) -> Option<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
-        let srcs = DictRef::from_value(srcs)?;
+    ) -> anyhow::Result<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
+        let srcs = DictRef::from_value(srcs).context("Expecting dict")?;
 
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.
@@ -106,18 +106,18 @@ impl UnregisteredSymlinkedDirAction {
             .iter()
             .map(|(k, v)| {
                 let (artifact, associates) = v
-                    .as_artifact()?
-                    .get_bound_artifact_and_associated_artifacts()
-                    .ok()?;
-                Some((
+                    .as_artifact()
+                    .context("expecting dict value artifact")?
+                    .get_bound_artifact_and_associated_artifacts()?;
+                anyhow::Ok((
                     (
                         ArtifactGroup::Artifact(artifact),
-                        PathBuf::from(k.unpack_str()?),
+                        PathBuf::from(k.unpack_str().context("dict key must be a string")?),
                     ),
                     associates,
                 ))
             })
-            .fold_options(
+            .fold_ok(
                 (Vec::with_capacity(srcs.len()), SmallSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
@@ -126,16 +126,16 @@ impl UnregisteredSymlinkedDirAction {
                     });
                     (aps, assocs)
                 },
-            );
+            )?;
 
-        res
+        Ok(res)
     }
 
     pub(crate) fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
-            .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("srcs".to_owned()))?;
+            .with_context(|| ValueError::IncorrectParameterTypeNamed("srcs".to_owned()))?;
         // Overlapping check make sense for non-copy mode only.
         // When directories are copied into the same destination, the ordering defines how files are overwritten.
         if !copy {
