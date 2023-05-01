@@ -17,3 +17,13 @@ LtoMode = enum(
     # https://clang.llvm.org/docs/ThinLTO.html
     "thin",
 )
+
+def lto_compiler_flags(lto_mode: "LtoMode") -> [str.type]:
+    if lto_mode == LtoMode("none"):
+        return []
+    elif lto_mode == LtoMode("fat") or lto_mode == LtoMode("monolithic"):
+        return ["-flto=full"]
+    elif lto_mode == LtoMode("thin"):
+        return ["-flto=thin"]
+    else:
+        fail("Unhandled LTO mode: " + lto_mode)
