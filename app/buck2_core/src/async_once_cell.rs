@@ -44,11 +44,13 @@ impl<T> AsyncOnceCell<T> {
 
         let val = fut.await;
 
-        if self.cell.set(val).is_err() {
-            unreachable!();
+        match self.cell.try_insert(val) {
+            Ok(val) => {
+                *initialized = true;
+                val
+            }
+            Err(_) => unreachable!(),
         }
-        *initialized = true;
-        return self.cell.get().unwrap();
     }
 }
 
