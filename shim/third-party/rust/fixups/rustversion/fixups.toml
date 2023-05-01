@@ -1,6 +1,2 @@
-[env]
-OUT_DIR = "generated"
-
 [[buildscript]]
-[buildscript.gen_srcs.mapped]
-"version.expr" = "generated/version.expr"
+[buildscript.gen_srcs]

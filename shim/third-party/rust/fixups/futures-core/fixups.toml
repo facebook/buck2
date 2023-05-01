@@ -1,4 +1,2 @@
+buildscript = []
 cargo_env = true
-
-[[buildscript]]
-[buildscript.build]

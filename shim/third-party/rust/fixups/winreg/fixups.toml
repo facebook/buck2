@@ -1,2 +1,1 @@
-[[buildscript]]
-[buildscript.build]
+buildscript = []

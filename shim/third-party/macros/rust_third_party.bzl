@@ -10,16 +10,6 @@ def _get_plat():
     else:
         return "linux-x86_64"
 
-# Matching host triple. Like the above, also incomplete and needing work to be
-# general.
-def _get_native_host_triple():
-    if host_info().os.is_windows:
-        return "x86_64-pc-windows-gnu"
-    elif host_info().os.is_macos:
-        return "x86_64-apple-darwin"
-    else:
-        return "x86_64-unknown-linux-gnu"
-
 def extend(orig, new):
     if orig == None:
         ret = new
@@ -31,58 +21,6 @@ def extend(orig, new):
     else:  # list
         ret = orig + new
     return ret
-
-# Invoke something with a default cargo-like environment. This is used to invoke buildscripts
-# from within a Buck rule to get it to do whatever it does (typically, either emit command-line
-# options for rustc, or generate some source).
-def _make_cmd(mode, buildscript, package_name, version, features, cfgs, env, target_override):
-    flags = [
-        ("mode", mode),
-        ("buildscript", "$(exe " + buildscript + ")"),
-        ("package-name", package_name),
-        ("version", version),
-        ("feature", features),
-        ("cfg", cfgs),
-        ("env", env),
-        ("target", target_override or _get_native_host_triple()),
-    ]
-
-    cmd = "$(exe shim//third-party/macros:build_rs)"
-    # We don't want to quote the $OUT flag as it might end in \ on Windows, which would then escape the quote
-    cmd += " --output=$OUT"
-    for flag, value in flags:
-        if value == None:
-            pass
-        elif type(value) == type([]):
-            for x in value:
-                cmd += " \"--" + flag + "=" + x + "\""
-        elif type(value) == type({}):
-            for k, v in value.items():
-                cmd += " \"--" + flag + "=" + k + "=" + v + "\""
-        else:
-            cmd += " \"--" + flag + "=" + value + "\""
-    return cmd
-
-
-# Invoke a Rust buildscript binary with the right surrounding
-# environment variables.
-def rust_buildscript_genrule_args(name, buildscript_rule, outfile, package_name, version, features = [], cfgs = [], env = {}, target = None):
-    cmd = _make_cmd("args", buildscript_rule, package_name, version, features, cfgs, env, target)
-    native.genrule(
-        name = name,
-        out = outfile,
-        cmd = cmd,
-    )
-
-# Invoke a build script for its generated sources.
-def rust_buildscript_genrule_srcs(name, buildscript_rule, files, package_name, version, features = [], cfgs = [], env = {}, target = None, srcs = []):
-    pre = _make_cmd("srcs", buildscript_rule, package_name, version, features, cfgs, env, target)
-    native.cxx_genrule(
-        name = name,
-        srcs = srcs,
-        outs = {file: [file] for file in files},
-        cmd = pre,
-    )
 
 # Add platform-specific args to args for a given platform. This assumes there's some static configuration
 # for target platform (_get_plat) which isn't very flexible. A better approach would be to construct

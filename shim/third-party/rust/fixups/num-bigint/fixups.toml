@@ -1,8 +1,5 @@
-env = { OUT_DIR = ".." }
-
 [[buildscript]]
 [buildscript.rustc_flags]
 
 [[buildscript]]
 [buildscript.gen_srcs]
-files = ["radix_bases.rs"]

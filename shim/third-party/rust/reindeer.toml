@@ -149,8 +149,6 @@ rust_library = "third_party_rust_library"       # A plain Rust library
 rust_binary = "third_party_rust_binary"         # A Rust executable
 cxx_library = "third_party_rust_cxx_library"    # A C++ library (mostly for Rust -> C dependencies)
 prebuilt_cxx_library = "third_party_rust_prebuilt_cxx_library"    # A prebuilt library (mostly for Rust -> C dependencies)
-buildscript_genrule_args = "rust_buildscript_genrule_args"    # A genrule for rustc args from a build script
-buildscript_genrule_srcs = "rust_buildscript_genrule_srcs"    # A genrule for generated sources from a build script
 
 # Banner comment for the generated BUCK File.
 generated_file_header = """
@@ -166,11 +164,10 @@ generated_file_header = """
 buckfile_imports = """
 load(
     "//third-party/macros:rust_third_party.bzl",
-    "rust_buildscript_genrule_args", # names match above
-    "rust_buildscript_genrule_srcs",
-    "third_party_rust_library",
+    "third_party_rust_library", # names match above
     "third_party_rust_binary",
     "third_party_rust_cxx_library",
     "third_party_rust_prebuilt_cxx_library",
 )
+load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
 """
