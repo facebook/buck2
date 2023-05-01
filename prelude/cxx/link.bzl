@@ -23,6 +23,7 @@ load(
     "unpack_external_debug_info",
     "unpack_link_args",
 )
+load("@prelude//linking:lto.bzl", "darwin_lto_linker_flags")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -109,7 +110,11 @@ def cxx_link(
         ),
     )
 
-    external_debug_artifacts = []
+    # Darwin LTO requires extra link outputs to preserve debug info
+    darwin_lto_flags, darwin_lto_artifacts = darwin_lto_linker_flags(ctx)
+    link_args.add(darwin_lto_flags)
+
+    external_debug_artifacts = darwin_lto_artifacts
     external_debug_infos = []
 
     # When using LTO+split-dwarf, the link step will generate externally
