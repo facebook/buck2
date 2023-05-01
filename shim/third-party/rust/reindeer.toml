@@ -126,12 +126,6 @@ target_arch = ["x86_64"]
 # command-line. Defaults to plain "cargo".
 # cargo = "path/to/cargo"
 
-# Directories for vendored directories always have version numbers (by default
-# they only have versions if there's a name collision, such as multiple versions
-# of the same package). This option can speed up `cargo vendor` when there are
-# lots packages being managed.
-versioned_dirs = true
-
 # Support Cargo's unstable "artifact dependencies" functionality, RFC 3028.
 bindeps = true
 
