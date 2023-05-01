@@ -53,7 +53,7 @@ pub fn register_read_config(globals: &mut GlobalsBuilder) {
         }
     }
 
-    /// Like `read_root_config` but the project root `.buckconfig` is always consulted,
+    /// Like `read_config` but the project root `.buckconfig` is always consulted,
     /// regardless of the cell of the originating `BUCK` file.
     #[starlark(speculative_exec_safe)]
     fn read_root_config<'v>(
