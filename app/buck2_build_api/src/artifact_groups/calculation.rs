@@ -450,6 +450,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     use buck2_common::dice::cells::SetCellResolver;
@@ -467,7 +468,6 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePathBuf;
     use buck2_core::cells::CellResolver;
     use buck2_core::fs::project::ProjectRootTemp;
-    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_execute::artifact_value::ArtifactValue;
@@ -524,10 +524,18 @@ mod tests {
 
         let heap = set.owner();
 
-        let cell_resolver = CellResolver::testing_with_name_and_path(
-            CellName::testing_new("root"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
-        );
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
+            (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new("cell-path"),
+                HashMap::new(),
+            ),
+            (
+                CellName::testing_new("parent"),
+                CellRootPathBuf::testing_new(""),
+                HashMap::new(),
+            ),
+        ]);
 
         let foo = CellPath::new(
             CellName::testing_new("root"),
