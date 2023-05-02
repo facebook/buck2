@@ -28,7 +28,7 @@ def lto_compiler_flags(lto_mode: "LtoMode") -> [str.type]:
     elif lto_mode == LtoMode("thin"):
         return ["-flto=thin"]
     else:
-        fail("Unhandled LTO mode: " + lto_mode)
+        fail("Unhandled LTO mode: " + repr(lto_mode))
 
 def darwin_lto_linker_flags(ctx: "context") -> (["_arglike"], ["artifact"]):
     linker_info = get_cxx_toolchain_info(ctx).linker_info
