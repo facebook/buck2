@@ -656,7 +656,7 @@ pub async fn materialize_inputs(
         match res {
             Ok(()) => {}
             Err(MaterializationError::NotFound { path, info, debug }) => {
-                let expired = info.origin.action_result_has_expired();
+                let corrupted = info.origin.guaranteed_by_action_cache();
 
                 return Err(tag_error!(
                     "cas_missing_fatal",
@@ -664,7 +664,7 @@ pub async fn materialize_inputs(
                     quiet: true,
                     task: false,
                     daemon_in_memory_state_is_corrupted: true,
-                    action_cache_is_corrupted: !expired
+                    action_cache_is_corrupted: corrupted
                 ));
             }
             Err(e) => {

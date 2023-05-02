@@ -436,10 +436,15 @@ impl CasDownloadInfoOrigin {
         CasDownloadInfoOriginNotFound { inner: self }
     }
 
-    pub fn action_result_has_expired(&self) -> bool {
+    /// Does the action cache guarantee this result exist? We expect the action cache to always
+    /// return a TTL that is lower than the TTL of any of the outputs referenced by the action.
+    pub fn guaranteed_by_action_cache(&self) -> bool {
         match self {
-            Self::Execution(execution) => execution.action_age() >= execution.ttl,
-            Self::Declared => false,
+            Self::Execution(execution) => execution.action_age() < execution.ttl,
+            Self::Declared => {
+                // If the output was just declared, then there are no action cache guarantees.
+                false
+            }
         }
     }
 }
@@ -453,7 +458,7 @@ pub struct CasDownloadInfoOriginNotFound<'a> {
 impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)?;
-        if !self.inner.action_result_has_expired() {
+        if self.inner.guaranteed_by_action_cache() {
             write!(f, " (not expired: action cache corruption)")?;
         }
 
