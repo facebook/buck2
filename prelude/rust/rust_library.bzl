@@ -8,6 +8,7 @@
 load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
 load(
     "@prelude//cxx:linker.bzl",
+    "PDB_SUB_TARGET",
     "get_default_shared_library_name",
 )
 load(
@@ -106,6 +107,7 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
             transitive_deps = tdeps,
             rmeta = ctx.attrs.rlib,
             transitive_rmeta_deps = tmetadeps,
+            pdb = None,
         )
     providers.append(
         RustLinkInfo(
@@ -383,6 +385,7 @@ def _handle_rust_artifact(
             transitive_deps = tdeps,
             rmeta = meta.outputs[Emit("metadata")],
             transitive_rmeta_deps = tmetadeps,
+            pdb = link.pdb,
         )
     else:
         # Proc macro deps are always the real thing
@@ -391,6 +394,7 @@ def _handle_rust_artifact(
             transitive_deps = tdeps,
             rmeta = link.outputs[Emit("link")],
             transitive_rmeta_deps = tdeps,
+            pdb = link.pdb,
         )
 
 def _default_providers(
@@ -402,14 +406,7 @@ def _default_providers(
         check_artifacts: {str.type: "artifact"},
         expand: "artifact",
         sources: "artifact") -> ["provider"]:
-    # Outputs indexed by LinkStyle
-    style_info = {
-        link_style: param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
-        for link_style in LinkStyle
-    }
-
-    # Add provider for default output, and for each link-style...
-    targets = {k.value: v.rlib for (k, v) in style_info.items()}
+    targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
     targets["expand"] = expand
@@ -418,6 +415,17 @@ def _default_providers(
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
     }
+
+    # Add provider for default output, and for each link-style...
+    for link_style in LinkStyle:
+        link_style_info = param_artifact[lang_style_param[(LinkageLang("rust"), link_style)]]
+        nested_sub_targets = {}
+        if link_style_info.pdb:
+            nested_sub_targets[PDB_SUB_TARGET] = [DefaultInfo(default_output = link_style_info.pdb)]
+        sub_targets[link_style.value] = [DefaultInfo(
+            default_output = link_style_info.rlib,
+            sub_targets = nested_sub_targets,
+        )]
 
     providers = []
 

@@ -72,6 +72,7 @@ load(":rust_toolchain.bzl", "RustToolchainInfo", "ctx_toolchain_info")
 RustcOutput = record(
     outputs = field({Emit.type: "artifact"}),
     diag = field({str.type: "artifact"}),
+    pdb = field(["artifact", None]),
 )
 
 def compile_context(ctx: "context") -> CompileContext.type:
@@ -379,13 +380,14 @@ def rust_compile(
             params = params,
         )
 
+    pdb_artifact = None
     if crate_type_linked(params.crate_type) and not common_args.is_check:
         subdir = common_args.subdir
         tempfile = common_args.tempfile
 
         # If this crate type has an associated native dep link style, include deps
         # of that style.
-        (link_args, hidden, _dwo_dir_unused_in_rust, _pdb_artifact) = make_link_args(
+        (link_args, hidden, _dwo_dir_unused_in_rust, pdb_artifact) = make_link_args(
             ctx,
             [
                 LinkArgs(flags = extra_link_args),
@@ -475,7 +477,7 @@ def rust_compile(
     else:
         filtered_outputs = outputs
 
-    return RustcOutput(outputs = filtered_outputs, diag = diag)
+    return RustcOutput(outputs = filtered_outputs, diag = diag, pdb = pdb_artifact)
 
 # --extern <crate>=<path> for direct dependencies
 # -Ldependency=<dir> for transitive dependencies

@@ -63,6 +63,8 @@ RustLinkStyleInfo = record(
     rmeta = field("artifact"),
     # Transitive rmeta deps
     transitive_rmeta_deps = field({"artifact": CrateName.type}),
+    # Path to PDB file with Windows debug data.
+    pdb = field(["artifact", None]),
 )
 
 def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkStyleInfo.type:

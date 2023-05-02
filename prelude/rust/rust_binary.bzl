@@ -12,6 +12,7 @@ load(
 )
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
+load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -129,6 +130,8 @@ def _rust_binary_common(
 
         args = cmd_args(link.outputs[Emit("link")]).hidden(runtime_files)
         extra_targets = [("check", meta.outputs[Emit("metadata")])] + meta.diag.items()
+        if link.pdb:
+            extra_targets.append((PDB_SUB_TARGET, link.pdb))
 
         # If we have some resources, write it to the resources JSON file and add
         # it and all resources to "runtime_files" so that we make to materialize
