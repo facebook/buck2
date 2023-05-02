@@ -51,6 +51,7 @@ use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -272,11 +273,11 @@ impl AnonTargetKey {
             match ListRef::from_value(x) {
                 // We don't do anything special for list, but we want to make sure that dependencies inside lists are looked up properly
                 Some(list) => {
-                    return Ok(ConfiguredAttr(AttrLiteral::List(
+                    return Ok(ConfiguredAttr(AttrLiteral::List(ListLiteral(
                         list.content()
                             .try_map(|v| Self::coerce_attr(&inner.inner, *v))?
                             .into(),
-                    )));
+                    ))));
                 }
                 None => return Err(AnonTargetsError::InvalidList(x.to_string()).into()),
             }

@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
 
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 
@@ -23,6 +24,6 @@ impl AnyAttrType {
     }
 
     pub fn empty_list() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(ArcSlice::new([])))
+        CoercedAttr::new_literal(AttrLiteral::List(ListLiteral(ArcSlice::new([]))))
     }
 }

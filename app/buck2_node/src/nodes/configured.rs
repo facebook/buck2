@@ -474,8 +474,7 @@ impl ConfiguredTargetNode {
                         )),
                     )))
                 })
-                .collect::<Vec<_>>()
-                .into(),
+                .collect(),
         ));
         let package_attr = ConfiguredAttr::new(AttrLiteral::String(StringLiteral(ArcStr::from(
             self.buildfile_path().to_string(),

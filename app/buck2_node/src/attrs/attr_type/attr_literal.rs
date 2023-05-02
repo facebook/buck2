@@ -22,6 +22,7 @@ use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::bool::BoolLiteral;
+use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -49,7 +50,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     String(StringLiteral),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(StringLiteral),
-    List(ArcSlice<C>),
+    List(ListLiteral<C>),
     Tuple(ArcSlice<C>),
     Dict(ArcSlice<(C, C)>),
     None,
@@ -77,17 +78,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
                 write!(f, "{}", v)
             }
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Display::fmt(v, f),
-            AttrLiteral::List(list) => {
-                write!(f, "[")?;
-                for (i, v) in list.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    AttrDisplayWithContext::fmt(v, ctx, f)?;
-                }
-                write!(f, "]")?;
-                Ok(())
-            }
+            AttrLiteral::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
             AttrLiteral::Tuple(v) => {
                 write!(f, "(")?;
                 for (i, v) in v.iter().enumerate() {
@@ -125,9 +116,8 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Bool(v) => Ok(to_value(v)?),
             AttrLiteral::Int(v) => Ok(to_value(v)?),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
-                Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?)
-            }
+            AttrLiteral::List(list) => list.to_json(ctx),
+            AttrLiteral::Tuple(list) => Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?),
             AttrLiteral::Dict(dict) => {
                 let mut res: serde_json::Map<String, serde_json::Value> =
                     serde_json::Map::with_capacity(dict.len());
@@ -153,7 +143,8 @@ impl<C: AttrConfig> AttrLiteral<C> {
     ) -> anyhow::Result<bool> {
         match self {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => filter(v),
-            AttrLiteral::List(vals) | AttrLiteral::Tuple(vals) => {
+            AttrLiteral::List(vals) => vals.any_matches(filter),
+            AttrLiteral::Tuple(vals) => {
                 for v in vals.iter() {
                     if v.any_matches(filter)? {
                         return Ok(true);
@@ -201,7 +192,13 @@ impl AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
             AttrLiteral::EnumVariant(_) => Ok(()),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
+            AttrLiteral::List(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(pkg.dupe(), traversal)?;
                 }
@@ -252,7 +249,7 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::String(v) => AttrLiteral::String(v.dupe()),
             AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.dupe()),
             AttrLiteral::List(list) => {
-                AttrLiteral::List(list.try_map(|v| v.configure(ctx))?.into())
+                AttrLiteral::List(ListLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
             AttrLiteral::Tuple(list) => {
                 AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into())
@@ -285,7 +282,13 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Int(_) => Ok(()),
             AttrLiteral::String(_) => Ok(()),
             AttrLiteral::EnumVariant(_) => Ok(()),
-            AttrLiteral::List(list) | AttrLiteral::Tuple(list) => {
+            AttrLiteral::List(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            AttrLiteral::Tuple(list) => {
                 for v in list.iter() {
                     v.traverse(pkg.dupe(), traversal)?;
                 }

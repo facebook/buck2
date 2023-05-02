@@ -20,6 +20,7 @@ use starlark_map::small_map;
 
 use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
@@ -128,7 +129,7 @@ impl ConfiguredAttr {
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(res.into())))
+                Ok(Self(AttrLiteral::List(ListLiteral(res.into()))))
             }
             AttrLiteral::Dict(left) => {
                 let mut res = OrderedMap::new();

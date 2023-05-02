@@ -9,6 +9,7 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::list::ListAttrType;
+use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -29,13 +30,19 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         if let Some(list) = ListRef::from_value(value) {
-            Ok(AttrLiteral::List(ctx.intern_list(list.content().try_map(
-                |v| (self.inner).coerce(configurable, ctx, *v),
-            )?)))
+            Ok(AttrLiteral::List(ListLiteral(
+                ctx.intern_list(
+                    list.content()
+                        .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
+                ),
+            )))
         } else if let Some(list) = TupleRef::from_value(value) {
-            Ok(AttrLiteral::List(ctx.intern_list(list.content().try_map(
-                |v| (self.inner).coerce(configurable, ctx, *v),
-            )?)))
+            Ok(AttrLiteral::List(ListLiteral(
+                ctx.intern_list(
+                    list.content()
+                        .try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
+                ),
+            )))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
                 ListRef::TYPE,

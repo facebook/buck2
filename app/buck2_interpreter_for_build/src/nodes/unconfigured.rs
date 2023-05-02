@@ -138,7 +138,7 @@ pub(crate) fn parse_visibility(
     };
 
     let mut specs: Option<Vec<_>> = None;
-    for item in visibility {
+    for item in visibility.iter() {
         let value = match item {
             CoercedAttr::Literal(AttrLiteral::String(value)) => value,
             CoercedAttr::Literal(_) => {

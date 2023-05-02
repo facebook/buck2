@@ -892,6 +892,7 @@ mod tests {
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
+    use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -944,7 +945,7 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::new_literal(AttrLiteral::List(ArcSlice::new([
+                CoercedAttr::new_literal(AttrLiteral::List(ListLiteral(ArcSlice::new([
                     CoercedAttr::new_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(
                         Box::new(DepAttr {
                             attr_type: DepAttrType::new(
@@ -954,7 +955,7 @@ mod tests {
                             label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
                         }),
                     ))),
-                ]))),
+                ])))),
             ),
         ];
 
@@ -1010,13 +1011,13 @@ mod tests {
             "another_field" =>
              ConfiguredAttr(AttrLiteral::String(StringLiteral("some_string".into()))),
             "some_deps" =>
-             ConfiguredAttr(AttrLiteral::List(ArcSlice::new([
+             ConfiguredAttr(AttrLiteral::List(ListLiteral(ArcSlice::new([
                 ConfiguredAttr(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
                 })))),
-            ]))),
+            ])))),
         ];
 
         let conf_attrs2 = smallmap![
@@ -1024,7 +1025,7 @@ mod tests {
             "another_field" =>
              ConfiguredAttr(AttrLiteral::String(StringLiteral("another_string".into()))),
             "some_deps" => ConfiguredAttr(AttrLiteral::List(
-                ArcSlice::new([])
+                ListLiteral(ArcSlice::new([]))
             )),
         ];
 
