@@ -26,6 +26,12 @@
 
     in {
       devShells.default = pkgs.mkShell {
+        buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
+          CoreFoundation
+          CoreServices
+          IOKit
+          Security
+        ]);
         packages = [ pkgs.cargo-bloat my-rust-bin ];
       };
     });
