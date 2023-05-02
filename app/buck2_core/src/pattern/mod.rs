@@ -34,6 +34,7 @@ use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
+use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::CellResolver;
@@ -318,6 +319,14 @@ impl<T: PatternType> ParsedPattern<T> {
         )
         .with_context(|| format!("Parsing target pattern `{}`", pattern))
     }
+
+    pub fn testing_parse(pattern: &str) -> Self {
+        let cell_name = pattern.split_once("//").unwrap().0;
+        let cell_name = CellName::testing_new(cell_name);
+        let cell_resolver =
+            CellResolver::testing_with_name_and_path(cell_name, CellRootPathBuf::testing_new(""));
+        Self::parse_precise(pattern, cell_name, &cell_resolver).unwrap()
+    }
 }
 
 impl<T: PatternType> Display for ParsedPattern<T> {
@@ -334,7 +343,11 @@ impl<T: PatternType> Display for ParsedPattern<T> {
                 write!(f, "{}:", package.as_cell_path())
             }
             ParsedPattern::Recursive(path) => {
-                write!(f, "{}/...", path)
+                if path.path().is_empty() {
+                    write!(f, "{}...", path)
+                } else {
+                    write!(f, "{}/...", path)
+                }
             }
         }
     }
@@ -1779,5 +1792,29 @@ mod tests {
         assert!(pattern.matches(&target_in_different_cell));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_parsed_pattern_display() {
+        assert_eq!(
+            "foo//bar:baz",
+            ParsedPattern::<TargetPatternExtra>::testing_parse("foo//bar:baz").to_string()
+        );
+        assert_eq!(
+            "foo//bar:",
+            ParsedPattern::<TargetPatternExtra>::testing_parse("foo//bar:").to_string()
+        );
+        assert_eq!(
+            "foo//bar/...",
+            ParsedPattern::<TargetPatternExtra>::testing_parse("foo//bar/...").to_string()
+        );
+        assert_eq!(
+            "foo//:",
+            ParsedPattern::<TargetPatternExtra>::testing_parse("foo//:").to_string()
+        );
+        assert_eq!(
+            "foo//...",
+            ParsedPattern::<TargetPatternExtra>::testing_parse("foo//...").to_string()
+        );
     }
 }
