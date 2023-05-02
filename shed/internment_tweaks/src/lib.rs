@@ -32,7 +32,7 @@ use std::ptr;
 use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
-use lock_free_hashtable::LockFreeRawTable;
+use lock_free_hashtable::raw::LockFreeRawTable;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
     tables: [LockFreeRawTable<InternedData<T>>; 64],
@@ -282,7 +282,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
 pub struct Iter<T: 'static, H: 'static> {
     v: &'static StaticInterner<T, H>,
     table_idx: usize,
-    inner: lock_free_hashtable::Iter<'static, InternedData<T>>,
+    inner: lock_free_hashtable::raw::Iter<'static, InternedData<T>>,
 }
 
 impl<T: 'static, H: 'static> Iter<T, H> {

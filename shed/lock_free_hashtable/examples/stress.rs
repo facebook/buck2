@@ -21,7 +21,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use lock_free_hashtable::LockFreeRawTable;
+use lock_free_hashtable::raw::LockFreeRawTable;
 
 struct Barrier {
     rem: AtomicUsize,
