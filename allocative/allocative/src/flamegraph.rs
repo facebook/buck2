@@ -7,14 +7,13 @@
  * of this source tree.
  */
 
-use std::cell::Ref;
-use std::cell::RefCell;
-use std::cell::RefMut;
+use std::collections::hash_map;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::mem;
-use std::rc::Rc;
+use std::ops::Index;
+use std::ops::IndexMut;
 
 use crate::global_root::roots;
 use crate::key::Key;
@@ -52,7 +51,7 @@ struct TreeData {
     /// Whether this node is `Box` something.
     unique: bool,
     /// Child nodes.
-    children: HashMap<Key, Tree>,
+    children: HashMap<Key, TreeId>,
 }
 
 impl TreeData {
@@ -61,54 +60,39 @@ impl TreeData {
     }
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
-struct Tree(Rc<RefCell<TreeData>>);
+struct TreeRef<'a> {
+    trees: &'a Trees,
+    tree_id: TreeId,
+}
 
-impl Tree {
-    fn borrow_mut(&self) -> RefMut<TreeData> {
-        self.0.borrow_mut()
-    }
-
-    fn borrow(&self) -> Ref<TreeData> {
-        self.0.borrow()
-    }
-
-    fn child(&self, name: Key) -> Tree {
-        self.0
-            .borrow_mut()
-            .children
-            .entry(name)
-            .or_default()
-            .clone()
-    }
-
-    fn children(&self) -> Vec<Tree> {
-        self.0.borrow().children.values().cloned().collect()
-    }
-
+impl<'a> TreeRef<'a> {
     fn write_flame_graph(&self, stack: &[&str], w: &mut String, warnings: &mut String) {
-        let borrow = self.borrow();
-        if borrow.rem_size > 0 {
+        let tree = &self.trees[self.tree_id];
+        if tree.rem_size > 0 {
             if stack.is_empty() {
                 // don't care.
             } else {
-                writeln!(w, "{} {}", stack.join(";"), borrow.rem_size).unwrap();
+                writeln!(w, "{} {}", stack.join(";"), tree.rem_size).unwrap();
             }
-        } else if borrow.rem_size < 0 && !stack.is_empty() {
+        } else if tree.rem_size < 0 && !stack.is_empty() {
             writeln!(
                 warnings,
                 "Incorrect size declaration for node `{}`, size of self: {}, size of inline children: {}",
                 stack.join(";"),
-                borrow.size,
-                borrow.inline_children_size()
+                tree.size,
+                tree.inline_children_size()
             )
-            .unwrap();
+                .unwrap();
         }
-        let mut children: Vec<(&Key, &Tree)> = Vec::from_iter(&borrow.children);
+        let mut children: Vec<(&Key, &TreeId)> = Vec::from_iter(&tree.children);
         let mut stack = stack.to_vec();
         children.sort_by_key(|(k, _)| *k);
         for (key, child) in children {
             stack.push(key);
+            let child = TreeRef {
+                trees: self.trees,
+                tree_id: *child,
+            };
             child.write_flame_graph(&stack, w, warnings);
             stack.pop().unwrap();
         }
@@ -122,29 +106,100 @@ impl Tree {
     }
 }
 
-#[derive(Default, Clone, Debug)]
-struct TreeStack {
-    stack: Vec<Tree>,
-    tree: Tree,
+#[derive(Debug, Eq, PartialEq)]
+struct Tree {
+    trees: Trees,
+    tree_id: TreeId,
 }
 
-impl TreeStack {
+impl Tree {
+    fn as_ref(&self) -> TreeRef {
+        TreeRef {
+            trees: &self.trees,
+            tree_id: self.tree_id,
+        }
+    }
+
+    fn to_flame_graph(&self) -> (String, String) {
+        self.as_ref().to_flame_graph()
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+struct TreeId(usize);
+
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
+struct Trees {
+    trees: Vec<TreeData>,
+}
+
+impl Trees {
+    fn new_tree(&mut self) -> TreeId {
+        let id = TreeId(self.trees.len());
+        self.trees.push(TreeData::default());
+        id
+    }
+}
+
+impl Index<TreeId> for Trees {
+    type Output = TreeData;
+
+    fn index(&self, index: TreeId) -> &Self::Output {
+        &self.trees[index.0]
+    }
+}
+
+impl IndexMut<TreeId> for Trees {
+    fn index_mut(&mut self, index: TreeId) -> &mut Self::Output {
+        &mut self.trees[index.0]
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TreeStack {
+    stack: Vec<TreeId>,
+    tree: TreeId,
+}
+
+struct TreeStackRef<'t, 's> {
+    trees: &'t mut Trees,
+    stack: &'s mut TreeStack,
+}
+
+impl<'t, 's> TreeStackRef<'t, 's> {
+    fn current_data(&'t mut self) -> &'t mut TreeData {
+        &mut self.trees[self.stack.tree]
+    }
+
     fn down(&mut self, key: Key) {
-        self.stack.push(self.tree.clone());
-        let child = self.tree.child(key);
-        self.tree = child;
+        self.stack.stack.push(self.stack.tree);
+        let next_tree_id = TreeId(self.trees.trees.len());
+        let child = match self.trees[self.stack.tree].children.entry(key) {
+            hash_map::Entry::Occupied(e) => *e.get(),
+            hash_map::Entry::Vacant(e) => {
+                e.insert(next_tree_id);
+                let child = self.trees.new_tree();
+                assert_eq!(child, next_tree_id);
+                child
+            }
+        };
+        self.stack.tree = child;
     }
 
     #[must_use]
     fn up(&mut self) -> bool {
-        if let Some(pop) = self.stack.pop() {
-            self.tree = pop;
+        if let Some(pop) = self.stack.stack.pop() {
+            self.stack.tree = pop;
             true
         } else {
             false
         }
     }
 }
+
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
+struct VisitedSharedPointer(*const ());
+unsafe impl Send for VisitedSharedPointer {}
 
 /// Build a flamegraph from given root objects.
 ///
@@ -175,25 +230,34 @@ impl TreeStack {
 #[derive(Debug)]
 pub struct FlameGraphBuilder {
     /// Visited shared pointers.
-    visited_shared: HashSet<*const ()>,
+    visited_shared: HashSet<VisitedSharedPointer>,
+    /// Tree data storage.
+    trees: Trees,
     /// Current node we are processing in `Visitor`.
     current: TreeStack,
     /// Previous stack when entering shared pointer.
     shared: Vec<TreeStack>,
     /// Data root.
-    root: Tree,
+    root: TreeId,
     /// Is root visitor created?
     entered_root_visitor: bool,
 }
 
+fn _assert_flame_graph_builder_is_send() {
+    fn assert_send<T: Send>() {}
+    assert_send::<FlameGraphBuilder>();
+}
+
 impl Default for FlameGraphBuilder {
     fn default() -> FlameGraphBuilder {
-        let root = Tree::default();
+        let mut trees = Trees::default();
+        let root = trees.new_tree();
         FlameGraphBuilder {
+            trees,
             visited_shared: HashSet::new(),
             current: TreeStack {
                 stack: Vec::new(),
-                tree: root.clone(),
+                tree: root,
             },
             shared: Vec::new(),
             root,
@@ -227,17 +291,21 @@ impl FlameGraphBuilder {
         }
     }
 
-    fn finish_impl(self) -> Tree {
+    fn finish_impl(mut self) -> Tree {
         assert!(self.shared.is_empty());
         assert!(self.current.stack.is_empty());
         assert!(!self.entered_root_visitor);
-        Self::update_sizes(self.root.clone());
-        self.root
+        Self::update_sizes(self.root, &mut self.trees);
+        Tree {
+            trees: self.trees,
+            tree_id: self.root,
+        }
     }
 
     /// Finish building the flamegraph.
     pub fn finish(self) -> FlameGraphOutput {
-        let (flamegraph, warnings) = self.finish_impl().to_flame_graph();
+        let tree = self.finish_impl();
+        let (flamegraph, warnings) = tree.to_flame_graph();
         FlameGraphOutput {
             flamegraph,
             warnings,
@@ -249,30 +317,41 @@ impl FlameGraphBuilder {
         self.finish().flamegraph
     }
 
-    fn update_sizes(tree: Tree) {
-        for child in tree.children() {
-            Self::update_sizes(child);
+    fn update_sizes(tree_id: TreeId, trees: &mut Trees) {
+        let tree = &mut trees[tree_id];
+        for child in tree.children.values().copied().collect::<Vec<_>>() {
+            Self::update_sizes(child, trees);
         }
-        let children_size = if tree.borrow().unique {
+        let tree = &mut trees[tree_id];
+        let children_size = if tree.unique {
             0
         } else {
-            tree.children()
-                .into_iter()
-                .map(|child| child.borrow().size)
+            let tree = &trees[tree_id];
+            tree.children
+                .values()
+                .map(|child| trees[*child].size)
                 .sum::<usize>()
         };
-        let size = tree.borrow().size;
-        tree.borrow_mut().rem_size = (size as isize).saturating_sub(children_size as isize);
+        let tree = &mut trees[tree_id];
+        let size = tree.size;
+        tree.rem_size = (size as isize).saturating_sub(children_size as isize);
+    }
+
+    fn current(&mut self) -> TreeStackRef {
+        TreeStackRef {
+            trees: &mut self.trees,
+            stack: &mut self.current,
+        }
     }
 
     fn exit_impl(&mut self) {
         assert!(self.entered_root_visitor);
 
-        let up = self.current.up();
+        let up = self.current().up();
         if !up {
-            if let Some(mut shared) = self.shared.pop() {
-                assert!(shared.up());
+            if let Some(shared) = self.shared.pop() {
                 self.current = shared;
+                assert!(self.current().up());
             } else {
                 self.entered_root_visitor = false;
             }
@@ -282,16 +361,16 @@ impl FlameGraphBuilder {
 
 impl VisitorImpl for FlameGraphBuilder {
     fn enter_inline_impl(&mut self, name: Key, size: usize, _parent: NodeKind) {
-        self.current.down(name);
-        self.current.tree.borrow_mut().size += size;
+        self.current().down(name);
+        self.current().current_data().size += size;
     }
 
     fn enter_unique_impl(&mut self, name: Key, size: usize, _parent: NodeKind) {
-        self.current.down(name);
-        self.current.tree.borrow_mut().size += size;
+        self.current().down(name);
+        self.current().current_data().size += size;
         // TODO: deal with potential issue when node is both unique and not.
         // TODO: record some malloc overhead.
-        self.current.tree.borrow_mut().unique = true;
+        self.current().current_data().unique = true;
     }
 
     #[must_use]
@@ -299,22 +378,24 @@ impl VisitorImpl for FlameGraphBuilder {
         &mut self,
         name: Key,
         size: usize,
-        _ptr: *const (),
+        ptr: *const (),
         _parent: NodeKind,
     ) -> bool {
-        self.current.down(name);
-        self.current.tree.borrow_mut().size += size;
+        self.current().down(name);
+        self.current().current_data().size += size;
 
-        if !self.visited_shared.insert(_ptr) {
+        if !self.visited_shared.insert(VisitedSharedPointer(ptr)) {
             self.exit_impl();
             return false;
         }
 
-        self.shared.push(mem::take(&mut self.current));
-        self.current = TreeStack {
-            stack: Vec::new(),
-            tree: self.root.clone(),
-        };
+        self.shared.push(mem::replace(
+            &mut self.current,
+            TreeStack {
+                stack: Vec::new(),
+                tree: self.root,
+            },
+        ));
         true
     }
 
@@ -340,6 +421,7 @@ mod tests {
 
     use crate::flamegraph::FlameGraphBuilder;
     use crate::flamegraph::Tree;
+    use crate::flamegraph::Trees;
     use crate::key::Key;
 
     #[test]
@@ -348,7 +430,13 @@ mod tests {
         fg.root_visitor().exit();
         let tree = fg.finish_impl();
 
-        let expected = Tree::default();
+        let mut expected_trees = Trees::default();
+        let expected_id = expected_trees.new_tree();
+        let expected = Tree {
+            trees: expected_trees,
+            tree_id: expected_id,
+        };
+
         assert_eq!(expected, tree);
         assert_eq!("", tree.to_flame_graph().0);
     }
@@ -359,11 +447,20 @@ mod tests {
         fg.root_visitor().visit_simple(Key::new("a"), 10);
         let tree = fg.finish_impl();
 
-        let expected = Tree::default();
-        expected.borrow_mut().size = 0;
-        expected.borrow_mut().rem_size = -10;
-        expected.child(Key::new("a")).borrow_mut().size = 10;
-        expected.child(Key::new("a")).borrow_mut().rem_size = 10;
+        let mut expected = Trees::default();
+        let expected_root = expected.new_tree();
+        let expected_child = expected.new_tree();
+        expected[expected_root].size = 0;
+        expected[expected_root].rem_size = -10;
+        expected[expected_root]
+            .children
+            .insert(Key::new("a"), expected_child);
+        expected[expected_child].size = 10;
+        expected[expected_child].rem_size = 10;
+        let expected = Tree {
+            trees: expected,
+            tree_id: expected_root,
+        };
         assert_eq!(expected, tree);
         assert_eq!("a 10\n", tree.to_flame_graph().0);
     }
