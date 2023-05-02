@@ -192,6 +192,8 @@ enum CellError {
     AliasOnlyCell(NonEmptyCellAlias, NonEmptyCellAlias),
     #[error("Cell `{0}` alias `{0}` should point to itself, but it points to `{1}`")]
     WrongSelfAlias(CellName, CellName),
+    #[error("No cell name for the root path, add an entry for `.`")]
+    NoRootCell,
 }
 
 /// A 'CellAliasResolver' is unique to a 'CellInstance'.
@@ -257,13 +259,18 @@ struct CellResolverInternals {
     cells: HashMap<CellName, CellInstance>,
     #[allocative(visit = crate::cells::sequence_trie_allocative::visit_sequence_trie)]
     path_mappings: SequenceTrie<FileNameBuf, CellName>,
+    root_cell: CellName,
 }
 
 impl CellResolver {
     // Make this public till we start parsing config files from cells
     pub fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
+        let mut root_cell = None;
         for cell in &cells {
+            if cell.path().is_empty() {
+                root_cell = Some(cell.name());
+            }
             let prev = path_mappings.insert(cell.path().iter(), cell.name());
             if let Some(prev) = prev {
                 return Err(
@@ -289,8 +296,10 @@ impl CellResolver {
             }
         }
 
+        let root_cell = root_cell.ok_or(CellError::NoRootCell)?;
         Ok(CellResolver(Arc::new(CellResolverInternals {
             cells: cells_map,
+            root_cell,
             path_mappings,
         })))
     }
@@ -306,8 +315,7 @@ impl CellResolver {
     }
 
     pub fn root_cell(&self) -> CellName {
-        self.find(ProjectRelativePath::new("").unwrap())
-            .expect("Should have had a cell at the project root.")
+        self.0.root_cell
     }
 
     pub fn root_cell_instance(&self) -> &CellInstance {
