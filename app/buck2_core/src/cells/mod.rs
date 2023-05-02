@@ -468,7 +468,24 @@ impl CellResolver {
         other_name: CellName,
         other_path: CellRootPathBuf,
     ) -> CellResolver {
-        Self::testing_with_names_and_paths_with_alias(&[(other_name, other_path, HashMap::new())])
+        // It is an error to build a CellResolver that doesn't cover the root.
+        // Therefore, if it isn't needed for the test, just make one up.
+        if other_path.is_empty() {
+            Self::testing_with_names_and_paths_with_alias(&[(
+                other_name,
+                other_path,
+                HashMap::new(),
+            )])
+        } else {
+            Self::testing_with_names_and_paths_with_alias(&[
+                (other_name, other_path, HashMap::new()),
+                (
+                    CellName::testing_new("root"),
+                    CellRootPathBuf::testing_new(""),
+                    HashMap::new(),
+                ),
+            ])
+        }
     }
 
     pub fn testing_with_names_and_paths_with_alias(
