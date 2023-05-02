@@ -1,0 +1,11 @@
+[package]
+name = "lock_free_hashtable"
+version = "0.1.0"
+edition = "2021"
+description = "Lock-free (almost) insertion only hashtable"
+
+[dependencies]
+parking_lot = "0.11.2"
+
+[dev-dependencies]
+num_cpus = { workspace = true }
