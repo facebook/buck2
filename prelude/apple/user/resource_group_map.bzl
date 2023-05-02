@@ -21,12 +21,8 @@ load(
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//decls/common.bzl", "Traversal")
 
-def v1_attrs():
-    return attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string())))))
-
 def resource_group_map_attr():
-    v2_attrs = attrs.dep(providers = [ResourceGroupInfo])
-    return attrs.option(attrs.one_of(v2_attrs, v1_attrs()), default = None)
+    return attrs.option(attrs.dep(providers = [ResourceGroupInfo]), default = None)
 
 def _impl(ctx: "context") -> ["provider"]:
     resource_groups = parse_groups_definitions(ctx.attrs.map)
@@ -65,6 +61,6 @@ registration_spec = RuleRegistrationSpec(
     name = "resource_group_map",
     impl = _impl,
     attrs = {
-        "map": v1_attrs(),
+        "map": attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.tuple(attrs.dep(), attrs.enum(Traversal), attrs.option(attrs.string()))))),
     },
 )
