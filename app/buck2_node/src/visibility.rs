@@ -19,6 +19,8 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use thiserror::Error;
 
+use crate::attrs::attr_type::any_matches::AnyMatches;
+
 #[derive(Debug, Error)]
 pub enum VisibilityError {
     #[error(
@@ -135,6 +137,23 @@ impl WithinViewSpecification {
                 WithinViewSpecification::VisibleTo(this),
                 WithinViewSpecification::VisibleTo(other),
             ) => WithinViewSpecification::VisibleTo(this.iter().chain(other).cloned().collect()),
+        }
+    }
+}
+
+impl AnyMatches for VisibilitySpecification {
+    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+        match self {
+            VisibilitySpecification::Public => filter(VisibilityPattern::PUBLIC),
+            visibility if visibility.is_default() => filter(":"),
+            VisibilitySpecification::VisibleTo(patterns) => {
+                for p in patterns {
+                    if filter(&p.to_string())? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
         }
     }
 }

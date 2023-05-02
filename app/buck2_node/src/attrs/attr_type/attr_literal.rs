@@ -120,18 +120,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Bool(b) => b.any_matches(filter),
             AttrLiteral::Int(i) => filter(&i.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
-            AttrLiteral::Visibility(v) => match v {
-                VisibilitySpecification::Public => filter("PUBLIC"),
-                visibility if visibility.is_default() => filter(":"),
-                VisibilitySpecification::VisibleTo(patterns) => {
-                    for p in patterns {
-                        if filter(&p.to_string())? {
-                            return Ok(true);
-                        }
-                    }
-                    Ok(false)
-                }
-            },
+            AttrLiteral::Visibility(v) => v.any_matches(filter),
             AttrLiteral::Extra(d) => d.any_matches(filter),
         }
     }
