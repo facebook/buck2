@@ -14,6 +14,7 @@ load(
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd",
+    "linker_map_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
@@ -588,6 +589,8 @@ def cxx_dist_link(
         link_cmd.add(cmd_args(final_link_argfile, format = "@{}"))
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add("-o", outputs[output].as_output())
+        if linker_map:
+            link_cmd.add(linker_map_args(ctx, outputs[linker_map].as_output()).flags)
         link_cmd_extra_inputs = cmd_args()
         link_cmd_extra_inputs.add(final_link_inputs)
         link_cmd.hidden(link_cmd_extra_inputs)
