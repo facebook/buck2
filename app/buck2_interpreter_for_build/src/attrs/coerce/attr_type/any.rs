@@ -12,6 +12,7 @@ use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
+use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -40,7 +41,9 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral<Coerce
                 .collect(),
         )
     } else if let Some(x) = TupleRef::from_value(value) {
-        AttrLiteral::Tuple(ctx.intern_list(x.iter().map(|v| to_coerced_literal(v, ctx)).collect()))
+        AttrLiteral::Tuple(TupleLiteral(
+            ctx.intern_list(x.iter().map(|v| to_coerced_literal(v, ctx)).collect()),
+        ))
     } else if let Some(x) = ListRef::from_value(value) {
         AttrLiteral::List(ListLiteral(
             ctx.intern_list(

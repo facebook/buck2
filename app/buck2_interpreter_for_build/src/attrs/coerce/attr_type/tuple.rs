@@ -11,6 +11,7 @@ use std::iter;
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleAttrType;
+use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -43,7 +44,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 {
                     res.push(c.coerce(configurable, ctx, v)?);
                 }
-                Ok(AttrLiteral::Tuple(ctx.intern_list(res)))
+                Ok(AttrLiteral::Tuple(TupleLiteral(ctx.intern_list(res))))
             } else {
                 Err(anyhow::anyhow!(CoercionError::type_error(
                     &format!("Tuple of at most length {}", self.xs.len()),

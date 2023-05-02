@@ -24,6 +24,7 @@ use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -51,7 +52,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(StringLiteral),
     List(ListLiteral<C>),
-    Tuple(ArcSlice<C>),
+    Tuple(TupleLiteral<C>),
     Dict(ArcSlice<(C, C)>),
     None,
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
@@ -79,17 +80,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             }
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Display::fmt(v, f),
             AttrLiteral::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
-            AttrLiteral::Tuple(v) => {
-                write!(f, "(")?;
-                for (i, v) in v.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    AttrDisplayWithContext::fmt(v, ctx, f)?;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
+            AttrLiteral::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             AttrLiteral::Dict(v) => {
                 write!(f, "{{")?;
                 for (i, (k, v)) in v.iter().enumerate() {
@@ -117,7 +108,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::Int(v) => Ok(to_value(v)?),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
             AttrLiteral::List(list) => list.to_json(ctx),
-            AttrLiteral::Tuple(list) => Ok(to_value(list.try_map(|c| c.to_json(ctx))?)?),
+            AttrLiteral::Tuple(list) => list.to_json(ctx),
             AttrLiteral::Dict(dict) => {
                 let mut res: serde_json::Map<String, serde_json::Value> =
                     serde_json::Map::with_capacity(dict.len());
@@ -144,14 +135,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
         match self {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => filter(v),
             AttrLiteral::List(vals) => vals.any_matches(filter),
-            AttrLiteral::Tuple(vals) => {
-                for v in vals.iter() {
-                    if v.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
+            AttrLiteral::Tuple(vals) => vals.any_matches(filter),
             AttrLiteral::Dict(d) => {
                 for (k, v) in &**d {
                     if k.any_matches(filter)? || v.any_matches(filter)? {
@@ -252,7 +236,7 @@ impl AttrLiteral<CoercedAttr> {
                 AttrLiteral::List(ListLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
             AttrLiteral::Tuple(list) => {
-                AttrLiteral::Tuple(list.try_map(|v| v.configure(ctx))?.into())
+                AttrLiteral::Tuple(TupleLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
             AttrLiteral::Dict(dict) => AttrLiteral::Dict(
                 dict.try_map(|(k, v)| {
