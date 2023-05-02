@@ -1,0 +1,15 @@
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+digest_algorithms = SHA256
+
+[buck2_re_client]
+engine_address = $BUILDBUDDY_ENDPOINT
+action_cache_address = $BUILDBUDDY_ENDPOINT
+cas_address = $BUILDBUDDY_ENDPOINT
+http_headers = x-buildbuddy-api-key:$BUILDBUDDY_API_KEY
+
+[build]
+execution_platforms = root//platforms:platforms
