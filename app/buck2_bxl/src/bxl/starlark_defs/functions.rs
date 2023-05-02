@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;

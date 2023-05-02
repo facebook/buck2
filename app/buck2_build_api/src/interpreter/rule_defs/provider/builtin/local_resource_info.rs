@@ -24,9 +24,9 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
 
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::starlark::values::ValueLike;
 
 #[internal_provider(local_resource_info_creator)]

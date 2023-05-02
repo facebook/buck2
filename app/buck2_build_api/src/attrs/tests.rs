@@ -47,8 +47,8 @@ use starlark::values::Value;
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::testing::resolution_ctx;
 use crate::attrs::resolve::testing::resolution_ctx_with_providers;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
 #[test]

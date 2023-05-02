@@ -29,7 +29,7 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 /// ArtifactTag allows wrapping input and output artifacts in a command line with tags. Those tags
 /// will be made visible to artifact visitors. The tags themselves don't have meaning on their own,

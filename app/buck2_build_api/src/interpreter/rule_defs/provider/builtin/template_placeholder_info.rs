@@ -26,9 +26,9 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use thiserror::Error;
 
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsFrozenCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::ValueAsFrozenCommandLineLike;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, Error)]

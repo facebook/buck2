@@ -18,9 +18,9 @@ use starlark::values::Value;
 
 use super::tester;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
-use crate::interpreter::rule_defs::cmd_args::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::register_rule_defs;
 
 #[starlark_module]
