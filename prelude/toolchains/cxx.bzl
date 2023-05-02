@@ -26,6 +26,10 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
+load(
+    "@prelude//linking:lto.bzl",
+    "LtoMode",
+)
 
 def _system_cxx_toolchain_impl(ctx):
     """
@@ -33,21 +37,26 @@ def _system_cxx_toolchain_impl(ctx):
     """
     archiver_type = "gnu"
     linker_type = "gnu"
+    additional_linker_flags = []
+    lto_mode = LtoMode("none")
     if host_info().os.is_macos:
         linker_type = "darwin"
     elif host_info().os.is_windows:
         linker_type = "windows"
         archiver_type = "windows"
+    else:
+        additional_linker_flags = ["-fuse-ld=lld"]
     return [
         DefaultInfo(),
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
                 linker = RunInfo(args = [ctx.attrs.linker]),
-                linker_flags = ["-fuse-ld=lld"] + ctx.attrs.link_flags,
+                linker_flags = additional_linker_flags + ctx.attrs.link_flags,
                 archiver = RunInfo(args = ["ar", "rcs"]),
                 archiver_type = archiver_type,
                 generate_linker_maps = False,
+                lto_mode = lto_mode,
                 type = linker_type,
                 link_binaries_locally = True,
                 archive_objects_locally = True,
