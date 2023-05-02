@@ -95,6 +95,7 @@ const manualSidebar = [
           'advanced/deferred_materialization',
           'advanced/restarter',
           'advanced/in_memory_cache',
+          'advanced/logging',
         ],
       },
     ],
