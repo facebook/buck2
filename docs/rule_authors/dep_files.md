@@ -21,6 +21,8 @@ To use dep files, you need to do the following:
 * Declare which inputs are covered by the dep file (this can be a subset of your inputs).
 * Have your command produce the dep file in a format Buck2 can use.
 
+You must also enable [Deferred Materialization](../advanced/deferred_materialization.md) to use dep files.
+
 ## Declaring the dep files and associating inputs
 
 To declare a dep file and associate it with your command, you need to tag your artifacts.

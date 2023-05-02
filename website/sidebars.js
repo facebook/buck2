@@ -88,6 +88,15 @@ const manualSidebar = [
         ],
       },
       'remote_execution',
+      {
+        type: 'category',
+        label: 'Advanced Features',
+        items: [
+          'advanced/deferred_materialization',
+          'advanced/restarter',
+          'advanced/in_memory_cache',
+        ],
+      },
     ],
   },
   {
