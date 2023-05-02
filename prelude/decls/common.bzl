@@ -208,6 +208,7 @@ def _re_opts_for_tests_arg() -> "attribute":
     # {
     #     "capabilities": Dict<str, str> | None
     #     "use_case": str | None
+    #     "remote_cache_enabled": bool | None
     # }
     return attrs.option(
         attrs.dict(
@@ -220,6 +221,7 @@ def _re_opts_for_tests_arg() -> "attribute":
                         sorted = False,
                     ),
                     attrs.string(),
+                    attrs.bool(),
                 ),
                 # TODO(cjhopman): I think this default does nothing, it should be deleted
                 default = None,
