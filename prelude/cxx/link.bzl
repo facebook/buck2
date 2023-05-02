@@ -60,7 +60,6 @@ def cxx_link(
         # The destination for the link output.
         output: "artifact",
         result_type: CxxLinkResultType.type,
-        linker_map: ["artifact", None] = None,
         prefer_local: bool.type = False,
         local_only: bool.type = False,
         link_weight: int.type = 1,
@@ -76,16 +75,27 @@ def cxx_link(
         strip_args_factory = None,
         allow_bolt_optimization_and_dwp_generation: bool.type = True,
         force_full_hybrid_if_capable: bool.type = False,
-        import_library: ["artifact", None] = None) -> LinkedObject.type:
+        import_library: ["artifact", None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
     should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
     is_result_executable = result_type.value == "executable"
+
+    if linker_info.generate_linker_maps:
+        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
+        linker_map_data = CxxLinkerMapData(
+            map = linker_map,
+            binary = output,
+        )
+    else:
+        linker_map = None
+        linker_map_data = None
+
     if linker_info.supports_distributed_thinlto and enable_distributed_thinlto:
         if not linker_info.requires_objects:
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't require_objects")
-        return cxx_dist_link(
+        exe = cxx_dist_link(
             ctx,
             links,
             output,
@@ -95,8 +105,11 @@ def cxx_link(
             should_generate_dwp,
             is_result_executable,
         )
-    if linker_map != None:
+        return (exe, linker_map_data)
+
+    if linker_info.generate_linker_maps:
         links += [linker_map_args(ctx, linker_map.as_output())]
+
     (link_args, hidden, dwo_dir, pdb_artifact) = make_link_args(
         ctx,
         links,
@@ -210,7 +223,7 @@ def cxx_link(
             referenced_objects = [dwp_inputs],
         )
 
-    return LinkedObject(
+    linked_object = LinkedObject(
         output = final_output,
         prebolt_output = output,
         dwp = dwp_artifact,
@@ -219,6 +232,7 @@ def cxx_link(
         import_library = import_library,
         pdb = pdb_artifact,
     )
+    return (linked_object, linker_map_data)
 
 def _link_libraries_locally(ctx: "context", prefer_local: bool.type) -> bool.type:
     if hasattr(ctx.attrs, "_link_libraries_locally_override"):
@@ -268,18 +282,7 @@ def cxx_link_shared_library(
         output.short_path,
     )
 
-    if linker_info.generate_linker_maps:
-        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
-        linker_map_data = CxxLinkerMapData(
-            map = linker_map,
-            binary = output,
-        )
-        kwargs = {"linker_map": linker_map}
-    else:
-        linker_map_data = None
-        kwargs = {}
-
-    exe = cxx_link(
+    exe, linker_map_data = cxx_link(
         ctx,
         links_with_extra_args + [LinkArgs(flags = import_library_args)],
         output,
@@ -295,7 +298,6 @@ def cxx_link_shared_library(
         link_weight = link_weight,
         local_only = value_or(local_only, False),
         prefer_local = _link_libraries_locally(ctx, prefer_local_value),
-        **kwargs
     )
 
     return (exe, linker_map_data)

@@ -592,19 +592,7 @@ def _link_into_executable(
     )
     links = [LinkArgs(flags = extra_args)] + links
 
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
-    if linker_info.generate_linker_maps:
-        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
-        linker_map_data = CxxLinkerMapData(
-            map = linker_map,
-            binary = output,
-        )
-        kwargs = {"linker_map": linker_map}
-    else:
-        linker_map_data = None
-        kwargs = {}
-
-    exe = cxx_link(
+    exe, linker_map_data = cxx_link(
         ctx,
         links,
         output,
@@ -617,7 +605,6 @@ def _link_into_executable(
         link_ordering = link_ordering,
         link_weight = link_weight,
         prefer_local = prefer_local,
-        **kwargs
     )
 
     return _CxxLinkExecutableResult(
