@@ -580,18 +580,22 @@ def _sort_pre_dexed_files(
         secondary_dex_inputs = module_pre_dexed_inputs.secondary_dex_inputs
 
         if len(primary_dex_class_names) > 0:
-            expect(
-                is_root_module(module),
-                "Non-root modules should not have anything that belongs in the primary dex, " +
-                "but {} is assigned to module {} and has the following class names in the primary dex: {}\n".format(
-                    pre_dexed_lib.dex.owner,
-                    module,
-                    "\n".join(primary_dex_class_names),
-                ),
-            )
-            primary_dex_inputs.append(
-                DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
-            )
+            if is_root_module(module):
+                primary_dex_inputs.append(
+                    DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
+                )
+            else:
+                # TODO(T148680617) We shouldn't allow classes that are specified to be in the
+                # primary dex to end up in a non-root module, but buck1 allows it and there are
+                # Voltron configs that rely on this, so we allow it too for migration purposes.
+                # fail("Non-root modules should not have anything that belongs in the primary dex, " +
+                #     "but {} is assigned to module {} and has the following class names in the primary dex: {}\n".format(
+                #         pre_dexed_lib.dex.owner,
+                #         module,
+                #         "\n".join(primary_dex_class_names),
+                #     ),
+                # )
+                secondary_dex_class_names.extend(primary_dex_class_names)
 
         if len(secondary_dex_class_names) > 0:
             weight_estimate = int(weight_estimate_string)
