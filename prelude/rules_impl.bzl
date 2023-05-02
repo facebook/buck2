@@ -429,6 +429,7 @@ inlined_extra_attributes = {
         "_haskell_toolchain": toolchains_common.haskell(),
     },
     "haskell_ide": {
+        "include_projects": attrs.list(attrs.dep(), default = []),
         "_haskell_toolchain": toolchains_common.haskell(),
     },
     "haskell_library": {
