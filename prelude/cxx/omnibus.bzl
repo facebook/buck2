@@ -42,7 +42,7 @@ load(
     "post_order_traversal",
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "value_or")
-load("//open_source.bzl", "is_open_source")
+load("@prelude//open_source.bzl", "is_open_source")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":linker.bzl",

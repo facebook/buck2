@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("//open_source.bzl", "is_open_source")
+load("@prelude//open_source.bzl", "is_open_source")
 
 # NOTE: Currently, constraints can't be propagated via rule attrs and so need
 # to be hard-coded here.
