@@ -16,14 +16,14 @@ use tokio::sync::Mutex;
 pub struct AsyncOnceCell<T> {
     cell: OnceCell<T>,
     #[allocative(skip)] // Mutex has allocations, but no simple way to measure it.
-    initialized: Mutex<bool>,
+    initialized: Mutex<()>,
 }
 
 impl<T> AsyncOnceCell<T> {
     pub fn new() -> Self {
         Self {
             cell: OnceCell::new(),
-            initialized: Mutex::new(false),
+            initialized: Mutex::new(()),
         }
     }
 
@@ -36,19 +36,16 @@ impl<T> AsyncOnceCell<T> {
             return val;
         }
 
-        let mut initialized = self.initialized.lock().await;
+        let _guard = self.initialized.lock().await;
 
-        if *initialized {
-            return self.cell.get().unwrap();
+        if let Some(val) = self.cell.get() {
+            return val;
         }
 
         let val = fut.await;
 
         match self.cell.try_insert(val) {
-            Ok(val) => {
-                *initialized = true;
-                val
-            }
+            Ok(val) => val,
             Err(_) => unreachable!(),
         }
     }
