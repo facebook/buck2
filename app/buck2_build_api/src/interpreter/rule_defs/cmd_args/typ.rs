@@ -7,12 +7,14 @@
  * of this source tree.
  */
 
+use std::cell::Ref;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::ops::Deref;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -36,10 +38,12 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_type;
 use starlark::values::list::ListRef;
+use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
@@ -68,8 +72,11 @@ use crate::interpreter::rule_defs::util::commas;
 /// This should be unnecessary, however I'm not smart enough to figure out how to get
 /// things to live long enough, in `ValueAsCommandLineArgLike`, so I'm moving on with my life
 /// for now. All values contained in here are guaranteed to implement `CommandLineArgLike`.
-#[derive(Debug, Clone, Copy, Dupe, Trace, Display, Serialize, Allocative)]
+#[derive(
+    Debug, Clone, Copy, Dupe, Trace, Freeze, Display, Serialize, Allocative, Coerce
+)]
 #[serde(bound = "V: Display", transparent)]
+#[repr(transparent)]
 struct CommandLineArgGen<V>(#[serde(serialize_with = "serialize_as_display")] V);
 
 fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
@@ -77,12 +84,6 @@ where
     S: Serializer,
 {
     s.collect_str(v)
-}
-
-impl<'v> CommandLineArgGen<Value<'v>> {
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<CommandLineArgGen<FrozenValue>> {
-        Ok(CommandLineArgGen(self.0.freeze(freezer)?))
-    }
 }
 
 impl<'v, V: ValueLike<'v>> CommandLineArgGen<V> {
@@ -121,6 +122,135 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
     }
 }
 
+/// Fields of `cmd_args`. Abstract mutable and frozen versions.
+trait Fields<'v> {
+    fn items(&self) -> &[CommandLineArgGen<Value<'v>>];
+    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>];
+    fn options(&self) -> Option<&CommandLineOptions<'v, Value<'v>>>;
+}
+
+/// Wrapper because we cannot implement traits for traits.
+struct FieldsRef<'v, F: Fields<'v>>(F, PhantomData<Value<'v>>);
+
+impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        fmt_container(
+            f,
+            "cmd_args(",
+            ")",
+            iter_display_chain(
+                self.0.items(),
+                iter_display_chain(
+                    Some(self.0.hidden())
+                        .filter(|x| !x.is_empty())
+                        .map(|hidden| {
+                            struct Wrapper<'a, V>(&'a [CommandLineArgGen<V>]);
+                            impl<'a, V: Display> Display for Wrapper<'a, V> {
+                                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                                    fmt_container(f, "[", "]", self.0.iter())
+                                }
+                            }
+                            display_pair("hidden", "=", Wrapper(hidden))
+                        }),
+                    self.0
+                        .options()
+                        .iter()
+                        .map(|options| display_pair("options", "=", options)),
+                ),
+            ),
+        )
+    }
+}
+
+impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
+    fn copy(&self) -> StarlarkCommandLine<'v> {
+        StarlarkCommandLine(RefCell::new(StarlarkCommandLineData {
+            items: self.0.items().to_vec(),
+            hidden: self.0.hidden().to_vec(),
+            options: self.0.options().map(|x| Box::new(x.clone())),
+        }))
+    }
+
+    fn ignore_artifacts(&self) -> bool {
+        self.0
+            .options()
+            .map(|o| o.ignore_artifacts)
+            .unwrap_or_default()
+    }
+
+    fn is_concat(&self) -> bool {
+        if let Some(x) = &self.0.options() {
+            x.delimiter.is_some()
+        } else {
+            false
+        }
+    }
+
+    fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
+    where
+        C: CommandLineContext + ?Sized,
+    {
+        match &self.0.options() {
+            None => Ok(None),
+            Some(options) => options.relative_to_path(ctx),
+        }
+    }
+}
+
+impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
+    fn add_to_command_line(
+        &self,
+        cli: &mut dyn CommandLineBuilder,
+        context: &mut dyn CommandLineContext,
+    ) -> anyhow::Result<()> {
+        match self.0.options() {
+            None => {
+                for item in self.0.items() {
+                    item.add_to_command_line(cli, context)?;
+                }
+                Ok(())
+            }
+            Some(options) => options.wrap_builder(cli, context, |cli, context| {
+                for item in self.0.items() {
+                    item.add_to_command_line(cli, context)?;
+                }
+                Ok(())
+            }),
+        }
+    }
+
+    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+        if !self.ignore_artifacts() {
+            for item in self.0.items().iter().chain(self.0.hidden().iter()) {
+                visitor.push_frame()?;
+                item.visit_artifacts(visitor)?;
+                visitor.pop_frame();
+            }
+        }
+        Ok(())
+    }
+
+    fn contains_arg_attr(&self) -> bool {
+        self.0.items().iter().any(|x| x.contains_arg_attr())
+            || self.0.hidden().iter().any(|x| x.contains_arg_attr())
+    }
+
+    fn visit_write_to_file_macros(
+        &self,
+        visitor: &mut dyn WriteToFileMacroVisitor,
+    ) -> anyhow::Result<()> {
+        visitor.set_current_relative_to_path(&|ctx| self.relative_to_path(ctx))?;
+
+        for item in self.0.items() {
+            item.visit_write_to_file_macros(visitor)?;
+        }
+        for item in self.0.hidden() {
+            item.visit_write_to_file_macros(visitor)?;
+        }
+        Ok(())
+    }
+}
+
 /// Starlark object returned by `cmd_args()`
 /// A container for all of the args and nested command lines that a users adds to `ctx.args()`
 ///
@@ -133,91 +263,18 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
 ///         contain any builders.
 #[derive(
     Debug,
-    Default_,
+    Default,
     Clone,
     Trace,
     ProvidesStaticType,
     Serialize,
     Allocative
 )]
-#[serde(bound = "V: Display")]
 #[repr(C)]
-pub struct StarlarkCommandLineDataGen<'v, V: ValueLike<'v>> {
-    items: Vec<CommandLineArgGen<V>>,
-    hidden: Vec<CommandLineArgGen<V>>,
-    options: Option<Box<CommandLineOptions<'v, V>>>,
-}
-
-// These types show up a lot in the frozen heaps, so make sure they don't regress
-assert_eq_size!(StarlarkCommandLineDataGen<'static, FrozenValue>, [usize; 7]);
-assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 11]);
-
-impl<'v, V: ValueLike<'v>> Display for StarlarkCommandLineDataGen<'v, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_container(
-            f,
-            "cmd_args(",
-            ")",
-            iter_display_chain(
-                &self.items,
-                iter_display_chain(
-                    Some(&self.hidden).filter(|x| !x.is_empty()).map(|hidden| {
-                        struct Wrapper<'a, V>(&'a Vec<CommandLineArgGen<V>>);
-                        impl<'a, V: Display> Display for Wrapper<'a, V> {
-                            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                                fmt_container(f, "[", "]", self.0.iter())
-                            }
-                        }
-                        display_pair("hidden", "=", Wrapper(hidden))
-                    }),
-                    self.options
-                        .iter()
-                        .map(|options| display_pair("options", "=", options)),
-                ),
-            ),
-        )
-    }
-}
-
-impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
-    fn ignore_artifacts(&self) -> bool {
-        self.options
-            .as_ref()
-            .map(|o| o.ignore_artifacts)
-            .unwrap_or_default()
-    }
-
-    fn options_mut(&mut self) -> &mut CommandLineOptions<'v, V> {
-        if self.options.is_none() {
-            self.options = Some(Box::default());
-        }
-        self.options.as_mut().unwrap()
-    }
-
-    fn is_concat(&self) -> bool {
-        if let Some(x) = &self.options {
-            x.delimiter.is_some()
-        } else {
-            false
-        }
-    }
-}
-
-impl<'v> StarlarkCommandLine<'v> {
-    pub(crate) fn is_concat(&self) -> bool {
-        self.0.borrow().is_concat()
-    }
-}
-
-impl FrozenStarlarkCommandLine {
-    pub(crate) fn is_concat(&self) -> bool {
-        self.0.is_concat()
-    }
-}
-
-unsafe impl<'v> Coerce<StarlarkCommandLineDataGen<'v, Value<'v>>>
-    for StarlarkCommandLineDataGen<'static, FrozenValue>
-{
+pub struct StarlarkCommandLineData<'v> {
+    items: Vec<CommandLineArgGen<Value<'v>>>,
+    hidden: Vec<CommandLineArgGen<Value<'v>>>,
+    options: Option<Box<CommandLineOptions<'v, Value<'v>>>>,
 }
 
 #[derive(
@@ -230,46 +287,127 @@ unsafe impl<'v> Coerce<StarlarkCommandLineDataGen<'v, Value<'v>>>
     StarlarkDocs,
     Allocative
 )]
-#[serde(bound = "V : Serialize", transparent)]
-pub struct StarlarkCommandLineGen<V>(V);
+#[serde(transparent)]
+pub struct StarlarkCommandLine<'v>(RefCell<StarlarkCommandLineData<'v>>);
 
-pub type StarlarkCommandLine<'v> =
-    StarlarkCommandLineGen<RefCell<StarlarkCommandLineDataGen<'v, Value<'v>>>>;
-pub type FrozenStarlarkCommandLine =
-    StarlarkCommandLineGen<StarlarkCommandLineDataGen<'static, FrozenValue>>;
+#[derive(Debug, Default, ProvidesStaticType, Serialize, Allocative)]
+pub struct FrozenStarlarkCommandLine {
+    items: Box<[CommandLineArgGen<FrozenValue>]>,
+    hidden: Box<[CommandLineArgGen<FrozenValue>]>,
+    options: Option<Box<CommandLineOptions<'static, FrozenValue>>>,
+}
 
-starlark_complex_values!(StarlarkCommandLine);
+impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
+    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        &self.items
+    }
 
-impl<'v> StarlarkCommandLine<'v> {
-    pub fn is_empty(&self) -> bool {
-        self.0.borrow().items.is_empty()
+    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        &self.hidden
+    }
+
+    fn options(&self) -> Option<&CommandLineOptions<'v, Value<'v>>> {
+        self.options.as_deref()
     }
 }
 
+impl<'v> Fields<'v> for FrozenStarlarkCommandLine {
+    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        coerce(&*self.items)
+    }
+
+    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        coerce(&*self.hidden)
+    }
+
+    fn options(&self) -> Option<&CommandLineOptions<'v, Value<'v>>> {
+        let options: &CommandLineOptions<'static, FrozenValue> = self.options.as_deref()?;
+        let options: &CommandLineOptions<'v, Value> = coerce(options);
+        Some(options)
+    }
+}
+
+impl<'a, 'v, F: Fields<'v>> Fields<'v> for &'a F {
+    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        (*self).items()
+    }
+
+    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        (*self).hidden()
+    }
+
+    fn options(&self) -> Option<&CommandLineOptions<'v, Value<'v>>> {
+        (*self).options()
+    }
+}
+
+impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
+    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        match self {
+            Either::Left(x) => x.items(),
+            Either::Right(x) => x.items(),
+        }
+    }
+
+    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+        match self {
+            Either::Left(x) => x.hidden(),
+            Either::Right(x) => x.hidden(),
+        }
+    }
+
+    fn options(&self) -> Option<&CommandLineOptions<'v, Value<'v>>> {
+        match self {
+            Either::Left(x) => x.options(),
+            Either::Right(x) => x.options(),
+        }
+    }
+}
+
+// These types show up a lot in the frozen heaps, so make sure they don't regress
+assert_eq_size!(StarlarkCommandLine<'static>, [usize; 8]);
+assert_eq_size!(FrozenStarlarkCommandLine, [usize; 5]);
+assert_eq_size!(CommandLineOptions<'static, FrozenValue>, [usize; 11]);
+
 impl<'v> Display for StarlarkCommandLine<'v> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0.try_borrow() {
-            Ok(x) => Display::fmt(&x, f),
+            Ok(x) => Display::fmt(&FieldsRef(x, PhantomData), f),
             Err(_) => write!(f, "<cmd_args borrowed>"),
         }
     }
 }
 
 impl Display for FrozenStarlarkCommandLine {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&FieldsRef(self, PhantomData), f)
     }
 }
 
-impl<'v, V: ValueLike<'v>> StarlarkCommandLineDataGen<'v, V> {
-    fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
-    where
-        C: CommandLineContext + ?Sized,
-    {
-        match &self.options {
-            None => Ok(None),
-            Some(options) => options.relative_to_path(ctx),
+impl<'v> StarlarkCommandLineData<'v> {
+    fn options_mut(&mut self) -> &mut CommandLineOptions<'v, Value<'v>> {
+        if self.options.is_none() {
+            self.options = Some(Box::default());
         }
+        self.options.as_mut().unwrap()
+    }
+}
+
+impl<'v> StarlarkCommandLine<'v> {
+    pub(crate) fn is_concat(&self) -> bool {
+        FieldsRef(self.0.borrow(), PhantomData).is_concat()
+    }
+}
+
+impl FrozenStarlarkCommandLine {
+    pub(crate) fn is_concat(&self) -> bool {
+        FieldsRef(self, PhantomData).is_concat()
+    }
+}
+
+impl<'v> StarlarkCommandLine<'v> {
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().items.is_empty()
     }
 }
 
@@ -301,57 +439,9 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCommandLine {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkCommandLineDataGen<'v, V> {
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
-        match &self.options {
-            None => {
-                for item in &self.items {
-                    item.add_to_command_line(cli, context)?;
-                }
-                Ok(())
-            }
-            Some(options) => options.wrap_builder(cli, context, |cli, context| {
-                for item in &self.items {
-                    item.add_to_command_line(cli, context)?;
-                }
-                Ok(())
-            }),
-        }
-    }
-
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        if !self.ignore_artifacts() {
-            for item in self.items.iter().chain(self.hidden.iter()) {
-                visitor.push_frame()?;
-                item.visit_artifacts(visitor)?;
-                visitor.pop_frame();
-            }
-        }
-        Ok(())
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        self.items.iter().any(|x| x.contains_arg_attr())
-            || self.hidden.iter().any(|x| x.contains_arg_attr())
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        visitor.set_current_relative_to_path(&|ctx| self.relative_to_path(ctx))?;
-
-        for item in &self.items {
-            item.visit_write_to_file_macros(visitor)?;
-        }
-        for item in &self.hidden {
-            item.visit_write_to_file_macros(visitor)?;
-        }
-        Ok(())
+impl<'v> AllocValue<'v> for StarlarkCommandLine<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex(self)
     }
 }
 
@@ -361,22 +451,22 @@ impl<'v> CommandLineArgLike for StarlarkCommandLine<'v> {
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        self.0.borrow().add_to_command_line(cli, context)
+        FieldsRef(self.0.borrow(), PhantomData).add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        self.0.borrow().visit_artifacts(visitor)
+        FieldsRef(self.0.borrow(), PhantomData).visit_artifacts(visitor)
     }
 
     fn contains_arg_attr(&self) -> bool {
-        self.0.borrow().contains_arg_attr()
+        FieldsRef(self.0.borrow(), PhantomData).contains_arg_attr()
     }
 
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
-        self.0.borrow().visit_write_to_file_macros(visitor)
+        FieldsRef(self.0.borrow(), PhantomData).visit_write_to_file_macros(visitor)
     }
 }
 
@@ -386,43 +476,43 @@ impl CommandLineArgLike for FrozenStarlarkCommandLine {
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        self.0.add_to_command_line(cli, context)
+        FieldsRef(self, PhantomData).add_to_command_line(cli, context)
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        self.0.visit_artifacts(visitor)
+        FieldsRef(self, PhantomData).visit_artifacts(visitor)
     }
 
     fn contains_arg_attr(&self) -> bool {
-        self.0.contains_arg_attr()
+        FieldsRef(self, PhantomData).contains_arg_attr()
     }
 
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> anyhow::Result<()> {
-        self.0.visit_write_to_file_macros(visitor)
+        FieldsRef(self, PhantomData).visit_write_to_file_macros(visitor)
     }
 }
 
 impl<'v> Freeze for StarlarkCommandLine<'v> {
-    type Frozen = StarlarkCommandLineGen<StarlarkCommandLineDataGen<'static, FrozenValue>>;
+    type Frozen = FrozenStarlarkCommandLine;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let StarlarkCommandLineDataGen {
+        let StarlarkCommandLineData {
             items,
             hidden,
             options,
         } = self.0.into_inner();
 
-        let items = items.into_try_map(|x| x.freeze(freezer))?;
-        let hidden = hidden.into_try_map(|x| x.freeze(freezer))?;
+        let items = items.freeze(freezer)?.into_boxed_slice();
+        let hidden = hidden.freeze(freezer)?.into_boxed_slice();
         let options = options.try_map(|options| options.freeze(freezer))?;
 
-        Ok(StarlarkCommandLineGen(StarlarkCommandLineDataGen {
+        Ok(FrozenStarlarkCommandLine {
             items,
             hidden,
             options,
-        }))
+        })
     }
 }
 
@@ -444,7 +534,7 @@ impl<'v> StarlarkCommandLine<'v> {
         prepend: Option<StringValue<'v>>,
         quote: Option<QuoteStyle>,
     ) -> anyhow::Result<Self> {
-        let mut builder = StarlarkCommandLineDataGen::default();
+        let mut builder = StarlarkCommandLineData::default();
         if delimiter.is_some() || format.is_some() || prepend.is_some() || quote.is_some() {
             let opts = builder.options_mut();
             opts.delimiter = delimiter;
@@ -459,7 +549,7 @@ impl<'v> StarlarkCommandLine<'v> {
     }
 }
 
-impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
+impl<'v> StarlarkCommandLineData<'v> {
     fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
         if let Some(values) = ListRef::from_value(value) {
             self.add_values(values.content())?;
@@ -493,9 +583,7 @@ impl<'v> StarlarkCommandLineDataGen<'v, Value<'v>> {
     }
 }
 
-fn cmd_args_mut<'v>(
-    x: Value<'v>,
-) -> anyhow::Result<RefMut<'v, StarlarkCommandLineDataGen<'v, Value<'v>>>> {
+fn cmd_args_mut<'v>(x: Value<'v>) -> anyhow::Result<RefMut<'v, StarlarkCommandLineData<'v>>> {
     if let Some(v) = x.downcast_ref::<StarlarkCommandLine>() {
         Ok(v.0.borrow_mut())
     } else {
@@ -503,11 +591,11 @@ fn cmd_args_mut<'v>(
     }
 }
 
-fn cmd_args<'v>(x: Value<'v>) -> impl Deref<Target = StarlarkCommandLineDataGen<Value<'v>>> {
+fn cmd_args<'v>(x: Value<'v>) -> FieldsRef<'v, impl Fields<'v>> {
     if let Some(x) = x.downcast_ref::<StarlarkCommandLine>() {
-        Either::Left(x.0.borrow())
+        FieldsRef(Either::Left(x.0.borrow()), PhantomData)
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkCommandLine>() {
-        Either::Right(coerce(&x.0))
+        FieldsRef(Either::Right(x), PhantomData)
     } else {
         unreachable!("This parameter must always be a type of command args")
     }
@@ -654,7 +742,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
     /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
     /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
     fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLine<'v>> {
-        Ok(StarlarkCommandLineGen(RefCell::new(cmd_args(this).clone())))
+        Ok(cmd_args(this).copy())
     }
 
     /// Collect all the inputs (including hidden) referenced by this command line.

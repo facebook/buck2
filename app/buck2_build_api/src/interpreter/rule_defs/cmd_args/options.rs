@@ -25,9 +25,12 @@ use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::coerce::Coerce;
 use starlark::values::Freeze;
+use starlark::values::FrozenValue;
 use starlark::values::StringValueLike;
 use starlark::values::Trace;
+use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
@@ -92,6 +95,11 @@ pub(crate) struct CommandLineOptions<'v, V: ValueLike<'v>> {
     pub(crate) replacements: Option<Box<Vec<(V::String, V::String)>>>,
 
     pub(crate) lifetime: PhantomData<&'v ()>,
+}
+
+unsafe impl<'v> Coerce<CommandLineOptions<'v, Value<'v>>>
+    for CommandLineOptions<'static, FrozenValue>
+{
 }
 
 fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<S::Ok, S::Error>
