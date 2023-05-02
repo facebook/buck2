@@ -27,7 +27,7 @@ use crate::syntax::AstModule;
 mod bind;
 pub(crate) mod definition;
 mod dubious;
-mod exported;
+pub(crate) mod exported;
 mod find_call_name;
 mod flow;
 mod incompatible;

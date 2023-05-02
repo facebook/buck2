@@ -418,16 +418,13 @@ impl LspModule {
 
     /// Attempt to find the location in this module where an exported symbol is defined.
     pub(crate) fn find_exported_symbol(&self, name: &str) -> Option<ResolvedSpan> {
-        self.ast
-            .exported_symbols()
-            .iter()
-            .find_map(|(span, symbol)| {
-                if *symbol == name {
-                    Some(span.resolve_span())
-                } else {
-                    None
-                }
-            })
+        self.ast.exported_symbols().iter().find_map(|symbol| {
+            if symbol.name == name {
+                Some(symbol.span.resolve_span())
+            } else {
+                None
+            }
+        })
     }
 
     /// Attempt to find the location in this module where a member of a struct (named `name`)
