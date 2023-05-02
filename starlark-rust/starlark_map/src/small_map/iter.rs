@@ -260,6 +260,64 @@ impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
     def_double_ended_iter!();
 }
 
+/// Iterator that moves keys out of [`SmallMap`](crate::small_map::SmallMap).
+pub struct IntoKeys<K, V> {
+    pub(crate) iter: vec_map::IntoIter<K, V>,
+}
+
+impl<K, V> IntoKeys<K, V> {
+    #[inline]
+    fn map((k, _): (K, V)) -> <Self as Iterator>::Item {
+        k
+    }
+}
+
+impl<K, V> Iterator for IntoKeys<K, V> {
+    type Item = K;
+
+    def_iter!();
+}
+
+impl<K, V> ExactSizeIterator for IntoKeys<K, V> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<K, V> DoubleEndedIterator for IntoKeys<K, V> {
+    def_double_ended_iter!();
+}
+
+/// Iterator that moves values out of [`SmallMap`](crate::small_map::SmallMap).
+pub struct IntoValues<K, V> {
+    pub(crate) iter: vec_map::IntoIter<K, V>,
+}
+
+impl<K, V> IntoValues<K, V> {
+    #[inline]
+    fn map((_, v): (K, V)) -> <Self as Iterator>::Item {
+        v
+    }
+}
+
+impl<K, V> Iterator for IntoValues<K, V> {
+    type Item = V;
+
+    def_iter!();
+}
+
+impl<K, V> ExactSizeIterator for IntoValues<K, V> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<K, V> DoubleEndedIterator for IntoValues<K, V> {
+    def_double_ended_iter!();
+}
+
 /// Iterator over a [`SmallMap`](crate::small_map::SmallMap) mutable values.
 pub struct ValuesMut<'a, K, V> {
     pub(crate) iter: vec_map::ValuesMut<'a, K, V>,
@@ -307,6 +365,12 @@ fn _assert_iterators_sync_send() {
         assert_sync_send(iter);
     }
     fn test_values(iter: Values<String, u32>) {
+        assert_sync_send(iter);
+    }
+    fn test_into_keys(iter: IntoKeys<String, u32>) {
+        assert_sync_send(iter);
+    }
+    fn test_into_values(iter: IntoValues<String, u32>) {
         assert_sync_send(iter);
     }
 }

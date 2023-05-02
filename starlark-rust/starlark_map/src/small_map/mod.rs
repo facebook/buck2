@@ -36,6 +36,8 @@ use crate::equivalent::Equivalent;
 use crate::hashed::Hashed;
 pub use crate::small_map::iter::IntoIter;
 pub use crate::small_map::iter::IntoIterHashed;
+pub use crate::small_map::iter::IntoKeys;
+pub use crate::small_map::iter::IntoValues;
 pub use crate::small_map::iter::Iter;
 pub use crate::small_map::iter::IterHashed;
 pub use crate::small_map::iter::IterMut;
@@ -158,6 +160,22 @@ impl<K, V> SmallMap<K, V> {
     pub fn values(&self) -> Values<K, V> {
         Values {
             iter: self.entries.values(),
+        }
+    }
+
+    /// Key owned iterator.
+    #[inline]
+    pub fn into_keys(self) -> IntoKeys<K, V> {
+        IntoKeys {
+            iter: self.entries.into_iter(),
+        }
+    }
+
+    /// Value owned iterator.
+    #[inline]
+    pub fn into_values(self) -> IntoValues<K, V> {
+        IntoValues {
+            iter: self.entries.into_iter(),
         }
     }
 
