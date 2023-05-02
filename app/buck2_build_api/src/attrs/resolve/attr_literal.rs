@@ -84,7 +84,7 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
             }
             AttrLiteral::Dict(d) => {
                 let mut m = SmallMap::with_capacity(d.len());
-                for (k, v) in &**d {
+                for (k, v) in d.iter() {
                     m.insert_hashed(k.to_value(heap)?.get_hashed()?, v.to_value(heap)?);
                 }
                 Ok(heap.alloc(Dict::new(m)))
@@ -153,7 +153,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             }
             AttrLiteral::Dict(dict) => {
                 let mut res = SmallMap::with_capacity(dict.len());
-                for (k, v) in &**dict {
+                for (k, v) in dict.iter() {
                     res.insert_hashed(
                         k.resolve_single(pkg.dupe(), ctx)?.get_hashed()?,
                         v.resolve_single(pkg.dupe(), ctx)?,
@@ -257,7 +257,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
             AttrLiteral::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 
-                for (k, v) in &**map {
+                for (k, v) in map.iter() {
                     res.insert_hashed(
                         k.to_value(pkg.dupe(), heap)?.get_hashed()?,
                         v.to_value(pkg.dupe(), heap)?,

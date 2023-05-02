@@ -12,7 +12,6 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::package::PackageLabel;
-use buck2_util::arc_str::ArcSlice;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
@@ -22,6 +21,7 @@ use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::bool::BoolLiteral;
+use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
@@ -30,7 +30,6 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
-use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -53,7 +52,7 @@ pub enum AttrLiteral<C: AttrConfig> {
     EnumVariant(StringLiteral),
     List(ListLiteral<C>),
     Tuple(TupleLiteral<C>),
-    Dict(ArcSlice<(C, C)>),
+    Dict(DictLiteral<C>),
     None,
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
@@ -81,17 +80,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Display::fmt(v, f),
             AttrLiteral::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
             AttrLiteral::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
-            AttrLiteral::Dict(v) => {
-                write!(f, "{{")?;
-                for (i, (k, v)) in v.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{}: {}", k.as_display(ctx), v.as_display(ctx))?;
-                }
-                write!(f, "}}")?;
-                Ok(())
-            }
+            AttrLiteral::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),
             AttrLiteral::None => write!(f, "None"),
             AttrLiteral::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AttrLiteral::Visibility(v) => Display::fmt(v, f),
@@ -109,17 +98,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => Ok(to_value(v)?),
             AttrLiteral::List(list) => list.to_json(ctx),
             AttrLiteral::Tuple(list) => list.to_json(ctx),
-            AttrLiteral::Dict(dict) => {
-                let mut res: serde_json::Map<String, serde_json::Value> =
-                    serde_json::Map::with_capacity(dict.len());
-                for (k, v) in &**dict {
-                    res.insert(
-                        k.to_json(ctx)?.as_str().unwrap().to_owned(),
-                        v.to_json(ctx)?,
-                    );
-                }
-                Ok(res.into())
-            }
+            AttrLiteral::Dict(dict) => dict.to_json(ctx),
             AttrLiteral::None => Ok(serde_json::Value::Null),
             AttrLiteral::OneOf(box l, _) => l.to_json(ctx),
             AttrLiteral::Visibility(v) => Ok(v.to_json()),
@@ -136,14 +115,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => filter(v),
             AttrLiteral::List(vals) => vals.any_matches(filter),
             AttrLiteral::Tuple(vals) => vals.any_matches(filter),
-            AttrLiteral::Dict(d) => {
-                for (k, v) in &**d {
-                    if k.any_matches(filter)? || v.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
+            AttrLiteral::Dict(d) => d.any_matches(filter),
             AttrLiteral::None => Ok(false),
             AttrLiteral::Bool(b) => b.any_matches(filter),
             AttrLiteral::Int(i) => filter(&i.to_string()),
@@ -189,7 +161,7 @@ impl AttrLiteral<ConfiguredAttr> {
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
-                for (k, v) in &**dict {
+                for (k, v) in dict.iter() {
                     k.traverse(pkg.dupe(), traversal)?;
                     v.traverse(pkg.dupe(), traversal)?;
                 }
@@ -238,14 +210,14 @@ impl AttrLiteral<CoercedAttr> {
             AttrLiteral::Tuple(list) => {
                 AttrLiteral::Tuple(TupleLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
-            AttrLiteral::Dict(dict) => AttrLiteral::Dict(
+            AttrLiteral::Dict(dict) => AttrLiteral::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
                     let k2 = k.configure(ctx)?;
                     let v2 = v.configure(ctx)?;
                     anyhow::Ok((k2, v2))
                 })?
                 .into(),
-            ),
+            )),
             AttrLiteral::None => AttrLiteral::None,
             AttrLiteral::OneOf(l, i) => {
                 let ConfiguredAttr(configured) = l.configure(ctx)?;
@@ -279,7 +251,7 @@ impl AttrLiteral<CoercedAttr> {
                 Ok(())
             }
             AttrLiteral::Dict(dict) => {
-                for (k, v) in &**dict {
+                for (k, v) in dict.iter() {
                     k.traverse(pkg.dupe(), traversal)?;
                     v.traverse(pkg.dupe(), traversal)?;
                 }
