@@ -145,27 +145,28 @@ impl HasCommandExecutor for CommandExecutorFactory {
             });
         }
 
-        let remote_executor_new =
-            |options: &RemoteExecutorOptions, re_use_case: &RemoteExecutorUseCase| {
-                // 30GB is the max RE can currently support.
-                const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
+        let remote_executor_new = |options: &RemoteExecutorOptions,
+                                   re_use_case: &RemoteExecutorUseCase,
+                                   remote_cache_enabled: bool| {
+            // 30GB is the max RE can currently support.
+            const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
-                ReExecutor {
-                    artifact_fs: artifact_fs.clone(),
-                    project_fs: self.project_root.clone(),
-                    materializer: self.materializer.dupe(),
-                    re_client: self.re_connection.get_client(),
-                    re_use_case: *re_use_case,
-                    re_action_key: options.re_action_key.clone(),
-                    re_max_input_files_bytes: options
-                        .re_max_input_files_bytes
-                        .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
-                    re_max_queue_time_ms: options.re_max_queue_time_ms,
-                    knobs: self.executor_global_knobs.dupe(),
-                    skip_cache_read: self.skip_cache_read,
-                    skip_cache_write: self.skip_cache_write,
-                }
-            };
+            ReExecutor {
+                artifact_fs: artifact_fs.clone(),
+                project_fs: self.project_root.clone(),
+                materializer: self.materializer.dupe(),
+                re_client: self.re_connection.get_client(),
+                re_use_case: *re_use_case,
+                re_action_key: options.re_action_key.clone(),
+                re_max_input_files_bytes: options
+                    .re_max_input_files_bytes
+                    .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES),
+                re_max_queue_time_ms: options.re_max_queue_time_ms,
+                knobs: self.executor_global_knobs.dupe(),
+                skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
+                skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
+            }
+        };
 
         let response = match &executor_config.executor {
             Executor::Local(local) => {
@@ -190,7 +191,11 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         Some(Arc::new(local_executor_new(local)))
                     }
                     RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
-                        Some(Arc::new(remote_executor_new(remote, re_use_case)))
+                        Some(Arc::new(remote_executor_new(
+                            remote,
+                            re_use_case,
+                            *remote_cache_enabled,
+                        )))
                     }
                     RemoteEnabledExecutor::Hybrid {
                         local,
@@ -198,7 +203,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
                         local: local_executor_new(local),
-                        remote: remote_executor_new(remote, re_use_case),
+                        remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
                         low_pass_filter: self.low_pass_filter.dupe(),
