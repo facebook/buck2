@@ -70,10 +70,10 @@ pub struct TransitiveSetGen<V> {
     pub(crate) node: Option<NodeGen<V>>,
 
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
-    pub(crate) reductions: Vec<V>,
+    pub(crate) reductions: Box<[V]>,
 
     /// Further transitive sets.
-    pub(crate) children: Vec<V>,
+    pub(crate) children: Box<[V]>,
 }
 
 #[derive(Debug, Clone, Trace, Allocative)]
@@ -83,7 +83,7 @@ pub struct NodeGen<V> {
     pub value: V,
 
     /// Pre-computed projections.
-    pub projections: Vec<V>,
+    pub projections: Box<[V]>,
 }
 
 unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenValue> {}
@@ -131,7 +131,7 @@ impl<'v> NodeGen<Value<'v>> {
         let Self { value, projections } = self;
 
         let value = value.freeze(freezer)?;
-        let projections = projections.into_try_map(|x| x.freeze(freezer))?;
+        let projections = projections.freeze(freezer)?;
 
         Ok(NodeGen { value, projections })
     }
@@ -319,8 +319,8 @@ impl<'v> Freeze for TransitiveSet<'v> {
         } = self;
         let definition = definition.freeze(freezer)?;
         let node = node.try_map(|node| node.freeze(freezer))?;
-        let children = children.try_map(|x| x.freeze(freezer))?;
-        let reductions = reductions.try_map(|x| x.freeze(freezer))?;
+        let children = children.freeze(freezer)?;
+        let reductions = reductions.freeze(freezer)?;
         Ok(TransitiveSetGen {
             key,
             definition,
@@ -349,7 +349,7 @@ impl<'v> TransitiveSet<'v> {
             }
         };
 
-        let children = children.into_iter().collect::<Vec<_>>();
+        let children = children.into_iter().collect::<Box<[_]>>();
         let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
             Some(set) if set.matches_definition(definition) => Ok(set),
             Some(set) => {
@@ -391,7 +391,7 @@ impl<'v> TransitiveSet<'v> {
                     }
                     anyhow::Ok(projected_value)
                 })
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Box<[_]>, _>>()?;
 
             anyhow::Ok(NodeGen { value, projections })
         })?;
@@ -421,7 +421,7 @@ impl<'v> TransitiveSet<'v> {
 
                 anyhow::Ok(reduced)
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Box<[_]>, _>>()?;
 
         Ok(Self {
             key,
