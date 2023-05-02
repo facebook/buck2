@@ -32,10 +32,10 @@ use std::ptr;
 use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
-use lock_free_hashtable::raw::LockFreeRawTable;
+use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
-    tables: [LockFreeRawTable<InternedData<T>>; 64],
+    table: ShardedLockFreeRawTable<InternedData<T>, 64>,
     _marker: marker::PhantomData<H>,
 }
 
@@ -188,37 +188,10 @@ where
 impl<T: 'static, H> StaticInterner<T, H> {
     /// Create a new interner for given type.
     pub const fn new() -> StaticInterner<T, H> {
-        struct Empty<A>(marker::PhantomData<A>);
-        impl<A> Empty<A> {
-            #[allow(clippy::declare_interior_mutable_const)]
-            const EMPTY: LockFreeRawTable<A> = LockFreeRawTable::new();
-        }
-
         StaticInterner {
-            tables: [Empty::<InternedData<T>>::EMPTY; 64],
+            table: ShardedLockFreeRawTable::new(),
             _marker: marker::PhantomData,
         }
-    }
-}
-
-impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
-    fn table_for_hash(&'static self, hash: u64) -> &'static LockFreeRawTable<InternedData<T>> {
-        let hash = hash.wrapping_mul(0x9e3779b97f4a7c15);
-        &self.tables[hash as usize % self.tables.len()]
-    }
-
-    // This takes the values of a Hashed because it's easier than supporting both when the
-    // Hashed owns the value and when it just has a reference.
-    fn table_get<Q>(
-        table: &'static LockFreeRawTable<InternedData<T>>,
-        hash: u64,
-        value: &Q,
-    ) -> Option<&'static InternedData<T>>
-    where
-        Q: Hash + Equiv<T>,
-        T: Eq + Hash,
-    {
-        table.lookup(hash, |t| value.equivalent(&t.data))
     }
 }
 
@@ -230,20 +203,18 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
         T: Eq + Hash,
     {
         let hashed = Hashed::<_, H>::new(value);
-        let table_for_hash = self.table_for_hash(hashed.hash);
-        if let Some(pointer) = Self::table_get(table_for_hash, hashed.hash, &hashed.value) {
+        if let Some(pointer) = self
+            .table
+            .lookup(hashed.hash, |t| hashed.value.equivalent(&t.data))
+        {
             return Intern { pointer };
         }
 
-        self.intern_slow(hashed, table_for_hash)
+        self.intern_slow(hashed)
     }
 
     #[cold]
-    fn intern_slow<Q>(
-        &'static self,
-        hashed_value: Hashed<Q, H>,
-        table_for_hash: &'static LockFreeRawTable<InternedData<T>>,
-    ) -> Intern<T>
+    fn intern_slow<Q>(&'static self, hashed_value: Hashed<Q, H>) -> Intern<T>
     where
         Q: Hash + Equiv<T> + Into<T>,
         T: Eq + Hash,
@@ -252,7 +223,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
             data: hashed_value.value.into(),
             hash: hashed_value.hash,
         });
-        let pointer = table_for_hash.insert(
+        let pointer = self.table.insert(
             hashed_value.hash,
             pointer,
             |a, b| a.hash == b.hash && a.data == b.data,
@@ -268,50 +239,32 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
         T: Eq + Hash,
     {
         let hashed = Hashed::<_, H>::new(key);
-        let guard = self.table_for_hash(hashed.hash);
-        Self::table_get(guard, hashed.hash, &hashed.value).map(|pointer| Intern { pointer })
+        self.table
+            .lookup(hashed.hash, |t| hashed.value.equivalent(&t.data))
+            .map(|pointer| Intern { pointer })
     }
 
     /// Iterate over the interned values.
     #[inline]
     pub fn iter(&'static self) -> Iter<T, H> {
-        Iter::new(self)
+        Iter {
+            iter: self.table.iter(),
+            _marker: marker::PhantomData,
+        }
     }
 }
 
 pub struct Iter<T: 'static, H: 'static> {
-    v: &'static StaticInterner<T, H>,
-    table_idx: usize,
-    inner: lock_free_hashtable::raw::Iter<'static, InternedData<T>>,
-}
-
-impl<T: 'static, H: 'static> Iter<T, H> {
-    #[inline]
-    fn new(interner: &'static StaticInterner<T, H>) -> Self {
-        Self {
-            v: interner,
-            table_idx: 0,
-            inner: interner.tables[0].iter(),
-        }
-    }
+    iter: lock_free_hashtable::sharded::Iter<'static, InternedData<T>, 64>,
+    _marker: marker::PhantomData<H>,
 }
 
 impl<T: 'static, H> Iterator for Iter<T, H> {
     type Item = Intern<T>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(v) = self.inner.next() {
-                return Some(Intern { pointer: v });
-            }
-
-            self.table_idx += 1;
-            if self.table_idx >= self.v.tables.len() {
-                return None;
-            }
-
-            self.inner = self.v.tables[self.table_idx].iter();
-        }
+        self.iter.next().map(|pointer| Intern { pointer })
     }
 }
 
