@@ -101,7 +101,9 @@ jobs:
           name: Build example/prelude directory
           command: |
             cd examples/prelude
-            /tmp/artifacts/buck2 init --git
+            /tmp/artifacts/buck2 init
+            cp -r ../../prelude prelude
+            # Additional setup for ocaml
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - run:
@@ -148,7 +150,9 @@ jobs:
           command: |
             export PATH=/usr/local/opt/llvm/bin:"$PATH"
             cd examples/prelude
-            /tmp/artifacts/buck2 init --git
+            /tmp/artifacts/buck2 init
+            cp -r ../../prelude prelude
+            # Additional setup for ocaml
             source ./setup.sh
             /tmp/artifacts/buck2 build //... -v 2
       - run:
@@ -194,7 +198,8 @@ jobs:
           name: Build example/prelude directory
           command: |
             cd examples/prelude
-            C:/tmp/artifacts/buck2.exe init --git
+            C:/tmp/artifacts/buck2.exe init
+            copy-item -Path 'C:\Users\circleci\project\prelude' -Destination 'prelude' -Recurse
             C:/tmp/artifacts/buck2.exe build //... -v 2
       - run:
           name: Build example/no_prelude directory
