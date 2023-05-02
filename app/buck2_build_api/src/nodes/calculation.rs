@@ -888,6 +888,7 @@ mod tests {
     use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
     use buck2_node::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+    use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
     use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -933,7 +934,7 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::new_literal(AttrLiteral::Bool(false)),
+                CoercedAttr::new_literal(AttrLiteral::Bool(BoolLiteral(false))),
             ),
             (
                 "another_field",
@@ -963,7 +964,7 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::new_literal(AttrLiteral::Bool(true)),
+                CoercedAttr::new_literal(AttrLiteral::Bool(BoolLiteral(true))),
             ),
             (
                 "another_field",
@@ -1005,7 +1006,7 @@ mod tests {
         assert_eq!(node.0, node2.0);
 
         let conf_attrs1 = smallmap![
-            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(false)),
+            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(BoolLiteral(false))),
             "another_field" =>
              ConfiguredAttr(AttrLiteral::String(StringLiteral("some_string".into()))),
             "some_deps" =>
@@ -1019,7 +1020,7 @@ mod tests {
         ];
 
         let conf_attrs2 = smallmap![
-            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(true)),
+            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(BoolLiteral(true))),
             "another_field" =>
              ConfiguredAttr(AttrLiteral::String(StringLiteral("another_string".into()))),
             "some_deps" => ConfiguredAttr(AttrLiteral::List(

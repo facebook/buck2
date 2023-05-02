@@ -21,6 +21,7 @@ use super::attr_config::CoercedAttrExtraTypes;
 use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
+use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -35,7 +36,7 @@ use crate::visibility::VisibilitySpecification;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum AttrLiteral<C: AttrConfig> {
-    Bool(bool),
+    Bool(BoolLiteral),
     Int(i32),
     // Note we store `String`, not `Arc<str>` here, because we store full attributes
     // in unconfigured target node, but configured target node is basically a pair
@@ -70,8 +71,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AttrLiteral::Bool(v) => {
-                let s = if *v { "True" } else { "False" };
-                write!(f, "{}", s)
+                write!(f, "{}", v)
             }
             AttrLiteral::Int(v) => {
                 write!(f, "{}", v)
@@ -170,7 +170,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
                 Ok(false)
             }
             AttrLiteral::None => Ok(false),
-            AttrLiteral::Bool(b) => filter(if *b { "True" } else { "False" }),
+            AttrLiteral::Bool(b) => b.any_matches(filter),
             AttrLiteral::Int(i) => filter(&i.to_string()),
             AttrLiteral::OneOf(l, _) => l.any_matches(filter),
             AttrLiteral::Visibility(v) => match v {

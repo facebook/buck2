@@ -155,6 +155,7 @@ mod tests {
     use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::target::label::TargetLabel;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+    use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -171,11 +172,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
                     ),
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
                     ),
                 ]),
                 None,
@@ -187,11 +188,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
                     ),
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
                     ),
                 ]),
                 None,
@@ -206,11 +207,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(false)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
                     ),
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(true)),
+                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
                     ),
                 ]),
                 None,
@@ -306,7 +307,7 @@ mod tests {
         };
 
         fn literal_true() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::Bool(true))
+            CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true)))
         }
         fn literal_str() -> CoercedAttr {
             CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("linux"))))
@@ -371,7 +372,7 @@ mod tests {
                     ArcSlice::new([
                         (
                             TargetLabel::testing_parse("config//:a"),
-                            CoercedAttr::Literal(AttrLiteral::Bool(true))
+                            CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true)))
                         ),
                         (
                             TargetLabel::testing_parse("config//:b"),

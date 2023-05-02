@@ -63,7 +63,7 @@ impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
     fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::None => Ok(Value::new_none()),
-            AttrLiteral::Bool(b) => Ok(Value::new_bool(*b)),
+            AttrLiteral::Bool(b) => Ok(Value::new_bool(b.0)),
             AttrLiteral::Int(i) => Ok(Value::new_int(*i)),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => {
                 Ok(heap.alloc_str(s).to_value())
@@ -132,7 +132,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> anyhow::Result<Value<'v>> {
         match self {
-            AttrLiteral::Bool(v) => Ok(Value::new_bool(*v)),
+            AttrLiteral::Bool(v) => Ok(Value::new_bool(v.0)),
             AttrLiteral::Int(v) => Ok(Value::new_int(*v)),
             AttrLiteral::String(v) | AttrLiteral::EnumVariant(v) => {
                 Ok(ctx.heap().alloc(v.as_str()))
@@ -247,7 +247,7 @@ impl ConfiguredAttrLiteralExt for AttrLiteral<ConfiguredAttr> {
 
     fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         Ok(match &self {
-            AttrLiteral::Bool(v) => heap.alloc(*v),
+            AttrLiteral::Bool(v) => heap.alloc(v.0),
             AttrLiteral::Int(v) => heap.alloc(*v),
             AttrLiteral::String(s) | AttrLiteral::EnumVariant(s) => heap.alloc(s.as_str()),
             AttrLiteral::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg.dupe(), heap))?),

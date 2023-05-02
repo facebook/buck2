@@ -9,6 +9,7 @@
 
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
+use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -28,7 +29,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral<Coerce
     if value.is_none() {
         AttrLiteral::None
     } else if let Some(x) = value.unpack_bool() {
-        AttrLiteral::Bool(x)
+        AttrLiteral::Bool(BoolLiteral(x))
     } else if let Some(x) = value.unpack_int() {
         AttrLiteral::Int(x)
     } else if let Some(x) = DictRef::from_value(value) {

@@ -9,6 +9,7 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::bool::BoolAttrType;
+use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -25,7 +26,7 @@ impl AttrTypeCoerce for BoolAttrType {
         value: Value,
     ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
         match value.unpack_bool() {
-            Some(s) => Ok(AttrLiteral::Bool(s)),
+            Some(s) => Ok(AttrLiteral::Bool(BoolLiteral(s))),
             None => Err(anyhow::anyhow!(CoercionError::type_error("bool", value))),
         }
     }
