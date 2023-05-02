@@ -185,11 +185,6 @@ async fn async_traversal_common<
                     target: T::NodeRef,
                     parent: Option<T::NodeRef>,
                     depth: u32| {
-        if let Some(max_depth) = max_depth {
-            if depth > max_depth {
-                return;
-            }
-        }
         if visited.contains_key(&target) {
             return;
         }
@@ -216,13 +211,16 @@ async fn async_traversal_common<
     while let Some((target, depth, node)) = tokio::task::unconstrained(queue.next()).await {
         let result: anyhow::Result<_> = try {
             let node = node?;
-            let depth = depth + 1;
-            delegate
-                .for_each_child(&node, &mut |child| {
-                    push(&mut queue, child, Some(target.clone()), depth);
-                    Ok(())
-                })
-                .await?;
+            if Some(depth) != max_depth {
+                let depth = depth + 1;
+                delegate
+                    .for_each_child(&node, &mut |child| {
+                        push(&mut queue, child, Some(target.clone()), depth);
+                        Ok(())
+                    })
+                    .await?;
+            }
+
             delegate.visit(node)?;
         };
 
