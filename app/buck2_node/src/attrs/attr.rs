@@ -69,6 +69,7 @@ impl Display for Attribute {
 }
 
 /// Attribute which may be either a custom value supplied by the user, or missing/None to indicate use the default.
+#[derive(Eq, PartialEq)]
 pub enum CoercedValue {
     Custom(CoercedAttr),
     Default,

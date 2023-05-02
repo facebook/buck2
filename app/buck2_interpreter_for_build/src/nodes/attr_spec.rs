@@ -17,8 +17,10 @@ use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
+use buck2_node::visibility::VisibilitySpecification;
 use buck2_util::arc_str::ArcStr;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
@@ -79,8 +81,9 @@ impl AttributeSpecExt for AttributeSpec {
                 None => Some(param_parser.next(attr_name)?),
             };
 
+            let is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
             if let Some(v) = user_value {
-                let coerced = attribute
+                let mut coerced = attribute
                     .coerce(
                         attr_name,
                         configurable,
@@ -95,11 +98,35 @@ impl AttributeSpecExt for AttributeSpec {
                             name,
                         )
                     })?;
+
+                if is_visibility {
+                    if internals.package().default_visibility_to_public {
+                        if coerced
+                            == CoercedValue::Custom(CoercedAttr::Literal(AttrLiteral::Visibility(
+                                VisibilitySpecification::DEFAULT,
+                            )))
+                        {
+                            coerced = CoercedValue::Custom(CoercedAttr::Literal(
+                                AttrLiteral::Visibility(VisibilitySpecification::Public),
+                            ));
+                        }
+                    }
+                }
+
                 match coerced {
                     CoercedValue::Custom(v) => {
                         attr_values.push_sorted(attr_idx, v);
                     }
                     CoercedValue::Default => {}
+                }
+            } else if is_visibility {
+                if internals.package().default_visibility_to_public {
+                    attr_values.push_sorted(
+                        attr_idx,
+                        CoercedAttr::Literal(AttrLiteral::Visibility(
+                            VisibilitySpecification::Public,
+                        )),
+                    );
                 }
             }
         }
