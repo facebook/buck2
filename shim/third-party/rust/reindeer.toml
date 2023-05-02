@@ -84,7 +84,6 @@ target_family = ["unix"]
 target_os = ["linux"]
 target_env = ["gnu"]
 target_arch = ["x86_64"]
-feature = [] # in case anyone is doing `cfg(feature = "foo")`, which never works
 
 # Fortanix SGX
 [platform.fortanix-sgx]
@@ -94,7 +93,6 @@ target_os = ["unknown"]
 target_vendor = ["fortanix"]
 target_env = ["sgx"]
 target_arch = ["x86_64"]
-feature = []
 
 # macOS - x86_64-apple-darwin
 [platform.macos]
