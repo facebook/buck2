@@ -130,7 +130,9 @@ impl<A, B> Vec2<A, B> {
     #[inline]
     pub const fn new() -> Vec2<A, B> {
         Vec2 {
-            bbb_ptr: NonNull::dangling(),
+            // Provide a dangling pointer aligned to both A and B, so that aaa_ptr()
+            // returns a properly aligned pointer
+            bbb_ptr: NonNull::<(A, B)>::dangling().cast(),
             len: 0,
             cap: 0,
             _marker: PhantomData,
@@ -625,5 +627,28 @@ mod tests {
         assert_eq!(Some((&1, &2)), v.last());
         v.push(3, 4);
         assert_eq!(Some((&3, &4)), v.last());
+    }
+
+    #[repr(align(16))]
+    struct Align16;
+
+    #[repr(align(8))]
+    struct Align8;
+
+    #[test]
+    fn test_alignment() {
+        let v: Vec2<Align16, Align8> = Vec2::new();
+        assert_eq!(
+            v.aaa_ptr()
+                .as_ptr()
+                .align_offset(std::mem::align_of::<Align16>()),
+            0
+        );
+        assert_eq!(
+            v.bbb_ptr()
+                .as_ptr()
+                .align_offset(std::mem::align_of::<Align8>()),
+            0
+        );
     }
 }
