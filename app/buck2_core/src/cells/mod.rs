@@ -314,6 +314,10 @@ impl CellResolver {
         })
     }
 
+    pub fn is_root_cell(&self, name: CellName) -> bool {
+        name == self.0.root_cell
+    }
+
     pub fn root_cell(&self) -> CellName {
         self.0.root_cell
     }
