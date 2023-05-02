@@ -688,6 +688,11 @@ mod tests {
 
         let cells = CellResolver::testing_with_names_and_paths_with_alias(&[
             (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new(""),
+                HashMap::new(),
+            ),
+            (
                 CellName::testing_new("cell1"),
                 cell1_path.to_buf(),
                 hashmap![
@@ -795,7 +800,6 @@ mod tests {
             )?,
             CellName::testing_new("cell3")
         );
-        assert!(cells.find(ProjectRelativePath::new("blah")?).is_err());
 
         assert_eq!(
             cells.get_cell_path(cell1_path)?,
