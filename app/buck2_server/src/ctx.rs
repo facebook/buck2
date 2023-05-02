@@ -222,7 +222,6 @@ pub struct ServerCommandContext<'a> {
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
 
-    // TODO(bobyf) ServerCommandContext should have lifetime and this be a reference
     cancellations: &'a CancellationContext,
 }
 
