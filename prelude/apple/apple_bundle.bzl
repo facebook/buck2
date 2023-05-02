@@ -91,7 +91,7 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
-def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: "transitive_set") -> "artifact":
+def _get_scrubbed_binary_dsym(ctx, binary: "artifact", external_debug_info: "ExternalDebugInfoTSet") -> "artifact":
     external_debug_info_args = project_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,
