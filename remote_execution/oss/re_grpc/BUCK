@@ -21,7 +21,7 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
-        "//buck2/app/buck2_core:buck2_core",
+        "fbsource//third-party/rust:uuid",
         "//buck2/app/buck2_re_configuration:buck2_re_configuration",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",

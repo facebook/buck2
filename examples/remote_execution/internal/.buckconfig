@@ -13,6 +13,10 @@ action_cache_address = $ACTION_CACHE_ADDRESS
 cas_address = $CAS_ADDRESS
 tls_client_cert = $THRIFT_TLS_CL_CERT_PATH
 http_headers = foo:bar, baz:qux
+# We dont have re metadata for this call
+capabilities = false
+# Value doesn't really matter
+instance_name = test
 
 [build]
   execution_platforms = root//platforms:platforms

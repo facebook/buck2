@@ -132,8 +132,11 @@ mod not_fbcode {
 /// gate less code behind fbcode_build.
 #[derive(Clone, Debug, Default, Allocative)]
 pub struct Buck2OssReConfiguration {
+    /// Address for RBE Content Addresable Storage service (including bytestream uploads service).
     pub cas_address: Option<String>,
+    /// Address for RBE Engine service (including capabilities service).
     pub engine_address: Option<String>,
+    /// Address for RBE Action Cache service.
     pub action_cache_address: Option<String>,
     /// Whether to use TLS to interact with remote execution.
     pub tls: bool,
@@ -155,6 +158,10 @@ pub struct Buck2OssReConfiguration {
     /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
     /// will be substituted before using the value.
     pub http_headers: Vec<HttpHeader>,
+    /// Whether to query capabilities from the RBE backend.
+    pub capabilities: Option<bool>,
+    /// The instance name to use in requests.
+    pub instance_name: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -196,6 +203,8 @@ impl Buck2OssReConfiguration {
             http_headers: legacy_config
                 .parse_list(BUCK2_RE_CLIENT_CFG_SECTION, "http_headers")?
                 .unwrap_or_default(), // Empty list is as good None.
+            capabilities: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "capabilities")?,
+            instance_name: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "instance_name")?,
         })
     }
 }

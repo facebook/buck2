@@ -9,23 +9,26 @@
 
 use std::collections::HashMap;
 use std::env::VarError;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::Context;
-use buck2_core::fs::fs_util;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use futures::Stream;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
+use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
@@ -34,17 +37,27 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::bytestream::ReadRequest;
+use re_grpc_proto::google::bytestream::ReadResponse;
+use re_grpc_proto::google::bytestream::WriteRequest;
+use re_grpc_proto::google::bytestream::WriteResponse;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tonic::codegen::InterceptedService;
 use tonic::metadata;
@@ -62,7 +75,12 @@ use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
 
-const INSTANCE_NAME: &str = "";
+// RBE Services (e.g. Buildbarn) may not be robust against having too many files open at
+// once. Limit to an arbitrary reasonable number since this information is not expressed
+// in the Capabilities message query.
+const CONCURRENT_UPLOAD_LIMIT: usize = 64;
+
+const DEFAULT_MAX_MSG_SIZE: usize = 4 * 1000 * 1000;
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -180,6 +198,33 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
     Ok(Uri::from_parts(parts)?)
 }
 
+/// Contains information queried from the the Remote Execution Capabilities service.
+pub struct RECapabilities {
+    /// Largest size of a message before being uploaded using bytestream service.
+    /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
+    max_msg_size: usize,
+    /// Does the remote server support execution.
+    exec_enabled: bool,
+}
+
+struct InstanceName(Option<String>);
+
+impl InstanceName {
+    fn as_str(&self) -> &str {
+        match &self.0 {
+            Some(instance_name) => instance_name,
+            None => "",
+        }
+    }
+
+    fn as_resource_prefix(&self) -> String {
+        match &self.0 {
+            Some(instance_name) => format!("{}/", instance_name),
+            None => "".to_owned(),
+        }
+    }
+}
+
 pub struct REClientBuilder;
 
 impl REClientBuilder {
@@ -210,16 +255,18 @@ impl REClientBuilder {
             )
         };
 
-        let (cas, execution, action_cache) = futures::future::join3(
+        let (cas, execution, action_cache, bytestream, capabilities) = futures::future::join5(
             create_channel(opts.cas_address.clone()),
             create_channel(opts.engine_address.clone()),
             create_channel(opts.action_cache_address.clone()),
+            create_channel(opts.cas_address.clone()),
+            create_channel(opts.engine_address.clone()),
         )
         .await;
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let grpc_clients = GRPCClients {
+        let mut grpc_clients = GRPCClients {
             cas_client: ContentAddressableStorageClient::with_interceptor(
                 cas.context("Error creating CAS client")?,
                 interceptor.dupe(),
@@ -232,9 +279,69 @@ impl REClientBuilder {
                 action_cache.context("Error creating ActionCache client")?,
                 interceptor.dupe(),
             ),
+            bytestream_client: ByteStreamClient::with_interceptor(
+                bytestream.context("Error creating Bytestream client")?,
+                interceptor.dupe(),
+            ),
+            capabilities_client: CapabilitiesClient::with_interceptor(
+                capabilities.context("Error creating Capabilities client")?,
+                interceptor.dupe(),
+            ),
         };
 
-        Ok(REClient::new(grpc_clients))
+        let instance_name = InstanceName(opts.instance_name.clone());
+
+        let capabilities = if opts.capabilities.unwrap_or(true) {
+            Self::fetch_rbe_capabilities(&mut grpc_clients, &instance_name).await?
+        } else {
+            RECapabilities {
+                exec_enabled: true,
+                max_msg_size: DEFAULT_MAX_MSG_SIZE,
+            }
+        };
+
+        if !capabilities.exec_enabled {
+            return Err(anyhow::anyhow!("Server has remote execution disabled."));
+        }
+
+        Ok(REClient::new(grpc_clients, capabilities, instance_name))
+    }
+
+    async fn fetch_rbe_capabilities(
+        clients: &mut GRPCClients,
+        instance_name: &InstanceName,
+    ) -> anyhow::Result<RECapabilities> {
+        // TODO use more of the capabilities of the remote build executor
+
+        let resp = clients
+            .capabilities_client
+            .get_capabilities(GetCapabilitiesRequest {
+                instance_name: instance_name.as_str().to_owned(),
+            })
+            .await
+            .context("Failed to query capabilities of remote")?
+            .into_inner();
+        // Default is a reasonable size for the gRPC transport
+        // with enough room for headers.
+        let mut max_msg_size = DEFAULT_MAX_MSG_SIZE;
+        let mut exec_enabled = true;
+
+        if let Some(cache_cap) = resp.cache_capabilities {
+            let size = cache_cap.max_batch_total_size_bytes as usize;
+            // A value of 0 means no limit is set
+            if size != 0 {
+                max_msg_size = size;
+            }
+        }
+
+        if let Some(exec_cap) = resp.execution_capabilities {
+            exec_enabled = exec_cap.exec_enabled;
+        }
+
+        Ok(RECapabilities {
+            max_msg_size,
+            exec_enabled,
+        })
     }
 }
 
@@ -288,6 +395,8 @@ pub struct GRPCClients {
         ContentAddressableStorageClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     execution_client: ExecutionClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
     action_cache_client: ActionCacheClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    bytestream_client: ByteStreamClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
+    capabilities_client: CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
 }
 
 #[derive(Default)]
@@ -299,6 +408,8 @@ pub struct REState {
 
 pub struct REClient {
     grpc_clients: GRPCClients,
+    capabilities: RECapabilities,
+    instance_name: InstanceName,
     state: Mutex<REState>,
 }
 
@@ -309,10 +420,64 @@ impl Drop for REClient {
     }
 }
 
+/// Information on components of a batch upload.
+/// Used to defer reading of NamedDigest contents till
+/// actual execution of upload and prevent opening too many
+/// files at the same time.
+enum BatchUploadRequest {
+    Blob(InlinedBlobWithDigest),
+    File(NamedDigest),
+}
+
+/// Builds up a vector of batch upload requests based upon the maximum allowed message size.
+#[derive(Default)]
+struct BatchUploadReqAggregator {
+    max_msg_size: i64,
+    curr_req: Vec<BatchUploadRequest>,
+    requests: Vec<Vec<BatchUploadRequest>>,
+    curr_request_size: i64,
+}
+
+impl BatchUploadReqAggregator {
+    pub fn new(max_msg_size: usize) -> Self {
+        BatchUploadReqAggregator {
+            max_msg_size: max_msg_size as i64,
+            ..Default::default()
+        }
+    }
+
+    pub fn push(&mut self, req: BatchUploadRequest) {
+        let size_in_bytes = match &req {
+            BatchUploadRequest::Blob(blob) => blob.digest.size_in_bytes,
+            BatchUploadRequest::File(file) => file.digest.size_in_bytes,
+        };
+        self.curr_request_size += size_in_bytes;
+
+        if self.curr_request_size >= self.max_msg_size {
+            self.requests.push(std::mem::take(&mut self.curr_req));
+            self.curr_request_size = size_in_bytes;
+        }
+        self.curr_req.push(req);
+    }
+
+    pub fn done(mut self) -> Vec<Vec<BatchUploadRequest>> {
+        if !self.curr_req.is_empty() {
+            self.requests.push(std::mem::take(&mut self.curr_req));
+        }
+        self.requests
+    }
+}
+
 impl REClient {
-    pub fn new(grpc_clients: GRPCClients) -> Self {
+    fn new(
+        grpc_clients: GRPCClients,
+        capabilities: RECapabilities,
+        instance_name: InstanceName,
+    ) -> Self {
         REClient {
             grpc_clients,
+            capabilities,
+            instance_name,
             state: Mutex::new(REState::default()),
         }
     }
@@ -327,7 +492,7 @@ impl REClient {
         let res = client
             .get_action_result(with_internal_metadata(
                 GetActionResultRequest {
-                    instance_name: INSTANCE_NAME.into(),
+                    instance_name: self.instance_name.as_str().to_owned(),
                     action_digest: Some(tdigest_to(request.digest)),
                     ..Default::default()
                 },
@@ -362,7 +527,7 @@ impl REClient {
         let action_digest = tdigest_to(execute_request.action_digest.clone());
 
         let request = GExecuteRequest {
-            instance_name: INSTANCE_NAME.into(),
+            instance_name: self.instance_name.as_str().to_owned(),
             skip_cache_lookup: false,
             execution_policy: None,
             results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
@@ -471,72 +636,30 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> anyhow::Result<UploadResponse> {
-        let mut client = self.grpc_clients.cas_client.clone();
+        upload_impl(
+            &self.instance_name,
+            request,
+            self.capabilities.max_msg_size,
+            |re_request| async {
+                let metadata = metadata.clone();
+                let mut cas_client = self.grpc_clients.cas_client.clone();
+                let resp = cas_client
+                    .batch_update_blobs(with_internal_metadata(re_request, metadata))
+                    .await?;
+                Ok(resp.into_inner())
+            },
+            |segments| async {
+                let metadata = metadata.clone();
+                let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
+                let requests = futures::stream::iter(segments);
+                let resp = bytestream_client
+                    .write(with_internal_metadata(requests, metadata))
+                    .await?;
 
-        let files_with_digest: Vec<Request> = request
-            .files_with_digest
-            .unwrap_or_default()
-            .into_try_map(|x| {
-                anyhow::Ok(Request {
-                    digest: Some(tdigest_to(x.digest)),
-                    // FIXME: This could do a lot of blocking reads
-                    data: fs_util::read(&x.name)?,
-                    compressor: compressor::Value::Identity as i32,
-                })
-            })?;
-
-        let re_request = BatchUpdateBlobsRequest {
-            instance_name: INSTANCE_NAME.into(),
-            requests: [
-                request
-                    .inlined_blobs_with_digest
-                    .unwrap_or_default()
-                    .into_map(|x| Request {
-                        digest: Some(tdigest_to(x.digest)),
-                        data: x.blob,
-                        compressor: compressor::Value::Identity as i32,
-                    }),
-                files_with_digest,
-            ]
-            .concat(),
-        };
-
-        let blob_hashes = re_request
-            .requests
-            .iter()
-            .map(|x| x.digest.as_ref().unwrap().hash.clone())
-            .collect::<Vec<String>>();
-        let response = client
-            .batch_update_blobs(with_internal_metadata(re_request, metadata))
-            .await?;
-
-        let failures: Vec<String> = response
-            .get_ref()
-            .responses
-            .iter()
-            .filter_map(|r| {
-                r.status.as_ref().and_then(|s| {
-                    if s.code == (Code::Ok as i32) {
-                        None
-                    } else {
-                        Some(format!(
-                            "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
-                            r.digest.as_ref().map_or("N/A", |d| &d.hash),
-                            s.code,
-                            s.message
-                        ))
-                    }
-                })
-            })
-            .collect();
-
-        if failures.is_empty() {
-            tracing::debug!("uploaded: {:?}", blob_hashes);
-            // TODO(aloiscochard): Add something interesting in UploadResponse?
-            Ok(UploadResponse {})
-        } else {
-            Err(anyhow::anyhow!("Batch upload failed: {:?}", failures))
-        }
+                Ok(resp.into_inner())
+            },
+        )
+        .await
     }
 
     pub async fn upload_blob(
@@ -553,27 +676,81 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
-        download_impl(request, |re_request| async {
-            let mut client = self.grpc_clients.cas_client.clone();
-            Ok(client
-                .batch_read_blobs(with_internal_metadata(re_request, metadata))
-                .await?
-                .into_inner())
-        })
+        download_impl(
+            &self.instance_name,
+            request,
+            self.capabilities.max_msg_size,
+            |re_request| async {
+                let metadata = metadata.clone();
+                let mut client = self.grpc_clients.cas_client.clone();
+                Ok(client
+                    .batch_read_blobs(with_internal_metadata(re_request, metadata))
+                    .await?
+                    .into_inner())
+            },
+            |read_request| {
+                let metadata = metadata.clone();
+                async move {
+                    let mut client = self.grpc_clients.bytestream_client.clone();
+                    let response = client
+                        .read(with_internal_metadata(read_request, metadata))
+                        .await?
+                        .into_inner();
+                    Ok(Box::pin(response.into_stream()))
+                }
+            },
+        )
         .await
     }
 
     pub async fn get_digests_ttl(
         &self,
-        _metadata: RemoteExecutionMetadata,
+        metadata: RemoteExecutionMetadata,
         request: GetDigestsTtlRequest,
     ) -> anyhow::Result<GetDigestsTtlResponse> {
-        // TODO(aloiscochard): For now we just say all digests have expired,
-        // we should fetch and return real TTL instead
+        let mut cas_client = self.grpc_clients.cas_client.clone();
+        let mut remote_ttl: HashMap<TDigest, DigestWithTtl> = HashMap::new();
+
+        for digest_chunk in request.digests.chunks(100) {
+            for digest in digest_chunk {
+                // Assume that all digests are present on the remote because the API
+                // returns what is *not* present.
+                remote_ttl.insert(
+                    digest.clone(),
+                    DigestWithTtl {
+                        digest: digest.clone(),
+                        // NOTE: This is an arbitrary number because RBE does not return information
+                        // on the TTL of the remote blob.
+                        ttl: 60,
+                    },
+                );
+            }
+            let missing_blobs = cas_client
+                .find_missing_blobs(with_internal_metadata(
+                    FindMissingBlobsRequest {
+                        instance_name: self.instance_name.as_str().to_owned(),
+                        blob_digests: digest_chunk.map(|b| tdigest_to(b.clone())),
+                    },
+                    metadata.clone(),
+                ))
+                .await
+                .context("Failed to request what blobs are not present on remote")?;
+            let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
+            for digest in &resp.missing_blob_digests.map(|d| tdigest_from(d.clone())) {
+                // If it's present in the MissingBlobsResponse, it's expired on the remote and
+                // needs to be refetched.
+                remote_ttl.insert(
+                    digest.clone(),
+                    DigestWithTtl {
+                        digest: digest.clone(),
+                        ttl: 0,
+                    },
+                );
+            }
+        }
+
         Ok(GetDigestsTtlResponse {
-            digests_with_ttl: request
-                .digests
-                .into_map(|digest| DigestWithTtl { digest, ttl: 0 }),
+            digests_with_ttl: remote_ttl.values().cloned().collect::<Vec<DigestWithTtl>>(),
         })
     }
 
@@ -697,62 +874,123 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
     Ok(action_result)
 }
 
-async fn download_impl<F, Fut>(request: DownloadRequest, f: F) -> anyhow::Result<DownloadResponse>
+async fn download_impl<Byt, BytRet, Cas>(
+    instance_name: &InstanceName,
+    request: DownloadRequest,
+    max_msg_size: usize,
+    cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
+    bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
+) -> anyhow::Result<DownloadResponse>
 where
-    F: FnOnce(BatchReadBlobsRequest) -> Fut,
-    Fut: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
+    Byt: Future<Output = anyhow::Result<Pin<Box<BytRet>>>>,
+    BytRet: Stream<Item = Result<ReadResponse, tonic::Status>>,
+    Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
 {
+    let bystream_fut = |digest: TDigest| async move {
+        let hash = digest.hash;
+        let size_in_bytes = digest.size_in_bytes;
+
+        let resource_name = format!(
+            "{}blobs/{}/{}",
+            instance_name.as_resource_prefix(),
+            hash,
+            size_in_bytes
+        );
+
+        bystream_fut(ReadRequest {
+            resource_name: resource_name.clone(),
+            read_offset: 0,
+            read_limit: 0,
+        })
+        .await
+        .with_context(|| format!("Failed to read {} from Bytestream service", resource_name))
+    };
+
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
-    let re_request = BatchReadBlobsRequest {
-        instance_name: INSTANCE_NAME.into(),
-        digests: file_digests
-            .iter()
-            .map(|req| &req.named_digest.digest)
-            .chain(inlined_digests.iter())
-            .map(|d| tdigest_to(d.clone()))
-            .filter(|d| d.size_bytes > 0)
-            .collect(),
-        acceptable_compressors: vec![compressor::Value::Identity as i32],
-    };
+    let mut curr_size = 0;
+    let mut requests = vec![];
+    let mut curr_digests = vec![];
+    for digest in file_digests
+        .iter()
+        .map(|req| &req.named_digest.digest)
+        .chain(inlined_digests.iter())
+        .map(|d| tdigest_to(d.clone()))
+        .filter(|d| d.size_bytes > 0)
+    {
+        if digest.size_bytes as usize >= max_msg_size {
+            // digest is too big to download in a BatchReadBlobsRequest
+            // need to use the bytstream api
+            continue;
+        }
+        curr_size += digest.size_bytes;
+        if curr_size >= max_msg_size as i64 {
+            let read_blob_req = BatchReadBlobsRequest {
+                instance_name: instance_name.as_str().to_owned(),
+                digests: std::mem::take(&mut curr_digests),
+                acceptable_compressors: vec![compressor::Value::Identity as i32],
+            };
+            requests.push(read_blob_req);
+        }
+        curr_digests.push(digest.clone());
+    }
 
-    let response = f(re_request).await?;
+    if !curr_digests.is_empty() {
+        let read_blob_req = BatchReadBlobsRequest {
+            instance_name: instance_name.as_str().to_owned(),
+            digests: std::mem::take(&mut curr_digests),
+            acceptable_compressors: vec![compressor::Value::Identity as i32],
+        };
+        requests.push(read_blob_req);
+    }
 
-    let response = response
-        .responses
-        .into_iter()
-        .map(|r| {
-            check_status(r.status.unwrap_or_default())?;
+    let mut batched_blobs_response = HashMap::new();
+    for read_blob_req in requests {
+        let resp = cas_f(read_blob_req)
+            .await
+            .context("Failed to make BatchReadBlobs request")?;
+        for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
-            anyhow::Ok((digest, r.data))
-        })
-        .collect::<Result<HashMap<_, _>, _>>()?;
+            check_status(r.status.unwrap_or_default())?;
+            batched_blobs_response.insert(digest, r.data);
+        }
+    }
 
     let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
         if digest.size_in_bytes == 0 {
             return Ok(Vec::new());
         }
 
-        Ok(response
+        Ok(batched_blobs_response
             .get(digest)
             .with_context(|| format!("Did not receive digest data for `{}`", digest))?
             .clone())
     };
 
-    let inlined_blobs = inlined_digests.into_try_map(|digest| {
-        let data = get(&digest)?;
-
-        anyhow::Ok(InlinedDigestWithStatus {
+    let mut inlined_blobs = vec![];
+    for digest in inlined_digests {
+        let data = if digest.size_in_bytes as usize >= max_msg_size {
+            let mut accum = vec![];
+            let mut responses = bystream_fut(digest.clone()).await?;
+            while let Some(resp) = responses.next().await {
+                let data = resp
+                    .with_context(|| format!("Failed to fetch inline digest: {digest}"))?
+                    .data;
+                accum.extend_from_slice(&data);
+            }
+            accum
+        } else {
+            get(&digest)?
+        };
+        inlined_blobs.push(InlinedDigestWithStatus {
             digest,
             status: tstatus_ok(),
             blob: data,
         })
-    })?;
+    }
 
     let writes = file_digests.iter().map(|req| async {
-        let data = get(&req.named_digest.digest)?;
-
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).create_new(true);
         #[cfg(unix)]
@@ -764,19 +1002,37 @@ where
             }
         }
 
-        async {
+        let fut = async {
             let mut file = opts
                 .open(&req.named_digest.name)
                 .await
                 .context("Error opening")?;
-            file.write_all(&data).await.context("Error writing")?;
+
+            // If the data is small enough to be transferred in a batch
+            // blob update, write it all at once to the file. Otherwise, it'll
+            // be streamed in chunks as the remote responds.
+            if req.named_digest.digest.size_in_bytes < max_msg_size as i64 {
+                let data = get(&req.named_digest.digest)?;
+                file.write_all(&data)
+                    .await
+                    .with_context(|| format!("Error writing: {}", req.named_digest.digest))?;
+            } else {
+                let mut responses = bystream_fut(req.named_digest.digest.clone()).await?;
+                while let Some(resp) = responses.next().await {
+                    let data = resp
+                        .with_context(|| format!("Failed to fetch file: {:?}", file))?
+                        .data;
+                    file.write_all(&data).await.with_context(|| {
+                        format!("Error writing chunk of: {}", req.named_digest.digest)
+                    })?;
+                }
+            }
             file.flush().await.context("Error flushing")?;
             anyhow::Ok(())
-        }
-        .await
-        .with_context(|| {
+        };
+        fut.await.with_context(|| {
             format!(
-                "Error writing digest `{}` to `{}`",
+                "Error downloading digest `{}` to `{}`",
                 req.named_digest.digest, req.named_digest.name,
             )
         })
@@ -788,6 +1044,201 @@ where
         inlined_blobs: Some(inlined_blobs),
         directories: None,
     })
+}
+
+async fn upload_impl<Byt, Cas>(
+    instance_name: &InstanceName,
+    request: UploadRequest,
+    max_msg_size: usize,
+    cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
+    bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
+) -> anyhow::Result<UploadResponse>
+where
+    Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
+    Byt: Future<Output = anyhow::Result<WriteResponse>> + Send,
+{
+    // NOTE if we stop recording blob_hashes, we can drop out a lot of allocations.
+    let mut upload_futures: Vec<BoxFuture<anyhow::Result<Vec<String>>>> = vec![];
+
+    // For small file uploads the client should group them together and call `BatchUpdateBlobs`
+    // https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto#L205
+    let mut batched_blob_updates = BatchUploadReqAggregator::new(max_msg_size);
+
+    // Create futures for any blobs that need uploading.
+    for blob in request.inlined_blobs_with_digest.unwrap_or_default() {
+        let hash = blob.digest.hash.clone();
+        let size = blob.digest.size_in_bytes;
+
+        if size < max_msg_size as i64 {
+            batched_blob_updates.push(BatchUploadRequest::Blob(blob));
+            continue;
+        }
+
+        let data = blob.blob;
+        let client_uuid = uuid::Uuid::new_v4().to_string();
+        let resource_name = format!(
+            "{}uploads/{}/blobs/{}/{}",
+            instance_name.as_resource_prefix(),
+            client_uuid,
+            hash,
+            size
+        );
+        let fut = async move {
+            // Number of complete (non-partial) messages
+            let mut upload_segments = vec![];
+            for (i, chunk) in data.chunks(max_msg_size).enumerate() {
+                upload_segments.push(WriteRequest {
+                    resource_name: resource_name.to_owned(),
+                    write_offset: (i * max_msg_size) as i64,
+                    finish_write: false,
+                    data: chunk.to_owned(),
+                });
+            }
+            upload_segments.last_mut().unwrap().finish_write = true;
+
+            let resp = bystream_fut(upload_segments).await?;
+            if resp.committed_size != size {
+                return Err(anyhow::anyhow!(
+                    "Failed to upload inline blob: invalid committed_size from WriteResponse"
+                ));
+            }
+
+            Ok(vec![hash])
+        };
+        upload_futures.push(Box::pin(fut));
+    }
+
+    // Create futures for any files that needs uploading.
+    for file in request.files_with_digest.unwrap_or_default() {
+        let hash = file.digest.hash.clone();
+        let size = file.digest.size_in_bytes;
+        let name = file.name.clone();
+        if size < max_msg_size as i64 {
+            batched_blob_updates.push(BatchUploadRequest::File(file));
+            continue;
+        }
+        let client_uuid = uuid::Uuid::new_v4().to_string();
+        let resource_name = format!(
+            "{}uploads/{}/blobs/{}/{}",
+            instance_name.as_resource_prefix(),
+            client_uuid,
+            hash.clone(),
+            size
+        );
+        let fut = async move {
+            let mut file = tokio::fs::File::open(&name)
+                .await
+                .with_context(|| format!("Opening `{name}` for reading failed"))?;
+            let mut data = vec![0; max_msg_size];
+
+            let mut write_offset = 0;
+            let mut upload_segments = Vec::new();
+            loop {
+                let length = file
+                    .read(&mut data)
+                    .await
+                    .with_context(|| format!("Error reading from {name}"))?;
+                if length == 0 {
+                    break;
+                }
+                upload_segments.push(WriteRequest {
+                    resource_name: resource_name.to_owned(),
+                    write_offset,
+                    finish_write: false,
+                    data: data[..length].to_owned(),
+                });
+                write_offset += length as i64;
+            }
+            upload_segments
+                .last_mut()
+                .with_context(|| format!("Read no segments from `{name} "))?
+                .finish_write = true;
+
+            let resp = bystream_fut(upload_segments).await?;
+            if resp.committed_size != size {
+                return Err(anyhow::anyhow!(
+                    "Failed to upload `{name}`: invalid committed_size from WriteResponse"
+                ));
+            }
+            Ok(vec![hash])
+        };
+        upload_futures.push(Box::pin(fut));
+    }
+
+    // Create futures for any files small enough that they
+    // should be uploaded in batches.
+    let batched_blob_updates = batched_blob_updates.done();
+    for batch in batched_blob_updates {
+        let fut = async move {
+            let mut re_request = BatchUpdateBlobsRequest {
+                instance_name: instance_name.as_str().to_owned(),
+                requests: vec![],
+            };
+            for blob in batch {
+                match blob {
+                    BatchUploadRequest::Blob(blob) => {
+                        re_request.requests.push(Request {
+                            digest: Some(tdigest_to(blob.digest.clone())),
+                            data: blob.blob.clone(),
+                            compressor: compressor::Value::Identity as i32,
+                        });
+                    }
+                    BatchUploadRequest::File(file) => {
+                        // These should be small files, so no need to use a buffered reader.
+                        let mut fin = tokio::fs::File::open(&file.name)
+                            .await
+                            .with_context(|| format!("Opening {} for writing failed", file.name))?;
+                        let mut data = vec![];
+                        fin.read_to_end(&mut data).await?;
+
+                        re_request.requests.push(Request {
+                            digest: Some(tdigest_to(file.digest.clone())),
+                            data,
+                            compressor: compressor::Value::Identity as i32,
+                        });
+                    }
+                }
+            }
+            let blob_hashes = re_request
+                .requests
+                .iter()
+                .map(|x| x.digest.as_ref().unwrap().hash.clone())
+                .collect::<Vec<String>>();
+
+            let response = cas_f(re_request).await?;
+            let failures: Vec<String> = response
+                .responses
+                .iter()
+                .filter_map(|r| {
+                    r.status.as_ref().and_then(|s| {
+                        if s.code == (Code::Ok as i32) {
+                            None
+                        } else {
+                            Some(format!(
+                                "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
+                                r.digest.as_ref().map_or("N/A", |d| &d.hash),
+                                s.code,
+                                s.message
+                            ))
+                        }
+                    })
+                })
+                .collect();
+
+            if !failures.is_empty() {
+                return Err(anyhow::anyhow!("Batch upload failed: {:?}", failures));
+            }
+            Ok(blob_hashes)
+        };
+        upload_futures.push(Box::pin(fut));
+    }
+
+    let upload_stream =
+        futures::stream::iter(upload_futures).buffer_unordered(CONCURRENT_UPLOAD_LIMIT);
+    let blob_hashes = upload_stream.try_collect::<Vec<Vec<String>>>().await?;
+
+    tracing::debug!("uploaded: {:?}", blob_hashes);
+    Ok(UploadResponse {})
 }
 
 fn with_internal_metadata<T>(t: T, metadata: RemoteExecutionMetadata) -> tonic::Request<T> {
@@ -853,6 +1304,7 @@ fn substitute_env_vars_impl(
 #[cfg(test)]
 mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
+    use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
     use crate::NamedDigest;
@@ -920,16 +1372,141 @@ mod tests {
             ],
         };
 
-        download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 2);
-            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
-            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
-            Ok(res)
-        })
+        download_impl(
+            &InstanceName(None),
+            req,
+            10000,
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let digest2 = digest2.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 2);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    assert_eq!(req.digests[1], tdigest_to(digest2));
+                    Ok(res.clone())
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
         .await?;
 
         assert_eq!(tokio::fs::read(&path1).await?, vec![1, 2, 3]);
         assert_eq!(tokio::fs::read(&path2).await?, vec![4, 5, 6]);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                tokio::fs::metadata(&path1).await?.permissions().mode() & 0o111,
+                0o111
+            );
+            assert_eq!(
+                tokio::fs::metadata(&path2).await?.permissions().mode() & 0o111,
+                0o000
+            );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_large_named() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+
+        let digest2 = TDigest {
+            hash: "xl".to_owned(),
+            size_in_bytes: 18,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            file_digests: Some(vec![
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path1.to_owned(),
+                        digest: digest1.clone(),
+                        ..Default::default()
+                    },
+                    is_executable: true,
+                    ..Default::default()
+                },
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path2.to_owned(),
+                        digest: digest2.clone(),
+                        ..Default::default()
+                    },
+                    is_executable: false,
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    data: vec![1, 2, 3],
+                    ..Default::default()
+                },
+            ],
+        };
+
+        let read_response1 = ReadResponse {
+            data: blob_data[..10].to_vec(),
+        };
+        let read_response2 = ReadResponse {
+            data: blob_data[10..].to_vec(),
+        };
+
+        download_impl(
+            &InstanceName(None),
+            req,
+            10, // kept small to simulate a large file download
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 1);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    Ok(res.clone())
+                }
+            },
+            |req| {
+                let read_response1 = read_response1.clone();
+                let read_response2 = read_response2.clone();
+                async move {
+                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![
+                        Ok(read_response1),
+                        Ok(read_response2),
+                    ])))
+                }
+            },
+        )
+        .await?;
+
+        assert_eq!(tokio::fs::read(&path1).await?, vec![1, 2, 3]);
+        assert_eq!(tokio::fs::read(&path2).await?, blob_data);
 
         #[cfg(unix)]
         {
@@ -982,12 +1559,23 @@ mod tests {
             ],
         };
 
-        let res = download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 2);
-            assert_eq!(req.digests[0], tdigest_to(digest1.clone()));
-            assert_eq!(req.digests[1], tdigest_to(digest2.clone()));
-            Ok(res)
-        })
+        let res = download_impl(
+            &InstanceName(None),
+            req,
+            100000,
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let digest2 = digest2.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 2);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    assert_eq!(req.digests[1], tdigest_to(digest2));
+                    Ok(res)
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
         .await?;
 
         let inlined_blobs = res.inlined_blobs.unwrap();
@@ -999,6 +1587,87 @@ mod tests {
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
         assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_large_inlined() -> anyhow::Result<()> {
+        let digest1 = &TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = &TDigest {
+            hash: "xl".to_owned(),
+            size_in_bytes: 18,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_read_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    data: vec![1, 2, 3],
+                    ..Default::default()
+                },
+            ],
+        };
+
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+
+        let read_response1 = ReadResponse {
+            data: blob_data[..10].to_vec(),
+        };
+        let read_response2 = ReadResponse {
+            data: blob_data[10..].to_vec(),
+        };
+
+        let res = download_impl(
+            &InstanceName(None),
+            req,
+            10, // intentionally small value to keep data in the test blobs small
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 1);
+                    assert_eq!(req.digests[0], tdigest_to(digest1));
+                    Ok(res)
+                }
+            },
+            |req| {
+                let read_response1 = read_response1.clone();
+                let read_response2 = read_response2.clone();
+                async move {
+                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![
+                        Ok(read_response1),
+                        Ok(read_response2),
+                    ])))
+                }
+            },
+        )
+        .await?;
+
+        let inlined_blobs = res.inlined_blobs.unwrap();
+
+        assert_eq!(inlined_blobs.len(), 2);
+
+        assert_eq!(inlined_blobs[0].digest, *digest1);
+        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+
+        assert_eq!(inlined_blobs[1].digest, *digest2);
+        assert_eq!(inlined_blobs[1].blob, blob_data);
 
         Ok(())
     }
@@ -1018,10 +1687,19 @@ mod tests {
 
         let res = BatchReadBlobsResponse { responses: vec![] };
 
-        let res = download_impl(req, |req| async move {
-            assert_eq!(req.digests.len(), 0);
-            Ok(res)
-        })
+        let res = download_impl(
+            &InstanceName(None),
+            req,
+            100000,
+            |req| {
+                let res = res.clone();
+                async move {
+                    assert_eq!(req.digests.len(), 0);
+                    Ok(res)
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
         .await?;
 
         let inlined_blobs = res.inlined_blobs.unwrap();
@@ -1030,6 +1708,466 @@ mod tests {
 
         assert_eq!(inlined_blobs[0].digest, *digest1);
         assert!(inlined_blobs[0].blob.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_resource_name() -> anyhow::Result<()> {
+        let digest1 = &TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 0,
+            ..Default::default()
+        };
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone()]),
+            ..Default::default()
+        };
+
+        download_impl(
+            &InstanceName(Some("instance".to_owned())),
+            req,
+            0,
+            |_req| async { panic!("not called") },
+            |req| async move {
+                assert_eq!(req.resource_name, "instance/blobs/aa/0");
+                anyhow::Ok(Box::pin(futures::stream::iter(vec![])))
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_named() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, "aaa").await?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path2, "bbb").await?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = TDigest {
+            hash: "bb".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![
+                NamedDigest {
+                    name: path1.to_owned(),
+                    digest: digest1.clone(),
+                    ..Default::default()
+                },
+                NamedDigest {
+                    name: path2.to_owned(),
+                    digest: digest2.clone(),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        let res = BatchUpdateBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_update_blobs_response::Response {
+                    digest: Some(tdigest_to(digest2.clone())),
+                    status: Some(Status::default()),
+                },
+                batch_update_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    status: Some(Status::default()),
+                },
+            ],
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            10000,
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let digest2 = digest2.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 2);
+                    assert_eq!(req.requests[0].digest, Some(tdigest_to(digest1)));
+                    assert_eq!(req.requests[0].data, b"aaa");
+                    assert_eq!(req.requests[1].digest, Some(tdigest_to(digest2)));
+                    assert_eq!(req.requests[1].data, b"bbb");
+                    Ok(res)
+                }
+            },
+            |_req| async { panic!("A Bytestream upload should not be triggered") },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_large_named() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, "aaa").await?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path2, &blob_data).await?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+
+        let digest2 = TDigest {
+            hash: "xl".to_owned(),
+            size_in_bytes: 18,
+            ..Default::default()
+        };
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![
+                NamedDigest {
+                    name: path1.to_owned(),
+                    digest: digest1.clone(),
+                    ..Default::default()
+                },
+                NamedDigest {
+                    name: path2.to_owned(),
+                    digest: digest2.clone(),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        let res = BatchUpdateBlobsResponse {
+            responses: vec![
+                // Reply out of order
+                batch_update_blobs_response::Response {
+                    digest: Some(tdigest_to(digest2.clone())),
+                    status: Some(Status::default()),
+                },
+                batch_update_blobs_response::Response {
+                    digest: Some(tdigest_to(digest1.clone())),
+                    status: Some(Status::default()),
+                },
+            ],
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            10, // kept small to simulate a large file upload
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(req.requests[0].digest, Some(tdigest_to(digest1)));
+                    assert_eq!(req.requests[0].data, b"aaa");
+                    Ok(res)
+                }
+            },
+            |write_reqs| {
+                let blob_data = blob_data.clone();
+                async move {
+                    assert_eq!(write_reqs.len(), 2);
+                    assert_eq!(write_reqs[0].write_offset, 0);
+                    assert!(!write_reqs[0].finish_write);
+                    assert_eq!(write_reqs[0].data, blob_data[..10]);
+                    assert_eq!(write_reqs[1].write_offset, 10);
+                    assert!(write_reqs[1].finish_write);
+                    assert_eq!(write_reqs[1].data, blob_data[10..]);
+                    anyhow::Ok(WriteResponse { committed_size: 18 })
+                }
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_large_inlined() -> anyhow::Result<()> {
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+        let blob_data1 = b"aaa".to_vec();
+
+        let digest2 = TDigest {
+            hash: "xl".to_owned(),
+            size_in_bytes: 18,
+            ..Default::default()
+        };
+        let blob_data2 = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+
+        let req = UploadRequest {
+            inlined_blobs_with_digest: Some(vec![
+                InlinedBlobWithDigest {
+                    blob: blob_data2.clone(),
+                    digest: digest2.clone(),
+                    ..Default::default()
+                },
+                InlinedBlobWithDigest {
+                    blob: blob_data1.clone(),
+                    digest: digest1.clone(),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        let res = BatchUpdateBlobsResponse {
+            responses: vec![batch_update_blobs_response::Response {
+                digest: Some(tdigest_to(digest2.clone())),
+                status: Some(Status::default()),
+            }],
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            10, // kept small to simulate a large inlined upload
+            |req| {
+                let res = res.clone();
+                let digest1 = digest1.clone();
+                let blob_data1 = blob_data1.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(req.requests[0].digest, Some(tdigest_to(digest1)));
+                    assert_eq!(req.requests[0].data, blob_data1);
+                    Ok(res)
+                }
+            },
+            |write_reqs| {
+                let blob_data2 = blob_data2.clone();
+                async move {
+                    assert_eq!(write_reqs.len(), 2);
+                    assert_eq!(write_reqs[0].write_offset, 0);
+                    assert!(!write_reqs[0].finish_write);
+                    assert_eq!(write_reqs[0].data, blob_data2[..10]);
+                    assert_eq!(write_reqs[1].write_offset, 10);
+                    assert!(write_reqs[1].finish_write);
+                    assert_eq!(write_reqs[1].data, blob_data2[10..]);
+                    anyhow::Ok(WriteResponse { committed_size: 18 })
+                }
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_invalid_committed_size() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+
+        let work = tempfile::tempdir()?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path2, &blob_data).await?;
+
+        let digest2 = TDigest {
+            hash: "xl".to_owned(),
+            size_in_bytes: 18,
+            ..Default::default()
+        };
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![NamedDigest {
+                name: path2.to_owned(),
+                digest: digest2.clone(),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let resp: Result<UploadResponse, anyhow::Error> = upload_impl(
+            &InstanceName(None), // TODO
+            req,
+            10,
+            |_req| async move {
+                panic!("This should not be called as there are no blobs to upload in batch");
+            },
+            |_write_reqs| async move {
+                // Not the right size
+                anyhow::Ok(WriteResponse { committed_size: 10 })
+            },
+        )
+        .await;
+
+        let err: anyhow::Error = resp.unwrap_err();
+        // can't compare the full message because tempfile is used
+        assert!(
+            err.root_cause()
+                .to_string()
+                .contains("invalid committed_size")
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_exact() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, "aaabbb").await?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 6,
+            ..Default::default()
+        };
+
+        let digest2 = TDigest {
+            hash: "bb".to_owned(),
+            size_in_bytes: 6,
+            ..Default::default()
+        };
+        let blob_data2 = vec![1, 2, 3, 4, 5, 6];
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![NamedDigest {
+                name: path1.to_owned(),
+                digest: digest1.clone(),
+                ..Default::default()
+            }]),
+            inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                blob: blob_data2.clone(),
+                digest: digest2.clone(),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            3,
+            |_req| async move {
+                panic!("Not called");
+            },
+            |write_reqs| async move {
+                assert_eq!(write_reqs.len(), 2);
+                assert!(write_reqs[1].finish_write);
+                anyhow::Ok(WriteResponse { committed_size: 6 })
+            },
+        )
+        .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_empty() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, "").await?;
+
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 0,
+            ..Default::default()
+        };
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![NamedDigest {
+                name: path1.to_owned(),
+                digest: digest1.clone(),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let res = upload_impl(
+            &InstanceName(None),
+            req,
+            0,
+            |_req| async move {
+                panic!("Not called");
+            },
+            |_write_reqs| async move {
+                panic!("Not called");
+            },
+        )
+        .await;
+
+        assert!(res.is_err()); // Should not panic.
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_resource_name() -> anyhow::Result<()> {
+        let digest1 = TDigest {
+            hash: "aa".to_owned(),
+            size_in_bytes: 3,
+            ..Default::default()
+        };
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, "aaa").await?;
+
+        let req = UploadRequest {
+            inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                digest: digest1.clone(),
+                blob: b"aaa".to_vec(),
+                ..Default::default()
+            }]),
+            files_with_digest: Some(vec![NamedDigest {
+                name: path1.to_owned(),
+                digest: digest1.clone(),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        upload_impl(
+            &InstanceName(Some("instance".to_owned())),
+            req,
+            1,
+            |_req| async move {
+                panic!("Not called");
+            },
+            |write_reqs| async move {
+                assert!(write_reqs[0].resource_name.starts_with("instance/uploads/"));
+                assert!(write_reqs[0].resource_name.ends_with("/blobs/aa/3"));
+                anyhow::Ok(WriteResponse { committed_size: 3 })
+            },
+        )
+        .await?;
 
         Ok(())
     }
