@@ -68,9 +68,10 @@ impl FileIgnores {
     pub fn new_for_interpreter(
         ignore_spec: &str,
         nested_cells: NestedCells,
+        root_cell: bool,
     ) -> anyhow::Result<FileIgnores> {
         Ok(FileIgnores {
-            ignores: IgnoreSet::from_ignore_spec(ignore_spec)?,
+            ignores: IgnoreSet::from_ignore_spec(ignore_spec, root_cell)?,
             cell_ignores: nested_cells,
         })
     }
@@ -123,6 +124,7 @@ mod tests {
         let ignores = FileIgnores::new_for_interpreter(
             "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
             nested_cells,
+            true,
         )?;
 
         assert_eq!(

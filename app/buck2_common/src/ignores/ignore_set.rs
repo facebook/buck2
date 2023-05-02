@@ -44,7 +44,9 @@ impl IgnoreSet {
     /// Java's path matcher does not allow  '*' to cross directory boundaries. We get
     /// the RecursivePathMatcher behavior by identifying non-globby things and appending
     /// a '/**'.
-    pub fn from_ignore_spec(spec: &str) -> anyhow::Result<Self> {
+    ///
+    /// Always ignores `buck-out` if it is a `root_cell`.
+    pub fn from_ignore_spec(spec: &str, root_cell: bool) -> anyhow::Result<Self> {
         // TODO(cjhopman): There's opportunity to greatly improve the performance of IgnoreSet by
         // constructing special cases for a couple of common patterns we see in ignore specs. We
         // know that these can get large wins in some places where we've done this same ignore (watchman, buck1's ignores).
@@ -54,7 +56,8 @@ impl IgnoreSet {
         // `some/prefix/**`: a directory prefix. These can all be merged into one trie lookup.
         let mut patterns_builder = GlobSetBuilder::new();
         let mut patterns = Vec::new();
-        for val in spec.split(',') {
+        let buck_out = if root_cell { Some("buck-out") } else { None };
+        for val in buck_out.into_iter().chain(spec.split(',')) {
             let val = val.trim();
             if val.is_empty() {
                 continue;
@@ -93,5 +96,17 @@ impl IgnoreSet {
     /// Returns whether any pattern matches.
     pub fn is_match(&self, path: &CellRelativePath) -> bool {
         self.globset.is_match(path.as_str())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ignore_set_defaults() {
+        let set = IgnoreSet::from_ignore_spec("", true).unwrap();
+        assert!(set.is_match(CellRelativePath::testing_new("buck-out/gen/src/file.txt")));
+        assert!(!set.is_match(CellRelativePath::testing_new("src/file.txt")));
     }
 }

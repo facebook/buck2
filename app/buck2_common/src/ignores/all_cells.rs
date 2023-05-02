@@ -66,8 +66,11 @@ impl HasAllCellIgnores for DiceComputations {
             let ignore_spec = config.get("project", "ignore")?;
             let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
 
-            let cell_ignores =
-                FileIgnores::new_for_interpreter(ignore_spec, instance.nested_cells().clone())?;
+            let cell_ignores = FileIgnores::new_for_interpreter(
+                ignore_spec,
+                instance.nested_cells().clone(),
+                cells.is_root_cell(cell_name),
+            )?;
             ignores.insert(cell_name, cell_ignores);
         }
 

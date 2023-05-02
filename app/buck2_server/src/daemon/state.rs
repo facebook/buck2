@@ -269,7 +269,10 @@ impl DaemonState {
             .map(|(cell, config)| {
                 Ok((
                     cell,
-                    IgnoreSet::from_ignore_spec(config.get("project", "ignore").unwrap_or(""))?,
+                    IgnoreSet::from_ignore_spec(
+                        config.get("project", "ignore").unwrap_or(""),
+                        cells.is_root_cell(cell),
+                    )?,
                 ))
             })
             .collect::<anyhow::Result<_>>()?;
