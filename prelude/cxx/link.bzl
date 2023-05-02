@@ -274,17 +274,17 @@ def cxx_link_shared_library(
 
     prefer_local_value = value_or(prefer_local, value_or(linker_info.link_libraries_locally, False))
 
-    links_with_extra_args = [LinkArgs(flags = extra_args)] + links
-
     (import_library, import_library_args) = get_import_library(
         ctx,
         linker_type,
         output.short_path,
     )
 
+    links_with_extra_args = [LinkArgs(flags = extra_args)] + links + [LinkArgs(flags = import_library_args)]
+
     exe, linker_map_data = cxx_link(
         ctx,
-        links_with_extra_args + [LinkArgs(flags = import_library_args)],
+        links_with_extra_args,
         output,
         CxxLinkResultType("shared_library"),
         enable_distributed_thinlto = enable_distributed_thinlto,
