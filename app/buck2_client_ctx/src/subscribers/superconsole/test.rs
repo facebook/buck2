@@ -154,6 +154,15 @@ impl<'a> Component for TestHeader<'a> {
     }
 }
 
+pub fn span_from_build_failure_count(count: usize) -> anyhow::Result<Span> {
+    StylizedCount {
+        label: "Build failure",
+        count: count.try_into()?,
+        color: Some(Color::Red),
+    }
+    .to_span()
+}
+
 /// A count that receives color if and only if it's > 0
 struct StylizedCount {
     label: &'static str,

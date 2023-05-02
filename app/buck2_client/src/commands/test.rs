@@ -26,6 +26,7 @@ use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -239,10 +240,9 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(Span::new_unstyled_lossy(format!(
-            "{} builds failed",
-            response.error_messages.len()
-        )));
+        line.push(span_from_build_failure_count(
+            response.error_messages.len(),
+        )?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
