@@ -46,7 +46,8 @@ DEFAULT_PLATFORM_TEMPLATES = {
     "windows-msvc": select({
         "DEFAULT": False,
         "config//os:windows": select({
-            "DEFAULT": False,
+            "DEFAULT": True,
+            "config//abi:gnu": False,
             "config//abi:msvc": True,
         }),
     }),
