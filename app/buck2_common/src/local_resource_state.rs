@@ -52,7 +52,7 @@ impl AsRef<LocalResource> for LocalResourceHolder {
 }
 
 /// Blocking resource pool to manage access to prepared local resources.
-#[derive(Clone, Derivative)]
+#[derive(Clone, Debug, Derivative)]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalResourceState {
     // Set of resources of same type should be uniquely identified by configured target label providing `LocalResourceInfo`.

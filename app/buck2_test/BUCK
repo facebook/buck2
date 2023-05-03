@@ -6,6 +6,9 @@ oncall("buck2")
 rust_library(
     name = "buck2_test",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:maplit",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
