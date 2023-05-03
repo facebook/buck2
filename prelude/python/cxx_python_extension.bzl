@@ -29,6 +29,7 @@ load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:linker.bzl", "PDB_SUB_TARGET")
 load(
     "@prelude//cxx:omnibus.bzl",
+    "create_linkable_root",
     "explicit_roots_enabled",
     "get_roots",
 )
@@ -43,6 +44,7 @@ load(
     "LinkStyle",
     "Linkage",
     "create_merged_link_info",
+    "wrap_link_infos",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -208,7 +210,19 @@ def cxx_python_extension_impl(ctx: "context") -> ["provider"]:
             actions = ctx.actions,
             deps = [d.shared_library_info for d in link_deps],
         ),
-        #linkable_root_info = field([LinkableRootInfo.type, None], None),
+        linkable_root_info = create_linkable_root(
+            ctx = ctx,
+            link_infos = wrap_link_infos(
+                link_infos[LinkStyle("static_pic")],
+                pre_flags = ctx.attrs.linker_flags,
+                post_flags = ctx.attrs.post_linker_flags,
+            ),
+            graph = create_linkable_graph(
+                ctx,
+                deps = cxx_deps,
+            ),
+            deps = cxx_deps,
+        ),
     )
 
     if not embeddable:

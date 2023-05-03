@@ -353,6 +353,24 @@ _LINK_STYLE_FOR_LINKAGE = {
     Linkage("shared"): [LinkStyle("shared")],
 }
 
+# Helper to wrap a LinkInfos with additional pre/post-flags.
+def wrap_link_infos(
+        inner: LinkInfos.type,
+        pre_flags: [""] = [],
+        post_flags: [""] = []) -> LinkInfos.type:
+    return LinkInfos(
+        default = wrap_link_info(
+            inner.default,
+            pre_flags = pre_flags,
+            post_flags = post_flags,
+        ),
+        stripped = None if inner.stripped == None else wrap_link_info(
+            inner.stripped,
+            pre_flags = pre_flags,
+            post_flags = post_flags,
+        ),
+    )
+
 def create_merged_link_info(
         # Target context for which to create the link info.
         ctx: "context",

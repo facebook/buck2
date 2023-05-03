@@ -173,11 +173,11 @@ def get_excluded(deps: ["dependency"] = []) -> {"label": None}:
 
 def create_linkable_root(
         ctx: "context",
-        link_infos: LinkInfos.type,
-        name: [str.type, None],
-        deps: ["dependency"],
         graph: LinkableGraph.type,
-        create_shared_root: bool.type) -> LinkableRootInfo.type:
+        link_infos: LinkInfos.type,
+        name: [str.type, None] = None,
+        deps: ["dependency"] = [],
+        create_shared_root: bool.type = False) -> LinkableRootInfo.type:
     # Only include dependencies that are linkable.
     deps = linkable_deps(deps)
 

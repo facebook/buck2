@@ -177,6 +177,7 @@ def _get_root_link_group_specs(
             LinkGroupLibSpec(
                 name = name,
                 is_shared_lib = False,
+                root = extension.linkable_root_info,
                 group = Group(
                     name = name,
                     mappings = [
