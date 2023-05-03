@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 
+use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
@@ -78,6 +79,19 @@ impl NestedCells {
             }
         }
         None
+    }
+
+    pub(crate) fn matches_checked<'a, 'b>(
+        &'a self,
+        path: &'b CellRelativePath,
+    ) -> Option<(&'a CellRelativePath, CellPathRef<'b>)> {
+        self.matches(UncheckedCellRelativePath::new(path))
+            .map(|(cell_path, cell_name, rem)| {
+                (
+                    cell_path,
+                    CellPathRef::new(cell_name, CellRelativePath::unchecked_new(rem.as_str())),
+                )
+            })
     }
 }
 

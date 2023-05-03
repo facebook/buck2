@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use anyhow::Context;
 use dupe::Dupe;
 use relative_path::RelativePath;
 
@@ -282,6 +283,17 @@ impl<'a> CellPathRef<'a> {
     #[inline]
     pub fn new(cell: CellName, path: &'a CellRelativePath) -> CellPathRef<'a> {
         CellPathRef { cell, path }
+    }
+
+    pub fn testing_new(path: &str) -> CellPathRef {
+        let (cell, path) = path
+            .split_once("//")
+            .with_context(|| format!("invalid path: `{}`", path))
+            .unwrap();
+        CellPathRef {
+            cell: CellName::testing_new(cell),
+            path: CellRelativePath::testing_new(path),
+        }
     }
 
     #[inline]

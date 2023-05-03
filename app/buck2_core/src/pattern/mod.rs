@@ -85,6 +85,8 @@ enum TargetPatternParseError {
         "Cell resolver cell `{0}` does not match the given relative dir `{1}` (internal error)"
     )]
     CellResolverCellDoesNotMatchWorkingDir(CellName, CellPath),
+    #[error("Pattern `{0}` is parsed as `{1}` which crosses cell boundaries. Try `{2}` instead")]
+    PatternCrossesCellBoundaries(String, String, String),
 }
 
 pub fn display_precise_pattern<'a, T: PatternType>(
@@ -196,6 +198,14 @@ impl ParsedPattern<ProvidersPatternExtra> {
 }
 
 impl<T: PatternType> ParsedPattern<T> {
+    pub(crate) fn cell_path(&self) -> CellPathRef {
+        match self {
+            ParsedPattern::Target(pkg, _, _) => pkg.as_cell_path(),
+            ParsedPattern::Package(pkg) => pkg.as_cell_path(),
+            ParsedPattern::Recursive(cell_path) => cell_path.as_ref(),
+        }
+    }
+
     pub fn try_map<U: PatternType>(
         self,
         f: impl FnOnce(T) -> anyhow::Result<U>,
@@ -748,6 +758,53 @@ impl<'a> TargetParsingOptions<'a> {
 /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
 /// targets via `enclosing_package`, if provided.
 fn parse_target_pattern<T>(
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
+    target_alias_resolver: Option<&dyn TargetAliasResolver>,
+    opts: TargetParsingOptions,
+    pattern: &str,
+) -> anyhow::Result<ParsedPattern<T>>
+where
+    T: PatternType,
+{
+    let parsed_pattern = parse_target_pattern_no_validate::<T>(
+        cell_name,
+        cell_resolver,
+        target_alias_resolver,
+        opts,
+        pattern,
+    )?;
+
+    let crossed_path =
+        cell_resolver.resolve_path_crossing_cell_boundaries(parsed_pattern.cell_path())?;
+    if crossed_path != parsed_pattern.cell_path() {
+        let new_pattern = match &parsed_pattern {
+            ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
+                PackageLabel::from_cell_path(crossed_path),
+                target_name.dupe(),
+                extra.clone(),
+            ),
+            ParsedPattern::Package(_) => {
+                ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path))
+            }
+            ParsedPattern::Recursive(_) => ParsedPattern::Recursive(crossed_path.to_owned()),
+        };
+
+        soft_error!(
+            "pattern_crosses_cell_boundary",
+            TargetPatternParseError::PatternCrossesCellBoundaries(
+                pattern.to_owned(),
+                parsed_pattern.to_string(),
+                new_pattern.to_string(),
+            )
+            .into()
+        )?;
+    }
+
+    Ok(parsed_pattern)
+}
+
+fn parse_target_pattern_no_validate<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
@@ -1816,5 +1873,36 @@ mod tests {
             "foo//...",
             ParsedPattern::<TargetPatternExtra>::testing_parse("foo//...").to_string()
         );
+    }
+
+    #[ignore] // TODO(nga): convert to hard error and enable.
+    #[test]
+    fn test_cross_cell_boundary() {
+        let cell_resolver = CellResolver::testing_with_names_and_paths(&[
+            (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new(""),
+            ),
+            (
+                CellName::testing_new("cell1"),
+                CellRootPathBuf::testing_new("cell1"),
+            ),
+            (
+                CellName::testing_new("cell2"),
+                CellRootPathBuf::testing_new("cell1/xx/cell2"),
+            ),
+        ]);
+
+        let err = ParsedPattern::<TargetPatternExtra>::parse_precise(
+            "root//cell1/xx/cell2/yy/...",
+            CellName::testing_new("root"),
+            &cell_resolver,
+        )
+        .unwrap_err();
+        let err = format!("{:?}", err);
+        assert!(
+            err.contains("Pattern `root//cell1/xx/cell2/yy/...` is parsed as `root//cell1/xx/cell2/yy/...` which crosses cell boundaries. Try `cell2//yy/...`"),
+            "Error is: {}",
+            err);
     }
 }
