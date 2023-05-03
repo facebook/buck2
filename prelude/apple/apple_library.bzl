@@ -7,6 +7,7 @@
 
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "SwiftDependencyInfo",  # @unused Used as a type
@@ -18,7 +19,12 @@ load(
     "uses_explicit_modules",
 )
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load(
+    "@prelude//cxx:cxx_library_utility.bzl",
+    "cxx_attr_deps",
+    "cxx_attr_exported_deps",
+    "cxx_attr_preferred_linkage",
+)
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -47,7 +53,11 @@ load(
     "CPreprocessor",
     "CPreprocessorInfo",  # @unused Used as a type
 )
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkStyle",
+    "Linkage",
+)
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -176,13 +186,14 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
     )
+    extra_linker_flags, extra_linker_outputs = _get_extra_linker_flags_and_outputs(ctx)
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_link_flags = [_get_linker_flags(ctx)],
+        extra_link_flags = [_get_linker_flags(ctx)] + extra_linker_flags,
         swiftmodule_linkable = swiftmodule_linkable,
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
@@ -201,7 +212,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             },
             additional_providers_factory = additional_providers_factory,
         ),
-        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
+        link_style_sub_targets_and_providers_factory = partial(_get_shared_link_style_sub_targets_and_providers, extra_linker_outputs),
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -215,6 +226,15 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         link_groups_force_static_follows_dependents = False,
     )
 
+def _get_extra_linker_flags_and_outputs(ctx: "context") -> (["_arglike"], {str.type: [DefaultInfo.type]}):
+    # We only add the linker outputs when preferred_linkage = shared
+    # to avoid issues with the build failing due to unbound outputs.
+    if cxx_attr_preferred_linkage(ctx) == Linkage("shared"):
+        # @oss-disable: return add_extra_linker_outputs(ctx) 
+        return [], {} # @oss-enable
+
+    return [], {}
+
 def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
     cxx_srcs = []
     swift_srcs = []
@@ -227,6 +247,7 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
     return cxx_srcs, swift_srcs
 
 def _get_shared_link_style_sub_targets_and_providers(
+        extra_linker_outputs: {str.type: [DefaultInfo.type]},
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
@@ -255,6 +276,7 @@ def _get_shared_link_style_sub_targets_and_providers(
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
         DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info_args)],
     }
+    subtargets.update(extra_linker_outputs)
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
     ] + min_version_providers
