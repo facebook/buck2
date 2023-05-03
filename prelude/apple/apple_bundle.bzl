@@ -70,7 +70,14 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
         return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
-    binary = selective_debugging_info.scrub_binary(ctx, binary)
+
+    # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
+    if ctx.attrs._fast_adhoc_signing_enabled:
+        codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
+    else:
+        codesign_tool = None
+
+    binary = selective_debugging_info.scrub_binary(ctx, binary, codesign_tool)
 
     if not debuggable_info:
         return AppleBundleBinaryOutput(binary = binary)
