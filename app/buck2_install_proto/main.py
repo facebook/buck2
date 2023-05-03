@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Optional
 
 import grpc
@@ -33,7 +34,7 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
         files = request.files
 
         print(
-            f"Received request with install info: install_id= {install_id} and files= {files}"
+            f"Received request with install info: {install_id=:} and {len(files)} files"
         )
 
         install_response = install_pb2.InstallResponse()
@@ -41,19 +42,21 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
         return install_response
 
     def FileReady(self, request, _context):
-        (_out, stderr, code) = self.rsync_install(request.path, self.dst)
+        (_out, stderr, code) = self.rsync_install(
+            request.path, os.path.join(self.dst, request.name)
+        )
         response = {
             "install_id": request.install_id,
             "name": f"{request.name}",
             "path": request.path,
         }
-        file_response = install_pb2.FileResponse(**response)
 
         if code != 0:
             error_detail = install_pb2.ErrorDetail()
             error_detail.message = stderr
-            file_response.error_detail = error_detail
+            response["error_detail"] = error_detail
 
+        file_response = install_pb2.FileResponse(**response)
         return file_response
 
     def ShutdownServer(self, _request, _context):
@@ -62,9 +65,11 @@ class RsyncInstallerService(install_pb2_grpc.InstallerServicer):
         return response
 
     def rsync_install(self, src, dst):
+        if not (dst_parent := Path(dst).parent).exists():
+            dst_parent.mkdir(parents=True, exist_ok=True)
         cmd = [
             "rsync",
-            "-a",
+            "-aL",
             str(src),
             str(dst),
         ]
@@ -96,20 +101,26 @@ def shutdown(stop_event):
 
 
 def serve(args):
-    server = grpc.server(thread_pool=ThreadPoolExecutor(max_workers=1))
+    print(f"Starting installer server installing to {args.dst}")
+    server = grpc.server(
+        thread_pool=ThreadPoolExecutor(max_workers=50),
+        options=[("grpc.max_receive_message_length", 500 * 1024 * 1024)],
+    )
     stop_event = threading.Event()
     install_pb2_grpc.add_InstallerServicer_to_server(
         RsyncInstallerService(stop_event, args), server
     )
     ## https://grpc.github.io/grpc/python/grpc.html
     listen_addr = server.add_insecure_port("[::]:" + args.tcp_port)
-    print(f"Starting server on {listen_addr} w/ pid {os.getpid()}")
+    print(f"Started server on {listen_addr} w/ pid {os.getpid()}")
     server.start()
     signal.signal(signal.SIGINT, lambda x, y: shutdown(stop_event))
-    stop_event.wait()
-    print("Stopped RPC server, Waiting for RPCs to complete...")
-    server.stop(1).wait()
-    print("Done stopping server")
+    try:
+        stop_event.wait()
+        print("Stopped RPC server, Waiting for RPCs to complete...")
+        server.stop(1).wait()
+    finally:
+        print("Exiting installer")
 
 
 def parse_args(args=None):
@@ -123,7 +134,7 @@ def parse_args(args=None):
         "--dst",
         type=str,
         help="destination rsync target folder",
-        default="/tmp/",
+        default="/tmp/buck2install/",
     )
     parser.add_argument(
         "--tcp-port",
