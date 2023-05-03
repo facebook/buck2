@@ -1,4 +1,5 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("buck2")
@@ -57,5 +58,16 @@ rust_library(
         "//buck2/shed/internment_tweaks:internment_tweaks",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
+    ],
+)
+
+rust_unittest(
+    name = "soft_error",
+    srcs = [
+        "tests/soft_error.rs",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        ":buck2_core",
     ],
 )

@@ -1006,7 +1006,6 @@ mod tests {
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePathBuf;
-    use crate::is_open_source;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
     use crate::target::label::TargetLabel;
     use crate::target::name::TargetNameRef;
@@ -1357,15 +1356,6 @@ mod tests {
 
     #[test]
     fn test_parsed_opt_absolute() -> anyhow::Result<()> {
-        // Parse `:target` fires soft error, which races with tests of `soft_error!`.
-        // This is hack, but this is temporary code anyway.
-        // TODO(nga): remove this hack when `soft_error!` is removed.
-        let _lock = crate::error::tests::test_init();
-        if is_open_source() {
-            // We don't allow soft_error in open source code, so skip this test.
-            return Ok(());
-        }
-
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path").to_owned(),
@@ -1389,15 +1379,18 @@ mod tests {
                 &resolver(),
             )?
         );
-        // TODO(nga): this does not make sense, added this test to document the current behavior.
-        assert_eq!(
-            mk_target("root", "", "target"),
-            ParsedPattern::parsed_opt_absolute(
-                ":target",
-                None,
-                CellName::testing_new("root"),
-                &resolver(),
-            )?
+        let err = ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ":target",
+            None,
+            CellName::testing_new("root"),
+            &resolver(),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Invalid absolute target pattern `:target` is not allowed"),
+            "{}",
+            err
         );
         // But this should be fine.
         assert_eq!(
@@ -1875,7 +1868,6 @@ mod tests {
         );
     }
 
-    #[ignore] // TODO(nga): convert to hard error and enable.
     #[test]
     fn test_cross_cell_boundary() {
         let cell_resolver = CellResolver::testing_with_names_and_paths(&[
