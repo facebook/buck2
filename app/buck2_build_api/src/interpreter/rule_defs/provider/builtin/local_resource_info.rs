@@ -156,11 +156,16 @@ impl FrozenLocalResourceInfo {
 
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
-    pub fn env_var_mapping(&self) -> IndexMap<&str, &str> {
+    pub fn env_var_mapping(&self) -> IndexMap<String, String> {
         let env_vars = DictRef::from_value(self.resource_env_vars.to_value()).unwrap();
         env_vars
             .iter()
-            .map(|(k, v)| (k.unpack_str().unwrap(), v.unpack_str().unwrap()))
+            .map(|(k, v)| {
+                (
+                    k.unpack_str().unwrap().to_owned(),
+                    v.unpack_str().unwrap().to_owned(),
+                )
+            })
             .collect()
     }
 
