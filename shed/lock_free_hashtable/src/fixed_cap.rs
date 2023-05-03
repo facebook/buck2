@@ -15,7 +15,7 @@ use std::sync::atomic::Ordering;
 
 /// Fixed capacity hashtable.
 /// When dropped, it will not drop the entries.
-pub struct FixedCapTable<T> {
+pub(crate) struct FixedCapTable<T> {
     /// Current list of entries. Null if the entry is missing, otherwise a leaked `Box<T>`.
     entries: Box<[AtomicPtr<T>]>,
     /// Number of entries in the table. We always use relaxed operations for this, meaning
