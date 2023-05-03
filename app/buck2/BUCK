@@ -1,5 +1,4 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 load(
     "@fbsource//tools/build_defs:audit_dependencies_test.bzl",
@@ -113,9 +112,4 @@ audit_dependencies_test(
     ],
     contacts = ["oncall+build_infra@xmail.facebook.com"],
     rule = ":buck2",
-)
-
-alias(
-    name = "prevent_reindeer_from_gc",
-    actual = "fbsource//third-party/rust:jemalloc-ctl",
 )
