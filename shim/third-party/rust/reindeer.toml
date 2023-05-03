@@ -26,9 +26,6 @@ license_patterns = [
   "LICENSE*", "COPYING*", "UNLICENSE*",
 ]
 
-# Path to the Buck cell root (relative to this file)
-buck_cell_root = "../../.."
-
 # If a fixups.toml file is needed (eg, the package has a build.rs), then
 # generate a template fixups.toml to be edited.
 fixup_templates = true

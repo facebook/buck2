@@ -141,7 +141,7 @@ def generate_rustdoc(
     subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
-    plain_env, path_env = _process_env(ctx.attrs.env)
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustc_action,
@@ -918,9 +918,9 @@ def _rustc_invoke(
         env: {str.type: ["resolved_macro", "artifact"]} = {}) -> ({str.type: "artifact"}, ["artifact", None]):
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = _process_env(ctx.attrs.env)
+    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
 
-    more_plain_env, more_path_env = _process_env(env)
+    more_plain_env, more_path_env = _process_env(compile_ctx, env)
     plain_env.update(more_plain_env)
     path_env.update(more_path_env)
 
@@ -985,6 +985,7 @@ def _rustc_invoke(
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _process_env(
+        compile_ctx: CompileContext.type,
         env: {str.type: ["resolved_macro", "artifact"]}) -> ({str.type: "cmd_args"}, {str.type: "cmd_args"}):
     # Values with inputs (ie artifact references).
     path_env = {}
@@ -1002,5 +1003,49 @@ def _process_env(
             # Variable may have "\\n" as well.
             # Example: \\n\n -> \\\n\n -> \\\\n\\n
             plain_env[k] = v.replace_regex("\\\\n", "\\\n").replace_regex("\\n", "\\n")
+
+    # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
+    # of some target, then interpret it as a relative path inside of the crate's
+    # sources.
+    #
+    # For example in the following case:
+    #
+    #     http_archive(
+    #         name = "foo.crate",
+    #         ...
+    #     )
+    #
+    #     rust_library(
+    #         name = "foo",
+    #         srcs = [":foo.crate"],
+    #         crate_root = "foo.crate/src/lib.rs",
+    #         env = {
+    #             "CARGO_MANIFEST_DIR": "foo.crate",
+    #         },
+    #     )
+    #
+    # then the manifest directory refers to the directory which is the parent of
+    # `src` inside the archive.
+    #
+    # By putting the environment variable into path_env, rustc_action.py will
+    # take care of turning this into an absolute path before rustc sees it. This
+    # matches Cargo which also always provides CARGO_MANIFEST_DIR as an absolute
+    # path. A relative path would be problematic because it can't simultaneously
+    # support both of the following real-world cases: `include!` which resolves
+    # relative paths relative to the file containing the include:
+    #
+    #     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/thing.rs"));
+    #
+    # and proc macros using std::fs to read thing like .pest grammars, which
+    # would need paths relative to the directory that rustc got invoked in
+    # (which is the repo root in Buck builds).
+    cargo_manifest_dir = plain_env.pop("CARGO_MANIFEST_DIR", None)
+    if cargo_manifest_dir:
+        path_env["CARGO_MANIFEST_DIR"] = cmd_args(
+            compile_ctx.symlinked_srcs,
+            "/",
+            cargo_manifest_dir,
+            delimiter = "",
+        )
 
     return (plain_env, path_env)
