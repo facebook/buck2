@@ -14,6 +14,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     _working_dir: &Path,
     _exe: &Path,
     _args: impl IntoIterator<Item = &'a str>,
+    _daemon_env_vars: &[(&str, &str)],
 ) -> anyhow::Result<()> {
     #[derive(Debug, thiserror::Error)]
     #[error("not Windows")]
@@ -27,7 +28,10 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     working_dir: &Path,
     exe: &Path,
     args: impl IntoIterator<Item = &'a str>,
+    daemon_env_vars: &[(&str, &str)],
 ) -> anyhow::Result<()> {
+    use std::collections::HashMap;
+    use std::ffi::c_void;
     use std::ffi::OsStr;
     use std::ffi::OsString;
     use std::io;
@@ -36,6 +40,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
 
+    use anyhow::Context;
     use winapi::shared::minwindef::DWORD;
     use winapi::shared::minwindef::FALSE;
     use winapi::um::handleapi::CloseHandle;
@@ -114,6 +119,53 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
         cmd
     }
 
+    // Inspiration from rust stdlib at `std/src/sys/windows/process.rs`
+    fn ensure_no_nuls(s: &OsStr) -> anyhow::Result<&OsStr> {
+        if s.encode_wide().any(|b| b == 0) {
+            Err(anyhow::anyhow!(format!(
+                "nul byte found in provided data: {:?}",
+                s
+            )))
+        } else {
+            Ok(s)
+        }
+    }
+
+    fn make_envp(extra_env_vars: &[(&str, &str)]) -> anyhow::Result<(*mut c_void, Box<[u16]>)> {
+        if extra_env_vars.is_empty() {
+            Ok((ptr::null_mut(), Box::new([])))
+        } else {
+            let mut env: HashMap<_, _> = std::env::vars_os().collect();
+            for (key, val) in extra_env_vars.iter() {
+                env.insert(OsString::from(key), OsString::from(val));
+            }
+            // On Windows we pass an "environment block" which is not a char**, but
+            // rather a concatenation of null-terminated k=v\0 sequences, with a final
+            // \0 to terminate.
+            let mut blk = Vec::new();
+
+            for (k, v) in env.into_iter() {
+                blk.extend(
+                    ensure_no_nuls(&k)
+                        .with_context(|| format!("Reading environment variable {:?}", k))?
+                        .encode_wide(),
+                );
+                blk.push('=' as u16);
+                blk.extend(
+                    ensure_no_nuls(&v)
+                        .with_context(|| {
+                            format!("Reading value {:?} of environment variable {:?}", v, k)
+                        })?
+                        .encode_wide(),
+                );
+                blk.push(0);
+            }
+            blk.push(0);
+
+            Ok((blk.as_mut_ptr() as *mut c_void, blk.into_boxed_slice()))
+        }
+    }
+
     let program = exe.as_os_str();
     let cwd = working_dir.as_os_str();
 
@@ -124,6 +176,8 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     let mut pinfo: PROCESS_INFORMATION = unsafe { mem::zeroed() };
     let creation_flags = CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS | CREATE_UNICODE_ENVIRONMENT;
 
+    let (envp, _data) = make_envp(daemon_env_vars)?;
+
     let status = unsafe {
         CreateProcessW(
             to_nullterm(program).as_ptr(), // lpApplicationName
@@ -132,7 +186,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
             ptr::null_mut(),               // lpThreadAttributes
             FALSE,                         // bInheritHandles
             creation_flags,                // dwCreationFlags
-            ptr::null_mut(),               // lpEnvironment
+            envp,                          // lpEnvironment
             to_nullterm(cwd).as_ptr(),     // lpCurrentDirectory
             &mut sinfo,
             &mut pinfo,
@@ -167,6 +221,7 @@ mod tests {
             &env::current_dir().unwrap(),
             &cmd_exe_path,
             ["/c", "echo test"],
+            [].as_slice(),
         )
         .unwrap();
     }

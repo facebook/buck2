@@ -300,17 +300,21 @@ impl<'a> BuckdLifecycle<'a> {
             // and here we wait for that spawned process to terminate.
             self.start_server_unix(args, daemon_env_vars).await
         } else {
-            // TODO(nga): pass `RUST_BACKTRACE=1`.
-            self.start_server_windows(args)
+            self.start_server_windows(args, daemon_env_vars)
         }
     }
 
-    fn start_server_windows(&self, mut args: Vec<&str>) -> anyhow::Result<()> {
+    fn start_server_windows(
+        &self,
+        mut args: Vec<&str>,
+        daemon_env_vars: &[(&str, &str)],
+    ) -> anyhow::Result<()> {
         args.extend(["daemon", "--dont-daemonize"]);
         spawn_background_process_on_windows(
             self.paths.project_root().root(),
             &env::current_exe()?,
             args,
+            daemon_env_vars,
         )
     }
 
