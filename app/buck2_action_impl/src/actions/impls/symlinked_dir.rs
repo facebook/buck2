@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -29,6 +28,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_core::category::Category;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -47,8 +47,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 enum SymlinkedDirError {
-    #[error("Paths to symlink_dir must be non-overlapping, but got {0:?} and {1:?}")]
-    OverlappingPaths(PathBuf, PathBuf),
+    #[error("Paths to symlink_dir must be non-overlapping, but got `{0}` and `{1}`")]
+    OverlappingPaths(Box<ForwardRelativePath>, Box<ForwardRelativePath>),
     #[error("Paths to symlink_dir must not be empty")]
     EmptyPath,
     #[error("Only artifact inputs are supported in symlink_dir actions, got {0}")]
@@ -58,7 +58,7 @@ enum SymlinkedDirError {
 #[derive(Allocative)]
 pub(crate) struct UnregisteredSymlinkedDirAction {
     copy: bool,
-    args: Vec<(ArtifactGroup, PathBuf)>,
+    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
     // All associated artifacts of inputs unioned together
     unioned_associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
 }
@@ -67,7 +67,7 @@ impl UnregisteredSymlinkedDirAction {
     /// Validate that no output path is duplicated or overlapping.
     /// Duplicates are easy - overlapping only happens with symlinks to directories (a bad idea),
     /// and would look like `a` and `a/b` both being given.
-    fn validate_args(args: &mut [(ArtifactGroup, PathBuf)]) -> anyhow::Result<()> {
+    fn validate_args(args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)]) -> anyhow::Result<()> {
         // We sort the inputs. They are morally a set, so it shouldn't matter too much,
         // and this lets us implement the overlap check more easily.
         args.sort_by(|x, y| x.1.cmp(&y.1));
@@ -77,7 +77,7 @@ impl UnregisteredSymlinkedDirAction {
                 return Err(SymlinkedDirError::OverlappingPaths(x.clone(), y.clone()).into());
             }
         }
-        if args.len() == 1 && args[0].1.as_os_str().is_empty() {
+        if args.len() == 1 && args[0].1.is_empty() {
             return Err(SymlinkedDirError::EmptyPath.into());
         }
 
@@ -97,7 +97,10 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args(
         srcs: Value,
-    ) -> anyhow::Result<(Vec<(ArtifactGroup, PathBuf)>, SmallSet<ArtifactGroup>)> {
+    ) -> anyhow::Result<(
+        Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
+        SmallSet<ArtifactGroup>,
+    )> {
         let srcs = DictRef::from_value(srcs).context("Expecting dict")?;
 
         // This assignment doesn't look like it should be necessary, but we get an error if we
@@ -112,7 +115,13 @@ impl UnregisteredSymlinkedDirAction {
                 anyhow::Ok((
                     (
                         ArtifactGroup::Artifact(artifact),
-                        PathBuf::from(k.unpack_str().context("dict key must be a string")?),
+                        ForwardRelativePathBuf::try_from(
+                            k.unpack_str()
+                                .context("dict key must be a string")?
+                                .to_owned(),
+                        )
+                        .context("dict key must be a forward relative path")?
+                        .into_box(),
                     ),
                     associates,
                 ))
@@ -176,7 +185,7 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
 #[derive(Debug, Allocative)]
 struct SymlinkedDirAction {
     copy: bool,
-    args: Vec<(ArtifactGroup, PathBuf)>,
+    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
     inputs: BoxSliceSet<ArtifactGroup>,
     outputs: BoxSliceSet<BuildArtifact>,
 }
@@ -239,7 +248,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
                 .context("Input did not dereference to exactly one artifact")?;
 
             let src = src_artifact.resolve_path(ctx.fs())?;
-            let dest = output.join(ForwardRelativePath::new(dest)?);
+            let dest = output.join(dest);
 
             if self.copy {
                 let dest_entry = builder.add_copied(value, src.as_ref(), dest.as_ref())?;
@@ -293,7 +302,12 @@ mod tests {
     fn test_symlinked_dir_validation() {
         fn validate(paths: &[&str]) -> anyhow::Result<()> {
             let a = ArtifactGroup::Artifact(mk_artifact());
-            let mut xs = paths.map(|x| (a.dupe(), PathBuf::from(x)));
+            let mut xs = paths.map(|x| {
+                (
+                    a.dupe(),
+                    ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
+                )
+            });
             UnregisteredSymlinkedDirAction::validate_args(&mut xs)
         }
 

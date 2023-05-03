@@ -855,6 +855,13 @@ impl ForwardRelativePathBuf {
     }
 }
 
+impl Clone for Box<ForwardRelativePath> {
+    #[inline]
+    fn clone(&self) -> Self {
+        self.to_buf().into_box()
+    }
+}
+
 /// Errors from ForwardRelativePath creation
 #[derive(Error, Debug)]
 enum ForwardRelativePathError {
