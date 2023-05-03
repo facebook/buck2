@@ -64,7 +64,7 @@ pub struct LocalResourceState {
         PartialOrd = "ignore",
         Ord = "ignore"
     )]
-    owning_pid: i32,
+    owning_pid: Option<i32>,
     #[derivative(
         Hash = "ignore",
         PartialEq = "ignore",
@@ -84,7 +84,7 @@ pub struct LocalResourceState {
 impl LocalResourceState {
     pub fn new(
         source_target: ConfiguredTargetLabel,
-        owning_pid: i32,
+        owning_pid: Option<i32>,
         specs: Vec<LocalResource>,
     ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
@@ -103,7 +103,7 @@ impl LocalResourceState {
 
     /// ID of process which actually is holding a pool of resources.
     /// SIGTERM is sent to this process to free the resources.
-    pub fn owning_pid(&self) -> i32 {
+    pub fn owning_pid(&self) -> Option<i32> {
         self.owning_pid
     }
 
@@ -143,7 +143,7 @@ mod tests {
             }]),
         ];
 
-        let state = LocalResourceState::new(target, 0, specs);
+        let state = LocalResourceState::new(target, Some(0), specs);
         let handle = tokio::spawn(async move {
             {
                 let _holder1 = state.acquire_resource().await;
