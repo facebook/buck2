@@ -15,6 +15,7 @@ AppleToolchainInfo = provider(fields = [
     "cxx_toolchain_info",  # "CxxToolchainInfo"
     "dsymutil",  # "RunInfo"
     "dwarfdump",  # ["RunInfo", None]
+    "extra_linker_outputs",  # [str.type]
     "ibtool",  # "RunInfo"
     "installer",  # label
     "libtool",  # "RunInfo"

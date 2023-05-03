@@ -19,6 +19,7 @@ def _impl(ctx: "context") -> ["provider"]:
             ibtool = base.ibtool,
             dsymutil = base.dsymutil,
             dwarfdump = base.dwarfdump,
+            extra_linker_outputs = base.extra_linker_outputs,
             lipo = base.lipo,
             cxx_platform_info = base.cxx_platform_info,
             cxx_toolchain_info = cxx_toolchain_override if cxx_toolchain_override != None else base.cxx_toolchain_info,

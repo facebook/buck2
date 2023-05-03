@@ -120,6 +120,7 @@ extra_attributes = {
         "cxx_toolchain": attrs.toolchain_dep(),
         "dsymutil": attrs.exec_dep(providers = [RunInfo]),
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "extra_linker_outputs": attrs.list(attrs.string(), default = []),
         "ibtool": attrs.exec_dep(providers = [RunInfo]),
         "installer": attrs.default_only(attrs.label(default = "buck//src/com/facebook/buck/installer/apple:apple_installer")),
         "libtool": attrs.exec_dep(providers = [RunInfo]),
