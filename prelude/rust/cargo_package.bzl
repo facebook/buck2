@@ -83,7 +83,13 @@ def _cargo_rust_binary(name, platform = {}, **kwargs):
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)
+
     kwargs.setdefault("doctests", False)
+
+    # Support for reindeer's `python_ext` fixup is not implemented yet.
+    kwargs.pop("dlopen_enable", None)
+    kwargs.pop("linkable_alias", None)
+
     native.rust_library(name = name, **kwargs)
 
 cargo = struct(

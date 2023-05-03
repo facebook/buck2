@@ -54,67 +54,6 @@ never_autofix = [
   "rustsec-example-crate", # never fix because this is a canary
 ]
 
-# Platforms we want to support.
-#
-# A Reindeer platform is a collection of predicates, which are closely related
-# to rustc/cargo's notion of a platform. If a conditional dependency matches
-# against a platform's predicates, then it is included in the platform-specific
-# dependencies in the rule.
-#
-# These same platforms and predicates are used in fixups.toml files, for
-# platform-specific fixups (such as additional dependencies, extra sources,
-# options, etc).
-#
-# Listed properties are a set of values, any of which can match a predicate.
-# These match specific configurations of rustc, as shown with `rustc --target
-# <TARGET> --print cfg`. Unlisted properties are "don't care" or "match
-# anything"
-#
-# The platform key sets the name of the platform in `platform_deps` /
-# `named_platform_deps`. If it is "DEFAULT" then the platform's dependencies are
-# put into the normal `deps` / `named_deps`.
-
-# x86_64-unknown-linux-gnu
-[platform.linux-x86_64]
-x86_64-unknown-linux-gnu = [] # true for a boolean test
-target_family = ["unix"]
-target_os = ["linux"]
-target_env = ["gnu"]
-target_arch = ["x86_64"]
-
-# Fortanix SGX
-[platform.fortanix-sgx]
-x86_64-fortanix-unknown-sgx = []
-target_family = []
-target_os = ["unknown"]
-target_vendor = ["fortanix"]
-target_env = ["sgx"]
-target_arch = ["x86_64"]
-
-# macOS - x86_64-apple-darwin
-[platform.macos]
-x86_64-apple-darwin = []
-target_family = ["unix"]
-target_os = ["macos"]
-target_env = []
-target_arch = ["x86_64"]
-
-# Windows with MSVC toolchain - x86_64-pc-windows-msvc
-[platform.windows]
-x86_64-pc-windows-msvc = []
-target_family = ["windows"]
-target_os = ["windows"]
-target_env = ["msvc"]
-target_arch = ["x86_64"]
-
-# Windows with GNU toolchain - x86_64-pc-windows-gnu
-[platform.windows-gnu]
-x86_64-pc-windows-gnu = []
-target_family = ["windows"]
-target_os = ["windows"]
-target_env = ["gnu"]
-target_arch = ["x86_64"]
-
 # Configuration for cargo (used both for vendoring and resolving dependencies)
 [cargo]
 # Path to cargo, relative to this file. Can also be specified on the
@@ -134,9 +73,9 @@ file_name = "BUILD"
 # The intent is that you provide a set of macro definitions which resolve them
 # to appropriate underlying rules suitable for your environment. (This may also
 # work for Buck-like build systems such as Bazel.)
-rust_library = "third_party_rust_library"       # A plain Rust library
-rust_binary = "third_party_rust_binary"         # A Rust executable
-cxx_library = "third_party_rust_cxx_library"    # A C++ library (mostly for Rust -> C dependencies)
+rust_library = "cargo.rust_library"
+rust_binary = "cargo.rust_binary"
+cxx_library = "cxx_library"    # A C++ library (mostly for Rust -> C dependencies)
 prebuilt_cxx_library = "third_party_rust_prebuilt_cxx_library"    # A prebuilt library (mostly for Rust -> C dependencies)
 
 # Banner comment for the generated BUCK File.
@@ -153,10 +92,8 @@ generated_file_header = """
 buckfile_imports = """
 load(
     "//third-party/macros:rust_third_party.bzl",
-    "third_party_rust_library", # names match above
-    "third_party_rust_binary",
-    "third_party_rust_cxx_library",
     "third_party_rust_prebuilt_cxx_library",
 )
 load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
+load("@prelude//rust:cargo_package.bzl", "cargo")
 """
