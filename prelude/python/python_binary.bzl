@@ -46,6 +46,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "Linkage",
     "LinkedObject",  # @unused Used as a type
 )
 load(
@@ -199,11 +200,44 @@ def _get_root_link_group_specs(
 
     return specs
 
+def _get_shared_only_groups(shared_only_libs: [LinkableProviders.type]) -> [Group.type]:
+    """
+    Create link group mappings for shared-only libs that'll force the link to
+    link them dynamically.
+    """
+
+    groups = []
+
+    # Add link group specs for dlopen-able libs.
+    for dep in shared_only_libs:
+        groups.append(
+            Group(
+                name = str(dep.linkable_graph.nodes.value.label.raw_target()),
+                mappings = [
+                    GroupMapping(
+                        root = GroupRoot(
+                            label = dep.linkable_graph.nodes.value.label,
+                            node = dep,
+                        ),
+                        traversal = Traversal("node"),
+                        preferred_linkage = Linkage("shared"),
+                    ),
+                ],
+                # TODO(@christylee): Add attributes to python dlopen-able libs
+                attrs = GroupAttrs(
+                    enable_distributed_thinlto = False,
+                ),
+            ),
+        )
+
+    return groups
+
 def _get_link_group_info(
         ctx: "context",
         link_deps: [LinkableProviders.type],
         libs: [LinkableProviders.type],
-        extensions: {str.type: LinkableProviders.type}) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
+        extensions: {str.type: LinkableProviders.type},
+        shared_only_libs: [LinkableProviders.type]) -> (LinkGroupInfo.type, [LinkGroupLibSpec.type]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -221,8 +255,12 @@ def _get_link_group_info(
     # Add link group specs from dlopenable C++ libraries.
     root_specs = _get_root_link_group_specs(libs, extensions)
 
+    # Add link group specs for shared-only libs, which makes sure we link
+    # against them dynamically.
+    shared_groups = _get_shared_only_groups(shared_only_libs)
+
     # (Re-)build the link group info
-    if root_specs or link_group_info == None:
+    if root_specs or shared_groups or link_group_info == None:
         # We prepend the dlopen roots, so that they take precedence over
         # user-specific ones.
         link_group_specs = root_specs + link_group_specs
@@ -236,7 +274,8 @@ def _get_link_group_info(
                 children = (
                     [d.linkable_graph.nodes for d in link_deps] +
                     [d.linkable_graph.nodes for d in libs] +
-                    [d.linkable_graph.nodes for d in extensions.values()]
+                    [d.linkable_graph.nodes for d in extensions.values()] +
+                    [d.linkable_graph.nodes for d in shared_only_libs]
                 ),
             ),
         )
@@ -244,7 +283,7 @@ def _get_link_group_info(
 
         # We add user-defined mappings last, so that our auto-generated
         # ones get precedence (as we rely on this for things to work).
-        link_groups = [s.group for s in root_specs]
+        link_groups = [s.group for s in root_specs] + shared_groups
         if link_group_info != None:
             link_groups += link_group_info.groups
 
@@ -480,6 +519,7 @@ def convert_python_library_to_executable(
             link_deps,
             extension_info.dlopen_deps.values(),
             extension_info.unembeddable_extensions,
+            extension_info.shared_only_libs.values(),
         )
 
         extra_binary_link_flags = []
