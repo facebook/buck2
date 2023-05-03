@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
@@ -30,7 +31,10 @@ load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_binary_impl(ctx: "context") -> ["provider"]:
-    extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx)
+    extra_linker_output_flags, extra_linker_output_providers = [], {} # @oss-enable
+    # @oss-disable: extra_linker_output_flags, extra_linker_output_providers = add_extra_linker_outputs(ctx) 
+    extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
+
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
     )
@@ -63,6 +67,7 @@ def apple_binary_impl(ctx: "context") -> ["provider"]:
     )
     cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
     cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
+    cxx_output.sub_targets.update(extra_linker_output_providers)
 
     min_version = get_min_deployment_version_for_node(ctx)
     min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
