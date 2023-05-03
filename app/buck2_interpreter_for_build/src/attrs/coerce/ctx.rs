@@ -39,10 +39,11 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use hashbrown::raw::RawTable;
 use tracing::info;
-use twox_hash::xxh3;
 
 use super::interner::AttrCoercionInterner;
+use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::query_functions::QUERY_FUNCTIONS;
+use crate::attrs::coerce::str_hash::str_hash;
 
 #[derive(Debug, thiserror::Error)]
 enum BuildAttrCoercionContextError {
@@ -79,7 +80,7 @@ pub struct BuildAttrCoercionContext {
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<RawTable<(u64, *const str, ProvidersLabel)>>,
-    str_interner: AttrCoercionInterner<ArcStr>,
+    str_interner: ArcStrInterner,
     list_interner: AttrCoercionInterner<ArcSlice<CoercedAttr>>,
     // TODO(scottcao): Dict and selects need separate interners right now because
     // they have different key types. We can optimize this by interning keys and values
@@ -111,7 +112,7 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             alloc: Bump::new(),
             label_cache: RefCell::new(RawTable::new()),
-            str_interner: AttrCoercionInterner::new(),
+            str_interner: ArcStrInterner::new(),
             list_interner: AttrCoercionInterner::new(),
             dict_interner: AttrCoercionInterner::new(),
             select_interner: AttrCoercionInterner::new(),
@@ -162,15 +163,11 @@ impl BuildAttrCoercionContext {
             BuildAttrCoercionContextError::NotBuildFileContext(msg.to_owned()).into()
         })
     }
-
-    fn compute_hash(s: &str) -> u64 {
-        xxh3::hash64(s.as_bytes())
-    }
 }
 
 impl AttrCoercionContext for BuildAttrCoercionContext {
     fn coerce_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
-        let hash = Self::compute_hash(value);
+        let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 
         if let Some((_h, _v, label)) = label_cache.get(hash, |(_h, v, _)| value == unsafe { &**v })
@@ -188,10 +185,6 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     }
 
     fn intern_str(&self, value: &str) -> ArcStr {
-        if value.is_empty() {
-            return ArcStr::default();
-        }
-
         self.str_interner.intern(value)
     }
 
