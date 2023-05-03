@@ -78,6 +78,12 @@ Instances of Buck2 share a [daemon](#daemon) if and only if their isolation dire
 
 A directory that contains a Buck2 [BUCK file](#buck-file) and all source files belonging to the same directory as the BUCK file, or any of its subdirectories that do not contain a BUCK file themselves.
 
+#### Prelude
+
+The prelude is a unique `.bzl` file located at `prelude//prelude.bzl`. Buck2 implicitly loads all the symbols defined in the prelude whenever it loads a [`BUCK`](#buck-file) file. Symbols defined outside the prelude can be imported via a `load()` statement.
+
+When you create a Buck2 project using `buck2 init --git`, it will contain the same prelude used internally at Meta by Buck2 users. It is viewable at https://github.com/facebook/buck2/tree/main/prelude.
+
 #### Project
 
 The Outermost directory where there is a [.buckconfig](#buckconfig): also known as the [root cell](#cell). The .buckconfig for the project specifies the [cells](#cell) that constitute the Buck2 project. Specifically, these cells are specified in the '[repositories]' section of the `.buckconfig`. All command invocations are executed from the project root.
