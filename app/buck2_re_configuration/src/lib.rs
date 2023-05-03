@@ -190,11 +190,21 @@ impl FromStr for HttpHeader {
 
 impl Buck2OssReConfiguration {
     pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        // this is used for all three services by default, if given; if one of
+        // them has an explicit address given as well though, use that instead
+        let default_address: Option<String> =
+            legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "address")?;
+
         Ok(Self {
-            cas_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?,
-            engine_address: legacy_config.parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?,
+            cas_address: legacy_config
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "cas_address")?
+                .or(default_address.clone()),
+            engine_address: legacy_config
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "engine_address")?
+                .or(default_address.clone()),
             action_cache_address: legacy_config
-                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?,
+                .parse(BUCK2_RE_CLIENT_CFG_SECTION, "action_cache_address")?
+                .or(default_address),
             tls: legacy_config
                 .parse(BUCK2_RE_CLIENT_CFG_SECTION, "tls")?
                 .unwrap_or(true),
