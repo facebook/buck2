@@ -253,7 +253,9 @@ def get_rpath_origin(
 
     fail("Linker type {} not supported".format(linker_type))
 
-def is_pdb_generated(linker_type: str.type, linker_flags: ["resolved_macro"]) -> bool.type:
+def is_pdb_generated(
+        linker_type: str.type,
+        linker_flags: [[str.type, "resolved_macro"]]) -> bool.type:
     if linker_type != "windows":
         return False
     for flag in reversed(linker_flags):
