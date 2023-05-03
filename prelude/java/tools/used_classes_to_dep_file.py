@@ -81,6 +81,7 @@ def main():
     Unparsed args are the command that should be run.
     """
     parsed_args, unparsed_args = _parse_args()
+    assert "-XX:-MaxFDLimit" in unparsed_args
 
     ret = subprocess.call(unparsed_args)
     if ret == 0:
