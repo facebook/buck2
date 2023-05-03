@@ -41,6 +41,12 @@ SharedLibraryInfo = provider(fields = [
     "set",  # [SharedLibrariesTSet.type, None]
 ])
 
+def _get_strip_non_global_flags(cxx_toolchain: CxxToolchainInfo.type) -> "list":
+    if cxx_toolchain.strip_flags_info and cxx_toolchain.strip_flags_info.strip_non_global_flags:
+        return cxx_toolchain.strip_flags_info.strip_non_global_flags
+
+    return ["--strip-unneeded"]
+
 def create_shared_libraries(
         ctx: "context",
         libraries: {str.type: LinkedObject.type}) -> SharedLibraries.type:
@@ -56,7 +62,7 @@ def create_shared_libraries(
                 ctx,
                 cxx_toolchain[CxxToolchainInfo],
                 shlib.output,
-                cmd_args(["--strip-unneeded"]),
+                cmd_args(_get_strip_non_global_flags(cxx_toolchain[CxxToolchainInfo])),
             ) if cxx_toolchain != None else None,
             can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
             for_primary_apk = getattr(ctx.attrs, "used_by_wrap_script", False),
