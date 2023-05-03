@@ -230,6 +230,7 @@ def create_jar_artifact_kotlincd(
             cmd.add(extra_jvm_args)
 
         cmd.add(
+            "-XX:-MaxFDLimit",
             "-jar",
             kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
         )

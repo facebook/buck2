@@ -204,6 +204,7 @@ def create_jar_artifact_javacd(
             cmd.add(extra_jvm_args)
 
         cmd.add(
+            "-XX:-MaxFDLimit",
             "-jar",
             java_toolchain.javac[DefaultInfo].default_outputs[0],
         )
