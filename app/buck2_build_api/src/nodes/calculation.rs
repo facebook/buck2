@@ -886,7 +886,6 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-    use buck2_node::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
     use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -1012,11 +1011,11 @@ mod tests {
              ConfiguredAttr::String(StringLiteral("some_string".into())),
             "some_deps" =>
              ConfiguredAttr::List(ListLiteral(ArcSlice::new([
-                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
+                ConfiguredAttr::Dep(Box::new(DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
-                }))),
+                })),
             ]))),
         ];
 

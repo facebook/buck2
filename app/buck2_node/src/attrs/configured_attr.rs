@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
@@ -21,12 +22,18 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map;
 
-use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
+use crate::attrs::attr_type::arg::StringWithMacros;
+use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
+use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
+use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
+use crate::attrs::attr_type::query::QueryAttr;
+use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
+use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -80,7 +87,17 @@ pub enum ConfiguredAttr {
         u32,
     ),
     Visibility(VisibilitySpecification),
-    Extra(ConfiguredAttrExtraTypes),
+    ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
+    SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
+    ConfigurationDep(Box<TargetLabel>),
+    Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
+    SourceLabel(Box<ConfiguredProvidersLabel>),
+    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
+    // cases that would cause cycles.
+    Label(Box<ConfiguredProvidersLabel>),
+    Arg(StringWithMacros<ConfiguredAttr>),
+    Query(Box<QueryAttr<ConfiguredAttr>>),
+    SourceFile(CoercedPath),
 }
 
 impl AttrSerializeWithContext for ConfiguredAttr {
@@ -111,7 +128,15 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::None => write!(f, "None"),
             ConfiguredAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             ConfiguredAttr::Visibility(v) => Display::fmt(v, f),
-            ConfiguredAttr::Extra(u) => AttrDisplayWithContext::fmt(u, ctx, f),
+            ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+            ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
+            ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::Dep(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::Label(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::Arg(e) => write!(f, "\"{}\"", e),
+            ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query()),
+            ConfiguredAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
         }
     }
 }
@@ -150,29 +175,25 @@ impl ConfiguredAttr {
             ConfiguredAttr::None => Ok(()),
             ConfiguredAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             ConfiguredAttr::Visibility(..) => Ok(()),
-            ConfiguredAttr::Extra(u) => match u {
-                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(dep) => {
-                    dep.as_ref().traverse(traversal)
+            ConfiguredAttr::ExplicitConfiguredDep(dep) => dep.as_ref().traverse(traversal),
+            ConfiguredAttr::SplitTransitionDep(deps) => {
+                for target in deps.deps.values() {
+                    traversal.dep(target)?;
                 }
-                ConfiguredAttrExtraTypes::SplitTransitionDep(deps) => {
-                    for target in deps.deps.values() {
-                        traversal.dep(target)?;
-                    }
-                    Ok(())
+                Ok(())
+            }
+            ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
+            ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
+            ConfiguredAttr::Label(label) => traversal.label(label),
+            ConfiguredAttr::Arg(arg) => arg.traverse(traversal),
+            ConfiguredAttr::Query(query) => query.traverse(traversal),
+            ConfiguredAttr::SourceFile(source) => {
+                for x in source.inputs() {
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }
-                ConfiguredAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-                ConfiguredAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
-                ConfiguredAttrExtraTypes::SourceLabel(dep) => traversal.dep(dep),
-                ConfiguredAttrExtraTypes::Label(label) => traversal.label(label),
-                ConfiguredAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
-                ConfiguredAttrExtraTypes::Query(query) => query.traverse(traversal),
-                ConfiguredAttrExtraTypes::SourceFile(source) => {
-                    for x in source.inputs() {
-                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
-                    }
-                    Ok(())
-                }
-            },
+                Ok(())
+            }
         }
     }
 
@@ -261,10 +282,10 @@ impl ConfiguredAttr {
                     Ok(ConfiguredAttr::String(StringLiteral(ArcStr::from(res))))
                 }
             }
-            ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(left)) => {
+            ConfiguredAttr::Arg(left) => {
                 let res = left.concat(items.map(|x| {
                     match x? {
-                        ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(x)) => Ok(x),
+                        ConfiguredAttr::Arg(x) => Ok(x),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
                             attr.as_display_no_ctx().to_string(),
@@ -272,7 +293,7 @@ impl ConfiguredAttr {
                         .into()),
                     }
                 }))?;
-                Ok(ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(res)))
+                Ok(ConfiguredAttr::Arg(res))
             }
             val => Err(ConfiguredAttrError::ConcatNotSupported(
                 val.as_display_no_ctx().to_string(),
@@ -283,7 +304,7 @@ impl ConfiguredAttr {
 
     pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<TargetLabel> {
         match self {
-            ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::ConfigurationDep(d)) => Ok(*d),
+            ConfiguredAttr::ConfigurationDep(d) => Ok(*d),
             a => Err(ConfiguredAttrError::ExpectingConfigurationDep(
                 a.as_display_no_ctx().to_string(),
             )

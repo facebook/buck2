@@ -11,7 +11,6 @@ use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_node::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -77,9 +76,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     ) -> anyhow::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
-            ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::SourceLabel(src)) => {
-                SourceAttrType::resolve_label(ctx, src)
-            }
+            ConfiguredAttr::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
             _ => Ok(vec![self.resolve_single(pkg, ctx)?]),
         }
     }
@@ -128,31 +125,25 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 //   But adding it here to preserve existing behavior.
                 a.to_value(pkg, ctx.heap())
             }
-            ConfiguredAttr::Extra(u) => match u {
-                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
-                    ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
-                }
-                ConfiguredAttrExtraTypes::SplitTransitionDep(d) => {
-                    SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
-                }
-                ConfiguredAttrExtraTypes::ConfigurationDep(d) => {
-                    ConfigurationDepAttrType::resolve_single(ctx, d)
-                }
-                ConfiguredAttrExtraTypes::Dep(d) => DepAttrType::resolve_single(ctx, d),
-                ConfiguredAttrExtraTypes::SourceLabel(s) => {
-                    SourceAttrType::resolve_single_label(ctx, s)
-                }
-                ConfiguredAttrExtraTypes::Label(label) => {
-                    let label = Label::new(*label.clone());
-                    Ok(ctx.heap().alloc(label))
-                }
-                ConfiguredAttrExtraTypes::Arg(arg) => arg.resolve(ctx),
-                ConfiguredAttrExtraTypes::Query(query) => query.resolve(ctx),
-                ConfiguredAttrExtraTypes::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
-                    ctx,
-                    BuckPath::new(pkg.dupe(), s.path().dupe()),
-                )),
-            },
+            ConfiguredAttr::ExplicitConfiguredDep(d) => {
+                ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
+            }
+            ConfiguredAttr::SplitTransitionDep(d) => {
+                SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
+            }
+            ConfiguredAttr::ConfigurationDep(d) => ConfigurationDepAttrType::resolve_single(ctx, d),
+            ConfiguredAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
+            ConfiguredAttr::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
+            ConfiguredAttr::Label(label) => {
+                let label = Label::new(*label.clone());
+                Ok(ctx.heap().alloc(label))
+            }
+            ConfiguredAttr::Arg(arg) => arg.resolve(ctx),
+            ConfiguredAttr::Query(query) => query.resolve(ctx),
+            ConfiguredAttr::SourceFile(s) => Ok(SourceAttrType::resolve_single_file(
+                ctx,
+                BuckPath::new(pkg.dupe(), s.path().dupe()),
+            )),
         }
     }
 
@@ -170,25 +161,17 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::None => Ok(NoneType::TYPE),
             ConfiguredAttr::OneOf(box l, _) => l.starlark_type(),
             ConfiguredAttr::Visibility(..) => Ok(ListRef::TYPE),
-            ConfiguredAttr::Extra(u) => match u {
-                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(_) => {
-                    Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-                }
-                ConfiguredAttrExtraTypes::SplitTransitionDep(_) => Ok(Dict::TYPE),
-                ConfiguredAttrExtraTypes::ConfigurationDep(_) => {
-                    Ok(starlark::values::string::STRING_TYPE)
-                }
-                ConfiguredAttrExtraTypes::Dep(_) => Ok(Label::get_type_value_static().as_str()),
-                ConfiguredAttrExtraTypes::SourceLabel(_) => {
-                    Ok(Label::get_type_value_static().as_str())
-                }
-                ConfiguredAttrExtraTypes::Label(_) => Ok(Label::get_type_value_static().as_str()),
-                ConfiguredAttrExtraTypes::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
-                ConfiguredAttrExtraTypes::Query(_) => Ok(starlark::values::string::STRING_TYPE),
-                ConfiguredAttrExtraTypes::SourceFile(_) => {
-                    Ok(StarlarkArtifact::get_type_value_static().as_str())
-                }
-            },
+            ConfiguredAttr::ExplicitConfiguredDep(_) => {
+                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
+            }
+            ConfiguredAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
+            ConfiguredAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
+            ConfiguredAttr::Dep(_) => Ok(Label::get_type_value_static().as_str()),
+            ConfiguredAttr::SourceLabel(_) => Ok(Label::get_type_value_static().as_str()),
+            ConfiguredAttr::Label(_) => Ok(Label::get_type_value_static().as_str()),
+            ConfiguredAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
+            ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
+            ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
         }
     }
 
@@ -224,36 +207,32 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
                 }
             },
-            ConfiguredAttr::Extra(u) => match u {
-                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(d) => {
-                    heap.alloc(Label::new(d.as_ref().label.clone()))
-                }
-                ConfiguredAttrExtraTypes::SplitTransitionDep(t) => {
-                    let mut map = SmallMap::with_capacity(t.deps.len());
+            ConfiguredAttr::ExplicitConfiguredDep(d) => {
+                heap.alloc(Label::new(d.as_ref().label.clone()))
+            }
+            ConfiguredAttr::SplitTransitionDep(t) => {
+                let mut map = SmallMap::with_capacity(t.deps.len());
 
-                    for (trans, p) in t.deps.iter() {
-                        map.insert_hashed(
-                            heap.alloc(trans).get_hashed()?,
-                            heap.alloc(Label::new(p.clone())),
-                        );
-                    }
+                for (trans, p) in t.deps.iter() {
+                    map.insert_hashed(
+                        heap.alloc(trans).get_hashed()?,
+                        heap.alloc(Label::new(p.clone())),
+                    );
+                }
 
-                    heap.alloc(Dict::new(map))
-                }
-                ConfiguredAttrExtraTypes::ConfigurationDep(c) => {
-                    heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
-                }
-                ConfiguredAttrExtraTypes::Dep(d) => heap.alloc(Label::new(d.label.clone())),
-                ConfiguredAttrExtraTypes::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
-                ConfiguredAttrExtraTypes::Label(l) => heap.alloc(Label::new(*l.clone())),
-                ConfiguredAttrExtraTypes::Arg(arg) => heap.alloc(arg.to_string()),
-                ConfiguredAttrExtraTypes::Query(query) => heap.alloc(query.query.query()),
-                ConfiguredAttrExtraTypes::SourceFile(f) => {
-                    heap.alloc(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
-                        BuckPath::new(pkg.to_owned(), f.path().dupe()),
-                    ))))
-                }
-            },
+                heap.alloc(Dict::new(map))
+            }
+            ConfiguredAttr::ConfigurationDep(c) => {
+                heap.alloc(StarlarkTargetLabel::new(c.as_ref().dupe()))
+            }
+            ConfiguredAttr::Dep(d) => heap.alloc(Label::new(d.label.clone())),
+            ConfiguredAttr::SourceLabel(s) => heap.alloc(Label::new(*s.clone())),
+            ConfiguredAttr::Label(l) => heap.alloc(Label::new(*l.clone())),
+            ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
+            ConfiguredAttr::Query(query) => heap.alloc(query.query.query()),
+            ConfiguredAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
+                SourceArtifact::new(BuckPath::new(pkg.to_owned(), f.path().dupe())),
+            ))),
         })
     }
 }

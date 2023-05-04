@@ -39,7 +39,6 @@ use starlark_map::Hashed;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use crate::attrs::attr_type::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
@@ -465,8 +464,9 @@ impl ConfiguredTargetNode {
         let deps_attr = ConfiguredAttr::List(
             self.deps()
                 .map(|t| {
-                    ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Label(Box::new(
-                        ConfiguredProvidersLabel::new(t.label().dupe(), ProvidersName::Default),
+                    ConfiguredAttr::Label(Box::new(ConfiguredProvidersLabel::new(
+                        t.label().dupe(),
+                        ProvidersName::Default,
                     )))
                 })
                 .collect(),

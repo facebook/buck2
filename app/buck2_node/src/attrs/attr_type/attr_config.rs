@@ -25,13 +25,11 @@ use super::query::QueryAttr;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
-use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::label::LabelAttrType;
-use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
@@ -62,72 +60,6 @@ pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWit
 /// Needed to support `ExtraTypes` for within `AttrConfig`.
 pub trait AttrConfigExtraTypes: AnyMatches + ToJsonWithContext {}
 
-/// Attribute literal type encoding for ConfiguredAttrs.
-#[derive(Allocative, Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ConfiguredAttrExtraTypes {
-    ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
-    SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
-    ConfigurationDep(Box<TargetLabel>),
-    Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    SourceLabel(Box<ConfiguredProvidersLabel>),
-    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
-    // cases that would cause cycles.
-    Label(Box<ConfiguredProvidersLabel>),
-    Arg(StringWithMacros<ConfiguredAttr>),
-    Query(Box<QueryAttr<ConfiguredAttr>>),
-    SourceFile(CoercedPath),
-}
-
-impl AttrConfigExtraTypes for ConfiguredAttrExtraTypes {}
-
-impl ToJsonWithContext for ConfiguredAttrExtraTypes {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
-        match self {
-            Self::ExplicitConfiguredDep(e) => e.to_json(),
-            Self::SplitTransitionDep(e) => e.to_json(),
-            Self::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
-            Self::Dep(e) => Ok(to_value(e.to_string())?),
-            Self::SourceLabel(e) => Ok(to_value(e.to_string())?),
-            Self::Label(e) => Ok(to_value(e.to_string())?),
-            Self::Arg(e) => Ok(to_value(e.to_string())?),
-            Self::Query(e) => Ok(to_value(e.query())?),
-            Self::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
-        }
-    }
-}
-
-impl AnyMatches for ConfiguredAttrExtraTypes {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        match self {
-            Self::ExplicitConfiguredDep(e) => e.any_matches(filter),
-            Self::SplitTransitionDep(e) => e.any_matches(filter),
-            Self::ConfigurationDep(e) => filter(&e.to_string()),
-            Self::Dep(e) => filter(&e.to_string()),
-            Self::SourceLabel(e) => filter(&e.to_string()),
-            Self::Label(e) => filter(&e.to_string()),
-            Self::Arg(e) => filter(&e.to_string()),
-            Self::Query(e) => filter(e.query()),
-            Self::SourceFile(e) => filter(&e.path().to_string()),
-        }
-    }
-}
-
-impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
-    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ExplicitConfiguredDep(e) => Display::fmt(e, f),
-            Self::SplitTransitionDep(e) => Display::fmt(e, f),
-            Self::ConfigurationDep(e) => write!(f, "\"{}\"", e),
-            Self::Dep(e) => write!(f, "\"{}\"", e),
-            Self::SourceLabel(e) => write!(f, "\"{}\"", e),
-            Self::Label(e) => write!(f, "\"{}\"", e),
-            Self::Arg(e) => write!(f, "\"{}\"", e),
-            Self::Query(e) => write!(f, "\"{}\"", e.query()),
-            Self::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
-        }
-    }
-}
-
 impl AttrConfig for ConfiguredAttr {
     type ProvidersType = ConfiguredProvidersLabel;
 }
@@ -144,7 +76,15 @@ impl ToJsonWithContext for ConfiguredAttr {
             ConfiguredAttr::None => Ok(serde_json::Value::Null),
             ConfiguredAttr::OneOf(box l, _) => l.to_json(ctx),
             ConfiguredAttr::Visibility(v) => Ok(v.to_json()),
-            ConfiguredAttr::Extra(u) => u.to_json(ctx),
+            ConfiguredAttr::ExplicitConfiguredDep(e) => e.to_json(),
+            ConfiguredAttr::SplitTransitionDep(e) => e.to_json(),
+            ConfiguredAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
+            ConfiguredAttr::Dep(e) => Ok(to_value(e.to_string())?),
+            ConfiguredAttr::SourceLabel(e) => Ok(to_value(e.to_string())?),
+            ConfiguredAttr::Label(e) => Ok(to_value(e.to_string())?),
+            ConfiguredAttr::Arg(e) => Ok(to_value(e.to_string())?),
+            ConfiguredAttr::Query(e) => Ok(to_value(e.query())?),
+            ConfiguredAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
 }
@@ -161,7 +101,15 @@ impl AnyMatches for ConfiguredAttr {
             ConfiguredAttr::Int(i) => filter(&i.to_string()),
             ConfiguredAttr::OneOf(l, _) => l.any_matches(filter),
             ConfiguredAttr::Visibility(v) => v.any_matches(filter),
-            ConfiguredAttr::Extra(d) => d.any_matches(filter),
+            ConfiguredAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            ConfiguredAttr::SplitTransitionDep(e) => e.any_matches(filter),
+            ConfiguredAttr::ConfigurationDep(e) => filter(&e.to_string()),
+            ConfiguredAttr::Dep(e) => filter(&e.to_string()),
+            ConfiguredAttr::SourceLabel(e) => filter(&e.to_string()),
+            ConfiguredAttr::Label(e) => filter(&e.to_string()),
+            ConfiguredAttr::Arg(e) => filter(&e.to_string()),
+            ConfiguredAttr::Query(e) => filter(e.query()),
+            ConfiguredAttr::SourceFile(e) => filter(&e.path().to_string()),
         }
     }
 }
@@ -248,28 +196,20 @@ impl CoercedAttrExtraTypes {
             CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
                 SplitTransitionDepAttrType::configure(ctx, dep)?
             }
-            CoercedAttrExtraTypes::ConfiguredDep(dep) => {
-                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Dep(dep.clone()))
-            }
+            CoercedAttrExtraTypes::ConfiguredDep(dep) => ConfiguredAttr::Dep(dep.clone()),
             CoercedAttrExtraTypes::ConfigurationDep(dep) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
             CoercedAttrExtraTypes::Dep(dep) => DepAttrType::configure(ctx, dep)?,
-            CoercedAttrExtraTypes::SourceLabel(source) => {
-                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
-                    source.configure_pair(ctx.cfg().cfg_pair().dupe()),
-                )))
-            }
+            CoercedAttrExtraTypes::SourceLabel(source) => ConfiguredAttr::SourceLabel(Box::new(
+                source.configure_pair(ctx.cfg().cfg_pair().dupe()),
+            )),
             CoercedAttrExtraTypes::Label(label) => LabelAttrType::configure(ctx, label)?,
-            CoercedAttrExtraTypes::Arg(arg) => {
-                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(arg.configure(ctx)?))
+            CoercedAttrExtraTypes::Arg(arg) => ConfiguredAttr::Arg(arg.configure(ctx)?),
+            CoercedAttrExtraTypes::Query(query) => {
+                ConfiguredAttr::Query(Box::new(query.configure(ctx)?))
             }
-            CoercedAttrExtraTypes::Query(query) => ConfiguredAttr::Extra(
-                ConfiguredAttrExtraTypes::Query(Box::new(query.configure(ctx)?)),
-            ),
-            CoercedAttrExtraTypes::SourceFile(s) => {
-                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
-            }
+            CoercedAttrExtraTypes::SourceFile(s) => ConfiguredAttr::SourceFile(s.clone()),
         })
     }
 }
@@ -290,7 +230,7 @@ impl AnyMatches for CoercedAttr {
     }
 }
 
-fn source_file_display<'a>(
+pub(crate) fn source_file_display<'a>(
     ctx: &'a AttrFmtContext,
     source_file: &'a CoercedPath,
 ) -> impl Display + 'a {

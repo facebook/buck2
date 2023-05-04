@@ -11,7 +11,6 @@ use allocative::Allocative;
 use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 
-use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
@@ -23,8 +22,6 @@ impl LabelAttrType {
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,
     ) -> anyhow::Result<ConfiguredAttr> {
-        Ok(ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Label(
-            Box::new(ctx.configure_target(label)),
-        )))
+        Ok(ConfiguredAttr::Label(Box::new(ctx.configure_target(label))))
     }
 }
