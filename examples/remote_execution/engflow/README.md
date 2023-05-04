@@ -1,6 +1,6 @@
 ## Remote execution integration with EngFlow
 
-This project provides a small example of what a project that utilizies [EngFlow](https://www.engflow.com/)'s RE offering might look like.
+This project provides a small example of what a project that utilizes [EngFlow](https://www.engflow.com/)'s RE offering might look like.
 
 In this document, we will go over the key configs used in this setup.
 

@@ -16,7 +16,7 @@ Keys supported include:
 * `engine_address` - address to your RE's engine.
 * `action_cache_address` - address to your action cache endpoint.
 * `cas_address` - address to your content-addressable storage (CAS) endpoint.
-* `tls_ca_certs` - path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default bundle will be used. This path contain environment variables using shell interpolation syntax (i.e. $VAR). They will be substituted before reading the file.
+* `tls_ca_certs` - path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default bundle will be used. This path contains environment variables using shell interpolation syntax (i.e. $VAR). They will be substituted before reading the file.
 * `tls_client_cert` - path to a client certificate (and intermediate chain), as well as its associated private key. This must be PEM-encoded. This path can contain environment variables using shell interpolation syntax (i.e. $VAR). They will be substituted before reading the file.
 * `http_headers` - HTTP headers to inject in all requests to RE. This is a comma-separated list of `Header: Value` pairs. Minimal validation of those headers is done here. This can contain environment variables using shell interpolation syntax ($VAR). They will be substituted before reading the file.
 
