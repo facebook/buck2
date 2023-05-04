@@ -19,6 +19,10 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -78,6 +82,11 @@ pub(crate) struct BxlActions<'v> {
 
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
     starlark_type!("bxl_actions");
+
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(bxl_actions_methods)
+    }
 }
 
 impl<'v> AllocValue<'v> for BxlActions<'v> {
@@ -95,5 +104,20 @@ impl<'v> StarlarkTypeRepr for &'v BxlActions<'v> {
 impl<'v> UnpackValue<'v> for &'v BxlActions<'v> {
     fn unpack_value(x: Value<'v>) -> Option<&'v BxlActions<'v>> {
         x.downcast_ref()
+    }
+}
+
+/// The bxl action context is the context for creating actions. This context is obtained after
+/// performing execution platform resolution based on a set of given dependencies and toolchains.
+///
+/// You can access the analysis actions to create actions, and the resolved dependencies and
+/// toolchains from this context
+#[starlark_module]
+fn bxl_actions_methods(builder: &mut MethodsBuilder) {
+    /// Gets the analysis action context to create and register actions on the execution platform
+    /// corresponding to this bxl action's execution platform resolution.
+    #[starlark(attribute)]
+    fn actions<'v>(this: &'v BxlActions) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
+        Ok(this.actions)
     }
 }
