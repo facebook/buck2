@@ -50,7 +50,6 @@ use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::ForClauseP;
 use crate::syntax::ast::LambdaP;
-use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
 use crate::syntax::ast::Visibility;
@@ -294,13 +293,7 @@ impl<'a> Scope<'a> {
     ) {
         let params = params
             .iter_mut()
-            .filter_map(|p| match &mut p.node {
-                ParameterP::Normal(n, ..) => Some(n),
-                ParameterP::WithDefaultValue(n, ..) => Some(n),
-                ParameterP::NoArgs => None,
-                ParameterP::Args(n, ..) => Some(n),
-                ParameterP::KwArgs(n, ..) => Some(n),
-            })
+            .filter_map(|p| p.node.split_mut().0)
             .collect::<Vec<_>>();
         scope_data
             .mut_scope(scope_id)
