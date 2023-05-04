@@ -26,7 +26,7 @@ use crate::syntax::AstModule;
 /// The type of an exported symbol.
 /// If unknown, will use `Variable`.
 #[derive(Debug)]
-pub enum ExportedSymbolKind {
+pub enum SymbolKind {
     /// Any kind of symbol.
     Any,
     /// The symbol represents something that can be called, for example
@@ -34,33 +34,33 @@ pub enum ExportedSymbolKind {
     Function,
 }
 
-/// An exported symbol. Returned from [`AstModule::exported_symbols`].
+/// A symbol. Returned from [`AstModule::exported_symbols`].
 #[derive(Debug)]
-pub struct ExportedSymbol<'a> {
+pub struct Symbol<'a> {
     /// The name of the symbol.
     pub name: &'a str,
     /// The location of its definition.
     pub span: FileSpan,
     /// The type of symbol it represents.
-    pub kind: ExportedSymbolKind,
+    pub kind: SymbolKind,
 }
 
 impl AstModule {
     /// Which symbols are exported by this module. These are the top-level assignments,
     /// including function definitions. Any symbols that start with `_` are not exported.
-    pub fn exported_symbols<'a>(&'a self) -> Vec<ExportedSymbol<'a>> {
+    pub fn exported_symbols<'a>(&'a self) -> Vec<Symbol<'a>> {
         // Map since we only want to store the first of each export
         // IndexMap since we want the order to match the order they were defined in
         let mut result: SmallMap<&'a str, _> = SmallMap::new();
 
         fn add<'a>(
             me: &AstModule,
-            result: &mut SmallMap<&'a str, ExportedSymbol<'a>>,
+            result: &mut SmallMap<&'a str, Symbol<'a>>,
             name: &'a AstAssignIdent,
-            kind: ExportedSymbolKind,
+            kind: SymbolKind,
         ) {
             if !name.0.starts_with('_') {
-                result.entry(&name.0).or_insert(ExportedSymbol {
+                result.entry(&name.0).or_insert(Symbol {
                     name: &name.0,
                     span: me.file_span(name.span),
                     kind,
@@ -73,19 +73,19 @@ impl AstModule {
                 Stmt::Assign(dest, rhs) => {
                     dest.visit_lvalue(|name| {
                         let kind = match &*rhs.1 {
-                            Expr::Lambda(..) => ExportedSymbolKind::Function,
-                            _ => ExportedSymbolKind::Any,
+                            Expr::Lambda(..) => SymbolKind::Function,
+                            _ => SymbolKind::Any,
                         };
                         add(self, &mut result, name, kind);
                     });
                 }
                 Stmt::AssignModify(dest, _, _) => {
                     dest.visit_lvalue(|name| {
-                        add(self, &mut result, name, ExportedSymbolKind::Any);
+                        add(self, &mut result, name, SymbolKind::Any);
                     });
                 }
                 Stmt::Def(DefP { name, .. }) => {
-                    add(self, &mut result, name, ExportedSymbolKind::Function);
+                    add(self, &mut result, name, SymbolKind::Function);
                 }
                 _ => {}
             }
