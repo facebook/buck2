@@ -22,32 +22,42 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 
-fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
+fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<CoercedAttr> {
     if value.is_none() {
-        CoercedAttr::None
+        Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
-        CoercedAttr::Bool(BoolLiteral(x))
+        Ok(CoercedAttr::Bool(BoolLiteral(x)))
     } else if let Some(x) = value.unpack_int() {
-        CoercedAttr::Int(x)
+        Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
-        CoercedAttr::Dict(
+        Ok(CoercedAttr::Dict(
             x.iter()
-                .map(|(k, v)| (to_literal(k, ctx), to_literal(v, ctx)))
-                .collect(),
-        )
+                .map(|(k, v)| Ok((to_literal(k, ctx)?, to_literal(v, ctx)?)))
+                .collect::<anyhow::Result<_>>()?,
+        ))
     } else if let Some(x) = TupleRef::from_value(value) {
-        CoercedAttr::Tuple(TupleLiteral(
-            ctx.intern_list(x.iter().map(|v| to_literal(v, ctx)).collect()),
-        ))
+        Ok(CoercedAttr::Tuple(TupleLiteral(
+            ctx.intern_list(
+                x.iter()
+                    .map(|v| to_literal(v, ctx))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            ),
+        )))
     } else if let Some(x) = ListRef::from_value(value) {
-        CoercedAttr::List(ListLiteral(
-            ctx.intern_list(x.iter().map(|v| to_literal(v, ctx)).collect::<Vec<_>>()),
-        ))
+        Ok(CoercedAttr::List(ListLiteral(
+            ctx.intern_list(
+                x.iter()
+                    .map(|v| to_literal(v, ctx))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            ),
+        )))
     } else {
-        CoercedAttr::String(StringLiteral(match value.unpack_str() {
-            Some(s) => ctx.intern_str(s),
-            None => ctx.intern_str(&value.to_str()),
-        }))
+        Ok(CoercedAttr::String(StringLiteral(
+            match value.unpack_str() {
+                Some(s) => ctx.intern_str(s),
+                None => ctx.intern_str(&value.to_str()),
+            },
+        )))
     }
 }
 
@@ -58,7 +68,7 @@ impl AttrTypeCoerce for AnyAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        Ok(to_literal(value, ctx))
+        to_literal(value, ctx)
     }
 
     fn starlark_type(&self) -> String {
