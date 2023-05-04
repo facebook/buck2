@@ -35,7 +35,7 @@ use dupe::Dupe;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 pub struct StaticInterner<T: 'static, H = DefaultHasher> {
-    table: ShardedLockFreeRawTable<InternedData<T>, 64>,
+    table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
     _marker: marker::PhantomData<H>,
 }
 
@@ -255,7 +255,7 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
 }
 
 pub struct Iter<T: 'static, H: 'static> {
-    iter: lock_free_hashtable::sharded::Iter<'static, InternedData<T>, 64>,
+    iter: lock_free_hashtable::sharded::Iter<'static, Box<InternedData<T>>, 64>,
     _marker: marker::PhantomData<H>,
 }
 

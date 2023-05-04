@@ -18,10 +18,11 @@ use std::sync::atomic::Ordering;
 
 use parking_lot::RwLock;
 
+use crate::atomic_value::AtomicValue;
 use crate::fixed_cap::FixedCapTable;
 pub use crate::fixed_cap::Iter;
 
-struct CurrentTable<T> {
+struct CurrentTable<T: AtomicValue> {
     /// Previous tables are kept forever because there's no way to know
     /// when they are no longer in use.
     /// We double the capacity every time we resize,
@@ -34,7 +35,7 @@ struct CurrentTable<T> {
 }
 
 /// (Almost) lock-free insertion only hashtable.
-pub struct LockFreeRawTable<T> {
+pub struct LockFreeRawTable<T: AtomicValue> {
     /// Shared lock for insertion, exclusive lock for resizing.
     /// No lock for lookup.
     write_lock: RwLock<()>,
@@ -43,7 +44,7 @@ pub struct LockFreeRawTable<T> {
     current: AtomicPtr<CurrentTable<T>>,
 }
 
-impl<T> Drop for LockFreeRawTable<T> {
+impl<T: AtomicValue> Drop for LockFreeRawTable<T> {
     fn drop(&mut self) {
         let current = self.current.get_mut();
         if !current.is_null() {
@@ -57,14 +58,14 @@ impl<T> Drop for LockFreeRawTable<T> {
     }
 }
 
-impl<T> Default for LockFreeRawTable<T> {
+impl<T: AtomicValue> Default for LockFreeRawTable<T> {
     #[inline]
     fn default() -> LockFreeRawTable<T> {
         LockFreeRawTable::new()
     }
 }
 
-impl<T> LockFreeRawTable<T> {
+impl<T: AtomicValue> LockFreeRawTable<T> {
     /// Empty table.
     #[inline]
     pub const fn new() -> LockFreeRawTable<T> {
@@ -76,7 +77,7 @@ impl<T> LockFreeRawTable<T> {
 
     /// Find an entry.
     #[inline]
-    pub fn lookup(&self, hash: u64, eq: impl Fn(&T) -> bool) -> Option<&T> {
+    pub fn lookup<'a>(&'a self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'a>> {
         let current = self.current.load(Ordering::Acquire);
 
         if current.is_null() {
@@ -89,13 +90,13 @@ impl<T> LockFreeRawTable<T> {
 
     /// Insert an entry.
     /// If the entry already exists, the existing entry is returned.
-    pub fn insert(
-        &self,
+    pub fn insert<'a>(
+        &'a self,
         hash: u64,
-        mut value: Box<T>,
-        eq: impl Fn(&T, &T) -> bool,
-        hash_fn: impl Fn(&T) -> u64,
-    ) -> &T {
+        mut value: T,
+        eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
+        hash_fn: impl Fn(T::Ref<'_>) -> u64,
+    ) -> T::Ref<'a> {
         loop {
             // Acquire shared lock.
             let guard = self.write_lock.read();
@@ -132,7 +133,7 @@ impl<T> LockFreeRawTable<T> {
     }
 
     #[cold]
-    fn resize_if_needed(&self, hash: impl Fn(&T) -> u64) {
+    fn resize_if_needed(&self, hash: impl Fn(T::Ref<'_>) -> u64) {
         // Acquire exclusive lock.
         // Readers still read the old table, but new insertions will wait.
         let _guard = self.write_lock.write();
@@ -160,7 +161,7 @@ impl<T> LockFreeRawTable<T> {
         let mut new_table: FixedCapTable<T> = FixedCapTable::with_capacity(new_cap);
 
         for entry_ptr in current.table.iter_ptrs() {
-            let entry = unsafe { &*entry_ptr };
+            let entry = unsafe { T::deref(entry_ptr) };
             let hash = hash(entry);
             new_table.insert_unique_unchecked(hash, entry_ptr);
         }
@@ -192,11 +193,14 @@ mod tests {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hash;
     use std::hash::Hasher;
+    use std::num::NonZeroU32;
     use std::ptr;
+    use std::ptr::NonNull;
 
+    use crate::atomic_value::RawPtr;
     use crate::raw::LockFreeRawTable;
 
-    fn hash(key: u32) -> u64 {
+    fn hash<T: Hash>(key: T) -> u64 {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         hasher.finish()
@@ -236,5 +240,27 @@ mod tests {
         }
 
         assert_eq!(1000000, t.iter().count());
+    }
+
+    #[test]
+    fn test_u32() {
+        let t = LockFreeRawTable::new();
+        for i in 1..10000 {
+            t.insert(hash(i), NonZeroU32::new(i).unwrap(), |a, b| a == b, hash);
+        }
+
+        for i in 1..10000 {
+            let v = t.lookup(hash(i), |a| a.get() == i).unwrap();
+            assert_eq!(NonZeroU32::new(i).unwrap(), v);
+        }
+    }
+
+    #[test]
+    fn test_raw_pointers() {
+        let t = LockFreeRawTable::new();
+        let p = NonNull::<u32>::dangling();
+        let p = RawPtr(p);
+        let r = t.insert(hash(p.0), p, |a, b| a == b, hash);
+        assert_eq!(p.0, r);
     }
 }

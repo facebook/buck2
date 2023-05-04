@@ -17,6 +17,7 @@
 
 #![deny(missing_docs)]
 
+pub mod atomic_value;
 mod fixed_cap;
 pub mod raw;
 pub mod sharded;

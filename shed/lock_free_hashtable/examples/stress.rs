@@ -62,7 +62,7 @@ struct JobArg<'a> {
     thread_i: u32,
     /// Number of threads.
     num_threads: u32,
-    table: &'a LockFreeRawTable<u32>,
+    table: &'a LockFreeRawTable<Box<u32>>,
     /// Barrier can be used to synchronize threads in the middle of the job.
     barrier_0: &'a Barrier,
 }
@@ -83,7 +83,7 @@ fn run_stress_test(name: &str, job_count: u32, job_fn: impl Fn(JobArg) + Clone +
         /// Synchronize threads at the beginning of the job.
         start_barrier: Barrier,
         /// The table to be used by the job.
-        table: LockFreeRawTable<u32>,
+        table: LockFreeRawTable<Box<u32>>,
         /// Synchronize threads in the middle of the job.
         barrier_0: Barrier,
     }

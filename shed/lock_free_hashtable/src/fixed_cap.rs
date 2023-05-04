@@ -7,28 +7,30 @@
  * of this source tree.
  */
 
-use std::ptr;
 use std::slice;
-use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use atomic::Atomic;
+
+use crate::atomic_value::AtomicValue;
+
 /// Fixed capacity hashtable.
 /// When dropped, it will not drop the entries.
-pub(crate) struct FixedCapTable<T> {
+pub(crate) struct FixedCapTable<T: AtomicValue> {
     /// Current list of entries. Null if the entry is missing, otherwise a leaked `Box<T>`.
-    entries: Box<[AtomicPtr<T>]>,
+    entries: Box<[Atomic<T::Raw>]>,
     /// Number of entries in the table. We always use relaxed operations for this, meaning
     /// that any particular return value can always be wrong in either direction.
     size: AtomicUsize,
 }
 
-pub(crate) struct IterPtrs<'a, T> {
-    iter: slice::Iter<'a, AtomicPtr<T>>,
+pub(crate) struct IterPtrs<'a, T: AtomicValue> {
+    iter: slice::Iter<'a, Atomic<T::Raw>>,
 }
 
-impl<'a, T> Iterator for IterPtrs<'a, T> {
-    type Item = *mut T;
+impl<'a, T: AtomicValue> Iterator for IterPtrs<'a, T> {
+    type Item = T::Raw;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -36,7 +38,7 @@ impl<'a, T> Iterator for IterPtrs<'a, T> {
             match self.iter.next() {
                 Some(entry) => {
                     let ptr = entry.load(Ordering::Acquire);
-                    if !ptr.is_null() {
+                    if !T::is_null(ptr) {
                         return Some(ptr);
                     }
                 }
@@ -47,11 +49,11 @@ impl<'a, T> Iterator for IterPtrs<'a, T> {
 }
 
 /// Iterator over the entries.
-pub struct Iter<'a, T> {
+pub struct Iter<'a, T: AtomicValue> {
     iter: IterPtrs<'a, T>,
 }
 
-impl<'a, T> Iter<'a, T> {
+impl<'a, T: AtomicValue> Iter<'a, T> {
     #[inline]
     pub(crate) fn empty() -> Iter<'a, T> {
         Iter {
@@ -60,19 +62,19 @@ impl<'a, T> Iter<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
+impl<'a, T: AtomicValue + 'a> Iterator for Iter<'a, T> {
+    type Item = T::Ref<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|ptr| unsafe { &*ptr })
+        self.iter.next().map(|ptr| unsafe { T::deref(ptr) })
     }
 }
 
-impl<T> FixedCapTable<T> {
+impl<T: AtomicValue> FixedCapTable<T> {
     pub(crate) fn with_capacity(cap: usize) -> FixedCapTable<T> {
         assert!(cap.is_power_of_two());
         let mut entries = Vec::new();
-        entries.resize_with(cap, || AtomicPtr::new(ptr::null_mut()));
+        entries.resize_with(cap, || Atomic::new(T::null()));
         FixedCapTable {
             entries: entries.into_boxed_slice(),
             size: AtomicUsize::new(0),
@@ -90,14 +92,18 @@ impl<T> FixedCapTable<T> {
     }
 
     #[inline]
-    pub(crate) fn lookup(&self, hash: u64, eq: impl Fn(&T) -> bool) -> Option<&T> {
+    pub(crate) fn lookup<'a>(
+        &'a self,
+        hash: u64,
+        eq: impl Fn(T::Ref<'_>) -> bool,
+    ) -> Option<T::Ref<'a>> {
         let mut index = hash as usize & (self.entries.len() - 1);
         for _ in 0..self.entries.len() {
             let entry = self.entries[index].load(Ordering::Acquire);
-            if entry.is_null() {
+            if T::is_null(entry) {
                 return None;
             }
-            let entry = unsafe { &*entry };
+            let entry = unsafe { T::deref(entry) };
             if eq(entry) {
                 return Some(entry);
             }
@@ -106,11 +112,11 @@ impl<T> FixedCapTable<T> {
         None
     }
 
-    pub(crate) fn insert_unique_unchecked(&mut self, hash: u64, value: *mut T) {
+    pub(crate) fn insert_unique_unchecked(&mut self, hash: u64, value: T::Raw) {
         let mut index = hash as usize & (self.entries.len() - 1);
         loop {
             let entry = self.entries[index].get_mut();
-            if entry.is_null() {
+            if T::is_null(*entry) {
                 *self.entries[index].get_mut() = value;
                 *self.size.get_mut() += 1;
                 return;
@@ -124,13 +130,15 @@ impl<T> FixedCapTable<T> {
     /// If the value is already in the table, it will be returned.
     /// If the capacity is full, the value will be returned as an error.
     /// Otherwise, the value will be inserted and returned.
-    pub(crate) fn insert(
+    pub(crate) fn insert<'a>(
         &self,
         hash: u64,
-        value: Box<T>,
-        eq: impl Fn(&T, &T) -> bool,
-    ) -> Result<&T, Box<T>> {
-        let value = Box::into_raw(value);
+        value: T,
+        eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
+    ) -> Result<T::Ref<'a>, T> {
+        let value = T::into_raw(value);
+        assert!(!T::is_null(value));
+
         let mut index = hash as usize & (self.entries.len() - 1);
 
         // We do not know if the table is full already,
@@ -138,9 +146,9 @@ impl<T> FixedCapTable<T> {
         // So we have to stop after `capacity` iterations.
         for _ in 0..self.entries.len() {
             let entry = self.entries[index].load(Ordering::Acquire);
-            let entry = if entry.is_null() {
+            let entry = if T::is_null(entry) {
                 match self.entries[index].compare_exchange(
-                    ptr::null_mut(),
+                    T::null(),
                     value,
                     // If the compare_exchange succeeds, the pointer has been inserted
                     // into the table. This means we need `Release` to ensure that the
@@ -153,7 +161,7 @@ impl<T> FixedCapTable<T> {
                 ) {
                     Ok(_) => {
                         self.size.fetch_add(1, Ordering::Relaxed);
-                        return Ok(unsafe { &*value });
+                        return Ok(unsafe { T::deref(value) });
                     }
                     Err(entry) => {
                         // Someone has just inserted the value into the bucket.
@@ -163,15 +171,15 @@ impl<T> FixedCapTable<T> {
             } else {
                 entry
             };
-            if eq(unsafe { &*value }, unsafe { &*entry }) {
+            if eq(unsafe { T::deref(value) }, unsafe { T::deref(entry) }) {
                 unsafe {
-                    let _drop = Box::from_raw(value);
+                    let _drop = T::from_raw(value);
                 };
-                return Ok(unsafe { &*entry });
+                return Ok(unsafe { T::deref(entry) });
             }
             index = (index + 1) & (self.entries.len() - 1);
         }
-        Err(unsafe { Box::from_raw(value) })
+        Err(unsafe { T::from_raw(value) })
     }
 
     /// Iterate over the pointers to the entries.
@@ -194,7 +202,7 @@ impl<T> FixedCapTable<T> {
     pub(crate) unsafe fn drop_entries(&mut self) {
         for entry in self.iter_ptrs() {
             unsafe {
-                let _drop = Box::from_raw(entry);
+                let _drop = T::from_raw(entry);
             }
         }
     }
