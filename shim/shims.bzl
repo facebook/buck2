@@ -57,7 +57,7 @@ def rust_unittest(
         visibility = ["PUBLIC"],
         **kwargs):
     deps = _maybe_select_map(deps, _fix_deps)
-    native.rust_unittest(
+    native.rust_test(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
         visibility = visibility,
