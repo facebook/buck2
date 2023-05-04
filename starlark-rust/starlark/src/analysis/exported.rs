@@ -26,7 +26,7 @@ use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 
 /// The type of an exported symbol.
-/// If unknown, will use `Variable`.
+/// If unknown, will use `Any`.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Dupe, Hash)]
 pub enum SymbolKind {
     /// Any kind of symbol.
