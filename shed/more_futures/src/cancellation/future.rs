@@ -103,10 +103,21 @@ where
         let is_cancelled = self.shared.inner.cancelled.load(Ordering::SeqCst);
 
         if is_cancelled {
+            let execution = self.execution.shared.lock();
+            if execution.can_exit() {
+                return Poll::Ready(None);
+            }
+        }
+
+        let res = self.future.as_mut().poll(cx).map(Some);
+
+        // If we were using structured cancellation but just exited the critical section, then we
+        // should exit now.
+        if is_cancelled && self.execution.shared.lock().can_exit() {
             return Poll::Ready(None);
         }
 
-        self.future.as_mut().poll(cx).map(Some)
+        res
     }
 }
 
@@ -304,12 +315,73 @@ pub(crate) struct ExecutionContext {
 impl ExecutionContext {
     fn new() -> Self {
         Self {
-            shared: Arc::new(Mutex::new(ExecutionContextData {})),
+            shared: Arc::new(Mutex::new(ExecutionContextData {
+                prevent_cancellation: 0,
+            })),
+        }
+    }
+
+    pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard {
+        let mut shared = self.shared.lock();
+
+        shared.enter_critical_section();
+
+        CriticalSectionGuard::new(&self.shared)
+    }
+}
+
+pub struct CriticalSectionGuard<'a> {
+    shared: Option<&'a Mutex<ExecutionContextData>>,
+}
+
+impl<'a> CriticalSectionGuard<'a> {
+    fn new(shared: &'a Mutex<ExecutionContextData>) -> Self {
+        Self {
+            shared: Some(shared),
+        }
+    }
+
+    pub(crate) fn exit_critical_section(mut self) -> bool {
+        self.shared
+            .take()
+            .expect("should be set")
+            .lock()
+            .exit_critical_section()
+    }
+}
+
+impl<'a> Drop for CriticalSectionGuard<'a> {
+    fn drop(&mut self) {
+        if let Some(shared) = self.shared.take() {
+            // never actually exited during normal poll, but dropping this means we'll never poll
+            // again, so just release the `prevent_cancellation`
+
+            shared.lock().exit_critical_section();
         }
     }
 }
 
-struct ExecutionContextData {}
+struct ExecutionContextData {
+    /// How many observers are preventing immediate cancellation.
+    prevent_cancellation: usize,
+}
+
+impl ExecutionContextData {
+    /// Does this future not currently prevent its cancellation?
+    fn can_exit(&self) -> bool {
+        self.prevent_cancellation == 0
+    }
+
+    fn enter_critical_section(&mut self) {
+        self.prevent_cancellation += 1;
+    }
+
+    fn exit_critical_section(&mut self) -> bool {
+        self.prevent_cancellation -= 1;
+
+        self.prevent_cancellation == 0
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -322,11 +394,25 @@ mod tests {
 
     use assert_matches::assert_matches;
     use dupe::Dupe;
+    use futures::future::join;
     use futures::FutureExt;
     use parking_lot::Mutex;
 
     use crate::cancellation::future::make_future;
+    use crate::cancellation::future::CancellationHandle;
     use crate::cancellation::future::TerminationStatus;
+
+    struct MaybePanicOnDrop {
+        panic: bool,
+    }
+
+    impl Drop for MaybePanicOnDrop {
+        fn drop(&mut self) {
+            if self.panic {
+                panic!()
+            }
+        }
+    }
 
     #[tokio::test]
     async fn test_ready() {
@@ -440,5 +526,109 @@ mod tests {
 
         task.await.unwrap();
         assert!(*dropped.lock());
+    }
+
+    #[tokio::test]
+    async fn test_critical_section() {
+        let (fut, handle) = make_future(|cancellations| {
+            async {
+                {
+                    cancellations.critical_section(tokio::task::yield_now).await;
+                }
+                futures::future::pending::<()>().await
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        // We reach the first yield. At this point there is one guard held by the critical section.
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        // Cancel, then poll again. Cancellation is checked, *then* the guard in the future
+        // is dropped and then immediately check for cancellation and yield.
+        let cancel = handle.cancel();
+        futures::pin_mut!(cancel);
+        assert_matches!(futures::poll!(&mut cancel), Poll::Pending);
+
+        // Poll again, this time we don't enter the future's poll because it is cancelled.
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Cancelled)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_critical_section_noop_drop_is_allowed() {
+        let (fut, _handle) = make_future(|cancellations| {
+            async {
+                let section = cancellations.critical_section(futures::future::pending::<()>);
+                drop(section); // Drop it within an ExecutionContext
+            }
+            .boxed()
+        });
+
+        fut.await;
+    }
+
+    #[tokio::test]
+    async fn test_nested_critical_section() {
+        let (fut, handle) = make_future(|cancellations| {
+            async {
+                {
+                    cancellations
+                        .critical_section(|| async move { tokio::task::yield_now().await })
+                        .await;
+                }
+                futures::future::pending::<()>().await
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        // We reach the first yield.
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        let cancel = handle.cancel();
+        let (res, term) = join(fut, cancel).await;
+
+        assert_eq!(res, None);
+        assert_eq!(term, TerminationStatus::Cancelled);
+    }
+
+    #[tokio::test]
+    async fn test_critical_section_cancelled_during_poll() {
+        let handle_slot = Arc::new(Mutex::new(None::<CancellationHandle>));
+
+        let (fut, handle) = make_future(|cancellations| {
+            let handle_slot = handle_slot.dupe();
+            async move {
+                {
+                    let _cancel = handle_slot
+                        .lock()
+                        .take()
+                        .expect("Expected the guard to be here by now")
+                        .cancel();
+
+                    cancellations
+                        .critical_section(|| async {
+                            let mut panic = MaybePanicOnDrop { panic: true };
+                            tokio::task::yield_now().await;
+                            panic.panic = false;
+                        })
+                        .await;
+                }
+                futures::future::pending::<()>().await
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        *handle_slot.lock() = Some(handle);
+
+        // Run the future. It'll drop the guard (and cancel itself) after entering the critical
+        // section while it's being polled, but it'll proceed to the end.
+        fut.await;
     }
 }

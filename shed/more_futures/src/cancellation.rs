@@ -13,6 +13,7 @@ pub mod future;
 
 use std::future::Future;
 
+use futures::FutureExt;
 use once_cell::sync::Lazy;
 
 use crate::cancellable_future::critical_section;
@@ -49,8 +50,6 @@ impl CancellationContext {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
     pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
@@ -102,8 +101,6 @@ impl CancellationContextInner {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
     pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
@@ -113,9 +110,21 @@ impl CancellationContextInner {
         Fut: Future + 'a,
     {
         match self {
-            CancellationContextInner::ThreadLocal => critical_section(make),
-            CancellationContextInner::Explicit(..) => {
-                unimplemented!("todo")
+            CancellationContextInner::ThreadLocal => critical_section(make).left_future(),
+            CancellationContextInner::Explicit(context) => {
+                let guard = context.enter_critical_section();
+                async move {
+                    let r = make().await;
+
+                    if guard.exit_critical_section() {
+                        // If the current future should actually be cancelled now, we try to return
+                        // control to it immediately to allow cancellation to kick in faster.
+                        tokio::task::yield_now().await;
+                    }
+
+                    r
+                }
+                .right_future()
             }
         }
     }
