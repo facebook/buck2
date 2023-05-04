@@ -12,9 +12,9 @@ At Meta, despite very fast networks being used internally, this was was observed
 
 ## Pitfalls
 
-Buck2's deferred materialization makes assumptions about your Remote Execution backend. In particular, it expects
+Buck2's deferred materialization makes assumptions about your Remote Execution backend. In particular, it expects that the TTL returned from action cache entries by your Remote Execution backend always exceeds the TTL of all output artifacts it references.
 
-Artifacts may also eventually expire from your Remote Execution backend. When that happens, builds using Deferred Materialization may fail if those artifacts are needed locally.
+Nonetheless, artifacts may also eventually expire from your Remote Execution backend. When that happens, builds using Deferred Materialization may fail if those artifacts are needed locally.
 
 A kill is necessary to recover from those builds. However, the [Restarter](restarter.md) can be used to mitigate this issue by restarting Buck when it encounters an expired artifact.
 
