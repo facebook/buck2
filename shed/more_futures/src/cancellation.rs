@@ -9,6 +9,8 @@
 
 //! Defines a future with explicit cancellation
 
+pub mod future;
+
 use std::future::Future;
 
 use once_cell::sync::Lazy;
