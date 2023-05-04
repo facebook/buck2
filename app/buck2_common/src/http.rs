@@ -14,6 +14,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use gazebo::prelude::VecExt;
 use http::HeaderMap;
 use http::Method;
 use http::Uri;
@@ -59,9 +60,7 @@ fn load_cert_pair<P: AsRef<Path>>(
 
     let certs = rustls_pemfile::certs(&mut cert_reader)
         .context("creating PEM from internal certificate and private key")?
-        .into_iter()
-        .map(Certificate)
-        .collect();
+        .into_map(Certificate);
 
     let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
         .context("reading private key from internal certificate")?
