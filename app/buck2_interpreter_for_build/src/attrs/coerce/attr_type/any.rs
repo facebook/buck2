@@ -22,10 +22,6 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 
-fn to_coerced_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
-    to_literal(value, ctx)
-}
-
 fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
     if value.is_none() {
         CoercedAttr::None
@@ -36,20 +32,16 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
     } else if let Some(x) = DictRef::from_value(value) {
         CoercedAttr::Dict(
             x.iter()
-                .map(|(k, v)| (to_coerced_literal(k, ctx), to_coerced_literal(v, ctx)))
+                .map(|(k, v)| (to_literal(k, ctx), to_literal(v, ctx)))
                 .collect(),
         )
     } else if let Some(x) = TupleRef::from_value(value) {
         CoercedAttr::Tuple(TupleLiteral(
-            ctx.intern_list(x.iter().map(|v| to_coerced_literal(v, ctx)).collect()),
+            ctx.intern_list(x.iter().map(|v| to_literal(v, ctx)).collect()),
         ))
     } else if let Some(x) = ListRef::from_value(value) {
         CoercedAttr::List(ListLiteral(
-            ctx.intern_list(
-                x.iter()
-                    .map(|v| to_coerced_literal(v, ctx))
-                    .collect::<Vec<_>>(),
-            ),
+            ctx.intern_list(x.iter().map(|v| to_literal(v, ctx)).collect::<Vec<_>>()),
         ))
     } else {
         CoercedAttr::String(StringLiteral(match value.unpack_str() {
