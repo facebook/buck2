@@ -371,9 +371,11 @@ impl ConfiguredTargetNode {
     }
 
     // TODO(cjhopman): switch to for_each_query?
-    pub fn queries(&self) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredAttr>)> {
+    pub fn queries(
+        &self,
+    ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> {
         struct Traversal {
-            queries: Vec<(String, ResolvedQueryLiterals<ConfiguredAttr>)>,
+            queries: Vec<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
         }
         let mut traversal = Traversal {
             queries: Vec::new(),
@@ -387,7 +389,7 @@ impl ConfiguredTargetNode {
             fn query_macro(
                 &mut self,
                 query: &str,
-                resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
+                resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
             ) -> anyhow::Result<()> {
                 self.queries
                     .push((query.to_owned(), resolved_literals.clone()));

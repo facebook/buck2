@@ -12,7 +12,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
-use crate::attrs::configured_attr::ConfiguredAttr;
 
 pub trait ConfiguredAttrTraversal {
     fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()>;
@@ -34,7 +33,7 @@ pub trait ConfiguredAttrTraversal {
     fn query_macro(
         &mut self,
         _query: &str,
-        _resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
+        _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<()> {
         Ok(())
     }

@@ -95,8 +95,8 @@ pub enum ConfiguredAttr {
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
     Label(Box<ConfiguredProvidersLabel>),
-    Arg(StringWithMacros<ConfiguredAttr>),
-    Query(Box<QueryAttr<ConfiguredAttr>>),
+    Arg(StringWithMacros<ConfiguredProvidersLabel>),
+    Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
 }
 

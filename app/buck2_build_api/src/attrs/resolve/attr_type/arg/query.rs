@@ -11,10 +11,10 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
@@ -134,7 +134,7 @@ pub(crate) trait ConfiguredQueryMacroBaseExt {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro>;
 }
 
-impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredAttr> {
+impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro> {
         let query_result = self.query.resolve(ctx)?;
 

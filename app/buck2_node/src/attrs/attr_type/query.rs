@@ -11,14 +11,14 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::arg::QueryExpansion;
-use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::dep::DepAttrType;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
-use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
@@ -35,18 +35,18 @@ impl QueryAttrType {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct QueryAttr<C: AttrConfig> {
+pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
     pub providers: ProviderIdSet,
-    pub query: QueryAttrBase<C>,
+    pub query: QueryAttrBase<P>,
 }
 
-impl<C: AttrConfig> QueryAttr<C> {
+impl<P: ProvidersLabelMaybeConfigured> QueryAttr<P> {
     pub fn query(&self) -> &str {
         self.query.query()
     }
 }
 
-impl QueryAttr<ConfiguredAttr> {
+impl QueryAttr<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
@@ -55,11 +55,11 @@ impl QueryAttr<ConfiguredAttr> {
     }
 }
 
-impl QueryAttr<CoercedAttr> {
+impl QueryAttr<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttr<ConfiguredAttr>> {
+    ) -> anyhow::Result<QueryAttr<ConfiguredProvidersLabel>> {
         Ok(QueryAttr {
             query: self.query.configure(ctx)?,
             providers: self.providers.dupe(),
@@ -75,19 +75,19 @@ impl QueryAttr<CoercedAttr> {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct QueryMacroBase<C: AttrConfig> {
+pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
     pub expansion_type: QueryExpansion,
-    pub query: QueryAttrBase<C>,
+    pub query: QueryAttrBase<P>,
 }
 
-impl<C: AttrConfig> Display for QueryMacroBase<C> {
+impl<P: ProvidersLabelMaybeConfigured> Display for QueryMacroBase<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", &self.expansion_type, self.query.query())?;
         Ok(())
     }
 }
 
-impl QueryMacroBase<ConfiguredAttr> {
+impl QueryMacroBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
@@ -96,7 +96,7 @@ impl QueryMacroBase<ConfiguredAttr> {
     }
 }
 
-impl QueryMacroBase<CoercedAttr> {
+impl QueryMacroBase<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
@@ -107,7 +107,7 @@ impl QueryMacroBase<CoercedAttr> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryMacroBase<ConfiguredAttr>> {
+    ) -> anyhow::Result<QueryMacroBase<ConfiguredProvidersLabel>> {
         Ok(QueryMacroBase {
             expansion_type: self.expansion_type.clone(),
             query: self.query.configure(ctx)?,
@@ -116,23 +116,21 @@ impl QueryMacroBase<CoercedAttr> {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct QueryAttrBase<C: AttrConfig> {
+pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub query: String,
-    pub resolved_literals: ResolvedQueryLiterals<C>,
+    pub resolved_literals: ResolvedQueryLiterals<P>,
 }
 
-impl<C: AttrConfig> QueryAttrBase<C> {
+impl<P: ProvidersLabelMaybeConfigured> QueryAttrBase<P> {
     pub fn query(&self) -> &str {
         &self.query
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct ResolvedQueryLiterals<C: AttrConfig>(
-    pub BTreeMap<String, <C as AttrConfig>::ProvidersType>,
-);
+pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(pub BTreeMap<String, P>);
 
-impl QueryAttrBase<ConfiguredAttr> {
+impl QueryAttrBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
@@ -146,11 +144,11 @@ impl QueryAttrBase<ConfiguredAttr> {
     }
 }
 
-impl QueryAttrBase<CoercedAttr> {
+impl QueryAttrBase<ProvidersLabel> {
     fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttrBase<ConfiguredAttr>> {
+    ) -> anyhow::Result<QueryAttrBase<ConfiguredProvidersLabel>> {
         Ok(QueryAttrBase {
             query: self.query.clone(),
             resolved_literals: ResolvedQueryLiterals(

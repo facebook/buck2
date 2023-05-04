@@ -10,9 +10,6 @@
 use std::fmt::Display;
 
 use buck2_core::buck_path::path::BuckPathRef;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use dupe::Dupe;
 use either::Either;
 use serde_json::to_value;
@@ -40,13 +37,9 @@ use crate::attrs::json::ToJsonWithContext;
 ///
 /// There's really just two implementations of this, one for coerced attrs with
 /// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWithContext {
-    type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
-}
+pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWithContext {}
 
-impl AttrConfig for ConfiguredAttr {
-    type ProvidersType = ConfiguredProvidersLabel;
-}
+impl AttrConfig for ConfiguredAttr {}
 
 impl ToJsonWithContext for ConfiguredAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
@@ -98,9 +91,7 @@ impl AnyMatches for ConfiguredAttr {
     }
 }
 
-impl AttrConfig for CoercedAttr {
-    type ProvidersType = ProvidersLabel;
-}
+impl AttrConfig for CoercedAttr {}
 
 impl ToJsonWithContext for CoercedAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {

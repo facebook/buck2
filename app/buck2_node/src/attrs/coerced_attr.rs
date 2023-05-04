@@ -197,8 +197,8 @@ pub enum CoercedAttr {
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
     Label(Box<ProvidersLabel>),
-    Arg(StringWithMacros<CoercedAttr>),
-    Query(Box<QueryAttr<CoercedAttr>>),
+    Arg(StringWithMacros<ProvidersLabel>),
+    Query(Box<QueryAttr<ProvidersLabel>>),
     SourceFile(CoercedPath),
 }
 

@@ -30,14 +30,14 @@ pub trait QueryAttrTypeExt {
     fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,
-    ) -> anyhow::Result<QueryAttrBase<CoercedAttr>>;
+    ) -> anyhow::Result<QueryAttrBase<ProvidersLabel>>;
 }
 
 impl QueryAttrTypeExt for QueryAttrType {
     fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,
-    ) -> anyhow::Result<QueryAttrBase<CoercedAttr>> {
+    ) -> anyhow::Result<QueryAttrBase<ProvidersLabel>> {
         // parse the expr to do validation and to extract the literals.
         let parsed_query = parse_expr(&query)?;
 

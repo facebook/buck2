@@ -15,7 +15,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use dupe::Dupe;
 use starlark::values::Value;
 
@@ -27,7 +26,7 @@ pub(crate) trait ConfiguredQueryAttrBaseExt {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>>;
 }
 
-impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredAttr> {
+impl ConfiguredQueryAttrBaseExt for QueryAttrBase<ConfiguredProvidersLabel> {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> SharedResult<Arc<AnalysisQueryResult>> {
         ctx.resolve_query(&self.query)
     }
@@ -37,7 +36,7 @@ pub(crate) trait ConfiguredQueryAttrExt {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
 }
 
-impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredAttr> {
+impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
     fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
         let query_results = self.query.resolve(ctx)?;
         let mut dependencies = Vec::new();

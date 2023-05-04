@@ -29,7 +29,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -169,7 +168,7 @@ pub async fn resolve_queries(
 async fn resolve_queries_impl(
     ctx: &DiceComputations,
     configured_node: &ConfiguredTargetNode,
-    queries: impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredAttr>)>,
+    queries: impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
     let query_results =

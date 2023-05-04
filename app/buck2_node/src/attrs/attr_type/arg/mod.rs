@@ -12,15 +12,15 @@ pub mod parser;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_util::arc_str::ArcStr;
 use gazebo::prelude::SliceExt;
 use static_assertions::assert_eq_size;
 
-use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::query::QueryMacroBase;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
-use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
@@ -31,7 +31,7 @@ pub struct ArgAttrType;
 /// forms). The parsed arg string is held as a sequence of parts (each part either a literal string or a macro). When
 /// being added to a command line, these parts will be concattenated together and added as a single arg.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub enum StringWithMacros<C: AttrConfig> {
+pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
     /// Semantically, StringWithMacros::StringPart(s) is equivalent to
     /// StringWithMacros::ManyParts(vec![StringWithMacrosPart::String(s)]). We special-case this
     /// for memory efficiency to avoid allocating unnecessary vectors, since lone string parts are
@@ -40,13 +40,13 @@ pub enum StringWithMacros<C: AttrConfig> {
     // For resolution, we defer all work and simply alloc a ConfiguredStringWithMacros into the starlark
     // context. This allows us to defer resolution work to the point that it is being added to a command
     // line, but it requires that we can cheaply copy ConfiguredStringWithMacros.
-    ManyParts(Box<[StringWithMacrosPart<C>]>),
+    ManyParts(Box<[StringWithMacrosPart<P>]>),
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(StringWithMacros<CoercedAttr>, [usize; 3]);
+assert_eq_size!(StringWithMacros<ProvidersLabel>, [usize; 3]);
 
-impl StringWithMacros<ConfiguredAttr> {
+impl StringWithMacros<ConfiguredProvidersLabel> {
     pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
         let mut parts = Vec::new();
         for x in std::iter::once(Ok(self)).chain(items) {
@@ -59,7 +59,7 @@ impl StringWithMacros<ConfiguredAttr> {
     }
 }
 
-impl StringWithMacros<ConfiguredAttr> {
+impl StringWithMacros<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
@@ -81,7 +81,7 @@ impl StringWithMacros<ConfiguredAttr> {
     }
 }
 
-impl StringWithMacros<CoercedAttr> {
+impl StringWithMacros<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
@@ -117,13 +117,13 @@ impl StringWithMacros<CoercedAttr> {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub enum StringWithMacrosPart<C: AttrConfig> {
+pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
     String(ArcStr),
-    Macro(/* write_to_file */ bool, MacroBase<C>),
+    Macro(/* write_to_file */ bool, MacroBase<P>),
 }
 
-assert_eq_size!(MacroBase<CoercedAttr>, [usize; 3]);
-assert_eq_size!(StringWithMacrosPart<CoercedAttr>, [usize; 4]);
+assert_eq_size!(MacroBase<ProvidersLabel>, [usize; 3]);
+assert_eq_size!(StringWithMacrosPart<ProvidersLabel>, [usize; 4]);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub struct UnrecognizedMacro {
@@ -132,20 +132,20 @@ pub struct UnrecognizedMacro {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub enum MacroBase<C: AttrConfig> {
-    Location(C::ProvidersType),
+pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
+    Location(P),
     /// Represents both $(exe) and $(exe_target) usages.
     Exe {
-        label: C::ProvidersType,
+        label: P,
         exec_dep: bool,
     },
     /// A user-defined make variable (like `$(CXX)`). This will be resolved based on the propagated TemplateVariableInfos.
     UserUnkeyedPlaceholder(Box<str>),
 
     /// A user-defined macro (like `$(cxxppflags //some:target)`). This will be resolved based on the propagated TemplateVariableInfos.
-    UserKeyedPlaceholder(Box<(Box<str>, C::ProvidersType, Option<Box<str>>)>),
+    UserKeyedPlaceholder(Box<(Box<str>, P, Option<Box<str>>)>),
 
-    Query(Box<QueryMacroBase<C>>),
+    Query(Box<QueryMacroBase<P>>),
 
     /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
@@ -153,7 +153,7 @@ pub enum MacroBase<C: AttrConfig> {
     UnrecognizedMacro(Box<UnrecognizedMacro>),
 }
 
-impl MacroBase<ConfiguredAttr> {
+impl MacroBase<ConfiguredProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
@@ -177,7 +177,7 @@ impl MacroBase<ConfiguredAttr> {
     }
 }
 
-impl MacroBase<CoercedAttr> {
+impl MacroBase<ProvidersLabel> {
     pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro> {
         Ok(match self {
             UnconfiguredMacro::Location(target) => {
@@ -234,17 +234,17 @@ impl MacroBase<CoercedAttr> {
 
 // These type aliases are just a little bit easier to use, the differentiating thing comes
 // right at the beginning instead of at the end in a type param.
-pub type UnconfiguredMacro = MacroBase<CoercedAttr>;
-pub type ConfiguredMacro = MacroBase<ConfiguredAttr>;
+pub type UnconfiguredMacro = MacroBase<ProvidersLabel>;
+pub type ConfiguredMacro = MacroBase<ConfiguredProvidersLabel>;
 
-pub type UnconfiguredStringWithMacrosPart = StringWithMacrosPart<CoercedAttr>;
-pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredAttr>;
+pub type UnconfiguredStringWithMacrosPart = StringWithMacrosPart<ProvidersLabel>;
+pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvidersLabel>;
 
-pub type UnconfiguredStringWithMacros = StringWithMacros<CoercedAttr>;
-pub type ConfiguredStringWithMacros = StringWithMacros<ConfiguredAttr>;
+pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
+pub type ConfiguredStringWithMacros = StringWithMacros<ConfiguredProvidersLabel>;
 
 /// Display attempts to approximately reproduce the string that created a macro.
-impl<C: AttrConfig> Display for MacroBase<C> {
+impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: this should re-escape values in the args that need to be escaped to have returned that arg (it's not possible
         // to tell where there were unnecessary escapes and it's not worth tracking that).
@@ -278,7 +278,7 @@ impl<C: AttrConfig> Display for MacroBase<C> {
     }
 }
 
-impl<C: AttrConfig> Display for StringWithMacrosPart<C> {
+impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacrosPart<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StringWithMacrosPart::String(s) => write!(f, "{}", s),
@@ -289,7 +289,7 @@ impl<C: AttrConfig> Display for StringWithMacrosPart<C> {
     }
 }
 
-impl StringWithMacrosPart<CoercedAttr> {
+impl StringWithMacrosPart<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
@@ -305,7 +305,7 @@ impl StringWithMacrosPart<CoercedAttr> {
     }
 }
 
-impl<C: AttrConfig> Display for StringWithMacros<C> {
+impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacros<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::StringPart(part) => {

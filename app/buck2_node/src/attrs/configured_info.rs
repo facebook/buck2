@@ -11,7 +11,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use starlark_map::small_set::SmallSet;
 
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
-use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Default, Debug)]
@@ -37,7 +36,7 @@ impl ConfiguredAttrTraversal for ConfiguredAttrInfo {
     fn query_macro(
         &mut self,
         _query: &str,
-        _resolved_literals: &ResolvedQueryLiterals<ConfiguredAttr>,
+        _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
     ) -> anyhow::Result<()> {
         self.has_query = true;
         Ok(())
