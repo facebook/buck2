@@ -17,6 +17,9 @@ faccess = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }
+http = { workspace = true }
+hyper = { workspace = true }
+hyper-rustls = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
@@ -26,6 +29,9 @@ rand = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+rustls-pemfile = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
@@ -71,3 +77,4 @@ maplit = { workspace = true }
 assert_matches = { workspace = true }
 tempfile = { workspace = true }
 test-case = { workspace = true }
+httptest = { workspace = true }

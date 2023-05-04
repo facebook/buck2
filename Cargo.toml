@@ -140,7 +140,10 @@ hex = "0.4.3"
 hostname = "0.3.1"
 http = "0.2"
 httparse = "1.7.1"
+httptest = "0.15"
 humantime = "2.0.1"
+hyper = { version = "0.14.7", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.23.0", features = ["http2"] }
 indent_write = "2.2.0"
 indenter = "0.3.3"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
@@ -197,6 +200,9 @@ regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 reqwest = { version = "0.11.4", features = ["stream", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
+rustls = "0.20.4"
+rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
+rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustyline = "11.0"
 sequence_trie = "0.3.6"
 serde = { version = "1.0", features = ["derive"] }
