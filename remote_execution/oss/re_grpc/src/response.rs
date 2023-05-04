@@ -64,6 +64,24 @@ pub struct TExecutedActionMetadata {
     pub input_analyzing_completed_timestamp: TTimestamp,
     pub execution_attempts: i32,
     pub last_queued_timestamp: TTimestamp,
+    pub instruction_counts: TPerfCount,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TPerfCount {
+    pub kernel_events: TSubsysPerfCount,
+    pub userspace_events: TSubsysPerfCount,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TSubsysPerfCount {
+    pub count: i64,
+    pub time_enabled: i64,
+    pub time_running: i64,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }

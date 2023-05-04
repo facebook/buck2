@@ -10,12 +10,16 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
+use anyhow::Context as _;
 use buck2_common::executor_config::RemoteExecutorUseCase;
+use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
 use remote_execution::TDirectory2;
 use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
+use remote_execution::TPerfCount;
+use remote_execution::TSubsysPerfCount;
 use remote_execution::TTimestamp;
 
 use crate::digest_config::DigestConfig;
@@ -122,11 +126,48 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
             .execution_start_timestamp
             .saturating_duration_since(&TTimestamp::unix_epoch());
 
+    let execution_stats = match convert_perf_counts(&meta.instruction_counts) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            tracing::warn!("Invalid instruction counts received from RE: {:#}", e);
+            None
+        }
+    };
+
     CommandExecutionMetadata {
         wall_time: execution_time,
         re_queue_time: Some(re_queue_time),
         execution_time,
         start_time,
-        execution_stats: None,
+        execution_stats,
     }
+}
+
+fn convert_perf_counts(
+    perf_counts: &TPerfCount,
+) -> anyhow::Result<buck2_data::CommandExecutionStats> {
+    Ok(buck2_data::CommandExecutionStats {
+        cpu_instructions_user: convert_perf_count(&perf_counts.userspace_events)?
+            .map(|p| p.adjusted_count()),
+        cpu_instructions_kernel: convert_perf_count(&perf_counts.kernel_events)?
+            .map(|p| p.adjusted_count()),
+    })
+}
+
+fn convert_perf_count(perf_count: &TSubsysPerfCount) -> anyhow::Result<Option<MiniperfCounter>> {
+    if perf_count.time_running == 0 {
+        return Ok(None);
+    }
+
+    Ok(Some(MiniperfCounter {
+        count: perf_count.count.try_into().context("Invalid count")?,
+        time_enabled: perf_count
+            .time_enabled
+            .try_into()
+            .context("Invalid time_enabled")?,
+        time_running: perf_count
+            .time_running
+            .try_into()
+            .context("Invalid time_running")?,
+    }))
 }
