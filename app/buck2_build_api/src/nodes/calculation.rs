@@ -152,7 +152,7 @@ pub(crate) async fn find_execution_platform_by_configuration(
 }
 
 #[derive(Default)]
-struct ExecutionPlatformConstraints {
+pub struct ExecutionPlatformConstraints {
     exec_deps: IndexSet<TargetLabel>,
     toolchain_deps: IndexSet<ConfiguredTargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,
@@ -176,6 +176,18 @@ impl ConfiguredAttrTraversal for ExecutionPlatformConstraints {
 }
 
 impl ExecutionPlatformConstraints {
+    pub fn new_constraints(
+        exec_deps: IndexSet<TargetLabel>,
+        toolchain_deps: IndexSet<ConfiguredTargetLabel>,
+        exec_compatible_with: Vec<TargetLabel>,
+    ) -> Self {
+        Self {
+            exec_deps,
+            toolchain_deps,
+            exec_compatible_with,
+        }
+    }
+
     async fn new(
         ctx: &DiceComputations,
         node: &TargetNode,
