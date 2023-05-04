@@ -136,12 +136,12 @@ impl<'a, T: QueryTarget> Serialize for PrintableQueryTarget<'a, T> {
         QueryTargets::for_all_attrs(self.value, |attr_name, attr_value| {
             if let Some(attr_regex) = self.attributes {
                 if attr_regex.is_match(attr_name) {
-                    struct AttrValueSerialize<'a, T: QueryTarget> {
+                    struct AttrValueSerialize<'a, 'b, T: QueryTarget> {
                         target: &'a T,
-                        attr: &'a T::Attr,
+                        attr: &'a T::Attr<'b>,
                     }
 
-                    impl<'a, T: QueryTarget> Serialize for AttrValueSerialize<'a, T> {
+                    impl<'a, 'b, T: QueryTarget> Serialize for AttrValueSerialize<'a, 'b, T> {
                         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                         where
                             S: Serializer,

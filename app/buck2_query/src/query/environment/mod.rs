@@ -72,7 +72,7 @@ impl QueryTargets {
     /// Used to process all the attrs of a node (both the normal rule attrs and the "special" attrs). Applies
     /// a function to the attrs instead of returning an iterator as some of them are owned and some are refs
     /// into the node.
-    pub fn for_all_attrs<E, T: QueryTarget, F: FnMut(&str, &T::Attr) -> Result<(), E>>(
+    pub fn for_all_attrs<E, T: QueryTarget, F: FnMut(&str, &T::Attr<'_>) -> Result<(), E>>(
         target: &T,
         mut func: F,
     ) -> Result<(), E> {
@@ -83,7 +83,7 @@ impl QueryTargets {
 }
 
 pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
-    type Attr: ?Sized + Debug;
+    type Attr<'a>: ?Sized + Debug + 'a;
 
     /// Returns the input files for this node.
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(&self, func: F) -> Result<(), E>;
@@ -106,30 +106,30 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         None
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String;
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String;
 
     fn attr_serialize<S: serde::Serializer>(
         &self,
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>;
 
     fn attr_any_matches(
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
     ) -> anyhow::Result<bool>;
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         func: F,
     ) -> Result<(), E>;
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         func: F,
     ) -> Result<(), E>;
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, func: F) -> R;
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
 
     fn call_stack(&self) -> Option<String>;
 }

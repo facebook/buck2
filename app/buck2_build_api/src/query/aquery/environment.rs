@@ -135,7 +135,7 @@ impl LabeledNode for ActionQueryNode {
 }
 
 impl QueryTarget for ActionQueryNode {
-    type Attr = ActionAttr;
+    type Attr<'a> = ActionAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Owned(self.action.kind().variant_name().to_ascii_lowercase())
@@ -207,20 +207,20 @@ impl QueryTarget for ActionQueryNode {
     }
 
     fn attr_any_matches(
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
     ) -> anyhow::Result<bool> {
         filter(&attr.0)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut _func: F,
     ) -> Result<(), E> {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -240,7 +240,7 @@ impl QueryTarget for ActionQueryNode {
         Ok(())
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
         let mut res = None;
 
         self.attrs_for_each(|k, attr| {
@@ -268,13 +268,13 @@ impl QueryTarget for ActionQueryNode {
         None
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
         format!("{:#}", attr)
     }
 
     fn attr_serialize<S: Serializer>(
         &self,
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         attr.serialize(serializer)

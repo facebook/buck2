@@ -85,7 +85,7 @@ impl LabeledNode for ConfiguredGraphNodeRef {
 }
 
 impl QueryTarget for ConfiguredGraphNodeRef {
-    type Attr = ConfiguredAttr;
+    type Attr<'a> = ConfiguredAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(self.0.rule_type().name())
@@ -109,13 +109,13 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
 
     fn attr_any_matches(
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
     ) -> anyhow::Result<bool> {
         attr.any_matches(filter)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -125,7 +125,7 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -135,7 +135,7 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
         func(
             self.0
                 .get(key, AttrInspectOptions::All)
@@ -158,7 +158,7 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         self.0.call_stack()
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
         format!(
             "{:#}",
             attr.as_display(&AttrFmtContext {
@@ -169,7 +169,7 @@ impl QueryTarget for ConfiguredGraphNodeRef {
 
     fn attr_serialize<S: Serializer>(
         &self,
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         attr.serialize_with_ctx(

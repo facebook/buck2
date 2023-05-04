@@ -364,7 +364,7 @@ mod tests {
     }
 
     impl QueryTarget for Node {
-        type Attr = Attr;
+        type Attr<'a> = Attr;
 
         fn rule_type(&self) -> Cow<str> {
             unimplemented!()
@@ -377,7 +377,7 @@ mod tests {
             Box::new(self.1.iter())
         }
 
-        fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+        fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
             &self,
             _func: F,
         ) -> Result<(), E> {
@@ -385,20 +385,20 @@ mod tests {
         }
 
         fn attr_any_matches(
-            _attr: &Self::Attr,
+            _attr: &Self::Attr<'_>,
             _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
         ) -> anyhow::Result<bool> {
             unimplemented!()
         }
 
-        fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+        fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
             &self,
             _func: F,
         ) -> Result<(), E> {
             unimplemented!()
         }
 
-        fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, _key: &str, _func: F) -> R {
+        fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
             unimplemented!()
         }
 
@@ -421,13 +421,13 @@ mod tests {
             None
         }
 
-        fn attr_to_string_alternate(&self, _attr: &Self::Attr) -> String {
+        fn attr_to_string_alternate(&self, _attr: &Self::Attr<'_>) -> String {
             unimplemented!("not needed for tests")
         }
 
         fn attr_serialize<S: Serializer>(
             &self,
-            _attr: &Self::Attr,
+            _attr: &Self::Attr<'_>,
             _serializer: S,
         ) -> Result<S::Ok, S::Error> {
             unimplemented!("not needed for tests")

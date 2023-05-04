@@ -33,7 +33,7 @@ impl LabeledNode for TargetNode {
 }
 
 impl QueryTarget for TargetNode {
-    type Attr = CoercedAttr;
+    type Attr<'a> = CoercedAttr;
 
     fn rule_type(&self) -> Cow<str> {
         Cow::Borrowed(TargetNode::rule_type(self).name())
@@ -61,13 +61,13 @@ impl QueryTarget for TargetNode {
     }
 
     fn attr_any_matches(
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         filter: &dyn Fn(&str) -> anyhow::Result<bool>,
     ) -> anyhow::Result<bool> {
         attr.any_matches(filter)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -77,7 +77,7 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr) -> Result<(), E>>(
+    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -87,7 +87,7 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr>) -> R>(&self, key: &str, mut func: F) -> R {
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
         func(
             self.attr_or_none(key, AttrInspectOptions::All)
                 .as_ref()
@@ -109,7 +109,7 @@ impl QueryTarget for TargetNode {
         self.call_stack()
     }
 
-    fn attr_to_string_alternate(&self, attr: &Self::Attr) -> String {
+    fn attr_to_string_alternate(&self, attr: &Self::Attr<'_>) -> String {
         format!(
             "{:#}",
             attr.as_display(&AttrFmtContext {
@@ -120,7 +120,7 @@ impl QueryTarget for TargetNode {
 
     fn attr_serialize<S: Serializer>(
         &self,
-        attr: &Self::Attr,
+        attr: &Self::Attr<'_>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         attr.serialize_with_ctx(
