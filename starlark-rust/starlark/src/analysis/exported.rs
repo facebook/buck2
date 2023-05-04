@@ -36,6 +36,15 @@ pub enum SymbolKind {
     Function,
 }
 
+impl SymbolKind {
+    pub(crate) fn from_expr(x: &Expr) -> Self {
+        match x {
+            Expr::Lambda(..) => Self::Function,
+            _ => Self::Any,
+        }
+    }
+}
+
 /// A symbol. Returned from [`AstModule::exported_symbols`].
 #[derive(Debug, PartialEq, Eq, Clone, Dupe, Hash)]
 pub struct Symbol<'a> {
@@ -74,10 +83,7 @@ impl AstModule {
             match &**x {
                 Stmt::Assign(dest, rhs) => {
                     dest.visit_lvalue(|name| {
-                        let kind = match &*rhs.1 {
-                            Expr::Lambda(..) => SymbolKind::Function,
-                            _ => SymbolKind::Any,
-                        };
+                        let kind = SymbolKind::from_expr(&rhs.1);
                         add(self, &mut result, name, kind);
                     });
                 }
