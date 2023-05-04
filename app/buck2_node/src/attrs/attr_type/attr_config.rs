@@ -15,31 +15,13 @@ use either::Either;
 use serde_json::to_value;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
-use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
-
-/// AttrConfig is used to implement things just once to cover both the configured and
-/// unconfigured case. ExtraTypes contains the specifications for the configured vs
-
-/// unconfigured case. Additional attr types can use ExtraTypes to define additional
-/// attrs without needing to modify the existing ConfiguredAttr or CoercedAttr implementations.
-///
-/// For attributes, the difference between the coerced value and the configured value is
-/// (1) selects are resolved and (2) configurable things are configured. This trait allows
-/// most of the attr representation to be shared between those two states.
-///
-/// There's really just two implementations of this, one for coerced attrs with
-/// unconfigured types and one for configured attrs with the configured types.
-pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWithContext {}
-
-impl AttrConfig for ConfiguredAttr {}
 
 impl ToJsonWithContext for ConfiguredAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
@@ -90,8 +72,6 @@ impl AnyMatches for ConfiguredAttr {
         }
     }
 }
-
-impl AttrConfig for CoercedAttr {}
 
 impl ToJsonWithContext for CoercedAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
