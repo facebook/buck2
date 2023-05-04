@@ -66,8 +66,6 @@ impl CancellationContext {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
     pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
@@ -116,7 +114,7 @@ impl CancellationContextInner {
                 async move {
                     let r = make().await;
 
-                    if guard.exit_critical_section() {
+                    if guard.exit_prevent_cancellation() {
                         // If the current future should actually be cancelled now, we try to return
                         // control to it immediately to allow cancellation to kick in faster.
                         tokio::task::yield_now().await;
@@ -132,8 +130,6 @@ impl CancellationContextInner {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
     pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
@@ -143,9 +139,24 @@ impl CancellationContextInner {
         F: FnOnce(CancellationObserver) -> Fut + 'a,
     {
         match self {
-            CancellationContextInner::ThreadLocal => with_structured_cancellation(make),
-            CancellationContextInner::Explicit(..) => {
-                unimplemented!("todo")
+            CancellationContextInner::ThreadLocal => {
+                with_structured_cancellation(make).left_future()
+            }
+            CancellationContextInner::Explicit(context) => {
+                let (observer, guard) = context.enter_structured_cancellation();
+
+                async move {
+                    let r = make(observer).await;
+
+                    if guard.exit_prevent_cancellation() {
+                        // If the current future should actually be cancelled now, we try to return
+                        // control to it immediately to allow cancellation to kick in faster.
+                        tokio::task::yield_now().await;
+                    }
+
+                    r
+                }
+                .right_future()
             }
         }
     }

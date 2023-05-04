@@ -451,7 +451,7 @@ where
 #[pin_project]
 pub struct CancellationObserver {
     #[pin]
-    rx: Option<Shared<oneshot::Receiver<()>>>,
+    pub(crate) rx: Option<Shared<oneshot::Receiver<()>>>,
 }
 
 impl Dupe for CancellationObserver {}
