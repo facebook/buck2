@@ -110,6 +110,8 @@ use uuid::Uuid;
 use crate::session::TestSession;
 use crate::translations;
 
+const MAX_SUFFIX_LEN: usize = 1024;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum TestResultOrExitCode {
     TestResult(TestResult),
@@ -422,8 +424,19 @@ impl<'b> BuckTestOrchestrator<'b> {
             self.liveliness_observer.dupe(),
         );
 
+        let mut action_key_suffix = match &metadata {
+            DisplayMetadata::Listing(_) => "listing".to_owned(),
+            DisplayMetadata::Testing { testcases, .. } => testcases.join(" "),
+        };
+        if action_key_suffix.len() > MAX_SUFFIX_LEN {
+            let truncated = "(truncated)";
+            action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
+            action_key_suffix += truncated;
+        }
+
         let test_target = TestTarget {
             target: test_target.target(),
+            action_key_suffix,
         };
 
         let command = executor.exec_cmd(
@@ -962,11 +975,12 @@ impl EnvironmentBuilder for LossyEnvironment {
 #[derive(Debug)]
 struct TestTarget<'a> {
     target: &'a ConfiguredTargetLabel,
+    action_key_suffix: String,
 }
 
 impl CommandExecutionTarget for TestTarget<'_> {
     fn re_action_key(&self) -> String {
-        format!("{} test", self.target)
+        format!("{} test {}", self.target, self.action_key_suffix)
     }
 
     fn re_affinity_key(&self) -> String {
