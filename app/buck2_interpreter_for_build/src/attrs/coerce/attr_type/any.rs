@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
@@ -21,6 +22,12 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
+
+#[derive(Debug, thiserror::Error)]
+enum AnyError {
+    #[error("Cannot coerce value of type `{0}` to any: `{1}`")]
+    CannotCoerce(&'static str, String),
+}
 
 fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<CoercedAttr> {
     if value.is_none() {
@@ -51,12 +58,15 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<Coe
                     .collect::<anyhow::Result<Vec<_>>>()?,
             ),
         )))
+    } else if let Some(s) = value.unpack_str() {
+        Ok(CoercedAttr::String(StringLiteral(ctx.intern_str(s))))
     } else {
+        soft_error!(
+            "coerce_to_any",
+            AnyError::CannotCoerce(value.get_type(), value.to_repr()).into()
+        )?;
         Ok(CoercedAttr::String(StringLiteral(
-            match value.unpack_str() {
-                Some(s) => ctx.intern_str(s),
-                None => ctx.intern_str(&value.to_str()),
-            },
+            ctx.intern_str(&value.to_str()),
         )))
     }
 }
