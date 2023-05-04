@@ -276,6 +276,7 @@ def _python_executable_attrs():
 
     # allow non-default value for the args below
     updated_attrs.update({
+        "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
