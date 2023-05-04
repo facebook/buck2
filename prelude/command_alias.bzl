@@ -33,7 +33,7 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool.type):
 
         for (k, v) in ctx.attrs.env.items():
             # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
-            trampoline_args.add(cmd_args(["export ", k, "=", v], delimiter = ""))
+            trampoline_args.add(cmd_args(["export ", k, "=", cmd_args(v, quote = "shell")], delimiter = ""))
 
         if len(ctx.attrs.platform_exe.items()) > 0:
             trampoline_args.add('case "$(uname)" in')
