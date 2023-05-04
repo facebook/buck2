@@ -23,6 +23,7 @@ use thiserror::Error;
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
+use crate::configuration::pair::ConfigurationNoExec;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::label::TargetLabel;
 
@@ -196,6 +197,11 @@ impl ProvidersLabel {
             target: self.target.configure_pair(cfg_pair),
             name: self.name.clone(),
         }
+    }
+
+    #[inline]
+    pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredProvidersLabel {
+        self.configure_pair(cfg.cfg_pair().dupe())
     }
 
     /// Determines whether a string, **IF IT IS LATER COERCED** would be a relative label.
