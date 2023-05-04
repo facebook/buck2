@@ -10,7 +10,6 @@
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
@@ -41,7 +40,7 @@ impl AttrTypeCoerce for SourceAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let source_label = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;

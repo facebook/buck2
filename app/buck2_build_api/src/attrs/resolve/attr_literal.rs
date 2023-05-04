@@ -10,7 +10,6 @@
 use std::fmt::Debug;
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use starlark::collections::SmallMap;
 use starlark::values::dict::Dict;
@@ -20,16 +19,14 @@ use starlark::values::Heap;
 use starlark::values::Value;
 
 use crate::attrs::resolve::coerced_attr::CoercedAttrResolveExt;
-use crate::attrs::CoercedAttr;
 
-static_assertions::assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 3]);
-static_assertions::assert_eq_size!(AttrLiteral<ConfiguredAttr>, [usize; 3]);
+static_assertions::assert_eq_size!(AttrLiteral, [usize; 3]);
 
 pub(crate) trait UnconfiguredAttrLiteralExt {
     fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
 }
 
-impl UnconfiguredAttrLiteralExt for AttrLiteral<CoercedAttr> {
+impl UnconfiguredAttrLiteralExt for AttrLiteral {
     fn to_value<'v>(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match self {
             AttrLiteral::None => Ok(Value::new_none()),

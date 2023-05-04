@@ -27,7 +27,7 @@ fn to_coerced_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAtt
     CoercedAttr::Literal(to_literal(value, ctx))
 }
 
-fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral<CoercedAttr> {
+fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral {
     if value.is_none() {
         AttrLiteral::None
     } else if let Some(x) = value.unpack_bool() {
@@ -66,7 +66,7 @@ impl AttrTypeCoerce for AnyAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         Ok(to_literal(value, ctx))
     }
 

@@ -18,7 +18,6 @@ use static_assertions::assert_eq_size;
 
 use super::attr_config::CoercedAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
-use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
@@ -34,7 +33,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::visibility::VisibilitySpecification;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub enum AttrLiteral<C: AttrConfig> {
+pub enum AttrLiteral {
     Bool(BoolLiteral),
     Int(i32),
     // Note we store `String`, not `Arc<str>` here, because we store full attributes
@@ -48,9 +47,9 @@ pub enum AttrLiteral<C: AttrConfig> {
     String(StringLiteral),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(StringLiteral),
-    List(ListLiteral<C>),
-    Tuple(TupleLiteral<C>),
-    Dict(DictLiteral<C>),
+    List(ListLiteral<CoercedAttr>),
+    Tuple(TupleLiteral<CoercedAttr>),
+    Dict(DictLiteral<CoercedAttr>),
     None,
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
@@ -60,13 +59,13 @@ pub enum AttrLiteral<C: AttrConfig> {
         u32,
     ),
     Visibility(VisibilitySpecification),
-    Extra(C::ExtraTypes),
+    Extra(CoercedAttrExtraTypes),
 }
 
 // Prevent size regression.
-assert_eq_size!(AttrLiteral<CoercedAttr>, [usize; 3]);
+assert_eq_size!(AttrLiteral, [usize; 3]);
 
-impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
+impl AttrDisplayWithContext for AttrLiteral {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AttrLiteral::Bool(v) => {
@@ -87,7 +86,7 @@ impl<C: AttrConfig> AttrDisplayWithContext for AttrLiteral<C> {
     }
 }
 
-impl<C: AttrConfig> AttrLiteral<C> {
+impl AttrLiteral {
     pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
         use serde_json::to_value;
         match self {
@@ -124,7 +123,7 @@ impl<C: AttrConfig> AttrLiteral<C> {
     }
 }
 
-impl AttrLiteral<CoercedAttr> {
+impl AttrLiteral {
     pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
         Ok(match self {
             AttrLiteral::Bool(v) => ConfiguredAttr::Bool(*v),

@@ -57,8 +57,6 @@ use crate::attrs::json::ToJsonWithContext;
 /// unconfigured types and one for configured attrs with the configured types.
 pub trait AttrConfig: AttrLike + AttrDisplayWithContext + AnyMatches + ToJsonWithContext {
     type ProvidersType: ProvidersLabelMaybeConfigured + AttrLike;
-    // Used to encapsulate the type encodings for various attr types.
-    type ExtraTypes: AttrConfigExtraTypes + AttrDisplayWithContext + Allocative;
 }
 
 /// Needed to support `ExtraTypes` for within `AttrConfig`.
@@ -132,7 +130,6 @@ impl AttrDisplayWithContext for ConfiguredAttrExtraTypes {
 
 impl AttrConfig for ConfiguredAttr {
     type ProvidersType = ConfiguredProvidersLabel;
-    type ExtraTypes = ConfiguredAttrExtraTypes;
 }
 
 impl ToJsonWithContext for ConfiguredAttr {
@@ -279,7 +276,6 @@ impl CoercedAttrExtraTypes {
 
 impl AttrConfig for CoercedAttr {
     type ProvidersType = ProvidersLabel;
-    type ExtraTypes = CoercedAttrExtraTypes;
 }
 
 impl ToJsonWithContext for CoercedAttr {

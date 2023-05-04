@@ -46,7 +46,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         self.this().0.coerce_item(configurable, ctx, value)
     }
 
@@ -86,7 +86,7 @@ pub trait AttrTypeInnerExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>>;
+    ) -> anyhow::Result<AttrLiteral>;
 
     fn starlark_type(&self) -> String;
 }
@@ -97,7 +97,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         match self {
             Self::Any(x) => x.coerce_item(configurable, ctx, value),
             Self::Arg(x) => x.coerce_item(configurable, ctx, value),

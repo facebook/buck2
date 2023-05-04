@@ -9,7 +9,6 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::one_of::OneOfAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use itertools::Itertools;
@@ -25,7 +24,7 @@ impl AttrTypeCoerce for OneOfAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let mut errs = Vec::new();
         // Bias towards the start of the list - try and use success/failure from first in preference
         for (i, x) in self.xs.iter().enumerate() {

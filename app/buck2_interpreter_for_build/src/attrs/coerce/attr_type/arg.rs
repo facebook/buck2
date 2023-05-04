@@ -26,7 +26,6 @@ use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use maplit::hashset;
@@ -60,7 +59,7 @@ impl AttrTypeCoerce for ArgAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let value = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;

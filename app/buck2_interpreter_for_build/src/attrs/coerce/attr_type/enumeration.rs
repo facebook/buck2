@@ -10,7 +10,6 @@
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::enumeration::EnumAttrType;
 use buck2_node::attrs::attr_type::string::StringLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::string::STRING_TYPE;
@@ -25,7 +24,7 @@ impl AttrTypeCoerce for EnumAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         match value.unpack_str() {
             Some(s) => {
                 // Enum names in Buck can be specified upper or lower case,

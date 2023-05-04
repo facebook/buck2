@@ -24,7 +24,7 @@ impl AttrTypeCoerce for VisibilityAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         // TODO(nga): unnecessary coercion step.
         let coerced_list_of_strings =
             VisibilityAttrType::pretend_attr_type().coerce_item(configurable, ctx, value)?;

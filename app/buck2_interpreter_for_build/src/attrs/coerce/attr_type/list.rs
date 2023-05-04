@@ -10,7 +10,6 @@
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::list::ListAttrType;
 use buck2_node::attrs::attr_type::list::ListLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
@@ -28,7 +27,7 @@ impl AttrTypeCoerce for ListAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         if let Some(list) = ListRef::from_value(value) {
             Ok(AttrLiteral::List(ListLiteral(
                 ctx.intern_list(

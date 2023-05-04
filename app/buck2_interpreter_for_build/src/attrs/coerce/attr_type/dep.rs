@@ -13,7 +13,6 @@ use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
@@ -30,7 +29,7 @@ impl AttrTypeCoerce for DepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let label = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
@@ -56,7 +55,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
             .ok_or_else(|| {
                 anyhow::anyhow!(CoercionError::type_error(

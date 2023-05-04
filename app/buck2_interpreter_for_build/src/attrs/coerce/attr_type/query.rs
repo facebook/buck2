@@ -88,7 +88,7 @@ impl AttrTypeCoerce for QueryAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         let query = value
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;

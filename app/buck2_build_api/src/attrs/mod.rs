@@ -45,8 +45,6 @@
 //! receive a list of files in the implementation. The intermediate form of that
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
-use buck2_node::attrs::coerced_attr::CoercedAttr;
-
 pub mod resolve;
 #[cfg(test)]
 mod tests;

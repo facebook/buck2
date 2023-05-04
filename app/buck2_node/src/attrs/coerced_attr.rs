@@ -134,7 +134,7 @@ impl CoercedSelector {
 /// during coercion and not ever use the ::Concat case.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum CoercedAttr {
-    Literal(AttrLiteral<Self>),
+    Literal(AttrLiteral),
     Selector(Box<CoercedSelector>),
     Concat(Box<[Self]>),
 }
@@ -188,7 +188,7 @@ impl AttrSerializeWithContext for CoercedAttr {
 }
 
 impl CoercedAttr {
-    pub fn new_literal(value: AttrLiteral<CoercedAttr>) -> Self {
+    pub fn new_literal(value: AttrLiteral) -> Self {
         Self::Literal(value)
     }
 

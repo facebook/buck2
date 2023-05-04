@@ -9,7 +9,6 @@
 
 use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::int::IntAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
@@ -23,7 +22,7 @@ impl AttrTypeCoerce for IntAttrType {
         _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral<CoercedAttr>> {
+    ) -> anyhow::Result<AttrLiteral> {
         match value.unpack_int() {
             Some(x) => Ok(AttrLiteral::Int(x)),
             None => Err(anyhow::anyhow!(CoercionError::type_error("int", value))),
