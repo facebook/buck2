@@ -24,7 +24,6 @@ use super::dep::DepAttr;
 use super::query::QueryAttr;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_like::AttrLike;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
@@ -138,13 +137,35 @@ impl AttrConfig for ConfiguredAttr {
 
 impl ToJsonWithContext for ConfiguredAttr {
     fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
-        self.0.to_json(ctx)
+        match self {
+            ConfiguredAttr::Bool(v) => Ok(to_value(v)?),
+            ConfiguredAttr::Int(v) => Ok(to_value(v)?),
+            ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => Ok(to_value(v)?),
+            ConfiguredAttr::List(list) => list.to_json(ctx),
+            ConfiguredAttr::Tuple(list) => list.to_json(ctx),
+            ConfiguredAttr::Dict(dict) => dict.to_json(ctx),
+            ConfiguredAttr::None => Ok(serde_json::Value::Null),
+            ConfiguredAttr::OneOf(box l, _) => l.to_json(ctx),
+            ConfiguredAttr::Visibility(v) => Ok(v.to_json()),
+            ConfiguredAttr::Extra(u) => u.to_json(ctx),
+        }
     }
 }
 
 impl AnyMatches for ConfiguredAttr {
     fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        self.0.any_matches(filter)
+        match self {
+            ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => filter(v),
+            ConfiguredAttr::List(vals) => vals.any_matches(filter),
+            ConfiguredAttr::Tuple(vals) => vals.any_matches(filter),
+            ConfiguredAttr::Dict(d) => d.any_matches(filter),
+            ConfiguredAttr::None => Ok(false),
+            ConfiguredAttr::Bool(b) => b.any_matches(filter),
+            ConfiguredAttr::Int(i) => filter(&i.to_string()),
+            ConfiguredAttr::OneOf(l, _) => l.any_matches(filter),
+            ConfiguredAttr::Visibility(v) => v.any_matches(filter),
+            ConfiguredAttr::Extra(d) => d.any_matches(filter),
+        }
     }
 }
 
@@ -222,7 +243,7 @@ impl CoercedAttrExtraTypes {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<AttrLiteral<ConfiguredAttr>> {
+    ) -> anyhow::Result<ConfiguredAttr> {
         Ok(match self {
             CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => {
                 ExplicitConfiguredDepAttrType::configure(ctx, dep)?
@@ -231,26 +252,26 @@ impl CoercedAttrExtraTypes {
                 SplitTransitionDepAttrType::configure(ctx, dep)?
             }
             CoercedAttrExtraTypes::ConfiguredDep(dep) => {
-                AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(dep.clone()))
+                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Dep(dep.clone()))
             }
             CoercedAttrExtraTypes::ConfigurationDep(dep) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
             CoercedAttrExtraTypes::Dep(dep) => DepAttrType::configure(ctx, dep)?,
             CoercedAttrExtraTypes::SourceLabel(source) => {
-                AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
+                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::SourceLabel(Box::new(
                     source.configure_pair(ctx.cfg().cfg_pair().dupe()),
                 )))
             }
             CoercedAttrExtraTypes::Label(label) => LabelAttrType::configure(ctx, label)?,
             CoercedAttrExtraTypes::Arg(arg) => {
-                AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(arg.configure(ctx)?))
+                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(arg.configure(ctx)?))
             }
-            CoercedAttrExtraTypes::Query(query) => AttrLiteral::Extra(
+            CoercedAttrExtraTypes::Query(query) => ConfiguredAttr::Extra(
                 ConfiguredAttrExtraTypes::Query(Box::new(query.configure(ctx)?)),
             ),
             CoercedAttrExtraTypes::SourceFile(s) => {
-                AttrLiteral::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
+                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::SourceFile(s.clone()))
             }
         })
     }

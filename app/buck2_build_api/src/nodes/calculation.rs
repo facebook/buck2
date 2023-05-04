@@ -1007,26 +1007,26 @@ mod tests {
         assert_eq!(node.0, node2.0);
 
         let conf_attrs1 = smallmap![
-            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(BoolLiteral(false))),
+            "bool_field" => ConfiguredAttr::Bool(BoolLiteral(false)),
             "another_field" =>
-             ConfiguredAttr(AttrLiteral::String(StringLiteral("some_string".into()))),
+             ConfiguredAttr::String(StringLiteral("some_string".into())),
             "some_deps" =>
-             ConfiguredAttr(AttrLiteral::List(ListLiteral(ArcSlice::new([
-                ConfiguredAttr(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
+             ConfiguredAttr::List(ListLiteral(ArcSlice::new([
+                ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Dep(Box::new(DepAttr {
                     attr_type: DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
                     label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default)
                         .configure(cfg.dupe()),
-                })))),
-            ])))),
+                }))),
+            ]))),
         ];
 
         let conf_attrs2 = smallmap![
-            "bool_field" => ConfiguredAttr(AttrLiteral::Bool(BoolLiteral(true))),
+            "bool_field" => ConfiguredAttr::Bool(BoolLiteral(true)),
             "another_field" =>
-             ConfiguredAttr(AttrLiteral::String(StringLiteral("another_string".into()))),
-            "some_deps" => ConfiguredAttr(AttrLiteral::List(
+             ConfiguredAttr::String(StringLiteral("another_string".into())),
+            "some_deps" => ConfiguredAttr::List(
                 ListLiteral(ArcSlice::new([]))
-            )),
+            ),
         ];
 
         let node = computations.get_target_node(&label1).await?;

@@ -8,26 +8,32 @@
  */
 
 use std::fmt::Debug;
+use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::small_map;
 
 use super::attr_type::attr_config::ConfiguredAttrExtraTypes;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
+use crate::attrs::attr_type::bool::BoolLiteral;
+use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::visibility::VisibilitySpecification;
 
 #[derive(Debug, thiserror::Error)]
 enum ConfiguredAttrError {
@@ -47,8 +53,35 @@ enum ConfiguredAttrError {
     ExpectingConfigurationDep(String),
 }
 
-#[derive(Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct ConfiguredAttr(pub AttrLiteral<ConfiguredAttr>);
+#[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
+pub enum ConfiguredAttr {
+    Bool(BoolLiteral),
+    Int(i32),
+    // Note we store `String`, not `Arc<str>` here, because we store full attributes
+    // in unconfigured target node, but configured target node is basically a pair
+    // (reference to unconfigured target node, configuration).
+    //
+    // Configured attributes are created on demand and destroyed immediately after use.
+    //
+    // So when working with configured attributes with pay with CPU for string copies,
+    // but don't increase total memory usage, because these string copies are short living.
+    String(StringLiteral),
+    // Like String, but drawn from a set of variants, so doesn't support concat
+    EnumVariant(StringLiteral),
+    List(ListLiteral<ConfiguredAttr>),
+    Tuple(TupleLiteral<ConfiguredAttr>),
+    Dict(DictLiteral<ConfiguredAttr>),
+    None,
+    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
+    // cases that would cause cycles.
+    OneOf(
+        Box<Self>,
+        // Index of matched oneof attr type variant.
+        u32,
+    ),
+    Visibility(VisibilitySpecification),
+    Extra(ConfiguredAttrExtraTypes),
+}
 
 impl AttrSerializeWithContext for ConfiguredAttr {
     fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
@@ -64,28 +97,83 @@ impl AttrSerializeWithContext for ConfiguredAttr {
 
 impl AttrDisplayWithContext for ConfiguredAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        AttrDisplayWithContext::fmt(&self.0, ctx, f)
-    }
-}
-
-impl Debug for ConfiguredAttr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
+        match self {
+            ConfiguredAttr::Bool(v) => {
+                write!(f, "{}", v)
+            }
+            ConfiguredAttr::Int(v) => {
+                write!(f, "{}", v)
+            }
+            ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => Display::fmt(v, f),
+            ConfiguredAttr::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
+            ConfiguredAttr::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
+            ConfiguredAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),
+            ConfiguredAttr::None => write!(f, "None"),
+            ConfiguredAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
+            ConfiguredAttr::Visibility(v) => Display::fmt(v, f),
+            ConfiguredAttr::Extra(u) => AttrDisplayWithContext::fmt(u, ctx, f),
+        }
     }
 }
 
 impl ConfiguredAttr {
-    pub(crate) fn new(v: AttrLiteral<ConfiguredAttr>) -> Self {
-        Self(v)
-    }
-
     /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
     pub fn traverse<'a>(
         &'a self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
-        self.0.traverse(pkg, traversal)
+        match self {
+            ConfiguredAttr::Bool(_) => Ok(()),
+            ConfiguredAttr::Int(_) => Ok(()),
+            ConfiguredAttr::String(_) => Ok(()),
+            ConfiguredAttr::EnumVariant(_) => Ok(()),
+            ConfiguredAttr::List(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            ConfiguredAttr::Tuple(list) => {
+                for v in list.iter() {
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            ConfiguredAttr::Dict(dict) => {
+                for (k, v) in dict.iter() {
+                    k.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            ConfiguredAttr::None => Ok(()),
+            ConfiguredAttr::OneOf(l, _) => l.traverse(pkg, traversal),
+            ConfiguredAttr::Visibility(..) => Ok(()),
+            ConfiguredAttr::Extra(u) => match u {
+                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(dep) => {
+                    dep.as_ref().traverse(traversal)
+                }
+                ConfiguredAttrExtraTypes::SplitTransitionDep(deps) => {
+                    for target in deps.deps.values() {
+                        traversal.dep(target)?;
+                    }
+                    Ok(())
+                }
+                ConfiguredAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+                ConfiguredAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
+                ConfiguredAttrExtraTypes::SourceLabel(dep) => traversal.dep(dep),
+                ConfiguredAttrExtraTypes::Label(label) => traversal.label(label),
+                ConfiguredAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
+                ConfiguredAttrExtraTypes::Query(query) => query.traverse(traversal),
+                ConfiguredAttrExtraTypes::SourceFile(source) => {
+                    for x in source.inputs() {
+                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
+                    }
+                    Ok(())
+                }
+            },
+        }
     }
 
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
@@ -95,7 +183,7 @@ impl ConfiguredAttr {
         self,
         items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
     ) -> anyhow::Result<Self> {
-        let mismatch = |ty, attr: AttrLiteral<ConfiguredAttr>| {
+        let mismatch = |ty, attr: ConfiguredAttr| {
             Err(ConfiguredAttrError::ConcatNotSupportedValues(
                 ty,
                 attr.as_display_no_ctx().to_string(),
@@ -103,42 +191,42 @@ impl ConfiguredAttr {
             .into())
         };
 
-        match self.0 {
-            AttrLiteral::OneOf(box first, first_i) => {
-                ConfiguredAttr(first).concat(&mut items.map(|next| {
-                    match next?.0 {
-                        AttrLiteral::OneOf(box next, next_i) => {
+        match self {
+            ConfiguredAttr::OneOf(box first, first_i) => {
+                first.concat(&mut items.map(|next| {
+                    match next? {
+                        ConfiguredAttr::OneOf(box next, next_i) => {
                             if first_i != next_i {
                                 // TODO(nga): figure out how to make better error message.
                                 //   We already lost lhs type here.
                                 return Err(ConfiguredAttrError::ConcatDifferentTypes.into());
                             }
-                            Ok(ConfiguredAttr(next))
+                            Ok(next)
                         }
                         _ => Err(ConfiguredAttrError::LhsOneOfRhsNotOneOf.into()),
                     }
                 }))
             }
-            AttrLiteral::List(list) => {
+            ConfiguredAttr::List(list) => {
                 let mut res = list.to_vec();
                 for x in items {
-                    match x?.0 {
-                        AttrLiteral::List(list2) => {
+                    match x? {
+                        ConfiguredAttr::List(list2) => {
                             res.extend(list2.iter().cloned());
                         }
                         attr => return mismatch("list", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::List(ListLiteral(res.into()))))
+                Ok(ConfiguredAttr::List(ListLiteral(res.into())))
             }
-            AttrLiteral::Dict(left) => {
+            ConfiguredAttr::Dict(left) => {
                 let mut res = OrderedMap::new();
                 for (k, v) in left.iter().cloned() {
                     res.insert(k, v);
                 }
                 for x in items {
-                    match x?.0 {
-                        AttrLiteral::Dict(right) => {
+                    match x? {
+                        ConfiguredAttr::Dict(right) => {
                             for (k, v) in right.iter().cloned() {
                                 match res.entry(k) {
                                     small_map::Entry::Vacant(e) => {
@@ -156,27 +244,27 @@ impl ConfiguredAttr {
                         attr => return mismatch("dict", attr),
                     }
                 }
-                Ok(Self(AttrLiteral::Dict(res.into_iter().collect())))
+                Ok(ConfiguredAttr::Dict(res.into_iter().collect()))
             }
-            AttrLiteral::String(res) => {
+            ConfiguredAttr::String(res) => {
                 let mut items = items.peekable();
                 if items.peek().is_none() {
-                    Ok(Self(AttrLiteral::String(res)))
+                    Ok(ConfiguredAttr::String(res))
                 } else {
                     let mut res = str::to_owned(&res.0);
                     for x in items {
-                        match x?.0 {
-                            AttrLiteral::String(right) => res.push_str(&right.0),
+                        match x? {
+                            ConfiguredAttr::String(right) => res.push_str(&right.0),
                             attr => return mismatch("string", attr),
                         }
                     }
-                    Ok(Self(AttrLiteral::String(StringLiteral(ArcStr::from(res)))))
+                    Ok(ConfiguredAttr::String(StringLiteral(ArcStr::from(res))))
                 }
             }
-            AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(left)) => {
+            ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(left)) => {
                 let res = left.concat(items.map(|x| {
-                    match x?.0 {
-                        AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(x)) => Ok(x),
+                    match x? {
+                        ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(x)) => Ok(x),
                         attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
                             "arg",
                             attr.as_display_no_ctx().to_string(),
@@ -184,7 +272,7 @@ impl ConfiguredAttr {
                         .into()),
                     }
                 }))?;
-                Ok(Self(AttrLiteral::Extra(ConfiguredAttrExtraTypes::Arg(res))))
+                Ok(ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::Arg(res)))
             }
             val => Err(ConfiguredAttrError::ConcatNotSupported(
                 val.as_display_no_ctx().to_string(),
@@ -194,8 +282,8 @@ impl ConfiguredAttr {
     }
 
     pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<TargetLabel> {
-        match self.0 {
-            AttrLiteral::Extra(ConfiguredAttrExtraTypes::ConfigurationDep(d)) => Ok(*d),
+        match self {
+            ConfiguredAttr::Extra(ConfiguredAttrExtraTypes::ConfigurationDep(d)) => Ok(*d),
             a => Err(ConfiguredAttrError::ExpectingConfigurationDep(
                 a.as_display_no_ctx().to_string(),
             )
@@ -204,15 +292,15 @@ impl ConfiguredAttr {
     }
 
     pub fn unpack_list(&self) -> Option<&[ConfiguredAttr]> {
-        match &self.0 {
-            AttrLiteral::List(list) => Some(list),
+        match self {
+            ConfiguredAttr::List(list) => Some(list),
             _ => None,
         }
     }
 
     pub(crate) fn try_into_list(self) -> anyhow::Result<Vec<ConfiguredAttr>> {
-        match self.0 {
-            AttrLiteral::List(list) => Ok(list.to_vec()),
+        match self {
+            ConfiguredAttr::List(list) => Ok(list.to_vec()),
             a => Err(ConfiguredAttrError::ExpectingList(a.as_display_no_ctx().to_string()).into()),
         }
     }

@@ -273,11 +273,11 @@ impl AnonTargetKey {
             match ListRef::from_value(x) {
                 // We don't do anything special for list, but we want to make sure that dependencies inside lists are looked up properly
                 Some(list) => {
-                    return Ok(ConfiguredAttr(AttrLiteral::List(ListLiteral(
+                    return Ok(ConfiguredAttr::List(ListLiteral(
                         list.content()
                             .try_map(|v| Self::coerce_attr(&inner.inner, *v))?
                             .into(),
-                    ))));
+                    )));
                 }
                 None => return Err(AnonTargetsError::InvalidList(x.to_string()).into()),
             }

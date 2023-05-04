@@ -17,7 +17,6 @@ use gazebo::prelude::*;
 use static_assertions::assert_eq_size;
 
 use super::attr_config::CoercedAttrExtraTypes;
-use super::attr_config::ConfiguredAttrExtraTypes;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::attr_config::AttrConfig;
 use crate::attrs::attr_type::bool::BoolLiteral;
@@ -28,7 +27,6 @@ use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
@@ -126,80 +124,20 @@ impl<C: AttrConfig> AttrLiteral<C> {
     }
 }
 
-impl AttrLiteral<ConfiguredAttr> {
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        pkg: PackageLabel,
-        traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
-        match self {
-            AttrLiteral::Bool(_) => Ok(()),
-            AttrLiteral::Int(_) => Ok(()),
-            AttrLiteral::String(_) => Ok(()),
-            AttrLiteral::EnumVariant(_) => Ok(()),
-            AttrLiteral::List(list) => {
-                for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Tuple(list) => {
-                for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::Dict(dict) => {
-                for (k, v) in dict.iter() {
-                    k.traverse(pkg.dupe(), traversal)?;
-                    v.traverse(pkg.dupe(), traversal)?;
-                }
-                Ok(())
-            }
-            AttrLiteral::None => Ok(()),
-            AttrLiteral::OneOf(l, _) => l.traverse(pkg, traversal),
-            AttrLiteral::Visibility(..) => Ok(()),
-            AttrLiteral::Extra(u) => match u {
-                ConfiguredAttrExtraTypes::ExplicitConfiguredDep(dep) => {
-                    dep.as_ref().traverse(traversal)
-                }
-                ConfiguredAttrExtraTypes::SplitTransitionDep(deps) => {
-                    for target in deps.deps.values() {
-                        traversal.dep(target)?;
-                    }
-                    Ok(())
-                }
-                ConfiguredAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-                ConfiguredAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
-                ConfiguredAttrExtraTypes::SourceLabel(dep) => traversal.dep(dep),
-                ConfiguredAttrExtraTypes::Label(label) => traversal.label(label),
-                ConfiguredAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
-                ConfiguredAttrExtraTypes::Query(query) => query.traverse(traversal),
-                ConfiguredAttrExtraTypes::SourceFile(source) => {
-                    for x in source.inputs() {
-                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
-                    }
-                    Ok(())
-                }
-            },
-        }
-    }
-}
-
 impl AttrLiteral<CoercedAttr> {
     pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
-        Ok(ConfiguredAttr(match self {
-            AttrLiteral::Bool(v) => AttrLiteral::Bool(*v),
-            AttrLiteral::Int(v) => AttrLiteral::Int(*v),
-            AttrLiteral::String(v) => AttrLiteral::String(v.dupe()),
-            AttrLiteral::EnumVariant(v) => AttrLiteral::EnumVariant(v.dupe()),
+        Ok(match self {
+            AttrLiteral::Bool(v) => ConfiguredAttr::Bool(*v),
+            AttrLiteral::Int(v) => ConfiguredAttr::Int(*v),
+            AttrLiteral::String(v) => ConfiguredAttr::String(v.dupe()),
+            AttrLiteral::EnumVariant(v) => ConfiguredAttr::EnumVariant(v.dupe()),
             AttrLiteral::List(list) => {
-                AttrLiteral::List(ListLiteral(list.try_map(|v| v.configure(ctx))?.into()))
+                ConfiguredAttr::List(ListLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
             AttrLiteral::Tuple(list) => {
-                AttrLiteral::Tuple(TupleLiteral(list.try_map(|v| v.configure(ctx))?.into()))
+                ConfiguredAttr::Tuple(TupleLiteral(list.try_map(|v| v.configure(ctx))?.into()))
             }
-            AttrLiteral::Dict(dict) => AttrLiteral::Dict(DictLiteral(
+            AttrLiteral::Dict(dict) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
                     let k2 = k.configure(ctx)?;
                     let v2 = v.configure(ctx)?;
@@ -207,14 +145,14 @@ impl AttrLiteral<CoercedAttr> {
                 })?
                 .into(),
             )),
-            AttrLiteral::None => AttrLiteral::None,
+            AttrLiteral::None => ConfiguredAttr::None,
             AttrLiteral::OneOf(l, i) => {
-                let ConfiguredAttr(configured) = l.configure(ctx)?;
-                AttrLiteral::OneOf(Box::new(configured), *i)
+                let configured = l.configure(ctx)?;
+                ConfiguredAttr::OneOf(Box::new(configured), *i)
             }
-            AttrLiteral::Visibility(v) => AttrLiteral::Visibility(v.clone()),
+            AttrLiteral::Visibility(v) => ConfiguredAttr::Visibility(v.clone()),
             AttrLiteral::Extra(u) => u.configure(ctx)?,
-        }))
+        })
     }
 
     pub(crate) fn traverse<'a>(
