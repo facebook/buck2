@@ -222,7 +222,6 @@ impl<A, B> Vec2<A, B> {
         1
     };
 
-    #[allow(clippy::mem_forget)]
     #[cold]
     fn reserve_slow(&mut self, additional: usize) {
         debug_assert!(self.cap - self.len < additional);
@@ -459,7 +458,6 @@ impl<A, B> IntoIterator for Vec2<A, B> {
     type Item = (A, B);
     type IntoIter = IntoIter<A, B>;
 
-    #[allow(clippy::mem_forget)]
     #[inline]
     fn into_iter(self) -> IntoIter<A, B> {
         let iter = IntoIter {

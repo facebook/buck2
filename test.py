@@ -242,7 +242,6 @@ CLIPPY_DENY = [
     "clippy::linkedlist",
     "clippy::macro_use_imports",
     "clippy::maybe_infinite_iter",
-    "clippy::mem_forget",
     "clippy::mut_mut",
     "clippy::needless_continue",
     "clippy::needless_range_loop",

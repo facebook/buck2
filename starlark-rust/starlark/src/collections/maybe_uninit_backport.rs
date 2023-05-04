@@ -16,7 +16,6 @@
  */
 
 // Copy-paste from std.
-#![allow(clippy::mem_forget)]
 #![allow(clippy::needless_range_loop)]
 
 use std::mem;

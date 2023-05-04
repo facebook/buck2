@@ -233,7 +233,6 @@ impl<'a> Visitor<'a> {
         }
     }
 
-    #[allow(clippy::mem_forget)]
     pub fn exit(mut self) {
         self.exit_impl();
         // Prevent `drop`.
