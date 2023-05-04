@@ -136,7 +136,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             locals: Vec::new(),
             globals,
             codemap,
-            bc_profile: self.bc_profile.enabled(),
             eval: self,
             check_types: dialect.enable_types == DialectTypes::Enable,
         };

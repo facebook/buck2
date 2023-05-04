@@ -45,7 +45,6 @@ use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
-use crate::eval::compiler::stmt::before_stmt;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
@@ -139,12 +138,10 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) next_gc_level: usize,
     // Profiling or instrumentation enabled.
     pub(crate) profile_or_instrumentation_mode: ProfileOrInstrumentationMode,
-    // Extra functions to run on each statement, usually empty
-    pub(crate) before_stmt: BeforeStmt<'a>,
     // Used for line profiling
     stmt_profile: StmtProfile,
-    // Bytecode profile.
-    pub(crate) bc_profile: BcProfile,
+    // Holds things that require hooking into evaluation.
+    eval_instrumentation: EvaluationInstrumentation<'a>,
     // Total time spent in runtime typechecking.
     // Filled only if runtime typechecking profiling is enabled.
     pub(crate) typecheck_profile: TypecheckProfile,
@@ -163,6 +160,31 @@ pub struct Evaluator<'v, 'a> {
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
+}
+
+/// Just holds things that require using EvaluationCallbacksEnabled so that we can cache whether that needs to be enabled or not.
+struct EvaluationInstrumentation<'a> {
+    // Bytecode profile.
+    bc_profile: BcProfile,
+    // Extra functions to run on each statement, usually empty
+    before_stmt: BeforeStmt<'a>,
+    // Whether we need to instrument evaluation or not, should be set if before_stmt or bc_profile are enabled.
+    enabled: bool,
+}
+
+impl<'a> EvaluationInstrumentation<'a> {
+    fn new() -> EvaluationInstrumentation<'a> {
+        Self {
+            bc_profile: BcProfile::new(),
+            before_stmt: BeforeStmt::default(),
+            enabled: false,
+        }
+    }
+
+    fn change<F: FnOnce(&mut EvaluationInstrumentation<'a>)>(&mut self, f: F) {
+        f(self);
+        self.enabled = self.bc_profile.enabled() || self.before_stmt.enabled();
+    }
 }
 
 // Implementing this forces users to be more careful about lifetimes that the Evaluator captures such that we could
@@ -190,11 +212,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             profile_or_instrumentation_mode: ProfileOrInstrumentationMode::None,
             heap_profile: HeapProfile::new(),
             stmt_profile: StmtProfile::new(),
-            bc_profile: BcProfile::new(),
             typecheck_profile: TypecheckProfile::default(),
             flame_profile: FlameProfile::new(),
             heap_or_flame_profile: false,
-            before_stmt: BeforeStmt::default(),
+            eval_instrumentation: EvaluationInstrumentation::new(),
             module_def_info: DefInfo::empty(), // Will be replaced before it is used
             string_pool: StringPool::default(),
             breakpoint_handler: None,
@@ -262,10 +283,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.heap_or_flame_profile = true;
             }
             ProfileMode::Bytecode => {
-                self.bc_profile.enable_1();
+                self.eval_instrumentation
+                    .change(|v| v.bc_profile.enable_1());
             }
             ProfileMode::BytecodePairs => {
-                self.bc_profile.enable_2();
+                self.eval_instrumentation
+                    .change(|v| v.bc_profile.enable_2());
             }
             ProfileMode::Typecheck => {
                 self.typecheck_profile.enabled = true;
@@ -288,10 +311,12 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         match mode {
             ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
-                self.bc_profile.enable_1();
+                self.eval_instrumentation
+                    .change(|v| v.bc_profile.enable_1());
             }
             ProfileMode::Statement | ProfileMode::Coverage => {
-                self.before_stmt.instrument = true;
+                self.eval_instrumentation
+                    .change(|v| v.before_stmt.instrument = true);
             }
             ProfileMode::HeapSummaryAllocated
             | ProfileMode::HeapSummaryRetained
@@ -339,8 +364,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             ProfileMode::Statement => self.stmt_profile.gen(),
             ProfileMode::Coverage => Err(EvaluatorError::CoverageNotImplemented.into()),
-            ProfileMode::Bytecode => self.bc_profile.gen_bc_profile(),
-            ProfileMode::BytecodePairs => self.bc_profile.gen_bc_pairs_profile(),
+            ProfileMode::Bytecode => self.gen_bc_profile(),
+            ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.flame_profile.gen(),
             ProfileMode::Typecheck => self.typecheck_profile.gen(),
         }
@@ -400,7 +425,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     }
 
     pub(crate) fn before_stmt(&mut self, f: BeforeStmtFunc<'a>) {
-        self.before_stmt.before_stmt.push(f)
+        self.eval_instrumentation
+            .change(|v| v.before_stmt.before_stmt.push(f))
     }
 
     /// This function is used by DAP, and it is not public API.
@@ -739,12 +765,22 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         alloca.alloca_concat(x, y, |xs| k(xs, self))
     }
 
+    pub(crate) fn gen_bc_profile(&mut self) -> anyhow::Result<ProfileData> {
+        self.eval_instrumentation.bc_profile.gen_bc_profile()
+    }
+
+    pub(crate) fn gen_bc_pairs_profile(&mut self) -> anyhow::Result<ProfileData> {
+        self.eval_instrumentation.bc_profile.gen_bc_pairs_profile()
+    }
+
     #[cold]
     #[inline(never)]
     fn eval_bc_with_callbacks(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
         bc.run(
             self,
             &mut EvalCallbacksEnabled {
+                bc_profile: self.eval_instrumentation.bc_profile.enabled(),
+                before_stmt: self.eval_instrumentation.before_stmt.enabled(),
                 stmt_locs: &bc.instrs.stmt_locs,
                 bc_start_ptr: bc.instrs.start_ptr(),
             },
@@ -753,7 +789,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     #[inline(always)]
     pub(crate) fn eval_bc(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
-        if self.before_stmt.enabled() {
+        if self.eval_instrumentation.enabled {
             self.eval_bc_with_callbacks(bc)
         } else {
             bc.run(self, &mut EvalCallbacksDisabled)
@@ -773,13 +809,13 @@ impl EvaluationCallbacks for EvalCallbacksDisabled {
 }
 
 pub(crate) struct EvalCallbacksEnabled<'a> {
+    pub(crate) bc_profile: bool,
+    pub(crate) before_stmt: bool,
     pub(crate) stmt_locs: &'a BcStatementLocations,
     pub(crate) bc_start_ptr: BcPtrAddr<'a>,
 }
 
 impl<'a> EvalCallbacksEnabled<'a> {
-    #[cold]
-    #[inline(never)]
     fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) {
         let offset = ip.offset_from(self.bc_start_ptr);
         if let Some(loc) = self.stmt_locs.stmt_at(offset) {
@@ -790,7 +826,32 @@ impl<'a> EvalCallbacksEnabled<'a> {
 
 impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
     #[inline(always)]
-    fn before_instr(&mut self, eval: &mut Evaluator, ip: BcPtrAddr, _opcode: BcOpcode) {
-        self.before_stmt(eval, ip);
+    fn before_instr(&mut self, eval: &mut Evaluator, ip: BcPtrAddr, opcode: BcOpcode) {
+        if self.bc_profile {
+            eval.eval_instrumentation.bc_profile.before_instr(opcode)
+        }
+        if self.before_stmt {
+            self.before_stmt(eval, ip);
+        }
     }
+}
+
+// This function should be called before every meaningful statement.
+// The purposes are GC, profiling and debugging.
+//
+// This function is called only if `before_stmt` is set before compilation start.
+pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
+    assert!(
+        eval.eval_instrumentation.before_stmt.enabled(),
+        "this code should only be called if `before_stmt` is set"
+    );
+    let mut fs = mem::take(&mut eval.eval_instrumentation.before_stmt.before_stmt);
+    for f in &mut fs {
+        f.call(span.span.file_span_ref(), eval)
+    }
+    let added = mem::replace(&mut eval.eval_instrumentation.before_stmt.before_stmt, fs);
+    assert!(
+        added.is_empty(),
+        "`before_stmt` cannot be modified during evaluation"
+    );
 }

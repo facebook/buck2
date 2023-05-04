@@ -278,7 +278,7 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval.bc_profile.gen_bc_profile().unwrap().gen().unwrap();
+        let csv = eval.gen_bc_profile().unwrap().gen().unwrap();
         assert!(
             csv.contains(&format!("\n\"{:?}\",1,", BcOpcode::CallFrozenNativePos)),
             "{:?}",
@@ -297,12 +297,7 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval
-            .bc_profile
-            .gen_bc_pairs_profile()
-            .unwrap()
-            .gen()
-            .unwrap();
+        let csv = eval.gen_bc_pairs_profile().unwrap().gen().unwrap();
         assert!(
             csv.contains(&format!(
                 "\n\"{:?}\",\"{:?}\",1",

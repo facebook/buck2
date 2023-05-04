@@ -42,7 +42,6 @@ use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr::InstrControl;
 use crate::eval::bc::instr_arg::BcInstrArg;
 use crate::eval::bc::native_function::BcNativeFunction;
-use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
@@ -1718,12 +1717,10 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 }
 
 pub(crate) struct InstrPossibleGcImpl;
-pub(crate) struct InstrProfileBcImpl;
 pub(crate) struct InstrRecordCallEnterImpl;
 pub(crate) struct InstrRecordCallExitImpl;
 
 pub(crate) type InstrPossibleGc = InstrNoFlow<InstrPossibleGcImpl>;
-pub(crate) type InstrProfileBc = InstrNoFlow<InstrProfileBcImpl>;
 pub(crate) type InstrRecordCallEnter = InstrNoFlow<InstrRecordCallEnterImpl>;
 pub(crate) type InstrRecordCallExit = InstrNoFlow<InstrRecordCallExitImpl>;
 
@@ -1737,20 +1734,6 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         (): &(),
     ) -> anyhow::Result<()> {
         possible_gc(eval);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrProfileBcImpl {
-    type Arg = BcOpcode;
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        opcode: &BcOpcode,
-    ) -> anyhow::Result<()> {
-        eval.bc_profile.before_instr(*opcode);
         Ok(())
     }
 }

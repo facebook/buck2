@@ -37,11 +37,9 @@ use crate::eval::bc::instr_impl::InstrIterStop;
 use crate::eval::bc::instr_impl::InstrLoadLocal;
 use crate::eval::bc::instr_impl::InstrLoadLocalCaptured;
 use crate::eval::bc::instr_impl::InstrMov;
-use crate::eval::bc::instr_impl::InstrProfileBc;
 use crate::eval::bc::instr_impl::InstrStoreLocalCaptured;
 use crate::eval::bc::instrs::BcInstrsWriter;
 use crate::eval::bc::instrs::PatchAddr;
-use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlot;
@@ -121,8 +119,6 @@ struct BcWriterForLoop {
 
 /// Write bytecode here.
 pub(crate) struct BcWriter<'f> {
-    /// Insert bytecode profiling instructions.
-    profile: bool,
     /// Insert `RecordCallEnter`/`RecordCallExit` instructions.
     record_call_enter_exit: bool,
 
@@ -152,7 +148,6 @@ pub(crate) struct BcWriter<'f> {
 impl<'f> BcWriter<'f> {
     /// Empty.
     pub(crate) fn new(
-        profile: bool,
         call_enter_exit: bool,
         local_names: FrozenRef<'f, [FrozenStringValue]>,
         param_count: u32,
@@ -165,7 +160,6 @@ impl<'f> BcWriter<'f> {
             definitely_assigned.mark_definitely_assigned(LocalSlotId(i));
         }
         BcWriter {
-            profile,
             record_call_enter_exit: call_enter_exit,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
@@ -184,7 +178,6 @@ impl<'f> BcWriter<'f> {
     #[allow(let_underscore_drop)]
     pub(crate) fn finish(self) -> Bc {
         let BcWriter {
-            profile: has_before_instr,
             record_call_enter_exit: call_enter_exit,
             instrs,
             slow_args: spans,
@@ -197,7 +190,6 @@ impl<'f> BcWriter<'f> {
             for_loops,
             max_loop_depth,
         } = self;
-        let _ = has_before_instr;
         let _ = call_enter_exit;
         let _ = heap;
         let _ = definitely_assigned;
@@ -238,11 +230,6 @@ impl<'f> BcWriter<'f> {
         slow_arg: BcInstrSlowArg,
         arg: I::Arg,
     ) -> (BcAddr, *const I::Arg) {
-        if self.profile {
-            // This instruction does not fail, so do not write span for it.
-            self.instrs
-                .write::<InstrProfileBc>(BcOpcode::for_instr::<I>());
-        }
         self.slow_args.push((self.ip(), slow_arg));
         self.instrs.write::<I>(arg)
     }

@@ -23,8 +23,6 @@
 //! Bazel's .bzl files) or the BUILD file dialect (i.e. used to interpret
 //! Bazel's BUILD file). The BUILD dialect does not allow `def` statements.
 
-use std::mem;
-
 use starlark_derive::VisitSpanMut;
 use thiserror::Error;
 
@@ -104,8 +102,6 @@ pub(crate) enum StmtCompiled {
 pub(crate) struct StmtCompileContext {
     /// Current function has return type.
     pub(crate) has_return_type: bool,
-    /// Insert bytecode profiling instructions.
-    pub(crate) bc_profile: bool,
     /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
     pub(crate) record_call_enter_exit: bool,
 }
@@ -517,26 +513,6 @@ impl Compiler<'_, '_, '_> {
     }
 }
 
-// This function should be called before every meaningful statement.
-// The purposes are GC, profiling and debugging.
-//
-// This function is called only if `before_stmt` is set before compilation start.
-pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
-    assert!(
-        eval.before_stmt.enabled(),
-        "this code should only be called if `before_stmt` is set"
-    );
-    let mut fs = mem::take(&mut eval.before_stmt.before_stmt);
-    for f in &mut fs {
-        f.call(span.span.file_span_ref(), eval)
-    }
-    let added = mem::replace(&mut eval.before_stmt.before_stmt, fs);
-    assert!(
-        added.is_empty(),
-        "`before_stmt` cannot be modified during evaluation"
-    );
-}
-
 // There are two requirements to perform a GC:
 //
 // 1. We can't be profiling, since profiling relies on the redundant heap
@@ -655,7 +631,6 @@ impl Compiler<'_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
         StmtCompileContext {
             has_return_type,
-            bc_profile: self.bc_profile,
             record_call_enter_exit: self.eval.heap_or_flame_profile,
         }
     }

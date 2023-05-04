@@ -266,7 +266,6 @@ impl StmtsCompiled {
         heap: &FrozenHeap,
     ) -> Bc {
         let mut bc = BcWriter::new(
-            compiler.bc_profile,
             compiler.record_call_enter_exit,
             local_names,
             param_count,
