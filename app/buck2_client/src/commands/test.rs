@@ -148,11 +148,13 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long)]
     test_executor_stderr: Option<OutputDestinationArg>,
 
-    #[clap(
-        name = "TEST_EXECUTOR_ARGS",
-        help = "Additional arguments passed to the test executor",
-        raw = true
-    )]
+    /// Additional arguments passed to the test executor.
+    ///
+    /// Test executor is expected to have `--env` flag to pass environment variables.
+    /// Can be used like this:
+    ///
+    /// buck2 test //foo:bar -- --env PRIVATE_KEY=123
+    #[clap(name = "TEST_EXECUTOR_ARGS", raw = true)]
     test_executor_args: Vec<String>,
 }
 
