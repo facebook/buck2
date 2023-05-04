@@ -15,6 +15,7 @@ load(
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode")
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
+load("@prelude//utils:utils.bzl", "expect")
 
 def add_java_7_8_bootclasspath(target_level: int.type, bootclasspath_entries: ["artifact"], java_toolchain: "JavaToolchainInfo") -> ["artifact"]:
     if target_level == 7:
@@ -193,25 +194,22 @@ def get_compiling_deps_tset(
 
     return compiling_deps_tset
 
-def get_compiling_classpath(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], target_type: TargetType.type, source_only_abi_deps: ["dependency"]):
-    compiling_classpath = []
+def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet.type, None], source_only_abi_deps: ["dependency"]) -> ["JavaClasspathEntry"]:
+    source_only_abi_compiling_deps = []
     if compiling_deps_tset:
-        if target_type == TargetType("source_only_abi"):
-            source_only_abi_deps_filter = {}
-            for d in source_only_abi_deps:
-                info = d.get(JavaLibraryInfo)
-                if not info:
-                    fail("source_only_abi_deps must produce a JavaLibraryInfo but {} does not, please remove it".format(d))
-                if info.library_output:
-                    source_only_abi_deps_filter[info.library_output.abi] = True
+        source_only_abi_deps_filter = {}
+        for d in source_only_abi_deps:
+            info = d.get(JavaLibraryInfo)
+            if not info:
+                fail("source_only_abi_deps must produce a JavaLibraryInfo but {} does not, please remove it".format(d))
+            if info.library_output:
+                source_only_abi_deps_filter[info.library_output.abi] = True
 
-            def filter_compiling_deps(dep):
-                return dep.abi in source_only_abi_deps_filter or dep.required_for_source_only_abi
+        def filter_compiling_deps(dep):
+            return dep.abi in source_only_abi_deps_filter or dep.required_for_source_only_abi
 
-            compiling_classpath = [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
-        else:
-            compiling_classpath = compiling_deps_tset.project_as_json("javacd_json")
-    return compiling_classpath
+        source_only_abi_compiling_deps = [compiling_dep for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
+    return source_only_abi_compiling_deps
 
 # buildifier: disable=unused-variable
 def encode_ap_params(ap_params: ["AnnotationProcessorParams"], target_type: TargetType.type) -> [struct.type, None]:
@@ -267,7 +265,6 @@ def encode_base_jar_command(
         label: "label",
         compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
         classpath_jars_tag: "artifact_tag",
-        source_only_abi_deps: ["dependency"],
         bootclasspath_entries: ["artifact"],
         source_level: int.type,
         target_level: int.type,
@@ -277,12 +274,17 @@ def encode_base_jar_command(
         ap_params: ["AnnotationProcessorParams"],
         plugin_params: ["PluginParams", None],
         extra_arguments: "cmd_args",
+        source_only_abi_compiling_deps: ["JavaClasspathEntry"],
         track_class_usage: bool.type) -> struct.type:
     library_jar_params = encode_jar_params(remove_classes, output_paths)
     qualified_name = get_qualified_name(label, target_type)
-    compiling_classpath = classpath_jars_tag.tag_artifacts(
-        get_compiling_classpath(compiling_deps_tset, target_type, source_only_abi_deps),
-    )
+    if target_type == TargetType("source_only_abi"):
+        compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])
+    else:
+        expect(len(source_only_abi_compiling_deps) == 0)
+        compiling_classpath = classpath_jars_tag.tag_artifacts(
+            compiling_deps_tset.project_as_json("javacd_json") if compiling_deps_tset else None,
+        )
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -413,6 +415,8 @@ def generate_abi_jars(
         is_building_android_binary: bool.type,
         class_abi_generator: "dependency",
         final_jar: "artifact",
+        compiling_deps_tset: [JavaCompilingDepsTSet.type, None],
+        source_only_abi_deps: ["dependency"],
         class_abi_jar: ["artifact", None],
         class_abi_output_dir: ["artifact", None],
         encode_abi_command: "function",
@@ -465,7 +469,8 @@ def generate_abi_jars(
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
-            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type, source_only_abi_classpath_jars_tag)
+            source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
+            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type, source_only_abi_classpath_jars_tag, source_only_abi_compiling_deps)
             define_action(
                 "source_only_abi_",
                 source_only_abi_identifier,

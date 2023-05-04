@@ -131,7 +131,6 @@ def create_jar_artifact_kotlincd(
             label,
             compiling_deps_tset,
             classpath_jars_tag,
-            source_only_abi_deps,
             bootclasspath_entries,
             source_level,
             target_level,
@@ -141,6 +140,7 @@ def create_jar_artifact_kotlincd(
             ap_params = ap_params,
             plugin_params = plugin_params,
             extra_arguments = cmd_args(extra_arguments),
+            source_only_abi_compiling_deps = [],
             track_class_usage = track_class_usage,
         )
 
@@ -164,7 +164,8 @@ def create_jar_artifact_kotlincd(
     def encode_abi_command(
             output_paths: OutputPaths.type,
             target_type: TargetType.type,
-            classpath_jars_tag: "artifact_tag") -> struct.type:
+            classpath_jars_tag: "artifact_tag",
+            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []) -> struct.type:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -173,7 +174,6 @@ def create_jar_artifact_kotlincd(
             label,
             compiling_deps_tset,
             classpath_jars_tag,
-            source_only_abi_deps,
             bootclasspath_entries,
             source_level,
             target_level,
@@ -183,7 +183,8 @@ def create_jar_artifact_kotlincd(
             ap_params,
             plugin_params,
             cmd_args(extra_arguments),
-            True,
+            source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+            track_class_usage = True,
         )
         abi_params = encode_jar_params(remove_classes, output_paths)
         abi_command = struct(
@@ -331,6 +332,8 @@ def create_jar_artifact_kotlincd(
         is_building_android_binary = is_building_android_binary,
         class_abi_generator = java_toolchain.class_abi_generator,
         final_jar = final_jar,
+        compiling_deps_tset = compiling_deps_tset,
+        source_only_abi_deps = source_only_abi_deps,
         class_abi_jar = class_abi_jar,
         class_abi_output_dir = class_abi_output_dir,
         encode_abi_command = encode_abi_command,
