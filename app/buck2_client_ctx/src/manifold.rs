@@ -303,6 +303,8 @@ pub fn curl_write_command(
     upload.args([
         "--silent",
         "--show-error",
+        "--retry",
+        "2",
         "--fail",
         "-X",
         "PUT",
@@ -354,6 +356,8 @@ pub fn curl_append_command(
     upload.args([
         "--silent",
         "--show-error",
+        "--retry",
+        "2",
         "--fail",
         "-X",
         "POST",
