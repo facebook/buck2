@@ -30,3 +30,9 @@ constraint_value(
     constraint_setting = ":cpu",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "wasm32",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)

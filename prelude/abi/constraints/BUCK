@@ -16,3 +16,9 @@ constraint_value(
     constraint_setting = ":abi",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "musl",
+    constraint_setting = ":abi",
+    visibility = ["PUBLIC"],
+)

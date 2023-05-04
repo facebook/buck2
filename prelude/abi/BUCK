@@ -13,3 +13,11 @@ config_setting(
     ],
     visibility = ["PUBLIC"],
 )
+
+config_setting(
+    name = "musl",
+    constraint_values = [
+        "prelude//abi/constraints:musl",
+    ],
+    visibility = ["PUBLIC"],
+)
