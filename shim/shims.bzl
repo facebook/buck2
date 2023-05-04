@@ -51,6 +51,19 @@ def rust_binary(
         **kwargs
     )
 
+def rust_unittest(
+        rustc_flags = [],
+        deps = [],
+        visibility = ["PUBLIC"],
+        **kwargs):
+    deps = _maybe_select_map(deps, _fix_deps)
+    native.rust_unittest(
+        rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
+        deps = deps,
+        visibility = visibility,
+        **kwargs
+    )
+
 def rust_protobuf_library(
         name,
         srcs,
