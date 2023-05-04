@@ -127,7 +127,10 @@ impl<C: AttrConfig> QueryAttrBase<C> {
     }
 }
 
-pub type ResolvedQueryLiterals<C> = BTreeMap<String, <C as AttrConfig>::ProvidersType>;
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+pub struct ResolvedQueryLiterals<C: AttrConfig>(
+    pub BTreeMap<String, <C as AttrConfig>::ProvidersType>,
+);
 
 impl QueryAttrBase<ConfiguredAttr> {
     pub(crate) fn traverse<'a>(
@@ -135,7 +138,7 @@ impl QueryAttrBase<ConfiguredAttr> {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> anyhow::Result<()> {
         // queries have no inputs.
-        for dep in self.resolved_literals.values() {
+        for dep in self.resolved_literals.0.values() {
             traversal.dep(dep)?;
         }
         traversal.query_macro(&self.query, &self.resolved_literals)?;
@@ -150,17 +153,19 @@ impl QueryAttrBase<CoercedAttr> {
     ) -> anyhow::Result<QueryAttrBase<ConfiguredAttr>> {
         Ok(QueryAttrBase {
             query: self.query.clone(),
-            resolved_literals: self
-                .resolved_literals
-                .iter()
-                .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
-                .collect::<anyhow::Result<_>>()?,
+            resolved_literals: ResolvedQueryLiterals(
+                self.resolved_literals
+                    .0
+                    .iter()
+                    .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
+                    .collect::<anyhow::Result<_>>()?,
+            ),
         })
     }
 
     fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
         // queries don't have any configuration_deps or inputs currently.
-        for dep in self.resolved_literals.values() {
+        for dep in self.resolved_literals.0.values() {
             traversal.dep(dep.target())?;
         }
         Ok(())

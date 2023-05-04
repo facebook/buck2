@@ -13,6 +13,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
+use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -75,7 +76,7 @@ impl QueryAttrTypeExt for QueryAttrType {
 
         Ok(QueryAttrBase {
             query,
-            resolved_literals: collector.literals,
+            resolved_literals: ResolvedQueryLiterals(collector.literals),
         })
     }
 }

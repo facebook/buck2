@@ -177,8 +177,9 @@ async fn resolve_queries_impl(
             let ctx = ctx;
             let deps = &deps;
             async move {
-                let mut resolved_literals = HashMap::with_capacity(resolved_literals_labels.len());
-                for (literal, label) in resolved_literals_labels {
+                let mut resolved_literals =
+                    HashMap::with_capacity(resolved_literals_labels.0.len());
+                for (literal, label) in resolved_literals_labels.0 {
                     let node = deps.get(label.target()).ok_or_else(|| {
                         AnalysisQueryError::LiteralNotFoundInDeps(literal.clone())
                     })?;
