@@ -19,10 +19,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
-use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
@@ -45,80 +41,6 @@ enum BxlActionsError {
         "An action registry was already requested via `actions_factory`. Only one action registry is allowed"
     )]
     RegistryAlreadyCreated,
-}
-
-#[derive(
-    ProvidesStaticType,
-    Derivative,
-    Display,
-    Trace,
-    NoSerialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(directory = "bxl")]
-#[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
-pub(crate) struct BxlActionsCtx<'v> {
-    ctx: ValueTyped<'v, BxlContext<'v>>,
-}
-
-impl<'v> BxlActionsCtx<'v> {
-    pub fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> Self {
-        Self { ctx }
-    }
-}
-
-impl<'v> StarlarkValue<'v> for BxlActionsCtx<'v> {
-    starlark_type!("bxl_actions_ctx");
-
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_context)
-    }
-}
-
-impl<'v> AllocValue<'v> for BxlActionsCtx<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex_no_freeze(self)
-    }
-}
-
-impl<'v> StarlarkTypeRepr for &'v BxlActionsCtx<'v> {
-    fn starlark_type_repr() -> String {
-        BxlActionsCtx::get_type_value_static().as_str().to_owned()
-    }
-}
-
-impl<'v> UnpackValue<'v> for &'v BxlActionsCtx<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<&'v BxlActionsCtx<'v>> {
-        x.downcast_ref()
-    }
-}
-
-/// The bxl action context for creating and running actions.
-#[starlark_module]
-fn register_context(builder: &mut MethodsBuilder) {
-    /// Returns the analysis registry [`AnalysisRegistry`] to create and register actions for this
-    /// bxl function. This will have the same functionality as the actions for rules.
-    ///
-    /// Actions created by bxl will not be built by default. Instead, they are marked to be built
-    /// by `ctx.output.ensure(artifact)` on the output module of the [`BxlContext`]. Only artifacts
-    /// marked by ensure will be built.
-    ///
-    /// Sample usage:
-    /// ```text
-    /// def _impl_write_action(ctx):
-    ///     actions = ctx.actions_factory
-    ///     output = actions.write("my_output", "my_content")
-    ///     ensured = ctx.output.ensure(output)
-    ///     ctx.output.print(ensured)
-    /// ```
-    fn action_factory<'v>(this: &BxlActionsCtx<'v>) -> anyhow::Result<Value<'v>> {
-        validate_action_instantiation(this.ctx.as_ref())?;
-
-        Ok(this.ctx.as_ref().state.to_value())
-    }
 }
 
 pub(crate) fn validate_action_instantiation<'v>(this: &BxlContext<'v>) -> anyhow::Result<()> {

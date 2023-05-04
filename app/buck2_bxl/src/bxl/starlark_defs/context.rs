@@ -73,7 +73,6 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
-use crate::bxl::starlark_defs::context::actions::BxlActionsCtx;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -438,12 +437,6 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         this.async_ctx
             .via(|| StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform))
-    }
-
-    /// Returns the action context [`BxlActionsCtx`] for creating and running actions.
-    #[starlark(attribute)]
-    fn bxl_actions<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<BxlActionsCtx<'v>> {
-        Ok(BxlActionsCtx::new(ValueTyped::new(this.value).unwrap()))
     }
 
     /// Returns the action context for creating and running actions.
