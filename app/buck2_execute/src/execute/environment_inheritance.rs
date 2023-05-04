@@ -12,6 +12,51 @@ use std::ffi::OsString;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
 
+#[cfg(fbcode_build)]
+const ENV_ALLOW_LIST: &[&str] = test_env_allowlist::LEGACY_TESTPILOT_ALLOW_LIST;
+
+#[cfg(all(unix, not(fbcode_build)))]
+const ENV_ALLOW_LIST: &[&str] = &["PATH", "USER", "LOGNAME", "HOME", "TMPDIR"];
+
+// The standard (built-in) variables.
+// https://ss64.com/nt/syntax-variables.html
+#[cfg(all(windows, not(fbcode_build)))]
+const ENV_ALLOW_LIST: &[&str] = &[
+    "ALLUSERSPROFILE",
+    "APPDATA",
+    "COMPUTERNAME",
+    "COMSPEC",
+    "CommonProgramFiles",
+    "CommonProgramFiles(x86)",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "LOCALAPPDATA",
+    "NUMBER_OF_PROCESSORS",
+    "OS",
+    "PATH",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_ARCHITEW6432",
+    "PROCESSOR_IDENTIFIER",
+    "PROCESSOR_LEVEL",
+    "PROCESSOR_REVISION",
+    "PSModulePath",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "Public",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TEMP",
+    "TMP",
+    "USERDOMAIN",
+    "USERNAME",
+    "USERPROFILE",
+    "UserDnsDomain",
+    "WINDIR",
+];
+
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct EnvironmentInheritance {
     clear: bool,
@@ -23,20 +68,7 @@ impl EnvironmentInheritance {
     pub fn test_allowlist() -> Self {
         // This is made to be a list of lists in case we want to include lists from different
         // provenances, like the test_env_allowlist::ENV_LIST_HACKY.
-        let allowlists;
-
-        #[cfg(fbcode_build)]
-        {
-            allowlists = &[test_env_allowlist::LEGACY_TESTPILOT_ALLOW_LIST];
-        }
-
-        #[cfg(not(fbcode_build))]
-        {
-            // NOTE: Not much thought has gone into this, since we don't actually use this
-            // codepath. In theory we should probably omit PATH here, but we're likely to want
-            // to use this for e.g. genrules and that will *not* be practical...
-            allowlists = &[&["PATH", "USER", "LOGNAME", "HOME", "TMPDIR"]];
-        }
+        let allowlists = &[ENV_ALLOW_LIST];
 
         // We create this *once* since getenv is actually not cheap (being O(n) of the environment
         // size).
