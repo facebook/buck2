@@ -22,7 +22,6 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -132,14 +131,12 @@ impl TargetNode {
             AttrInspectOptions::All,
         ) {
             Some(v) => match v.value {
-                CoercedAttr::Literal(v) => match v {
-                    AttrLiteral::None => None,
-                    AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(t)) => Some(t.label.target()),
-                    _ => unreachable!("coercer verified the attribute is dep"),
-                },
+                CoercedAttr::None => None,
+                CoercedAttr::Extra(CoercedAttrExtraTypes::Dep(t)) => Some(t.label.target()),
                 CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                     unreachable!("coercer verified attribute is not configurable")
                 }
+                _ => unreachable!("coercer verified the attribute is dep"),
             },
             None => None,
         }
@@ -181,43 +178,41 @@ impl TargetNode {
     }
 
     pub(crate) fn special_attrs(&self) -> impl Iterator<Item = (&str, CoercedAttr)> {
-        let typ_attr = CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
-            self.rule_type().name().into(),
-        )));
-        let deps_attr = CoercedAttr::new_literal(AttrLiteral::List(
+        let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
+        let deps_attr = CoercedAttr::List(
             self.deps()
                 .map(|t| {
-                    CoercedAttr::new_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Label(
-                        Box::new(ProvidersLabel::default_for(t.dupe())),
+                    CoercedAttr::Extra(CoercedAttrExtraTypes::Label(Box::new(
+                        ProvidersLabel::default_for(t.dupe()),
                     )))
                 })
                 .collect(),
-        ));
-        let package_attr = CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
-            ArcStr::from(self.buildfile_path().to_string()),
+        );
+        let package_attr = CoercedAttr::String(StringLiteral(ArcStr::from(
+            self.buildfile_path().to_string(),
         )));
         vec![
             (TYPE, typ_attr),
             (
                 CONFIGURATION_DEPS,
-                CoercedAttr::new_literal(AttrLiteral::List(
+                CoercedAttr::List(
                     self.get_configuration_deps()
                         .map(|t| {
-                            CoercedAttr::new_literal(AttrLiteral::Extra(
-                                CoercedAttrExtraTypes::ConfigurationDep(Box::new(t.dupe())),
-                            ))
+                            CoercedAttr::Extra(CoercedAttrExtraTypes::ConfigurationDep(Box::new(
+                                t.dupe(),
+                            )))
                         })
                         .collect(),
-                )),
+                ),
             ),
             (DEPS, deps_attr),
             (PACKAGE, package_attr),
             (
                 ONCALL,
-                CoercedAttr::new_literal(match self.oncall() {
-                    None => AttrLiteral::None,
-                    Some(x) => AttrLiteral::String(StringLiteral(ArcStr::from(x))),
-                }),
+                match self.oncall() {
+                    None => CoercedAttr::None,
+                    Some(x) => CoercedAttr::String(StringLiteral(ArcStr::from(x))),
+                },
             ),
         ]
         .into_iter()
@@ -229,7 +224,7 @@ impl TargetNode {
 
     fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
         match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
-            Some(CoercedAttr::Literal(AttrLiteral::Visibility(v))) => Ok(v),
+            Some(CoercedAttr::Visibility(v)) => Ok(v),
             Some(a) => {
                 // This code is unreachable: visibility attributes are validated
                 // at the coercion stage. But if we did it wrong,
@@ -480,9 +475,7 @@ pub mod testing {
 
             attributes.push_sorted(
                 AttributeSpec::name_attr_id(),
-                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(
-                    label.name().as_str().into(),
-                ))),
+                CoercedAttr::String(StringLiteral(label.name().as_str().into())),
             );
 
             let mut deps_cache = CoercedDepsCollector::new();

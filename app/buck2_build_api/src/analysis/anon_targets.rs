@@ -47,7 +47,6 @@ use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -262,7 +261,7 @@ impl AnonTargetKey {
             match Dependency::from_value(x) {
                 Some(dep) => {
                     let label = dep.label().inner().clone();
-                    AttrLiteral::Extra(CoercedAttrExtraTypes::ConfiguredDep(Box::new(DepAttr {
+                    CoercedAttr::Extra(CoercedAttrExtraTypes::ConfiguredDep(Box::new(DepAttr {
                         attr_type,
                         label,
                     })))

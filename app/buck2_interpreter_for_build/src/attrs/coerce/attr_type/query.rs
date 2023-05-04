@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -88,12 +87,12 @@ impl AttrTypeCoerce for QueryAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let query = value
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Query(Box::new(
+        Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Query(Box::new(
             QueryAttr {
                 query: Self::coerce(ctx, query.to_owned())?,
                 providers: ProviderIdSet::EMPTY,

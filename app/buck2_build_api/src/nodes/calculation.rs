@@ -886,7 +886,6 @@ mod tests {
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-    use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -934,27 +933,25 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::new_literal(AttrLiteral::Bool(BoolLiteral(false))),
+                CoercedAttr::Bool(BoolLiteral(false)),
             ),
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::new_literal(AttrLiteral::String(StringLiteral("some_string".into()))),
+                CoercedAttr::String(StringLiteral("some_string".into())),
             ),
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::new_literal(AttrLiteral::List(ListLiteral(ArcSlice::new([
-                    CoercedAttr::new_literal(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(
-                        Box::new(DepAttr {
-                            attr_type: DepAttrType::new(
-                                ProviderIdSet::EMPTY,
-                                DepAttrTransition::Identity,
-                            ),
-                            label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                        }),
-                    ))),
-                ])))),
+                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Extra(
+                    CoercedAttrExtraTypes::Dep(Box::new(DepAttr {
+                        attr_type: DepAttrType::new(
+                            ProviderIdSet::EMPTY,
+                            DepAttrTransition::Identity,
+                        ),
+                        label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
+                    })),
+                )]))),
             ),
         ];
 
@@ -964,14 +961,12 @@ mod tests {
             (
                 "bool_field",
                 Attribute::testing_new(None, AttrType::bool()),
-                CoercedAttr::new_literal(AttrLiteral::Bool(BoolLiteral(true))),
+                CoercedAttr::Bool(BoolLiteral(true)),
             ),
             (
                 "another_field",
                 Attribute::testing_new(None, AttrType::string()),
-                CoercedAttr::new_literal(AttrLiteral::String(StringLiteral(
-                    "another_string".into(),
-                ))),
+                CoercedAttr::String(StringLiteral("another_string".into())),
             ),
             (
                 "some_deps",

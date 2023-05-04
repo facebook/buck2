@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -46,7 +45,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         self.this().0.coerce_item(configurable, ctx, value)
     }
 
@@ -86,7 +85,7 @@ pub trait AttrTypeInnerExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral>;
+    ) -> anyhow::Result<CoercedAttr>;
 
     fn starlark_type(&self) -> String;
 }
@@ -97,7 +96,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         match self {
             Self::Any(x) => x.coerce_item(configurable, ctx, value),
             Self::Arg(x) => x.coerce_item(configurable, ctx, value),

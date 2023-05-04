@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -24,12 +23,12 @@ impl AttrTypeCoerce for VisibilityAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         // TODO(nga): unnecessary coercion step.
         let coerced_list_of_strings =
             VisibilityAttrType::pretend_attr_type().coerce_item(configurable, ctx, value)?;
-        let visibility = parse_visibility(ctx, &CoercedAttr::Literal(coerced_list_of_strings))?;
-        Ok(AttrLiteral::Visibility(visibility))
+        let visibility = parse_visibility(ctx, &coerced_list_of_strings)?;
+        Ok(CoercedAttr::Visibility(visibility))
     }
 
     fn starlark_type(&self) -> String {

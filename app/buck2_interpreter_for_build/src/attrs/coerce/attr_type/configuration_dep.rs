@@ -10,8 +10,8 @@
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::string::STRING_TYPE;
@@ -26,7 +26,7 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let label = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
@@ -35,7 +35,7 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
 
         let (label, name) = label.into_parts();
         match name {
-            ProvidersName::Default => Ok(AttrLiteral::Extra(
+            ProvidersName::Default => Ok(CoercedAttr::Extra(
                 CoercedAttrExtraTypes::ConfigurationDep(Box::new(label)),
             )),
             _ => Err(CoercionError::UnexpectedSubTarget(ProvidersLabel::new(label, name)).into()),

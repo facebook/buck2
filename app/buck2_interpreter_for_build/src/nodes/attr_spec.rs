@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use anyhow::Context;
 use buck2_core::target::name::TargetName;
 use buck2_node::attrs::attr::CoercedValue;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::attr_is_configurable;
@@ -65,7 +64,7 @@ impl AttributeSpecExt for AttributeSpec {
 
                 attr_values.push_sorted(
                     attr_idx,
-                    CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from(name)))),
+                    CoercedAttr::String(StringLiteral(ArcStr::from(name))),
                 );
 
                 TargetName::new(name)?
@@ -102,12 +101,12 @@ impl AttributeSpecExt for AttributeSpec {
                 if is_visibility {
                     if internals.package().default_visibility_to_public {
                         if coerced
-                            == CoercedValue::Custom(CoercedAttr::Literal(AttrLiteral::Visibility(
+                            == CoercedValue::Custom(CoercedAttr::Visibility(
                                 VisibilitySpecification::DEFAULT,
-                            )))
+                            ))
                         {
-                            coerced = CoercedValue::Custom(CoercedAttr::Literal(
-                                AttrLiteral::Visibility(VisibilitySpecification::Public),
+                            coerced = CoercedValue::Custom(CoercedAttr::Visibility(
+                                VisibilitySpecification::Public,
                             ));
                         }
                     }
@@ -123,9 +122,7 @@ impl AttributeSpecExt for AttributeSpec {
                 if internals.package().default_visibility_to_public {
                     attr_values.push_sorted(
                         attr_idx,
-                        CoercedAttr::Literal(AttrLiteral::Visibility(
-                            VisibilitySpecification::Public,
-                        )),
+                        CoercedAttr::Visibility(VisibilitySpecification::Public),
                     );
                 }
             }

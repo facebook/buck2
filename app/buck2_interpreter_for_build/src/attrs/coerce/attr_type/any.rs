@@ -8,7 +8,6 @@
  */
 
 use buck2_node::attrs::attr_type::any::AnyAttrType;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -24,28 +23,28 @@ use starlark::values::Value;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 fn to_coerced_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
-    CoercedAttr::Literal(to_literal(value, ctx))
+    to_literal(value, ctx)
 }
 
-fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral {
+fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> CoercedAttr {
     if value.is_none() {
-        AttrLiteral::None
+        CoercedAttr::None
     } else if let Some(x) = value.unpack_bool() {
-        AttrLiteral::Bool(BoolLiteral(x))
+        CoercedAttr::Bool(BoolLiteral(x))
     } else if let Some(x) = value.unpack_int() {
-        AttrLiteral::Int(x)
+        CoercedAttr::Int(x)
     } else if let Some(x) = DictRef::from_value(value) {
-        AttrLiteral::Dict(
+        CoercedAttr::Dict(
             x.iter()
                 .map(|(k, v)| (to_coerced_literal(k, ctx), to_coerced_literal(v, ctx)))
                 .collect(),
         )
     } else if let Some(x) = TupleRef::from_value(value) {
-        AttrLiteral::Tuple(TupleLiteral(
+        CoercedAttr::Tuple(TupleLiteral(
             ctx.intern_list(x.iter().map(|v| to_coerced_literal(v, ctx)).collect()),
         ))
     } else if let Some(x) = ListRef::from_value(value) {
-        AttrLiteral::List(ListLiteral(
+        CoercedAttr::List(ListLiteral(
             ctx.intern_list(
                 x.iter()
                     .map(|v| to_coerced_literal(v, ctx))
@@ -53,7 +52,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> AttrLiteral {
             ),
         ))
     } else {
-        AttrLiteral::String(StringLiteral(match value.unpack_str() {
+        CoercedAttr::String(StringLiteral(match value.unpack_str() {
             Some(s) => ctx.intern_str(s),
             None => ctx.intern_str(&value.to_str()),
         }))
@@ -66,7 +65,7 @@ impl AttrTypeCoerce for AnyAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         Ok(to_literal(value, ctx))
     }
 

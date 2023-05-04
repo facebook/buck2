@@ -8,11 +8,11 @@
  */
 
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
@@ -29,14 +29,14 @@ impl AttrTypeCoerce for DepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let label = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Dep(Box::new(
+        Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Dep(Box::new(
             DepAttr {
                 attr_type: self.dupe(),
                 label,
@@ -55,7 +55,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
             .ok_or_else(|| {
                 anyhow::anyhow!(CoercionError::type_error(
@@ -74,7 +74,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target(platform_string)?;
 
-        Ok(AttrLiteral::Extra(
+        Ok(CoercedAttr::Extra(
             CoercedAttrExtraTypes::ExplicitConfiguredDep(Box::new(
                 UnconfiguredExplicitConfiguredDep {
                     attr_type: self.dupe(),

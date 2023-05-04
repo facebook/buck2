@@ -10,7 +10,6 @@
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
 
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -20,10 +19,10 @@ pub struct AnyAttrType;
 
 impl AnyAttrType {
     pub fn empty_string() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::String(StringLiteral::default()))
+        CoercedAttr::String(StringLiteral::default())
     }
 
     pub fn empty_list() -> CoercedAttr {
-        CoercedAttr::new_literal(AttrLiteral::List(ListLiteral(ArcSlice::new([]))))
+        CoercedAttr::List(ListLiteral(ArcSlice::new([])))
     }
 }

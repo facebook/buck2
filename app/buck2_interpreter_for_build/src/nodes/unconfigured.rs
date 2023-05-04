@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -128,24 +127,24 @@ pub(crate) fn parse_visibility(
     attr: &CoercedAttr,
 ) -> anyhow::Result<VisibilitySpecification> {
     let visibility = match attr {
-        CoercedAttr::Literal(AttrLiteral::List(list)) => &**list,
-        CoercedAttr::Literal(_) => {
-            unreachable!("coercion of visibility verified the type")
-        }
+        CoercedAttr::List(list) => &**list,
         CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
             unreachable!("coercion of visibility verified it's not configurable")
+        }
+        _ => {
+            unreachable!("coercion of visibility verified the type")
         }
     };
 
     let mut specs: Option<Vec<_>> = None;
     for item in visibility.iter() {
         let value = match item {
-            CoercedAttr::Literal(AttrLiteral::String(value)) => value,
-            CoercedAttr::Literal(_) => {
-                unreachable!("coercion of visibility verified the type")
-            }
+            CoercedAttr::String(value) => value,
             CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                 unreachable!("coercion of visibility verified it's not configurable")
+            }
+            _ => {
+                unreachable!("coercion of visibility verified the type")
             }
         };
 

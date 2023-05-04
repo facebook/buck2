@@ -9,9 +9,9 @@
 
 use std::iter;
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleAttrType;
 use buck2_node::attrs::attr_type::tuple::TupleLiteral;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
@@ -30,7 +30,7 @@ impl AttrTypeCoerce for TupleAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let coerce = |value, items: &[Value]| {
             // Use comparison rather than equality below. If the tuple is too short,
             // it is implicitly extended using None.
@@ -43,7 +43,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 {
                     res.push(c.coerce(configurable, ctx, v)?);
                 }
-                Ok(AttrLiteral::Tuple(TupleLiteral(ctx.intern_list(res))))
+                Ok(CoercedAttr::Tuple(TupleLiteral(ctx.intern_list(res))))
             } else {
                 Err(anyhow::anyhow!(CoercionError::type_error(
                     &format!("Tuple of at most length {}", self.xs.len()),

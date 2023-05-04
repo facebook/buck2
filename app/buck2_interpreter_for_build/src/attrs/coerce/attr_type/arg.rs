@@ -23,9 +23,9 @@ use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
 use buck2_node::attrs::attr_type::arg::UnconfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use maplit::hashset;
@@ -59,7 +59,7 @@ impl AttrTypeCoerce for ArgAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         let value = value
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
@@ -67,7 +67,7 @@ impl AttrTypeCoerce for ArgAttrType {
         let mut items = parse_macros(value)?.into_items();
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {
             // Specialize single-item StringWithMacros, which are in fact the common case.
-            return Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Arg(
+            return Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Arg(
                 UnconfiguredStringWithMacros::StringPart(ctx.intern_str(&mem::take(val))),
             )));
         }
@@ -108,7 +108,7 @@ impl AttrTypeCoerce for ArgAttrType {
             }
         }
 
-        Ok(AttrLiteral::Extra(CoercedAttrExtraTypes::Arg(
+        Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Arg(
             UnconfiguredStringWithMacros::ManyParts(parts.into_boxed_slice()),
         )))
     }

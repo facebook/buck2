@@ -18,7 +18,6 @@ use once_cell::sync::Lazy;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::any::AnyAttrType;
-use crate::attrs::attr_type::attr_literal::AttrLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
@@ -63,7 +62,7 @@ pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
 
 fn default_target_platform_attribute() -> Attribute {
     Attribute::new(
-        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::None))),
+        Some(Arc::new(CoercedAttr::None)),
         "specifies the default target platform, used when no platforms are specified on the command line",
         AttrType::option(AttrType::dep(ProviderIdSet::from(vec![
             internal_attrs_platform_info_provider_id().dupe(),
@@ -91,9 +90,9 @@ fn exec_compatible_with_attribute() -> Attribute {
 
 fn visibility_attribute() -> Attribute {
     Attribute::new(
-        Some(Arc::new(CoercedAttr::Literal(AttrLiteral::Visibility(
+        Some(Arc::new(CoercedAttr::Visibility(
             VisibilitySpecification::DEFAULT,
-        )))),
+        ))),
         "a list of visibility patterns restricting what targets can depend on this one",
         AttrType::visibility(),
     )

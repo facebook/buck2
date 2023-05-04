@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::enumeration::EnumAttrType;
 use buck2_node::attrs::attr_type::string::StringLiteral;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::string::STRING_TYPE;
@@ -24,14 +24,14 @@ impl AttrTypeCoerce for EnumAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         match value.unpack_str() {
             Some(s) => {
                 // Enum names in Buck can be specified upper or lower case,
                 // so we normalise them to lowercase to make rule implementations easier
                 let s = s.to_lowercase();
                 if self.variants.contains(&s) {
-                    Ok(AttrLiteral::EnumVariant(StringLiteral(ctx.intern_str(&s))))
+                    Ok(CoercedAttr::EnumVariant(StringLiteral(ctx.intern_str(&s))))
                 } else {
                     let wanted = self.variants.iter().cloned().collect();
                     Err(CoercionError::InvalidEnumVariant(s, wanted).into())

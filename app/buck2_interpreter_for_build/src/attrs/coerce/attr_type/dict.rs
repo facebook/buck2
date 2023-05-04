@@ -9,9 +9,9 @@
 
 use std::cmp::Ordering;
 
-use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
 use buck2_node::attrs::attr_type::dict::DictAttrType;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::dict::Dict;
@@ -28,7 +28,7 @@ impl AttrTypeCoerce for DictAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<AttrLiteral> {
+    ) -> anyhow::Result<CoercedAttr> {
         if let Some(dict) = DictRef::from_value(value) {
             let mut res = Vec::with_capacity(dict.len());
             if self.sorted {
@@ -51,7 +51,7 @@ impl AttrTypeCoerce for DictAttrType {
                     ));
                 }
             }
-            Ok(AttrLiteral::Dict(DictLiteral(ctx.intern_dict(res))))
+            Ok(CoercedAttr::Dict(DictLiteral(ctx.intern_dict(res))))
         } else {
             Err(anyhow::anyhow!(CoercionError::type_error(
                 Dict::TYPE,

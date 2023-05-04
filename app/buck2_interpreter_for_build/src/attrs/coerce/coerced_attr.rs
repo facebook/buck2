@@ -131,10 +131,9 @@ impl CoercedAttrExr for CoercedAttr {
                 }
             }
         } else {
-            Ok(CoercedAttr::Literal(
-                attr.coerce_item(configuable, ctx, value)
-                    .with_context(|| format!("Error coercing {}", value))?,
-            ))
+            Ok(attr
+                .coerce_item(configuable, ctx, value)
+                .with_context(|| format!("Error coercing {}", value))?)
         }
     }
 }
@@ -154,7 +153,6 @@ mod tests {
     use buck2_core::configuration::transition::applied::TransitionApplied;
     use buck2_core::configuration::transition::id::TransitionId;
     use buck2_core::target::label::TargetLabel;
-    use buck2_node::attrs::attr_type::attr_literal::AttrLiteral;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::string::StringLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -172,11 +170,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
+                        CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
+                        CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                 ]),
                 None,
@@ -188,11 +186,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
+                        CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
+                        CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                 ]),
                 None,
@@ -207,11 +205,11 @@ mod tests {
                 ArcSlice::new([
                     (
                         TargetLabel::testing_parse("cell2//pkg2:target2"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(false))),
+                        CoercedAttr::Bool(BoolLiteral(false)),
                     ),
                     (
                         TargetLabel::testing_parse("cell1//pkg1:target1"),
-                        CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true))),
+                        CoercedAttr::Bool(BoolLiteral(true)),
                     ),
                 ]),
                 None,
@@ -307,10 +305,10 @@ mod tests {
         };
 
         fn literal_true() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true)))
+            CoercedAttr::Bool(BoolLiteral(true))
         }
         fn literal_str() -> CoercedAttr {
-            CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("linux"))))
+            CoercedAttr::String(StringLiteral(ArcStr::from("linux")))
         }
 
         // Test more specific is selected even if it is not first.
@@ -352,10 +350,10 @@ mod tests {
         assert_eq!(
             r#"{"__type":"concat","items":["a","b","c","d"]}"#,
             CoercedAttr::Concat(Box::new([
-                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("a")))),
-                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("b")))),
-                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("c")))),
-                CoercedAttr::Literal(AttrLiteral::String(StringLiteral(ArcStr::from("d")))),
+                CoercedAttr::String(StringLiteral(ArcStr::from("a"))),
+                CoercedAttr::String(StringLiteral(ArcStr::from("b"))),
+                CoercedAttr::String(StringLiteral(ArcStr::from("c"))),
+                CoercedAttr::String(StringLiteral(ArcStr::from("d"))),
             ]))
             .to_json(&AttrFmtContext::NO_CONTEXT)
             .unwrap()
@@ -372,16 +370,14 @@ mod tests {
                     ArcSlice::new([
                         (
                             TargetLabel::testing_parse("config//:a"),
-                            CoercedAttr::Literal(AttrLiteral::Bool(BoolLiteral(true)))
+                            CoercedAttr::Bool(BoolLiteral(true))
                         ),
                         (
                             TargetLabel::testing_parse("config//:b"),
-                            CoercedAttr::Literal(AttrLiteral::Int(10))
+                            CoercedAttr::Int(10)
                         ),
                     ]),
-                    Some(CoercedAttr::Literal(AttrLiteral::String(StringLiteral(
-                        ArcStr::from("ddd")
-                    )))),
+                    Some(CoercedAttr::String(StringLiteral(ArcStr::from("ddd")))),
                 )
                 .unwrap()
             ))
