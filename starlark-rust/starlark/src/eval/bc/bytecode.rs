@@ -117,7 +117,7 @@ impl Bc {
 #[cfg_attr(not(debug_assertions), inline(always))]
 fn step<'v, 'b, EC: EvaluationCallbacks>(
     eval: &mut Evaluator<'v, '_>,
-    _ec: &mut EC,
+    ec: &mut EC,
     frame: BcFramePtr<'v>,
     ip: BcPtrAddr<'b>,
 ) -> InstrControl<'v, 'b> {
@@ -139,6 +139,7 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
         }
     }
 
+    ec.before_instr(eval, ip, opcode);
     opcode.dispatch(HandlerImpl { eval, frame, ip })
 }
 

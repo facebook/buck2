@@ -104,8 +104,6 @@ pub(crate) enum StmtCompiled {
 pub(crate) struct StmtCompileContext {
     /// Current function has return type.
     pub(crate) has_return_type: bool,
-    /// Insert `BeforeStmt` instruction before statement.
-    pub(crate) has_before_stmt: bool,
     /// Insert bytecode profiling instructions.
     pub(crate) bc_profile: bool,
     /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
@@ -526,7 +524,7 @@ impl Compiler<'_, '_, '_> {
 pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) {
     assert!(
         eval.before_stmt.enabled(),
-        "this code should not be called if `before_stmt` is set"
+        "this code should only be called if `before_stmt` is set"
     );
     let mut fs = mem::take(&mut eval.before_stmt.before_stmt);
     for f in &mut fs {
@@ -657,7 +655,6 @@ impl Compiler<'_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
         StmtCompileContext {
             has_return_type,
-            has_before_stmt: self.has_before_stmt,
             bc_profile: self.bc_profile,
             record_call_enter_exit: self.eval.heap_or_flame_profile,
         }

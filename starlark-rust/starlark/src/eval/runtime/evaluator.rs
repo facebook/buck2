@@ -36,12 +36,16 @@ use crate::environment::FrozenModuleData;
 use crate::environment::Module;
 use crate::errors::Diagnostic;
 use crate::errors::Frame;
+use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::BcFramePtr;
+use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::writer::BcStatementLocations;
 use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
 use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::stmt::before_stmt;
 use crate::eval::compiler::EvalException;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
@@ -735,14 +739,58 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         alloca.alloca_concat(x, y, |xs| k(xs, self))
     }
 
+    #[cold]
+    #[inline(never)]
+    fn eval_bc_with_callbacks(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
+        bc.run(
+            self,
+            &mut EvalCallbacksEnabled {
+                stmt_locs: &bc.instrs.stmt_locs,
+                bc_start_ptr: bc.instrs.start_ptr(),
+            },
+        )
+    }
+
     #[inline(always)]
     pub(crate) fn eval_bc(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
-        bc.run(self, &mut EvalCallbacksDisabled)
+        if self.before_stmt.enabled() {
+            self.eval_bc_with_callbacks(bc)
+        } else {
+            bc.run(self, &mut EvalCallbacksDisabled)
+        }
     }
 }
 
-pub(crate) trait EvaluationCallbacks {}
+pub(crate) trait EvaluationCallbacks {
+    fn before_instr(&mut self, _eval: &mut Evaluator, _ip: BcPtrAddr, _opcode: BcOpcode);
+}
 
 pub(crate) struct EvalCallbacksDisabled;
 
-impl EvaluationCallbacks for EvalCallbacksDisabled {}
+impl EvaluationCallbacks for EvalCallbacksDisabled {
+    #[inline(always)]
+    fn before_instr(&mut self, _eval: &mut Evaluator, _ip: BcPtrAddr, _opcode: BcOpcode) {}
+}
+
+pub(crate) struct EvalCallbacksEnabled<'a> {
+    pub(crate) stmt_locs: &'a BcStatementLocations,
+    pub(crate) bc_start_ptr: BcPtrAddr<'a>,
+}
+
+impl<'a> EvalCallbacksEnabled<'a> {
+    #[cold]
+    #[inline(never)]
+    fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) {
+        let offset = ip.offset_from(self.bc_start_ptr);
+        if let Some(loc) = self.stmt_locs.stmt_at(offset) {
+            before_stmt(loc.span, eval);
+        }
+    }
+}
+
+impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
+    #[inline(always)]
+    fn before_instr(&mut self, eval: &mut Evaluator, ip: BcPtrAddr, _opcode: BcOpcode) {
+        self.before_stmt(eval, ip);
+    }
+}

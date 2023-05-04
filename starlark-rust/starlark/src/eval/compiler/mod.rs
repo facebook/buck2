@@ -85,7 +85,6 @@ pub(crate) struct Compiler<'v, 'a, 'e> {
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: FrozenRef<'static, Globals>,
     pub(crate) codemap: FrozenRef<'static, CodeMap>,
-    pub(crate) has_before_stmt: bool,
     pub(crate) bc_profile: bool,
     pub(crate) check_types: bool,
 }

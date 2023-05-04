@@ -18,7 +18,6 @@
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::compiler::if_compiler::write_if_else;
 use crate::eval::bc::compiler::if_compiler::write_if_then;
-use crate::eval::bc::instr_impl::InstrBeforeStmt;
 use crate::eval::bc::instr_impl::InstrCheckType;
 use crate::eval::bc::instr_impl::InstrPossibleGc;
 use crate::eval::bc::instr_impl::InstrReturn;
@@ -135,12 +134,6 @@ impl StmtCompiled {
 
 impl IrSpanned<StmtCompiled> {
     fn write_bc(&self, compiler: &StmtCompileContext, bc: &mut BcWriter) {
-        if compiler.has_before_stmt {
-            match self.node {
-                StmtCompiled::PossibleGc => {}
-                _ => bc.write_instr::<InstrBeforeStmt>(self.span, self.span),
-            }
-        }
         bc.mark_before_stmt(self.span);
         self.write_bc_inner(compiler, bc);
         self.mark_definitely_assigned_after(bc);

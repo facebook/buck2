@@ -60,7 +60,6 @@ use crate::eval::compiler::expr::MemberOrValue;
 use crate::eval::compiler::expr_throw;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::add_assign;
-use crate::eval::compiler::stmt::before_stmt;
 use crate::eval::compiler::stmt::bit_or_assign;
 use crate::eval::compiler::stmt::possible_gc;
 use crate::eval::compiler::stmt::AssignError;
@@ -1719,13 +1718,11 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 }
 
 pub(crate) struct InstrPossibleGcImpl;
-pub(crate) struct InstrBeforeStmtImpl;
 pub(crate) struct InstrProfileBcImpl;
 pub(crate) struct InstrRecordCallEnterImpl;
 pub(crate) struct InstrRecordCallExitImpl;
 
 pub(crate) type InstrPossibleGc = InstrNoFlow<InstrPossibleGcImpl>;
-pub(crate) type InstrBeforeStmt = InstrNoFlow<InstrBeforeStmtImpl>;
 pub(crate) type InstrProfileBc = InstrNoFlow<InstrProfileBcImpl>;
 pub(crate) type InstrRecordCallEnter = InstrNoFlow<InstrRecordCallEnterImpl>;
 pub(crate) type InstrRecordCallExit = InstrNoFlow<InstrRecordCallExitImpl>;
@@ -1740,20 +1737,6 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         (): &(),
     ) -> anyhow::Result<()> {
         possible_gc(eval);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrBeforeStmtImpl {
-    type Arg = FrameSpan;
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _frame: BcFramePtr<'v>,
-        _: BcPtrAddr,
-        span: &Self::Arg,
-    ) -> anyhow::Result<()> {
-        before_stmt(*span, eval);
         Ok(())
     }
 }

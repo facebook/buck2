@@ -171,7 +171,12 @@ print(x)
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
+            // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
             adapter.continue_()?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+
+            adapter.continue_()?;
+
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })
@@ -214,6 +219,10 @@ print(x)
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             adapter.continue_()?;
+            // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+            adapter.continue_()?;
+
             join_timeout(eval_result, TIMEOUT)?;
             Ok(())
         })
@@ -241,12 +250,20 @@ print(x)
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
+            // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
+            adapter.continue_()?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+
             assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
             adapter.step(StepKind::Over)?;
-            controller.wait_for_eval_stopped(2, TIMEOUT);
-            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
-            adapter.step(StepKind::Over)?;
             controller.wait_for_eval_stopped(3, TIMEOUT);
+            assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
+
+            // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
+            adapter.step(StepKind::Over)?;
+            controller.wait_for_eval_stopped(4, TIMEOUT);
+            adapter.step(StepKind::Over)?;
+            controller.wait_for_eval_stopped(5, TIMEOUT);
             assert_eq!("[3, 4, 5]", adapter.evaluate("x")?.result);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
@@ -276,27 +293,36 @@ print(x)
             let eval_result =
                 s.spawn(move || -> anyhow::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
+            // TODO(cjhopman): we currently hit breakpoints on top-level statements twice (once for the gc bytecode, once for the actual statement).
+            adapter.continue_()?;
+            controller.wait_for_eval_stopped(2, TIMEOUT);
+
             assert_eq!("[1, 2, 3]", adapter.evaluate("x")?.result);
 
             // into adjust
             adapter.step(StepKind::Into)?;
-            controller.wait_for_eval_stopped(2, TIMEOUT);
+            controller.wait_for_eval_stopped(3, TIMEOUT);
             assert_eq!("[1, 2, 3]", adapter.evaluate("y")?.result);
 
             // into should go to next line
             adapter.step(StepKind::Into)?;
-            controller.wait_for_eval_stopped(3, TIMEOUT);
+            controller.wait_for_eval_stopped(4, TIMEOUT);
             assert_eq!("[2, 2, 3]", adapter.evaluate("y")?.result);
             // two more intos should get us out of the function call
             adapter.step(StepKind::Into)?;
-            controller.wait_for_eval_stopped(4, TIMEOUT);
-            adapter.step(StepKind::Into)?;
             controller.wait_for_eval_stopped(5, TIMEOUT);
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(6, TIMEOUT);
             assert_eq!("[2, 3, 4]", adapter.evaluate("x")?.result);
 
             // and once more back into the function
             adapter.step(StepKind::Into)?;
-            controller.wait_for_eval_stopped(6, TIMEOUT);
+            controller.wait_for_eval_stopped(7, TIMEOUT);
+
+            // TODO(cjhopman): unfortunately, gc being marked as statements causes us to need to step_into again.
+            adapter.step(StepKind::Into)?;
+            controller.wait_for_eval_stopped(8, TIMEOUT);
+
             assert_eq!("[2, 3, 4]", adapter.evaluate("y")?.result);
 
             adapter.continue_()?;

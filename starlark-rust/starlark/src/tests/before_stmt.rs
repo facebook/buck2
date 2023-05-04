@@ -36,13 +36,14 @@ fn before_stmt() {
     let mut evaluator = Evaluator::new(&module);
     evaluator.before_stmt_fn(&before_stmt);
 
+    // For a top-level statement, we get an additional before_stmt call for the possible gc.
     let program = "\
-x = 1          # 0
-def f():       # 1
+x = 1          # 0 + 1
+def f():       # 1 + 1
   return x + 1 # 3
-f()            # 2
+f()            # 2 + 1
 ";
     let ast = AstModule::parse("a.star", program.to_owned(), &Dialect::Extended).unwrap();
     evaluator.eval_module(ast, &globals).unwrap();
-    assert_eq!(4, counter.get());
+    assert_eq!(7, counter.get());
 }

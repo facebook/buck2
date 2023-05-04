@@ -60,7 +60,6 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 
 #[derive(Debug)]
-#[allow(unused)] // Should be removed in following diff
 pub(crate) struct BcStmtLoc {
     pub(crate) span: FrameSpan,
 }
@@ -100,7 +99,6 @@ impl BcStatementLocations {
         self.stmts[idx] = stmt_idx;
     }
 
-    #[allow(unused)]
     pub(crate) fn stmt_at(&self, offset: BcAddr) -> Option<&BcStmtLoc> {
         match self.stmts.get(Self::idx_for(offset)) {
             None | Some(&u32::MAX) => None,
