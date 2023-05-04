@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -36,12 +35,10 @@ impl AttrTypeCoerce for DepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Dep(Box::new(
-            DepAttr {
-                attr_type: self.dupe(),
-                label,
-            },
-        ))))
+        Ok(CoercedAttr::Dep(Box::new(DepAttr {
+            attr_type: self.dupe(),
+            label,
+        })))
     }
 
     fn starlark_type(&self) -> String {
@@ -74,15 +71,13 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target(platform_string)?;
 
-        Ok(CoercedAttr::Extra(
-            CoercedAttrExtraTypes::ExplicitConfiguredDep(Box::new(
-                UnconfiguredExplicitConfiguredDep {
-                    attr_type: self.dupe(),
-                    label,
-                    platform,
-                },
-            )),
-        ))
+        Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(
+            UnconfiguredExplicitConfiguredDep {
+                attr_type: self.dupe(),
+                label,
+                platform,
+            },
+        )))
     }
 
     fn starlark_type(&self) -> String {

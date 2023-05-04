@@ -16,6 +16,8 @@ use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcSlice;
 use dupe::Dupe;
@@ -28,12 +30,25 @@ use serde_json::to_value;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
-use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
+use crate::attrs::attr_type::arg::StringWithMacros;
+use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
+use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
+use crate::attrs::attr_type::dep::DepAttr;
+use crate::attrs::attr_type::dep::DepAttrType;
+use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::dict::DictLiteral;
+use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
+use crate::attrs::attr_type::query::QueryAttr;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
+use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
@@ -173,7 +188,18 @@ pub enum CoercedAttr {
         u32,
     ),
     Visibility(VisibilitySpecification),
-    Extra(CoercedAttrExtraTypes),
+    ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
+    SplitTransitionDep(Box<SplitTransitionDep>),
+    ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
+    ConfigurationDep(Box<TargetLabel>),
+    Dep(Box<DepAttr<ProvidersLabel>>),
+    SourceLabel(Box<ProvidersLabel>),
+    // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
+    // cases that would cause cycles.
+    Label(Box<ProvidersLabel>),
+    Arg(StringWithMacros<CoercedAttr>),
+    Query(Box<QueryAttr<CoercedAttr>>),
+    SourceFile(CoercedPath),
 }
 
 // This is just to help understand any impact that changes have to the size of this.
@@ -220,7 +246,16 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::None => write!(f, "None"),
             CoercedAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             CoercedAttr::Visibility(v) => Display::fmt(v, f),
-            CoercedAttr::Extra(u) => AttrDisplayWithContext::fmt(u, ctx, f),
+            CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
+            CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
+            CoercedAttr::ConfiguredDep(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::Dep(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::SourceLabel(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::Label(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::Arg(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query()),
+            CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
         }
     }
 }
@@ -289,7 +324,16 @@ impl CoercedAttr {
             CoercedAttr::None => Ok(serde_json::Value::Null),
             CoercedAttr::OneOf(box l, _) => l.to_json(ctx),
             CoercedAttr::Visibility(v) => Ok(v.to_json()),
-            CoercedAttr::Extra(u) => u.to_json(ctx),
+            CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
+            CoercedAttr::SplitTransitionDep(e) => e.to_json(),
+            CoercedAttr::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::SourceLabel(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::Label(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::Arg(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::Query(e) => Ok(to_value(e.query())?),
+            CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
         }
     }
 
@@ -353,27 +397,23 @@ impl CoercedAttr {
             CoercedAttr::None => Ok(()),
             CoercedAttr::OneOf(box l, _) => l.traverse(pkg, traversal),
             CoercedAttr::Visibility(..) => Ok(()),
-            CoercedAttr::Extra(u) => match u {
-                CoercedAttrExtraTypes::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
-                CoercedAttrExtraTypes::SplitTransitionDep(dep) => {
-                    traversal.split_transition_dep(dep.label.target(), &dep.transition)
+            CoercedAttr::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
+            CoercedAttr::SplitTransitionDep(dep) => {
+                traversal.split_transition_dep(dep.label.target(), &dep.transition)
+            }
+            CoercedAttr::ConfiguredDep(dep) => traversal.dep(dep.label.target().unconfigured()),
+            CoercedAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
+            CoercedAttr::Dep(dep) => dep.traverse(traversal),
+            CoercedAttr::SourceLabel(s) => traversal.dep(s.target()),
+            CoercedAttr::Label(label) => traversal.label(label),
+            CoercedAttr::Arg(arg) => arg.traverse(traversal),
+            CoercedAttr::Query(query) => query.traverse(traversal),
+            CoercedAttr::SourceFile(source) => {
+                for x in source.inputs() {
+                    traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }
-                CoercedAttrExtraTypes::ConfiguredDep(dep) => {
-                    traversal.dep(dep.label.target().unconfigured())
-                }
-                CoercedAttrExtraTypes::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-                CoercedAttrExtraTypes::Dep(dep) => dep.traverse(traversal),
-                CoercedAttrExtraTypes::SourceLabel(s) => traversal.dep(s.target()),
-                CoercedAttrExtraTypes::Label(label) => traversal.label(label),
-                CoercedAttrExtraTypes::Arg(arg) => arg.traverse(traversal),
-                CoercedAttrExtraTypes::Query(query) => query.traverse(traversal),
-                CoercedAttrExtraTypes::SourceFile(source) => {
-                    for x in source.inputs() {
-                        traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
-                    }
-                    Ok(())
-                }
-            },
+                Ok(())
+            }
         }
     }
 
@@ -459,7 +499,22 @@ impl CoercedAttr {
                 ConfiguredAttr::OneOf(Box::new(configured), *i)
             }
             CoercedAttr::Visibility(v) => ConfiguredAttr::Visibility(v.clone()),
-            CoercedAttr::Extra(u) => u.configure(ctx)?,
+            CoercedAttr::ExplicitConfiguredDep(dep) => {
+                ExplicitConfiguredDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttr::SplitTransitionDep(dep) => {
+                SplitTransitionDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttr::ConfiguredDep(dep) => ConfiguredAttr::Dep(dep.clone()),
+            CoercedAttr::ConfigurationDep(dep) => ConfigurationDepAttrType::configure(ctx, dep)?,
+            CoercedAttr::Dep(dep) => DepAttrType::configure(ctx, dep)?,
+            CoercedAttr::SourceLabel(source) => ConfiguredAttr::SourceLabel(Box::new(
+                source.configure_pair(ctx.cfg().cfg_pair().dupe()),
+            )),
+            CoercedAttr::Label(label) => LabelAttrType::configure(ctx, label)?,
+            CoercedAttr::Arg(arg) => ConfiguredAttr::Arg(arg.configure(ctx)?),
+            CoercedAttr::Query(query) => ConfiguredAttr::Query(Box::new(query.configure(ctx)?)),
+            CoercedAttr::SourceFile(s) => ConfiguredAttr::SourceFile(s.clone()),
         })
     }
 
@@ -495,7 +550,16 @@ impl CoercedAttr {
             CoercedAttr::Int(i) => filter(&i.to_string()),
             CoercedAttr::OneOf(l, _) => l.any_matches(filter),
             CoercedAttr::Visibility(v) => v.any_matches(filter),
-            CoercedAttr::Extra(d) => d.any_matches(filter),
+            CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            CoercedAttr::SplitTransitionDep(e) => e.any_matches(filter),
+            CoercedAttr::ConfiguredDep(e) => filter(&e.to_string()),
+            CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
+            CoercedAttr::Dep(e) => filter(&e.to_string()),
+            CoercedAttr::SourceLabel(e) => filter(&e.to_string()),
+            CoercedAttr::Label(e) => filter(&e.to_string()),
+            CoercedAttr::Arg(e) => filter(&e.to_string()),
+            CoercedAttr::Query(e) => filter(e.query()),
+            CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
         }
     }
 }

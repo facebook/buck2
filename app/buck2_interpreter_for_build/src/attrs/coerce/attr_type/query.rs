@@ -10,7 +10,6 @@
 use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -92,12 +91,10 @@ impl AttrTypeCoerce for QueryAttrType {
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        Ok(CoercedAttr::Extra(CoercedAttrExtraTypes::Query(Box::new(
-            QueryAttr {
-                query: Self::coerce(ctx, query.to_owned())?,
-                providers: ProviderIdSet::EMPTY,
-            },
-        ))))
+        Ok(CoercedAttr::Query(Box::new(QueryAttr {
+            query: Self::coerce(ctx, query.to_owned())?,
+            providers: ProviderIdSet::EMPTY,
+        })))
     }
 
     fn starlark_type(&self) -> String {

@@ -885,7 +885,6 @@ mod tests {
     use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
-    use buck2_node::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::attr_type::dep::DepAttr;
     use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -943,15 +942,15 @@ mod tests {
             (
                 "some_deps",
                 Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
-                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Extra(
-                    CoercedAttrExtraTypes::Dep(Box::new(DepAttr {
+                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(Box::new(
+                    DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity,
                         ),
                         label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                    })),
-                )]))),
+                    },
+                ))]))),
             ),
         ];
 

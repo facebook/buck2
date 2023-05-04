@@ -21,7 +21,6 @@ use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
-use crate::attrs::attr_type::attr_config::CoercedAttrExtraTypes;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -132,7 +131,7 @@ impl TargetNode {
         ) {
             Some(v) => match v.value {
                 CoercedAttr::None => None,
-                CoercedAttr::Extra(CoercedAttrExtraTypes::Dep(t)) => Some(t.label.target()),
+                CoercedAttr::Dep(t) => Some(t.label.target()),
                 CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                     unreachable!("coercer verified attribute is not configurable")
                 }
@@ -181,11 +180,7 @@ impl TargetNode {
         let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
         let deps_attr = CoercedAttr::List(
             self.deps()
-                .map(|t| {
-                    CoercedAttr::Extra(CoercedAttrExtraTypes::Label(Box::new(
-                        ProvidersLabel::default_for(t.dupe()),
-                    )))
-                })
+                .map(|t| CoercedAttr::Label(Box::new(ProvidersLabel::default_for(t.dupe()))))
                 .collect(),
         );
         let package_attr = CoercedAttr::String(StringLiteral(ArcStr::from(
@@ -197,11 +192,7 @@ impl TargetNode {
                 CONFIGURATION_DEPS,
                 CoercedAttr::List(
                     self.get_configuration_deps()
-                        .map(|t| {
-                            CoercedAttr::Extra(CoercedAttrExtraTypes::ConfigurationDep(Box::new(
-                                t.dupe(),
-                            )))
-                        })
+                        .map(|t| CoercedAttr::ConfigurationDep(Box::new(t.dupe())))
                         .collect(),
                 ),
             ),
