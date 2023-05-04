@@ -44,16 +44,19 @@ pub(crate) fn make_future<F, T>(
 where
     F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T>,
 {
+    let context = ExecutionContext::new();
+
     let fut = {
+        let context = context.dupe();
         async move {
-            let cancel = CancellationContext(CancellationContextInner::Explicit);
+            let cancel = CancellationContext(CancellationContextInner::Explicit(context));
             f(&cancel).await
         }
     };
 
     let state = SharedState::new();
 
-    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe());
+    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context);
     let handle = CancellationHandle::new(state);
 
     (fut, handle)
@@ -68,6 +71,8 @@ where
 pub struct ExplicitlyCancellableFuture<F> {
     shared: SharedState,
 
+    execution: ExecutionContext,
+
     /// NOTE: this is duplicative of the `SharedState`, but unlike that state this is not behind a
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
     started: bool,
@@ -80,9 +85,10 @@ impl<F> ExplicitlyCancellableFuture<F>
 where
     F: Future,
 {
-    fn new(future: F, shared: SharedState) -> Self {
+    fn new(future: F, shared: SharedState, execution: ExecutionContext) -> Self {
         ExplicitlyCancellableFuture {
             shared,
+            execution,
             started: false,
             future,
         }
@@ -285,6 +291,25 @@ enum State {
     /// This future has already finished executing.
     Exited,
 }
+
+/// Context relating to execution of the `poll` of the future. This will contain the information
+/// required for the `CancellationContext` that the future holds to enter critical sections and
+/// structured cancellations.
+#[derive(Clone, Dupe)]
+pub(crate) struct ExecutionContext {
+    #[allow(unused)]
+    shared: Arc<Mutex<ExecutionContextData>>,
+}
+
+impl ExecutionContext {
+    fn new() -> Self {
+        Self {
+            shared: Arc::new(Mutex::new(ExecutionContextData {})),
+        }
+    }
+}
+
+struct ExecutionContextData {}
 
 #[cfg(test)]
 mod tests {

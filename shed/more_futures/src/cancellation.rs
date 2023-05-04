@@ -20,6 +20,7 @@ use crate::cancellable_future::try_to_disable_cancellation;
 use crate::cancellable_future::with_structured_cancellation;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellable_future::DisableCancellationGuard;
+use crate::cancellation::future::ExecutionContext;
 
 static INSTANCE: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::ThreadLocal));
@@ -92,8 +93,7 @@ enum CancellationContextInner {
     /// The old thread local based implementation
     ThreadLocal,
     /// The cancellation context passed explicitly
-    #[allow(unused)]
-    Explicit,
+    Explicit(ExecutionContext),
 }
 
 impl CancellationContextInner {
@@ -114,7 +114,7 @@ impl CancellationContextInner {
     {
         match self {
             CancellationContextInner::ThreadLocal => critical_section(make),
-            CancellationContextInner::Explicit => {
+            CancellationContextInner::Explicit(..) => {
                 unimplemented!("todo")
             }
         }
@@ -135,7 +135,7 @@ impl CancellationContextInner {
     {
         match self {
             CancellationContextInner::ThreadLocal => with_structured_cancellation(make),
-            CancellationContextInner::Explicit => {
+            CancellationContextInner::Explicit(..) => {
                 unimplemented!("todo")
             }
         }
@@ -148,7 +148,7 @@ impl CancellationContextInner {
     pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         match self {
             CancellationContextInner::ThreadLocal => try_to_disable_cancellation(),
-            CancellationContextInner::Explicit => {
+            CancellationContextInner::Explicit(..) => {
                 unimplemented!("todo")
             }
         }
