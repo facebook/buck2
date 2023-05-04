@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use dupe::Dupe;
+
 use crate::codemap::FileSpan;
 use crate::collections::SmallMap;
 use crate::syntax::ast::AstAssignIdent;
@@ -25,7 +27,7 @@ use crate::syntax::AstModule;
 
 /// The type of an exported symbol.
 /// If unknown, will use `Variable`.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Dupe, Hash)]
 pub enum SymbolKind {
     /// Any kind of symbol.
     Any,
@@ -35,7 +37,7 @@ pub enum SymbolKind {
 }
 
 /// A symbol. Returned from [`AstModule::exported_symbols`].
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Dupe, Hash)]
 pub struct Symbol<'a> {
     /// The name of the symbol.
     pub name: &'a str,
