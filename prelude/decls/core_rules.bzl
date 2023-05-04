@@ -201,7 +201,6 @@ command_alias = prelude_rule(
             "resources": attrs.list(attrs.source(), default = []),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
             "_exec_os_type": buck.exec_os_type_arg(),
-            "_find_and_replace_bat": attrs.default_only(attrs.exec_dep(default = "prelude//tools:find_and_replace.bat")),
             "_target_os_type": buck.target_os_type_arg(),
         }
     ),
