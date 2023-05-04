@@ -266,8 +266,6 @@ pub async fn build_configured_label(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        // Notify our critical path tracking that *this action* is secretly that
-        // other action we just jumped to.
         signals.signal(TopLevelTargetSignal {
             label: providers_label.target().dupe(),
             artifacts: outputs

@@ -336,8 +336,6 @@ async fn get_analysis_result(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        // Notify our critical path tracking that *this action* is secretly that
-        // other action we just jumped to.
         let duration = now.elapsed();
 
         signals.signal(AnalysisSignal {
