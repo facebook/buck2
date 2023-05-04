@@ -73,6 +73,7 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
+use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -437,6 +438,33 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         this.async_ctx
             .via(|| StarlarkCQueryCtx::new(this, target_platform, &this.global_target_platform))
+    }
+
+    /// Returns the bxl actions to create and register actions for this
+    /// bxl function. This will have the execution platform resolved according to the execution
+    /// deps and toolchains you pass into this function.
+    /// You'll be able to access the analysis action factory of the correct execution platform,
+    /// toolchains, and execution deps of the corresponding configuration via this context.
+    ///
+    /// Actions created by bxl will not be built by default. Instead, they are marked to be built
+    /// by `ctx.output.ensure(artifact)` on the output module of the [`BxlContext`]. Only artifacts
+    /// marked by ensure will be built.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_write_action(ctx):
+    ///     bxl_actions = ctx.bxl_actions()
+    ///     output = bxl_actions.actions.write("my_output", "my_content")
+    ///     ensured = ctx.output.ensure(output)
+    ///     ctx.output.print(ensured)
+    /// ```
+    #[starlark(return_type = "\"bxl_actions\"")]
+    fn bxl_actions<'v>(
+        this: &'v BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        validate_action_instantiation(this)?;
+        Ok(eval.heap().alloc(BxlActions::new(this.state)))
     }
 
     /// Returns the action context for creating and running actions.

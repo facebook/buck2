@@ -80,6 +80,12 @@ pub(crate) struct BxlActions<'v> {
     actions: ValueTyped<'v, AnalysisActions<'v>>,
 }
 
+impl<'v> BxlActions<'v> {
+    pub(crate) fn new(actions: ValueTyped<'v, AnalysisActions<'v>>) -> Self {
+        Self { actions }
+    }
+}
+
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
     starlark_type!("bxl_actions");
 
