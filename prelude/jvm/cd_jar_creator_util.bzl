@@ -345,7 +345,8 @@ def setup_dep_files(
         classpath_jars_tag: "artifact_tag",
         java_toolchain: "JavaToolchainInfo",
         used_classes_json_outputs: ["artifact"],
-        abi_to_abi_dir_map: ["transitive_set_args_projection", None]) -> "cmd_args":
+        abi_to_abi_dir_map: ["transitive_set_args_projection", ["cmd_args"], None],
+        hidden = ["artifact"]) -> "cmd_args":
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
     new_cmd = cmd_args([
@@ -366,7 +367,10 @@ def setup_dep_files(
             "--jar-to-jar-dir-map",
             abi_to_abi_dir_map_file,
         ])
-        new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
+        if type(abi_to_abi_dir_map) == "transitive_set_args_projection":
+            new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
+        for hidden_artifact in hidden:
+            new_cmd.hidden(classpath_jars_tag.tag_artifacts(hidden_artifact))
 
     new_cmd.add(cmd)
 
@@ -484,6 +488,7 @@ def generate_abi_jars(
                 debug_port = debug_port,
                 debug_target = debug_target,
                 extra_jvm_args = extra_jvm_args,
+                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar
 

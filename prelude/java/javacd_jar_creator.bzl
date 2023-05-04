@@ -184,7 +184,8 @@ def create_jar_artifact_javacd(
             debug_port: [int.type, None],
             debug_target: ["label", None],
             extra_jvm_args: [str.type],
-            is_creating_subtarget: bool.type = False):
+            is_creating_subtarget: bool.type = False,
+            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
@@ -241,7 +242,15 @@ def create_jar_artifact_javacd(
 
         dep_files = {}
         if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
-            abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir") if java_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset and (target_type == TargetType("library") or target_type == TargetType("source_abi")) else None
+            abi_to_abi_dir_map = None
+            hidden = []
+            if java_toolchain.dep_files == DepFiles("per_class"):
+                if target_type == TargetType("source_only_abi"):
+                    abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
+                    abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
+                    hidden = [dep.abi_as_dir for dep in abi_as_dir_deps]
+                elif compiling_deps_tset:
+                    abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
             used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
             cmd = setup_dep_files(
                 actions,
@@ -251,6 +260,7 @@ def create_jar_artifact_javacd(
                 java_toolchain,
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
+                hidden = hidden,
             )
 
             dep_files["classpath_jars"] = classpath_jars_tag

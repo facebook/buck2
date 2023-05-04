@@ -201,6 +201,7 @@ def create_jar_artifact_kotlincd(
         )
 
     # buildifier: disable=uninitialized
+    # buildifier: disable=unused-variable
     def define_kotlincd_action(
             category_prefix: str.type,
             actions_identifier: [str.type, None],
@@ -213,7 +214,10 @@ def create_jar_artifact_kotlincd(
             path_to_class_hashes: ["artifact", None],
             debug_port: [int.type, None],
             debug_target: ["label", None],
-            extra_jvm_args: [str.type]):
+            extra_jvm_args: [str.type],
+            source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
+        _unused = source_only_abi_compiling_deps
+
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
