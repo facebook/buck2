@@ -34,8 +34,10 @@ use walkdir::WalkDir;
 use crate::commands::clean_stale::parse_clean_stale_args;
 use crate::commands::clean_stale::CleanStaleCommand;
 
+/// Delete generated files and caches.
+///
+/// The command also kills the buck2 daemon.
 #[derive(Debug, clap::Parser)]
-#[clap(about = "Delete generated files and caches")]
 pub struct CleanCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,

@@ -12,8 +12,14 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 
+/// Kill the buck daemon.
+///
+/// Note there's also `buck2 killall` and `buck2 clean`.
+///
+/// `buck2 killall` kills all the buck2 processes on the machine.
+///
+/// `buck2 clean` kills the buck2 daemon and also deletes the buck2 state files.
 #[derive(Debug, clap::Parser)]
-#[clap(about = "Kill the buck daemon")]
 pub struct KillCommand {}
 
 impl KillCommand {
