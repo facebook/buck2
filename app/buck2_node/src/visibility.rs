@@ -34,6 +34,10 @@ pub struct VisibilityPattern(pub ParsedPattern<TargetPatternExtra>);
 
 impl VisibilityPattern {
     pub const PUBLIC: &'static str = "PUBLIC";
+
+    pub fn testing_new(pattern: &str) -> VisibilityPattern {
+        VisibilityPattern(ParsedPattern::testing_parse(pattern))
+    }
 }
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
@@ -105,6 +109,19 @@ impl VisibilitySpecification {
                 VisibilitySpecification::VisibleTo(this),
                 VisibilitySpecification::VisibleTo(other),
             ) => VisibilitySpecification::VisibleTo(this.iter().chain(other).cloned().collect()),
+        }
+    }
+
+    pub fn testing_parse(patterns: &[&str]) -> VisibilitySpecification {
+        if patterns.contains(&VisibilityPattern::PUBLIC) {
+            VisibilitySpecification::Public
+        } else {
+            VisibilitySpecification::VisibleTo(
+                patterns
+                    .iter()
+                    .map(|p| VisibilityPattern::testing_new(p))
+                    .collect(),
+            )
         }
     }
 }

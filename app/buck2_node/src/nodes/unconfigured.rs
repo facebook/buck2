@@ -213,7 +213,7 @@ impl TargetNode {
         self.0.package.oncall.as_ref().map(|x| x.as_str())
     }
 
-    fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
+    pub fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
         match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
             Some(CoercedAttr::Visibility(v)) => Ok(v),
             Some(a) => {

@@ -21,6 +21,7 @@ use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
@@ -123,6 +124,17 @@ impl AttributeSpecExt for AttributeSpec {
                     attr_values.push_sorted(
                         attr_idx,
                         CoercedAttr::Visibility(VisibilitySpecification::Public),
+                    );
+                } else if internals.super_package.visibility() != &VisibilitySpecification::DEFAULT
+                {
+                    // This behavior of handling `default_visibility_to_public`
+                    // and package visibility is different:
+                    // When visibility is specified explicitly to "default" (i.e. `[]`),
+                    // we flush visibility to public when `default_visibility_to_public` is true.
+                    // but do not apply package visibility.
+                    attr_values.push_sorted(
+                        attr_idx,
+                        CoercedAttr::Visibility(internals.super_package.visibility().dupe()),
                     );
                 }
             }
