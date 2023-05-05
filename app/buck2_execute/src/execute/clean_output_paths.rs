@@ -11,6 +11,7 @@ use anyhow::Context;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::io_counters::IoCounterKey;
 
 use crate::execute::blocking::IoRequest;
 
@@ -50,7 +51,12 @@ pub fn cleanup_path(fs: &ProjectRoot, mut path: &ProjectRelativePath) -> anyhow:
             }
         };
 
-        match fs.resolve(path).symlink_metadata() {
+        let meta = {
+            let _guard = IoCounterKey::Stat.guard();
+            fs.resolve(path).symlink_metadata()
+        };
+
+        match meta {
             Ok(m) => {
                 if m.is_dir() {
                     // It's a dir, no need to go further, and no need to delete.
