@@ -625,6 +625,10 @@ impl DaemonState {
                     .detect_cycles()
                     .variant_name()
             ),
+            format!(
+                "which-dice:{}",
+                data.dice_manager.unsafe_dice().which_dice().variant_name()
+            ),
             format!("hash-all-commands:{}", data.hash_all_commands),
             format!(
                 "sqlite-materializer-state:{}",
