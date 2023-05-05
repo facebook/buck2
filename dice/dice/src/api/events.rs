@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 
+#[derive(Allocative, PartialEq, Eq, Debug)]
 pub enum DiceEvent {
     Started { key_type: &'static str },
     Finished { key_type: &'static str },

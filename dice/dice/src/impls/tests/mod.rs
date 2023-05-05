@@ -8,6 +8,7 @@
  */
 
 mod demo;
+mod events;
 mod general;
 mod keys;
 mod projections;
