@@ -247,7 +247,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     cache_upload_behavior,
                     remote_cache_enabled: true,
                 },
-                (Some(local), None, false) => Executor::Local(local),
+                (Some(_local), None, false) => Executor::Local,
                 (None, None, _) => {
                     return Err(CommandExecutorConfigErrors::NoExecutor.into());
                 }

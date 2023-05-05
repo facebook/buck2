@@ -77,7 +77,7 @@ pub enum RemoteEnabledExecutor {
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum Executor {
     /// This executor only runs local commands.
-    Local(LocalExecutorOptions),
+    Local,
 
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
@@ -184,7 +184,7 @@ pub enum HybridExecutionLevel {
 impl CommandExecutorConfig {
     pub fn testing_local() -> Arc<CommandExecutorConfig> {
         Arc::new(CommandExecutorConfig {
-            executor: Executor::Local(LocalExecutorOptions {}),
+            executor: Executor::Local,
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),

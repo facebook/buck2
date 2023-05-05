@@ -169,7 +169,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = match &executor_config.executor {
-            Executor::Local(..) => {
+            Executor::Local => {
                 if self.strategy.ban_local() {
                     None
                 } else {
@@ -304,7 +304,7 @@ impl ExecutionStrategyExt for ExecutionStrategy {
 /// This is used when execution platforms are not configured.
 pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> CommandExecutorConfig {
     let executor = if buck2_core::is_open_source() {
-        Executor::Local(LocalExecutorOptions {})
+        Executor::Local
     } else {
         Executor::RemoteEnabled {
             executor: RemoteEnabledExecutor::Hybrid {
