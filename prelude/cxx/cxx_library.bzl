@@ -542,7 +542,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                             compiled_srcs.pic_external_debug_info +
                             (compiled_srcs.pic_objects if compiled_srcs.pic_objects_have_external_debug_info else [])
                         ),
-                        children = impl_params.additional.external_debug_info,
+                        children = impl_params.additional.static_external_debug_info,
                     ),
                 ),
                 stripped = LinkInfo(
@@ -817,7 +817,7 @@ def _form_library_outputs(
                         ctx.actions,
                         label = ctx.label,
                         artifacts = (compiled_srcs.pic_external_debug_info if pic else compiled_srcs.external_debug_info),
-                        children = impl_params.additional.external_debug_info,
+                        children = impl_params.additional.static_external_debug_info,
                     ),
                     pic = pic,
                     stripped = False,
@@ -850,7 +850,7 @@ def _form_library_outputs(
                     actions = ctx.actions,
                     label = ctx.label,
                     artifacts = external_debug_artifacts,
-                    children = impl_params.additional.external_debug_info,
+                    children = impl_params.additional.shared_external_debug_info,
                 )
 
                 result = _shared_library(

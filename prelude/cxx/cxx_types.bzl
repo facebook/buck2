@@ -89,7 +89,10 @@ CxxAdditionalArgsfileParams = record(
 CxxRuleAdditionalParams = record(
     srcs = field([CxxSrcWithFlags.type], []),
     argsfiles = field([CxxAdditionalArgsfileParams.type], []),
-    external_debug_info = field(["transitive_set"], []),
+    # External debug info to be used when generated static output
+    static_external_debug_info = field(["transitive_set"], []),
+    # External debug info to be used when generating shared objects
+    shared_external_debug_info = field(["transitive_set"], []),
     subtargets = field(dict.type, {}),  # [str.type: ["provider"]]
     # Might be used to expose additional providers to cxx layer (e.g to support #headers subtarget for Swift)
     additional_providers_factory = field(["function", None], None),  # (["CPreprocessorInfo", None]) -> ["provider"]:
