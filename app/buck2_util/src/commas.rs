@@ -10,9 +10,12 @@
 use std::fmt;
 
 // Returns a function that produces commas every time apart from the first
-pub fn commas() -> impl FnMut(&mut fmt::Formatter<'_>) -> fmt::Result {
+pub fn commas<W>() -> impl FnMut(&mut W) -> fmt::Result
+where
+    W: fmt::Write,
+{
     let mut with_comma = false;
-    move |f: &mut fmt::Formatter<'_>| -> fmt::Result {
+    move |f: &mut W| -> fmt::Result {
         if with_comma {
             write!(f, ", ")?;
         }
