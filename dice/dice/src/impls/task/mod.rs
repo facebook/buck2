@@ -10,7 +10,6 @@
 use std::any::Any;
 
 use futures::future::BoxFuture;
-use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_cancellable;
 use more_futures::spawn::FutureAndCancellationHandle;
 use more_futures::spawner::Spawner;
@@ -31,7 +30,7 @@ mod tests;
 pub(crate) fn spawn_dice_task<S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
-    f: impl FnOnce(DiceTaskHandle) -> BoxFuture<'static, Box<dyn Any + Send>> + Send + 'static,
+    f: impl for<'a> FnOnce(DiceTaskHandle<'a>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send + 'static,
 ) -> DiceTask {
     let internal = DiceTaskInternal::new();
 
@@ -44,10 +43,10 @@ pub(crate) fn spawn_dice_task<S>(
     } = spawn_cancellable(
         {
             let internal = triomphe_dupe(&internal);
-            |_cancellations| {
+            |cancellations| {
                 let handle = DiceTaskHandle {
                     internal,
-                    cancellations: CancellationContext::todo(),
+                    cancellations,
                 };
 
                 f(handle)

@@ -167,7 +167,7 @@ impl IncrementalEngine {
         transaction_ctx: SharedLiveTransactionCtx,
         mut cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
-        task_handle: DiceTaskHandle,
+        task_handle: DiceTaskHandle<'_>,
         extra: std::sync::Arc<UserComputationData>,
     ) {
         let v = transaction_ctx.get_version();
@@ -256,7 +256,7 @@ impl IncrementalEngine {
         transaction_ctx: &SharedLiveTransactionCtx,
         cycles: UserCycleDetectorData,
         event_dispatcher: DiceEventDispatcher,
-        task_handle: DiceTaskHandle,
+        task_handle: DiceTaskHandle<'_>,
     ) {
         task_handle.computing();
 

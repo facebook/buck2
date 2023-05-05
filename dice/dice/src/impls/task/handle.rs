@@ -18,9 +18,9 @@ use crate::DiceResult;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
-pub(crate) struct DiceTaskHandle {
+pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
-    pub(super) cancellations: CancellationContext,
+    pub(super) cancellations: &'a CancellationContext,
 }
 
 /// After reporting that we are about to transition to a state, should we continue processing or
@@ -32,7 +32,7 @@ pub(crate) enum TaskState {
     Finished,
 }
 
-impl DiceTaskHandle {
+impl<'a> DiceTaskHandle<'a> {
     pub(crate) fn checking_deps(&self) -> TaskState {
         self.internal.state.report_checking_deps()
     }
@@ -50,4 +50,4 @@ impl DiceTaskHandle {
     }
 }
 
-unsafe impl Send for DiceTaskHandle {}
+unsafe impl<'a> Send for DiceTaskHandle<'a> {}
