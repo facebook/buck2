@@ -196,6 +196,7 @@ impl IncrementalEngine {
 
             VersionedGraphResult::CheckDeps(mismatch) => {
                 cycles.start_computing_key(k);
+                task_handle.checking_deps();
                 match self
                     .compute_whether_dependencies_changed(
                         ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
