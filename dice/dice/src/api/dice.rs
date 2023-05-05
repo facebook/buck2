@@ -199,6 +199,7 @@ use crate::api::user_data::UserComputationData;
 use crate::metrics::Metrics;
 use crate::DiceDataBuilderImpl;
 use crate::DiceImplementation;
+use crate::WhichDice;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -250,6 +251,13 @@ impl Dice {
 
     pub fn detect_cycles(&self) -> &DetectCycles {
         self.implementation.detect_cycles()
+    }
+
+    pub fn which_dice(&self) -> WhichDice {
+        match self.implementation {
+            DiceImplementation::Legacy(_) => WhichDice::Legacy,
+            DiceImplementation::Modern(_) => WhichDice::Modern,
+        }
     }
 
     pub fn metrics(&self) -> Metrics {
