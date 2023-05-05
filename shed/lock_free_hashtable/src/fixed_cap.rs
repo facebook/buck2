@@ -135,7 +135,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
         hash: u64,
         value: T,
         eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
-    ) -> Result<T::Ref<'a>, T> {
+    ) -> Result<(T::Ref<'a>, Option<T>), T> {
         let value = T::into_raw(value);
         assert!(!T::is_null(value));
 
@@ -161,7 +161,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
                 ) {
                     Ok(_) => {
                         self.size.fetch_add(1, Ordering::Relaxed);
-                        return Ok(unsafe { T::deref(value) });
+                        return Ok((unsafe { T::deref(value) }, None));
                     }
                     Err(entry) => {
                         // Someone has just inserted the value into the bucket.
@@ -172,10 +172,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
                 entry
             };
             if eq(unsafe { T::deref(value) }, unsafe { T::deref(entry) }) {
-                unsafe {
-                    let _drop = T::from_raw(value);
-                };
-                return Ok(unsafe { T::deref(entry) });
+                return Ok(unsafe { (T::deref(entry), Some(T::from_raw(value))) });
             }
             index = (index + 1) & (self.entries.len() - 1);
         }

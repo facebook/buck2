@@ -51,7 +51,11 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     }
 
     /// Insert an entry.
-    /// If the entry already exists, the existing entry is returned.
+    ///
+    /// If the entry does not exist, the value is inserted
+    /// and a pointer to the inserted entry is returned.
+    ///
+    /// Otherwise the pointer to existing entry along with the given value is returned.
     #[inline]
     pub fn insert<'a>(
         &'a self,
@@ -59,7 +63,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
         value: T,
         eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
         hash_fn: impl Fn(T::Ref<'_>) -> u64,
-    ) -> T::Ref<'a> {
+    ) -> (T::Ref<'a>, Option<T>) {
         self.table_for_hash(hash).insert(hash, value, eq, hash_fn)
     }
 

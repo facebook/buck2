@@ -223,12 +223,15 @@ impl<T: 'static, H: Hasher + Default> StaticInterner<T, H> {
             data: hashed_value.value.into(),
             hash: hashed_value.hash,
         });
-        let pointer = self.table.insert(
-            hashed_value.hash,
-            pointer,
-            |a, b| a.hash == b.hash && a.data == b.data,
-            |t| t.hash,
-        );
+        let pointer = self
+            .table
+            .insert(
+                hashed_value.hash,
+                pointer,
+                |a, b| a.hash == b.hash && a.data == b.data,
+                |t| t.hash,
+            )
+            .0;
         Intern { pointer }
     }
 

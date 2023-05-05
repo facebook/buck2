@@ -89,14 +89,18 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     }
 
     /// Insert an entry.
-    /// If the entry already exists, the existing entry is returned.
+    ///
+    /// If the entry does not exist, the value is inserted
+    /// and a pointer to the inserted entry is returned.
+    ///
+    /// Otherwise the pointer to existing entry along with the given value is returned.
     pub fn insert<'a>(
         &'a self,
         hash: u64,
         mut value: T,
         eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
         hash_fn: impl Fn(T::Ref<'_>) -> u64,
-    ) -> T::Ref<'a> {
+    ) -> (T::Ref<'a>, Option<T>) {
         loop {
             // Acquire shared lock.
             let guard = self.write_lock.read();
@@ -112,7 +116,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
 
             let current = unsafe { &*current };
             match current.table.insert(hash, value, |a, b| eq(a, b)) {
-                Ok(value) => {
+                Ok((referece, value)) => {
                     drop(guard);
                     // Insert was successful. However, we or other threads
                     // may have exceeded the load factor.
@@ -120,7 +124,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
                     if current.table.need_resize() {
                         self.resize_if_needed(|v| hash_fn(v));
                     }
-                    return value;
+                    return (referece, value);
                 }
                 Err(ret_value) => {
                     drop(guard);
@@ -214,9 +218,9 @@ mod tests {
     #[test]
     fn test_simple() {
         let t = LockFreeRawTable::new();
-        let v0 = t.insert(hash(1), Box::new(1), |a, b| a == b, hash_fn);
+        let v0 = t.insert(hash(1), Box::new(1), |a, b| a == b, hash_fn).0;
         assert_eq!(&1, v0);
-        let v1 = t.insert(hash(1), Box::new(1), |a, b| a == b, hash_fn);
+        let v1 = t.insert(hash(1), Box::new(1), |a, b| a == b, hash_fn).0;
         assert_eq!(&1, v1);
         assert!(ptr::eq(v0, v1));
 
@@ -260,7 +264,7 @@ mod tests {
         let t = LockFreeRawTable::new();
         let p = NonNull::<u32>::dangling();
         let p = RawPtr(p);
-        let r = t.insert(hash(p.0), p, |a, b| a == b, hash);
+        let r = t.insert(hash(p.0), p, |a, b| a == b, hash).0;
         assert_eq!(p.0, r);
     }
 }
