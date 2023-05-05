@@ -11,6 +11,7 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,6 +30,7 @@ use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
+use buck2_util::commas::commas;
 use dupe::Dupe;
 use superconsole::style::Stylize;
 use superconsole::Line;
@@ -356,6 +358,30 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
             (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
             res.push(format!("{} additional file change events", unprinted_paths));
+        }
+
+        if let Some(fresh_instance) = &stats.fresh_instance_data {
+            let file_watcher = if stats.watchman_version.is_some() {
+                "Watchman"
+            } else {
+                "File Watcher"
+            };
+
+            let mut msg = format!("{} fresh instance: ", file_watcher);
+            let mut comma = commas();
+            if fresh_instance.new_mergebase {
+                comma(&mut msg).unwrap();
+                write!(&mut msg, "new mergebase").unwrap();
+            }
+            if fresh_instance.cleared_dice {
+                comma(&mut msg).unwrap();
+                write!(&mut msg, "cleared graph state").unwrap();
+            }
+            if fresh_instance.cleared_dep_files {
+                comma(&mut msg).unwrap();
+                write!(&mut msg, "cleared dep files").unwrap();
+            }
+            res.push(msg);
         }
     }
 

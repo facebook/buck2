@@ -226,7 +226,9 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         let has_new_mergebase = self.last_mergebase.as_ref() != mergebase.as_ref();
-        eprintln!("watchman fresh instance event, clearing cache");
+
+        let clear_dep_files =
+            has_new_mergebase || !self.retain_dep_files_on_watchman_fresh_instance;
 
         // We'll clear dep files if we're configured to do so on all fresh instances. Otherwise,
         // we'll drop them if the mergebase has changed, which means our dep files are likely
@@ -238,7 +240,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // (where we'll rebuild things our dep files *could* have avoided) as not flushing in the
         // former (where we'll fetch loads of dep files that all miss), so we err on the side of
         // being safe and drop them when the mergebase changes.
-        if has_new_mergebase || !self.retain_dep_files_on_watchman_fresh_instance {
+        if clear_dep_files {
             buck2_build_api::actions::impls::dep_files::flush_dep_files();
         }
 
@@ -256,6 +258,11 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
                 branched_from_revision: mergebase.clone(),
                 incomplete_events_reason: Some("Fresh instance".to_owned()),
                 watchman_version,
+                fresh_instance_data: Some(buck2_data::FreshInstance {
+                    new_mergebase: has_new_mergebase,
+                    cleared_dice: true,
+                    cleared_dep_files: clear_dep_files,
+                }),
                 ..Default::default()
             },
             ctx,

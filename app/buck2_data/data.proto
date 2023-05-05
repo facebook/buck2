@@ -1278,6 +1278,15 @@ message FileWatcherStats {
   optional string incomplete_events_reason = 7;
   // Present if it is using Watchman
   optional string watchman_version = 8;
+  // Present on a fresh instance. This is a bit duplicative of field 1
+  // (`fresh_instance`), but we keep that for backwards compatibility.
+  optional FreshInstance fresh_instance_data = 9;
+}
+
+message FreshInstance {
+  bool new_mergebase = 1;
+  bool cleared_dice = 2;
+  bool cleared_dep_files = 3;
 }
 
 message FileWatcherEnd {

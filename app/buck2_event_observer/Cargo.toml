@@ -22,6 +22,7 @@ linked-hash-map = { workspace = true }
 shlex = { workspace = true }
 superconsole = { version = "0.1.0", path = "../../superconsole" }
 thiserror = { workspace = true }
+buck2_util = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
