@@ -343,20 +343,20 @@ def setup_dep_files(
         actions_identifier: [str.type, None],
         cmd: "cmd_args",
         classpath_jars_tag: "artifact_tag",
-        java_toolchain: "JavaToolchainInfo",
         used_classes_json_outputs: ["artifact"],
         abi_to_abi_dir_map: ["transitive_set_args_projection", ["cmd_args"], None],
         hidden = ["artifact"]) -> "cmd_args":
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
 
-    new_cmd = cmd_args([
-        java_toolchain.used_classes_to_dep_file[RunInfo],
+    new_cmd = cmd_args()
+    new_cmd.add(cmd)
+    new_cmd.add([
         "--used-classes",
     ] + [
         used_classes_json.as_output()
         for used_classes_json in used_classes_json_outputs
     ] + [
-        "--output",
+        "--dep-file",
         classpath_jars_tag.tag_artifacts(dep_file.as_output()),
     ])
 
@@ -371,8 +371,6 @@ def setup_dep_files(
             new_cmd.hidden(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
             new_cmd.hidden(classpath_jars_tag.tag_artifacts(hidden_artifact))
-
-    new_cmd.add(cmd)
 
     return new_cmd
 

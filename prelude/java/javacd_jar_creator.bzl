@@ -257,7 +257,6 @@ def create_jar_artifact_javacd(
                 actions_identifier,
                 cmd,
                 classpath_jars_tag,
-                java_toolchain,
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
                 hidden = hidden,

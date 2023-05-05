@@ -282,7 +282,6 @@ def create_jar_artifact_kotlincd(
                 actions_identifier,
                 cmd,
                 classpath_jars_tag,
-                java_toolchain,
                 used_classes_json_outputs,
                 compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
             )
