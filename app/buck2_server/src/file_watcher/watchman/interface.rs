@@ -207,7 +207,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     type Payload = DiceTransactionUpdater;
 
     async fn process_events(
-        &self,
+        &mut self,
         dice: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
@@ -218,7 +218,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     }
 
     async fn on_fresh_instance(
-        &self,
+        &mut self,
         ctx: DiceTransactionUpdater,
         mergebase: &Option<String>,
         watchman_version: Option<String>,

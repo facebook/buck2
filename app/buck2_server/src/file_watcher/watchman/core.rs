@@ -169,7 +169,7 @@ pub trait SyncableQueryProcessor: Send + Sync {
 
     /// Process a set of filesystem change events.
     async fn process_events(
-        &self,
+        &mut self,
         payload: Self::Payload,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
@@ -178,7 +178,7 @@ pub trait SyncableQueryProcessor: Send + Sync {
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
     async fn on_fresh_instance(
-        &self,
+        &mut self,
         dice: Self::Payload,
         mergebase: &Option<String>,
         watchman_version: Option<String>,

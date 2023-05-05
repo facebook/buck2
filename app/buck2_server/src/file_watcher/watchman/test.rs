@@ -42,7 +42,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
     type Payload = ();
 
     async fn process_events(
-        &self,
+        &mut self,
         payload: Self::Payload,
         events: Vec<WatchmanEvent>,
         _mergebase: &Option<String>,
@@ -55,7 +55,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
     }
 
     async fn on_fresh_instance(
-        &self,
+        &mut self,
         payload: Self::Payload,
         _mergebase: &Option<String>,
         _watchman_version: Option<String>,
