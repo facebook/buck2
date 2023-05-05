@@ -38,15 +38,14 @@ use crate::cancellable_future::CancellationObserver;
 use crate::cancellation::CancellationContext;
 use crate::cancellation::CancellationContextInner;
 
-#[allow(unused)] // TODO(temporary)
-pub(crate) fn make_future<F, T>(
+pub(crate) fn make_cancellable_future<F, T>(
     f: F,
 ) -> (
-    ExplicitlyCancellableFuture<impl Future<Output = T>>,
+    ExplicitlyCancellableFuture<impl Future<Output = T> + Send + 'static>,
     CancellationHandle,
 )
 where
-    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T>,
+    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
 {
     let context = ExecutionContext::new();
 
@@ -503,7 +502,7 @@ mod tests {
     use futures::FutureExt;
     use parking_lot::Mutex;
 
-    use crate::cancellation::future::make_future;
+    use crate::cancellation::future::make_cancellable_future;
     use crate::cancellation::future::CancellationHandle;
     use crate::cancellation::future::TerminationStatus;
 
@@ -521,14 +520,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_ready() {
-        let (fut, _handle) = make_future(|_| futures::future::ready(()).boxed());
+        let (fut, _handle) = make_cancellable_future(|_| futures::future::ready(()).boxed());
         futures::pin_mut!(fut);
         assert_matches!(futures::poll!(fut), Poll::Ready(Some(())));
     }
 
     #[tokio::test]
     async fn test_cancel() {
-        let (fut, handle) = make_future(|_| futures::future::pending::<()>().boxed());
+        let (fut, handle) = make_cancellable_future(|_| futures::future::pending::<()>().boxed());
 
         futures::pin_mut!(fut);
 
@@ -547,7 +546,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancel_never_polled() {
-        let (fut, handle) = make_future(|_| futures::future::pending::<()>().boxed());
+        let (fut, handle) = make_cancellable_future(|_| futures::future::pending::<()>().boxed());
 
         futures::pin_mut!(fut);
 
@@ -564,7 +563,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancel_already_finished() {
-        let (fut, handle) = make_future(|_| futures::future::ready::<()>(()).boxed());
+        let (fut, handle) = make_cancellable_future(|_| futures::future::ready::<()>(()).boxed());
 
         futures::pin_mut!(fut);
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
@@ -580,7 +579,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_wakeup() {
-        let (fut, handle) = make_future(|_| futures::future::pending::<()>().boxed());
+        let (fut, handle) = make_cancellable_future(|_| futures::future::pending::<()>().boxed());
 
         let task = tokio::task::spawn(fut);
         futures::pin_mut!(task);
@@ -622,7 +621,7 @@ mod tests {
             }
         }
 
-        let (fut, _handle) = make_future({
+        let (fut, _handle) = make_cancellable_future({
             let dropped = dropped.dupe();
             |_| SetOnDrop { dropped }.boxed()
         });
@@ -635,7 +634,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_critical_section() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 {
                     cancellations.critical_section(tokio::task::yield_now).await;
@@ -666,7 +665,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_critical_section_noop_drop_is_allowed() {
-        let (fut, _handle) = make_future(|cancellations| {
+        let (fut, _handle) = make_cancellable_future(|cancellations| {
             async {
                 let section = cancellations.critical_section(futures::future::pending::<()>);
                 drop(section); // Drop it within an ExecutionContext
@@ -679,7 +678,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_nested_critical_section() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 {
                     cancellations
@@ -706,27 +705,30 @@ mod tests {
     async fn test_critical_section_cancelled_during_poll() {
         let handle_slot = Arc::new(Mutex::new(None::<CancellationHandle>));
 
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future({
             let handle_slot = handle_slot.dupe();
-            async move {
-                {
-                    let _cancel = handle_slot
-                        .lock()
-                        .take()
-                        .expect("Expected the guard to be here by now")
-                        .cancel();
 
-                    cancellations
-                        .critical_section(|| async {
-                            let mut panic = MaybePanicOnDrop { panic: true };
-                            tokio::task::yield_now().await;
-                            panic.panic = false;
-                        })
-                        .await;
+            move |cancellations| {
+                async move {
+                    {
+                        let _cancel = handle_slot
+                            .lock()
+                            .take()
+                            .expect("Expected the guard to be here by now")
+                            .cancel();
+
+                        cancellations
+                            .critical_section(|| async {
+                                let mut panic = MaybePanicOnDrop { panic: true };
+                                tokio::task::yield_now().await;
+                                panic.panic = false;
+                            })
+                            .await;
+                    }
+                    futures::future::pending::<()>().await
                 }
-                futures::future::pending::<()>().await
+                .boxed()
             }
-            .boxed()
         });
         futures::pin_mut!(fut);
 
@@ -744,7 +746,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_notifies() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 cancellations
                     .with_structured_cancellation(|observer| observer)
@@ -767,7 +769,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_is_blocking() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 cancellations
                     .with_structured_cancellation(|_observer| async move {
@@ -794,7 +796,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_cancels_on_exit() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 cancellations
                     .with_structured_cancellation(|observer| observer)
@@ -818,7 +820,7 @@ mod tests {
     // This is a bit of an implementation detail.
     #[tokio::test]
     async fn test_structured_cancellation_returns_to_executor() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 cancellations
                     .with_structured_cancellation(|observer| observer)
@@ -839,7 +841,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_is_reentrant() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             {
                 async move {
                     cancellations
@@ -869,7 +871,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_with_critical_section() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 cancellations
                     .critical_section(|| async move {
@@ -906,7 +908,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_can_be_reentered() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 cancellations
                     .with_structured_cancellation(|_o1| async move {})
@@ -932,7 +934,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_structured_cancellation_works_after_cancel() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 cancellations
                     .with_structured_cancellation(|_o1| async move {
@@ -961,7 +963,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_disable_cancellation() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 assert!(cancellations.try_to_disable_cancellation().is_some());
                 tokio::task::yield_now().await;
@@ -984,7 +986,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_disable_cancellation_already_canceled() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 assert!(cancellations.try_to_disable_cancellation().is_none());
                 tokio::task::yield_now().await;
@@ -1006,7 +1008,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_disable_cancellation_synced_with_structured_cancellation_already_cancelled() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 cancellations
                     .with_structured_cancellation(|obs| async move {
@@ -1036,7 +1038,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_disable_cancellation_synced_with_structured_cancellation_not_cancelled() {
-        let (fut, handle) = make_future(|cancellations| {
+        let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
                 assert!(cancellations.try_to_disable_cancellation().is_some());
 

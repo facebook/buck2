@@ -28,11 +28,14 @@ use tracing::Span;
 use crate::cancellable_future::CancellableFuture;
 use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
+use crate::cancellation::future::make_cancellable_future;
+use crate::cancellation::future::CancellationHandle;
+use crate::cancellation::CancellationContext;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
 use crate::spawner::Spawner;
 
-#[derive(Debug, Error, Copy, Clone)]
+#[derive(Debug, Error, Copy, Clone, PartialEq)]
 pub enum WeakFutureError {
     #[error("Join Error")]
     JoinError,
@@ -210,6 +213,76 @@ where
     spawn_inner(future, futures::future::ready(()), spawner, ctx, span)
 }
 
+/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
+/// does not cancel the future
+pub fn spawn_cancellable_with_preamble<F, T, P, S>(
+    f: F,
+    preamble: P,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    span: Span,
+) -> (
+    BoxFuture<'static, Result<T, WeakFutureError>>,
+    CancellationHandle,
+)
+where
+    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    P: Future<Output = ()> + Send + 'static,
+    T: Any + Send + 'static,
+{
+    let (future, cancellation_handle) = make_cancellable_future(f);
+
+    // For Ready<()> and BoxFuture<()> futures we get these sizes:
+    // future alone: 196/320 bits
+    // future + no-op preamble via async block: 448/704 bits
+    // future + no-op preamble via FuturesExt::then: 256/384 bits
+    // future + no-op preamble + instrument: 512/640 bits
+
+    // As the spawner is going to take a boxed future and erase its concrete type,
+    // we can have different future types for different scenarios in order to
+    // minimize the size of them.
+    //
+    // While we could feasibly distinguish the no-op preamble case, one extra pointer
+    // is an okay cost for the simpler api (for now).
+    let future = future.map(|v| Box::new(v) as _);
+    let future = preamble.then(|_| future);
+    let future = if span.is_disabled() {
+        future.boxed()
+    } else {
+        future.instrument(span).boxed()
+    };
+
+    let task = spawner.spawn(ctx, future.boxed());
+    let task = task
+        .map(|v| {
+            v.map_err(|_e: tokio::task::JoinError| WeakFutureError::JoinError)?
+                .downcast::<Option<T>>()
+                .expect("Spawned task returned the wrong type")
+                .ok_or(WeakFutureError::Cancelled)
+        })
+        .boxed();
+
+    (task, cancellation_handle)
+}
+
+/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
+/// does not cancel the future
+pub fn spawn_cancellable<F, T, S>(
+    f: F,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    span: Span,
+) -> (
+    BoxFuture<'static, Result<T, WeakFutureError>>,
+    CancellationHandle,
+)
+where
+    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    T: Any + Send + 'static,
+{
+    spawn_cancellable_with_preamble(f, futures::future::ready(()), spawner, ctx, span)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -266,5 +339,56 @@ mod tests {
 
         let res = poll.await;
         assert_eq!(res, "Hello world!");
+    }
+
+    #[tokio::test]
+    async fn test_cancellation_of_cancellable() {
+        let (release_task, recv_release_task) = oneshot::channel();
+        let (notify_success, recv_success) = oneshot::channel();
+
+        let sp = Arc::new(TokioSpawner::default());
+
+        let (_task, cancellation_handle) = spawn_cancellable_with_preamble(
+            move |_| {
+                async move {
+                    recv_release_task.await.unwrap();
+                    notify_success.send(()).unwrap();
+                }
+                .boxed()
+            },
+            futures::future::ready(()),
+            sp.as_ref(),
+            &MockCtx::default(),
+            tracing::debug_span!("test"),
+        );
+
+        // Trigger cancellation
+        let cancelled = cancellation_handle.cancel();
+
+        // Now, release the task. In all likelihood it will have already exited, but
+        let _ignored = release_task.send(());
+
+        cancelled.await;
+
+        // The task should never get to sending in notify_success since cancellation was trigger,
+        // but it *should* drop the channel itself.
+        recv_success.await.unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn test_spawn_cancellable() {
+        let sp = Arc::new(TokioSpawner::default());
+        let fut = async { "Hello world!" }.boxed();
+
+        let (task, _) = spawn_cancellable_with_preamble(
+            |_| fut,
+            futures::future::ready(()),
+            sp.as_ref(),
+            &MockCtx::default(),
+            tracing::debug_span!("test"),
+        );
+
+        let res = task.await;
+        assert_eq!(res, Ok("Hello world!"));
     }
 }
