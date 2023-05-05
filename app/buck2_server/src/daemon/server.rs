@@ -716,7 +716,7 @@ where
 
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
-    let (future_handle, cancellation_handle) = spawn_cancellable(
+    let spawned = spawn_cancellable(
         |cancellations| func(req, cancellations),
         &BuckSpawner::default(),
         &events_ctx,
@@ -784,7 +784,7 @@ where
     Response::new(Box::pin(SyncStream {
         wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(
             events,
-            future_handle.into_drop_cancel(cancellation_handle),
+            spawned.into_drop_cancel(),
         )),
     }))
 }

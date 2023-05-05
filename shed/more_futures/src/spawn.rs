@@ -216,6 +216,32 @@ where
     spawn_inner(future, futures::future::ready(()), spawner, ctx, span)
 }
 
+pub struct FutureAndCancellationHandle<T> {
+    pub future: CancellableJoinHandle<T>,
+    pub cancellation_handle: CancellationHandle,
+}
+
+impl<T> FutureAndCancellationHandle<T> {
+    pub fn into_drop_cancel(self) -> DropCancelAndTerminationObserver<T> {
+        self.future.into_drop_cancel(self.cancellation_handle)
+    }
+}
+
+#[pin_project]
+pub struct DropCancelAndTerminationObserver<T> {
+    #[pin]
+    pub future: DropCancelFuture<T>,
+    pub termination: Shared<TerminationObserver>,
+}
+
+impl<T> Future for DropCancelAndTerminationObserver<T> {
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().future.poll(cx)
+    }
+}
+
 /// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
 /// does not cancel the future
 pub fn spawn_cancellable_with_preamble<F, T, P, S>(
@@ -224,7 +250,7 @@ pub fn spawn_cancellable_with_preamble<F, T, P, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> (CancellableJoinHandle<T>, CancellationHandle)
+) -> FutureAndCancellationHandle<T>
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
     P: Future<Output = ()> + Send + 'static,
@@ -262,7 +288,10 @@ where
         })
         .boxed();
 
-    (CancellableJoinHandle(task), cancellation_handle)
+    FutureAndCancellationHandle {
+        future: CancellableJoinHandle(task),
+        cancellation_handle,
+    }
 }
 
 /// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
@@ -272,7 +301,7 @@ pub fn spawn_cancellable<F, T, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> (CancellableJoinHandle<T>, CancellationHandle)
+) -> FutureAndCancellationHandle<T>
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
     T: Any + Send + 'static,
@@ -327,10 +356,10 @@ impl<T> PinnedDrop for DropCancelFuture<T> {
 }
 
 impl<T> CancellableJoinHandle<T> {
-    pub fn into_drop_cancel(
+    fn into_drop_cancel(
         self,
         cancellation_handle: CancellationHandle,
-    ) -> (DropCancelFuture<T>, Shared<TerminationObserver>) {
+    ) -> DropCancelAndTerminationObserver<T> {
         let termination_observer = cancellation_handle.termination_observer();
 
         let fut = DropCancelFuture {
@@ -338,7 +367,10 @@ impl<T> CancellableJoinHandle<T> {
             cancellation_handle: Some(cancellation_handle),
         };
 
-        (fut, termination_observer)
+        DropCancelAndTerminationObserver {
+            future: fut,
+            termination: termination_observer,
+        }
     }
 }
 
@@ -409,7 +441,10 @@ mod tests {
 
         let sp = Arc::new(TokioSpawner::default());
 
-        let (_task, cancellation_handle) = spawn_cancellable_with_preamble(
+        let FutureAndCancellationHandle {
+            cancellation_handle,
+            ..
+        } = spawn_cancellable_with_preamble(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -443,7 +478,10 @@ mod tests {
 
         let sp = Arc::new(TokioSpawner::default());
 
-        let (task, cancellation_handle) = spawn_cancellable_with_preamble(
+        let FutureAndCancellationHandle {
+            future: task,
+            cancellation_handle,
+        } = spawn_cancellable_with_preamble(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -457,14 +495,17 @@ mod tests {
             tracing::debug_span!("test"),
         );
 
-        let (drop_cancel, termination_observer) = task.into_drop_cancel(cancellation_handle);
+        let DropCancelAndTerminationObserver {
+            future: drop_cancel,
+            termination,
+        } = task.into_drop_cancel(cancellation_handle);
 
         drop(drop_cancel);
 
         // Now, release the task. In all likelihood it will have already exited, but
         let _ignored = release_task.send(());
 
-        assert_eq!(termination_observer.await, TerminationStatus::Cancelled);
+        assert_eq!(termination.await, TerminationStatus::Cancelled);
 
         // The task should never get to sending in notify_success since all its referenced had been
         // dropped at that point, but it *should* drop the channel itself.
@@ -476,7 +517,7 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" }.boxed();
 
-        let (task, _) = spawn_cancellable_with_preamble(
+        let FutureAndCancellationHandle { future: task, .. } = spawn_cancellable_with_preamble(
             |_| fut,
             futures::future::ready(()),
             sp.as_ref(),
@@ -493,7 +534,10 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" }.boxed();
 
-        let (task, cancellation_handle) = spawn_cancellable_with_preamble(
+        let FutureAndCancellationHandle {
+            future: task,
+            cancellation_handle,
+        } = spawn_cancellable_with_preamble(
             |_| fut,
             futures::future::ready(()),
             sp.as_ref(),
@@ -501,16 +545,19 @@ mod tests {
             tracing::debug_span!("test"),
         );
 
-        let (task, termination_observer) = task.into_drop_cancel(cancellation_handle);
+        let DropCancelAndTerminationObserver {
+            future,
+            termination,
+        } = task.into_drop_cancel(cancellation_handle);
 
-        futures::pin_mut!(termination_observer);
-        assert_matches!(futures::poll!(&mut termination_observer), Poll::Pending);
+        futures::pin_mut!(termination);
+        assert_matches!(futures::poll!(&mut termination), Poll::Pending);
 
-        let res = task.await;
+        let res = future.await;
         assert_eq!(res, "Hello world!");
 
         assert_matches!(
-            futures::poll!(&mut termination_observer),
+            futures::poll!(&mut termination),
             Poll::Ready(TerminationStatus::Finished)
         );
     }
