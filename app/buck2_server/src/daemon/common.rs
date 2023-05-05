@@ -114,7 +114,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
-        let local_executor_new = |_options| {
+        let local_executor_new = || {
             LocalExecutor::new(
                 artifact_fs.clone(),
                 self.materializer.dupe(),
@@ -140,7 +140,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             }
 
             return Ok(CommandExecutorResponse {
-                executor: Arc::new(local_executor_new(&LocalExecutorOptions {})),
+                executor: Arc::new(local_executor_new()),
                 platform: Default::default(),
             });
         }
@@ -169,12 +169,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = match &executor_config.executor {
-            Executor::Local(local) => {
+            Executor::Local(..) => {
                 if self.strategy.ban_local() {
                     None
                 } else {
                     Some(CommandExecutorResponse {
-                        executor: Arc::new(local_executor_new(local)),
+                        executor: Arc::new(local_executor_new()),
                         platform: Default::default(),
                     })
                 }
@@ -187,8 +187,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote_cache_enabled,
             } => {
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
-                    RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
-                        Some(Arc::new(local_executor_new(local)))
+                    RemoteEnabledExecutor::Local(..) if !self.strategy.ban_local() => {
+                        Some(Arc::new(local_executor_new()))
                     }
                     RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
                         Some(Arc::new(remote_executor_new(
@@ -198,11 +198,11 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         )))
                     }
                     RemoteEnabledExecutor::Hybrid {
-                        local,
+                        local: _local,
                         remote,
                         level,
                     } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
-                        local: local_executor_new(local),
+                        local: local_executor_new(),
                         remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
                         level: *level,
                         executor_preference: self.strategy.hybrid_preference(),
