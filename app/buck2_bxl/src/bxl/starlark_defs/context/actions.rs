@@ -10,13 +10,27 @@
 //! Starlark Actions API for bxl functions
 //!
 
+use std::collections::HashMap;
+
 use allocative::Allocative;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
-use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
+use buck2_build_api::configuration::calculation::ConfigurationCalculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::nodes::calculation::ExecutionPlatformConstraints;
+use buck2_core::cells::name::CellName;
+use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::label::TargetLabel;
+use buck2_node::attrs::configuration_context::AttrConfigurationContext;
+use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use derive_more::Display;
+use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -47,7 +61,93 @@ enum BxlActionsError {
     RegistryAlreadyCreated,
 }
 
-pub(crate) fn validate_action_instantiation<'v>(this: &BxlContext<'v>) -> anyhow::Result<()> {
+#[allow(unused)] // TODO(bobyf) temporary
+pub(crate) async fn resolve_bxl_execution_platform<'v>(
+    ctx: &DiceComputations,
+    cell: CellName,
+    exec_deps: Vec<ProvidersLabel>,
+    toolchain_deps: Vec<ProvidersLabel>,
+    target_platform: Option<TargetLabel>,
+    exec_compatible_with: Vec<TargetLabel>,
+) -> anyhow::Result<BxlExecutionResolution> {
+    // bxl has on transitions
+    let resolved_transitions = OrderedMap::new();
+
+    let platform_configuration = match target_platform.as_ref() {
+        Some(global_target_platform) => {
+            ctx.get_platform_configuration(global_target_platform)
+                .await?
+        }
+        None => ConfigurationData::unspecified(),
+    };
+    let resolved_configuration = {
+        ctx.get_resolved_configuration(&platform_configuration, cell, &exec_compatible_with)
+            .await?
+    };
+
+    // there is not explicit configured deps, so platforms is empty
+    let platform_cfgs = OrderedMap::new();
+
+    let configuration_ctx = AttrConfigurationContextImpl::new(
+        &resolved_configuration,
+        ConfigurationNoExec::unbound_exec(),
+        // We don't really need `resolved_transitions` here:
+        // `Traversal` declared above ignores transitioned dependencies.
+        // But we pass `resolved_transitions` here to prevent breakages in the future
+        // if something here changes.
+        &resolved_transitions,
+        &platform_cfgs,
+    );
+    let toolchain_deps = toolchain_deps
+        .into_iter()
+        .map(|dep| {
+            let configured = configuration_ctx.configure_toolchain_target(&dep);
+            (dep, configured)
+        })
+        .collect::<HashMap<_, _>>();
+
+    let execution_constraints = ExecutionPlatformConstraints::new_constraints(
+        exec_deps
+            .iter()
+            .map(|label| label.target().dupe())
+            .collect(),
+        toolchain_deps
+            .values()
+            .map(|label| label.target().dupe())
+            .collect(),
+        exec_compatible_with,
+    );
+
+    let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
+
+    let exec_deps_configured = exec_deps
+        .into_iter()
+        .map(|exec_dep| {
+            let configured = exec_dep
+                .configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
+
+            Ok((exec_dep, configured))
+        })
+        .collect::<anyhow::Result<HashMap<_, _>>>()?;
+
+    Ok(BxlExecutionResolution {
+        resolved_execution,
+        exec_deps_configured,
+        toolchain_deps,
+    })
+}
+
+#[allow(unused)]
+pub(crate) struct BxlExecutionResolution {
+    resolved_execution: ExecutionPlatformResolution,
+    exec_deps_configured: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
+    toolchain_deps: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
+}
+
+pub(crate) fn validate_action_instantiation<'v>(
+    this: &BxlContext<'v>,
+    execution_platform: ExecutionPlatformResolution,
+) -> anyhow::Result<()> {
     let mut registry = this.state.state.borrow_mut();
 
     if (*registry).is_some() {
@@ -55,7 +155,7 @@ pub(crate) fn validate_action_instantiation<'v>(this: &BxlContext<'v>) -> anyhow
     } else {
         let analysis_registry = AnalysisRegistry::new_from_owner(
             BaseDeferredKey::BxlLabel(this.current_bxl.dupe()),
-            EXECUTION_PLATFORM.dupe(),
+            execution_platform,
         );
 
         *registry = Some(analysis_registry);

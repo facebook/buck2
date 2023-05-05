@@ -19,6 +19,7 @@ use allocative::Allocative;
 use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
 use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::nodes::calculation::NodeCalculation;
@@ -463,14 +464,14 @@ fn register_context(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        validate_action_instantiation(this)?;
+        validate_action_instantiation(this, EXECUTION_PLATFORM.dupe())?;
         Ok(eval.heap().alloc(BxlActions::new(this.state)))
     }
 
     /// Returns the action context for creating and running actions.
     #[starlark(attribute)]
     fn actions_factory<'v>(this: ValueOf<'v, &'v BxlContext<'v>>) -> anyhow::Result<Value<'v>> {
-        validate_action_instantiation(this.typed)?;
+        validate_action_instantiation(this.typed, EXECUTION_PLATFORM.dupe())?;
 
         Ok(this.typed.state.to_value())
     }

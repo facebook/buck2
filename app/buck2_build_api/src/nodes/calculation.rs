@@ -20,6 +20,7 @@ use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
+use buck2_core::cells::name::CellName;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
@@ -250,6 +251,20 @@ impl ExecutionPlatformConstraints {
     ) -> SharedResult<ExecutionPlatformResolution> {
         ctx.resolve_execution_platform_from_constraints(
             node.label().pkg().cell_name(),
+            &self.exec_compatible_with,
+            &self.exec_deps,
+            &self.toolchain_allows(ctx).await?,
+        )
+        .await
+    }
+
+    pub async fn one_for_cell(
+        &self,
+        ctx: &DiceComputations,
+        cell: CellName,
+    ) -> SharedResult<ExecutionPlatformResolution> {
+        ctx.resolve_execution_platform_from_constraints(
+            cell,
             &self.exec_compatible_with,
             &self.exec_deps,
             &self.toolchain_allows(ctx).await?,
