@@ -549,7 +549,12 @@ where
             .user_data
             .tracker
             .event(DiceEvent::Started { key_type: desc });
+        let tracker = extra.user_data.tracker.dupe();
         let cycle_detector = extra.user_data.cycle_detector.clone();
+
+        scopeguard::defer! {
+            tracker.event(DiceEvent::Finished { key_type: desc });
+        };
 
         let v = transaction_ctx.get_version();
         let m_v = transaction_ctx.get_minor_version();
@@ -557,7 +562,6 @@ where
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let tracker = extra.user_data.tracker.dupe();
         let ValueWithDeps { value, both_deps } = self
             .versioned_cache
             .storage_properties
@@ -580,8 +584,10 @@ where
             both_deps,
         );
 
+        // This feels like it should move in the scopeguard above to notify the cycle detector on
+        // cancellation, but our cycle detector does not currently support being notified multiple
+        // times about the same key, so we don't.
         debug!(msg = "cache updates completed");
-        tracker.event(DiceEvent::Finished { key_type: desc });
         ComputationData::finished_computing_key::<K>(cycle_detector.as_ref(), k);
 
         Ok(entry)

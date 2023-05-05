@@ -261,6 +261,9 @@ impl IncrementalEngine {
         task_handle.computing();
 
         event_dispatcher.started(k);
+        scopeguard::defer! {
+            event_dispatcher.finished(k);
+        };
 
         let v = transaction_ctx.get_version();
 
@@ -307,7 +310,6 @@ impl IncrementalEngine {
         }
 
         debug!(msg = "update future completed");
-        event_dispatcher.finished(k);
     }
 
     /// determines if the given 'Dependency' has changed between versions 'last_version' and
