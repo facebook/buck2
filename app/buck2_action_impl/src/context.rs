@@ -158,7 +158,9 @@ fn create_dir_tree<'v>(
         this.get_or_declare_output(eval, output, "output", OutputType::Directory)?;
     this.register_action(inputs, indexset![output_artifact], action, None)?;
 
-    let value = declaration.into_declared_artifact(unioned_associated_artifacts);
+    let value = declaration
+        .into_declared_artifact(unioned_associated_artifacts)
+        .to_value();
     Ok(value)
 }
 
@@ -187,7 +189,7 @@ fn copy_file<'v>(
     )?;
 
     let value = declaration.into_declared_artifact(associated_artifacts.dupe());
-    Ok(value)
+    Ok(value.to_value())
 }
 
 // Type literals that we use
@@ -272,7 +274,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             Some(content),
         )?;
 
-        let value = declaration.into_declared_artifact(Default::default());
+        let value = declaration
+            .into_declared_artifact(Default::default())
+            .to_value();
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
@@ -441,8 +445,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             }
         }
 
-        let value =
-            declaration.into_declared_artifact(Arc::new(OrderedSet::from(associated_artifacts)));
+        let value = declaration
+            .into_declared_artifact(Arc::new(OrderedSet::from(associated_artifacts)))
+            .to_value();
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()
@@ -787,7 +792,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             None,
         )?;
 
-        let value = declaration.into_declared_artifact(Default::default());
+        let value = declaration
+            .into_declared_artifact(Default::default())
+            .to_value();
         Ok(value)
     }
 
@@ -846,7 +853,9 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
             None,
         )?;
 
-        Ok(output_value.into_declared_artifact(Default::default()))
+        Ok(output_value
+            .into_declared_artifact(Default::default())
+            .to_value())
     }
 
     /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.

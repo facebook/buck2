@@ -37,4 +37,8 @@ impl ProjectedArtifact {
     pub fn path(&self) -> &ForwardRelativePath {
         &self.path
     }
+
+    pub fn path_shared(&self) -> &Arc<ForwardRelativePathBuf> {
+        &self.path
+    }
 }

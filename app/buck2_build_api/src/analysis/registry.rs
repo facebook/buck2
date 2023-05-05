@@ -31,7 +31,6 @@ use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueTyped;
@@ -50,7 +49,6 @@ use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::registry::DynamicRegistry;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
@@ -172,42 +170,35 @@ impl<'v> AnalysisRegistry<'v> {
     ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
-        if let Some(path) = value.unpack_str() {
+        let declared_artifact = if let Some(path) = value.unpack_str() {
             let artifact =
                 self.declare_output(None, path, output_type, declaration_location.dupe())?;
-            Ok((
-                ArtifactDeclaration {
-                    artifact: ArtifactDeclarationKind::DeclaredArtifact(artifact.dupe()),
-                    declaration_location,
-                    heap,
-                },
-                artifact.as_output().dupe(),
+            heap.alloc_typed(StarlarkDeclaredArtifact::new(
+                declaration_location,
+                artifact,
+                Default::default(),
             ))
-        } else if let Some(output) = StarlarkOutputArtifact::unpack_value(value) {
-            let output_artifact = output.artifact();
-            output_artifact.ensure_output_type(output_type)?;
-            Ok((
-                ArtifactDeclaration {
-                    artifact: ArtifactDeclarationKind::DeclaredArtifact((*output_artifact).dupe()),
-                    declaration_location,
-                    heap,
-                },
-                output_artifact,
-            ))
+        } else if let Some(output) = ValueTyped::<StarlarkOutputArtifact>::new(value) {
+            output.inner()
         } else if let Some(artifact) = value.as_artifact() {
-            let output_artifact = artifact.output_artifact()?;
-            output_artifact.ensure_output_type(output_type)?;
-            Ok((
-                ArtifactDeclaration {
-                    artifact: ArtifactDeclarationKind::Artifact(value, artifact),
-                    declaration_location,
-                    heap,
-                },
-                output_artifact,
-            ))
+            if let Some(declared_artifact) = ValueTyped::new(value) {
+                declared_artifact
+            } else {
+                return Err(artifact.as_output_error());
+            }
         } else {
-            Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into())
-        }
+            return Err(ValueError::IncorrectParameterTypeNamed(param_name.to_owned()).into());
+        };
+
+        let output = declared_artifact.output_artifact();
+        output.ensure_output_type(output_type)?;
+        Ok((
+            ArtifactDeclaration {
+                artifact: declared_artifact,
+                heap,
+            },
+            output,
+        ))
     }
 
     pub fn register_action<A: UnregisteredAction + 'static>(
@@ -319,14 +310,8 @@ impl<'v> AnalysisRegistry<'v> {
     }
 }
 
-enum ArtifactDeclarationKind<'v> {
-    Artifact(Value<'v>, &'v dyn StarlarkArtifactLike),
-    DeclaredArtifact(DeclaredArtifact),
-}
-
 pub struct ArtifactDeclaration<'v> {
-    artifact: ArtifactDeclarationKind<'v>,
-    declaration_location: Option<FileSpan>,
+    artifact: ValueTyped<'v, StarlarkDeclaredArtifact>,
     heap: &'v Heap,
 }
 
@@ -334,22 +319,11 @@ impl<'v> ArtifactDeclaration<'v> {
     pub fn into_declared_artifact(
         self,
         associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
-    ) -> Value<'v> {
-        match self.artifact {
-            ArtifactDeclarationKind::Artifact(v, a) => {
-                if associated_artifacts.is_empty() {
-                    v
-                } else {
-                    a.allocate_artifact_with_extended_associated_artifacts(
-                        self.heap,
-                        &associated_artifacts,
-                    )
-                }
-            }
-            ArtifactDeclarationKind::DeclaredArtifact(d) => self.heap.alloc(
-                StarlarkDeclaredArtifact::new(self.declaration_location, d, associated_artifacts),
-            ),
-        }
+    ) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
+        self.heap.alloc_typed(
+            self.artifact
+                .with_extended_associated_artifacts(associated_artifacts),
+        )
     }
 }
 

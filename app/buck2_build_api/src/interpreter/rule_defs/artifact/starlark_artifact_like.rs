@@ -15,12 +15,10 @@ use std::sync::Arc;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
-use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -43,8 +41,8 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 /// This trait also has some common functionality for `StarlarkValue` that we want shared between
 /// `StarlarkArtifact` and `StarlarkDeclaredArtifact`
 pub trait StarlarkArtifactLike: Display {
-    /// The contained artifact as an `OutputArtifact`, or error if that conversion is impossible
-    fn output_artifact(&self) -> anyhow::Result<OutputArtifact>;
+    /// Returns an apppropriate error for when this is used in a location that expects an output declaration.
+    fn as_output_error(&self) -> anyhow::Error;
 
     /// Gets the bound main artifact, or errors if the artifact is not bound
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
@@ -80,14 +78,6 @@ pub trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn get_artifact_path(&self) -> ArtifactPath<'_>;
-
-    /// Allocate and return a new Starlark Value that contains a StarlarkArtifactLike that is
-    /// identical to this artifact, except with its associated_artifacts unioned with the ones passed in
-    fn allocate_artifact_with_extended_associated_artifacts<'v>(
-        &self,
-        heap: &'v Heap,
-        associated_artifacts: &OrderedSet<ArtifactGroup>,
-    ) -> Value<'v>;
 }
 
 pub trait ValueAsArtifactLike<'v> {

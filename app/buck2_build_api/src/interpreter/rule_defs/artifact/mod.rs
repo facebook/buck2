@@ -26,7 +26,7 @@ pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 pub use self::starlark_output_artifact::StarlarkOutputArtifact;
 
 #[derive(Debug, thiserror::Error)]
-enum ArtifactError {
+pub(crate) enum ArtifactError {
     #[error("expected artifact {repr} to be used as the output of an action, but it was not")]
     DeclaredArtifactWasNotBound { repr: String },
     #[error(
@@ -275,7 +275,9 @@ pub mod testing {
                 ),
             )?;
 
-            let value = declaration.into_declared_artifact(associated_artifacts);
+            let value = declaration
+                .into_declared_artifact(associated_artifacts)
+                .to_value();
             Ok(value)
         }
 

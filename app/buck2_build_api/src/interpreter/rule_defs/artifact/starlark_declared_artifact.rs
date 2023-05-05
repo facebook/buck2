@@ -13,7 +13,6 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -42,12 +41,14 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::artifact_type::DeclaredArtifact;
 use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
+use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
@@ -97,11 +98,33 @@ impl StarlarkDeclaredArtifact {
             associated_artifacts,
         }
     }
+
+    pub fn output_artifact(&self) -> OutputArtifact {
+        self.artifact.as_output()
+    }
+
+    pub fn with_extended_associated_artifacts(
+        &self,
+        extra_associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+    ) -> Self {
+        let merged = self
+            .associated_artifacts
+            .union(&*extra_associated_artifacts)
+            .map(|a| a.dupe());
+        Self {
+            declaration_location: self.declaration_location.clone(),
+            artifact: self.artifact.dupe(),
+            associated_artifacts: Arc::new(merged.collect()),
+        }
+    }
 }
 
 impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
-    fn output_artifact(&self) -> anyhow::Result<OutputArtifact> {
-        Ok(self.artifact.as_output())
+    fn as_output_error(&self) -> anyhow::Error {
+        // This shouldn't ever be called for StarlarkDeclaredArtifact
+        anyhow::anyhow!(
+            "error trying to use declared artifact as an output, this indicates an internal buck error"
+        )
     }
 
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact> {
@@ -127,24 +150,6 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
             path: self.artifact.get_path(),
             associated_artifacts: &self.associated_artifacts,
         }
-    }
-
-    #[allow(clippy::from_iter_instead_of_collect)]
-    fn allocate_artifact_with_extended_associated_artifacts<'v>(
-        &self,
-        heap: &'v Heap,
-        associated_artifacts: &OrderedSet<ArtifactGroup>,
-    ) -> Value<'v> {
-        let merged = self
-            .associated_artifacts
-            .union(associated_artifacts)
-            .map(|a| a.dupe());
-
-        heap.alloc(StarlarkDeclaredArtifact {
-            artifact: self.artifact.dupe(),
-            declaration_location: self.declaration_location.dupe(),
-            associated_artifacts: Arc::new(OrderedSet::from_iter(merged)),
-        })
     }
 }
 
@@ -186,11 +191,15 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
 impl Freeze for StarlarkDeclaredArtifact {
     type Frozen = StarlarkArtifact;
     fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let artifact = self
-            .artifact
-            .ensure_bound()
-            .context("Artifact must be bound by the end of the rule")?
-            .into_artifact();
+        // ensure_bound() moves out of self and so we can't construct the error
+        // after calling that, so we need to check first.
+        if !self.artifact.is_bound() {
+            return Err(ArtifactError::DeclaredArtifactWasNotBound {
+                repr: self.to_string(),
+            }
+            .into());
+        }
+        let artifact = self.artifact.ensure_bound()?.into_artifact();
         Ok(StarlarkArtifact {
             artifact,
             associated_artifacts: self.associated_artifacts,
@@ -290,8 +299,10 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
 
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
     /// either an `Artifact`, or is a bound `DeclaredArtifact` (You cannot bind twice)
-    fn as_output(this: &StarlarkDeclaredArtifact) -> anyhow::Result<StarlarkOutputArtifact> {
-        Ok(StarlarkOutputArtifact::new(this.output_artifact()?))
+    fn as_output<'v>(
+        this: ValueTyped<'v, StarlarkDeclaredArtifact>,
+    ) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
+        Ok(StarlarkOutputArtifact::new(this))
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.

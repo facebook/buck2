@@ -30,6 +30,7 @@ use starlark::values::ValueLike;
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
@@ -73,11 +74,9 @@ fn get_artifact<'v>(x: Value<'v>) -> Option<Box<dyn FnOnce() -> anyhow::Result<A
     if let Some(x) = x.as_artifact() {
         Some(Box::new(|| Ok(x.get_bound_artifact()?.dupe())))
     } else if let Some(x) = x.downcast_ref::<StarlarkOutputArtifact>() {
-        Some(Box::new(|| {
-            Ok(((*x.artifact()).dupe().ensure_bound())?.into_artifact())
-        }))
+        Some(Box::new(|| Ok(((*x.inner()).get_bound_artifact())?.dupe())))
     } else if let Some(x) = x.downcast_ref::<FrozenStarlarkOutputArtifact>() {
-        Some(Box::new(|| Ok(x.artifact())))
+        Some(Box::new(|| Ok(x.inner().artifact())))
     } else {
         None
     }

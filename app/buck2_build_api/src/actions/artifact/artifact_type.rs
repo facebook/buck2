@@ -75,6 +75,24 @@ impl Artifact {
         }))
     }
 
+    pub fn as_output_artifact(&self) -> Option<OutputArtifact> {
+        let (kind, projected_path) = match self.0.data.key() {
+            ArtifactKind::Base(a) => (a, None),
+            ArtifactKind::Projected(a) => (a.base(), Some(a.path_shared())),
+        };
+        match kind {
+            BaseArtifactKind::Source(_) => None,
+            BaseArtifactKind::Build(artifact) => {
+                let bound = BoundBuildArtifact {
+                    artifact: artifact.dupe(),
+                    projected_path: projected_path.cloned(),
+                    hidden_components_count: self.0.hidden_components_count,
+                };
+                Some(bound.into_declared_artifact().into())
+            }
+        }
+    }
+
     pub fn data(&self) -> &ArtifactKind {
         self.0.data.key()
     }
@@ -325,6 +343,10 @@ impl DeclaredArtifact {
         })
     }
 
+    pub(crate) fn is_bound(&self) -> bool {
+        self.artifact.borrow().is_bound()
+    }
+
     pub fn owner(&self) -> Option<BaseDeferredKeyDyn> {
         match &*self.artifact.borrow() {
             DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
@@ -352,6 +374,15 @@ impl Eq for DeclaredArtifact {}
 enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
+}
+
+impl DeclaredArtifactKind {
+    pub(crate) fn is_bound(&self) -> bool {
+        match self {
+            DeclaredArtifactKind::Bound(_) => true,
+            DeclaredArtifactKind::Unbound(_) => false,
+        }
+    }
 }
 
 #[derive(Error, Debug)]

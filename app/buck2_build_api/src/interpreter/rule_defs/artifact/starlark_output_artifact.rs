@@ -12,26 +12,24 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use anyhow::Context;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
-use starlark::values::AllocValue;
+use starlark::values::Coerce;
 use starlark::values::Demand;
 use starlark::values::Freeze;
-use starlark::values::Freezer;
-use starlark::values::Heap;
+use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::BoundBuildArtifact;
 use crate::actions::artifact::artifact_type::OutputArtifact;
-use crate::interpreter::rule_defs::artifact::ArtifactError;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -42,70 +40,85 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 /// Thin wrapper around `OutputArtifact`.
 ///
 /// Allows actions to distinguish between inputs and outputs, and can validate whether the
-/// underlying artifact is bound or not yet. This freezes into a `FrozenStarlarkOutputArtifact`.
-#[derive(Debug, Clone, Dupe, ProvidesStaticType, Trace, NoSerialize, Allocative)]
-// Can't use starlark value macros since we change type during freezing.
-pub struct StarlarkOutputArtifact {
-    pub(super) artifact: OutputArtifact,
+/// underlying artifact is bound or not yet.
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    ProvidesStaticType,
+    Trace,
+    NoSerialize,
+    Allocative,
+    Freeze,
+    Coerce
+)]
+#[repr(C)]
+pub struct StarlarkOutputArtifactGen<V> {
+    pub(super) declared_artifact: V,
 }
 
-impl Display for StarlarkOutputArtifact {
+starlark_complex_value!(pub StarlarkOutputArtifact);
+
+impl<'v> Display for StarlarkOutputArtifact<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "<output artifact for {}>", self.artifact.get_path())
+        write!(
+            f,
+            "<output artifact for {}>",
+            self.inner().get_artifact_path()
+        )
     }
 }
 
-impl<'v> UnpackValue<'v> for StarlarkOutputArtifact {
+impl Display for FrozenStarlarkOutputArtifact {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "<output artifact for {}>",
+            self.inner().get_artifact_path()
+        )
+    }
+}
+
+impl<'v> UnpackValue<'v> for StarlarkOutputArtifact<'v> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         #[allow(clippy::manual_map)]
         if let Some(x) = value.downcast_ref::<StarlarkOutputArtifact>() {
             Some(x.dupe())
-        } else if let Some(x) = value.downcast_ref::<StarlarkDeclaredArtifact>() {
-            Some(StarlarkOutputArtifact::new(x.artifact.as_output()))
+        } else if let Some(x) = ValueTyped::<StarlarkDeclaredArtifact>::new(value) {
+            Some(StarlarkOutputArtifact::new(x))
         } else {
             None
         }
     }
 }
 
-impl StarlarkOutputArtifact {
-    pub fn new(artifact: OutputArtifact) -> Self {
-        Self { artifact }
-    }
-
-    fn ensure_bound(&self) -> anyhow::Result<BoundBuildArtifact> {
-        match (*self.artifact).dupe().ensure_bound() {
-            Ok(b) => Ok(b),
-            Err(_) => Err(ArtifactError::DeclaredArtifactWasNotBound {
-                repr: self.to_string(),
-            }
-            .into()),
+impl<'v> StarlarkOutputArtifact<'v> {
+    pub fn new(v: ValueTyped<'v, StarlarkDeclaredArtifact>) -> Self {
+        Self {
+            declared_artifact: v.to_value(),
         }
     }
 
+    pub(crate) fn inner(&self) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
+        ValueTyped::new(self.declared_artifact).unwrap()
+    }
+
     pub fn artifact(&self) -> OutputArtifact {
-        self.artifact.dupe()
+        self.inner().output_artifact()
     }
 }
 
-impl Freeze for StarlarkOutputArtifact {
-    type Frozen = FrozenStarlarkOutputArtifact;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        let artifact = self
-            .ensure_bound()
-            .context("artifact should have been bound before freezing")?;
+impl FrozenStarlarkOutputArtifact {
+    pub(crate) fn inner(&self) -> FrozenValueTyped<StarlarkArtifact> {
+        FrozenValueTyped::new(self.declared_artifact).unwrap()
+    }
 
-        Ok(FrozenStarlarkOutputArtifact { artifact })
+    pub fn artifact(&self) -> OutputArtifact {
+        self.inner().artifact().as_output_artifact().unwrap()
     }
 }
 
-impl<'v> AllocValue<'v> for StarlarkOutputArtifact {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
-    }
-}
-
-impl CommandLineArgLike for StarlarkOutputArtifact {
+impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     fn add_to_command_line(
         &self,
         _cli: &mut dyn CommandLineBuilder,
@@ -118,7 +131,7 @@ impl CommandLineArgLike for StarlarkOutputArtifact {
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        visitor.visit_output(self.artifact.dupe(), None);
+        visitor.visit_output(self.artifact(), None);
         Ok(())
     }
 
@@ -134,40 +147,14 @@ impl CommandLineArgLike for StarlarkOutputArtifact {
     }
 }
 
-/// A wrapper like `StarlarkOutputArtifact` that is guaranteed to be bound.
-#[derive(Debug, PartialEq, ProvidesStaticType, Allocative)]
-#[derive(NoSerialize)] // TODO bound artifacts should be serializable
-pub struct FrozenStarlarkOutputArtifact {
-    artifact: BoundBuildArtifact,
-}
-
-impl Display for FrozenStarlarkOutputArtifact {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "<output artifact for {}>", self.artifact)
-    }
-}
-
-starlark_simple_value!(FrozenStarlarkOutputArtifact);
-
-impl<'v> StarlarkValue<'v> for FrozenStarlarkOutputArtifact {
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
+where
+    Self: ProvidesStaticType + Display + CommandLineArgLike,
+{
     starlark_type!("output_artifact");
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
-    }
-}
-
-impl<'v> StarlarkValue<'v> for StarlarkOutputArtifact {
-    starlark_type!("output_artifact");
-
-    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
-        demand.provide_value::<&dyn CommandLineArgLike>(self);
-    }
-}
-
-impl FrozenStarlarkOutputArtifact {
-    pub(crate) fn artifact(&self) -> Artifact {
-        self.artifact.dupe().into_artifact()
     }
 }
 
@@ -177,12 +164,15 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
-        cli.push_arg(ctx.resolve_artifact(&self.artifact())?.into_string());
+        cli.push_arg(
+            ctx.resolve_artifact(&self.inner().artifact())?
+                .into_string(),
+        );
         Ok(())
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        visitor.visit_output(self.artifact.dupe().into_declared_artifact().into(), None);
+        visitor.visit_output(self.artifact(), None);
         Ok(())
     }
 

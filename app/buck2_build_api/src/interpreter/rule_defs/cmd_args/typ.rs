@@ -55,6 +55,7 @@ use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
@@ -759,14 +760,22 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
 
     /// Collect all the outputs (including hidden) referenced by this command line.
     #[starlark(attribute)]
-    fn outputs<'v>(this: Value<'v>) -> anyhow::Result<Vec<StarlarkOutputArtifact>> {
+    fn outputs<'v>(
+        this: Value<'v>,
+        heap: &Heap,
+    ) -> anyhow::Result<Vec<StarlarkOutputArtifact<'v>>> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         cmd_args(this).visit_artifacts(&mut visitor)?;
-        Ok(visitor
-            .outputs
-            .into_iter()
-            .map(StarlarkOutputArtifact::new)
-            .collect())
+        let mut outputs = Vec::with_capacity(visitor.outputs.len());
+        for out in visitor.outputs {
+            let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
+                None,
+                (*out).dupe(),
+                Default::default(),
+            ));
+            outputs.push(StarlarkOutputArtifact::new(declared));
+        }
+        Ok(outputs)
     }
 }
 

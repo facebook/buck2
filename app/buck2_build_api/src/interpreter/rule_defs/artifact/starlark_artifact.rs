@@ -37,7 +37,6 @@ use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::artifact_type::BaseArtifactKind;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
@@ -143,17 +142,17 @@ impl Serialize for StarlarkArtifact {
 }
 
 impl StarlarkArtifactLike for StarlarkArtifact {
-    fn output_artifact(&self) -> anyhow::Result<OutputArtifact> {
+    fn as_output_error(&self) -> anyhow::Error {
         match self.artifact.as_parts().0 {
-            BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
+            BaseArtifactKind::Source(_) => ArtifactError::SourceArtifactAsOutput {
                 repr: self.to_string(),
             }
-            .into()),
-            BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
+            .into(),
+            BaseArtifactKind::Build(b) => ArtifactError::BoundArtifactAsOutput {
                 artifact_repr: self.to_string(),
                 existing_owner: b.get_path().owner().dupe(),
             }
-            .into()),
+            .into(),
         }
     }
 
@@ -180,22 +179,6 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             path: self.artifact.get_path(),
             associated_artifacts: &self.associated_artifacts,
         }
-    }
-
-    #[allow(clippy::from_iter_instead_of_collect)]
-    fn allocate_artifact_with_extended_associated_artifacts<'v>(
-        &self,
-        heap: &'v Heap,
-        associated_artifacts: &OrderedSet<ArtifactGroup>,
-    ) -> Value<'v> {
-        let merged = self
-            .associated_artifacts
-            .union(associated_artifacts)
-            .map(|a| a.dupe());
-        heap.alloc(StarlarkArtifact {
-            artifact: self.artifact.dupe(),
-            associated_artifacts: Arc::new(OrderedSet::from_iter(merged)),
-        })
     }
 }
 
@@ -306,8 +289,18 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
 
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
     /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
-    fn as_output(this: &StarlarkArtifact) -> anyhow::Result<StarlarkOutputArtifact> {
-        Ok(StarlarkOutputArtifact::new(this.output_artifact()?))
+    fn as_output<'v>(this: &'v StarlarkArtifact) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
+        match this.artifact.as_parts().0 {
+            BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
+                repr: this.to_string(),
+            }
+            .into()),
+            BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
+                artifact_repr: this.to_string(),
+                existing_owner: b.get_path().owner().dupe(),
+            }
+            .into()),
+        }
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.
