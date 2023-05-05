@@ -41,6 +41,7 @@ struct WatchmanQueryProcessor {
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     retain_dep_files_on_watchman_fresh_instance: bool,
+    last_mergebase: Option<String>,
 }
 
 /// Used in process_one_change
@@ -213,6 +214,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         mergebase: &Option<String>,
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
+        self.last_mergebase = mergebase.clone();
         self.process_events_impl(dice, events, mergebase, watchman_version)
             .await
     }
@@ -223,11 +225,24 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         mergebase: &Option<String>,
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
+        let has_new_mergebase = self.last_mergebase.as_ref() != mergebase.as_ref();
         eprintln!("watchman fresh instance event, clearing cache");
 
-        if !self.retain_dep_files_on_watchman_fresh_instance {
+        // We'll clear dep files if we're configured to do so on all fresh instances. Otherwise,
+        // we'll drop them if the mergebase has changed, which means our dep files are likely
+        // irrelevant.
+        //
+        // This is imperfect. If the user rebased from yesterday's stable to today's stable, then
+        // flushing is the right thing to do. In contrast, if they rebased from X to X's parent,
+        // then it probably isn't. The consequences of flushing in the latter case aren't as bad
+        // (where we'll rebuild things our dep files *could* have avoided) as not flushing in the
+        // former (where we'll fetch loads of dep files that all miss), so we err on the side of
+        // being safe and drop them when the mergebase changes.
+        if has_new_mergebase || !self.retain_dep_files_on_watchman_fresh_instance {
             buck2_build_api::actions::impls::dep_files::flush_dep_files();
         }
+
+        self.last_mergebase = mergebase.clone();
 
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there
@@ -286,6 +301,7 @@ impl WatchmanFileWatcher {
                 cells,
                 ignore_specs,
                 retain_dep_files_on_watchman_fresh_instance,
+                last_mergebase: None,
             }),
             watchman_merge_base,
         )?;

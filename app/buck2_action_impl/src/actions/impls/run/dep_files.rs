@@ -68,6 +68,7 @@ static KEEP_DIRECTORIES: EnvHelper<bool> = EnvHelper::new("BUCK2_KEEP_DEP_FILE_D
 /// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep
 /// file was produced and the user wants unblocking, this will provide it.
 fn flush_dep_files() {
+    tracing::info!("Flushing {} dep files", DEP_FILES.len());
     DEP_FILES.clear();
 }
 
