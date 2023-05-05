@@ -227,8 +227,8 @@ DexInputWithSpecifiedClasses = record(
     dex_class_names = [str.type],
 )
 
-DexInputWithClassNamesFile = record(
-    lib = "DexLibraryInfo",
+DexInputsWithClassNamesAndWeightEstimatesFile = record(
+    libs = ["DexLibraryInfo"],
     weight_estimate_and_filtered_class_names_file = "artifact",
 )
 
@@ -292,30 +292,25 @@ def _filter_pre_dexed_libs(
         android_toolchain: "AndroidToolchainInfo",
         primary_dex_patterns_file: "artifact",
         pre_dexed_libs: ["DexLibraryInfo"],
-        batch_number: int.type) -> [DexInputWithClassNamesFile.type]:
-    pre_dexed_lib_with_class_names_files = []
-    for pre_dexed_lib in pre_dexed_libs:
-        class_names = pre_dexed_lib.class_names
-        id = "{}_{}_{}".format(class_names.owner.package, class_names.owner.name, class_names.short_path)
-        weight_estimate_and_filtered_class_names_file = actions.declare_output("primary_dex_class_names_for_{}".format(id))
-        pre_dexed_lib_with_class_names_files.append(
-            DexInputWithClassNamesFile(lib = pre_dexed_lib, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file),
-        )
+        batch_number: int.type) -> DexInputsWithClassNamesAndWeightEstimatesFile.type:
+    weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number))
 
     filter_dex_cmd = cmd_args([
         android_toolchain.filter_dex_class_names[RunInfo],
         "--primary-dex-patterns",
         primary_dex_patterns_file,
+        "--dex-target-identifiers",
+        [lib.identifier for lib in pre_dexed_libs],
         "--class-names",
-        [x.lib.class_names for x in pre_dexed_lib_with_class_names_files],
+        [lib.class_names for lib in pre_dexed_libs],
         "--weight-estimates",
-        [x.lib.weight_estimate for x in pre_dexed_lib_with_class_names_files],
+        [lib.weight_estimate for lib in pre_dexed_libs],
         "--output",
-        [x.weight_estimate_and_filtered_class_names_file.as_output() for x in pre_dexed_lib_with_class_names_files],
+        weight_estimate_and_filtered_class_names_file.as_output(),
     ])
     actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
 
-    return pre_dexed_lib_with_class_names_files
+    return DexInputsWithClassNamesAndWeightEstimatesFile(libs = pre_dexed_libs, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file)
 
 _SortedPreDexedInputs = record(
     module = str.type,
@@ -337,12 +332,12 @@ def merge_to_split_dex(
         )
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
 
-    pre_dexed_lib_with_class_names_files = []
+    pre_dexed_libs_with_class_names_and_weight_estimates_files = []
 
     batch_size = _get_filter_dex_batch_size()
     for (batch_number, start_index) in enumerate(range(0, len(pre_dexed_libs), batch_size)):
         end_index = min(start_index + batch_size, len(pre_dexed_libs))
-        pre_dexed_lib_with_class_names_files.extend(
+        pre_dexed_libs_with_class_names_and_weight_estimates_files.append(
             _filter_pre_dexed_libs(
                 ctx.actions,
                 android_toolchain,
@@ -354,7 +349,7 @@ def merge_to_split_dex(
 
     input_artifacts = [
         input.weight_estimate_and_filtered_class_names_file
-        for input in pre_dexed_lib_with_class_names_files
+        for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
     ] + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
@@ -372,7 +367,7 @@ def merge_to_split_dex(
         sorted_pre_dexed_inputs = _sort_pre_dexed_files(
             ctx,
             artifacts,
-            pre_dexed_lib_with_class_names_files,
+            pre_dexed_libs_with_class_names_and_weight_estimates_files,
             split_dex_merge_config,
             get_module_from_target = apk_module_graph_info.target_to_module_mapping_function,
             module_to_canary_class_name_function = module_to_canary_class_name_function,
@@ -556,70 +551,71 @@ def _merge_dexes(
 def _sort_pre_dexed_files(
         ctx: "context",
         artifacts,
-        pre_dexed_lib_with_class_names_files: ["DexInputWithClassNamesFile"],
+        pre_dexed_libs_with_class_names_and_weight_estimates_files: ["DexInputsWithClassNamesAndWeightEstimatesFile"],
         split_dex_merge_config: "SplitDexMergeConfig",
         get_module_from_target: "function",
         module_to_canary_class_name_function: "function") -> [_SortedPreDexedInputs.type]:
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
-    for pre_dexed_lib_with_class_names_file in pre_dexed_lib_with_class_names_files:
-        pre_dexed_lib = pre_dexed_lib_with_class_names_file.lib
-        module = get_module_from_target(str(pre_dexed_lib.dex.owner.raw_target()))
-        weight_estimate_string, primary_dex_data, secondary_dex_data = artifacts[pre_dexed_lib_with_class_names_file.weight_estimate_and_filtered_class_names_file].read_string().split(";")
-        primary_dex_class_names = primary_dex_data.split(",") if primary_dex_data else []
-        secondary_dex_class_names = secondary_dex_data.split(",") if secondary_dex_data else []
+    for pre_dexed_libs_with_class_names_and_weight_estimates in pre_dexed_libs_with_class_names_and_weight_estimates_files:
+        class_names_and_weight_estimates_json = artifacts[pre_dexed_libs_with_class_names_and_weight_estimates.weight_estimate_and_filtered_class_names_file].read_json()
+        for pre_dexed_lib in pre_dexed_libs_with_class_names_and_weight_estimates.libs:
+            module = get_module_from_target(str(pre_dexed_lib.dex.owner.raw_target()))
+            pre_dexed_lib_info = class_names_and_weight_estimates_json[pre_dexed_lib.identifier]
+            weight_estimate_string = pre_dexed_lib_info["weight_estimate"]
+            primary_dex_class_names = pre_dexed_lib_info["primary_dex_class_names"]
+            secondary_dex_class_names = pre_dexed_lib_info["secondary_dex_class_names"]
 
-        module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(module, _SortedPreDexedInputs(
-            module = module,
-            primary_dex_inputs = [],
-            secondary_dex_inputs = [],
-        ))
+            module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(module, _SortedPreDexedInputs(
+                module = module,
+                primary_dex_inputs = [],
+                secondary_dex_inputs = [],
+            ))
+            primary_dex_inputs = module_pre_dexed_inputs.primary_dex_inputs
+            secondary_dex_inputs = module_pre_dexed_inputs.secondary_dex_inputs
 
-        primary_dex_inputs = module_pre_dexed_inputs.primary_dex_inputs
-        secondary_dex_inputs = module_pre_dexed_inputs.secondary_dex_inputs
+            if len(primary_dex_class_names) > 0:
+                if is_root_module(module):
+                    primary_dex_inputs.append(
+                        DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
+                    )
+                else:
+                    # TODO(T148680617) We shouldn't allow classes that are specified to be in the
+                    # primary dex to end up in a non-root module, but buck1 allows it and there are
+                    # Voltron configs that rely on this, so we allow it too for migration purposes.
+                    # fail("Non-root modules should not have anything that belongs in the primary dex, " +
+                    #     "but {} is assigned to module {} and has the following class names in the primary dex: {}\n".format(
+                    #         pre_dexed_lib.dex.owner,
+                    #         module,
+                    #         "\n".join(primary_dex_class_names),
+                    #     ),
+                    # )
+                    secondary_dex_class_names.extend(primary_dex_class_names)
 
-        if len(primary_dex_class_names) > 0:
-            if is_root_module(module):
-                primary_dex_inputs.append(
-                    DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = primary_dex_class_names),
+            if len(secondary_dex_class_names) > 0:
+                weight_estimate = int(weight_estimate_string)
+                current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
+                if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
+                    current_secondary_dex_size = 0
+                    current_secondary_dex_inputs_map[module] = []
+
+                current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
+                if len(current_secondary_dex_inputs) == 0:
+                    canary_class_dex_input = _create_canary_class(
+                        ctx,
+                        len(secondary_dex_inputs) + 1,
+                        module,
+                        module_to_canary_class_name_function,
+                        ctx.attrs._dex_toolchain[DexToolchainInfo],
+                    )
+                    current_secondary_dex_inputs.append(canary_class_dex_input)
+                    secondary_dex_inputs.append(current_secondary_dex_inputs)
+
+                current_secondary_dex_size_map[module] = current_secondary_dex_size + weight_estimate
+                current_secondary_dex_inputs.append(
+                    DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
                 )
-            else:
-                # TODO(T148680617) We shouldn't allow classes that are specified to be in the
-                # primary dex to end up in a non-root module, but buck1 allows it and there are
-                # Voltron configs that rely on this, so we allow it too for migration purposes.
-                # fail("Non-root modules should not have anything that belongs in the primary dex, " +
-                #     "but {} is assigned to module {} and has the following class names in the primary dex: {}\n".format(
-                #         pre_dexed_lib.dex.owner,
-                #         module,
-                #         "\n".join(primary_dex_class_names),
-                #     ),
-                # )
-                secondary_dex_class_names.extend(primary_dex_class_names)
-
-        if len(secondary_dex_class_names) > 0:
-            weight_estimate = int(weight_estimate_string)
-            current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
-            if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
-                current_secondary_dex_size = 0
-                current_secondary_dex_inputs_map[module] = []
-
-            current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
-            if len(current_secondary_dex_inputs) == 0:
-                canary_class_dex_input = _create_canary_class(
-                    ctx,
-                    len(secondary_dex_inputs) + 1,
-                    module,
-                    module_to_canary_class_name_function,
-                    ctx.attrs._dex_toolchain[DexToolchainInfo],
-                )
-                current_secondary_dex_inputs.append(canary_class_dex_input)
-                secondary_dex_inputs.append(current_secondary_dex_inputs)
-
-            current_secondary_dex_size_map[module] = current_secondary_dex_size + weight_estimate
-            current_secondary_dex_inputs.append(
-                DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
-            )
 
     return sorted_pre_dexed_inputs_map.values()
 

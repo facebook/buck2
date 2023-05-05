@@ -10,6 +10,8 @@ DexLibraryInfo = provider(
         # the .dex.jar file. May be None if there were not any Java classes to dex. If None, the
         # remaining fields should be ignored.
         "dex",  # ["artifact", None]
+        # a unique string identifier for this DEX file
+        "identifier",  # [str.type, None]
         # the names of the .class files that went into the DEX file
         "class_names",  # ["artifact", None]
         # resources that are referenced by the classes in this DEX file
@@ -63,14 +65,16 @@ def get_dex_produced_from_java_library(
     if min_sdk_version:
         d8_cmd.add(["--min-sdk-version", str(min_sdk_version)])
 
+    identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path)
     ctx.actions.run(
         d8_cmd,
         category = "d8",
-        identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path),
+        identifier = identifier,
     )
 
     return DexLibraryInfo(
         dex = output_dex_file,
+        identifier = identifier,
         class_names = class_names_file,
         referenced_resources = referenced_resources_file,
         weight_estimate = weight_estimate_file,
