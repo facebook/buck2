@@ -22,6 +22,7 @@ pub struct PartialEqAny<'a> {
 }
 
 impl<'a> PartialEqAny<'a> {
+    #[inline]
     pub fn new<A: PartialEq + 'static>(a: &'a A) -> Self {
         Self {
             cmp: |this, other| {
@@ -34,6 +35,7 @@ impl<'a> PartialEqAny<'a> {
     }
 
     /// gets an instance that always compares to false
+    #[inline]
     pub fn always_false() -> Self {
         struct AlwaysFalse;
 
@@ -48,6 +50,7 @@ impl<'a> PartialEqAny<'a> {
 }
 
 impl<'a> PartialEq for PartialEqAny<'a> {
+    #[inline]
     fn eq(&self, other: &PartialEqAny<'a>) -> bool {
         (self.cmp)(self.val, other.val)
     }
