@@ -28,6 +28,7 @@ use crate::query::compatibility::MaybeCompatible;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::set::TargetSetExt;
 use crate::query::traversal::AsyncTraversalDelegate;
 use crate::query::traversal::ChildVisitor;
 mod tests;
@@ -264,46 +265,19 @@ pub trait QueryEnvironment: Send + Sync {
         from: &TargetSet<Self::Target>,
         depth: Option<i32>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        let mut deps = TargetSet::new();
-
-        struct Delegate<'a, Q: QueryTarget> {
-            from: &'a TargetSet<Q>,
-            max_distance: Option<usize>,
-
-            result: &'a mut TargetSet<Q>,
-            distance: HashMap<Q::NodeRef, Option<usize>>,
+        // First, we map all deps to their rdeps (parents).
+        // This effectively allows traversing the graph later, in reverse (following dependency back-edges).
+        struct ParentsCollectorDelegate<Q: QueryTarget> {
+            parents: HashMap<Q::NodeRef, Vec<Q>>,
+            // Keep track of nodes in-universe so that, if any rdeps are collected out-of-universe,
+            // we don't return them.
+            nodes_in_universe: TargetSet<Q>,
         }
 
         #[async_trait]
-        impl<'a, Q: QueryTarget> AsyncTraversalDelegate<Q> for Delegate<'a, Q> {
+        impl<Q: QueryTarget> AsyncTraversalDelegate<Q> for ParentsCollectorDelegate<Q> {
             fn visit(&mut self, target: Q) -> anyhow::Result<()> {
-                let node_ref = target.node_ref();
-                let distance = if self.from.contains(node_ref) {
-                    Some(0)
-                } else {
-                    let mut distance = None;
-                    for dep in target.deps() {
-                        let dep_distance = *self.distance.get(dep).ok_or_else(|| {
-                            QueryEnvironmentError::DependencyCycle(
-                                dep.to_string(),
-                                node_ref.to_string(),
-                            )
-                        })?;
-
-                        distance = match (distance, dep_distance) {
-                            (None, v) => v,
-                            (v, None) => v,
-                            (Some(l), Some(r)) => Some(std::cmp::min(l, r)),
-                        };
-                    }
-                    distance.map(|v| v + 1)
-                };
-                self.distance.insert(node_ref.clone(), distance);
-                if let Some(distance) = distance {
-                    if self.max_distance.is_none() || distance <= self.max_distance.unwrap() {
-                        self.result.insert(target);
-                    }
-                }
+                self.nodes_in_universe.insert(target);
                 Ok(())
             }
 
@@ -312,27 +286,78 @@ pub trait QueryEnvironment: Send + Sync {
                 target: &Q,
                 func: &mut dyn ChildVisitor<Q>,
             ) -> anyhow::Result<()> {
-                let res: anyhow::Result<_> = try {
-                    for dep in target.deps() {
-                        func.visit(dep.clone())?;
-                    }
-                };
-                res.with_context(|| format!("Error traversing children of `{}`", target.node_ref()))
+                for dep in target.deps() {
+                    func.visit(dep.clone()).with_context(|| {
+                        format!("Error traversing children of `{}`", target.node_ref())
+                    })?;
+                    self.parents
+                        .entry(dep.clone())
+                        .or_default()
+                        .push(target.clone());
+                }
+                Ok(())
             }
         }
 
-        self.dfs_postorder(
-            universe,
-            &mut Delegate {
-                result: &mut deps,
-                from,
-                max_distance: depth.map(|v| v as usize),
-                distance: HashMap::new(),
-            },
-        )
-        .await?;
+        let mut parents_collector_delegate = ParentsCollectorDelegate {
+            parents: HashMap::new(),
+            nodes_in_universe: TargetSet::new(),
+        };
 
-        Ok(deps)
+        self.dfs_postorder(universe, &mut parents_collector_delegate)
+            .await?;
+
+        // Now that we have a mapping of back-edges, traverse deps graph in reverse.
+        struct ReverseDelegate<Q: QueryTarget> {
+            rdeps: TargetSet<Q>,
+            parents: HashMap<Q::NodeRef, Vec<Q>>,
+        }
+
+        #[async_trait]
+        impl<Q: QueryTarget> AsyncTraversalDelegate<Q> for ReverseDelegate<Q> {
+            fn visit(&mut self, target: Q) -> anyhow::Result<()> {
+                self.rdeps.insert(target);
+                Ok(())
+            }
+
+            async fn for_each_child(
+                &mut self,
+                target: &Q,
+                func: &mut dyn ChildVisitor<Q>,
+            ) -> anyhow::Result<()> {
+                if let Some(parents) = self.parents.get(target.node_ref()) {
+                    for parent in parents {
+                        func.visit(parent.node_ref().clone()).with_context(|| {
+                            format!("Error traversing parents of `{}`", target.node_ref())
+                        })?;
+                    }
+                }
+                Ok(())
+            }
+        }
+
+        let mut delegate = ReverseDelegate {
+            rdeps: TargetSet::new(),
+            parents: parents_collector_delegate.parents,
+        };
+
+        let roots_in_universe = from.intersect(&parents_collector_delegate.nodes_in_universe)?;
+
+        match depth {
+            // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
+            // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
+            // and so to specify a filter you need to specify a depth.
+            Some(v) if (0..1_000_000_000).contains(&v) => {
+                self.depth_limited_traversal(&roots_in_universe, &mut delegate, v as u32)
+                    .await?;
+            }
+            _ => {
+                self.dfs_postorder(&roots_in_universe, &mut delegate)
+                    .await?;
+            }
+        }
+
+        Ok(delegate.rdeps)
     }
 
     async fn testsof(

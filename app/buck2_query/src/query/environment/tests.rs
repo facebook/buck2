@@ -14,6 +14,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
+use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::NodeLookup;
 use derive_more::Display;
 use derive_more::From;
@@ -185,11 +186,11 @@ impl QueryEnvironment for TestEnv {
 
     async fn depth_limited_traversal(
         &self,
-        _root: &TargetSet<Self::Target>,
-        _delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
-        _depth: u32,
+        root: &TargetSet<Self::Target>,
+        delegate: &mut dyn AsyncTraversalDelegate<Self::Target>,
+        depth: u32,
     ) -> anyhow::Result<()> {
-        unimplemented!()
+        async_depth_limited_traversal(self, root.iter_names(), delegate, depth).await
     }
 
     async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
@@ -248,7 +249,7 @@ async fn test_one_path() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("3,2,1")?;
+    let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
     let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
@@ -272,7 +273,7 @@ async fn test_many_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("3,11,10,2,1")?;
+    let expected = env.set("1,2,10,11,3")?;
     assert_eq!(path, expected);
 
     // We iterate with a stack so this is why we find this path
@@ -293,7 +294,7 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1,2")?, &env.set("100,200")?).await?;
-    let expected = env.set("200,20,2,100,10,1")?;
+    let expected = env.set("2,20,200,1,10,100")?;
     assert_eq!(path, expected);
 
     // Same as above
@@ -331,10 +332,37 @@ async fn test_nested_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("2,4")?).await?;
-    assert_eq!(path, env.set("4,3,2,1")?);
+    assert_eq!(path, env.set("1,2,3,4")?);
 
     let path = env.somepath(&env.set("1")?, &env.set("2,4")?).await?;
     assert_eq!(path, env.set("2,1")?);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
+    let mut env = TestEnvBuilder::default();
+    env.edge(1, 2);
+    env.edge(2, 3);
+    env.edge(3, 4);
+    env.edge(4, 5);
+    // Introduce cycles.
+    env.edge(4, 1);
+    env.edge(4, 3);
+    let env = env.build();
+
+    let path = env.allpaths(&env.set("3")?, &env.set("4")?).await?;
+    assert_eq!(path, env.set("1,2,3,4")?);
+
+    let path = env.allpaths(&env.set("1")?, &env.set("1")?).await?;
+    assert_eq!(path, env.set("2,3,4,1")?);
+
+    let path = env.allpaths(&env.set("1")?, &env.set("5")?).await?;
+    assert_eq!(path, env.set("1,2,3,4,5")?);
+
+    let path = env.rdeps(&env.set("1")?, &env.set("3")?, Some(2)).await?;
+    assert_eq!(path, env.set("3,2,4,1")?);
 
     Ok(())
 }
