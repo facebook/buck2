@@ -46,6 +46,7 @@ use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::DeferredValue;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactValue;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -255,7 +256,7 @@ impl Deferred for DynamicLambda {
                 let v = heap.alloc(StarlarkDeclaredArtifact::new(
                     None,
                     declared,
-                    Default::default(),
+                    AssociatedArtifacts::new(),
                 ));
                 outputs.insert_hashed(k.get_hashed()?, v);
             }

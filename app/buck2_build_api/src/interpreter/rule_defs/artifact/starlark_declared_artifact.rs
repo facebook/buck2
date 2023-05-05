@@ -10,11 +10,9 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -47,6 +45,7 @@ use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::artifact_type::DeclaredArtifact;
 use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -70,7 +69,7 @@ pub struct StarlarkDeclaredArtifact {
     pub(super) declaration_location: Option<FileSpan>,
     pub(super) artifact: DeclaredArtifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
-    pub(super) associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+    pub(super) associated_artifacts: AssociatedArtifacts,
 }
 
 impl Display for StarlarkDeclaredArtifact {
@@ -90,7 +89,7 @@ impl StarlarkDeclaredArtifact {
     pub fn new(
         declaration_location: Option<FileSpan>,
         artifact: DeclaredArtifact,
-        associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+        associated_artifacts: AssociatedArtifacts,
     ) -> Self {
         StarlarkDeclaredArtifact {
             declaration_location,
@@ -105,16 +104,13 @@ impl StarlarkDeclaredArtifact {
 
     pub fn with_extended_associated_artifacts(
         &self,
-        extra_associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+        extra_associated_artifacts: AssociatedArtifacts,
     ) -> Self {
-        let merged = self
-            .associated_artifacts
-            .union(&*extra_associated_artifacts)
-            .map(|a| a.dupe());
+        let merged = self.associated_artifacts.union(extra_associated_artifacts);
         Self {
             declaration_location: self.declaration_location.clone(),
             artifact: self.artifact.dupe(),
-            associated_artifacts: Arc::new(merged.collect()),
+            associated_artifacts: merged,
         }
     }
 }
@@ -131,7 +127,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
     }
 
-    fn get_associated_artifacts(&self) -> Option<&Arc<OrderedSet<ArtifactGroup>>> {
+    fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts> {
         Some(&self.associated_artifacts)
     }
 
@@ -146,7 +142,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn fingerprint(&self) -> ArtifactFingerprint<'_> {
         ArtifactFingerprint {
             path: self.artifact.get_path(),
-            associated_artifacts: &self.associated_artifacts,
+            associated_artifacts: self.get_associated_artifacts(),
         }
     }
 }
@@ -339,7 +335,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkDeclaredArtifact {
             declaration_location: this.declaration_location.dupe(),
             artifact: this.artifact.dupe(),
-            associated_artifacts: Default::default(),
+            associated_artifacts: AssociatedArtifacts::new(),
         })
     }
 }

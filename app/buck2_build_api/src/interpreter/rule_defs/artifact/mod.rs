@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod associated;
 mod starlark_artifact;
 pub mod starlark_artifact_like;
 mod starlark_artifact_value;
@@ -46,14 +47,11 @@ pub(crate) enum ArtifactError {
 
 #[cfg(test)]
 pub mod testing {
-    use std::sync::Arc;
-
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
     use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::collections::ordered_set::OrderedSet;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
@@ -92,6 +90,7 @@ pub mod testing {
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredRegistry;
+    use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
     use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
     use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
     use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
@@ -164,7 +163,7 @@ pub mod testing {
             Ok(StarlarkDeclaredArtifact::new(
                 None,
                 artifact,
-                Default::default(),
+                AssociatedArtifacts::new(),
             ))
         }
 
@@ -201,7 +200,7 @@ pub mod testing {
             Ok(StarlarkDeclaredArtifact::new(
                 None,
                 artifact,
-                Default::default(),
+                AssociatedArtifacts::new(),
             ))
         }
 
@@ -252,11 +251,11 @@ pub mod testing {
                 target_label.dupe(),
             )));
 
-            let associated_artifacts = Arc::new(OrderedSet::from_iter(
+            let associated_artifacts = AssociatedArtifacts::from(
                 associated_artifacts
                     .iter()
                     .map(|a| ArtifactGroup::Artifact(a.artifact())),
-            ));
+            );
             let (declaration, output_artifact) = analysis_registry.get_or_declare_output(
                 eval,
                 artifact,

@@ -10,16 +10,14 @@
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::sync::Arc;
 
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::actions::artifact::artifact_type::Artifact;
-use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -48,7 +46,7 @@ pub trait StarlarkArtifactLike: Display {
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
 
     /// Gets any associated artifacts that should be materialized along with the bound artifact
-    fn get_associated_artifacts(&self) -> Option<&Arc<OrderedSet<ArtifactGroup>>>;
+    fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
@@ -96,15 +94,15 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactLike<'v> for V {
 #[derive(PartialEq)]
 pub struct ArtifactFingerprint<'a> {
     pub(crate) path: ArtifactPath<'a>,
-    pub(crate) associated_artifacts: &'a OrderedSet<ArtifactGroup>,
+    pub(crate) associated_artifacts: Option<&'a AssociatedArtifacts>,
 }
 
 impl Hash for ArtifactFingerprint<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.path.hash(state);
-        self.associated_artifacts.len().hash(state);
-        self.associated_artifacts
-            .iter()
-            .for_each(|ag| ag.hash(state));
+        if let Some(associated) = &self.associated_artifacts {
+            associated.len().hash(state);
+            associated.iter().for_each(|ag| ag.hash(state));
+        }
     }
 }

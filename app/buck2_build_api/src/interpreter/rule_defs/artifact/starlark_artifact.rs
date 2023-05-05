@@ -8,11 +8,9 @@
  */
 
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_execute::path::artifact_path::ArtifactPath;
@@ -38,6 +36,7 @@ use thiserror::Error;
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::actions::artifact::artifact_type::BaseArtifactKind;
 use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;
 use crate::interpreter::rule_defs::artifact::ArtifactError;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
@@ -63,7 +62,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 pub struct StarlarkArtifact {
     pub(crate) artifact: Artifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
-    pub(crate) associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+    pub(crate) associated_artifacts: AssociatedArtifacts,
 }
 
 starlark_simple_value!(StarlarkArtifact);
@@ -95,7 +94,7 @@ impl StarlarkArtifact {
     pub fn new(artifact: Artifact) -> Self {
         StarlarkArtifact {
             artifact,
-            associated_artifacts: Default::default(),
+            associated_artifacts: AssociatedArtifacts::new(),
         }
     }
 
@@ -160,7 +159,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         Ok(self.artifact.dupe())
     }
 
-    fn get_associated_artifacts(&self) -> Option<&Arc<OrderedSet<ArtifactGroup>>> {
+    fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts> {
         Some(&self.associated_artifacts)
     }
 
@@ -175,7 +174,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
     fn fingerprint(&self) -> ArtifactFingerprint<'_> {
         ArtifactFingerprint {
             path: self.artifact.get_path(),
-            associated_artifacts: &self.associated_artifacts,
+            associated_artifacts: self.get_associated_artifacts(),
         }
     }
 }
@@ -335,7 +334,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     fn without_associated_artifacts(this: &StarlarkArtifact) -> anyhow::Result<StarlarkArtifact> {
         Ok(StarlarkArtifact {
             artifact: this.artifact.dupe(),
-            associated_artifacts: Default::default(),
+            associated_artifacts: AssociatedArtifacts::new(),
         })
     }
 }

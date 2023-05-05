@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -24,9 +23,9 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::category::Category;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -60,7 +59,7 @@ pub(crate) struct UnregisteredSymlinkedDirAction {
     copy: bool,
     args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
     // All associated artifacts of inputs unioned together
-    unioned_associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+    unioned_associated_artifacts: AssociatedArtifacts,
 }
 
 impl UnregisteredSymlinkedDirAction {
@@ -134,9 +133,8 @@ impl UnregisteredSymlinkedDirAction {
                     });
                     (aps, assocs)
                 },
-            )?;
-
-        Ok(res)
+            );
+        res
     }
 
     pub(crate) fn new(copy: bool, srcs: Value) -> anyhow::Result<Self> {
@@ -152,7 +150,7 @@ impl UnregisteredSymlinkedDirAction {
         Ok(Self {
             copy,
             args,
-            unioned_associated_artifacts: Arc::new(OrderedSet::from(unioned_associated_artifacts)),
+            unioned_associated_artifacts: AssociatedArtifacts::from(unioned_associated_artifacts),
         })
     }
 
@@ -160,7 +158,7 @@ impl UnregisteredSymlinkedDirAction {
         self.args.iter().map(|x| x.0.dupe()).collect()
     }
 
-    pub(crate) fn unioned_associated_artifacts(&self) -> Arc<OrderedSet<ArtifactGroup>> {
+    pub(crate) fn unioned_associated_artifacts(&self) -> AssociatedArtifacts {
         self.unioned_associated_artifacts.dupe()
     }
 }

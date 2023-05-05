@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::execute::request::OutputType;
@@ -49,6 +48,7 @@ use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::registry::DynamicRegistry;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
@@ -176,7 +176,7 @@ impl<'v> AnalysisRegistry<'v> {
             heap.alloc_typed(StarlarkDeclaredArtifact::new(
                 declaration_location,
                 artifact,
-                Default::default(),
+                AssociatedArtifacts::new(),
             ))
         } else if let Some(output) = ValueTyped::<StarlarkOutputArtifact>::new(value) {
             output.inner()
@@ -318,11 +318,11 @@ pub struct ArtifactDeclaration<'v> {
 impl<'v> ArtifactDeclaration<'v> {
     pub fn into_declared_artifact(
         self,
-        associated_artifacts: Arc<OrderedSet<ArtifactGroup>>,
+        extra_associated_artifacts: AssociatedArtifacts,
     ) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
         self.heap.alloc_typed(
             self.artifact
-                .with_extended_associated_artifacts(associated_artifacts),
+                .with_extended_associated_artifacts(extra_associated_artifacts),
         )
     }
 }

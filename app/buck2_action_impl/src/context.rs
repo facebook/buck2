@@ -16,6 +16,7 @@ use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
+use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
@@ -33,7 +34,6 @@ use buck2_build_api::interpreter::rule_defs::context::REGISTER_CONTEXT_ACTIONS;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
@@ -193,7 +193,7 @@ fn copy_file<'v>(
     let value = declaration.into_declared_artifact(
         associated_artifacts
             .duped()
-            .unwrap_or_else(Default::default),
+            .unwrap_or_else(AssociatedArtifacts::new),
     );
     Ok(value.to_value())
 }
@@ -249,7 +249,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(StarlarkDeclaredArtifact::new(
             eval.call_stack_top_location(),
             artifact,
-            Default::default(),
+            AssociatedArtifacts::new(),
         ))
     }
 
@@ -281,7 +281,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )?;
 
         let value = declaration
-            .into_declared_artifact(Default::default())
+            .into_declared_artifact(AssociatedArtifacts::new())
             .to_value();
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
@@ -452,12 +452,12 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         }
 
         let value = declaration
-            .into_declared_artifact(Arc::new(OrderedSet::from(associated_artifacts)))
+            .into_declared_artifact(AssociatedArtifacts::from(associated_artifacts))
             .to_value();
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()
-                .map(|a| StarlarkDeclaredArtifact::new(None, a, Default::default()))
+                .map(|a| StarlarkDeclaredArtifact::new(None, a, AssociatedArtifacts::new()))
                 .collect();
             Ok(eval.heap().alloc((value, macro_files)))
         } else {
@@ -799,7 +799,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )?;
 
         let value = declaration
-            .into_declared_artifact(Default::default())
+            .into_declared_artifact(AssociatedArtifacts::new())
             .to_value();
         Ok(value)
     }
@@ -860,7 +860,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         )?;
 
         Ok(output_value
-            .into_declared_artifact(Default::default())
+            .into_declared_artifact(AssociatedArtifacts::new())
             .to_value())
     }
 

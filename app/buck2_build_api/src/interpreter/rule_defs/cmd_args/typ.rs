@@ -55,6 +55,7 @@ use starlark::values::ValueLike;
 use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
@@ -771,7 +772,7 @@ fn command_line_builder_methods(builder: &mut MethodsBuilder) {
             let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
                 (*out).dupe(),
-                Default::default(),
+                AssociatedArtifacts::new(),
             ));
             outputs.push(StarlarkOutputArtifact::new(declared));
         }
