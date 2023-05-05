@@ -465,7 +465,11 @@ fn register_context(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         validate_action_instantiation(this, EXECUTION_PLATFORM.dupe())?;
-        Ok(eval.heap().alloc(BxlActions::new(this.state)))
+        Ok(eval.heap().alloc(BxlActions::new(
+            this.state,
+            eval.heap().alloc(Dict::default()),
+            eval.heap().alloc(Dict::default()),
+        )))
     }
 
     /// Returns the action context for creating and running actions.

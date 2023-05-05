@@ -178,11 +178,23 @@ pub(crate) fn validate_action_instantiation<'v>(
 #[display(fmt = "{:?}", self)]
 pub(crate) struct BxlActions<'v> {
     actions: ValueTyped<'v, AnalysisActions<'v>>,
+    /// A Dict
+    exec_deps: Value<'v>,
+    /// A dict
+    toolchains: Value<'v>,
 }
 
 impl<'v> BxlActions<'v> {
-    pub(crate) fn new(actions: ValueTyped<'v, AnalysisActions<'v>>) -> Self {
-        Self { actions }
+    pub(crate) fn new(
+        actions: ValueTyped<'v, AnalysisActions<'v>>,
+        exec_deps: Value<'v>,
+        toolchains: Value<'v>,
+    ) -> Self {
+        Self {
+            actions,
+            exec_deps,
+            toolchains,
+        }
     }
 }
 
@@ -225,5 +237,17 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn actions<'v>(this: &'v BxlActions) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.actions)
+    }
+
+    /// Gets the execution deps requested correctly configured for the current execution platform
+    #[starlark(attribute, return_type = "\"dict\"")]
+    fn exec_deps<'v>(this: &'v BxlActions) -> anyhow::Result<Value<'v>> {
+        Ok(this.exec_deps)
+    }
+
+    /// Gets the toolchains requested configured for the current execution platform
+    #[starlark(attribute, return_type = "\"dict\"")]
+    fn toolchains<'v>(this: &'v BxlActions) -> anyhow::Result<Value<'v>> {
+        Ok(this.toolchains)
     }
 }
