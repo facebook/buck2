@@ -47,10 +47,8 @@ pub trait StarlarkArtifactLike: Display {
     /// Gets the bound main artifact, or errors if the artifact is not bound
     fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
 
-    /// Gets the main artifact and any other additional entities that should be materialized along with it
-    fn get_bound_artifact_and_associated_artifacts(
-        &self,
-    ) -> anyhow::Result<(Artifact, &Arc<OrderedSet<ArtifactGroup>>)>;
+    /// Gets any associated artifacts that should be materialized along with the bound artifact
+    fn get_associated_artifacts(&self) -> Option<&Arc<OrderedSet<ArtifactGroup>>>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {

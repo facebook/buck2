@@ -131,10 +131,8 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
     }
 
-    fn get_bound_artifact_and_associated_artifacts(
-        &self,
-    ) -> anyhow::Result<(Artifact, &Arc<OrderedSet<ArtifactGroup>>)> {
-        Ok((self.get_bound_artifact()?, &self.associated_artifacts))
+    fn get_associated_artifacts(&self) -> Option<&Arc<OrderedSet<ArtifactGroup>>> {
+        Some(&self.associated_artifacts)
     }
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {

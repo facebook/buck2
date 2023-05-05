@@ -238,12 +238,13 @@ impl<'v> BxlContext<'v> {
                 .into_iter()
                 .map(|ensured_artifact_type| match ensured_artifact_type {
                     EnsuredArtifactOrGroup::Artifact(artifact) => {
-                        let (bound_artifact, associated_artifacts) = artifact
-                            .as_artifact()
-                            .get_bound_artifact_and_associated_artifacts()?;
+                        let as_artifact = artifact.as_artifact();
+                        let bound_artifact = as_artifact.get_bound_artifact()?;
+                        let associated_artifacts = as_artifact.get_associated_artifacts();
 
                         Ok(associated_artifacts
                             .iter()
+                            .flat_map(|v| v.iter())
                             .cloned()
                             .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
                             .collect::<Vec<_>>())

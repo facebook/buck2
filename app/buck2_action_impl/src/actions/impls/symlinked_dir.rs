@@ -108,10 +108,9 @@ impl UnregisteredSymlinkedDirAction {
         let res = srcs
             .iter()
             .map(|(k, v)| {
-                let (artifact, associates) = v
-                    .as_artifact()
-                    .context("expecting dict value artifact")?
-                    .get_bound_artifact_and_associated_artifacts()?;
+                let as_artifact = v.as_artifact().context("expecting dict value artifact")?;
+                let artifact = as_artifact.get_bound_artifact()?;
+                let associates = as_artifact.get_associated_artifacts();
                 anyhow::Ok((
                     (
                         ArtifactGroup::Artifact(artifact),
@@ -130,7 +129,7 @@ impl UnregisteredSymlinkedDirAction {
                 (Vec::with_capacity(srcs.len()), SmallSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
-                    assoc.iter().for_each(|a| {
+                    assoc.iter().flat_map(|v| v.iter()).for_each(|a| {
                         assocs.insert(a.dupe());
                     });
                     (aps, assocs)

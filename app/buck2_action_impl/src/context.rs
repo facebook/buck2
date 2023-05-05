@@ -43,6 +43,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use ctor::ctor;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use indexmap::indexset;
@@ -176,7 +177,8 @@ fn copy_file<'v>(
         .as_artifact()
         .ok_or_else(|| ValueError::IncorrectParameterTypeNamed("src".to_owned()))?;
 
-    let (artifact, associated_artifacts) = src.get_bound_artifact_and_associated_artifacts()?;
+    let artifact = src.get_bound_artifact()?;
+    let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state();
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, dest, "dest", output_type)?;
@@ -188,7 +190,11 @@ fn copy_file<'v>(
         None,
     )?;
 
-    let value = declaration.into_declared_artifact(associated_artifacts.dupe());
+    let value = declaration.into_declared_artifact(
+        associated_artifacts
+            .duped()
+            .unwrap_or_else(Default::default),
+    );
     Ok(value.to_value())
 }
 

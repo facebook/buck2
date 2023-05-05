@@ -105,16 +105,20 @@ where
 {
     let files = DictRef::from_value(info.files.to_value()).expect("Value is a Dict");
     for (k, v) in files.deref().iter() {
-        let (artifact, other_artifacts) = v
+        let as_artifact = v
             .as_artifact()
-            .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-            .get_bound_artifact_and_associated_artifacts()?;
-        if !other_artifacts.is_empty() {
-            return Err(anyhow::anyhow!(
-                "File with key `{}`: `{}` should not have any associated artifacts",
-                k,
-                artifact
-            ));
+            .ok_or_else(|| anyhow::anyhow!("not an artifact"))?;
+        let artifact = as_artifact.get_bound_artifact()?;
+        let other_artifacts = as_artifact.get_associated_artifacts();
+        match other_artifacts {
+            Some(v) if !v.is_empty() => {
+                return Err(anyhow::anyhow!(
+                    "File with key `{}`: `{}` should not have any associated artifacts",
+                    k,
+                    artifact
+                ));
+            }
+            _ => {}
         }
     }
     Ok(())

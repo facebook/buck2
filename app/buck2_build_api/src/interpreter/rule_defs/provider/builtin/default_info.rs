@@ -261,12 +261,13 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
-            let (_, others) = value
+            let others = value
                 .as_artifact()
                 .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                .get_bound_artifact_and_associated_artifacts()?;
+                .get_associated_artifacts();
             others
                 .iter()
+                .flat_map(|v| v.iter())
                 .for_each(|other| processor(other.dupe()).unwrap());
             Ok(())
         })

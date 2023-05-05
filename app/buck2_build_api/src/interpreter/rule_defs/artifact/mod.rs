@@ -283,9 +283,12 @@ pub mod testing {
 
         fn get_associated_artifacts_as_string<'v>(artifact: Value<'v>) -> anyhow::Result<String> {
             let artifact = artifact.as_artifact().unwrap();
-            let (_, associated_artifacts) =
-                artifact.get_bound_artifact_and_associated_artifacts()?;
-            let s: String = associated_artifacts.iter().map(|a| a.to_string()).collect();
+            let associated_artifacts = artifact.get_associated_artifacts();
+            let s: String = associated_artifacts
+                .iter()
+                .flat_map(|v| v.iter())
+                .map(|a| a.to_string())
+                .collect();
             Ok(s)
         }
     }
