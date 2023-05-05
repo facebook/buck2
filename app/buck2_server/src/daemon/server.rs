@@ -68,7 +68,7 @@ use futures::StreamExt;
 use futures::TryFutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::drop::DropTogether;
-use more_futures::spawn::spawn_dropcancel;
+use more_futures::spawn::spawn_cancellable;
 use tokio::sync::oneshot;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
@@ -716,8 +716,8 @@ where
 
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
-    let cancellable = spawn_dropcancel(
-        async move { func(req, &CancellationContext::todo()).await }, // TODO(bobyf) this should not be a drop cancel but explicit cancellation
+    let (future_handle, cancellation_handle) = spawn_cancellable(
+        |cancellations| func(req, cancellations),
         &BuckSpawner::default(),
         &events_ctx,
         debug_span!(parent: None, "running-command",),
@@ -782,7 +782,10 @@ where
     let events = MultiEventStream::new(events);
 
     Response::new(Box::pin(SyncStream {
-        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(events, cancellable)),
+        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(
+            events,
+            future_handle.into_drop_cancel(cancellation_handle),
+        )),
     }))
 }
 
