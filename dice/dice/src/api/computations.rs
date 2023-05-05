@@ -14,6 +14,7 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
+use more_futures::spawn::FutureAndCancellationHandle;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -84,7 +85,7 @@ impl DiceComputations {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R> + Send + 'static
+    pub fn temporary_spawn<F, R>(&self, f: F) -> FutureAndCancellationHandle<R>
     where
         F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send

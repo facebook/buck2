@@ -62,20 +62,23 @@ pub async fn get_maybe_compatible_targets(
         let targets = result?;
         let global_target_platform = global_target_platform.dupe();
 
-        by_package_futs.push(ctx.temporary_spawn(|ctx, _cancellation| {
-            async move {
-                let ctx = &ctx;
-                let global_target_platform = global_target_platform.as_ref();
-                let target_futs: Vec<_> = targets.map(|target| async move {
-                    let target = ctx
-                        .get_configured_target(target.label(), global_target_platform)
-                        .await?;
-                    anyhow::Ok(ctx.get_configured_target_node(&target).await?)
-                });
-                futures::future::join_all(target_futs).await
-            }
-            .boxed()
-        }));
+        by_package_futs.push({
+            ctx.temporary_spawn(|ctx, _cancellation| {
+                async move {
+                    let ctx = &ctx;
+                    let global_target_platform = global_target_platform.as_ref();
+                    let target_futs: Vec<_> = targets.map(|target| async move {
+                        let target = ctx
+                            .get_configured_target(target.label(), global_target_platform)
+                            .await?;
+                        anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+                    });
+                    futures::future::join_all(target_futs).await
+                }
+                .boxed()
+            })
+            .into_drop_cancel()
+        });
     }
 
     Ok(futures::future::join_all(by_package_futs)

@@ -15,7 +15,8 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_dropcancel;
+use more_futures::spawn::spawn_cancellable;
+use more_futures::spawn::FutureAndCancellationHandle;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -309,10 +310,7 @@ impl DiceComputationsImplLegacy {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(
-        self: &Arc<Self>,
-        f: F,
-    ) -> impl Future<Output = R> + Send + 'static
+    pub(crate) fn temporary_spawn<F, R>(self: &Arc<Self>, f: F) -> FutureAndCancellationHandle<R>
     where
         F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send
@@ -321,13 +319,16 @@ impl DiceComputationsImplLegacy {
     {
         let duped = self.dupe();
 
-        spawn_dropcancel(
-            async move {
-                f(
-                    DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
-                    &CancellationContext::todo(),
-                )
-                .await
+        spawn_cancellable(
+            |cancellations| {
+                async move {
+                    f(
+                        DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
+                        cancellations,
+                    )
+                    .await
+                }
+                .boxed()
             },
             self.extra.user_data.spawner.as_ref(),
             &self.extra.user_data,

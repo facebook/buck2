@@ -58,7 +58,7 @@ impl Key for internal::BxlComputeKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let key = self.0.dupe();
-        ctx.temporary_spawn(move |ctx, cancellation| {
+        let future_and_cancellation = ctx.temporary_spawn(move |ctx, cancellation| {
             async move {
                 {
                     let profiler = ctx.get_profile_mode_for_intermediate_analysis().await?;
@@ -72,8 +72,10 @@ impl Key for internal::BxlComputeKey {
                 }
             }
             .boxed()
-        })
-        .await
+        });
+
+        // TODO(bobyf) can use cancellation context to interact with the temporary spawn cancellation better
+        future_and_cancellation.into_drop_cancel().await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {

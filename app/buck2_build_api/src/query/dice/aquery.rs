@@ -183,6 +183,7 @@ async fn get_tset_node(
             ctx.temporary_spawn(move |ctx, _cancellation| {
                 compute_tset_node(copied_node_cache, ctx, key).boxed()
             })
+            .into_drop_cancel()
         })
         .await?)
 }
@@ -214,6 +215,7 @@ async fn get_action_node(
             ctx.temporary_spawn(move |ctx, _cancellation| {
                 compute_action_node(copied_node_cache, ctx, key, fs).boxed()
             })
+            .into_drop_cancel()
         })
         .await?)
 }

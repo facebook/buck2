@@ -229,7 +229,12 @@ use legacy::incremental::transaction_ctx::TransactionCtx;
 use legacy::incremental::ValueWithDeps;
 use legacy::key::StoragePropertiesForKey;
 use metrics::Metrics;
+pub use more_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
 pub use more_futures::cancellation::CancellationContext; // expose cancellation context as api
+pub use more_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
+pub use more_futures::spawn::DropCancelAndTerminationObserver;
+pub use more_futures::spawn::FutureAndCancellationHandle;
+pub use more_futures::spawn::WeakFutureError; // expose future errors as api
 use serde::Serializer;
 
 pub use crate::api::computations::DiceComputations;

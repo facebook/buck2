@@ -318,6 +318,7 @@ impl TargetHashes {
                             }
                             .boxed()
                         })
+                        .into_drop_cancel()
                         .await
                     }
                     .boxed()

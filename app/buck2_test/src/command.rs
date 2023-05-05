@@ -421,7 +421,7 @@ async fn test_targets(
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
-    let test_run = ctx.temporary_spawn({
+    let future_and_cancellation = ctx.temporary_spawn({
         let test_status_sender = test_status_sender.clone();
         move |ctx, cancellations| {
             {
@@ -520,7 +520,9 @@ async fn test_targets(
         "Executor exited without reporting end-of-tests",
     )));
 
-    let (build_errors, executor_report) = test_run
+    // TODO(bobyf, torozco) we can use cancellation handle here instead of liveliness observer
+    let (build_errors, executor_report) = future_and_cancellation
+        .into_drop_cancel()
         .await
         .context("Failed to collect executor report")?;
 
