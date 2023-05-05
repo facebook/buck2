@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_util::commas::commas;
 use derive_more::Display;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -65,7 +66,6 @@ use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::util::commas;
 
 /// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
 ///

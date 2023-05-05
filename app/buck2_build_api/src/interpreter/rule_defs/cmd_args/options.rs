@@ -19,6 +19,7 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
+use buck2_util::commas::commas;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -38,7 +39,6 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use crate::interpreter::rule_defs::util::commas;
 
 /// Supported ways of quoting arguments.
 #[derive(Debug, Clone, Dupe, Trace, Freeze, Serialize, Allocative)]

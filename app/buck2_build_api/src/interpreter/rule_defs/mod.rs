@@ -30,7 +30,6 @@ pub mod label_relative_path;
 pub mod provider;
 pub mod transition;
 pub mod transitive_set;
-pub mod util;
 
 #[derive(Debug, Error)]
 enum ExtraFunctionErrors {
