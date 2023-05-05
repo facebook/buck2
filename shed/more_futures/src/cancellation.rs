@@ -77,10 +77,13 @@ impl CancellationContext {
         self.0.with_structured_cancellation(make)
     }
 
-    /// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
-    /// CancellableFuture but has already been cancelled.
+    /// For CancellableFutures futures, obtain a StrongRefCount for the current task and prevent
+    /// cancellation while the guard is held.
     ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
+    /// For ExplicitCancellationFutures, disables the cancellation of the future from here on out
+    /// so that it will never end with canceled.
+    ///
+    /// This will return None if the task *is* within a cancellable future but has already been cancelled.
     pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         self.0.try_to_disable_cancellation()
     }
@@ -163,13 +166,17 @@ impl CancellationContextInner {
 
     /// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
     /// CancellableFuture but has already been cancelled.
-    ///
-    /// TODO(bobyf) this needs to be updated with the new implementation
     pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         match self {
             CancellationContextInner::ThreadLocal => try_to_disable_cancellation(),
-            CancellationContextInner::Explicit(..) => {
-                unimplemented!("todo")
+            CancellationContextInner::Explicit(context) => {
+                let (_, guard) = context.enter_structured_cancellation();
+
+                if guard.try_to_disable_cancellation() {
+                    Some(DisableCancellationGuard { _guard: None })
+                } else {
+                    None
+                }
             }
         }
     }

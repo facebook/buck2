@@ -15,6 +15,7 @@
 //!
 
 use std::future::Future;
+use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -162,12 +163,17 @@ where
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let state = std::mem::replace(&mut *this.shared.inner.state.lock(), State::Exited);
+            let state = mem::replace(&mut *this.shared.inner.state.lock(), State::Exited);
             match state {
                 State::Cancelled { tx } => {
-                    // if we got canceled during our poll, make sure to still result in canceled
-                    let _ = tx.send(TerminationStatus::Cancelled);
-                    return Poll::Ready(None);
+                    if this.execution.shared.lock().can_exit() {
+                        // if we got canceled during our poll, make sure to still result in canceled
+                        let _ = tx.send(TerminationStatus::Cancelled);
+                        return Poll::Ready(None);
+                    } else {
+                        // we blocked cancellation so this now finishes normally
+                        let _ = tx.send(TerminationStatus::Finished);
+                    }
                 }
                 _ => {}
             }
@@ -319,7 +325,13 @@ impl ExecutionContext {
     fn new() -> Self {
         Self {
             shared: Arc::new(Mutex::new(ExecutionContextData {
-                cancellation_data: None,
+                cancellation_notification: {
+                    let (tx, rx) = oneshot::channel();
+                    CancellationNotificationData {
+                        tx: CancellationNotification::Pending(tx),
+                        rx: rx.shared(),
+                    }
+                },
                 prevent_cancellation: 0,
             })),
         }
@@ -362,6 +374,17 @@ impl<'a> CriticalSectionGuard<'a> {
             .lock()
             .exit_prevent_cancellation()
     }
+
+    pub(crate) fn try_to_disable_cancellation(mut self) -> bool {
+        let mut shared = self.shared.take().expect("should be set").lock();
+        if shared.try_to_disable_cancellation() {
+            true
+        } else {
+            // couldn't prevent cancellation, so release our hold onto the counter
+            shared.exit_prevent_cancellation();
+            false
+        }
+    }
 }
 
 impl<'a> Drop for CriticalSectionGuard<'a> {
@@ -376,7 +399,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
 }
 
 struct ExecutionContextData {
-    cancellation_data: Option<CancellationObserverData>,
+    cancellation_notification: CancellationNotificationData,
 
     /// How many observers are preventing immediate cancellation.
     prevent_cancellation: usize,
@@ -393,45 +416,75 @@ impl ExecutionContextData {
     }
 
     fn enter_structured_cancellation(&mut self) -> CancellationObserver {
-        let cancellation = {
-            let cancellation = self.cancellation_data.get_or_insert_with(|| {
-                let (tx, rx) = oneshot::channel();
-                CancellationObserverData {
-                    tx,
-                    rx: rx.shared(),
-                }
-            });
-
-            cancellation.rx.clone()
-        };
-
         self.prevent_cancellation += 1;
 
         CancellationObserver {
-            rx: Some(cancellation),
+            rx: Some(self.cancellation_notification.rx.clone()),
         }
     }
 
     fn notify_cancelled(&mut self) {
-        if let Some(data) = self.cancellation_data.take() {
-            let _ignored = data.tx.send(());
+        match &self.cancellation_notification.tx {
+            CancellationNotification::Pending(_) => {
+                let old = mem::replace(
+                    &mut self.cancellation_notification.tx,
+                    CancellationNotification::Notified,
+                );
+                match old {
+                    CancellationNotification::Pending(tx) => {
+                        let _ignored = tx.send(());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            CancellationNotification::Notified => {}
+            CancellationNotification::Disabled(..) => {}
         }
     }
 
     fn exit_prevent_cancellation(&mut self) -> bool {
         self.prevent_cancellation -= 1;
 
-        if self.prevent_cancellation == 0 {
-            self.cancellation_data.take();
-            true
-        } else {
-            false
+        self.prevent_cancellation == 0
+    }
+
+    fn try_to_disable_cancellation(&mut self) -> bool {
+        match &self.cancellation_notification.tx {
+            CancellationNotification::Pending(_) => {
+                // since we know we'll never be canceled, delete any cancellation data we hold since
+                // we should never notify cancelled.
+                take_mut::take(
+                    &mut self.cancellation_notification.tx,
+                    |state| match state {
+                        CancellationNotification::Pending(tx) => {
+                            CancellationNotification::Disabled(tx)
+                        }
+                        x => x,
+                    },
+                );
+                true
+            }
+            CancellationNotification::Notified => {
+                // we've already sent our cancelled notification, so we can't record this future
+                // as never cancelled
+                false
+            }
+            CancellationNotification::Disabled(..) => {
+                // already never cancelled
+                true
+            }
         }
     }
 }
 
-struct CancellationObserverData {
-    tx: oneshot::Sender<()>,
+enum CancellationNotification {
+    Pending(oneshot::Sender<()>),
+    Notified,
+    Disabled(oneshot::Sender<()>), // this just holds the sender alive so receives don't receive the "drop"
+}
+
+struct CancellationNotificationData {
+    tx: CancellationNotification,
     rx: Shared<oneshot::Receiver<()>>,
 }
 
@@ -900,10 +953,118 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         let cancel = handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+    }
+
+    #[tokio::test]
+    async fn test_disable_cancellation() {
+        let (fut, handle) = make_future(|cancellations| {
+            async move {
+                assert!(cancellations.try_to_disable_cancellation().is_some());
+                tokio::task::yield_now().await;
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        let cancel = handle.cancel();
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+
+        futures::pin_mut!(cancel);
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Finished)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_disable_cancellation_already_canceled() {
+        let (fut, handle) = make_future(|cancellations| {
+            async move {
+                assert!(cancellations.try_to_disable_cancellation().is_none());
+                tokio::task::yield_now().await;
+                panic!("already canceled")
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        let cancel = handle.cancel();
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+
+        futures::pin_mut!(cancel);
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Cancelled)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_disable_cancellation_synced_with_structured_cancellation_already_cancelled() {
+        let (fut, handle) = make_future(|cancellations| {
+            async move {
+                cancellations
+                    .with_structured_cancellation(|obs| async move {
+                        tokio::task::yield_now().await;
+                        futures::pin_mut!(obs);
+                        assert_matches!(futures::poll!(&mut obs), Poll::Ready(()));
+
+                        assert!(cancellations.try_to_disable_cancellation().is_none());
+                    })
+                    .await;
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        let cancel = handle.cancel();
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+
+        futures::pin_mut!(cancel);
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Cancelled)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_disable_cancellation_synced_with_structured_cancellation_not_cancelled() {
+        let (fut, handle) = make_future(|cancellations| {
+            async move {
+                assert!(cancellations.try_to_disable_cancellation().is_some());
+
+                tokio::task::yield_now().await;
+
+                cancellations
+                    .with_structured_cancellation(|obs| async move {
+                        futures::pin_mut!(obs);
+                        assert_matches!(futures::poll!(&mut obs), Poll::Pending);
+
+                        assert!(cancellations.try_to_disable_cancellation().is_some());
+                    })
+                    .await;
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        let cancel = handle.cancel();
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+
+        futures::pin_mut!(cancel);
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Finished)
+        );
     }
 }

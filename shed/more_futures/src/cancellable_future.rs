@@ -494,7 +494,7 @@ where
 
 pub struct DisableCancellationGuard {
     /// This might be None if we are not in a CancellableFuture.
-    _guard: Option<StrongRefCount>,
+    pub(crate) _guard: Option<StrongRefCount>,
 }
 
 /// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
