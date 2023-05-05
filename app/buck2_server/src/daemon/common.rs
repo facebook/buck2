@@ -17,7 +17,6 @@ use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
-use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
@@ -187,7 +186,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote_cache_enabled,
             } => {
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
-                    RemoteEnabledExecutor::Local(..) if !self.strategy.ban_local() => {
+                    RemoteEnabledExecutor::Local if !self.strategy.ban_local() => {
                         Some(Arc::new(local_executor_new()))
                     }
                     RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
@@ -197,17 +196,17 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             *remote_cache_enabled,
                         )))
                     }
-                    RemoteEnabledExecutor::Hybrid {
-                        local: _local,
-                        remote,
-                        level,
-                    } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
-                        local: local_executor_new(),
-                        remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
-                        level: *level,
-                        executor_preference: self.strategy.hybrid_preference(),
-                        low_pass_filter: self.low_pass_filter.dupe(),
-                    })),
+                    RemoteEnabledExecutor::Hybrid { remote, level }
+                        if !self.strategy.ban_hybrid() =>
+                    {
+                        Some(Arc::new(HybridExecutor {
+                            local: local_executor_new(),
+                            remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
+                            level: *level,
+                            executor_preference: self.strategy.hybrid_preference(),
+                            low_pass_filter: self.low_pass_filter.dupe(),
+                        }))
+                    }
                     _ => None,
                 };
 
@@ -308,7 +307,6 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
     } else {
         Executor::RemoteEnabled {
             executor: RemoteEnabledExecutor::Hybrid {
-                local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions::default(),
                 level: HybridExecutionLevel::Limited,
             },

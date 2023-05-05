@@ -16,7 +16,6 @@ use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
-use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
@@ -141,11 +140,6 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
             };
 
-            let local_options = if local_enabled {
-                Some(LocalExecutorOptions {})
-            } else {
-                None
-            };
             let remote_options = if remote_enabled {
                 let re_action_key = remote_execution_action_key.to_value();
                 let re_action_key = if re_action_key.is_none() {
@@ -214,15 +208,15 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .into_option()
                 .unwrap_or(remote_cache_default);
 
-            let executor = match (local_options, remote_options, remote_cache_enabled) {
-                (local, Some(remote), remote_cache_enabled) => {
-                    let executor = match local {
-                        Some(local) => RemoteEnabledExecutor::Hybrid {
-                            local,
+            let executor = match (local_enabled, remote_options, remote_cache_enabled) {
+                (local_enabled, Some(remote), remote_cache_enabled) => {
+                    let executor = if local_enabled {
+                        RemoteEnabledExecutor::Hybrid {
                             remote,
                             level: hybrid_level,
-                        },
-                        None => RemoteEnabledExecutor::Remote(remote),
+                        }
+                    } else {
+                        RemoteEnabledExecutor::Remote(remote)
                     };
 
                     Executor::RemoteEnabled {
@@ -238,8 +232,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled,
                     }
                 }
-                (Some(local), None, true) => Executor::RemoteEnabled {
-                    executor: RemoteEnabledExecutor::Local(local),
+                (true, None, true) => Executor::RemoteEnabled {
+                    executor: RemoteEnabledExecutor::Local,
                     // FIXME: We need a migration flip the default for remote_cache_enabled to
                     // remote_enabled first.
                     re_properties: re_properties.unwrap_or_default(),
@@ -247,8 +241,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     cache_upload_behavior,
                     remote_cache_enabled: true,
                 },
-                (Some(_local), None, false) => Executor::Local,
-                (None, None, _) => {
+                (true, None, false) => Executor::Local,
+                (false, None, _) => {
                     return Err(CommandExecutorConfigErrors::NoExecutor.into());
                 }
             };

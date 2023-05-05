@@ -20,9 +20,6 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
-pub struct LocalExecutorOptions {}
-
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
 pub struct RemoteExecutorUseCase(Intern<String>);
 
@@ -65,10 +62,9 @@ pub struct RemoteExecutorOptions {
 /// with a RE backend for caching".
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum RemoteEnabledExecutor {
-    Local(LocalExecutorOptions),
+    Local,
     Remote(RemoteExecutorOptions),
     Hybrid {
-        local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
         level: HybridExecutionLevel,
     },
