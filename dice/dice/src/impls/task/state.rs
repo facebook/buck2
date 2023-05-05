@@ -34,10 +34,6 @@ impl AtomicDiceTaskState {
         }
     }
 
-    fn pack(old: u8, new: u8) -> u8 {
-        (old & 1 << 3) | new
-    }
-
     fn transition(
         &self,
         maybe_transition: impl Fn(DiceTaskState) -> Option<DiceTaskState>,
@@ -149,7 +145,7 @@ impl DiceTaskState {
                 }
             },
             DiceTaskState::Computing(proj) => match target {
-                target @ (TargetState::Sync) => Some(target.into_dice_task_state_with_proj(proj)),
+                target @ TargetState::Sync => Some(target.into_dice_task_state_with_proj(proj)),
                 target => {
                     panic!(
                         "invalid state transition `{:?}` -> `{:?}`",

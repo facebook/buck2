@@ -13,7 +13,6 @@ use std::task::Poll;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
-use dupe::Dupe;
 use futures::poll;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
@@ -34,7 +33,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct K;
@@ -45,8 +43,8 @@ impl Key for K {
 
     async fn compute(
         &self,
-        ctx: &DiceComputations,
-        cancellations: &CancellationContext,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
     ) -> Self::Value {
         unimplemented!("test")
     }
@@ -97,7 +95,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
         // wait for the lock too
-        lock.lock().await;
+        let _lock = lock.lock().await;
 
         handle.finished(Ok(DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),

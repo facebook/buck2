@@ -12,18 +12,15 @@ use triomphe::Arc;
 pub(crate) mod cache;
 pub(crate) mod core;
 pub(crate) mod ctx;
-#[allow(unused)] // TODO(bobyf)
 mod dep_trackers;
 pub(crate) mod dice;
 pub(crate) mod evaluator;
-#[allow(unused)] // TODO(bobyf)
 pub(crate) mod events;
 mod hash;
 pub(crate) mod incremental;
 pub(crate) mod key;
 mod key_index;
 pub(crate) mod opaque;
-#[allow(unused)]
 pub(crate) mod task;
 #[cfg(test)]
 mod tests;

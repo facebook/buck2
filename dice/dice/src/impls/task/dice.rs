@@ -12,25 +12,19 @@ use std::any::Any;
 use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
-use std::task::Waker;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
-use hashbrown::HashSet;
 use parking_lot::Mutex;
 use slab::Slab;
 use tokio::task::JoinHandle;
 use triomphe::Arc;
 
 use crate::api::error::DiceResult;
-use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
@@ -136,11 +130,13 @@ impl DiceTask {
         }
     }
 
+    #[allow(unused)] // future introspection functions
     /// true if this task is not yet complete and not yet canceled.
     pub(crate) fn is_pending(&self) -> bool {
         !self.internal.state.is_ready(Ordering::SeqCst)
     }
 
+    #[allow(unused)] // future introspection functions
     pub(crate) fn inspect_waiters(&self) -> Option<Vec<ParentKey>> {
         self.internal
             .dependants

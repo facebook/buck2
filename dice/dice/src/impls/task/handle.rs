@@ -9,8 +9,6 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
-use futures::task::waker;
-use futures::task::AtomicWaker;
 use more_futures::cancellation::CancellationContext;
 use triomphe::Arc;
 

@@ -9,7 +9,6 @@
 
 use std::any::Any;
 use std::future::Future;
-use std::sync::Arc;
 
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;

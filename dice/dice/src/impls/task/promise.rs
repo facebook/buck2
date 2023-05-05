@@ -12,18 +12,13 @@
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
-use std::task::RawWaker;
-use std::task::Waker;
 
 use futures::task::AtomicWaker;
-use parking_lot::Mutex;
 use triomphe::Arc;
 
 use crate::api::error::DiceResult;
-use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
 
