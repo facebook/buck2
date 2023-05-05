@@ -138,8 +138,12 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
         assert_eq!(
             &*tracker.state.lock().unwrap(),
             &[
+                DiceEvent::CheckDepsStarted { key_type: "Stage1" },
+                DiceEvent::CheckDepsStarted { key_type: "Stage0" },
+                DiceEvent::CheckDepsFinished { key_type: "Stage0" },
                 DiceEvent::Started { key_type: "Stage0" },
                 DiceEvent::Finished { key_type: "Stage0" },
+                DiceEvent::CheckDepsFinished { key_type: "Stage1" }
             ]
         );
     }

@@ -200,8 +200,14 @@ impl IncrementalEngine {
             VersionedGraphResult::CheckDeps(mismatch) => {
                 cycles.start_computing_key(k);
                 task_handle.checking_deps();
-                match self
-                    .compute_whether_dependencies_changed(
+
+                let deps_changed = {
+                    events_dispatcher.check_deps_started(k);
+                    scopeguard::defer! {
+                        events_dispatcher.check_deps_finished(k);
+                    }
+
+                    self.compute_whether_dependencies_changed(
                         ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
                         eval.dupe(),
                         &transaction_ctx,
@@ -212,7 +218,9 @@ impl IncrementalEngine {
                         &events_dispatcher,
                     )
                     .await
-                {
+                };
+
+                match deps_changed {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
                         self.compute(
                             k,

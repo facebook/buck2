@@ -237,6 +237,8 @@ message DiceStateSnapshot {
 message DiceKeyState {
   uint32 started = 1;
   uint32 finished = 2;
+  uint32 check_deps_started = 3;
+  uint32 check_deps_finished = 4;
 }
 
 message RemoteExecutionSessionCreated {

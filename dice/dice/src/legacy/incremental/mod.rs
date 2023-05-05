@@ -445,11 +445,25 @@ where
                     debug!("no matching entry in cache. checking for dependency changes");
                     extra.start_computing_key::<K>(&ev.k);
 
-                    match Self::compute_whether_versioned_dependencies_changed(
-                        &ev.k, &eval_ctx, &extra, &mismatch,
-                    )
-                    .await
-                    {
+                    let deps_changed = {
+                        extra.user_data.tracker.event(DiceEvent::CheckDepsStarted {
+                            key_type: K::key_type_name(),
+                        });
+
+                        scopeguard::defer! {
+                            extra
+                                .user_data
+                                .tracker
+                                .event(DiceEvent::CheckDepsFinished { key_type: K::key_type_name() });
+                        }
+
+                        Self::compute_whether_versioned_dependencies_changed(
+                            &ev.k, &eval_ctx, &extra, &mismatch,
+                        )
+                        .await
+                    };
+
+                    match deps_changed {
                         DidDepsChange::Changed | DidDepsChange::NoDeps => {
                             debug!("dependencies changed. recomputing...");
                             ev.engine

@@ -38,4 +38,18 @@ impl DiceEventDispatcher {
 
         self.tracker.event(DiceEvent::Finished { key_type: desc })
     }
+
+    pub(crate) fn check_deps_started(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.tracker
+            .event(DiceEvent::CheckDepsStarted { key_type: desc })
+    }
+
+    pub(crate) fn check_deps_finished(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.tracker
+            .event(DiceEvent::CheckDepsFinished { key_type: desc })
+    }
 }

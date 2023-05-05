@@ -73,6 +73,12 @@ impl BuckDiceTracker {
                         Some(DiceEvent::Finished{key_type}) => {
                             states.entry(key_type).or_insert_with(DiceKeyState::default).finished += 1;
                         }
+                        Some(DiceEvent::CheckDepsStarted{key_type}) => {
+                            states.entry(key_type).or_insert_with(DiceKeyState::default).check_deps_started += 1;
+                        }
+                        Some(DiceEvent::CheckDepsFinished{key_type}) => {
+                            states.entry(key_type).or_insert_with(DiceKeyState::default).check_deps_finished += 1;
+                        }
                         None => {
                             // This indicates that the sender side has been dropped and we can exit.
                             break;

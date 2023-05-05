@@ -11,8 +11,17 @@ use allocative::Allocative;
 
 #[derive(Allocative, PartialEq, Eq, Debug)]
 pub enum DiceEvent {
+    /// Computation started.
     Started { key_type: &'static str },
+
+    /// Computation finished.
     Finished { key_type: &'static str },
+
+    /// Checking dependencies has started.
+    CheckDepsStarted { key_type: &'static str },
+
+    /// Checking dependencies has finished.
+    CheckDepsFinished { key_type: &'static str },
 }
 
 pub trait DiceEventListener: Allocative + Send + Sync + 'static {
