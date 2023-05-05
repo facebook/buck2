@@ -29,6 +29,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
+use crate::impls::triomphe_dupe;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
@@ -91,7 +92,7 @@ async fn simple_immediately_ready_task() -> anyhow::Result<()> {
 async fn simple_task() -> anyhow::Result<()> {
     let lock = Arc::new(Mutex::new(()));
 
-    let lock_dupe = lock.clone(); // actually dupe
+    let lock_dupe = triomphe_dupe(&lock);
     let locked = lock_dupe.lock().await;
 
     let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
@@ -270,7 +271,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let barrier = Arc::new(Barrier::new(4));
 
     let fut1 = tokio::spawn({
-        let barrier = barrier.clone(); // actually dupe
+        let barrier = triomphe_dupe(&barrier);
         async move {
             assert!(poll!(&mut promise1).is_pending());
             barrier.wait().await;
@@ -279,7 +280,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         }
     });
     let fut2 = tokio::spawn({
-        let barrier = barrier.clone(); // actually dupe
+        let barrier = triomphe_dupe(&barrier);
         async move {
             assert!(poll!(&mut promise2).is_pending());
             barrier.wait().await;
@@ -288,7 +289,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         }
     });
     let fut3 = tokio::spawn({
-        let barrier = barrier.clone(); // actually dupe
+        let barrier = triomphe_dupe(&barrier);
         async move {
             assert!(poll!(&mut promise3).is_pending());
             barrier.wait().await;
@@ -332,7 +333,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
     let g = lock.lock().await;
 
     let task = spawn_dice_task(&TokioSpawner, &(), {
-        let lock = lock.clone(); // actually dupe
+        let lock = triomphe_dupe(&lock);
         async move |handle| {
             let _g = lock.lock().await;
             // wait for the lock too
@@ -392,7 +393,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
     let task = spawn_dice_task(&TokioSpawner, &(), {
-        let sem = sem.clone(); // actually dupe
+        let sem = triomphe_dupe(&sem);
         async move |handle| {
             // wait for the lock too
             handle.finished(Ok(DiceComputedValue::new(

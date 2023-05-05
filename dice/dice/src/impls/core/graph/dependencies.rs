@@ -16,6 +16,7 @@ use dupe::Dupe;
 use triomphe::Arc;
 
 use crate::impls::key::DiceKey;
+use crate::impls::triomphe_dupe;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -37,7 +38,7 @@ impl VersionedDependencies {
     }
 
     pub(crate) fn deps(&self) -> Arc<Vec<DiceKey>> {
-        self.deps.clone() // actually dupe
+        triomphe_dupe(&self.deps) // actually dupe
     }
 
     pub(crate) fn replace_deps(&mut self, v: VersionNumber, deps: Arc<Vec<DiceKey>>) {

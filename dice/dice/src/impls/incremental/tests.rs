@@ -50,6 +50,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::transaction::ChangeType;
+use crate::impls::triomphe_dupe;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
@@ -221,7 +222,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let key = dice
         .key_index
         .index(CowDiceKey::Owned(DiceKeyErased::Key(std::sync::Arc::new(
-            IsRan(is_ran.clone()), // actually dupe
+            IsRan(triomphe_dupe(&is_ran)),
         ))));
 
     // set the initial state
@@ -405,7 +406,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let key = dice
         .key_index
         .index(CowDiceKey::Owned(DiceKeyErased::key(InstanceEqualKey(
-            instance.clone(), // actually dupe
+            triomphe_dupe(&instance),
         ))));
 
     let (tx, rx) = tokio::sync::oneshot::channel();

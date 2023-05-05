@@ -340,7 +340,7 @@ impl UserCycleDetector for CycleDetector {
             .push(CycleDetectorEvents::Start(*f));
         Some(Box::new(CycleDetectorGuard {
             key: *f,
-            events: self.events.clone(),
+            events: self.events.dupe(),
         }))
     }
 
@@ -380,7 +380,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
         let events = Arc::new(Mutex::new(Vec::new()));
         let user_data = UserComputationData {
             cycle_detector: Some(Arc::new(CycleDetector {
-                events: events.clone(),
+                events: events.dupe(),
             })),
             ..Default::default()
         };

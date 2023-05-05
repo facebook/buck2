@@ -34,6 +34,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
+use crate::impls::triomphe_dupe;
 use crate::impls::value::DiceComputedValue;
 
 ///
@@ -230,7 +231,3 @@ impl DiceTaskInternal {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
-
-fn triomphe_dupe<T>(t: &Arc<T>) -> Arc<T> {
-    t.clone() // triomphe arc is actually dupe
-}

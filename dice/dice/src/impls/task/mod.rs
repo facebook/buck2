@@ -18,6 +18,7 @@ use more_futures::spawner::Spawner;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::triomphe_dupe;
 
 pub(crate) mod dice;
 pub(crate) mod handle;
@@ -37,7 +38,7 @@ where
 {
     let internal = DiceTaskInternal::new();
     let handle = DiceTaskHandle {
-        internal: internal.clone(),
+        internal: triomphe_dupe(&internal),
         cancellations: CancellationContext::todo(),
     };
 
