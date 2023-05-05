@@ -45,48 +45,74 @@ mod vtable;
 ///
 /// ```ignore
 /// #[starlark_module]
-/// fn global(registry: &mut GlobalsBuilder) {
+/// fn global(builder: &mut GlobalsBuilder) {
 ///     fn cc_binary(name: &str, srcs: Vec<&str>) -> String {
 ///         Ok(format!("{:?} {:?}", name, srcs))
 ///     }
 /// }
 /// ```
 ///
-/// Parameters operate as named parameters of a given type, with six possible tweaks:
+/// Parameters operate as named parameters of a given type. Each parameter will be unpacked with `UnpackValue`, unless:
 ///
-/// * `this` (or `_this`) as the first argument means the argument is passed as a
-///   bound method value, e.g. in `a.f(...)` the `a` would be `this`.
-/// * `args` means the argument is the `*args`.
-/// * `kwargs` means the argument is the `**kwargs`.
-/// * `ref name` means the argument must be passed by position, not by name.
-/// * A type of `Option` means the argument is optional.
-/// * A annotation `#[starlark(default = foo)] x : bool` means the argument defaults to `foo`
-///   if not specified.
+/// * It is type `Option`, in which case it will be considered optional.
+/// * It is a single argument of type `Arguments`, in which case all arguments will be passed together with minimal interpretation.
 ///
-/// During execution there are two local variables injected into scope:
+/// There are a number of attributes that can be made to each parameter by writing attributes before the
+/// parameter name:
 ///
-/// * `eval` is the `Evaluator`.
-/// * `heap` is the `Heap`, obtained from `eval.heap()`.
+/// * `#[starlark(default = "a default")]` - provide a deafult for the parameter if it is omitted.
+/// * `#[starlark(require = pos)]` - require the parameter to be passed by position, not named.
+/// * `#[starlark(require = named)]` - require the parameter to be passed by name, not by position.
+/// * `#[starlark(args)]` - treat the argument as `*args` in Starlark, receiving all additional positional arguments as a tuple.
+/// * `#[starlark(kwargs)]` - treat the argument as `**kwargs` in Starlark, receiving all additional named arguments as a dictionary.
+/// * `#[starlark(type = "foo")]` - give a custom type for the documentation.
 ///
-/// A function with the `#[starlark_module]` attribute can be added to a `GlobalsBuilder` value
-/// using the `with` function. Those `Globals` can be passed to `Evaluator` to provide global functions.
-/// Alternatively, you can return `Globals` from `get_methods` to _attach_ functions to
-/// a specific type (e.g. the `string` type).
+/// There are a number of attributes that can be applied to the entire function by writing attributes
+/// before the `fn` of the function:
 ///
-/// * When unattached, you can define constants with `const`. We define `True`, `False` and
-///   `None` that way.
-/// * When attached, you can annotate the functions with `#[starlark(attribute)]` to turn the name into
-///   an attribute on the value. Such a function must take exactly one argument, namely a value
-///   of the type you have attached it to.
-/// * The attribute `#[starlark(type = "test")]` causes `f.type` to return `"test"`.
-/// * If a member is annotated with `#[starlark(speculative_exec_safe)]`, then a function
+/// * `#[starlark(type = "foo")]` - if the function has `.type` applied, return this string. Usually used on
+///   constructor functions so that `ctor.type` can be used in Starlark code.
+/// * `#[starlark(return_type = "foo")]` - the return type of the function used for documention.
+/// * `#[starlark(speculative_exec_safe)]` - the function
 ///   is considered safe to execute speculatively: the function should have
 ///   no global side effects, should not panic, and should finish in reasonable time.
 ///   The evaluator may invoke such functions early to generate more efficient code.
+/// * `#[starlark(attribute)]` to turn the name into
+///   an attribute on the value. Such a function must take exactly one argument, namely a value
+///   of the type you have attached it to.
+///
+/// Multiple attributes can be specified either separately `#[starlark(require = named)] #[starlark(default = "")]` or
+/// separated with a comman `#[starlark(require = named, default = "")]`.
+///
+/// There are two special arguments, distinguished by their type, which provides access to interpreter state:
+///
+/// * `heap: &'v Heap` gives access to the Starlark heap, for allocating things.
+/// * `eval: &mut Evaluator<'v, '_>` gives access to the Starlark evaluator, which can be used to look at interpreter state.
+///
+/// A module can be used to define globals (with `GlobalsBuilder`) or methods on an object (with `MethodsBuilder`).
+/// In the case of methods, the first argument to each function will be the object itself, typically named `this`.
 ///
 /// All these functions interoperate properly with `dir()`, `getattr()` and `hasattr()`.
 ///
 /// If a desired function name is also a Rust keyword, use the `r#` prefix, e.g. `r#type`.
+///
+/// As a more complex example:
+///
+/// ```ignore
+/// #[starlark_module]
+/// fn methods(builder: &mut MethodsBuilder) {
+///     fn r#enum<'v>(
+///         this: Value<'v>,
+///         #[starlark(require = named, default = 3)] index: i32,
+///         heap: &'v Heap,
+///     ) -> anyhow::Result<StringValue<'v>> {
+///         Ok(heap.alloc_str(&format!("{this} {index}")))
+///     }
+/// }
+/// ```
+///
+/// This defines a method such that when attached to an object `object.enum(index = 12)` will
+/// return the string of the object and the index.
 #[proc_macro_attribute]
 pub fn starlark_module(attr: TokenStream, input: TokenStream) -> TokenStream {
     module::starlark_module(attr, input)

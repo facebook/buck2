@@ -20,8 +20,12 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
+use crate::environment::MethodsBuilder;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::Value;
 
-// The example from the starlark_module documentation.
+// The examples from the starlark_module documentation.
 #[test]
 fn test_starlark_module() {
     #[starlark_module]
@@ -39,4 +43,20 @@ fn test_starlark_module() {
         v.value().unpack_str().unwrap(),
         r#""star" ["a.cc", "b.cc"]"#
     );
+}
+
+#[test]
+fn test_starlark_methods() {
+    #[starlark_module]
+    fn methods(builder: &mut MethodsBuilder) {
+        fn r#enum<'v>(
+            this: Value<'v>,
+            #[starlark(require = named, default = 3)] index: i32,
+            heap: &'v Heap,
+        ) -> anyhow::Result<StringValue<'v>> {
+            Ok(heap.alloc_str(&format!("{this} {index}")))
+        }
+    }
+
+    MethodsBuilder::new().with(methods).build();
 }
