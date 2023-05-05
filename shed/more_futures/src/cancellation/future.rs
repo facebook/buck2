@@ -184,18 +184,26 @@ where
 
 pub struct CancellationHandle {
     shared_state: SharedState,
+    observer: Shared<TerminationObserver>,
+    sender: oneshot::Sender<TerminationStatus>,
 }
 
 impl CancellationHandle {
     fn new(shared_state: SharedState) -> Self {
-        CancellationHandle { shared_state }
+        let (sender, observer) = oneshot::channel();
+
+        let observer = TerminationObserver { receiver: observer }.shared();
+
+        CancellationHandle {
+            shared_state,
+            observer,
+            sender,
+        }
     }
 
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
-    pub fn cancel(self) -> TerminationObserver {
-        let (tx, rx) = oneshot::channel();
-
+    pub fn cancel(self) -> Shared<TerminationObserver> {
         // Store to the boolean first before we write to state.
         // This is because on `poll`, the future will update the state first then check the boolean.
         // This ordering ensures that either the `poll` has read our cancellation, and hence will
@@ -213,14 +221,14 @@ impl CancellationHandle {
             }
             State::Exited => {
                 // Nothing to do, that future is done.
-                let _ = tx.send(TerminationStatus::Finished);
+                let _ = self.sender.send(TerminationStatus::Finished);
             }
             State::Pending => {
                 // future never started, so it's immediately canceled
-                let _ = tx.send(TerminationStatus::Cancelled);
+                let _ = self.sender.send(TerminationStatus::Cancelled);
             }
             state @ State::Polled { .. } => {
-                let old = std::mem::replace(state, State::Cancelled { tx });
+                let old = std::mem::replace(state, State::Cancelled { tx: self.sender });
                 match old {
                     State::Polled { waker } => waker.wake(),
                     _ => {
@@ -230,7 +238,11 @@ impl CancellationHandle {
             }
         };
 
-        TerminationObserver { receiver: rx }
+        self.observer
+    }
+
+    pub(crate) fn termination_observer(&self) -> Shared<TerminationObserver> {
+        self.observer.clone()
     }
 }
 
@@ -241,7 +253,7 @@ pub struct TerminationObserver {
     receiver: oneshot::Receiver<TerminationStatus>,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, Dupe, PartialEq, Eq, Debug)]
 pub enum TerminationStatus {
     Finished,
     Cancelled,

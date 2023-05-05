@@ -19,8 +19,10 @@ use std::task::Poll;
 use allocative::Allocative;
 use futures::future::BoxFuture;
 use futures::future::Future;
+use futures::future::Shared;
 use futures::FutureExt;
 use pin_project::pin_project;
+use pin_project::pinned_drop;
 use thiserror::Error;
 use tracing::Instrument;
 use tracing::Span;
@@ -30,6 +32,7 @@ use crate::cancellable_future::StrongRefCount;
 use crate::cancellable_future::WeakRefCount;
 use crate::cancellation::future::make_cancellable_future;
 use crate::cancellation::future::CancellationHandle;
+use crate::cancellation::future::TerminationObserver;
 use crate::cancellation::CancellationContext;
 use crate::instrumented_shared::SharedEvents;
 use crate::instrumented_shared::SharedEventsFuture;
@@ -221,10 +224,7 @@ pub fn spawn_cancellable_with_preamble<F, T, P, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> (
-    BoxFuture<'static, Result<T, WeakFutureError>>,
-    CancellationHandle,
-)
+) -> (CancellableJoinHandle<T>, CancellationHandle)
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
     P: Future<Output = ()> + Send + 'static,
@@ -262,7 +262,7 @@ where
         })
         .boxed();
 
-    (task, cancellation_handle)
+    (CancellableJoinHandle(task), cancellation_handle)
 }
 
 /// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
@@ -272,10 +272,7 @@ pub fn spawn_cancellable<F, T, S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     span: Span,
-) -> (
-    BoxFuture<'static, Result<T, WeakFutureError>>,
-    CancellationHandle,
-)
+) -> (CancellableJoinHandle<T>, CancellationHandle)
 where
     for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
     T: Any + Send + 'static,
@@ -283,13 +280,77 @@ where
     spawn_cancellable_with_preamble(f, futures::future::ready(()), spawner, ctx, span)
 }
 
+#[pin_project]
+pub struct CancellableJoinHandle<T>(#[pin] BoxFuture<'static, Result<T, WeakFutureError>>);
+
+impl<T> Future for CancellableJoinHandle<T> {
+    type Output = Result<T, WeakFutureError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().0.poll(cx)
+    }
+}
+
+#[pin_project(PinnedDrop)]
+pub struct DropCancelFuture<T> {
+    #[pin]
+    fut: BoxFuture<'static, Result<T, WeakFutureError>>,
+    cancellation_handle: Option<CancellationHandle>,
+}
+
+impl<T> Future for DropCancelFuture<T> {
+    type Output = T;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.project().fut.poll(cx).map(|r| {
+            // since the lifetime of this future is responsible for cancellation, this future can't
+            // possibly have been canceled.
+            // We can only have join errors, which is when the executor shuts down. To be consistent
+            // with existing spawn behaviour, we can ignore that.
+            r.unwrap()
+        })
+    }
+}
+
+#[pinned_drop]
+impl<T> PinnedDrop for DropCancelFuture<T> {
+    fn drop(mut self: Pin<&mut Self>) {
+        // ignore the termination future of when we actually shutdown. The creator of this
+        // DropCancelFuture has the termination future as well that it can use to observe termination
+        // if it cares
+        let _cancel = self
+            .cancellation_handle
+            .take()
+            .expect("dropped twice")
+            .cancel();
+    }
+}
+
+impl<T> CancellableJoinHandle<T> {
+    pub fn into_drop_cancel(
+        self,
+        cancellation_handle: CancellationHandle,
+    ) -> (DropCancelFuture<T>, Shared<TerminationObserver>) {
+        let termination_observer = cancellation_handle.termination_observer();
+
+        let fut = DropCancelFuture {
+            fut: self.0,
+            cancellation_handle: Some(cancellation_handle),
+        };
+
+        (fut, termination_observer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::assert_matches::assert_matches;
     use std::sync::Arc;
 
     use tokio::sync::oneshot;
 
     use super::*;
+    use crate::cancellation::future::TerminationStatus;
     use crate::spawner::TokioSpawner;
 
     #[derive(Default)]
@@ -368,10 +429,45 @@ mod tests {
         // Now, release the task. In all likelihood it will have already exited, but
         let _ignored = release_task.send(());
 
-        cancelled.await;
+        assert_eq!(cancelled.await, TerminationStatus::Cancelled);
 
         // The task should never get to sending in notify_success since cancellation was trigger,
         // but it *should* drop the channel itself.
+        recv_success.await.unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn test_cancellation_of_cancellable_convert_dropcancel() {
+        let (release_task, recv_release_task) = oneshot::channel();
+        let (notify_success, recv_success) = oneshot::channel();
+
+        let sp = Arc::new(TokioSpawner::default());
+
+        let (task, cancellation_handle) = spawn_cancellable_with_preamble(
+            move |_| {
+                async move {
+                    recv_release_task.await.unwrap();
+                    notify_success.send(()).unwrap();
+                }
+                .boxed()
+            },
+            futures::future::ready(()),
+            sp.as_ref(),
+            &MockCtx::default(),
+            tracing::debug_span!("test"),
+        );
+
+        let (drop_cancel, termination_observer) = task.into_drop_cancel(cancellation_handle);
+
+        drop(drop_cancel);
+
+        // Now, release the task. In all likelihood it will have already exited, but
+        let _ignored = release_task.send(());
+
+        assert_eq!(termination_observer.await, TerminationStatus::Cancelled);
+
+        // The task should never get to sending in notify_success since all its referenced had been
+        // dropped at that point, but it *should* drop the channel itself.
         recv_success.await.unwrap_err();
     }
 
@@ -390,5 +486,32 @@ mod tests {
 
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
+    }
+
+    #[tokio::test]
+    async fn test_spawn_cancellable_convert_to_dropcancel() {
+        let sp = Arc::new(TokioSpawner::default());
+        let fut = async { "Hello world!" }.boxed();
+
+        let (task, cancellation_handle) = spawn_cancellable_with_preamble(
+            |_| fut,
+            futures::future::ready(()),
+            sp.as_ref(),
+            &MockCtx::default(),
+            tracing::debug_span!("test"),
+        );
+
+        let (task, termination_observer) = task.into_drop_cancel(cancellation_handle);
+
+        futures::pin_mut!(termination_observer);
+        assert_matches!(futures::poll!(&mut termination_observer), Poll::Pending);
+
+        let res = task.await;
+        assert_eq!(res, "Hello world!");
+
+        assert_matches!(
+            futures::poll!(&mut termination_observer),
+            Poll::Ready(TerminationStatus::Finished)
+        );
     }
 }
