@@ -149,7 +149,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
 
     # When linking, we expect each linked object to provide the transitively required swiftmodule AST entries for linking.
     swiftmodule_linkable = get_swiftmodule_linkable(ctx, swift_compile.dependency_info) if swift_compile else None
-    swift_dependency_info = swift_compile.dependency_info if swift_compile else [get_swift_dependency_info(ctx, exported_pre, None)]
+    swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, exported_pre, None)
     swift_argsfile = swift_compile.swift_argsfile if swift_compile else None
 
     modular_pre = CPreprocessor(
@@ -178,7 +178,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             exported_pre,
         )
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
-        return providers + swift_dependency_info
+        return providers + [swift_dependency_info]
 
     framework_search_path_pre = CPreprocessor(
         args = [get_framework_search_path_flags(ctx)],
@@ -272,12 +272,10 @@ def _get_shared_link_style_sub_targets_and_providers(
         providers += [AppleBundleLinkerMapInfo(linker_maps = [linker_map.map])]
     return (subtargets, providers)
 
-def _get_external_debug_info(swift_dependency_infos: [SwiftDependencyInfo.type]) -> [ExternalDebugInfoTSet.type]:
-    tsets = []
-    for info in swift_dependency_infos:
-        if info.external_debug_info:
-            tsets.append(info.external_debug_info)
-    return tsets
+def _get_external_debug_info(swift_dependency_info: SwiftDependencyInfo.type) -> [ExternalDebugInfoTSet.type]:
+    if swift_dependency_info.external_debug_info:
+        return [swift_dependency_info.external_debug_info]
+    return []
 
 def _get_linker_flags(ctx: "context") -> "cmd_args":
     return cmd_args(get_min_deployment_version_target_linker_flags(ctx))

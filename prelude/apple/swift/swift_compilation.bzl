@@ -71,9 +71,9 @@ SwiftCompilationOutput = record(
     object_file = field("artifact"),
     # The swiftmodule file output from compilation.
     swiftmodule = field("artifact"),
-    # The dependency info providers that provide the swiftmodule
+    # The dependency info provider that contains the swiftmodule
     # search paths required for compilation and linking.
-    dependency_info = field([SwiftDependencyInfo.type]),
+    dependency_info = field(SwiftDependencyInfo.type),
     # Preprocessor info required for ObjC compilation of this library.
     pre = field(CPreprocessor.type),
     # Exported preprocessor info required for ObjC compilation of rdeps.
@@ -221,7 +221,7 @@ def compile_swift(
     return SwiftCompilationOutput(
         object_file = output_object,
         swiftmodule = output_swiftmodule,
-        dependency_info = [get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule)],
+        dependency_info = get_swift_dependency_info(ctx, exported_pp_info, output_swiftmodule),
         pre = pre,
         exported_pre = exported_pp_info,
         swift_argsfile = swift_argsfile,
@@ -611,8 +611,8 @@ def uses_explicit_modules(ctx: "context") -> bool.type:
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 
-def get_swiftmodule_linkable(ctx: "context", dependency_infos: [SwiftDependencyInfo.type]) -> SwiftmoduleLinkable.type:
-    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [d.transitive_swiftmodule_paths for d in dependency_infos]))
+def get_swiftmodule_linkable(ctx: "context", dependency_info: SwiftDependencyInfo.type) -> SwiftmoduleLinkable.type:
+    return SwiftmoduleLinkable(tset = ctx.actions.tset(SwiftmodulePathsTSet, children = [dependency_info.transitive_swiftmodule_paths]))
 
 def extract_swiftmodule_linkables(link_infos: [[LinkInfo.type], None]) -> [SwiftmoduleLinkable.type]:
     swift_module_type = LinkableType("swiftmodule")
