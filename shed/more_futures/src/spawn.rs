@@ -130,7 +130,7 @@ impl<T: Clone> Future for CompletionObserver<T> {
 }
 
 /// Spawn a cancellable future. The preamble is a non-cancellable portion that can come before.
-pub fn spawn_task<T, S, P>(
+pub fn spawn_dropcancel_with_preamble<T, S, P>(
     future: T,
     preamble: P,
     spawner: &dyn Spawner<S>,
@@ -229,7 +229,7 @@ mod tests {
 
         let sp = Arc::new(TokioSpawner::default());
 
-        let (_task, poll) = spawn_task(
+        let (_task, poll) = spawn_dropcancel_with_preamble(
             async move {
                 recv_release_task.await.unwrap();
                 notify_success.send(()).unwrap();
@@ -256,7 +256,7 @@ mod tests {
         let sp = Arc::new(TokioSpawner::default());
         let fut = async { "Hello world!" };
 
-        let (_task, poll) = spawn_task(
+        let (_task, poll) = spawn_dropcancel_with_preamble(
             fut,
             futures::future::ready(()),
             sp.as_ref(),

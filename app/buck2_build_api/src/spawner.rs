@@ -46,7 +46,7 @@ mod tests {
     use dice::DiceData;
     use dice::UserComputationData;
     use futures::future::FutureExt;
-    use more_futures::spawn::spawn_task;
+    use more_futures::spawn::spawn_dropcancel_with_preamble;
 
     use super::*;
 
@@ -141,14 +141,14 @@ mod tests {
         }
         .boxed();
 
-        let (_, poll1) = spawn_task(
+        let (_, poll1) = spawn_dropcancel_with_preamble(
             task1,
             futures::future::ready(()),
             sp.as_ref(),
             &ctx1,
             tracing::debug_span!("test"),
         );
-        let (_, poll2) = spawn_task(
+        let (_, poll2) = spawn_dropcancel_with_preamble(
             task2,
             futures::future::ready(()),
             sp.as_ref(),

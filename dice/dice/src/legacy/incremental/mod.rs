@@ -39,7 +39,7 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellation::CancellationContext;
-use more_futures::spawn::spawn_task;
+use more_futures::spawn::spawn_dropcancel_with_preamble;
 use more_futures::spawn::CompletionObserver;
 use parking_lot::MappedRwLockReadGuard;
 use parking_lot::RwLock;
@@ -520,7 +520,7 @@ where
         spawner_ctx: &UserComputationData,
         span: Span,
     ) -> (WeakDiceFutureHandle<K>, DiceFuture<K>) {
-        let (task, fut) = spawn_task(
+        let (task, fut) = spawn_dropcancel_with_preamble(
             future,
             preamble,
             spawner_ctx.spawner.as_ref(),
