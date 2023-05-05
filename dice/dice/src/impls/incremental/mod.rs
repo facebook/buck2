@@ -191,7 +191,7 @@ impl IncrementalEngine {
                     eval,
                     &transaction_ctx,
                     cycles,
-                    events_dispatcher,
+                    &events_dispatcher,
                     task_handle,
                 )
                 .await;
@@ -209,7 +209,7 @@ impl IncrementalEngine {
                         mismatch.deps_to_validate,
                         &extra,
                         &cycles,
-                        events_dispatcher.dupe(),
+                        &events_dispatcher,
                     )
                     .await
                 {
@@ -219,7 +219,7 @@ impl IncrementalEngine {
                             eval,
                             &transaction_ctx,
                             cycles,
-                            events_dispatcher,
+                            &events_dispatcher,
                             task_handle,
                         )
                         .await;
@@ -255,7 +255,7 @@ impl IncrementalEngine {
         eval: AsyncEvaluator,
         transaction_ctx: &SharedLiveTransactionCtx,
         cycles: UserCycleDetectorData,
-        event_dispatcher: DiceEventDispatcher,
+        event_dispatcher: &DiceEventDispatcher,
         task_handle: DiceTaskHandle<'_>,
     ) {
         task_handle.computing();
@@ -328,7 +328,7 @@ impl IncrementalEngine {
         deps: Arc<Vec<DiceKey>>,
         extra: &std::sync::Arc<UserComputationData>,
         cycles: &UserCycleDetectorData,
-        events: DiceEventDispatcher,
+        events: &DiceEventDispatcher,
     ) -> DidDepsChange {
         if deps.is_empty() {
             return DidDepsChange::NoDeps;

@@ -113,7 +113,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &user_data,
                 &cycles,
-                events.dupe(),
+                &events,
             )
             .await
             .is_changed()
@@ -142,7 +142,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &user_data,
                 &cycles,
-                events.dupe(),
+                &events,
             )
             .await
             .is_changed()
@@ -171,7 +171,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 200 }]),
                 &user_data,
                 &cycles,
-                events.dupe(),
+                &events,
             )
             .await
             .is_changed()

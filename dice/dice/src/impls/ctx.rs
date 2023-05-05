@@ -296,7 +296,7 @@ impl SharedLiveTransactionCtx {
                     eval,
                     self.dupe(),
                     cycles,
-                    events,
+                    events.dupe(),
                 );
 
                 let fut = task.depended_on_by(parent_key);
