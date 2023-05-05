@@ -39,8 +39,6 @@ pub enum QueryEnvironmentError {
     MissingTargetError(String, Vec<String>),
     #[error("Expected package `{0}` to be available in traversal.")]
     TraversalMissingPackage(PackageLabel),
-    #[error("Dependency cycle, didn't manage to visit `{0}` which is a dependency of `{1}`")]
-    DependencyCycle(String, String),
 }
 
 impl QueryEnvironmentError {
