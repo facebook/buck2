@@ -8,7 +8,6 @@
  */
 
 //! A task stored by Dice that is shared for all transactions at the same version
-use std::any::Any;
 use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -18,9 +17,9 @@ use allocative::Allocative;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
+use more_futures::cancellation::future::CancellationHandle;
 use parking_lot::Mutex;
 use slab::Slab;
-use tokio::task::JoinHandle;
 use triomphe::Arc;
 
 use crate::api::error::DiceResult;
@@ -58,9 +57,9 @@ use crate::impls::value::DiceComputedValue;
 #[derive(Allocative)]
 pub(crate) struct DiceTask {
     pub(super) internal: Arc<DiceTaskInternal>,
-    /// The spawned task that is responsible for completing this task.
+    /// Handle to cancel the spawned task
     #[allocative(skip)]
-    pub(super) spawned: Option<JoinHandle<Box<dyn Any + Send>>>,
+    pub(super) cancellation_handle: Option<CancellationHandle>,
 }
 
 #[derive(Allocative)]

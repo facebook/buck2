@@ -84,22 +84,25 @@ impl IncrementalEngine {
         events_dispatcher: DiceEventDispatcher,
     ) -> DiceTask {
         let extra_dupe = extra.dupe();
-        spawn_dice_task(&*extra.spawner, extra, async move |handle| {
-            let engine = IncrementalEngine::new(state);
+        spawn_dice_task(&*extra.spawner, extra, move |handle| {
+            async move {
+                let engine = IncrementalEngine::new(state);
 
-            engine
-                .eval_entry_versioned(
-                    k,
-                    eval,
-                    transaction_ctx,
-                    cycles,
-                    events_dispatcher,
-                    handle,
-                    extra_dupe,
-                )
-                .await;
+                engine
+                    .eval_entry_versioned(
+                        k,
+                        eval,
+                        transaction_ctx,
+                        cycles,
+                        events_dispatcher,
+                        handle,
+                        extra_dupe,
+                    )
+                    .await;
 
-            Box::new(()) as Box<dyn Any + Send + 'static>
+                Box::new(()) as Box<dyn Any + Send + 'static>
+            }
+            .boxed()
         })
     }
 

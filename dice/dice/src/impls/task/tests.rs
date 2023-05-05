@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use futures::poll;
+use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
@@ -55,54 +56,25 @@ impl Key for K {
 }
 
 #[tokio::test]
-async fn simple_immediately_ready_task() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
-        handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::empty()),
-        )));
-
-        futures::future::ready(Box::new(()) as Box<dyn Any + Send + 'static>)
-    });
-
-    assert!(!task.is_pending());
-
-    let promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
-
-    assert_eq!(task.inspect_waiters(), None);
-
-    let polled = futures::poll!(promise);
-
-    match polled {
-        Poll::Ready(v) => {
-            assert!(
-                v?.value()
-                    .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
-            )
-        }
-        Poll::Pending => panic!("Promise should be ready immediately"),
-    }
-
-    Ok(())
-}
-
-#[tokio::test]
 async fn simple_task() -> anyhow::Result<()> {
     let lock = Arc::new(Mutex::new(()));
 
     let lock_dupe = triomphe_dupe(&lock);
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
-        // wait for the lock too
-        let _lock = lock.lock().await;
+    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        async move {
+            // wait for the lock too
+            let _lock = lock.lock().await;
 
-        handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-            Arc::new(CellHistory::empty()),
-        )));
+            handle.finished(Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
+                Arc::new(CellHistory::empty()),
+            )));
 
-        Box::new(()) as Box<dyn Any + Send + 'static>
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        }
+        .boxed()
     });
 
     assert!(task.is_pending());
@@ -144,14 +116,17 @@ async fn simple_task() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), async move |handle| {
-        // wait for the lock too
-        handle.finished(Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-            Arc::new(CellHistory::empty()),
-        )));
+    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+        async move {
+            // wait for the lock too
+            handle.finished(Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
+                Arc::new(CellHistory::empty()),
+            )));
 
-        Box::new(()) as Box<dyn Any + Send + 'static>
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        }
+        .boxed()
     });
 
     let promise1 = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
@@ -332,15 +307,20 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(&TokioSpawner, &(), {
         let lock = triomphe_dupe(&lock);
-        async move |handle| {
-            let _g = lock.lock().await;
-            // wait for the lock too
-            handle.finished(Ok(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(CellHistory::empty()),
-            )));
+        |handle| {
+            async move {
+                let _g = lock.lock().await;
+                // wait for the lock too
+                handle.finished(Ok(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(2),
+                    )),
+                    Arc::new(CellHistory::empty()),
+                )));
 
-            Box::new(()) as Box<dyn Any + Send + 'static>
+                Box::new(()) as Box<dyn Any + Send + 'static>
+            }
+            .boxed()
         }
     });
 
@@ -392,16 +372,21 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     let task = spawn_dice_task(&TokioSpawner, &(), {
         let sem = triomphe_dupe(&sem);
-        async move |handle| {
-            // wait for the lock too
-            handle.finished(Ok(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(CellHistory::empty()),
-            )));
+        |handle| {
+            async move {
+                // wait for the lock too
+                handle.finished(Ok(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(2),
+                    )),
+                    Arc::new(CellHistory::empty()),
+                )));
 
-            sem.add_permits(1);
+                sem.add_permits(1);
 
-            Box::new(()) as Box<dyn Any + Send + 'static>
+                Box::new(()) as Box<dyn Any + Send + 'static>
+            }
+            .boxed()
         }
     });
 
