@@ -34,7 +34,7 @@ use crate::HashSet;
 #[derive(Clone, Dupe)]
 pub(crate) struct AsyncEvaluator {
     per_live_version_ctx: SharedLiveTransactionCtx,
-    user_data: Arc<UserComputationData>,
+    pub(crate) user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
 }
 
@@ -99,7 +99,6 @@ impl AsyncEvaluator {
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself
                         self.dice.state_handle.dupe(),
                         self.dupe(),
-                        &self.user_data,
                         cycles,
                         DiceEventDispatcher::new(self.user_data.tracker.dupe(), self.dice.dupe()),
                     )

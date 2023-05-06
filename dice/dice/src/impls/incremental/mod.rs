@@ -45,7 +45,6 @@ use crate::impls::task::spawn_dice_task;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
-use crate::UserComputationData;
 
 #[cfg(test)]
 mod tests;
@@ -76,27 +75,24 @@ impl IncrementalEngine {
 
     pub(crate) fn spawn_for_key(
         state: CoreStateHandle,
-        extra: &std::sync::Arc<UserComputationData>,
         k: DiceKey,
         eval: AsyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
         cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
     ) -> DiceTask {
-        let extra_dupe = extra.dupe();
-        spawn_dice_task(&*extra.spawner, extra, move |handle| {
+        let eval_dupe = eval.dupe();
+        spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
             async move {
                 let engine = IncrementalEngine::new(state);
-
                 engine
                     .eval_entry_versioned(
                         k,
-                        eval,
+                        eval_dupe,
                         transaction_ctx,
                         cycles,
                         events_dispatcher,
                         handle,
-                        extra_dupe,
                     )
                     .await;
 
@@ -168,7 +164,6 @@ impl IncrementalEngine {
         mut cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle<'_>,
-        extra: std::sync::Arc<UserComputationData>,
     ) {
         let v = transaction_ctx.get_version();
         let (tx, rx) = oneshot::channel();
@@ -213,7 +208,6 @@ impl IncrementalEngine {
                         &transaction_ctx,
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
-                        &extra,
                         &cycles,
                         &events_dispatcher,
                     )
@@ -324,7 +318,7 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, eval, extra, events, cycles),
+        skip(self, transaction_ctx, eval, events, cycles),
         fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
@@ -334,7 +328,6 @@ impl IncrementalEngine {
         transaction_ctx: &SharedLiveTransactionCtx,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
-        extra: &std::sync::Arc<UserComputationData>,
         cycles: &UserCycleDetectorData,
         events: &DiceEventDispatcher,
     ) -> DidDepsChange {
@@ -351,7 +344,6 @@ impl IncrementalEngine {
                         parent_key,
                         self.state.dupe(),
                         eval.dupe(),
-                        extra,
                         cycles.subrequest(*dep),
                         events.dupe(),
                     )

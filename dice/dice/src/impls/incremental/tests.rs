@@ -111,7 +111,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(1)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &user_data,
                 &cycles,
                 &events,
             )
@@ -140,7 +139,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
-                &user_data,
                 &cycles,
                 &events,
             )
@@ -169,7 +167,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                     VersionNumber::new(2)
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
-                &user_data,
                 &cycles,
                 &events,
             )
@@ -262,7 +259,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         dice.state_handle.dupe(),
-        &user_data,
         key.dupe(),
         eval.dupe(),
         ctx,
@@ -296,7 +292,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         dice.state_handle.dupe(),
-        &user_data,
         key.dupe(),
         eval.dupe(),
         ctx,
@@ -334,7 +329,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         dice.state_handle.dupe(),
-        &user_data,
         key.dupe(),
         eval.dupe(),
         ctx,
@@ -421,7 +415,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         dice.state_handle.dupe(),
-        &user_data,
         key.dupe(),
         eval.dupe(),
         ctx,
@@ -442,7 +435,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         dice.state_handle.dupe(),
-        &user_data,
         key.dupe(),
         eval.dupe(),
         ctx,
