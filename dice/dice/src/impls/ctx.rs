@@ -65,11 +65,9 @@ pub(crate) struct PerComputeCtx {
 
 #[derive(Allocative)]
 pub(crate) struct PerComputeCtxData {
-    per_live_version_ctx: SharedLiveTransactionCtx,
-    user_data: Arc<UserComputationData>,
+    async_evaluator: AsyncEvaluator,
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     parent_key: ParentKey,
-    dice: Arc<DiceModern>,
     #[allocative(skip)]
     cycles: UserCycleDetectorData,
 }
@@ -85,11 +83,13 @@ impl PerComputeCtx {
     ) -> Self {
         Self {
             data: Arc::new(PerComputeCtxData {
-                per_live_version_ctx,
-                user_data,
+                async_evaluator: AsyncEvaluator {
+                    per_live_version_ctx,
+                    user_data,
+                    dice,
+                },
                 dep_trackers: Mutex::new(RecordingDepsTracker::new()),
                 parent_key,
-                dice,
                 cycles,
             }),
         }
@@ -122,20 +122,18 @@ impl PerComputeCtx {
     {
         let dice_key = self
             .data
+            .async_evaluator
             .dice
             .key_index
             .index(CowDiceKey::Ref(DiceKeyErasedRef::key(key)));
 
         self.data
+            .async_evaluator
             .per_live_version_ctx
             .compute_opaque(
                 dice_key,
                 self.data.parent_key,
-                AsyncEvaluator::new(
-                    self.data.per_live_version_ctx.dupe(),
-                    self.data.user_data.dupe(),
-                    self.data.dice.dupe(),
-                ),
+                self.data.async_evaluator.dupe(),
                 self.data.cycles.subrequest(dice_key),
             )
             .map(move |dice_result| {
@@ -157,17 +155,26 @@ impl PerComputeCtx {
     {
         let dice_key = self
             .data
+            .async_evaluator
             .dice
             .key_index
             .index(CowDiceKey::Ref(DiceKeyErasedRef::proj(base_key, key)));
 
         self.data
+            .async_evaluator
             .per_live_version_ctx
             .compute_projection(
                 dice_key,
-                self.data.dice.state_handle.dupe(),
-                SyncEvaluator::new(self.data.user_data.dupe(), self.data.dice.dupe(), base),
-                DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
+                self.data.async_evaluator.dice.state_handle.dupe(),
+                SyncEvaluator::new(
+                    self.data.async_evaluator.user_data.dupe(),
+                    self.data.async_evaluator.dice.dupe(),
+                    base,
+                ),
+                DiceEventDispatcher::new(
+                    self.data.async_evaluator.user_data.tracker.dupe(),
+                    self.data.async_evaluator.dice.dupe(),
+                ),
             )
             .map(|r| {
                 self.data
@@ -211,8 +218,8 @@ impl PerComputeCtx {
                 }
                 .boxed()
             },
-            self.data.user_data.spawner.as_ref(),
-            &self.data.user_data,
+            self.data.async_evaluator.user_data.spawner.as_ref(),
+            &self.data.async_evaluator.user_data,
             debug_span!(parent: None, "spawned_task",),
         )
         .into_drop_cancel()
@@ -222,7 +229,7 @@ impl PerComputeCtx {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.data.dice.global_data
+        &self.data.async_evaluator.dice.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -230,15 +237,18 @@ impl PerComputeCtx {
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
-        &self.data.user_data
+        &self.data.async_evaluator.user_data
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.per_live_version_ctx.get_version()
+        self.data.async_evaluator.per_live_version_ctx.get_version()
     }
 
     pub(crate) fn into_updater(self) -> TransactionUpdater {
-        TransactionUpdater::new(self.data.dice.dupe(), self.data.user_data.dupe())
+        TransactionUpdater::new(
+            self.data.async_evaluator.dice.dupe(),
+            self.data.async_evaluator.user_data.dupe(),
+        )
     }
 
     pub(super) fn dep_trackers(&self) -> MutexGuard<'_, RecordingDepsTracker> {

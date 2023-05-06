@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 
@@ -30,7 +31,7 @@ use crate::HashSet;
 
 /// Evaluates Keys
 #[allow(unused)]
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, Allocative)]
 pub(crate) struct AsyncEvaluator {
     pub(crate) per_live_version_ctx: SharedLiveTransactionCtx,
     pub(crate) user_data: Arc<UserComputationData>,
