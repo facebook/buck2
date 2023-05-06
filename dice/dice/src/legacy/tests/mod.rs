@@ -60,7 +60,7 @@ impl InjectedKey for Foo {
 
 #[tokio::test]
 async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     {
         let mut ctx = dice.updater();
@@ -87,7 +87,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     {
         let mut ctx = dice.updater();
@@ -111,7 +111,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn updates_caches_only_on_ctx_finalize_in_order() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     {
         let mut ctx = dice.updater();
@@ -213,7 +213,7 @@ impl Key for K {
 
 #[test]
 fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -263,7 +263,7 @@ fn ctx_tracks_deps_properly() -> anyhow::Result<()> {
 
 #[test]
 fn ctx_tracks_rdeps_properly() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(1)
@@ -391,7 +391,7 @@ fn dice_computations_are_parallel() {
     }
 
     rt.block_on(async move {
-        let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+        let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
         let mut sum = 0;
 
         let dice = &dice;
@@ -444,7 +444,7 @@ async fn different_data_per_compute_ctx() {
         }
     }
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
     let per_cmd_data0 = {
         let mut d = UserComputationData::new();
         d.data.set(U(0));
@@ -496,7 +496,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
         let ctx = dice.updater().commit().await;
@@ -584,7 +584,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let ctx = dice.updater().commit().await;
     let validity = Arc::new(AtomicBool::new(false));
@@ -648,7 +648,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let ctx = dice.updater().commit().await;
 
@@ -783,7 +783,7 @@ impl UserCycleDetectorGuard for CycleDetectorGuard {
 
 #[test]
 fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Disabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Disabled, WhichSpawner::ExplicitCancel);
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -840,7 +840,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> {
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     {
         let ctx = dice.updater().commit().await;
@@ -955,7 +955,11 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
 
 #[test]
 fn test_active_transaction_count() {
-    let dice = Arc::new(DiceLegacy::new(DiceData::new(), DetectCycles::Enabled));
+    let dice = Arc::new(DiceLegacy::new(
+        DiceData::new(),
+        DetectCycles::Enabled,
+        WhichSpawner::ExplicitCancel,
+    ));
     assert_eq!(0, dice.metrics().active_transaction_count);
     let ctx = dice.updater().commit();
     assert_eq!(1, dice.metrics().active_transaction_count);
@@ -989,7 +993,7 @@ fn invalid_update() {
         }
     }
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
     let mut updater = dice.updater();
 
     assert!(updater.changed_to([(Invalid, ())]).is_err());

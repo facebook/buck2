@@ -99,6 +99,7 @@ mod tests {
     use crate::legacy::DiceLegacy;
     use crate::versions::VersionNumber;
     use crate::StoragePropertiesForKey;
+    use crate::WhichSpawner;
 
     #[tokio::test]
     async fn test_find_caches() {
@@ -127,7 +128,7 @@ mod tests {
         }
 
         let mut map = DiceMap::new();
-        let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+        let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
         let cache = map.find_cache(|| IncrementalEngine::new(StoragePropertiesForKey::new(&dice)));
         {
             cache.update_injected_value(MyKey, VersionNumber::new(0), Bar);

@@ -41,6 +41,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
+use crate::api::which::WhichSpawner;
 use crate::ctx::DiceComputationsImpl;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
@@ -72,6 +73,7 @@ pub(crate) struct DiceLegacy {
     pub(crate) active_transaction_count: AtomicU32,
     #[allocative(skip)]
     active_versions_observer: watch::Receiver<usize>,
+    which_spawner: WhichSpawner,
 }
 
 impl Debug for DiceLegacy {
@@ -93,8 +95,12 @@ impl DiceLegacyDataBuilder {
         self.0.set(val);
     }
 
-    pub fn build(self, detect_cycles: DetectCycles) -> Arc<DiceLegacy> {
-        DiceLegacy::new(self.0, detect_cycles)
+    pub fn build(
+        self,
+        detect_cycles: DetectCycles,
+        which_spawner: WhichSpawner,
+    ) -> Arc<DiceLegacy> {
+        DiceLegacy::new(self.0, detect_cycles, which_spawner)
     }
 }
 
@@ -104,7 +110,11 @@ impl DiceLegacy {
         DiceLegacyDataBuilder::new()
     }
 
-    pub(crate) fn new(data: DiceData, detect_cycles: DetectCycles) -> Arc<Self> {
+    pub(crate) fn new(
+        data: DiceData,
+        detect_cycles: DetectCycles,
+        which_spawner: WhichSpawner,
+    ) -> Arc<Self> {
         let map = Arc::new(RwLock::new(DiceMap::new()));
         let weak_map = Arc::downgrade(&map);
         let (active_versions_sender, active_versions_observer) = watch::channel(0);
@@ -128,6 +138,7 @@ impl DiceLegacy {
                 active_versions_sender.send_replace(update.active_version_count());
             })),
             detect_cycles,
+            which_spawner,
             active_transaction_count: AtomicU32::new(0),
             active_versions_observer,
         })

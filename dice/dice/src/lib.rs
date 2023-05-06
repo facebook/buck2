@@ -375,9 +375,11 @@ impl DiceDataBuilderImpl {
         }
     }
 
-    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
+    pub fn build(self, detect_cycles: DetectCycles, which_spawner: WhichSpawner) -> Arc<Dice> {
         Dice::new(match self {
-            DiceDataBuilderImpl::Legacy(d) => DiceImplementation::Legacy(d.build(detect_cycles)),
+            DiceDataBuilderImpl::Legacy(d) => {
+                DiceImplementation::Legacy(d.build(detect_cycles, which_spawner))
+            }
             DiceDataBuilderImpl::Modern(d) => DiceImplementation::Modern(d.build(detect_cycles)),
         })
     }

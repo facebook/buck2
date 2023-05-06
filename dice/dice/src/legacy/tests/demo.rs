@@ -29,6 +29,7 @@ use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::legacy::DiceLegacy;
+use crate::WhichSpawner;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]
 enum Encoding {
@@ -145,7 +146,7 @@ async fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled);
+    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;
