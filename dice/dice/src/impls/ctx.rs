@@ -133,7 +133,7 @@ impl PerComputeCtx {
             .compute_opaque(
                 dice_key,
                 self.data.parent_key,
-                self.data.async_evaluator.dupe(),
+                &self.data.async_evaluator,
                 self.data.cycles.subrequest(dice_key),
             )
             .map(move |dice_result| {
@@ -298,12 +298,13 @@ impl SharedLiveTransactionCtx {
         &self,
         key: DiceKey,
         parent_key: ParentKey,
-        eval: AsyncEvaluator,
+        eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
             Entry::Vacant(vacant) => {
+                let eval = eval.dupe();
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 

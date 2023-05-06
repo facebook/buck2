@@ -97,7 +97,7 @@ impl AsyncEvaluator {
                     .compute_opaque(
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself
-                        self.dupe(),
+                        self,
                         cycles,
                     )
                     .await?;

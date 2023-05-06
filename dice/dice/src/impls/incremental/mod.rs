@@ -312,7 +312,7 @@ impl IncrementalEngine {
             .iter()
             .map(|dep| {
                 eval.per_live_version_ctx
-                    .compute_opaque(dep.dupe(), parent_key, eval.dupe(), cycles.subrequest(*dep))
+                    .compute_opaque(dep.dupe(), parent_key, &eval, cycles.subrequest(*dep))
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })
             .collect();
