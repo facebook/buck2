@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo", "filter_debug_info")
 load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
 load(
@@ -73,11 +73,12 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
 
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
     if ctx.attrs._fast_adhoc_signing_enabled:
-        codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
+        apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+        adhoc_codesign_tool = apple_tools.adhoc_codesign_tool
     else:
-        codesign_tool = None
+        adhoc_codesign_tool = None
 
-    binary = selective_debugging_info.scrub_binary(ctx, binary, codesign_tool)
+    binary = selective_debugging_info.scrub_binary(ctx, binary, adhoc_codesign_tool)
 
     if not debuggable_info:
         return AppleBundleBinaryOutput(binary = binary)

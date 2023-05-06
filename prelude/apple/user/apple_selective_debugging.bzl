@@ -64,14 +64,14 @@ def _impl(ctx: "context") -> ["provider"]:
     else:
         fail("Expected json_type to be either `targets` or `spec`.")
 
-    def scrub_binary(inner_ctx, executable: "artifact", codesign_tool: ["RunInfo", None]) -> "artifact":
+    def scrub_binary(inner_ctx, executable: "artifact", adhoc_codesign_tool: ["RunInfo", None]) -> "artifact":
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
 
         # If we're provided a codesign tool, provider it to the scrubber binary so that it may sign
         # the binary after scrubbing.
-        if codesign_tool:
-            inner_cmd.add(["--codesign-tool", codesign_tool])
+        if adhoc_codesign_tool:
+            inner_cmd.add(["--adhoc-codesign-tool", adhoc_codesign_tool])
         inner_cmd.add(["--input", executable])
         inner_cmd.add(["--output", output.as_output()])
         inner_ctx.actions.run(inner_cmd, category = "scrub_binary", identifier = executable.short_path)
