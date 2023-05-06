@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
+load("@prelude//rust/tools:attrs.bzl", "internal_tool_attrs")
 
 _DEFAULT_TRIPLE = select({
     "config//os:linux": select({
@@ -67,25 +68,20 @@ def _system_rust_toolchain_impl(ctx):
 
 system_rust_toolchain = rule(
     impl = _system_rust_toolchain_impl,
-    attrs = {
+    attrs = internal_tool_attrs | {
         "allow_lints": attrs.list(attrs.string(), default = []),
         "clippy_toml": attrs.option(attrs.dep(providers = [DefaultInfo]), default = None),
-        "concat_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:concat")),
         "default_edition": attrs.option(attrs.string(), default = None),
         "deny_lints": attrs.list(attrs.string(), default = []),
         "extern_html_root_url_prefix": attrs.option(attrs.string(), default = None),
-        "failure_filter_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:failure_filter_action")),
         "pipelined": attrs.bool(default = False),
         "report_unused_deps": attrs.bool(default = False),
-        "rustc_action": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustc_action")),
         "rustc_binary_flags": attrs.list(attrs.string(), default = []),
         "rustc_check_flags": attrs.list(attrs.string(), default = []),
         "rustc_flags": attrs.list(attrs.string(), default = []),
         "rustc_target_triple": attrs.string(default = _DEFAULT_TRIPLE),
         "rustc_test_flags": attrs.list(attrs.string(), default = []),
         "rustdoc_flags": attrs.list(attrs.string(), default = []),
-        "rustdoc_test_with_resources": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:rustdoc_test_with_resources")),
-        "transitive_dependency_symlinks_tool": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//rust/tools:transitive_dependency_symlinks")),
         "warn_lints": attrs.list(attrs.string(), default = []),
     },
     is_toolchain_rule = True,
