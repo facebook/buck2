@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
+load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust/tools:attrs.bzl", "internal_tool_attrs")
 
 _DEFAULT_TRIPLE = select({
@@ -60,9 +60,6 @@ def _system_rust_toolchain_impl(ctx):
             rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
             transitive_dependency_symlinks_tool = ctx.attrs.transitive_dependency_symlinks_tool[RunInfo],
             warn_lints = ctx.attrs.warn_lints,
-        ),
-        RustPlatformInfo(
-            name = "x86_64",
         ),
     ]
 

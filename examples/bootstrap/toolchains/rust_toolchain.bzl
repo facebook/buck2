@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//rust:rust_toolchain.bzl", "RustPlatformInfo", "RustToolchainInfo")
+load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 
 # almost identical to the system_rust_toolchain implementation, with the only
 # the difference being the ability to specify rustc
@@ -45,9 +45,6 @@ def _rust_toolchain_impl(ctx):
             rustdoc = "rustdoc",
             rustdoc_flags = ctx.attrs.rustdoc_flags,
             rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
-        ),
-        RustPlatformInfo(
-            name = "x86_64",
         ),
     ]
 

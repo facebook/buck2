@@ -66,11 +66,6 @@ _rust_toolchain_attrs = {
 
 RustToolchainInfo = provider(fields = _rust_toolchain_attrs.keys())
 
-# Stores "platform"/flavor name used to resolve *platform_* arguments
-RustPlatformInfo = provider(fields = [
-    "name",
-])
-
 def ctx_toolchain_info(ctx: "context") -> RustToolchainInfo.type:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
