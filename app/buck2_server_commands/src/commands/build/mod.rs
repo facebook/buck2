@@ -383,7 +383,6 @@ fn build_targets_in_universe<'a>(
                 }
                 .boxed()
             })
-            .into_drop_cancel()
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -503,7 +502,6 @@ fn build_targets_for_spec<'a>(
                     }
                     .boxed()
                 })
-                .into_drop_cancel()
             })
             .collect::<FuturesUnordered<_>>()
             .flatten_unordered(None);

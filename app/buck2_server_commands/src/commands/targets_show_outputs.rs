@@ -171,7 +171,6 @@ async fn retrieve_artifacts_for_targets(
                 }
                 .boxed()
             })
-            .into_drop_cancel()
         })
         .collect();
 
@@ -228,7 +227,6 @@ async fn retrieve_artifacts_for_spec(
                 }
                 .boxed()
             })
-            .into_drop_cancel()
         })
         .collect();
 

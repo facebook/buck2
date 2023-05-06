@@ -522,7 +522,6 @@ async fn test_targets(
 
     // TODO(bobyf, torozco) we can use cancellation handle here instead of liveliness observer
     let (build_errors, executor_report) = future_and_cancellation
-        .into_drop_cancel()
         .await
         .context("Failed to collect executor report")?;
 

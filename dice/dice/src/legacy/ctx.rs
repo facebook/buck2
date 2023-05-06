@@ -13,10 +13,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use futures::future::Either;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::FutureAndCancellationHandle;
+use more_futures::spawn::DropCancelAndTerminationObserver;
+use more_futures::spawn::StrongJoinHandle;
+use more_futures::spawn::WeakFutureError;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -310,7 +313,13 @@ impl DiceComputationsImplLegacy {
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
     /// use this in tokio spawn. otherwise, this shouldn't be here so that we don't need to clone
     /// the Arc, which makes lifetimes weird.
-    pub(crate) fn temporary_spawn<F, R>(self: &Arc<Self>, f: F) -> FutureAndCancellationHandle<R>
+    pub(crate) fn temporary_spawn<F, R>(
+        self: &Arc<Self>,
+        f: F,
+    ) -> Either<
+        StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>,
+        DropCancelAndTerminationObserver<R>,
+    >
     where
         F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send
@@ -334,6 +343,8 @@ impl DiceComputationsImplLegacy {
             &self.extra.user_data,
             debug_span!(parent: None, "spawned_task",),
         )
+        .into_drop_cancel()
+        .right_future()
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {

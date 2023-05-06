@@ -77,7 +77,6 @@ pub async fn get_maybe_compatible_targets(
                 }
                 .boxed()
             })
-            .into_drop_cancel()
         });
     }
 

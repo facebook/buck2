@@ -265,7 +265,6 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
                         }
                         .boxed()
                     })
-                    .into_drop_cancel()
                     .boxed(),
             )
         }

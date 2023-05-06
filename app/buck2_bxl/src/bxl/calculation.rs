@@ -75,7 +75,7 @@ impl Key for internal::BxlComputeKey {
         });
 
         // TODO(bobyf) can use cancellation context to interact with the temporary spawn cancellation better
-        future_and_cancellation.into_drop_cancel().await
+        future_and_cancellation.await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {

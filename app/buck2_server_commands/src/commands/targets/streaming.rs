@@ -145,7 +145,6 @@ pub(crate) async fn targets_streaming(
                 }
                 .boxed()
             })
-            .into_drop_cancel()
         })
         // Use unlimited parallelism - tokio will restrict us anyway
         .buffer_unordered(1000000);
