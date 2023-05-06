@@ -14,6 +14,7 @@ def _impl(ctx: "context") -> ["provider"]:
         AppleToolsInfo(
             assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
             dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
+            adhoc_codesign_tool = ctx.attrs.adhoc_codesign_tool[RunInfo],
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
@@ -29,6 +30,7 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
     impl = _impl,
     attrs = {
+        "adhoc_codesign_tool": attrs.dep(providers = [RunInfo]),
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
         "info_plist_processor": attrs.dep(providers = [RunInfo]),
