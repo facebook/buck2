@@ -434,7 +434,13 @@ def _default_providers(
     providers = []
 
     if rustdoc_test:
-        doc_env = dict(ctx.attrs.doc_env)
+        # Pass everything in env + doc_env, except ones with value None in doc_env.
+        doc_env = dict(ctx.attrs.env)
+        for k, v in ctx.attrs.doc_env.items():
+            if v == None:
+                doc_env.pop(k, None)
+            else:
+                doc_env[k] = v
         doc_env["RUSTC_BOOTSTRAP"] = "1"  # for `-Zunstable-options`
 
         rustdoc_test_info = ExternalRunnerTestInfo(

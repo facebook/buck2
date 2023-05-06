@@ -214,7 +214,7 @@ rust_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "doc_deps": attrs.list(attrs.dep(), default = []),
-            "doc_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
+            "doc_env": attrs.dict(key = attrs.string(), value = attrs.option(attrs.arg()), sorted = False, default = {}),
             "doc_linker_flags": attrs.list(attrs.arg(), default = []),
             "doc_named_deps": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
             "doctests": attrs.option(attrs.bool(), default = None),
