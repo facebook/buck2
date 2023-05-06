@@ -184,8 +184,6 @@ impl<'a> PartialEq for DiceKeyErasedRef<'a> {
 }
 
 pub(crate) enum CowDiceKey<'a> {
-    #[allow(unused)]
-    Borrow(&'a DiceKeyErased),
     Ref(DiceKeyErasedRef<'a>),
     Owned(DiceKeyErased),
 }
@@ -193,7 +191,6 @@ pub(crate) enum CowDiceKey<'a> {
 impl<'a> CowDiceKey<'a> {
     pub(crate) fn into_owned(self) -> DiceKeyErased {
         match self {
-            CowDiceKey::Borrow(b) => b.dupe(),
             CowDiceKey::Ref(r) => r.to_owned(),
             CowDiceKey::Owned(owned) => owned,
         }
@@ -201,7 +198,6 @@ impl<'a> CowDiceKey<'a> {
 
     pub(crate) fn borrow(&'a self) -> DiceKeyErasedRef<'a> {
         match self {
-            CowDiceKey::Borrow(b) => b.as_ref(),
             CowDiceKey::Ref(r) => *r,
             CowDiceKey::Owned(owned) => owned.as_ref(),
         }
