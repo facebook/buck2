@@ -131,7 +131,6 @@ impl PerComputeCtx {
             .compute_opaque(
                 dice_key,
                 self.data.parent_key,
-                self.data.dice.state_handle.dupe(),
                 AsyncEvaluator::new(
                     self.data.per_live_version_ctx.dupe(),
                     self.data.user_data.dupe(),
@@ -289,7 +288,6 @@ impl SharedLiveTransactionCtx {
         &self,
         key: DiceKey,
         parent_key: ParentKey,
-        state: CoreStateHandle,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
@@ -299,7 +297,7 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = IncrementalEngine::spawn_for_key(state, key, eval, cycles, events);
+                let task = IncrementalEngine::spawn_for_key(key, eval, cycles, events);
 
                 let fut = task.depended_on_by(parent_key);
 

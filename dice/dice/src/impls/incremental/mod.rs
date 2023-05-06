@@ -74,7 +74,6 @@ impl IncrementalEngine {
     }
 
     pub(crate) fn spawn_for_key(
-        state: CoreStateHandle,
         k: DiceKey,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
@@ -83,7 +82,7 @@ impl IncrementalEngine {
         let eval_dupe = eval.dupe();
         spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
             async move {
-                let engine = IncrementalEngine::new(state);
+                let engine = IncrementalEngine::new(eval_dupe.dice.state_handle.dupe());
                 engine
                     .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, handle)
                     .await;
@@ -313,13 +312,7 @@ impl IncrementalEngine {
             .iter()
             .map(|dep| {
                 eval.per_live_version_ctx
-                    .compute_opaque(
-                        dep.dupe(),
-                        parent_key,
-                        self.state.dupe(),
-                        eval.dupe(),
-                        cycles.subrequest(*dep),
-                    )
+                    .compute_opaque(dep.dupe(), parent_key, eval.dupe(), cycles.subrequest(*dep))
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })
             .collect();

@@ -255,7 +255,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
-        dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
@@ -287,7 +286,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
-        dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
@@ -323,7 +321,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
-        dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
@@ -408,7 +405,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
-        dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
@@ -427,7 +423,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
-        dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
