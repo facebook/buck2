@@ -258,6 +258,7 @@ pub use crate::api::user_data::UserComputationData;
 pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::api::which::WhichDice;
+pub use crate::api::which::WhichSpawner;
 use crate::impls::dice::DiceModern;
 use crate::impls::dice::DiceModernDataBuilder;
 use crate::introspection::graph::GraphIntrospectable;

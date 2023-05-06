@@ -36,3 +36,25 @@ impl FromStr for WhichDice {
         }
     }
 }
+
+#[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
+pub enum WhichSpawner {
+    DropCancel,
+    ExplicitCancel,
+}
+
+#[derive(Error, Debug)]
+#[error("Invalid type of WhichSpawner: `{0}`")]
+pub struct InvalidWhichSpawner(String);
+
+impl FromStr for WhichSpawner {
+    type Err = InvalidType;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "DROPCANCEL" => Ok(WhichSpawner::DropCancel),
+            "EXPLICITCANCEL" => Ok(WhichSpawner::ExplicitCancel),
+            _ => Err(InvalidType(s.to_owned())),
+        }
+    }
+}
