@@ -138,7 +138,6 @@ impl PerComputeCtx {
                     self.data.dice.dupe(),
                 ),
                 self.data.cycles.subrequest(dice_key),
-                DiceEventDispatcher::new(self.data.user_data.tracker.dupe(), self.data.dice.dupe()),
             )
             .map(move |dice_result| {
                 dice_result.map(move |dice_value| {
@@ -293,11 +292,13 @@ impl SharedLiveTransactionCtx {
         state: CoreStateHandle,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
-        events: DiceEventDispatcher,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
             Entry::Vacant(vacant) => {
+                let events =
+                    DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
+
                 let task = IncrementalEngine::spawn_for_key(state, key, eval, cycles, events);
 
                 let fut = task.depended_on_by(parent_key);

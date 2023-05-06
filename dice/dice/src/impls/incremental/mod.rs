@@ -319,7 +319,6 @@ impl IncrementalEngine {
                         self.state.dupe(),
                         eval.dupe(),
                         cycles.subrequest(*dep),
-                        events.dupe(),
                     )
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })

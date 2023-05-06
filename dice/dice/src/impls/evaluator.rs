@@ -21,7 +21,6 @@ use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
-use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
@@ -35,7 +34,7 @@ use crate::HashSet;
 pub(crate) struct AsyncEvaluator {
     pub(crate) per_live_version_ctx: SharedLiveTransactionCtx,
     pub(crate) user_data: Arc<UserComputationData>,
-    dice: Arc<DiceModern>,
+    pub(crate) dice: Arc<DiceModern>,
 }
 
 #[allow(unused)]
@@ -100,7 +99,6 @@ impl AsyncEvaluator {
                         self.dice.state_handle.dupe(),
                         self.dupe(),
                         cycles,
-                        DiceEventDispatcher::new(self.user_data.tracker.dupe(), self.dice.dupe()),
                     )
                     .await?;
 
