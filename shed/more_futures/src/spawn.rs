@@ -202,6 +202,20 @@ where
     StrongJoinHandle { guard, fut: task }
 }
 
+/// Spawn a cancellable future.
+pub fn spawn_dropcancel<T, S>(
+    future: T,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    span: Span,
+) -> StrongJoinHandle<BoxFuture<'static, Result<T::Output, WeakFutureError>>>
+where
+    T: Future + Send + 'static,
+    T::Output: Any + Send + 'static,
+{
+    spawn_inner(future, futures::future::ready(()), spawner, ctx, span)
+}
+
 pub struct FutureAndCancellationHandle<T> {
     pub future: CancellableJoinHandle<T>,
     pub cancellation_handle: CancellationHandle,
