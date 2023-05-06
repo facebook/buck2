@@ -7,22 +7,25 @@
  * of this source tree.
  */
 
+use std::default::Default;
+
+#[derive(Default)]
 pub struct ProcessStats {
     pub rss_bytes: Option<u64>,
-    pub max_rss_bytes: u64,
-    pub user_cpu_us: u64,
-    pub system_cpu_us: u64,
+    pub max_rss_bytes: Option<u64>,
+    pub user_cpu_us: Option<u64>,
+    pub system_cpu_us: Option<u64>,
 }
 
 #[cfg(unix)]
-pub fn process_stats() -> Option<ProcessStats> {
+pub fn process_stats() -> ProcessStats {
     use crate::process_stats::proc_self_stat::ProcSelfStat;
 
     let usage = unsafe {
         let mut usage: libc::rusage = std::mem::zeroed();
         match libc::getrusage(libc::RUSAGE_SELF, &mut usage as *mut _) {
             0 => usage,
-            _ => return None,
+            _ => return ProcessStats::default(),
         }
     };
     // POSIX didn't specify unit of ru_maxrss. Linux uses KB while BSD and
@@ -48,21 +51,26 @@ pub fn process_stats() -> Option<ProcessStats> {
         None
     };
 
-    Some(ProcessStats {
+    ProcessStats {
         rss_bytes,
-        max_rss_bytes: (usage.ru_maxrss as u64) * rss_scale,
-        user_cpu_us: tv_to_micros(&usage.ru_utime),
-        system_cpu_us: tv_to_micros(&usage.ru_stime),
-    })
+        max_rss_bytes: Some((usage.ru_maxrss as u64) * rss_scale),
+        user_cpu_us: Some(tv_to_micros(&usage.ru_utime)),
+        system_cpu_us: Some(tv_to_micros(&usage.ru_stime)),
+    }
 }
 
 #[cfg(not(unix))]
-pub fn process_stats() -> Option<ProcessStats> {
-    None
+pub fn process_stats() -> ProcessStats {
+    ProcessStats::default()
 }
 
 pub fn process_cpu_time_us() -> Option<u64> {
-    process_stats().map(|s| s.user_cpu_us + s.system_cpu_us)
+    let stats = process_stats();
+    if let (Some(user_cpu_us), Some(system_cpu_us)) = (stats.user_cpu_us, stats.system_cpu_us) {
+        Some(user_cpu_us + system_cpu_us)
+    } else {
+        None
+    }
 }
 
 #[cfg_attr(not(unix), allow(dead_code))]
@@ -99,13 +107,12 @@ mod tests {
     fn test_process_stats() {
         let process_stats = process_stats();
         if cfg!(unix) {
-            let process_stats = process_stats.expect("process_stats() should return Some");
             // Sometimes tests start too quickly and CPU counters are zero.
             if false {
-                assert!(process_stats.user_cpu_us > 0);
-                assert!(process_stats.system_cpu_us > 0);
+                assert!(process_stats.user_cpu_us.unwrap() > 0);
+                assert!(process_stats.system_cpu_us.unwrap() > 0);
             }
-            assert!(process_stats.max_rss_bytes > 0);
+            assert!(process_stats.max_rss_bytes.unwrap() > 0);
             if cfg!(target_os = "linux") {
                 let rss_bytes = process_stats.rss_bytes.unwrap();
                 assert!(rss_bytes > 0);

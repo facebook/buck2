@@ -206,13 +206,18 @@ impl SnapshotCollector {
 }
 
 fn add_system_metrics(snapshot: &mut buck2_data::Snapshot, daemon_start_time: Instant) {
-    if let Some(stats) = process_stats() {
-        snapshot.buck2_max_rss = stats.max_rss_bytes;
-        snapshot.buck2_user_cpu_us = stats.user_cpu_us;
-        snapshot.buck2_system_cpu_us = stats.system_cpu_us;
-        snapshot.daemon_uptime_s = daemon_start_time.elapsed().as_secs();
-        snapshot.buck2_rss = stats.rss_bytes;
+    let process_stats = process_stats();
+    if let Some(max_rss_bytes) = process_stats.max_rss_bytes {
+        snapshot.buck2_max_rss = max_rss_bytes;
     }
+    if let Some(user_cpu_us) = process_stats.user_cpu_us {
+        snapshot.buck2_user_cpu_us = user_cpu_us;
+    }
+    if let Some(system_cpu_us) = process_stats.system_cpu_us {
+        snapshot.buck2_system_cpu_us = system_cpu_us;
+    }
+    snapshot.daemon_uptime_s = daemon_start_time.elapsed().as_secs();
+    snapshot.buck2_rss = process_stats.rss_bytes;
     let allocator_stats = get_allocator_stats().ok();
     if let Some(alloc_stats) = allocator_stats {
         snapshot.malloc_bytes_active = alloc_stats.bytes_active;
