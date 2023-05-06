@@ -473,9 +473,11 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
     ) -> anyhow::Result<()> {
         match &mut self.super_console {
             Some(super_console) => {
-                super_console.emit(Lines(
-                    display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
-                ));
+                if self.verbosity.print_status() {
+                    super_console.emit(Lines(
+                        display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
+                    ));
+                }
                 Ok(())
             }
             None => {
