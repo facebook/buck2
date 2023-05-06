@@ -36,7 +36,7 @@ ARGSFILES_SUBTARGET = "argsfiles"
 def cxx_attr_deps(ctx: "context") -> ["dependency"]:
     return (
         ctx.attrs.deps +
-        flatten(cxx_by_platform(ctx, ctx.attrs.platform_deps)) +
+        flatten(cxx_by_platform(ctx, getattr(ctx.attrs, "platform_deps", []))) +
         (getattr(ctx.attrs, "deps_query", []) or [])
     )
 

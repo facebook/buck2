@@ -7,7 +7,6 @@
 
 # Implementation of the Rust build rules.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -18,8 +17,6 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
 )
-load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load("@prelude//utils:utils.bzl", "flatten")
 
 # Link style for targets which do not set an explicit `link_style` attribute.
 DEFAULT_STATIC_LINK_STYLE = LinkStyle("static_pic")
@@ -73,10 +70,6 @@ def style_info(info: RustLinkInfo.type, link_style: LinkStyle.type) -> RustLinkS
 
     return info.styles[link_style]
 
-def cxx_by_platform(ctx: "context", xs: [(str.type, "_a")]) -> "_a":
-    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
-    return flatten(by_platform([platform], xs))
-
 # A Rust dependency
 RustDependency = record(
     # The actual dependency
@@ -87,20 +80,16 @@ RustDependency = record(
     flags = field([str.type]),
 )
 
-# Returns all first-order dependencies, resolving the ones from "platform_deps"
+# Returns all first-order dependencies.
 def _do_resolve_deps(
-        ctx: "context",
         deps: ["dependency"],
-        platform_deps: [(str.type, ["dependency"])],
         named_deps: {str.type: "dependency"},
-        flagged_deps: [("dependency", [str.type])] = [],
-        platform_flagged_deps: [(str.type, [("dependency", [str.type])])] = []) -> [RustDependency.type]:
+        flagged_deps: [("dependency", [str.type])] = []) -> [RustDependency.type]:
     return [
         RustDependency(name = name, dep = dep, flags = flags)
-        for name, dep, flags in [(None, dep, []) for dep in deps + cxx_by_platform(ctx, platform_deps)] +
+        for name, dep, flags in [(None, dep, []) for dep in deps] +
                                 [(name, dep, []) for name, dep in named_deps.items()] +
-                                [(None, dep, flags) for dep, flags in flagged_deps +
-                                                                      cxx_by_platform(ctx, platform_flagged_deps)]
+                                [(None, dep, flags) for dep, flags in flagged_deps]
     ]
 
 def resolve_deps(
@@ -109,19 +98,14 @@ def resolve_deps(
     # The `getattr`s are needed for when we're operating on
     # `prebuilt_rust_library` rules, which don't have those attrs.
     dependencies = _do_resolve_deps(
-        ctx = ctx,
         deps = ctx.attrs.deps,
-        platform_deps = ctx.attrs.platform_deps,
         named_deps = getattr(ctx.attrs, "named_deps", {}),
         flagged_deps = getattr(ctx.attrs, "flagged_deps", []),
-        platform_flagged_deps = getattr(ctx.attrs, "platform_flagged_deps", []),
     )
 
     if include_doc_deps:
         dependencies.extend(_do_resolve_deps(
-            ctx = ctx,
             deps = ctx.attrs.doc_deps,
-            platform_deps = ctx.attrs.doc_platform_deps,
             named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
         ))
 

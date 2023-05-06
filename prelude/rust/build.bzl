@@ -59,7 +59,6 @@ load(
     "RustLinkStyleInfo",
     "attr_crate",
     "attr_simple_crate_for_filenames",
-    "cxx_by_platform",
     "inherited_non_rust_link_info",
     "inherited_non_rust_shared_libs",
     "normalize_crate",
@@ -249,7 +248,6 @@ def generate_rustdoc_test(
     )
 
     link_args.add(ctx.attrs.doc_linker_flags or [])
-    link_args.add(cxx_by_platform(ctx, ctx.attrs.doc_platform_linker_flags or []))
 
     linker_argsfile, _ = ctx.actions.write(
         "{}/__{}_linker_args.txt".format(common_args.subdir, common_args.tempfile),
