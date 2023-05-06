@@ -17,6 +17,7 @@ use futures::future::Either;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_cancellable;
+use more_futures::spawn::spawn_dropcancel;
 use more_futures::spawn::DropCancelAndTerminationObserver;
 use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
@@ -50,6 +51,7 @@ use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::UserCycleDetector;
+use crate::WhichSpawner;
 
 /// A context for the duration of a top-level compute request.
 ///
@@ -328,23 +330,38 @@ impl DiceComputationsImplLegacy {
     {
         let duped = self.dupe();
 
-        spawn_cancellable(
-            |cancellations| {
+        match self.dice.which_spawner {
+            WhichSpawner::DropCancel => spawn_dropcancel(
                 async move {
                     f(
                         DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
-                        cancellations,
+                        &CancellationContext::todo(),
                     )
                     .await
-                }
-                .boxed()
-            },
-            self.extra.user_data.spawner.as_ref(),
-            &self.extra.user_data,
-            debug_span!(parent: None, "spawned_task",),
-        )
-        .into_drop_cancel()
-        .right_future()
+                },
+                self.extra.user_data.spawner.as_ref(),
+                &self.extra.user_data,
+                debug_span!(parent: None, "spawned_task",),
+            )
+            .left_future(),
+            WhichSpawner::ExplicitCancel => spawn_cancellable(
+                |cancellations| {
+                    async move {
+                        f(
+                            DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
+                            cancellations,
+                        )
+                        .await
+                    }
+                    .boxed()
+                },
+                self.extra.user_data.spawner.as_ref(),
+                &self.extra.user_data,
+                debug_span!(parent: None, "spawned_task",),
+            )
+            .into_drop_cancel()
+            .right_future(),
+        }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
