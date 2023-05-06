@@ -19,5 +19,6 @@
 //! to the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/).
 
 pub mod server;
+mod symbols;
 #[cfg(all(test, not(windows)))]
 mod test;

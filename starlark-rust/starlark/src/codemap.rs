@@ -392,7 +392,7 @@ impl CodeMap {
 
 /// A line and column.
 #[derive(Copy, Clone, Dupe, Hash, Eq, PartialEq, Debug)]
-struct LineCol {
+pub(crate) struct LineCol {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
@@ -542,6 +542,15 @@ impl From<ResolvedSpan> for lsp_types::Range {
 }
 
 impl ResolvedSpan {
+    /// Check that the given position is contained within this span.
+    /// Includes positions both at the beginning and the end of the range.
+    pub(crate) fn contains(&self, pos: LineCol) -> bool {
+        (self.begin_line < pos.line
+            || (self.begin_line == pos.line && self.begin_column <= pos.column))
+            && (self.end_line > pos.line
+                || (self.end_line == pos.line && self.end_column >= pos.column))
+    }
+
     fn from_span(begin: LineCol, end: LineCol) -> Self {
         Self {
             begin_line: begin.line,
@@ -700,5 +709,24 @@ mod tests {
             },
             CODEMAP.resolve_span(CODEMAP.full_span())
         );
+    }
+
+    #[test]
+    fn test_resolved_span_contains() {
+        let span = ResolvedSpan {
+            begin_line: 2,
+            begin_column: 3,
+            end_line: 4,
+            end_column: 5,
+        };
+        assert_eq!(span.contains(LineCol { line: 0, column: 7 }), false);
+        assert_eq!(span.contains(LineCol { line: 2, column: 2 }), false);
+        assert_eq!(span.contains(LineCol { line: 2, column: 3 }), true);
+        assert_eq!(span.contains(LineCol { line: 2, column: 9 }), true);
+        assert_eq!(span.contains(LineCol { line: 3, column: 1 }), true);
+        assert_eq!(span.contains(LineCol { line: 4, column: 4 }), true);
+        assert_eq!(span.contains(LineCol { line: 4, column: 5 }), true);
+        assert_eq!(span.contains(LineCol { line: 4, column: 6 }), false);
+        assert_eq!(span.contains(LineCol { line: 5, column: 0 }), false);
     }
 }
