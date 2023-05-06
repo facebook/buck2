@@ -213,8 +213,12 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         document_private_items = False,
     )
 
+    # If doctests=True or False is set on the individual target, respect that.
+    # Otherwise look at the global setting on the toolchain.
+    doctests_enabled = ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests
+
     rustdoc_test = None
-    if ctx.attrs.doctests and toolchain_info.rustc_target_triple == targets.exec_triple(ctx):
+    if doctests_enabled and toolchain_info.rustc_target_triple == targets.exec_triple(ctx):
         if ctx.attrs.doctest_link_style:
             doctest_link_style = LinkStyle(ctx.attrs.doctest_link_style)
         else:
