@@ -59,7 +59,41 @@ pub fn process_stats() -> ProcessStats {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub fn process_stats() -> ProcessStats {
+    use winapi::shared::minwindef::DWORD;
+    use winapi::um::processthreadsapi::GetCurrentProcess;
+    use winapi::um::psapi::K32GetProcessMemoryInfo;
+    use winapi::um::psapi::PROCESS_MEMORY_COUNTERS;
+
+    let mut pmc: PROCESS_MEMORY_COUNTERS = unsafe { std::mem::zeroed() };
+    pmc.cb = std::mem::size_of_val(&pmc) as DWORD;
+    // Code is referenced from eden/scm/lib/procinfo/src/lib.rs
+    // API reference: https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters
+    let (wss_bytes, max_wss_bytes) =
+        match unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut pmc, pmc.cb) } {
+            0 => (None, None),
+            _ => (
+                Some(pmc.WorkingSetSize as u64),
+                Some(pmc.PeakWorkingSetSize as u64),
+            ),
+        };
+
+    // Technically, `GetProcessMemoryInfo` returns working set size, not resident set size. However,
+    // we log it as rss for two reasons:
+    // (1) Reading https://learn.microsoft.com/en-us/windows/win32/memory/working-set, the definition of
+    // working set size is "set of pages in the virtual address space of the process that are currently resident
+    // in physical memory", which sound just like RSS in unix.
+    // (2) We can reuse our existing logging for rss without having duplicate column and logic for wss.
+    ProcessStats {
+        rss_bytes: wss_bytes,
+        max_rss_bytes: max_wss_bytes,
+        user_cpu_us: None,
+        system_cpu_us: None,
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn process_stats() -> ProcessStats {
     ProcessStats::default()
 }
@@ -112,11 +146,11 @@ mod tests {
                 assert!(process_stats.user_cpu_us.unwrap() > 0);
                 assert!(process_stats.system_cpu_us.unwrap() > 0);
             }
-            assert!(process_stats.max_rss_bytes.unwrap() > 0);
-            if cfg!(target_os = "linux") {
-                let rss_bytes = process_stats.rss_bytes.unwrap();
-                assert!(rss_bytes > 0);
-            }
+        }
+        assert!(process_stats.max_rss_bytes.unwrap() > 0);
+        if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
+            let rss_bytes = process_stats.rss_bytes.unwrap();
+            assert!(rss_bytes > 0);
         }
     }
 
