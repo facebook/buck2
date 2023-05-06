@@ -33,7 +33,7 @@ use crate::HashSet;
 #[allow(unused)]
 #[derive(Clone, Dupe)]
 pub(crate) struct AsyncEvaluator {
-    per_live_version_ctx: SharedLiveTransactionCtx,
+    pub(crate) per_live_version_ctx: SharedLiveTransactionCtx,
     pub(crate) user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
 }

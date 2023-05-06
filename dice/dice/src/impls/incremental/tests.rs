@@ -105,7 +105,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 ParentKey::None,
                 eval.dupe(),
-                &ctx,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(0),
                     VersionNumber::new(1)
@@ -133,7 +132,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 ParentKey::None,
                 eval.dupe(),
-                &ctx,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
@@ -161,7 +159,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .compute_whether_dependencies_changed(
                 ParentKey::None,
                 eval.dupe(),
-                &ctx,
                 &VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(
                     VersionNumber::new(1),
                     VersionNumber::new(2)
@@ -261,7 +258,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
-        ctx,
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
@@ -294,7 +290,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
-        ctx,
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
@@ -331,7 +326,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
-        ctx,
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
@@ -417,7 +411,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
-        ctx,
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );
@@ -437,7 +430,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice.state_handle.dupe(),
         key.dupe(),
         eval.dupe(),
-        ctx,
         UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
         events.dupe(),
     );

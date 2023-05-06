@@ -77,7 +77,6 @@ impl IncrementalEngine {
         state: CoreStateHandle,
         k: DiceKey,
         eval: AsyncEvaluator,
-        transaction_ctx: SharedLiveTransactionCtx,
         cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
     ) -> DiceTask {
@@ -86,14 +85,7 @@ impl IncrementalEngine {
             async move {
                 let engine = IncrementalEngine::new(state);
                 engine
-                    .eval_entry_versioned(
-                        k,
-                        eval_dupe,
-                        transaction_ctx,
-                        cycles,
-                        events_dispatcher,
-                        handle,
-                    )
+                    .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, handle)
                     .await;
 
                 Box::new(()) as Box<dyn Any + Send + 'static>
@@ -160,12 +152,11 @@ impl IncrementalEngine {
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
-        transaction_ctx: SharedLiveTransactionCtx,
         mut cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_handle: DiceTaskHandle<'_>,
     ) {
-        let v = transaction_ctx.get_version();
+        let v = eval.per_live_version_ctx.get_version();
         let (tx, rx) = oneshot::channel();
         self.state.request(StateRequest::LookupKey {
             key: VersionedGraphKey::new(v, k),
@@ -181,15 +172,8 @@ impl IncrementalEngine {
             }
             VersionedGraphResult::Compute => {
                 cycles.start_computing_key(k);
-                self.compute(
-                    k,
-                    eval,
-                    &transaction_ctx,
-                    cycles,
-                    &events_dispatcher,
-                    task_handle,
-                )
-                .await;
+                self.compute(k, eval, cycles, &events_dispatcher, task_handle)
+                    .await;
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
@@ -205,7 +189,6 @@ impl IncrementalEngine {
                     self.compute_whether_dependencies_changed(
                         ParentKey::Some(k), // the computing of deps is triggered by this key as the parent
                         eval.dupe(),
-                        &transaction_ctx,
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
                         &cycles,
@@ -216,15 +199,8 @@ impl IncrementalEngine {
 
                 match deps_changed {
                     DidDepsChange::Changed | DidDepsChange::NoDeps => {
-                        self.compute(
-                            k,
-                            eval,
-                            &transaction_ctx,
-                            cycles,
-                            &events_dispatcher,
-                            task_handle,
-                        )
-                        .await;
+                        self.compute(k, eval, cycles, &events_dispatcher, task_handle)
+                            .await;
                     }
                     DidDepsChange::NoChange(deps) => {
                         cycles.finished_computing_key();
@@ -248,14 +224,13 @@ impl IncrementalEngine {
 
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, eval, task_handle, event_dispatcher, cycles),
-        fields(k = ?k, version = %transaction_ctx.get_version()),
+        skip(self, eval, task_handle, event_dispatcher, cycles),
+        fields(k = ?k, version = %eval.per_live_version_ctx.get_version()),
     )]
     async fn compute(
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
-        transaction_ctx: &SharedLiveTransactionCtx,
         cycles: UserCycleDetectorData,
         event_dispatcher: &DiceEventDispatcher,
         task_handle: DiceTaskHandle<'_>,
@@ -267,7 +242,7 @@ impl IncrementalEngine {
             event_dispatcher.finished(k);
         };
 
-        let v = transaction_ctx.get_version();
+        let v = eval.per_live_version_ctx.get_version();
 
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
@@ -318,14 +293,13 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, transaction_ctx, eval, events, cycles),
-        fields(version = %transaction_ctx.get_version(), verified_versions = %verified_versions)
+        skip(self, eval, events, cycles),
+        fields(version = %eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
         &self,
         parent_key: ParentKey,
         eval: AsyncEvaluator,
-        transaction_ctx: &SharedLiveTransactionCtx,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
         cycles: &UserCycleDetectorData,
@@ -338,7 +312,7 @@ impl IncrementalEngine {
         let mut fs: FuturesUnordered<_> = deps
             .iter()
             .map(|dep| {
-                transaction_ctx
+                eval.per_live_version_ctx
                     .compute_opaque(
                         dep.dupe(),
                         parent_key,

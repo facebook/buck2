@@ -298,8 +298,7 @@ impl SharedLiveTransactionCtx {
         match self.cache.get(key) {
             Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
             Entry::Vacant(vacant) => {
-                let task =
-                    IncrementalEngine::spawn_for_key(state, key, eval, self.dupe(), cycles, events);
+                let task = IncrementalEngine::spawn_for_key(state, key, eval, cycles, events);
 
                 let fut = task.depended_on_by(parent_key);
 
