@@ -33,19 +33,20 @@ use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::fs::fs_util;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -404,7 +405,6 @@ fn build_targets_with_global_target_platform<'a>(
                 let res = ctx.get_interpreter_results(package.dupe()).await?;
                 anyhow::Ok(build_targets_for_spec(
                     ctx,
-                    package.dupe(),
                     spec,
                     global_target_platform,
                     res,
@@ -422,7 +422,8 @@ fn build_targets_with_global_target_platform<'a>(
 }
 
 struct TargetBuildSpec {
-    target: ProvidersLabel,
+    target: TargetNode,
+    providers: ProvidersName,
     global_target_platform: Option<TargetLabel>,
     // Indicates whether this target was explicitly requested or not. If it's the result
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
@@ -451,7 +452,6 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 
 fn build_targets_for_spec<'a>(
     ctx: &'a DiceComputations,
-    package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     res: Arc<EvaluationResult>,
@@ -463,23 +463,23 @@ fn build_targets_for_spec<'a>(
 
         let todo_targets: Vec<TargetBuildSpec> = match spec {
             PackageSpec::All => available_targets
-                .keys()
+                .values()
                 .map(|t| TargetBuildSpec {
-                    target: ProvidersLabel::default_for(TargetLabel::new(package.dupe(), t)),
+                    target: t.dupe(),
+                    providers: ProvidersName::default(),
                     global_target_platform: global_target_platform.dupe(),
                     skippable: true,
                 })
                 .collect(),
-            PackageSpec::Targets(targets) => {
-                for (target_name, _) in &targets {
-                    res.resolve_target(target_name)?;
-                }
-                targets.into_map(|(target_name, providers)| TargetBuildSpec {
-                    target: providers.into_providers_label(package.dupe(), target_name.as_ref()),
+            PackageSpec::Targets(targets) => targets.into_try_map(|(target_name, providers)| {
+                let target = res.resolve_target(target_name.as_ref())?.dupe();
+                anyhow::Ok(TargetBuildSpec {
+                    target,
+                    providers: providers.providers,
                     global_target_platform: global_target_platform.dupe(),
                     skippable: false,
                 })
-            }
+            })?,
         };
 
         let providers_to_build = build_providers_to_providers_to_build(&build_providers);
@@ -520,7 +520,10 @@ async fn build_target(
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'static {
     let res = async {
         let providers_label = ctx
-            .get_configured_target(&spec.target, spec.global_target_platform.as_ref())
+            .get_configured_target(
+                &ProvidersLabel::new(spec.target.label().dupe(), spec.providers),
+                spec.global_target_platform.as_ref(),
+            )
             .await?;
 
         build::build_configured_label(
