@@ -390,7 +390,7 @@ def _raw_headers_arg():
 
 def _include_directories_arg():
     return {
-        "include_directories": attrs.set(attrs.string(), sorted = True, default = [], doc = """
+        "include_directories": attrs.set(attrs.arg(), sorted = True, default = [], doc = """
     A list of include directories (with `raw_headers`) to be added to the compile command for compiling this target
      (via `-I`).
      An include directory is relative to the current package.

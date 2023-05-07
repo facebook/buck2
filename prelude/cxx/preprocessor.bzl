@@ -35,6 +35,23 @@ SystemIncludeDirs = record(
     include_dirs = field(["label_relative_path"]),
 )
 
+# Include directories come from a variety of sources, some of which may be
+# simple strings, while others refer to generated artifacts:
+#
+#     include_directories = [
+#         "torch/lib",
+#         "$(location :somearchive)/include",
+#     ]
+#
+# Directories constructed from an attrs.string() argument use
+# ctx.label.path.add(suffix) and have only a label_part. Directories constructed
+# from an attrs.arg() have a macro_part and may or may not have a label_part. If
+# both are present, the directory represents {label_part}/{macro_part}.
+IncludeDir = record(
+    label_part = field(["label_relative_path", None]),
+    macro_part = field(["resolved_macro", str.type, None]),
+)
+
 CPreprocessor = record(
     # The arguments, [arglike things]
     args = field([""], []),
@@ -43,7 +60,7 @@ CPreprocessor = record(
     # Those should be mutually exclusive with normal headers as per documentation
     raw_headers = field(["artifact"], []),
     # Directories to be included via -I, [arglike things]
-    include_dirs = field(["label_relative_path"], []),
+    include_dirs = field([IncludeDir.type], []),
     # Directories to be included via -isystem, [arglike things]
     system_include_dirs = field([SystemIncludeDirs.type, None], None),
     # Whether to compile with modules support
@@ -79,7 +96,12 @@ def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
     args = cmd_args()
     for pre in pres:
         for d in pre.include_dirs:
-            args.add(cmd_args(d, format = "-I{}"))
+            if not d.macro_part:
+                args.add(cmd_args(d.label_part, format = "-I{}"))
+            elif not d.label_part:
+                args.add(cmd_args(d.macro_part, format = "-I{}"))
+            else:
+                args.add(cmd_args("-I", d.label_part, "/", d.macro_part, delimiter = ""))
         if pre.system_include_dirs != None:
             for d in pre.system_include_dirs.include_dirs:
                 system_include_args = format_system_include_arg(cmd_args(d), pre.system_include_dirs.compiler_type)
@@ -202,14 +224,22 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
     if inferred_inc_dirs != None:
         raw_headers.extend(exported_header_map.values())
         if style == HeaderStyle("local"):
-            include_dirs.extend(inferred_inc_dirs)
+            for directory in inferred_inc_dirs:
+                include_dirs.append(IncludeDir(
+                    label_part = directory,
+                    macro_part = None,
+                ))
         else:
             system_include_dirs.extend(inferred_inc_dirs)
         exported_header_map.clear()
 
     # Add in raw headers and include dirs from attrs.
     raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
+    for directory in ctx.attrs.public_include_directories:
+        include_dirs.append(IncludeDir(
+            label_part = ctx.label.path.add(directory),
+            macro_part = None,
+        ))
     system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
     header_root = prepare_headers(ctx, exported_header_map, "buck-headers")
@@ -313,12 +343,28 @@ def _cxx_private_preprocessor_info(
     inferred_inc_dirs = as_raw_headers(ctx, header_map, raw_headers_mode)
     if inferred_inc_dirs != None:
         all_raw_headers.extend(header_map.values())
-        include_dirs.extend(inferred_inc_dirs)
+        for directory in inferred_inc_dirs:
+            include_dirs.append(IncludeDir(
+                label_part = directory,
+                macro_part = None,
+            ))
         header_map.clear()
 
     # Add in raw headers and include dirs from attrs.
     all_raw_headers.extend(raw_headers)
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
+    for include_dir in ctx.attrs.include_directories:
+        if len(cmd_args(include_dir).inputs) > 0:
+            # Include directory within buck-out: "$(location :...)/include"
+            include_dirs.append(IncludeDir(
+                label_part = None,
+                macro_part = include_dir,
+            ))
+        else:
+            # Ordinary include directory within the source tree.
+            include_dirs.append(IncludeDir(
+                label_part = ctx.label.path,
+                macro_part = include_dir,
+            ))
 
     # Create private header tree and propagate via args.
     args = []
