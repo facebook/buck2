@@ -175,4 +175,10 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         local_only = local_only,
     )
 
-    return [DefaultInfo(default_output = output)]
+    return [DefaultInfo(
+        default_output = output,
+        sub_targets = {
+            path: [DefaultInfo(default_output = output.project(path))]
+            for path in ctx.attrs.sub_targets
+        },
+    )]

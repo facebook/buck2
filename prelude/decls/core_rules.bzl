@@ -757,6 +757,12 @@ http_archive = prelude_rule(
                  Supported values are: `zip`, `tar`, `tar.gz`,
                  `tar.bz2`, `tar.xz`, and `tar.zst`.
             """),
+            "sub_targets": attrs.list(attrs.string(), default = [], doc = """
+                A list of filepaths within the archive to be made accessible as sub-targets.
+                For example if we have an http_archive with `name = "archive"` and
+                `sub_targets = ["src/lib.rs"]`, then other targets would be able to refer
+                to that file as `":archive[src/lib.rs]"`.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
