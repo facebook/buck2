@@ -39,6 +39,7 @@ def _system_cxx_toolchain_impl(ctx):
     archiver = "ar"
     linker = ctx.attrs.linker
     linker_type = "gnu"
+    supports_pic = True
     additional_linker_flags = []
     if host_info().os.is_macos:
         linker_type = "darwin"
@@ -46,6 +47,7 @@ def _system_cxx_toolchain_impl(ctx):
         archiver = "llvm-ar"
         linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
+        supports_pic = False
     else:
         additional_linker_flags = ["-fuse-ld=lld"]
 
@@ -78,6 +80,7 @@ def _system_cxx_toolchain_impl(ctx):
                 static_library_extension = "a",
                 force_full_hybrid_if_capable = False,
                 is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
+                supports_pic = supports_pic,
             ),
             bolt_enabled = False,
             binary_utilities_info = BinaryUtilitiesInfo(

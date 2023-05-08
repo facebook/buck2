@@ -312,7 +312,7 @@ def compile_cxx(
 
         args = cmd_args()
 
-        if pic:
+        if pic and linker_info.supports_pic != False:
             args.add(get_pic_flags(compiler_type))
 
         args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
