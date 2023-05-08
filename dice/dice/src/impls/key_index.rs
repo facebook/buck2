@@ -10,10 +10,11 @@
 use std::array;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use hashbrown::raw::RawTable;
+use lock_free_vec::LockFreeVec;
 use parking_lot::RwLock;
 use parking_lot::RwLockUpgradableReadGuard;
+use parking_lot::RwLockWriteGuard;
 
 use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
@@ -25,39 +26,52 @@ use crate::impls::key::DiceKeyErasedRef;
 /// store in memory anyways.
 #[derive(Allocative, Default)]
 struct Shard {
-    values: Vec<DiceKeyErased>,
-    table: RawTable<u32>,
+    table: RwLock<RawTable<u32>>,
+    #[allocative(skip)] // TODO(nga): do not skip.
+    key_by_index: LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
 }
 
+const KEY_BY_INDEX_BUCKETS: usize =
+    lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
+
 impl Shard {
-    fn get(&self, key: DiceKeyErasedRef, hash: u64) -> Option<u32> {
-        self.table
-            .get(hash, |k| self.values[*k as usize].as_ref() == key)
+    fn get(
+        table: &RwLockUpgradableReadGuard<RawTable<u32>>,
+        keys: &LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
+        key: DiceKeyErasedRef,
+        hash: u64,
+    ) -> Option<u32> {
+        table
+            .get(hash, |k| keys.get(*k as usize).unwrap().as_ref() == key)
             .copied()
     }
 
-    fn insert_unique_unchecked(&mut self, key: DiceKeyErased, hash: u64) -> u32 {
+    fn insert_unique_unchecked(
+        table: &mut RwLockWriteGuard<RawTable<u32>>,
+        keys: &LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
+        key: DiceKeyErased,
+        hash: u64,
+    ) -> u32 {
         assert!(
-            self.values.len() < DiceKeyIndex::MAX_INDEX_IN_SHARD as usize,
+            keys.len() < DiceKeyIndex::MAX_INDEX_IN_SHARD as usize,
             "too many dice keys"
         );
-        let index = self.values.len() as u32;
-        self.values.push(key);
-        self.table
-            .insert(hash, index, |k| self.values[*k as usize].hash());
+        let index = keys.len() as u32;
+        keys.push_at(index as usize, key).ok().unwrap();
+        table.insert(hash, index, |k| keys.get(*k as usize).unwrap().hash());
         index
     }
 }
 
 #[derive(Allocative)]
 pub(crate) struct DiceKeyIndex {
-    shards: [RwLock<Shard>; DiceKeyIndex::SHARDS as usize],
+    shards: [Shard; DiceKeyIndex::SHARDS as usize],
 }
 
 impl Default for DiceKeyIndex {
     fn default() -> DiceKeyIndex {
         DiceKeyIndex {
-            shards: array::from_fn(|_| RwLock::new(Shard::default())),
+            shards: array::from_fn(|_| Shard::default()),
         }
     }
 }
@@ -69,14 +83,16 @@ impl DiceKeyIndex {
     pub(crate) fn index(&self, key: CowDiceKey) -> DiceKey {
         let hash = key.borrow().hash();
         let shard_index = (hash as usize % self.shards.len()) as u32; // shard size is bounded to u32
+        let key_by_index = &self.shards[shard_index as usize].key_by_index;
         let shard = &self.shards[shard_index as usize];
-        let shard = shard.upgradable_read();
-        let index_in_shard = if let Some(index_in_shard) = shard.get(key.borrow(), hash) {
-            index_in_shard
-        } else {
-            let mut shard = RwLockUpgradableReadGuard::upgrade(shard);
-            shard.insert_unique_unchecked(key.into_owned(), hash)
-        };
+        let shard = shard.table.upgradable_read();
+        let index_in_shard =
+            if let Some(index_in_shard) = Shard::get(&shard, key_by_index, key.borrow(), hash) {
+                index_in_shard
+            } else {
+                let mut shard = RwLockUpgradableReadGuard::upgrade(shard);
+                Shard::insert_unique_unchecked(&mut shard, key_by_index, key.into_owned(), hash)
+            };
         DiceKeyUnpacked {
             shard_index,
             index_in_shard,
@@ -84,11 +100,12 @@ impl DiceKeyIndex {
         .pack()
     }
 
-    pub(crate) fn get(&self, key: DiceKey) -> DiceKeyErased {
+    pub(crate) fn get(&self, key: DiceKey) -> &DiceKeyErased {
         let unpack = DiceKeyUnpacked::unpack(key);
-        let shard = &self.shards[unpack.shard_index as usize];
-        let shard = shard.read();
-        shard.values[unpack.index_in_shard as usize].dupe()
+        self.shards[unpack.shard_index as usize]
+            .key_by_index
+            .get(unpack.index_in_shard as usize)
+            .unwrap()
     }
 }
 
@@ -104,9 +121,7 @@ mod introspect {
             let mut ret = HashMap::default();
 
             for (shard_index, shard) in self.shards.iter().enumerate() {
-                let shard = shard.read();
-
-                for (index_in_shard, key) in shard.values.iter().enumerate() {
+                for (index_in_shard, key) in shard.key_by_index.iter().enumerate() {
                     ret.insert(
                         DiceKeyUnpacked {
                             shard_index: shard_index as u32,
@@ -206,7 +221,15 @@ mod tests {
             let key = TestKey(i);
             let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
 
-            assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
+            assert_eq!(
+                i,
+                key_index
+                    .get(coin_key)
+                    .dupe()
+                    .downcast::<TestKey>()
+                    .unwrap()
+                    .0
+            );
 
             seen_shards[DiceKeyUnpacked::unpack(coin_key).shard_index as usize] += 1;
             max_index = cmp::max(max_index, coin_key.index);
@@ -227,7 +250,15 @@ mod tests {
             let key = TestKey(i);
             let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
 
-            assert_eq!(i, key_index.get(coin_key).downcast::<TestKey>().unwrap().0);
+            assert_eq!(
+                i,
+                key_index
+                    .get(coin_key)
+                    .dupe()
+                    .downcast::<TestKey>()
+                    .unwrap()
+                    .0
+            );
 
             seen_shards[DiceKeyUnpacked::unpack(coin_key).shard_index as usize] += 1;
             max_index = cmp::max(max_index, coin_key.index);

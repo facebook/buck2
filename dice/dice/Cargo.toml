@@ -37,6 +37,7 @@ parking_lot = { version = "0.11.2", features = ["send_guard"] }
 anyhow = "1.0.65"
 take_mut = { workspace = true }
 triomphe = { workspace = true }
+lock_free_vec = { workspace = true }
 scopeguard = { workspace = true }
 
 [features]
