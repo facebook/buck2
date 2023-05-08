@@ -122,7 +122,6 @@ impl CoreState {
 
 #[cfg(test)]
 mod tests {
-    use crate::arc::Arc;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
     use crate::impls::transaction::ChangeType;
@@ -151,18 +150,18 @@ mod tests {
         let ctx = core.ctx_at_version(v);
 
         let ctx1 = core.ctx_at_version(v);
-        assert!(Arc::ptr_eq(ctx.data(), ctx1.data()));
+        assert!(ctx.ptr_eq(&ctx1));
 
         // if you drop one, there is still reference so getting the same version should give the
         // same instance of ctx
         core.drop_ctx_at_version(v);
         let ctx2 = core.ctx_at_version(v);
-        assert!(Arc::ptr_eq(ctx.data(), ctx2.data()));
+        assert!(ctx.ptr_eq(&ctx2));
 
         // drop all references, should give a different ctx instance
         core.drop_ctx_at_version(v);
         core.drop_ctx_at_version(v);
         let another = core.ctx_at_version(v);
-        assert!(!Arc::ptr_eq(ctx.data(), another.data()));
+        assert!(!ctx.ptr_eq(&another));
     }
 }

@@ -44,7 +44,7 @@ impl SharedCache {
 
 #[cfg(test)]
 impl SharedCache {
-    pub(crate) fn data(&self) -> &Arc<DashMap<DiceKey, DiceTask, FnvBuildHasher>> {
-        &self.storage
+    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.storage, &other.storage)
     }
 }
