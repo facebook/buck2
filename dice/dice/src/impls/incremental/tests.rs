@@ -88,7 +88,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
-    let cycles = UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new();
 
     let ctx = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -257,7 +257,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
         eval.dupe(),
-        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
+        UserCycleDetectorData::new(),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -288,7 +288,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
         eval.dupe(),
-        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
+        UserCycleDetectorData::new(),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -323,7 +323,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
         eval.dupe(),
-        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
+        UserCycleDetectorData::new(),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -407,7 +407,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
         eval.dupe(),
-        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
+        UserCycleDetectorData::new(),
         events.dupe(),
     );
     let res = task.depended_on_by(ParentKey::None).await?;
@@ -425,7 +425,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
         eval.dupe(),
-        UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe()),
+        UserCycleDetectorData::new(),
         events.dupe(),
     );
     let res2 = task.depended_on_by(ParentKey::None).await?;

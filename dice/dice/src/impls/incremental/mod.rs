@@ -170,13 +170,21 @@ impl IncrementalEngine {
                 task_handle.finished(Ok(entry))
             }
             VersionedGraphResult::Compute => {
-                cycles.start_computing_key(k);
+                cycles.start_computing_key(
+                    k,
+                    &eval.dice.key_index,
+                    eval.user_data.cycle_detector.as_deref(),
+                );
                 self.compute(k, eval, cycles, &events_dispatcher, task_handle)
                     .await;
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
-                cycles.start_computing_key(k);
+                cycles.start_computing_key(
+                    k,
+                    &eval.dice.key_index,
+                    eval.user_data.cycle_detector.as_deref(),
+                );
                 task_handle.checking_deps();
 
                 let deps_changed = {
@@ -202,7 +210,10 @@ impl IncrementalEngine {
                             .await;
                     }
                     DidDepsChange::NoChange(deps) => {
-                        cycles.finished_computing_key();
+                        cycles.finished_computing_key(
+                            &eval.dice.key_index,
+                            eval.user_data.cycle_detector.as_deref(),
+                        );
 
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -312,7 +323,12 @@ impl IncrementalEngine {
             .iter()
             .map(|dep| {
                 eval.per_live_version_ctx
-                    .compute_opaque(dep.dupe(), parent_key, &eval, cycles.subrequest(*dep))
+                    .compute_opaque(
+                        dep.dupe(),
+                        parent_key,
+                        &eval,
+                        cycles.subrequest(*dep, &eval.dice.key_index),
+                    )
                     .map(|r| r.map(|v| v.history().get_verified_ranges()))
             })
             .collect();

@@ -7,59 +7,55 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use dupe::Dupe;
-
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
-use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
+use crate::impls::key_index::DiceKeyIndex;
 
 /// User supplied cycle detector
 pub(crate) struct UserCycleDetectorData {
-    detector: Option<Arc<dyn UserCycleDetector>>,
     user_cycle_detector_guard: Option<(DiceKey, Option<Box<dyn UserCycleDetectorGuard>>)>,
-    dice: Arc<DiceModern>,
 }
 
 impl UserCycleDetectorData {
-    pub(crate) fn new(detector: Option<Arc<dyn UserCycleDetector>>, dice: Arc<DiceModern>) -> Self {
-        Self {
-            detector,
+    pub(crate) fn new() -> Self {
+        UserCycleDetectorData {
             user_cycle_detector_guard: None,
-            dice,
         }
     }
 
-    pub(crate) fn start_computing_key(&mut self, k: DiceKey) {
+    pub(crate) fn start_computing_key(
+        &mut self,
+        k: DiceKey,
+        key_index: &DiceKeyIndex,
+        detector: Option<&dyn UserCycleDetector>,
+    ) {
         assert!(self.user_cycle_detector_guard.is_none());
-        if let Some(detector) = self.detector.as_ref() {
-            self.user_cycle_detector_guard = Some((
-                k,
-                detector.start_computing_key(self.dice.key_index.get(k).as_any()),
-            ));
+        if let Some(detector) = detector {
+            self.user_cycle_detector_guard =
+                Some((k, detector.start_computing_key(key_index.get(k).as_any())));
         }
     }
 
-    pub(crate) fn finished_computing_key(self) {
+    pub(crate) fn finished_computing_key(
+        self,
+        key_index: &DiceKeyIndex,
+        detector: Option<&dyn UserCycleDetector>,
+    ) {
         if let Some((k, _)) = self.user_cycle_detector_guard {
-            self.detector
-                .as_ref()
+            detector
                 .unwrap()
-                .finished_computing_key(self.dice.key_index.get(k).as_any())
+                .finished_computing_key(key_index.get(k).as_any())
         }
     }
 
-    pub(crate) fn subrequest(&self, k: DiceKey) -> UserCycleDetectorData {
+    pub(crate) fn subrequest(&self, k: DiceKey, key_index: &DiceKeyIndex) -> UserCycleDetectorData {
         if let Some((_, Some(v))) = &self.user_cycle_detector_guard {
-            v.add_edge(self.dice.key_index.get(k).as_any());
+            v.add_edge(key_index.get(k).as_any());
         }
 
-        Self {
-            detector: self.detector.dupe(),
+        UserCycleDetectorData {
             user_cycle_detector_guard: None,
-            dice: self.dice.dupe(),
         }
     }
 }

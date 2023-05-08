@@ -134,7 +134,9 @@ impl PerComputeCtx {
                 dice_key,
                 self.data.parent_key,
                 &self.data.async_evaluator,
-                self.data.cycles.subrequest(dice_key),
+                self.data
+                    .cycles
+                    .subrequest(dice_key, &self.data.async_evaluator.dice.key_index),
             )
             .map(move |dice_result| {
                 dice_result.map(move |dice_value| {
@@ -260,7 +262,10 @@ impl PerComputeCtx {
         let data = Arc::try_unwrap(self.data)
             .map_err(|_| "Error: tried to finalize when there are more references")
             .unwrap();
-        data.cycles.finished_computing_key();
+        data.cycles.finished_computing_key(
+            &data.async_evaluator.dice.key_index,
+            data.async_evaluator.user_data.cycle_detector.as_deref(),
+        );
         data.dep_trackers.into_inner().collect_deps()
     }
 }

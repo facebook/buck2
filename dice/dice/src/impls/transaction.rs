@@ -100,7 +100,7 @@ impl TransactionUpdater {
 
         let transaction = self.commit_to_state().await;
 
-        let cycles = UserCycleDetectorData::new(user_data.cycle_detector.dupe(), dice.dupe());
+        let cycles = UserCycleDetectorData::new();
 
         PerComputeCtx::new(ParentKey::None, transaction, user_data, dice, cycles)
     }
@@ -112,7 +112,7 @@ impl TransactionUpdater {
 
         let transaction = self.commit_to_state().await;
 
-        let cycles = UserCycleDetectorData::new(extra.cycle_detector.dupe(), dice.dupe());
+        let cycles = UserCycleDetectorData::new();
 
         PerComputeCtx::new(ParentKey::None, transaction, Arc::new(extra), dice, cycles)
     }
@@ -138,7 +138,7 @@ impl TransactionUpdater {
             transaction,
             self.user_data.dupe(),
             self.dice.dupe(),
-            UserCycleDetectorData::new(self.user_data.cycle_detector.dupe(), self.dice.dupe()),
+            UserCycleDetectorData::new(),
         )
     }
 
