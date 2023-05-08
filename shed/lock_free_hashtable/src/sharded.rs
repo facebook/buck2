@@ -76,6 +76,18 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
             iter: self.shards[0].iter(),
         }
     }
+
+    /// Number of entries in the table.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.shards.iter().map(|s| s.len()).sum()
+    }
+
+    /// Number of entries in the table is zero.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Iterator over all entries in sharded raw table.

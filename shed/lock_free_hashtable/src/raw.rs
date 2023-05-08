@@ -190,6 +190,25 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
         let current = unsafe { &*current };
         current.table.iter()
     }
+
+    /// Number of entries in the table.
+    #[inline]
+    pub fn len(&self) -> usize {
+        let current = self.current.load(Ordering::Acquire);
+
+        if current.is_null() {
+            return 0;
+        }
+
+        let current = unsafe { &*current };
+        current.table.len()
+    }
+
+    /// Number of entries in the table is zero.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[cfg(test)]

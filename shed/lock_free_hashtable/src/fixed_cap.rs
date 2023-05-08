@@ -203,4 +203,9 @@ impl<T: AtomicValue> FixedCapTable<T> {
             }
         }
     }
+
+    #[inline]
+    pub(crate) fn len(&self) -> usize {
+        self.size.load(Ordering::Relaxed)
+    }
 }
