@@ -18,7 +18,7 @@ use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use fs2::FileExt;
+use fs4::FileExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;

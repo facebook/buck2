@@ -131,7 +131,7 @@ faccess = "0.2.3"
 fancy-regex = "0.10.0"
 flate2 = "1.0.22"
 fnv = "1.0.7"
-fs2 = "0.4.3"
+fs4 = { version = "0.6", features = ["sync"] }
 futures = { version = "0.3.28", features = ["async-await", "compat"] }
 futures-intrusive = "0.4"
 glob = "0.3.0"

@@ -16,7 +16,7 @@ chrono = { workspace = true }
 crossterm = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
-fs2 = { workspace = true }
+fs4 = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 httparse = { workspace = true }
