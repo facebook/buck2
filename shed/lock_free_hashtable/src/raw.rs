@@ -12,10 +12,14 @@
 //! This module provides raw hashtable, which can be used to implement
 //! higher-level hashtables.
 
+use std::mem;
 use std::ptr;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 
+use allocative::Allocative;
+use allocative::Key;
+use allocative::Visitor;
 use parking_lot::RwLock;
 
 use crate::atomic_value::AtomicValue;
@@ -32,6 +36,27 @@ struct CurrentTable<T: AtomicValue> {
     /// When resizing/resized, this table is stored in the `prev` field,
     /// so all the pointers to the table remain valid.
     table: FixedCapTable<T>,
+}
+
+impl<T: AtomicValue + Allocative> CurrentTable<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>, current: bool) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        {
+            let mut visitor =
+                visitor.enter_unique(Key::new("_prev"), mem::size_of_val(&self._prev));
+            if let Some(prev) = &self._prev {
+                prev.visit(&mut visitor, false);
+            }
+            visitor.exit();
+        }
+        {
+            let mut visitor =
+                visitor.enter_unique(Key::new("table"), mem::size_of_val(&self.table));
+            self.table.visit(&mut visitor, current);
+            visitor.exit();
+        }
+        visitor.exit();
+    }
 }
 
 /// (Almost) lock-free insertion only hashtable.
@@ -211,6 +236,25 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     }
 }
 
+impl<T: AtomicValue + Allocative> Allocative for LockFreeRawTable<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        {
+            let mut visitor = visitor.enter_unique(
+                allocative::Key::new("current"),
+                mem::size_of_val(&self.current),
+            );
+            let current = self.current.load(Ordering::Acquire);
+            if !current.is_null() {
+                let current = unsafe { &*current };
+                current.visit(&mut visitor, true);
+            }
+            visitor.exit();
+        }
+        visitor.exit();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::hash_map::DefaultHasher;
@@ -285,5 +329,25 @@ mod tests {
         let p = RawPtr(p);
         let r = t.insert(hash(p.0), p, |a, b| a == b, hash).0;
         assert_eq!(p.0, r);
+    }
+
+    #[test]
+    fn test_allocative() {
+        let table = LockFreeRawTable::<Box<u16>>::new();
+
+        for i in 0..100 {
+            let (_r, inserted) = table.insert(hash(i), Box::new(i), |a, b| a == b, |v| hash(v));
+            assert!(inserted.is_none());
+        }
+
+        let mut builder = allocative::FlameGraphBuilder::default();
+        builder.visit_root(&table);
+        let _flame_graph = builder.finish_and_write_flame_graph();
+        // Proper automated test is possible but hard to maintain.
+        // The best option is to print the flame graph and check resulting image.
+        // println!("{}", _flame_graph);
+        // At the moment of writing it looks like this: https://www.internalfb.com/intern/px/p/2Gb33
+
+        // Alternatively, we can set up golden test.
     }
 }

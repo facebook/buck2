@@ -11,10 +11,13 @@
 
 use std::marker;
 
+use allocative::Allocative;
+
 use crate::atomic_value::AtomicValue;
 use crate::raw::LockFreeRawTable;
 
 /// Lock-free hashtable sharded by key hash.
+#[derive(Allocative)]
 pub struct ShardedLockFreeRawTable<T: AtomicValue, const SHARDS: usize> {
     shards: [LockFreeRawTable<T>; SHARDS],
 }

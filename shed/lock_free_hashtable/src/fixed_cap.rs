@@ -7,10 +7,14 @@
  * of this source tree.
  */
 
+use std::mem;
+use std::mem::ManuallyDrop;
 use std::slice;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use allocative::Allocative;
+use allocative::Visitor;
 use atomic::Atomic;
 
 use crate::atomic_value::AtomicValue;
@@ -45,6 +49,46 @@ impl<'a, T: AtomicValue> Iterator for IterPtrs<'a, T> {
                 None => return None,
             }
         }
+    }
+}
+
+impl<T: AtomicValue + Allocative> FixedCapTable<T> {
+    pub(crate) fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>, current: bool) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        {
+            let mut visitor = visitor.enter_unique(
+                allocative::Key::new("entries"),
+                mem::size_of_val(&self.entries),
+            );
+            {
+                let mut visitor = visitor.enter(
+                    allocative::Key::new("capacity"),
+                    mem::size_of_val::<[Atomic<T::Raw>]>(&*self.entries),
+                );
+                // We only visit pointers from current table.
+                if current {
+                    for ptr in self.iter_ptrs() {
+                        let mut visitor =
+                            visitor.enter(allocative::Key::new("entry"), mem::size_of::<T::Raw>());
+                        unsafe {
+                            // SAFETY: We "forget" the value after the iteration,
+                            //   so it is safe to convert it to owned value.
+                            let value = T::from_raw(ptr);
+                            let value = ManuallyDrop::new(value);
+                            if mem::size_of_val(&value) > mem::size_of::<T::Raw>() {
+                                // Size will be computed incorrectly.
+                            }
+
+                            T::visit(&value, &mut visitor);
+                        }
+                        visitor.exit();
+                    }
+                }
+                visitor.exit();
+            }
+            visitor.exit();
+        }
+        visitor.exit();
     }
 }
 

@@ -5,6 +5,7 @@ edition = "2021"
 description = "Lock-free (almost) insertion only hashtable"
 
 [dependencies]
+allocative = { workspace = true }
 atomic = { workspace = true }
 parking_lot = "0.11.2"
 
