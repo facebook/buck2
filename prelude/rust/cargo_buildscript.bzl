@@ -22,9 +22,10 @@ load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
 def _cargo_buildscript_impl(ctx: "context") -> ["provider"]:
-    toolchain_info = ctx.attrs.rust_toolchain[RustToolchainInfo]
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     manifest_dir = ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0]
     out_dir = ctx.actions.declare_output("OUT_DIR", dir = True)
@@ -86,10 +87,11 @@ _cargo_buildscript_rule = rule(
         "manifest_dir": attrs.dep(),
         "package_name": attrs.string(),
         "runner": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:buildscript_run")),
-        "rust_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:rust", providers = [RustToolchainInfo])),
         "rustc_cfg": attrs.default_only(attrs.dep(default = "prelude//rust/tools:rustc_cfg")),
         "version": attrs.string(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_rust_toolchain": toolchains_common.rust(),
     },
 )
 

@@ -6,9 +6,10 @@
 # of this source tree.
 
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
 def _get_rustc_cfg_impl(ctx: "context") -> ["provider"]:
-    toolchain_info = ctx.attrs.rust_toolchain[RustToolchainInfo]
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     out = ctx.actions.declare_output("rustc.cfg")
 
@@ -27,6 +28,7 @@ get_rustc_cfg = rule(
     impl = _get_rustc_cfg_impl,
     attrs = {
         "get_rustc_cfg": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:get_rustc_cfg")),
-        "rust_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:rust", providers = [RustToolchainInfo])),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_rust_toolchain": toolchains_common.rust(),
     },
 )
