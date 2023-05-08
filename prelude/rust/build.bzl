@@ -33,6 +33,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
@@ -770,32 +771,14 @@ def _linker_args(
         ctx.attrs.linker_flags,
     )
 
-    # Now we create a wrapper to actually run the linker. Use $(cat <<heredoc) to
-    # combine the multiline command into a single logical command.
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
-        wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("__linker_wrapper.bat"),
-            [
-                "@echo off",
-                cmd_args(cmd_args(_shell_quote(linker), delimiter = "^\n "), format = "{} %*\n"),
-            ],
-            allow_args = True,
-        )
-    else:
-        wrapper, _ = ctx.actions.write(
-            ctx.actions.declare_output("__linker_wrapper.sh"),
-            [
-                "#!/bin/bash",
-                cmd_args(cmd_args(_shell_quote(linker), delimiter = " \\\n"), format = "{} \"$@\"\n"),
-            ],
-            is_executable = True,
-            allow_args = True,
-        )
+    linker_wrapper = cmd_script(
+        ctx = ctx,
+        name = "linker_wrapper",
+        cmd = linker,
+        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+    )
 
-    return cmd_args(wrapper, format = "-Clinker={}").hidden(linker)
-
-def _shell_quote(args: "cmd_args") -> "cmd_args":
-    return cmd_args(args, quote = "shell")
+    return cmd_args(linker_wrapper, format = "-Clinker={}")
 
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named

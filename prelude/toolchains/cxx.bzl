@@ -30,33 +30,36 @@ load(
     "@prelude//linking:lto.bzl",
     "LtoMode",
 )
+load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 
 def _system_cxx_toolchain_impl(ctx):
     """
     A very simple toolchain that is hardcoded to the current environment.
     """
-    archiver_type = "gnu"
+    archiver = "ar"
+    linker = ctx.attrs.linker
     linker_type = "gnu"
     additional_linker_flags = []
-    lto_mode = LtoMode("none")
     if host_info().os.is_macos:
         linker_type = "darwin"
     elif host_info().os.is_windows:
+        archiver = "llvm-ar"
+        linker = _windows_linker_wrapper(ctx)
         linker_type = "windows"
-        archiver_type = "windows"
     else:
         additional_linker_flags = ["-fuse-ld=lld"]
+
     return [
         DefaultInfo(),
         CxxToolchainInfo(
             mk_comp_db = ctx.attrs.make_comp_db,
             linker_info = LinkerInfo(
-                linker = RunInfo(args = [ctx.attrs.linker]),
+                linker = RunInfo(args = linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
-                archiver = RunInfo(args = ["ar", "rcs"]),
-                archiver_type = archiver_type,
+                archiver = RunInfo(args = [archiver, "rcs"]),
+                archiver_type = "gnu",
                 generate_linker_maps = False,
-                lto_mode = lto_mode,
+                lto_mode = LtoMode("none"),
                 type = linker_type,
                 link_binaries_locally = True,
                 archive_objects_locally = True,
@@ -111,6 +114,29 @@ def _system_cxx_toolchain_impl(ctx):
         CxxPlatformInfo(name = "x86_64"),
     ]
 
+def _windows_linker_wrapper(ctx: "context") -> "cmd_args":
+    # Linkers pretty much all support @file.txt argument syntax to insert
+    # arguments from the given text file, usually formatted one argument per
+    # line.
+    #
+    # - GNU ld: https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
+    # - lld is command line compatible with GNU ld
+    # - MSVC link.exe: https://learn.microsoft.com/en-us/cpp/build/reference/linking?view=msvc-170#link-command-files
+    #
+    # However, there is inconsistency in whether they support nesting of @file
+    # arguments inside of another @file.
+    #
+    # We wrap the linker to flatten @file arguments down to 1 level of nesting.
+    return cmd_script(
+        ctx = ctx,
+        name = "windows_linker",
+        cmd = cmd_args(
+            ctx.attrs.linker_wrapper[RunInfo],
+            ctx.attrs.linker,
+        ),
+        os = ScriptOs("windows"),
+    )
+
 # Use clang, since thats available everywhere and what we have tested with.
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
@@ -122,7 +148,8 @@ system_cxx_toolchain = rule(
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_style": attrs.string(default = "shared"),
-        "linker": attrs.string(default = "clang++"),
+        "linker": attrs.string(default = "link.exe" if host_info().os.is_windows else "clang++"),
+        "linker_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:linker_wrapper")),
         "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
     },
     is_toolchain_rule = True,
