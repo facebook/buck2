@@ -14,6 +14,7 @@ use std::ops::DerefMut;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use allocative::Visitor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
@@ -61,7 +62,6 @@ pub(crate) struct DiceTask {
     pub(super) cancellation_handle: Option<CancellationHandle>,
 }
 
-#[derive(Allocative)]
 pub(super) struct DiceTaskInternal {
     /// The internal progress state of the task
     pub(super) state: AtomicDiceTaskState,
@@ -73,8 +73,20 @@ pub(super) struct DiceTaskInternal {
     /// Shared future.
     pub(super) dependants: Mutex<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
-    #[allocative(skip)] // TODO should measure this
     maybe_value: UnsafeCell<Option<DiceResult<DiceComputedValue>>>,
+}
+
+impl Allocative for DiceTaskInternal {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        visitor.visit_field(allocative::Key::new("dependants"), &self.dependants);
+        if self.state.is_ready(Ordering::Acquire) {
+            visitor.visit_field(allocative::Key::new("maybe_value"), unsafe {
+                &*self.maybe_value.get()
+            });
+        }
+        visitor.exit();
+    }
 }
 
 impl DiceTask {
