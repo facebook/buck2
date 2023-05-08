@@ -3,6 +3,12 @@ id: common_issues
 title: Common Issues
 ---
 
+## Why is stdin being swallowed?
+
+Buck2 offers an interactive console by default.
+
+To disable either use an env var: `BUCK_NO_INTERACTIVE_CONSOLE` or a flag: `--no-interactive-console`
+
 ## Where is my output file?
 
 To find the location of output for a target, use `buck2 build mytarget --show-output`.

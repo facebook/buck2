@@ -142,14 +142,15 @@ const manualSidebar = [
       'developers/bxl_faqs',
     ],
   },
-  isInternal() ? {
+  {
     type: 'category',
     label: 'Build Observability',
     items: [
+      'build_observability/interactive_console',
       isInternal() ? 'developers/observability' : [],
       isInternal() ? 'build_observability/datasets' : [],
     ],
-  } : {},
+  },
   {
     type: 'category',
     label: 'Buck2 Developers',
