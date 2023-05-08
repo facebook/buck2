@@ -1,0 +1,32 @@
+# This is the `windows.lib` from windows_x86_64_msvc-0.32.0:
+#
+#   $ curl -sL https://crates.io/api/v1/crates/windows_x86_64_msvc/0.32.0/download \
+#     | tar -tvzf-
+#   -rw-r--r--  0 0      0         120 Dec 31  1969 windows_x86_64_msvc-0.32.0/.cargo_vcs_info.json
+#   -rw-r--r--  0 0      0         651 Dec 31  1969 windows_x86_64_msvc-0.32.0/Cargo.toml
+#   -rw-r--r--  0 0      0         184 Nov 29  1973 windows_x86_64_msvc-0.32.0/Cargo.toml.orig
+#   -rw-r--r--  0 0      0         333 Nov 29  1973 windows_x86_64_msvc-0.32.0/build.rs
+#   -rw-r--r--  0 0      0     4400572 Nov 29  1973 windows_x86_64_msvc-0.32.0/lib/windows.lib
+#   -rw-r--r--  0 0      0           1 Nov 29  1973 windows_x86_64_msvc-0.32.0/src/lib.rs
+#
+#   $ curl -sL https://crates.io/api/v1/crates/windows_x86_64_msvc/0.32.0/download \
+#     | tar -xOzf- 'windows_x86_64_msvc-0.32.0/lib/windows.lib' \
+#     | sha256sum
+#   249bcf040a8c34f6cd896c842e05fffbad7415f2b32e0dcdcd83ef2318d5ebc6  -
+#
+# libsqlite3-sys needs this to use Win10 SDK's winsqlite3.dll.
+# Unfortunately, `Win32::System::SqlLite` was removed in 0.35.0:
+#   * https://github.com/microsoft/windows-rs/pull/1604
+#   * https://github.com/microsoft/win32metadata/issues/824
+#
+# 0.35.0 is now quite old and is proving laborious to keep around
+# (e.g. D41876265). To avoid having to vendor the crate itself,
+# `windows.lib` is pulled out and made available to libsqlite3-sys here.
+
+prebuilt_cxx_library( # @oss-enable
+    name = "windows.lib", # @oss-enable
+    static_lib = "windows.lib", # @oss-enable
+    visibility = [ # @oss-enable
+        "//third-party/rust/...", # @oss-enable
+    ], # @oss-enable
+) # @oss-enable
