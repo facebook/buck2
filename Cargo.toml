@@ -78,6 +78,7 @@ members = [
     "starlark-rust/starlark_map",
     "shed/internment_tweaks",
     "shed/lock_free_hashtable",
+    "shed/lock_free_vec",
     "shed/more_futures",
     "shed/three_billion_instructions",
     "superconsole",
@@ -274,6 +275,7 @@ display_container = { path = "gazebo/display_container" }
 host_sharing = { path = "host_sharing" }
 more_futures = { path = "shed/more_futures" }
 lock_free_hashtable = { path = "shed/lock_free_hashtable" }
+lock_free_vec = { path = "shed/lock_free_vec" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }

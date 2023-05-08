@@ -1,0 +1,5 @@
+[package]
+name = "lock_free_vec"
+version = "0.1.0"
+edition = "2021"
+description = "Data structure"
