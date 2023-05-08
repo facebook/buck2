@@ -113,7 +113,11 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
 
     ext_type = _type(ctx)
 
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    if ctx.attrs._override_exec_platform_name:
+        exec_platform_name = ctx.attrs._override_exec_platform_name
+    else:
+        exec_platform_name = ctx.attrs._exec_os_type[0][OsLookup].platform
+    exec_is_windows = exec_platform_name == "windows"
 
     # Download archive.
     archive = ctx.actions.declare_output("archive." + ext_type)
@@ -124,6 +128,9 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     exclude_flags = []
     exclude_hidden = []
     if ctx.attrs.excludes:
+        if not ctx.attrs._create_exclusion_list:
+            fail("`excludes` attribute is not supported when using `http_archive` from anon target")
+
         tar_flags = _TAR_FLAGS.get(ext_type)
         expect(tar_flags != None, "excludes not supported for non-tar archives")
 
@@ -132,7 +139,7 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
         # that just has strings.
         exclusions = ctx.actions.declare_output("exclusions")
         create_exclusion_list = [
-            ctx.attrs._create_exclusion_list[RunInfo],
+            ctx.attrs._create_exclusion_list[0][RunInfo],
             "--tar-archive",
             archive,
             cmd_args(tar_flags, format = "--tar-flag={}"),
