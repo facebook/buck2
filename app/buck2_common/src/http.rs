@@ -381,23 +381,28 @@ impl HttpClient {
 
     /// Standard HEAD request.
     pub async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
-        let resp = self.send_request(Method::HEAD, uri).await?;
+        let req = Request::builder()
+            .uri(uri)
+            .method(Method::HEAD)
+            .body(Body::empty())
+            .map_err(HttpError::BuildRequest)?;
+        let resp = self.send_request(req).await?;
         Ok(resp.map(|_| ()))
     }
 
     /// Standard GET request.
     pub async fn get(&self, uri: &str) -> Result<Response<Body>, HttpError> {
-        self.send_request(Method::GET, uri).await
-    }
-
-    async fn send_request(&self, method: Method, uri: &str) -> Result<Response<Body>, HttpError> {
         let req = Request::builder()
             .uri(uri)
-            .method(method)
+            .method(Method::GET)
             .body(Body::empty())
             .map_err(HttpError::BuildRequest)?;
-        let pending_request = PendingRequest::from_request(&req);
+        self.send_request(req).await
+    }
 
+    async fn send_request(&self, req: Request<Body>) -> Result<Response<Body>, HttpError> {
+        let pending_request = PendingRequest::from_request(&req);
+        let uri = req.uri().to_string();
         tracing::debug!("http: request: {:?}", req);
         let resp = self.send_request_impl(req).await?;
         tracing::debug!("http: response: {:?}", resp);
@@ -420,11 +425,7 @@ impl HttpClient {
                 })
                 .unwrap_or_else(|e| format!("Error decoding response: {:?}", e));
 
-            return Err(HttpError::Status {
-                status,
-                uri: uri.to_owned(),
-                text,
-            });
+            return Err(HttpError::Status { status, uri, text });
         }
 
         Ok(resp)
