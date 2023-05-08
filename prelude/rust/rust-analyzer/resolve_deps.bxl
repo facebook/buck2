@@ -125,7 +125,12 @@ expand_proc_macros = bxl(
 def expand_targets_impl(ctx):
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    expanded_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", targets)
+    kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", targets)
+
+    # Allow targets to opt-in to being treated as rust-analyzer-compatible.
+    # This is used for cross-compilation targets that apply Buck transitions to Rust rules.
+    labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", targets)
+    expanded_target_list = kind_target_list + labeled_target_list
     ctx.output.print_json([target.label.raw_target() for target in expanded_target_list])
 
 expand_targets = bxl(
