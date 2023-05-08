@@ -64,6 +64,7 @@ def _process_target_config(ctx, target):
     # Always generate the source folder. Let rust-project resolve whether or not to use it
     copy["source_folder"] = materialize(ctx, target)
     copy["label"] = target.label.raw_target()
+    copy["kind"] = target.rule_type
     return copy
 
 def cquery_impl(ctx):

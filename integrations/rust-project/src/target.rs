@@ -81,11 +81,21 @@ pub struct MacroOutput {
     pub actual: Target,
     pub dylib: PathBuf,
 }
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub enum Kind {
+    #[serde(rename = "prelude//rules.bzl:rust_binary")]
+    Binary,
+    #[serde(rename = "prelude//rules.bzl:rust_library")]
+    Library,
+    #[serde(rename = "prelude//rules.bzl:rust_test")]
+    Test,
+}
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct TargetInfo {
     pub name: String,
     pub label: String,
+    pub kind: Kind,
     pub edition: Option<Edition>,
     pub srcs: Vec<PathBuf>,
     /// Mapped srcs are effectively aliases. The key is a buck target
@@ -100,6 +110,7 @@ pub struct TargetInfo {
     pub crate_root: Option<PathBuf>,
     #[serde(rename = "deps", alias = "buck.direct_dependencies", default)]
     pub deps: Vec<Target>,
+    pub tests: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
     pub named_deps: BTreeMap<String, Target>,
@@ -116,16 +127,12 @@ pub struct AliasedTargetInfo {
 }
 
 #[derive(Debug)]
-pub struct TargetInfoEntry<'a> {
+pub struct TargetInfoEntry {
     pub index: usize,
-    pub info: &'a TargetInfo,
+    pub info: TargetInfo,
 }
 
 impl TargetInfo {
-    pub fn deps(&self) -> &'_ [Target] {
-        &self.deps
-    }
-
     pub fn crate_name(&self) -> String {
         self.crate_name.as_deref().map_or_else(
             || self.name.as_str().replace('-', "_"),

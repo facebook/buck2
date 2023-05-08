@@ -28,6 +28,7 @@ use tracing::Level;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
 use crate::target::AliasedTargetInfo;
+use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
 use crate::target::TargetInfo;
@@ -43,77 +44,12 @@ pub fn to_json_project(
     proc_macros: BTreeMap<Target, MacroOutput>,
 ) -> Result<JsonProject, anyhow::Error> {
     let targets: BTreeSet<_> = targets.into_iter().collect();
-    let target_index: BTreeMap<Target, TargetInfoEntry> = {
-        let mut target_index = BTreeMap::new();
-        for (index, (target, info)) in target_map.iter().enumerate() {
-            trace!(?target, ?info, index, "adding dependency");
-            target_index.insert(target.to_owned(), TargetInfoEntry { index, info });
-        }
-
-        target_index
-    };
+    let target_index = merge_unit_test_targets(target_map);
 
     let mut crates: Vec<Crate> = Vec::with_capacity(target_index.len());
-    for (target, info) in &target_map {
-        let deps = {
-            let mut deps = vec![];
-            for dependency_target in info.deps() {
-                let dependency_target = match aliases.get(dependency_target) {
-                    Some(actual) => &actual.actual,
-                    None => {
-                        // we fall back to check the proc macros for aliases
-                        // (these should exist in the aliases map, but they don't. yolo.)
-                        match proc_macros.get(dependency_target) {
-                            Some(MacroOutput { actual, .. }) => actual,
-                            None => dependency_target,
-                        }
-                    }
-                };
-
-                if let Some(entry) = target_index.get(dependency_target) {
-                    trace!(?dependency_target, "present in target_index");
-                    let dep = Dep {
-                        crate_index: entry.index,
-                        name: entry.info.crate_name(),
-                    };
-                    deps.push(dep);
-                } else {
-                    trace!(?dependency_target, "not present in target_index");
-                }
-            }
-
-            // we handled named_deps when constructing the dependency, as rust-analyzer cares about the
-            // the crate name for correct resolution. `named_deps` are distinct from `deps` in buck2 and
-            // are not currently unified into a `buck.direct_dependencies` or `$deps` in buck2.
-            // TODO: once https://fb.workplace.com/groups/buck2users/posts/3137264549863238/?comment_id=3137265756529784
-            // is resolved, switch to `$deps`.
-            for (renamed_crate, dependency_target) in &info.named_deps {
-                if let Some(entry) = target_index.get(dependency_target) {
-                    trace!(old_name = ?entry.info.crate_name(), new_name = ?renamed_crate, "renamed crate");
-                    // if the renamed dependency was encountered before, rename the existing `Dep` rather
-                    // than create a new one with a new name but the same index. While this duplication doesn't
-                    // seem to have any noticeable impact in limited testing, the behavior will be closer to
-                    // that of Rusty and Cargo.
-                    //
-                    // However, if the renamed dependency wasn't encountered before, we create a new `Dep` with
-                    // the new name.
-                    //
-                    // The primary invariant that is being upheld is that each index should
-                    // have one associated name.
-                    match deps.iter_mut().find(|dep| dep.crate_index == entry.index) {
-                        Some(dep) => dep.name = renamed_crate.to_string(),
-                        None => {
-                            let dep = Dep {
-                                crate_index: entry.index,
-                                name: renamed_crate.to_string(),
-                            };
-                            deps.push(dep);
-                        }
-                    };
-                }
-            }
-            deps
-        };
+    for (target, TargetInfoEntry { info, index: _ }) in &target_index {
+        let mut deps = resolve_dependencies_aliases(info, &target_index, &aliases, &proc_macros);
+        resolve_renamed_dependencies(info, &target_index, &mut deps);
 
         let edition = match &info.edition {
             Some(edition) => edition.clone(),
@@ -176,6 +112,105 @@ pub fn to_json_project(
     };
 
     Ok(jp)
+}
+
+fn resolve_dependencies_aliases(
+    info: &TargetInfo,
+    target_index: &BTreeMap<Target, TargetInfoEntry>,
+    aliases: &BTreeMap<Target, AliasedTargetInfo>,
+    proc_macros: &BTreeMap<Target, MacroOutput>,
+) -> Vec<Dep> {
+    let mut deps = vec![];
+    for dependency_target in &info.deps {
+        let dependency_target = match aliases.get(dependency_target) {
+            Some(actual) => &actual.actual,
+            None => {
+                // we fall back to check the proc macros for aliases
+                // (these should exist in the aliases map, but they don't. yolo.)
+                match proc_macros.get(dependency_target) {
+                    Some(MacroOutput { actual, .. }) => actual,
+                    None => dependency_target,
+                }
+            }
+        };
+
+        if let Some(entry) = target_index.get(dependency_target) {
+            trace!(?dependency_target, "present in target_index");
+            let dep = Dep {
+                crate_index: entry.index,
+                name: entry.info.crate_name(),
+            };
+            deps.push(dep);
+        } else {
+            trace!(?dependency_target, "not present in target_index");
+        }
+    }
+
+    deps
+}
+
+fn resolve_renamed_dependencies(
+    info: &TargetInfo,
+    target_index: &BTreeMap<Target, TargetInfoEntry>,
+    deps: &mut Vec<Dep>,
+) {
+    // we handled named_deps when constructing the dependency, as rust-analyzer cares about the
+    // the crate name for correct resolution. `named_deps` are distinct from `deps` in buck2 and
+    // are not currently unified into a `buck.direct_dependencies` or `$deps` in buck2.
+    // TODO: once https://fb.workplace.com/groups/buck2users/posts/3137264549863238/?comment_id=3137265756529784
+    // is resolved, switch to `$deps`.
+    for (renamed_crate, dependency_target) in &info.named_deps {
+        if let Some(entry) = target_index.get(dependency_target) {
+            trace!(old_name = ?entry.info.crate_name(), new_name = ?renamed_crate, "renamed crate");
+            // if the renamed dependency was encountered before, rename the existing `Dep` rather
+            // than create a new one with a new name but the same index. While this duplication doesn't
+            // seem to have any noticeable impact in limited testing, the behavior will be closer to
+            // that of Rusty and Cargo.
+            //
+            // However, if the renamed dependency wasn't encountered before, we create a new `Dep` with
+            // the new name.
+            //
+            // The primary invariant that is being upheld is that each index should
+            // have one associated name.
+            match deps.iter_mut().find(|dep| dep.crate_index == entry.index) {
+                Some(dep) => dep.name = renamed_crate.to_string(),
+                None => {
+                    let dep = Dep {
+                        crate_index: entry.index,
+                        name: renamed_crate.to_string(),
+                    };
+                    deps.push(dep);
+                }
+            };
+        }
+    }
+}
+
+fn merge_unit_test_targets(
+    target_map: BTreeMap<Target, TargetInfo>,
+) -> BTreeMap<Target, TargetInfoEntry> {
+    let mut target_index = BTreeMap::new();
+
+    let (tests, targets): (BTreeMap<Target, TargetInfo>, BTreeMap<Target, TargetInfo>) = target_map
+        .into_iter()
+        .partition(|(_, info)| info.kind == Kind::Test);
+
+    for (index, (target, mut info)) in targets.into_iter().enumerate() {
+        trace!(?target, ?info, index, "adding dependency");
+
+        // merge the `-unittest` target with the parent target.
+        for test_dep in &info.tests {
+            if let Some(test_info) = tests.get(test_dep) {
+                for test_dep in &test_info.deps {
+                    if !info.deps.contains(test_dep) {
+                        info.deps.push(test_dep.clone())
+                    }
+                }
+            }
+        }
+        target_index.insert(target.to_owned(), TargetInfoEntry { index, info });
+    }
+    target_index
 }
 
 // Choose sysroot and sysroot_src based on platform.
