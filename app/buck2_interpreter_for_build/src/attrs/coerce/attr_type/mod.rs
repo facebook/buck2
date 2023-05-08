@@ -21,7 +21,6 @@ pub mod any;
 pub mod arg;
 pub mod bool;
 pub mod configuration_dep;
-mod default_only;
 pub mod dep;
 mod dict;
 mod enumeration;
@@ -113,7 +112,6 @@ impl AttrTypeInnerExt for AttrTypeInner {
             Self::Query(x) => x.coerce_item(configurable, ctx, value),
             Self::ConfigurationDep(x) => x.coerce_item(configurable, ctx, value),
             Self::ConfiguredDep(x) => x.coerce_item(configurable, ctx, value),
-            Self::DefaultOnly(x) => x.coerce_item(configurable, ctx, value),
             Self::Enum(x) => x.coerce_item(configurable, ctx, value),
             Self::SplitTransitionDep(x) => x.coerce_item(configurable, ctx, value),
             Self::Label(x) => x.coerce_item(configurable, ctx, value),
@@ -141,7 +139,6 @@ impl AttrTypeInnerExt for AttrTypeInner {
             AttrTypeInner::Query(x) => x.starlark_type(),
             AttrTypeInner::Source(x) => x.starlark_type(),
             AttrTypeInner::String(x) => x.starlark_type(),
-            AttrTypeInner::DefaultOnly(x) => x.starlark_type(),
             AttrTypeInner::SplitTransitionDep(x) => x.starlark_type(),
             AttrTypeInner::Label(x) => x.starlark_type(),
             AttrTypeInner::Visibility(x) => x.starlark_type(),

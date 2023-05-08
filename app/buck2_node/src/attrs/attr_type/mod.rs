@@ -20,7 +20,6 @@ use crate::attrs::attr_type::arg::ArgAttrType;
 use crate::attrs::attr_type::bool::BoolAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
-use crate::attrs::attr_type::default_only::DefaultOnlyAttrType;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dict::DictAttrType;
@@ -83,7 +82,6 @@ pub enum AttrTypeInner {
     Source(SourceAttrType),
     SplitTransitionDep(SplitTransitionDepAttrType),
     String(StringAttrType),
-    DefaultOnly(DefaultOnlyAttrType),
     Enum(EnumAttrType),
     Label(LabelAttrType),
     Visibility(VisibilityAttrType),
@@ -122,7 +120,6 @@ impl AttrType {
             AttrTypeInner::Source(_) => attr("source"),
             AttrTypeInner::SplitTransitionDep(_) => attr("split_transition_dep"),
             AttrTypeInner::String(_) => attr("string"),
-            AttrTypeInner::DefaultOnly(_) => attr("default_only"),
             AttrTypeInner::Label(_) => attr("label"),
             AttrTypeInner::Visibility(_) => {
                 VisibilityAttrType::pretend_attr_type().fmt_with_default(f, None)
@@ -246,10 +243,6 @@ impl AttrType {
         Self(Arc::new(AttrTypeInner::Option(OptionAttrType::new(value))))
     }
 
-    pub fn default_only() -> Self {
-        Self(Arc::new(AttrTypeInner::DefaultOnly(DefaultOnlyAttrType)))
-    }
-
     pub fn query() -> Self {
         Self(Arc::new(AttrTypeInner::Query(QueryAttrType::new(
             DepAttrType::new(ProviderIdSet::EMPTY, DepAttrTransition::Identity),
@@ -290,7 +283,6 @@ impl AttrType {
             AttrTypeInner::Bool(_)
             | AttrTypeInner::Query(_)
             | AttrTypeInner::Source(_)
-            | AttrTypeInner::DefaultOnly(_)
             | AttrTypeInner::ConfigurationDep(_)
             | AttrTypeInner::ConfiguredDep(_)
             | AttrTypeInner::Int(_)

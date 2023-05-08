@@ -58,6 +58,10 @@ impl AttributeAsStarlarkValue {
         Ok(self.0.coercer().dupe())
     }
 
+    pub fn coercer_for_default_only(&self) -> AttrType {
+        self.0.coercer().dupe()
+    }
+
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
         self.0.default()
     }

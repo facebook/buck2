@@ -343,7 +343,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         arg("any", "\"\"", None),
         arg("arg", "str.type", Some("_")),
         arg("bool", "bool.type", Some("_")),
-        arg("default_only", "default_only", Some("_")),
+        arg("default_only", "str.type", Some("_")),
         arg("dep", "str.type", Some("_")),
         arg("dict", "{str.type: bool.type}", Some("_")),
         arg("list", "[str.type]", Some("_")),

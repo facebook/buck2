@@ -909,7 +909,6 @@ mod tests {
     use buck2_core::target::name::TargetName;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
-    use buck2_node::attrs::attr::testing::AttributeExt;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::any::AnyAttrType;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -958,17 +957,21 @@ mod tests {
         let attrs1 = vec![
             (
                 "bool_field",
-                Attribute::testing_new(None, AttrType::bool()),
+                Attribute::new(None, "", AttrType::bool()),
                 CoercedAttr::Bool(BoolLiteral(false)),
             ),
             (
                 "another_field",
-                Attribute::testing_new(None, AttrType::string()),
+                Attribute::new(None, "", AttrType::string()),
                 CoercedAttr::String(StringLiteral("some_string".into())),
             ),
             (
                 "some_deps",
-                Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::list(AttrType::dep(ProviderIdSet::EMPTY)),
+                ),
                 CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(Box::new(
                     DepAttr {
                         attr_type: DepAttrType::new(
@@ -986,17 +989,21 @@ mod tests {
         let attrs2 = vec![
             (
                 "bool_field",
-                Attribute::testing_new(None, AttrType::bool()),
+                Attribute::new(None, "", AttrType::bool()),
                 CoercedAttr::Bool(BoolLiteral(true)),
             ),
             (
                 "another_field",
-                Attribute::testing_new(None, AttrType::string()),
+                Attribute::new(None, "", AttrType::string()),
                 CoercedAttr::String(StringLiteral("another_string".into())),
             ),
             (
                 "some_deps",
-                Attribute::testing_new(None, AttrType::list(AttrType::dep(ProviderIdSet::EMPTY))),
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::list(AttrType::dep(ProviderIdSet::EMPTY)),
+                ),
                 AnyAttrType::empty_list(),
             ),
         ];

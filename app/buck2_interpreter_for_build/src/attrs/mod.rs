@@ -17,6 +17,7 @@ use starlark::docs::DocStringKind;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::error::CoercionError;
 
 pub mod attribute_as_starlark_value;
 pub mod attrs_global;
@@ -52,6 +53,14 @@ impl AttributeCoerceExt for Attribute {
         coercer_ctx: &dyn AttrCoercionContext,
         value: Value<'v>,
     ) -> anyhow::Result<CoercedValue> {
+        if self.is_default_only() {
+            if value.is_none() {
+                return Ok(CoercedValue::Default);
+            } else {
+                return Err(CoercionError::DefaultOnly(value.to_string()).into());
+            }
+        }
+
         match self.default() {
             default if !value.is_none() => self
                 .coercer()

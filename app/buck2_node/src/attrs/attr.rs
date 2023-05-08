@@ -14,15 +14,21 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
+enum AttributeDefault {
+    No,
+    Yes(Arc<CoercedAttr>),
+    DefaultOnly(Arc<CoercedAttr>),
+}
 
 /// Starlark compatible container for results from e.g. `attrs.string()`
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
-    default: Option<Arc<CoercedAttr>>,
+    default: AttributeDefault,
     /// Documentation for what the attribute actually means
     doc: String,
     /// The coercer to take this parameter's value from Starlark value -> an
@@ -33,7 +39,18 @@ pub struct Attribute {
 impl Attribute {
     pub fn new(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
         Attribute {
-            default,
+            default: match default {
+                Some(x) => AttributeDefault::Yes(x),
+                None => AttributeDefault::No,
+            },
+            doc: doc.to_owned(),
+            coercer,
+        }
+    }
+
+    pub fn new_default_only(default: Arc<CoercedAttr>, doc: &str, coercer: AttrType) -> Self {
+        Attribute {
+            default: AttributeDefault::DefaultOnly(default),
             doc: doc.to_owned(),
             coercer,
         }
@@ -44,11 +61,15 @@ impl Attribute {
     }
 
     pub fn is_default_only(&self) -> bool {
-        matches!(&*self.coercer.0, AttrTypeInner::DefaultOnly(_))
+        matches!(self.default, AttributeDefault::DefaultOnly(_))
     }
 
     pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
-        self.default.as_ref()
+        match &self.default {
+            AttributeDefault::Yes(x) => Some(x),
+            AttributeDefault::DefaultOnly(x) => Some(x),
+            AttributeDefault::No => None,
+        }
     }
 
     pub fn doc(&self) -> &str {
@@ -60,8 +81,7 @@ impl Display for Attribute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.coercer.fmt_with_default(
             f,
-            self.default
-                .as_ref()
+            self.default()
                 .map(|x| x.as_display_no_ctx().to_string())
                 .as_deref(),
         )
@@ -73,27 +93,4 @@ impl Display for Attribute {
 pub enum CoercedValue {
     Custom(CoercedAttr),
     Default,
-}
-
-pub mod testing {
-    // utilities to create attributes for testing
-    use std::sync::Arc;
-
-    use crate::attrs::attr::Attribute;
-    use crate::attrs::attr_type::AttrType;
-    use crate::attrs::coerced_attr::CoercedAttr;
-
-    pub trait AttributeExt {
-        fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Self;
-    }
-
-    impl AttributeExt for Attribute {
-        fn testing_new(default: Option<Arc<CoercedAttr>>, coercer: AttrType) -> Attribute {
-            Attribute {
-                default,
-                doc: String::new(),
-                coercer,
-            }
-        }
-    }
 }

@@ -379,10 +379,10 @@ fn attr_module(registry: &mut MethodsBuilder) {
         let Some(default) = inner.default().duped() else {
             return Err(AttrError::DefaultOnlyMustHaveDefault.into());
         };
-        Ok(AttributeAsStarlarkValue::new(Attribute::new(
-            Some(default),
+        Ok(AttributeAsStarlarkValue::new(Attribute::new_default_only(
+            default,
             doc,
-            AttrType::default_only(),
+            inner.coercer_for_default_only(),
         )))
     }
 
