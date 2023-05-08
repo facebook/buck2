@@ -23,7 +23,10 @@ srcs = [
 # https://github.com/BLAKE3-team/BLAKE3/issues/79.
 compiler_flags = ["-mavx512f", "-mavx512vl"]
 headers = ["c/*.h"]
-compatible_with = ["prelude//os/constraints:linux"]
+compatible_with = [
+    "prelude//os/constraints:linux",
+    "prelude//os/constraints:macos",
+]
 
 [[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript]]
 [platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript.cxx_library]
