@@ -17,7 +17,7 @@ use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 
 /// User supplied cycle detector
-pub struct UserCycleDetectorData {
+pub(crate) struct UserCycleDetectorData {
     detector: Option<Arc<dyn UserCycleDetector>>,
     user_cycle_detector_guard: Option<(DiceKey, Option<Box<dyn UserCycleDetectorGuard>>)>,
     dice: Arc<DiceModern>,
