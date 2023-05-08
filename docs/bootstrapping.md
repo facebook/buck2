@@ -11,14 +11,14 @@ Note that the resulting binary will be compiled without optimisations or [jemall
 
 First, install `reindeer` with `Cargo`:
 ```sh
-cargo install --git https://github.com/facebookincubator/reindeer
+cargo install --git https://github.com/facebookincubator/reindeer reindeer
 ```
 
 Next, run the following to pull in dependencies and buckify:
 ```sh
 cd buck2/
 reindeer --third-party-dir shim/third-party/rust vendor
-reindeer --third-party-dir shim/third-party/rust buckify --stdout > shim/third-party/rust/BUCK
+reindeer --third-party-dir shim/third-party/rust buckify
 ```
 
 Build `buck2` with `buck2`:

@@ -18,7 +18,7 @@ bindeps = true
 
 [buck]
 # Name of the generated file.
-file_name = "BUILD"
+file_name = "BUCK"
 
 # Rules used for various kinds of targets.
 rust_library = "cargo.rust_library"
