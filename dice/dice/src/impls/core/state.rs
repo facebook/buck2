@@ -12,9 +12,9 @@ use derivative::Derivative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
-use triomphe::Arc;
 
 use crate::api::storage_type::StorageType;
+use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::processor::StateProcessor;

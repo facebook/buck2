@@ -12,8 +12,8 @@
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;

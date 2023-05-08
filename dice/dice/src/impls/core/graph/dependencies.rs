@@ -13,10 +13,9 @@ use std::collections::hash_map::Entry;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::key::DiceKey;
-use crate::impls::triomphe_dupe;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -38,7 +37,7 @@ impl VersionedDependencies {
     }
 
     pub(crate) fn deps(&self) -> Arc<Vec<DiceKey>> {
-        triomphe_dupe(&self.deps) // actually dupe
+        self.deps.dupe()
     }
 
     pub(crate) fn replace_deps(&mut self, v: VersionNumber, deps: Arc<Vec<DiceKey>>) {

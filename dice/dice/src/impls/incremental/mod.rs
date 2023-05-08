@@ -24,10 +24,10 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use tokio::sync::oneshot;
-use triomphe::Arc;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
+use crate::arc::Arc;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;

@@ -13,8 +13,8 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::core::graph::history::CellHistory;
 use crate::Key;
 use crate::ProjectionKey;

@@ -16,9 +16,9 @@ use std::task::Context;
 use std::task::Poll;
 
 use futures::task::AtomicWaker;
-use triomphe::Arc;
 
 use crate::api::error::DiceResult;
+use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
 

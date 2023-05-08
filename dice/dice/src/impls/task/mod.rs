@@ -9,6 +9,7 @@
 
 use std::any::Any;
 
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use more_futures::spawn::spawn_cancellable;
 use more_futures::spawn::FutureAndCancellationHandle;
@@ -17,7 +18,6 @@ use more_futures::spawner::Spawner;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::DiceTaskHandle;
-use crate::impls::triomphe_dupe;
 
 pub(crate) mod dice;
 pub(crate) mod handle;
@@ -42,7 +42,7 @@ pub(crate) fn spawn_dice_task<S>(
         ..
     } = spawn_cancellable(
         {
-            let internal = triomphe_dupe(&internal);
+            let internal = internal.dupe();
             |cancellations| {
                 let handle = DiceTaskHandle {
                     internal,

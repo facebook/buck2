@@ -10,8 +10,8 @@
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
 use more_futures::cancellation::CancellationContext;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
 use crate::DiceResult;

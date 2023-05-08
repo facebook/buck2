@@ -205,6 +205,7 @@ extern crate gazebo;
 extern crate tracing;
 
 mod api;
+pub(crate) mod arc;
 mod ctx;
 mod impls;
 pub mod introspection;

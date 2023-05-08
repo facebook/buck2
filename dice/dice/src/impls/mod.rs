@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use triomphe::Arc;
-
 pub(crate) mod cache;
 pub(crate) mod core;
 pub(crate) mod ctx;
@@ -27,7 +25,3 @@ mod tests;
 pub(crate) mod transaction;
 pub(crate) mod user_cycle;
 pub(crate) mod value;
-
-pub(crate) fn triomphe_dupe<T>(t: &Arc<T>) -> Arc<T> {
-    t.clone() // triomphe arc is actually dupe
-}

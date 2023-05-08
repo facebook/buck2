@@ -24,9 +24,9 @@ use std::ops::Bound;
 use allocative::Allocative;
 use dupe::Dupe;
 use sorted_vector_map::SortedVectorMap;
-use triomphe::Arc;
 
 use crate::api::storage_type::StorageType;
+use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::history::HistoryState;
@@ -651,10 +651,10 @@ mod tests {
     use dupe::Dupe;
     use more_futures::cancellation::CancellationContext;
     use sorted_vector_map::sorted_vector_set;
-    use triomphe::Arc;
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::arc::Arc;
     use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::impls::core::graph::storage::InvalidateKind;
     use crate::impls::core::graph::storage::StorageType;

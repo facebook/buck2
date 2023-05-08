@@ -20,14 +20,13 @@ use futures::task::AtomicWaker;
 use more_futures::cancellation::future::CancellationHandle;
 use parking_lot::Mutex;
 use slab::Slab;
-use triomphe::Arc;
 
 use crate::api::error::DiceResult;
+use crate::arc::Arc;
 use crate::impls::key::ParentKey;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
-use crate::impls::triomphe_dupe;
 use crate::impls::value::DiceComputedValue;
 
 ///
@@ -83,7 +82,7 @@ impl DiceTask {
     /// completes
     pub(crate) fn depended_on_by(&self, k: ParentKey) -> DicePromise {
         if self.internal.state.is_ready(Ordering::Acquire) {
-            DicePromise::ready(triomphe_dupe(&self.internal))
+            DicePromise::ready(self.internal.dupe())
         } else {
             let mut wakers = self.internal.dependants.lock();
             match wakers.deref_mut() {
@@ -92,13 +91,13 @@ impl DiceTask {
                         self.internal.state.is_ready(Ordering::SeqCst),
                         "invalid state where deps are taken before state is ready"
                     );
-                    DicePromise::ready(triomphe_dupe(&self.internal))
+                    DicePromise::ready(self.internal.dupe())
                 }
                 Some(ref mut wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
-                    let id = wakers.insert((k, triomphe_dupe(&waker)));
+                    let id = wakers.insert((k, waker.dupe()));
 
-                    DicePromise::pending(id, triomphe_dupe(&self.internal), waker)
+                    DicePromise::pending(id, self.internal.dupe(), waker)
                 }
             }
         }

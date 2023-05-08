@@ -10,8 +10,8 @@
 use std::collections::BTreeMap;
 
 use gazebo::prelude::SliceExt;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::dice::DiceModern;

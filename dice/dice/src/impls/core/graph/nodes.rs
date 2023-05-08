@@ -21,8 +21,8 @@
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::core::graph::dependencies::VersionedDependencies;
 use crate::impls::core::graph::dependencies::VersionedRevDependencies;
 use crate::impls::core::graph::history::CellHistory;
@@ -160,17 +160,16 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
     use more_futures::cancellation::CancellationContext;
-    use triomphe::Arc;
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::arc::Arc;
     use crate::impls::core::graph::dependencies::VersionedDependencies;
     use crate::impls::core::graph::history::testing::CellHistoryExt;
     use crate::impls::core::graph::history::testing::HistoryExt;
     use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::graph::nodes::OccupiedGraphNode;
     use crate::impls::key::DiceKey;
-    use crate::impls::triomphe_dupe;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
     use crate::versions::VersionNumber;
@@ -201,7 +200,7 @@ mod tests {
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-            VersionedDependencies::new(VersionNumber::new(0), triomphe_dupe(&deps0)),
+            VersionedDependencies::new(VersionNumber::new(0), deps0.dupe()),
             CellHistory::testing_new(
                 &[VersionNumber::new(0)],
                 &[VersionNumber::new(1), VersionNumber::new(2)],
@@ -233,7 +232,7 @@ mod tests {
             VersionNumber::new(2),
             Some(VersionNumber::new(1)),
             None,
-            triomphe_dupe(&deps1),
+            deps1.dupe(),
         );
 
         entry

@@ -14,8 +14,8 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Dupe;
 use fnv::FnvBuildHasher;
-use triomphe::Arc;
 
+use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 

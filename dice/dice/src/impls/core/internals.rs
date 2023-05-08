@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use triomphe::Arc;
-
 use crate::api::storage_type::StorageType;
+use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::graph::storage::InvalidateKind;
 use crate::impls::core::graph::storage::VersionedGraph;
@@ -123,8 +122,7 @@ impl CoreState {
 
 #[cfg(test)]
 mod tests {
-    use triomphe::Arc;
-
+    use crate::arc::Arc;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
     use crate::impls::transaction::ChangeType;
