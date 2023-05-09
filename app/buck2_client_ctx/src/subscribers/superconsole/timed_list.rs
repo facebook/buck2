@@ -30,6 +30,7 @@ use self::table_builder::Table;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
+use crate::subscribers::superconsole::timed_list::table_builder::TimedRow;
 use crate::subscribers::superconsole::SuperConsoleState;
 
 mod table_builder;
@@ -80,7 +81,7 @@ impl<'c> TimedListBodyInner<'c> {
         single_child: BuckEventSpanHandle,
         remaining_children: usize,
         display_platform: bool,
-    ) -> anyhow::Result<Row> {
+    ) -> anyhow::Result<TimedRow> {
         let time_speed = self.state.time_speed;
         let info = root.info();
         let child_info = single_child.info();
@@ -118,7 +119,7 @@ impl<'c> TimedListBodyInner<'c> {
 
         event_string.push(']');
 
-        Row::text(
+        TimedRow::text(
             0,
             event_string,
             display::duration_as_secs_elapsed(info_elapsed, time_speed.speed()),
@@ -127,7 +128,7 @@ impl<'c> TimedListBodyInner<'c> {
         )
     }
 
-    fn draw_root(&self, root: &BuckEventSpanHandle) -> anyhow::Result<Vec<Row>> {
+    fn draw_root(&self, root: &BuckEventSpanHandle) -> anyhow::Result<Vec<TimedRow>> {
         let time_speed = self.state.time_speed;
         let config = &self.state.config;
         let two_lines = config.two_lines;
@@ -145,7 +146,7 @@ impl<'c> TimedListBodyInner<'c> {
             )?]),
             first => {
                 let mut rows = Vec::new();
-                rows.push(Row::span(
+                rows.push(TimedRow::span(
                     0,
                     info,
                     time_speed.speed(),
@@ -154,7 +155,7 @@ impl<'c> TimedListBodyInner<'c> {
                 )?);
 
                 for child in first.into_iter().chain(it) {
-                    rows.push(Row::span(
+                    rows.push(TimedRow::span(
                         2,
                         child.info(),
                         time_speed.speed(),
@@ -175,8 +176,6 @@ impl<'c> Component for TimedListBodyInner<'c> {
 
         let spans = self.state.simple_console.observer().spans();
 
-        let time_speed = self.state.time_speed;
-
         let mut roots = spans.iter_roots();
 
         let mut builder = Table::new();
@@ -191,23 +190,18 @@ impl<'c> Component for TimedListBodyInner<'c> {
                 break;
             }
 
-            builder.rows.extend(rows);
+            builder.rows.extend(rows.into_iter().map(Row::from));
         }
 
         // Add remaining unshown tasks, if any.
-        if let Some(first) = first_not_rendered {
-            let remaining_msg = format!("...and {} more not shown above.", roots.len() + 1);
-            let longest_count = first.info().start.elapsed();
-            let formatted_count =
-                display::duration_as_secs_elapsed(longest_count, time_speed.speed());
-
-            builder.rows.push(Row::styled(
-                0,
-                remaining_msg.italic(),
-                formatted_count.italic(),
-                longest_count.mul_f64(time_speed.speed()),
-                self.cutoffs,
-            )?);
+        if first_not_rendered.is_some() {
+            builder.rows.push(
+                std::iter::once(Span::new_styled(
+                    format!("...and {} more not shown above.", roots.len() + 1).italic(),
+                )?)
+                .collect::<Line>()
+                .into(),
+            );
         }
 
         builder.draw(dimensions, mode)
@@ -582,11 +576,9 @@ mod tests {
                 Span::padding(12),
                 Span::new_styled(style("1.0s".to_owned()))?,
             ]),
-            Line::from_iter([
-                Span::new_styled("...and 2 more not shown above.".to_owned().italic())?,
-                Span::padding(6),
-                Span::new_styled("1.0s".to_owned().italic())?,
-            ]),
+            Line::from_iter([Span::new_styled(
+                "...and 2 more not shown above.".to_owned().italic(),
+            )?]),
         ]);
 
         pretty_assertions::assert_eq!(output, expected);
