@@ -13,6 +13,7 @@ use std::env;
 
 use buck2_core::facebook_only;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
+use once_cell::sync::OnceCell;
 
 use crate::daemon_id::DAEMON_UUID;
 
@@ -76,18 +77,14 @@ pub struct SystemInfo {
 }
 
 pub fn system_info() -> SystemInfo {
-    let hostname;
+    let hostname = hostname();
     let username;
     #[cfg(any(fbcode_build, cargo_internal_build))]
     {
-        hostname = hostname::get()
-            .ok()
-            .map(|res| res.to_string_lossy().into_owned());
         username = user::current_username().ok();
     }
     #[cfg(not(any(fbcode_build, cargo_internal_build)))]
     {
-        hostname = None;
         username = None;
     }
 
@@ -110,4 +107,15 @@ fn os_type() -> String {
     } else {
         "unknown".to_owned()
     }
+}
+
+pub fn hostname() -> Option<String> {
+    static CELL: OnceCell<Option<String>> = OnceCell::new();
+
+    CELL.get_or_init(|| {
+        hostname::get()
+            .ok()
+            .map(|res| res.to_string_lossy().into_owned())
+    })
+    .clone()
 }
