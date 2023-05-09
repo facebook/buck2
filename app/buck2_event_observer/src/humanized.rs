@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-/// Write out a u64 as something more readable
+/// Write out a u64 representing bytes as something more readable
 pub struct HumanizedBytes {
     bytes: u64,
     fixed_width: bool,
@@ -56,17 +56,41 @@ impl HumanizedBytesPerSecond {
     }
 }
 
+pub struct HumanizedCount {
+    count: u64,
+    fixed_width: bool,
+}
+
+impl HumanizedCount {
+    pub fn new(count: u64) -> Self {
+        HumanizedCount {
+            count,
+            fixed_width: false,
+        }
+    }
+
+    pub fn fixed_width(count: u64) -> Self {
+        HumanizedCount {
+            count,
+            fixed_width: true,
+        }
+    }
+}
+
 struct Preformat {
     val: f64,
     label: &'static str,
     point: bool,
 }
 
-fn preformat(value: u64, one_label: &'static str, labels: &[&'static str]) -> Preformat {
+fn preformat(
+    value: u64,
+    factor: f64,
+    one_label: &'static str,
+    labels: &[&'static str],
+) -> Preformat {
     let mut val = value as f64;
     let mut label = one_label;
-
-    let factor = 1024.0;
 
     let mut labels = labels.iter();
 
@@ -100,7 +124,8 @@ fn preformat(value: u64, one_label: &'static str, labels: &[&'static str]) -> Pr
 
 impl fmt::Display for HumanizedBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Preformat { val, label, point } = preformat(self.bytes, "B", &["KiB", "MiB", "GiB"]);
+        let Preformat { val, label, point } =
+            preformat(self.bytes, 1024.0, "B", &["KiB", "MiB", "GiB"]);
 
         match (point, self.fixed_width) {
             (false, false) => write!(f, "{:.0} {}", val, label),
@@ -113,8 +138,12 @@ impl fmt::Display for HumanizedBytes {
 
 impl fmt::Display for HumanizedBytesPerSecond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Preformat { val, label, point } =
-            preformat(self.bytes_per_second, "B/s", &["KiB/s", "MiB/s", "GiB/s"]);
+        let Preformat { val, label, point } = preformat(
+            self.bytes_per_second,
+            1024.0,
+            "B/s",
+            &["KiB/s", "MiB/s", "GiB/s"],
+        );
 
         match (point, self.fixed_width) {
             (false, false) => write!(f, "{:.0} {}", val, label),
@@ -125,10 +154,37 @@ impl fmt::Display for HumanizedBytesPerSecond {
     }
 }
 
+impl fmt::Display for HumanizedCount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Preformat { val, label, point } = preformat(self.count, 1000.0, "", &["K", "M", "B"]);
+
+        struct SpacePrefixedUnlessEmpty<'a> {
+            label: &'a str,
+        }
+
+        impl fmt::Display for SpacePrefixedUnlessEmpty<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                if self.label.is_empty() {
+                    return Ok(());
+                }
+                write!(f, " {}", self.label)
+            }
+        }
+
+        match (point, self.fixed_width) {
+            (false, false) => write!(f, "{:.0}{}", val, SpacePrefixedUnlessEmpty { label }),
+            (true, false) => write!(f, "{:.1}{}", val, SpacePrefixedUnlessEmpty { label }),
+            (false, true) => write!(f, "{:>3.0} {:<1}", val, label),
+            (true, true) => write!(f, "{:>3.1} {:<1}", val, label),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::HumanizedBytes;
     use super::HumanizedBytesPerSecond;
+    use super::HumanizedCount;
 
     #[allow(clippy::identity_op)]
     #[test]
@@ -205,5 +261,31 @@ mod test {
         t(0, "0 B/s", "  0 B/s  ");
         t(22, "22 B/s", " 22 B/s  ");
         t(1024 * 1024, "1.0 MiB/s", "1.0 MiB/s");
+    }
+
+    #[test]
+    fn test_humanized_count() {
+        fn t(value: u64, expected: &str, expected_fixed_width: &str) {
+            assert_eq!(
+                HumanizedCount {
+                    count: value,
+                    fixed_width: false
+                }
+                .to_string(),
+                expected
+            );
+            assert_eq!(
+                HumanizedCount {
+                    count: value,
+                    fixed_width: true,
+                }
+                .to_string(),
+                expected_fixed_width
+            );
+        }
+
+        t(0, "0", "  0  ");
+        t(22, "22", " 22  ");
+        t(1000000, "1.0 M", "1.0 M");
     }
 }
