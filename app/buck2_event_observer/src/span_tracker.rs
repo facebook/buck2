@@ -505,9 +505,13 @@ pub type BuckEventSpanHandle<'a> = SpanHandle<'a, Arc<BuckEvent>>;
 pub type BuckEventSpanInfo = SpanInfo<Arc<BuckEvent>>;
 
 impl BuckEventSpanTracker {
-    pub fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub fn handle_event(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> anyhow::Result<()> {
         if let Some(_start) = event.span_start_event() {
-            self.start_at(event, Instant::now())?;
+            self.start_at(event, receive_time)?;
         } else if let Some(_end) = event.span_end_event() {
             self.end(event)?;
         }

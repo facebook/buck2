@@ -61,7 +61,7 @@ where
     }
 
     pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.span_tracker.handle_event(event)?;
+        self.span_tracker.handle_event(receive_time, event)?;
 
         {
             use buck2_data::buck_event::Data::*;
