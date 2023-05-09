@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::humanized::HumanizedCount;
 use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
@@ -221,32 +222,41 @@ struct CountComponent<'s> {
 
 impl<'s> Component for CountComponent<'s> {
     fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        let spans = self.state.simple_console.observer().spans();
+        let observer = self.state.simple_console.observer();
+        let spans = observer.spans();
         let action_stats = self.state.simple_console.observer().action_stats();
         let time_speed = self.state.time_speed;
 
-        let finished = spans.roots_completed();
-        let progress = spans.iter_roots().len();
+        let finished = spans.roots_completed() as u64;
+        let progress = spans.iter_roots().len() as u64;
 
         let elapsed = display::duration_as_secs_elapsed(
             self.state.current_tick.elapsed_time,
             time_speed.speed(),
         );
 
+        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+        let total = finished + spans.iter_roots().len() as u64 + pending;
+
+        let finished = HumanizedCount::new(finished);
+        let progress = HumanizedCount::new(progress);
+        let total = HumanizedCount::new(total);
+
         let contents = match mode {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
                     let mut actions_summary = format!(
-                        "Jobs: In progress: {}. Finished: {}. Cache hits: {}%. ",
+                        "Jobs: Running: {}. Progress: {}/{}. Cache hits: {}%. ",
                         progress,
                         finished,
+                        total,
                         action_stats.action_cache_hit_percentage()
                     );
                     if action_stats.fallback_actions > 0 {
                         actions_summary += format!(
                             "Fallback: {}/{}. ",
-                            action_stats.fallback_actions,
-                            action_stats.total_executed_actions()
+                            HumanizedCount::new(action_stats.fallback_actions),
+                            HumanizedCount::new(action_stats.total_executed_actions())
                         )
                         .as_str();
                     }
@@ -254,8 +264,8 @@ impl<'s> Component for CountComponent<'s> {
                     actions_summary
                 } else {
                     format!(
-                        "Jobs: In progress: {}. Finished: {}. Time elapsed: {}",
-                        progress, finished, elapsed
+                        "Jobs: Running: {}. Progress: {}/{}. Time elapsed: {}",
+                        progress, finished, total, elapsed
                     )
                 }
             }
@@ -483,7 +493,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = Lines(vec![
-            vec!["test", "Jobs: In progress: 2. Finished: 0. C"].try_into()?,
+            vec!["test", "Jobs: Running: 2. Progress: 0/2. Cac"].try_into()?,
             Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
                 Span::new_styled("test -- speak of the devil".to_owned().dark_yellow())?,
@@ -576,7 +586,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = Lines(vec![
-            vec!["test", "Jobs: In progress: 3. Finished: 0. C"].try_into()?,
+            vec!["test", "Jobs: Running: 3. Progress: 0/3. Cac"].try_into()?,
             Line::sanitized(&"-".repeat(40)),
             Line::from_iter([
                 Span::new_styled(style("e1 -- speak of the devil".to_owned()))?,
@@ -692,8 +702,8 @@ mod tests {
             let expected = Lines(vec![
                 vec![
                     "test",
-                    "                       ",
-                    "Jobs: In progress: 1. Finished: 0. Time elapsed: 0.0s",
+                    "                         ",
+                    "Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
                 ]
                 .try_into()?,
                 Line::sanitized(&"-".repeat(80)),
@@ -726,8 +736,8 @@ mod tests {
             let expected = Lines(vec![
                 vec![
                     "test",
-                    "                       ",
-                    "Jobs: In progress: 1. Finished: 0. Time elapsed: 0.0s",
+                    "                         ",
+                    "Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
                 ]
                 .try_into()?,
                 Line::sanitized(&"-".repeat(80)),
@@ -837,8 +847,8 @@ mod tests {
         let expected = Lines(vec![
             vec![
                 "test",
-                "     ",
-                "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
+                "       ",
+                "Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
             Line::sanitized(&"-".repeat(80)),
@@ -896,8 +906,8 @@ mod tests {
         let expected = Lines(vec![
             vec![
                 "test",
-                "     ",
-                "Jobs: In progress: 1. Finished: 0. Cache hits: 100%. Time elapsed: 0.0s",
+                "       ",
+                "Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             ]
             .try_into()?,
             Line::sanitized(&"-".repeat(80)),
