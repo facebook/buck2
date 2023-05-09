@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
 use superconsole::components::bordering::BorderedSpec;
@@ -174,13 +175,17 @@ impl<'c> Component for TimedListBodyInner<'c> {
         let config = &self.state.config;
         let max_lines = config.max_lines;
 
-        let spans = self.state.simple_console.observer().spans();
+        let observer = self.state.simple_console.observer();
+
+        let spans = observer.spans();
 
         let mut roots = spans.iter_roots();
 
         let mut builder = Table::new();
 
         let mut first_not_rendered = None;
+
+        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
 
         for root in &mut roots {
             let rows = self.draw_root(&root)?;
@@ -194,13 +199,14 @@ impl<'c> Component for TimedListBodyInner<'c> {
         }
 
         // Add remaining unshown tasks, if any.
-        if first_not_rendered.is_some() {
+        let more = roots.len() as u64 + first_not_rendered.map_or(0, |_| 1) + pending;
+
+        if more > 0 {
+            let remaining = format!("... and {} more", more);
             builder.rows.push(
-                std::iter::once(Span::new_styled(
-                    format!("...and {} more not shown above.", roots.len() + 1).italic(),
-                )?)
-                .collect::<Line>()
-                .into(),
+                std::iter::once(Span::new_styled(remaining.italic())?)
+                    .collect::<Line>()
+                    .into(),
             );
         }
 
@@ -344,6 +350,7 @@ impl<'a> Component for TimedList<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::UNIX_EPOCH;
 
@@ -576,12 +583,159 @@ mod tests {
                 Span::padding(12),
                 Span::new_styled(style("1.0s".to_owned()))?,
             ]),
-            Line::from_iter([Span::new_styled(
-                "...and 2 more not shown above.".to_owned().italic(),
-            )?]),
+            Line::from_iter([Span::new_styled("... and 2 more".to_owned().italic())?]),
         ]);
 
         pretty_assertions::assert_eq!(output, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_remaining_with_pending() -> anyhow::Result<()> {
+        let tick = Tick::now();
+
+        let mut state = SuperConsoleState::new(
+            None,
+            TraceId::null(),
+            FileNameBuf::unchecked_new("ignore"),
+            Verbosity::Default,
+            false,
+            SuperConsoleConfig {
+                max_lines: 2,
+                ..Default::default()
+            },
+        )?;
+
+        state.time_speed = fake_time_speed();
+        state.current_tick = tick.clone();
+
+        state.simple_console.observer.observe(
+            fake_time(&tick, 10),
+            &Arc::new(BuckEvent::new(
+                UNIX_EPOCH,
+                TraceId::new(),
+                Some(SpanId::new()),
+                None,
+                SpanStartEvent {
+                    data: Some(
+                        buck2_data::ActionExecutionStart {
+                            key: Some(buck2_data::ActionKey {
+                                id: Default::default(),
+                                owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                                    buck2_data::ConfiguredTargetLabel {
+                                        label: Some(buck2_data::TargetLabel {
+                                            package: "pkg".into(),
+                                            name: "target".into(),
+                                        }),
+                                        configuration: Some(buck2_data::Configuration {
+                                            full_name: "conf".into(),
+                                        }),
+                                        execution_configuration: None,
+                                    },
+                                )),
+                                key: "".to_owned(),
+                            }),
+                            name: Some(buck2_data::ActionName {
+                                category: "category".into(),
+                                identifier: "identifier".into(),
+                            }),
+                            kind: buck2_data::ActionKind::NotSet as i32,
+                        }
+                        .into(),
+                    ),
+                }
+                .into(),
+            )),
+        )?;
+
+        state.simple_console.observer.observe(
+            fake_time(&tick, 1),
+            &Arc::new(BuckEvent::new(
+                UNIX_EPOCH,
+                TraceId::new(),
+                None,
+                None,
+                buck2_data::InstantEvent {
+                    data: Some(
+                        buck2_data::DiceStateSnapshot {
+                            key_states: {
+                                let mut map = HashMap::new();
+                                map.insert(
+                                    "BuildKey".to_owned(),
+                                    buck2_data::DiceKeyState {
+                                        started: 4,
+                                        finished: 2,
+                                        check_deps_started: 2,
+                                        check_deps_finished: 1,
+                                    },
+                                );
+                                map
+                            },
+                        }
+                        .into(),
+                    ),
+                }
+                .into(),
+            )),
+        )?;
+
+        {
+            let output = TimedList::new(&CUTOFFS, "test", &state).draw(
+                Dimensions {
+                    width: 80,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?;
+
+            let expected = Lines(vec![
+                vec![
+                    "test",
+                    "                       ",
+                    "Jobs: In progress: 1. Finished: 0. Time elapsed: 0.0s",
+                ]
+                .try_into()?,
+                Line::sanitized(&"-".repeat(80)),
+                Line::from_iter([
+                    Span::new_styled(
+                        "pkg:target -- action (category identifier)"
+                            .to_owned()
+                            .dark_red(),
+                    )?,
+                    Span::padding(33),
+                    Span::new_styled("10.0s".to_owned().dark_red())?,
+                ]),
+                Line::from_iter([Span::new_styled("... and 2 more".to_owned().italic())?]),
+            ]);
+
+            pretty_assertions::assert_eq!(output, expected);
+        }
+
+        {
+            state.config.max_lines = 1; // With fewer lines now
+
+            let output = TimedList::new(&CUTOFFS, "test", &state).draw(
+                Dimensions {
+                    width: 80,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?;
+
+            let expected = Lines(vec![
+                vec![
+                    "test",
+                    "                       ",
+                    "Jobs: In progress: 1. Finished: 0. Time elapsed: 0.0s",
+                ]
+                .try_into()?,
+                Line::sanitized(&"-".repeat(80)),
+                Line::from_iter([Span::new_styled("... and 3 more".to_owned().italic())?]),
+            ]);
+
+            pretty_assertions::assert_eq!(output, expected);
+        }
 
         Ok(())
     }

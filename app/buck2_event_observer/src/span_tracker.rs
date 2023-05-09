@@ -131,7 +131,7 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
 ///
 /// - A given Span is never in both roots and boring_roots.
 #[derive(Clone)]
-struct Roots<T: SpanTrackable> {
+pub struct Roots<T: SpanTrackable> {
     roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
     boring_roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
     dice_counts: HashMap<&'static str, u64>,
@@ -228,6 +228,10 @@ impl<T: SpanTrackable> Roots<T> {
             inner: self.roots.keys().chain(self.boring_roots.keys()),
             size,
         }
+    }
+
+    pub fn dice_counts(&self) -> &HashMap<&'static str, u64> {
+        &self.dice_counts
     }
 }
 
@@ -384,6 +388,10 @@ impl<T: SpanTrackable> SpanTracker<T> {
     pub fn roots_ongoing(&self) -> usize {
         self.roots.len()
     }
+
+    pub fn roots(&self) -> &Roots<T> {
+        &self.roots
+    }
 }
 
 pub trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
@@ -453,7 +461,13 @@ impl SpanTrackable for Arc<BuckEvent> {
     }
 
     fn dice_key_type(&self) -> Option<&'static str> {
-        None
+        use buck2_data::span_start_event::Data;
+
+        match self.span_start_event().and_then(|span| span.data.as_ref()) {
+            Some(Data::ActionExecution(..)) => Some("BuildKey"),
+            Some(Data::Analysis(..)) => Some("AnalysisKey"),
+            _ => None,
+        }
     }
 }
 
