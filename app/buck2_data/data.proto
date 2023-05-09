@@ -1074,14 +1074,19 @@ message ActionExecutionEnd {
   bool allows_cache_upload = 29;
   bool did_cache_upload = 30;
 
-  // Revision hash (version) for this action
+  // Revision hash (version) for this action. This is set only when the action
+  // fails.
   optional string buck2_revision = 31;
-  // Time when the buck2 binary servicing this action was built.
+  // Time when the buck2 binary servicing this action was built. This is set
+  // only when the action fails.
   optional string buck2_build_time = 32;
 
   // Was this command eligible for full hybrid execution (i.e. no exclusions
   // from the command, hybrid is turned on).
   optional bool eligible_for_full_hybrid = 33;
+
+  // Hostname of this action ran on. This is set only when the action fails.
+  optional string hostname = 34;
 }
 
 // The beginning of materialization for the output of a target requested,

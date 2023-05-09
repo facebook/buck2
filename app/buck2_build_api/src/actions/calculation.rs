@@ -152,6 +152,7 @@ async fn build_action_no_redirect(
 
         let mut buck2_revision = None;
         let mut buck2_build_time = None;
+        let mut hostname = None;
 
         match execute_result {
             Ok((outputs, meta)) => {
@@ -199,6 +200,7 @@ async fn build_action_no_redirect(
                 // so as to reduce Scribe traffic and log it in buck2_action_errors
                 buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
                 buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
+                hostname = buck2_events::metadata::hostname();
             }
         };
 
@@ -241,6 +243,7 @@ async fn build_action_no_redirect(
                 eligible_for_full_hybrid,
                 buck2_revision,
                 buck2_build_time,
+                hostname,
             }),
         )
     };
