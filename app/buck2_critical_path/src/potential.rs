@@ -286,6 +286,10 @@ pub fn compute_critical_path_potentials(
 mod test {
     use std::time::Instant;
 
+    use rand::Rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
     use super::*;
     use crate::test_utils::make_dag;
     use crate::test_utils::seeded_rng;
@@ -335,6 +339,11 @@ mod test {
         let fast = Instant::now();
         let (critical_path, critical_path_cost, replacement_costs) =
             compute_critical_path_potentials(&dag.graph, &dag.weights).unwrap();
+
+        for (cp_idx, _) in critical_path.iter() {
+            assert!(critical_path_cost >= replacement_costs[cp_idx]);
+        }
+
         let fast = fast.elapsed();
 
         let naive = naive_critical_path_cost(dag, None);
@@ -391,5 +400,18 @@ mod test {
     #[test]
     fn test_xxxlarge() {
         do_test(&test_dag(1_000_000))
+    }
+
+    /// Run on a larger number of random graphs.
+    #[test]
+    fn test_random_large() {
+        let mut rng = seeded_rng();
+        for i in 0..10 {
+            eprintln!();
+            eprintln!("test {i}");
+            let mut this_rng = ChaCha8Rng::seed_from_u64(rng.gen());
+            let dag = make_dag(1000, &mut this_rng);
+            do_test(&dag);
+        }
     }
 }
