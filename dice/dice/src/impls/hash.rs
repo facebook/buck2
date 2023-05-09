@@ -7,13 +7,20 @@
  * of this source tree.
  */
 
+use std::any::TypeId;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem;
 
 use fnv::FnvHasher;
 
-pub(crate) fn key_hash<K: Hash>(key: &K) -> u64 {
+pub(crate) fn key_hash<K: Hash + 'static>(key: &K) -> u64 {
     let mut hasher = FnvHasher::default();
-    key.hash(&mut hasher);
+    if mem::size_of::<K>() == 0 {
+        // Hashing `TypeId` unconditionally measurably slows down hashing.
+        TypeId::of::<K>().hash(&mut hasher);
+    } else {
+        key.hash(&mut hasher);
+    }
     hasher.finish()
 }
