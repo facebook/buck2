@@ -45,7 +45,6 @@ JavaToolchainInfo = provider(
         "src_root_elements",
         "src_root_prefixes",
         "target_level",
-        "used_classes_to_dep_file",
         "zip_scrubber",
         "is_bootstrap_toolchain",
         "gen_class_to_source_map",
