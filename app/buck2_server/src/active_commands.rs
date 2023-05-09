@@ -12,6 +12,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use buck2_cli_proto::ClientContext;
+use buck2_event_observer::dice_state::DiceState;
+use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker;
 use buck2_event_observer::span_tracker::RootData;
 use buck2_event_observer::span_tracker::Roots;
@@ -101,26 +103,27 @@ pub struct ActiveCommandState {
     #[allow(unused)]
     pub argv: Vec<String>,
 
-    spans: Mutex<Spans>,
+    spans: Mutex<SpansSnapshot>,
 }
 
 impl ActiveCommandState {
-    pub fn spans(&self) -> Spans {
+    pub fn spans(&self) -> SpansSnapshot {
         *self.spans.lock()
     }
 
     fn new(argv: Vec<String>) -> Self {
         Self {
             argv,
-            spans: Mutex::new(Spans::default()),
+            spans: Mutex::new(SpansSnapshot::default()),
         }
     }
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone, Dupe)]
-pub struct Spans {
+pub struct SpansSnapshot {
     pub open: u64,
     pub closed: u64,
+    pub pending: u64,
 }
 
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
@@ -128,6 +131,8 @@ pub struct ActiveCommandStateWriter {
     /// Maps a SpanId to whether it is a root (i.e. no parent)
     roots: Roots<Arc<BuckEvent>>,
     non_roots: HashSet<SpanId>,
+    dice_state: DiceState,
+    closed: u64,
     shared: Arc<ActiveCommandState>,
 }
 
@@ -136,12 +141,16 @@ impl ActiveCommandStateWriter {
         Self {
             roots: Roots::default(),
             non_roots: HashSet::new(),
+            dice_state: DiceState::new(),
+            closed: 0,
             shared,
         }
     }
 
     pub fn peek_event(&mut self, buck_event: &BuckEvent) {
         use buck2_data::buck_event::Data::*;
+
+        let mut changed = false;
 
         match buck_event.data() {
             SpanStart(..) => {
@@ -160,12 +169,9 @@ impl ActiveCommandStateWriter {
 
                 if is_root {
                     self.roots.insert(span_id, false, RootData::new(buck_event));
+                    changed = true;
                 } else {
                     self.non_roots.insert(span_id);
-                }
-
-                if is_root {
-                    self.shared.spans.lock().open += 1;
                 }
             }
             SpanEnd(..) => {
@@ -174,15 +180,37 @@ impl ActiveCommandStateWriter {
                     None => return,
                 };
 
-                // If it's a root, then we decrement.
+                // If it's a root, then we increment closed.
                 if self.roots.remove(span_id).is_some() {
-                    let mut spans = self.shared.spans.lock();
-                    spans.open -= 1;
-                    spans.closed += 1;
+                    self.closed += 1;
+                    changed = true;
+                } else {
+                    self.non_roots.remove(&span_id);
                 }
-                self.non_roots.remove(&span_id);
+            }
+            Instant(instant) => {
+                use buck2_data::instant_event::Data::*;
+
+                match instant.data.as_ref() {
+                    Some(DiceStateSnapshot(snapshot)) => {
+                        self.dice_state.update(snapshot);
+                        changed = true;
+                    }
+                    _ => {}
+                }
             }
             _ => {}
+        }
+
+        if changed {
+            let open = self.roots.len() as u64;
+            let pending = pending_estimate(&self.roots, &self.dice_state);
+
+            *self.shared.spans.lock() = SpansSnapshot {
+                open,
+                closed: self.closed,
+                pending,
+            };
         }
     }
 }
@@ -273,7 +301,14 @@ mod tests {
             .into(),
         ));
 
-        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+        assert_eq!(
+            writer.shared.spans(),
+            SpansSnapshot {
+                open: 1,
+                closed: 0,
+                pending: 0
+            }
+        );
 
         writer.peek_event(&BuckEvent::new(
             SystemTime::now(),
@@ -286,7 +321,14 @@ mod tests {
             .into(),
         ));
 
-        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+        assert_eq!(
+            writer.shared.spans(),
+            SpansSnapshot {
+                open: 1,
+                closed: 0,
+                pending: 0
+            }
+        );
 
         writer.peek_event(&BuckEvent::new(
             SystemTime::now(),
@@ -300,11 +342,18 @@ mod tests {
             .into(),
         ));
 
-        assert_eq!(writer.shared.spans(), Spans { open: 1, closed: 0 });
+        assert_eq!(
+            writer.shared.spans(),
+            SpansSnapshot {
+                open: 1,
+                closed: 0,
+                pending: 0
+            }
+        );
 
         writer.peek_event(&BuckEvent::new(
             SystemTime::now(),
-            trace,
+            trace.clone(),
             Some(root),
             None,
             buck2_data::SpanEndEvent {
@@ -314,6 +363,50 @@ mod tests {
             .into(),
         ));
 
-        assert_eq!(writer.shared.spans(), Spans { open: 0, closed: 1 });
+        assert_eq!(
+            writer.shared.spans(),
+            SpansSnapshot {
+                open: 0,
+                closed: 1,
+                pending: 0
+            }
+        );
+
+        writer.peek_event(&BuckEvent::new(
+            SystemTime::now(),
+            trace,
+            None,
+            None,
+            buck2_data::InstantEvent {
+                data: Some(
+                    buck2_data::DiceStateSnapshot {
+                        key_states: {
+                            let mut map = HashMap::new();
+                            map.insert(
+                                "BuildKey".to_owned(),
+                                buck2_data::DiceKeyState {
+                                    started: 4,
+                                    finished: 2,
+                                    check_deps_started: 0,
+                                    check_deps_finished: 0,
+                                },
+                            );
+                            map
+                        },
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        ));
+
+        assert_eq!(
+            writer.shared.spans(),
+            SpansSnapshot {
+                open: 0,
+                closed: 1,
+                pending: 2
+            }
+        );
     }
 }

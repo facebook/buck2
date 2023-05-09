@@ -17,13 +17,13 @@ pub struct DiceState {
 }
 
 impl DiceState {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             key_states: BTreeMap::new(),
         }
     }
 
-    pub(crate) fn update(&mut self, update: &DiceStateSnapshot) {
+    pub fn update(&mut self, update: &DiceStateSnapshot) {
         for (k, v) in &update.key_states {
             self.key_states.insert(k.clone(), v.clone());
         }
