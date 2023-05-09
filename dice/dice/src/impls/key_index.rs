@@ -8,57 +8,69 @@
  */
 
 use std::array;
+use std::num::NonZeroU32;
 
 use allocative::Allocative;
-use hashbrown::raw::RawTable;
+use lock_free_hashtable::raw::LockFreeRawTable;
 use lock_free_vec::LockFreeVec;
-use parking_lot::RwLock;
-use parking_lot::RwLockUpgradableReadGuard;
-use parking_lot::RwLockWriteGuard;
+use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 
 use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::DiceKeyErasedRef;
 
+const KEY_BY_INDEX_BUCKETS: usize =
+    lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
+
 /// We bound each shard to only store up to u32 size entry. Together with `SHARDS`s shards, this
 /// is capable to ~4 billion keys. After which point, it is probably too large for DICE to
 /// store in memory anyways.
 #[derive(Allocative, Default)]
 struct Shard {
-    table: RwLock<RawTable<u32>>,
-    #[allocative(skip)] // TODO(nga): do not skip.
+    table: LockFreeRawTable<NonZeroU32>,
     key_by_index: LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
+    /// Mutex is used for updates. Lookups do not need to acquire the lock.
+    mutex: Mutex<()>,
 }
 
-const KEY_BY_INDEX_BUCKETS: usize =
-    lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
-
 impl Shard {
-    fn get(
-        table: &RwLockUpgradableReadGuard<RawTable<u32>>,
-        keys: &LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
-        key: DiceKeyErasedRef,
-        hash: u64,
-    ) -> Option<u32> {
-        table
-            .get(hash, |k| keys.get(*k as usize).unwrap().as_ref() == key)
-            .copied()
+    fn get(&self, key: DiceKeyErasedRef, hash: u64) -> Option<u32> {
+        self.table
+            .lookup(hash, |k| {
+                self.key_by_index
+                    .get(k.get() as usize - 1)
+                    .unwrap()
+                    .as_ref()
+                    == key
+            })
+            .map(|k| k.get() - 1)
     }
 
     fn insert_unique_unchecked(
-        table: &mut RwLockWriteGuard<RawTable<u32>>,
-        keys: &LockFreeVec<DiceKeyErased, KEY_BY_INDEX_BUCKETS>,
+        &self,
+        _lock: &MutexGuard<()>,
         key: DiceKeyErased,
         hash: u64,
     ) -> u32 {
         assert!(
-            keys.len() < DiceKeyIndex::MAX_INDEX_IN_SHARD as usize,
+            self.key_by_index.len() < DiceKeyIndex::MAX_INDEX_IN_SHARD as usize,
             "too many dice keys"
         );
-        let index = keys.len() as u32;
-        keys.push_at(index as usize, key).ok().unwrap();
-        table.insert(hash, index, |k| keys.get(*k as usize).unwrap().hash());
+        let index = self.key_by_index.len() as u32;
+        let off_by_one = NonZeroU32::new(index + 1).unwrap();
+        self.key_by_index.push_at(index as usize, key).ok().unwrap();
+        self.table.insert(
+            hash,
+            off_by_one,
+            |k1, k2| {
+                // We could use something like `insert_unique_unchecked`,
+                // which currently does not exist in `LockFreeRawTable`.
+                k1 == k2
+            },
+            |k| self.key_by_index.get(k.get() as usize - 1).unwrap().hash(),
+        );
         index
     }
 }
@@ -82,10 +94,8 @@ impl DiceKeyIndex {
 
     #[inline]
     fn shard_index_for_hash(hash: u64) -> u32 {
-        // `RawTable` uses:
-        // * low bits to select bucket
-        // * high 8 bits for mask
-        // So we should not use these bits as is for shard selection.
+        // `LockFreeRawTable` uses low bits to select bucket.
+        // So we should not use low bits as is to select shard.
         (hash >> 32) as u32 % DiceKeyIndex::SHARDS
     }
 
@@ -93,16 +103,24 @@ impl DiceKeyIndex {
         let hash = key.hash();
         let key = key.into_cow();
         let shard_index = DiceKeyIndex::shard_index_for_hash(hash);
-        let key_by_index = &self.shards[shard_index as usize].key_by_index;
         let shard = &self.shards[shard_index as usize];
-        let shard = shard.table.upgradable_read();
-        let index_in_shard =
-            if let Some(index_in_shard) = Shard::get(&shard, key_by_index, key.borrow(), hash) {
-                index_in_shard
-            } else {
-                let mut shard = RwLockUpgradableReadGuard::upgrade(shard);
-                Shard::insert_unique_unchecked(&mut shard, key_by_index, key.into_owned(), hash)
-            };
+
+        // First try lookup without locking.
+        if let Some(index_in_shard) = shard.get(key.borrow(), hash) {
+            return DiceKeyUnpacked {
+                shard_index,
+                index_in_shard,
+            }
+            .pack();
+        }
+
+        // If not found, lock and try insert.
+        let guard = shard.mutex.lock();
+        let index_in_shard = if let Some(index_in_shard) = shard.get(key.borrow(), hash) {
+            index_in_shard
+        } else {
+            shard.insert_unique_unchecked(&guard, key.into_owned(), hash)
+        };
         DiceKeyUnpacked {
             shard_index,
             index_in_shard,
