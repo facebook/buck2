@@ -80,10 +80,19 @@ impl DiceKeyIndex {
     pub(crate) const SHARDS: u32 = 64;
     pub(crate) const MAX_INDEX_IN_SHARD: u32 = u32::MAX / DiceKeyIndex::SHARDS;
 
+    #[inline]
+    fn shard_index_for_hash(hash: u64) -> u32 {
+        // `RawTable` uses:
+        // * low bits to select bucket
+        // * high 8 bits for mask
+        // So we should not use these bits as is for shard selection.
+        (hash >> 32) as u32 % DiceKeyIndex::SHARDS
+    }
+
     pub(crate) fn index(&self, key: CowDiceKeyHashed) -> DiceKey {
         let hash = key.hash();
         let key = key.into_cow();
-        let shard_index = (hash as usize % self.shards.len()) as u32; // shard size is bounded to u32
+        let shard_index = DiceKeyIndex::shard_index_for_hash(hash);
         let key_by_index = &self.shards[shard_index as usize].key_by_index;
         let shard = &self.shards[shard_index as usize];
         let shard = shard.table.upgradable_read();
