@@ -10,6 +10,8 @@
 //! Traits to help implementing dynamic comparisons.
 
 use std::any::Any;
+use std::any::TypeId;
+use std::marker::PhantomData;
 
 /// A comparable "token" that can be returned to wrap a reference to an [`Any`
 /// type](Any) for [`PartialEq`](PartialEq).
@@ -17,20 +19,26 @@ use std::any::Any;
 /// This lets dyn traits be comparable by having all implementations return some
 /// "token" that can be considered [`PartialEq`](PartialEq).
 pub struct PartialEqAny<'a> {
-    cmp: fn(&'a dyn Any, &'a dyn Any) -> bool,
-    val: &'a dyn Any,
+    type_id: TypeId,
+    cmp: unsafe fn(*const (), *const ()) -> bool,
+    val: *const (),
+    _marker: PhantomData<&'a dyn Any>,
 }
 
 impl<'a> PartialEqAny<'a> {
     #[inline]
     pub fn new<A: PartialEq + 'static>(a: &'a A) -> Self {
-        Self {
+        PartialEqAny {
+            type_id: TypeId::of::<A>(),
             cmp: |this, other| {
-                // SAFETY: We only call `cmp` with `this === a`.
-                debug_assert!(this.downcast_ref::<A>().is_some());
-                Some(unsafe { &*(this as *const dyn Any as *const A) }) == other.downcast_ref::<A>()
+                // SAFETY: We only call `cmp` with
+                //   `this.type_id == other.type_id == TypeId::of::<A>()`.
+                let this = unsafe { &*(this as *const A) };
+                let other = unsafe { &*(other as *const A) };
+                this == other
             },
-            val: a,
+            val: a as *const A as *const (),
+            _marker: PhantomData,
         }
     }
 
@@ -52,7 +60,7 @@ impl<'a> PartialEqAny<'a> {
 impl<'a> PartialEq for PartialEqAny<'a> {
     #[inline]
     fn eq(&self, other: &PartialEqAny<'a>) -> bool {
-        (self.cmp)(self.val, other.val)
+        self.type_id == other.type_id && unsafe { (self.cmp)(self.val, other.val) }
     }
 }
 
