@@ -138,12 +138,12 @@ pub struct Roots<T: SpanTrackable> {
 }
 
 #[derive(Clone)]
-struct RootData {
+pub struct RootData {
     dice_key_type: Option<&'static str>,
 }
 
 impl RootData {
-    fn new<T: SpanTrackable>(span: &T) -> Self {
+    pub fn new<T: SpanTrackable>(span: &T) -> Self {
         Self {
             dice_key_type: span.dice_key_type(),
         }
@@ -161,8 +161,12 @@ impl<T: SpanTrackable> Default for Roots<T> {
 }
 
 impl<T: SpanTrackable> Roots<T> {
+    pub fn contains(&self, span_id: <T as SpanTrackable>::Id) -> bool {
+        self.roots.contains_key(&span_id) || self.boring_roots.contains_key(&span_id)
+    }
+
     /// Insert a span. This must be called once at most per Span ID.
-    fn insert(&mut self, span_id: <T as SpanTrackable>::Id, boring: bool, data: RootData) {
+    pub fn insert(&mut self, span_id: <T as SpanTrackable>::Id, boring: bool, data: RootData) {
         if let Some(dice_key_type) = data.dice_key_type {
             *self.dice_counts.entry(dice_key_type).or_default() += 1;
         }
@@ -175,7 +179,7 @@ impl<T: SpanTrackable> Roots<T> {
     }
 
     /// Remove a Span. It's OK if the span was never inserted.
-    fn remove(&mut self, span_id: <T as SpanTrackable>::Id) -> Option<RootData> {
+    pub fn remove(&mut self, span_id: <T as SpanTrackable>::Id) -> Option<RootData> {
         let data = self
             .roots
             .remove(&span_id)
@@ -198,28 +202,28 @@ impl<T: SpanTrackable> Roots<T> {
     }
 
     /// If the span is currently not-boring, move it to the boring list.
-    fn make_boring(&mut self, span_id: <T as SpanTrackable>::Id) {
+    pub fn make_boring(&mut self, span_id: <T as SpanTrackable>::Id) {
         if let Some(root) = self.roots.remove(&span_id) {
             self.boring_roots.insert(span_id, root);
         }
     }
 
     /// If the span is currently boring, move it to the not-boring list.
-    fn make_not_boring(&mut self, span_id: <T as SpanTrackable>::Id) {
+    pub fn make_not_boring(&mut self, span_id: <T as SpanTrackable>::Id) {
         if let Some(root) = self.boring_roots.remove(&span_id) {
             self.roots.insert(span_id, root);
         }
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.roots.len() + self.boring_roots.len()
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.roots.is_empty() && self.boring_roots.is_empty()
     }
 
-    fn iter(&self) -> impl ExactSizeIterator<Item = &<T as SpanTrackable>::Id> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &<T as SpanTrackable>::Id> {
         let size = self.roots.len() + self.boring_roots.len();
 
         // Chain does not implement ExactSizeIterator because it may overflow. We assume that our

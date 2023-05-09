@@ -8,10 +8,13 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use buck2_cli_proto::ClientContext;
 use buck2_event_observer::span_tracker;
+use buck2_event_observer::span_tracker::RootData;
+use buck2_event_observer::span_tracker::Roots;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
@@ -123,14 +126,16 @@ pub struct Spans {
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
 pub struct ActiveCommandStateWriter {
     /// Maps a SpanId to whether it is a root (i.e. no parent)
-    active_spans: HashMap<SpanId, bool>,
+    roots: Roots<Arc<BuckEvent>>,
+    non_roots: HashSet<SpanId>,
     shared: Arc<ActiveCommandState>,
 }
 
 impl ActiveCommandStateWriter {
     fn new(shared: Arc<ActiveCommandState>) -> Self {
         Self {
-            active_spans: HashMap::new(),
+            roots: Roots::default(),
+            non_roots: HashSet::new(),
             shared,
         }
     }
@@ -143,16 +148,22 @@ impl ActiveCommandStateWriter {
 
         if buck_event.span_end_event().is_some() {
             // If it's a root, then we decrement.
-            if self.active_spans.remove(&span_id) == Some(true) {
+            if self.roots.remove(span_id).is_some() {
                 let mut spans = self.shared.spans.lock();
                 spans.open -= 1;
                 spans.closed += 1;
             }
+            self.non_roots.remove(&span_id);
         } else if span_tracker::is_span_shown(buck_event) {
-            let is_root = buck_event
-                .parent_id()
-                .map_or(true, |id| !self.active_spans.contains_key(&id));
-            self.active_spans.insert(span_id, is_root);
+            let is_root = buck_event.parent_id().map_or(true, |id| {
+                !self.roots.contains(id) && !self.non_roots.contains(&id)
+            });
+
+            if is_root {
+                self.roots.insert(span_id, false, RootData::new(buck_event));
+            } else {
+                self.non_roots.insert(span_id);
+            }
 
             if is_root {
                 self.shared.spans.lock().open += 1;
