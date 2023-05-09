@@ -141,33 +141,48 @@ impl ActiveCommandStateWriter {
     }
 
     pub fn peek_event(&mut self, buck_event: &BuckEvent) {
-        let span_id = match buck_event.span_id() {
-            Some(id) => id,
-            None => return,
-        };
+        use buck2_data::buck_event::Data::*;
 
-        if buck_event.span_end_event().is_some() {
-            // If it's a root, then we decrement.
-            if self.roots.remove(span_id).is_some() {
-                let mut spans = self.shared.spans.lock();
-                spans.open -= 1;
-                spans.closed += 1;
-            }
-            self.non_roots.remove(&span_id);
-        } else if span_tracker::is_span_shown(buck_event) {
-            let is_root = buck_event.parent_id().map_or(true, |id| {
-                !self.roots.contains(id) && !self.non_roots.contains(&id)
-            });
+        match buck_event.data() {
+            SpanStart(..) => {
+                let span_id = match buck_event.span_id() {
+                    Some(id) => id,
+                    None => return,
+                };
 
-            if is_root {
-                self.roots.insert(span_id, false, RootData::new(buck_event));
-            } else {
-                self.non_roots.insert(span_id);
-            }
+                if !span_tracker::is_span_shown(buck_event) {
+                    return;
+                }
 
-            if is_root {
-                self.shared.spans.lock().open += 1;
+                let is_root = buck_event.parent_id().map_or(true, |id| {
+                    !self.roots.contains(id) && !self.non_roots.contains(&id)
+                });
+
+                if is_root {
+                    self.roots.insert(span_id, false, RootData::new(buck_event));
+                } else {
+                    self.non_roots.insert(span_id);
+                }
+
+                if is_root {
+                    self.shared.spans.lock().open += 1;
+                }
             }
+            SpanEnd(..) => {
+                let span_id = match buck_event.span_id() {
+                    Some(id) => id,
+                    None => return,
+                };
+
+                // If it's a root, then we decrement.
+                if self.roots.remove(span_id).is_some() {
+                    let mut spans = self.shared.spans.lock();
+                    spans.open -= 1;
+                    spans.closed += 1;
+                }
+                self.non_roots.remove(&span_id);
+            }
+            _ => {}
         }
     }
 }
