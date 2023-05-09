@@ -33,7 +33,7 @@ impl<'a> CoercedAttrFull<'a> {
             attr: self.attr,
             value: self
                 .value
-                .configure(ctx)
+                .configure(self.attr.coercer(), ctx)
                 .with_context(|| format!("configuring attr `{}`", self.name))?,
         })
     }

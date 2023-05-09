@@ -493,11 +493,15 @@ impl CoercedAttr {
     /// This handles the resolution of the select() conditions and delegates to
     /// the actual attr type for handling any appropriate configuration-time
     /// processing.
-    pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredAttr> {
-        Ok(match self {
-            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+    pub fn configure(
+        &self,
+        ty: &AttrType,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredAttr> {
+        Ok(match CoercedAttrWithType::pack(self, ty)? {
+            CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 if let Some(v) = Self::select_the_most_specific(ctx, entries)? {
-                    return v.configure(ctx);
+                    return v.configure(t, ctx);
                 }
                 default
                     .as_ref()
@@ -507,11 +511,11 @@ impl CoercedAttr {
                             entries.iter().map(|(k, _)| k).duped().collect(),
                         )
                     })?
-                    .configure(ctx)?
+                    .configure(t, ctx)?
             }
-            CoercedAttr::Concat(items) => {
+            CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
-                let mut it = items.iter().map(|item| item.configure(ctx));
+                let mut it = items.iter().map(|item| item.configure(t, ctx));
                 let first = it.next().ok_or(SelectError::ConcatEmpty)??;
                 if singleton {
                     first
@@ -519,46 +523,76 @@ impl CoercedAttr {
                     first.concat(&mut it)?
                 }
             }
-            CoercedAttr::Bool(v) => ConfiguredAttr::Bool(*v),
-            CoercedAttr::Int(v) => ConfiguredAttr::Int(*v),
-            CoercedAttr::String(v) => ConfiguredAttr::String(v.dupe()),
-            CoercedAttr::EnumVariant(v) => ConfiguredAttr::EnumVariant(v.dupe()),
-            CoercedAttr::List(list) => {
-                ConfiguredAttr::List(ListLiteral(list.try_map(|v| v.configure(ctx))?.into()))
+
+            CoercedAttrWithType::AnyList(list) => {
+                ConfiguredAttr::List(ListLiteral(list.try_map(|v| v.configure(ty, ctx))?.into()))
             }
-            CoercedAttr::Tuple(list) => {
-                ConfiguredAttr::Tuple(TupleLiteral(list.try_map(|v| v.configure(ctx))?.into()))
-            }
-            CoercedAttr::Dict(dict) => ConfiguredAttr::Dict(DictLiteral(
+            CoercedAttrWithType::AnyTuple(tuple) => ConfiguredAttr::Tuple(TupleLiteral(
+                tuple.try_map(|v| v.configure(ty, ctx))?.into(),
+            )),
+            CoercedAttrWithType::AnyDict(dict) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = k.configure(ctx)?;
-                    let v2 = v.configure(ctx)?;
+                    let k2 = k.configure(ty, ctx)?;
+                    let v2 = v.configure(ty, ctx)?;
                     anyhow::Ok((k2, v2))
                 })?
                 .into(),
             )),
-            CoercedAttr::None => ConfiguredAttr::None,
-            CoercedAttr::OneOf(l, i) => {
-                let configured = l.configure(ctx)?;
-                ConfiguredAttr::OneOf(Box::new(configured), *i)
+
+            CoercedAttrWithType::Bool(v, _t) => ConfiguredAttr::Bool(v),
+            CoercedAttrWithType::Int(v, _t) => ConfiguredAttr::Int(v),
+            CoercedAttrWithType::String(v, _t) => ConfiguredAttr::String(v.dupe()),
+            CoercedAttrWithType::EnumVariant(v, _t) => ConfiguredAttr::EnumVariant(v.dupe()),
+            CoercedAttrWithType::List(list, t) => ConfiguredAttr::List(ListLiteral(
+                list.try_map(|v| v.configure(&t.inner, ctx))?.into(),
+            )),
+            CoercedAttrWithType::Tuple(list, t) => {
+                if list.len() != t.xs.len() {
+                    return Err(CoercedAttrError::InconsistentTupleLength.into());
+                }
+                ConfiguredAttr::Tuple(TupleLiteral(
+                    list.iter()
+                        .zip(&t.xs)
+                        .map(|(v, vt)| v.configure(vt, ctx))
+                        .collect::<anyhow::Result<_>>()?,
+                ))
             }
-            CoercedAttr::Visibility(v) => ConfiguredAttr::Visibility(v.clone()),
-            CoercedAttr::ExplicitConfiguredDep(dep) => {
+            CoercedAttrWithType::Dict(dict, t) => ConfiguredAttr::Dict(DictLiteral(
+                dict.try_map(|(k, v)| {
+                    let k2 = k.configure(&t.key, ctx)?;
+                    let v2 = v.configure(&t.value, ctx)?;
+                    anyhow::Ok((k2, v2))
+                })?
+                .into(),
+            )),
+            CoercedAttrWithType::None => ConfiguredAttr::None,
+            CoercedAttrWithType::Some(attr, t) => attr.configure(&t.inner, ctx)?,
+            CoercedAttrWithType::OneOf(l, i, t) => {
+                let item_ty = &t.xs[i as usize];
+                let configured = l.configure(item_ty, ctx)?;
+                ConfiguredAttr::OneOf(Box::new(configured), i)
+            }
+            CoercedAttrWithType::Visibility(v, _) => ConfiguredAttr::Visibility(v.clone()),
+            CoercedAttrWithType::ExplicitConfiguredDep(dep, _) => {
                 ExplicitConfiguredDepAttrType::configure(ctx, dep)?
             }
-            CoercedAttr::SplitTransitionDep(dep) => {
+            CoercedAttrWithType::SplitTransitionDep(dep, _) => {
                 SplitTransitionDepAttrType::configure(ctx, dep)?
             }
-            CoercedAttr::ConfiguredDep(dep) => ConfiguredAttr::Dep(dep.clone()),
-            CoercedAttr::ConfigurationDep(dep) => ConfigurationDepAttrType::configure(ctx, dep)?,
-            CoercedAttr::Dep(dep) => DepAttrType::configure(ctx, dep)?,
-            CoercedAttr::SourceLabel(source) => ConfiguredAttr::SourceLabel(Box::new(
+            CoercedAttrWithType::ConfiguredDep(dep) => ConfiguredAttr::Dep(Box::new(dep.clone())),
+            CoercedAttrWithType::ConfigurationDep(dep, _) => {
+                ConfigurationDepAttrType::configure(ctx, dep)?
+            }
+            CoercedAttrWithType::Dep(dep, _) => DepAttrType::configure(ctx, dep)?,
+            CoercedAttrWithType::SourceLabel(source, _) => ConfiguredAttr::SourceLabel(Box::new(
                 source.configure_pair(ctx.cfg().cfg_pair().dupe()),
             )),
-            CoercedAttr::Label(label) => LabelAttrType::configure(ctx, label)?,
-            CoercedAttr::Arg(arg) => ConfiguredAttr::Arg(arg.configure(ctx)?),
-            CoercedAttr::Query(query) => ConfiguredAttr::Query(Box::new(query.configure(ctx)?)),
-            CoercedAttr::SourceFile(s) => ConfiguredAttr::SourceFile(s.clone()),
+            CoercedAttrWithType::Label(label, _) => LabelAttrType::configure(ctx, label)?,
+            CoercedAttrWithType::Arg(arg, _) => ConfiguredAttr::Arg(arg.configure(ctx)?),
+            CoercedAttrWithType::Query(query, _) => {
+                ConfiguredAttr::Query(Box::new(query.configure(ctx)?))
+            }
+            CoercedAttrWithType::SourceFile(s, _) => ConfiguredAttr::SourceFile(s.clone()),
         })
     }
 

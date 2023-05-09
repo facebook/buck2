@@ -176,7 +176,7 @@ impl AnonTargetKey {
         for (k, _, a) in attrs_spec.attr_specs() {
             if !attrs.contains_key(k) && !internal_attrs.contains_key(k) {
                 if let Some(x) = a.default() {
-                    attrs.insert(k.to_owned(), Self::configure_attr(x)?);
+                    attrs.insert(k.to_owned(), Self::configure_attr(x, a.coercer())?);
                 } else {
                     return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
                 }
@@ -279,11 +279,11 @@ impl AnonTargetKey {
         } else {
             attr.0.coerce_item(AttrIsConfigurable::No, &ctx, x)?
         };
-        a.configure(&ctx)
+        a.configure(attr, &ctx)
     }
 
-    fn configure_attr(x: &CoercedAttr) -> anyhow::Result<ConfiguredAttr> {
-        x.configure(&AnonAttrCtx::new())
+    fn configure_attr(x: &CoercedAttr, ty: &AttrType) -> anyhow::Result<ConfiguredAttr> {
+        x.configure(ty, &AnonAttrCtx::new())
     }
 
     async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
