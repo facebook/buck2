@@ -16,17 +16,14 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice::DetectCycles;
+use dice::Dice;
+use dice::DiceComputations;
+use dice::DiceProjectionComputations;
+use dice::Key;
+use dice::ProjectionKey;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
-
-use crate::api::computations::DiceComputations;
-use crate::api::data::DiceData;
-use crate::api::key::Key;
-use crate::api::projection::DiceProjectionComputations;
-use crate::api::projection::ProjectionKey;
-use crate::impls::dice::DiceModern;
-
-mod smoke;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
 struct BaseK;
@@ -82,7 +79,7 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::modern().build(DetectCycles::Enabled);
 
     let count = Arc::new(AtomicU8::new(0));
 

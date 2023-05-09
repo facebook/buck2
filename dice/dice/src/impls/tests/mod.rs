@@ -11,7 +11,6 @@ mod demo;
 mod events;
 mod general;
 mod keys;
-mod projections;
 mod spawner;
 mod transients;
 mod user_data;

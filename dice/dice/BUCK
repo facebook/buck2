@@ -1,5 +1,6 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("buck2")
@@ -58,5 +59,40 @@ rust_binary(
         "fbsource//third-party/rust:clap-3",
         "fbsource//third-party/rust:serde_json",
         ":dice",
+    ],
+)
+
+rust_unittest(
+    name = "projections_smoke",
+    srcs = [
+        "tests/projections_smoke.rs",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:tokio",
+        ":dice",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/shed/more_futures:more_futures",
+    ],
+)
+
+rust_unittest(
+    name = "projections_concurrent",
+    srcs = [
+        "tests/projections_concurrent.rs",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:tokio",
+        ":dice",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/shed/more_futures:more_futures",
     ],
 )
