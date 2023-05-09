@@ -49,7 +49,7 @@ struct Span<T: SpanTrackable> {
     boringness: usize,
 }
 
-impl<T: SpanTrackable> Span<T> {
+impl<T: SpanTrackable + Dupe> Span<T> {
     /// NOTE: When adding a child, this node can become boring, but not parents of this node.
     fn add_child(&mut self, span_id: <T as SpanTrackable>::Id, boring: bool, roots: &mut Roots<T>) {
         self.children.insert(span_id, ());
@@ -280,7 +280,7 @@ pub struct SpanTracker<T: SpanTrackable> {
     roots_completed: usize,
 }
 
-impl<T: SpanTrackable> SpanTracker<T> {
+impl<T: SpanTrackable + Dupe> SpanTracker<T> {
     pub fn new() -> Self {
         Self {
             roots: Default::default(),
@@ -394,7 +394,7 @@ impl<T: SpanTrackable> SpanTracker<T> {
     }
 }
 
-pub trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
+pub trait SpanTrackable: std::fmt::Debug + Send + Sync + 'static {
     type Id: std::fmt::Display + std::fmt::Debug + std::hash::Hash + Eq + PartialEq + Copy;
 
     fn span_id(&self) -> Option<Self::Id>;
@@ -413,7 +413,7 @@ pub trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
     fn dice_key_type(&self) -> Option<&'static str>;
 }
 
-impl SpanTrackable for Arc<BuckEvent> {
+impl SpanTrackable for BuckEvent {
     type Id = SpanId;
 
     fn span_id(&self) -> Option<Self::Id> {
@@ -468,6 +468,30 @@ impl SpanTrackable for Arc<BuckEvent> {
             Some(Data::Analysis(..)) => Some("AnalysisKey"),
             _ => None,
         }
+    }
+}
+
+impl<T: SpanTrackable> SpanTrackable for Arc<T> {
+    type Id = <T as SpanTrackable>::Id;
+
+    fn span_id(&self) -> Option<Self::Id> {
+        SpanTrackable::span_id(self.as_ref())
+    }
+
+    fn parent_id(&self) -> Option<Self::Id> {
+        SpanTrackable::parent_id(self.as_ref())
+    }
+
+    fn is_shown(&self) -> bool {
+        SpanTrackable::is_shown(self.as_ref())
+    }
+
+    fn is_boring(&self) -> bool {
+        SpanTrackable::is_boring(self.as_ref())
+    }
+
+    fn dice_key_type(&self) -> Option<&'static str> {
+        SpanTrackable::dice_key_type(self.as_ref())
     }
 }
 
