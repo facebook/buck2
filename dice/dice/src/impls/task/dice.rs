@@ -221,12 +221,12 @@ impl DiceTaskInternal {
         );
 
         self.state.report_ready();
-        self.wake_deps();
+        self.wake_dependents();
 
         value
     }
 
-    pub(super) fn wake_deps(&self) {
+    pub(super) fn wake_dependents(&self) {
         let mut deps = self
             .dependants
             .lock()
@@ -240,7 +240,7 @@ impl DiceTaskInternal {
     /// task is already ready
     pub(super) fn report_terminated(&self) {
         self.state.report_terminated();
-        self.wake_deps();
+        self.wake_dependents();
     }
 }
 
