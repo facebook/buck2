@@ -87,9 +87,10 @@ _cargo_buildscript_rule = rule(
         "manifest_dir": attrs.dep(),
         "package_name": attrs.string(),
         "runner": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:buildscript_run")),
+        # *IMPORTANT* rustc_cfg must be a `dep` and not an `exec_dep` because
+        # we want the `rustc --cfg` for the target platform, not the exec platform.
         "rustc_cfg": attrs.default_only(attrs.dep(default = "prelude//rust/tools:rustc_cfg")),
         "version": attrs.string(),
-        "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": toolchains_common.rust(),
     },

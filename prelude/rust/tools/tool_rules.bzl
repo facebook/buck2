@@ -28,7 +28,6 @@ get_rustc_cfg = rule(
     impl = _get_rustc_cfg_impl,
     attrs = {
         "get_rustc_cfg": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:get_rustc_cfg")),
-        "_cxx_toolchain": toolchains_common.cxx(),
         "_rust_toolchain": toolchains_common.rust(),
     },
 )

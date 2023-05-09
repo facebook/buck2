@@ -6,7 +6,7 @@
 # of this source tree.
 
 def _internal_tool(default: str.type) -> "attribute":
-    return attrs.default_only(attrs.dep(providers = [RunInfo], default = default))
+    return attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = default))
 
 # Factored out of prelude//toolchains/rust.bzl to keep only the user-facing
 # configurable attributes there. This list of internal tools is distracting and
