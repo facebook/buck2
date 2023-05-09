@@ -21,6 +21,7 @@ load(
     "SharedLibLinkable",
     "get_actual_link_style",
     "set_linkable_link_whole",
+    "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
     get_link_info_from_link_infos = "get_link_info",
 )
@@ -749,14 +750,15 @@ def create_link_groups(
         else:
             shlib_for_link = link_group_lib.output
 
+        link_info = LinkInfo(
+            linkables = [SharedLibLinkable(lib = shlib_for_link)],
+        )
         linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
                 shared_libs = {link_group_spec.name: link_group_lib},
                 shared_link_infos = LinkInfos(
-                    default = LinkInfo(
-                        linkables = [SharedLibLinkable(lib = shlib_for_link)],
-                    ),
+                    default = wrap_link_info(link_info, pre_flags = link_group_spec.group.attrs.linker_flags),
                 ),
             ),
         )
