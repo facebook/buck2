@@ -26,6 +26,7 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::storage_type::StorageType;
 use crate::impls::hash;
+use crate::impls::hash::key_hash;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceProjectValue;
 use crate::impls::value::DiceValueDyn;
@@ -201,6 +202,52 @@ impl<'a> CowDiceKey<'a> {
             CowDiceKey::Ref(r) => *r,
             CowDiceKey::Owned(owned) => owned.as_ref(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_into_hashed(self) -> CowDiceKeyHashed<'a> {
+        let hash = self.borrow().hash();
+        CowDiceKeyHashed { cow: self, hash }
+    }
+}
+
+pub(crate) struct CowDiceKeyHashed<'a> {
+    cow: CowDiceKey<'a>,
+    hash: u64,
+}
+
+impl<'a> CowDiceKeyHashed<'a> {
+    pub(crate) fn key_ref<K: Key>(key: &K) -> CowDiceKeyHashed {
+        let hash = key_hash(key);
+        CowDiceKeyHashed {
+            cow: CowDiceKey::Ref(DiceKeyErasedRef::key(key)),
+            hash,
+        }
+    }
+
+    pub(crate) fn proj_ref<K: ProjectionKey>(base: DiceKey, k: &'a K) -> CowDiceKeyHashed {
+        let key = DiceKeyErasedRef::proj(base, k);
+        let hash = key.hash();
+        CowDiceKeyHashed {
+            cow: CowDiceKey::Ref(key),
+            hash,
+        }
+    }
+
+    pub(crate) fn key<K: Key>(key: K) -> CowDiceKeyHashed<'static> {
+        let hash = key_hash(&key);
+        CowDiceKeyHashed {
+            cow: CowDiceKey::Owned(DiceKeyErased::key(key)),
+            hash,
+        }
+    }
+
+    pub(crate) fn hash(&self) -> u64 {
+        self.hash
+    }
+
+    pub(crate) fn into_cow(self) -> CowDiceKey<'a> {
+        self.cow
     }
 }
 

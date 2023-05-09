@@ -16,7 +16,7 @@ use parking_lot::RwLock;
 use parking_lot::RwLockUpgradableReadGuard;
 use parking_lot::RwLockWriteGuard;
 
-use crate::impls::key::CowDiceKey;
+use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::DiceKeyErasedRef;
@@ -80,8 +80,9 @@ impl DiceKeyIndex {
     pub(crate) const SHARDS: u32 = 64;
     pub(crate) const MAX_INDEX_IN_SHARD: u32 = u32::MAX / DiceKeyIndex::SHARDS;
 
-    pub(crate) fn index(&self, key: CowDiceKey) -> DiceKey {
-        let hash = key.borrow().hash();
+    pub(crate) fn index(&self, key: CowDiceKeyHashed) -> DiceKey {
+        let hash = key.hash();
+        let key = key.into_cow();
         let shard_index = (hash as usize % self.shards.len()) as u32; // shard size is bounded to u32
         let key_by_index = &self.shards[shard_index as usize].key_by_index;
         let shard = &self.shards[shard_index as usize];
@@ -171,8 +172,7 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
-    use crate::impls::key::CowDiceKey;
-    use crate::impls::key::DiceKeyErased;
+    use crate::impls::key::CowDiceKeyHashed;
     use crate::impls::key_index::DiceKeyIndex;
     use crate::impls::key_index::DiceKeyUnpacked;
 
@@ -219,7 +219,7 @@ mod tests {
         let mut i = 0;
         loop {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
+            let coin_key = key_index.index(CowDiceKeyHashed::key(key));
 
             assert_eq!(
                 i,
@@ -248,7 +248,7 @@ mod tests {
 
         while i < 100000 {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKey::Owned(DiceKeyErased::key(key)));
+            let coin_key = key_index.index(CowDiceKeyHashed::key(key));
 
             assert_eq!(
                 i,

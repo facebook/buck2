@@ -42,9 +42,8 @@ use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::incremental::IncrementalEngine;
-use crate::impls::key::CowDiceKey;
+use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErasedRef;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
 use crate::impls::task::sync_dice_task;
@@ -125,7 +124,7 @@ impl PerComputeCtx {
             .async_evaluator
             .dice
             .key_index
-            .index(CowDiceKey::Ref(DiceKeyErasedRef::key(key)));
+            .index(CowDiceKeyHashed::key_ref(key));
 
         self.data
             .async_evaluator
@@ -160,7 +159,7 @@ impl PerComputeCtx {
             .async_evaluator
             .dice
             .key_index
-            .index(CowDiceKey::Ref(DiceKeyErasedRef::proj(base_key, key)));
+            .index(CowDiceKeyHashed::proj_ref(base_key, key));
 
         self.data
             .async_evaluator
