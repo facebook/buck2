@@ -296,6 +296,10 @@ impl PreparedCommandExecutor for HybridExecutor {
     }
 
     fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool {
+        let executor_preference = match self.executor_preference.and(executor_preference) {
+            Ok(p) => p,
+            Err(..) => return false,
+        };
         if executor_preference.requires_remote() {
             return false;
         }
