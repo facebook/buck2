@@ -132,8 +132,22 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
 /// - A given Span is never in both roots and boring_roots.
 #[derive(Clone)]
 struct Roots<T: SpanTrackable> {
-    roots: LinkedHashMap<<T as SpanTrackable>::Id, ()>,
-    boring_roots: LinkedHashMap<<T as SpanTrackable>::Id, ()>,
+    roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
+    boring_roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
+    dice_counts: HashMap<&'static str, u64>,
+}
+
+#[derive(Clone)]
+struct RootData {
+    dice_key_type: Option<&'static str>,
+}
+
+impl RootData {
+    fn new<T: SpanTrackable>(span: &T) -> Self {
+        Self {
+            dice_key_type: span.dice_key_type(),
+        }
+    }
 }
 
 impl<T: SpanTrackable> Default for Roots<T> {
@@ -141,25 +155,46 @@ impl<T: SpanTrackable> Default for Roots<T> {
         Self {
             roots: Default::default(),
             boring_roots: Default::default(),
+            dice_counts: Default::default(),
         }
     }
 }
 
 impl<T: SpanTrackable> Roots<T> {
     /// Insert a span. This must be called once at most per Span ID.
-    fn insert(&mut self, span_id: <T as SpanTrackable>::Id, boring: bool) {
+    fn insert(&mut self, span_id: <T as SpanTrackable>::Id, boring: bool, data: RootData) {
+        if let Some(dice_key_type) = data.dice_key_type {
+            *self.dice_counts.entry(dice_key_type).or_default() += 1;
+        }
+
         if boring {
-            self.boring_roots.insert(span_id, ());
+            self.boring_roots.insert(span_id, data);
         } else {
-            self.roots.insert(span_id, ());
+            self.roots.insert(span_id, data);
         }
     }
 
     /// Remove a Span. It's OK if the span was never inserted.
-    fn remove(&mut self, span_id: <T as SpanTrackable>::Id) -> Option<()> {
-        self.roots
+    fn remove(&mut self, span_id: <T as SpanTrackable>::Id) -> Option<RootData> {
+        let data = self
+            .roots
             .remove(&span_id)
-            .or_else(|| self.boring_roots.remove(&span_id))
+            .or_else(|| self.boring_roots.remove(&span_id));
+
+        if let Some(dice_key_type) = data.as_ref().and_then(|d| d.dice_key_type) {
+            // About this unwrap: the key type is never changed while the entry exists, so if we
+            // delete an entry whose RootData has a key type, we must have increment it.
+            match self.dice_counts.get_mut(dice_key_type) {
+                Some(c) if *c > 0 => {
+                    *c -= 1;
+                }
+                v => {
+                    tracing::error!("Decrementing {} but it is was {:?}", dice_key_type, v);
+                }
+            }
+        }
+
+        data
     }
 
     /// If the span is currently not-boring, move it to the boring list.
@@ -278,7 +313,7 @@ impl<T: SpanTrackable> SpanTracker<T> {
                 parent.add_child(span_id, is_boring, &mut self.roots);
             }
             None => {
-                self.roots.insert(span_id, is_boring);
+                self.roots.insert(span_id, is_boring, RootData::new(event));
             }
         };
 
@@ -363,6 +398,11 @@ pub trait SpanTrackable: Dupe + std::fmt::Debug + Send + Sync + 'static {
     fn is_shown(&self) -> bool;
 
     fn is_boring(&self) -> bool;
+
+    /// Report the DICE key type that contains this span. We use this to be able to tell how many
+    /// spans we currently are reporting that map to a given DICE key type. The key types here
+    /// should match the type we receive in the DiceStateSnapshot.
+    fn dice_key_type(&self) -> Option<&'static str>;
 }
 
 impl SpanTrackable for Arc<BuckEvent> {
@@ -410,6 +450,10 @@ impl SpanTrackable for Arc<BuckEvent> {
             Some(Data::BxlDiceInvocation(..)) => true,
             _ => false,
         }
+    }
+
+    fn dice_key_type(&self) -> Option<&'static str> {
+        None
     }
 }
 
@@ -511,6 +555,7 @@ mod test {
         span_id: i64,
         parent_id: Option<i64>,
         boring: bool,
+        dice_key_type: Option<&'static str>,
     }
 
     impl SpanTrackable for TestSpan {
@@ -531,6 +576,10 @@ mod test {
         fn is_boring(&self) -> bool {
             self.boring
         }
+
+        fn dice_key_type(&self) -> Option<&'static str> {
+            self.dice_key_type
+        }
     }
 
     impl TestSpan {
@@ -541,6 +590,7 @@ mod test {
                 span_id: CURR.fetch_add(1, Ordering::Relaxed),
                 parent_id: None,
                 boring: false,
+                dice_key_type: None,
             }
         }
 
@@ -551,6 +601,11 @@ mod test {
 
         fn boring(mut self) -> Self {
             self.boring = true;
+            self
+        }
+
+        fn dice_key_type(mut self, dice_key_type: &'static str) -> Self {
+            self.dice_key_type = Some(dice_key_type);
             self
         }
     }
@@ -669,6 +724,31 @@ mod test {
             iter.next();
             assert_eq!(iter.len(), 0);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dice_counts() -> anyhow::Result<()> {
+        let t0 = Instant::now();
+
+        let foo = TestSpan::new().dice_key_type("foo");
+        let bar = TestSpan::new().dice_key_type("bar");
+
+        let mut tracker = SpanTracker::new();
+        tracker.start_at(&foo, t0)?;
+        tracker.start_at(&bar, t0)?;
+
+        assert_eq!(tracker.roots.dice_counts["foo"], 1);
+        assert_eq!(tracker.roots.dice_counts["bar"], 1);
+
+        tracker.end(&foo)?;
+        assert_eq!(tracker.roots.dice_counts["foo"], 0);
+        assert_eq!(tracker.roots.dice_counts["bar"], 1);
+
+        tracker.end(&bar)?;
+        assert_eq!(tracker.roots.dice_counts["foo"], 0);
+        assert_eq!(tracker.roots.dice_counts["bar"], 0);
 
         Ok(())
     }
