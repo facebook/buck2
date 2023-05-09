@@ -29,6 +29,7 @@ use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
+use crate::DiceError;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
@@ -143,7 +144,8 @@ impl DiceTask {
     #[allow(unused)] // future introspection functions
     /// true if this task is not yet complete and not yet canceled.
     pub(crate) fn is_pending(&self) -> bool {
-        !self.internal.state.is_ready(Ordering::SeqCst)
+        !(self.internal.state.is_ready(Ordering::Acquire)
+            || self.internal.state.is_terminated(Ordering::Acquire))
     }
 
     #[allow(unused)] // future introspection functions
@@ -187,6 +189,8 @@ impl DiceTaskInternal {
                 .duped()
                 .expect("result should be present"),
             )
+        } else if self.state.is_terminated(Ordering::Acquire) {
+            Some(Err(DiceError::cancelled()))
         } else {
             None
         }
@@ -230,6 +234,13 @@ impl DiceTaskInternal {
             .expect("Invalid state where deps where taken already");
 
         deps.drain().for_each(|(_k, waker)| waker.wake());
+    }
+
+    /// report the task as terminated. This should only be called once. No effect if called affect
+    /// task is already ready
+    pub(super) fn report_terminated(&self) {
+        self.state.report_terminated();
+        self.wake_deps();
     }
 }
 

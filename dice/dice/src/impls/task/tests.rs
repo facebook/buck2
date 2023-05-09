@@ -8,6 +8,7 @@
  */
 
 use std::any::Any;
+use std::sync::atomic::Ordering;
 use std::task::Poll;
 
 use allocative::Allocative;
@@ -109,6 +110,34 @@ async fn simple_task() -> anyhow::Result<()> {
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
+    assert!(!task.is_pending());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
+    let task = spawn_dice_task(&TokioSpawner, &(), |_handle| {
+        async move {
+            // never report ready
+
+            Box::new(()) as Box<dyn Any + Send + 'static>
+        }
+        .boxed()
+    });
+
+    let promise = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
+
+    assert_eq!(
+        task.inspect_waiters(),
+        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
+    );
+
+    let v = promise.await;
+    assert!(v.is_err());
+
+    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
+    assert!(task.internal.state.is_terminated(Ordering::SeqCst));
     assert!(!task.is_pending());
 
     Ok(())

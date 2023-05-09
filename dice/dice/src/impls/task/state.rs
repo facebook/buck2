@@ -16,10 +16,12 @@ use crate::impls::task::handle::TaskState;
 
 /// The state of the DiceTask about what stage of evaluation we are in.
 /// The state is an `u8` consisting of states `INITIAL_LOOKUP`, `CHECKING_DEPS`, `COMPUTING`, `SYNC`
-/// and `READY`, with an additional `PROJECTING` state that can occur simultaneously with the above
-/// states to indicate that there is an attempt to synchronously compute this task.
+/// `READY` and `TERMINATED`, with an additional `PROJECTING` state that can occur simultaneously
+/// with the above states to indicate that there is an attempt to synchronously compute this task.
 /// Only certain state transitions are allowed. `INITIAL_LOOKUP` can transition to all other states.
 /// Only `SYNC` can transition to `READY`. Transition from `READY` to any other state is a noop.
+/// `TERMINATED` is used to indicate that no more status updates will be available despite not
+/// being `READY`.
 ///
 /// The state `SYNC` is also special in that it acts as a spinlock, in that once in that state, all
 /// other state transitions except to `READY` are blocked.
@@ -30,6 +32,13 @@ impl AtomicDiceTaskState {
     pub(super) fn is_ready(&self, ordering: Ordering) -> bool {
         match DiceTaskState::unpack(self.0.load(ordering)) {
             DiceTaskState::Ready => true,
+            _ => false,
+        }
+    }
+
+    pub(super) fn is_terminated(&self, ordering: Ordering) -> bool {
+        match DiceTaskState::unpack(self.0.load(ordering)) {
+            DiceTaskState::Terminated => true,
             _ => false,
         }
     }
@@ -82,6 +91,10 @@ impl AtomicDiceTaskState {
     pub(super) fn report_ready(&self) {
         self.transition(|s| s.transition(TargetState::Ready));
     }
+
+    pub(super) fn report_terminated(&self) {
+        self.transition(|s| s.transition(TargetState::Terminated));
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -96,6 +109,8 @@ enum DiceTaskState {
     Sync,
     /// When the value is ready to be used
     Ready,
+    /// When this future will never become Ready
+    Terminated,
 }
 
 impl DiceTaskState {
@@ -106,6 +121,7 @@ impl DiceTaskState {
             2 => Self::Computing(IsProjecting::unpack(state)),
             3 => Self::Sync,
             4 => Self::Ready,
+            5 => Self::Terminated,
             _ => unreachable!("invalid state `{}`", state),
         }
     }
@@ -117,6 +133,7 @@ impl DiceTaskState {
             DiceTaskState::Computing(proj) => 2 | proj.pack(),
             DiceTaskState::Sync => 3,
             DiceTaskState::Ready => 4,
+            DiceTaskState::Terminated => 5,
         }
     }
 
@@ -133,7 +150,7 @@ impl DiceTaskState {
                 target => Some(target.into_dice_task_state_with_proj(proj)),
             },
             DiceTaskState::CheckingDeps(proj) => match target {
-                target @ (TargetState::Computing | TargetState::Sync) => {
+                target @ (TargetState::Computing | TargetState::Sync | TargetState::Terminated) => {
                     Some(target.into_dice_task_state_with_proj(proj))
                 }
                 target => {
@@ -145,7 +162,9 @@ impl DiceTaskState {
                 }
             },
             DiceTaskState::Computing(proj) => match target {
-                target @ TargetState::Sync => Some(target.into_dice_task_state_with_proj(proj)),
+                target @ (TargetState::Sync | TargetState::Terminated) => {
+                    Some(target.into_dice_task_state_with_proj(proj))
+                }
                 target => {
                     panic!(
                         "invalid state transition `{:?}` -> `{:?}`",
@@ -159,6 +178,13 @@ impl DiceTaskState {
                 _ => None,
             },
             DiceTaskState::Ready => None,
+            DiceTaskState::Terminated => {
+                panic!(
+                    "invalid state transition `{:?}` -> `{:?}`",
+                    DiceTaskState::Terminated,
+                    target
+                )
+            }
         }
     }
 
@@ -173,6 +199,12 @@ impl DiceTaskState {
             DiceTaskState::Computing(_) => Some(DiceTaskState::Computing(IsProjecting::Projecting)),
             DiceTaskState::Sync => None,
             DiceTaskState::Ready => None,
+            DiceTaskState::Terminated => {
+                panic!(
+                    "invalid projection when state is `{:?}`",
+                    DiceTaskState::Terminated,
+                )
+            }
         }
     }
 }
@@ -187,6 +219,8 @@ enum TargetState {
     Sync,
     /// When the value is ready to be used
     Ready,
+    /// When this future will never become Ready
+    Terminated,
 }
 
 impl TargetState {
@@ -196,6 +230,7 @@ impl TargetState {
             TargetState::Computing => DiceTaskState::Computing(proj),
             TargetState::Sync => DiceTaskState::Sync,
             TargetState::Ready => DiceTaskState::Ready,
+            TargetState::Terminated => DiceTaskState::Terminated,
         }
     }
 
@@ -203,6 +238,7 @@ impl TargetState {
         match self {
             TargetState::Sync => DiceTaskState::Sync,
             TargetState::Ready => DiceTaskState::Ready,
+            TargetState::Terminated => DiceTaskState::Terminated,
             _ => panic!("requires projection state"),
         }
     }
