@@ -1,4 +1,4 @@
-name: Build and upload Buck2 binaries
+name: Build, upload, and tag `buck2`
 
 on:
   push:
@@ -6,7 +6,30 @@ on:
       - main
 
 jobs:
+  get_prelude_hash:
+    name: Get the latest prelude hash
+    runs-on: ubuntu-latest
+    outputs:
+      prelude_hash: ${{ steps.get_latest_prelude_hash.outputs.prelude_hash }}
+    steps:
+      - name: Shallow clone buck2-prelude
+        run: git clone --depth=1 https://github.com/facebook/buck2-prelude
+      - name: Get latest commit hash into prelude_hash
+        id: get_latest_prelude_hash
+        run: |
+          mkdir artifacts/
+          cd buck2-prelude/
+          git rev-parse HEAD > ../artifacts/prelude_hash
+          echo "prelude_hash=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Upload prelude_hash
+        uses: actions/upload-artifact@v3
+        with:
+          path: artifacts/prelude_hash
+          name: prelude_hash
+
   build:
+    needs:
+      - get_prelude_hash
     strategy:
       fail-fast: false
       matrix:
@@ -23,10 +46,12 @@ jobs:
           #   triple: 'x86_64-unknown-linux-musl' # Doesn't build
           - os: 'macos-12'
             triple: 'aarch64-apple-darwin'
+            cross: true
           - os: 'macos-12'
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
+            is_windows: true
     runs-on: ${{ matrix.target.os }}
 
     steps:
@@ -51,6 +76,17 @@ jobs:
         with:
           crate: cross
           version: latest
+      - name: Set variables
+        id: set_variables
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.target.is_windows }}" ]; then
+            echo "cargo_out=target/${{ matrix.target.triple }}/release/buck2.exe" >> "$GITHUB_OUTPUT"
+            echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
+          else
+            echo "cargo_out=target/${{ matrix.target.triple }}/release/buck2" >> "$GITHUB_OUTPUT"
+            echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
+          fi
       - name: Build
         shell: bash
         env:
@@ -62,33 +98,21 @@ jobs:
             CARGO=cargo
           fi
           $CARGO build --release --bin buck2 --target ${{ matrix.target.triple }}
-      - name: Move binary to artifact/ (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Move binary to artifacts/
         shell: bash
         run: |
-          mkdir artifact
-          zstd -z target/${{ matrix.target.triple }}/release/buck2 -o artifact/buck2-${{ matrix.target.triple }}.zst
-      - name: Move binary to artifact/ (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          mkdir artifact
-          zstd -z target/${{ matrix.target.triple }}/release/buck2.exe -o artifact/buck2-${{ matrix.target.triple }}.exe.zst
-      - name: Upload (non-Windows)
-        if: runner.os != 'Windows'
+          mkdir artifacts
+          zstd -z ${{ steps.set_variables.outputs.cargo_out }} -o ${{ steps.set_variables.outputs.buck2_zst }}
+      - name: Upload
         uses: actions/upload-artifact@v3
         with:
-          path: artifact/buck2-${{ matrix.target.triple }}.zst
+          path: ${{ steps.set_variables.outputs.buck2_zst }}
 
-      - name: Upload (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
-        with:
-          path: artifact/buck2-${{ matrix.target.triple }}.exe.zst
-
-  release:
-    name: Upload Latest Build
-    needs: build
+  release_latest:
+    name: Release `latest` tag
+    needs:
+      - build
+      - get_prelude_hash
     runs-on: ubuntu-latest
     steps:
       - run: mkdir ${{github.workspace}}/artifacts
@@ -103,12 +127,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: 'latest'
-          files: ${{github.workspace}}/artifacts/**/buck2-*.zst
+          files: ${{github.workspace}}/artifacts/**
           rm: true
       - name: Summary
         run: |
           cat <<EOF >> $GITHUB_STEP_SUMMARY
-          # Latest Build Complete! :rocket:
+          # "latest" Build Complete! :rocket:
           For the public download links of these build artifacts, please see:
            <https://github.com/facebook/buck2/releases/tag/latest>
           EOF
