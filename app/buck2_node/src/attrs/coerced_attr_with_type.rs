@@ -32,7 +32,6 @@ use crate::attrs::attr_type::option::OptionAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::attr_type::source::SourceAttrType;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::string::StringLiteral;
@@ -87,7 +86,7 @@ pub(crate) enum CoercedAttrWithType<'a, 't> {
         &'a UnconfiguredExplicitConfiguredDep,
         &'t ExplicitConfiguredDepAttrType,
     ),
-    SplitTransitionDep(&'a SplitTransitionDep, &'t SplitTransitionDepAttrType),
+    SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
     ConfigurationDep(&'a TargetLabel, ConfigurationDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),

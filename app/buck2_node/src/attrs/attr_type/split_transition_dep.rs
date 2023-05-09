@@ -37,15 +37,15 @@ impl SplitTransitionDepAttrType {
     }
 
     pub(crate) fn configure(
+        &self,
+        dep: &ProvidersLabel,
         ctx: &dyn AttrConfigurationContext,
-        dep_attr: &SplitTransitionDep,
     ) -> anyhow::Result<ConfiguredAttr> {
-        let configured_providers =
-            ctx.configure_split_transition_target(&dep_attr.label, &dep_attr.transition)?;
+        let configured_providers = ctx.configure_split_transition_target(dep, &self.transition)?;
         Ok(ConfiguredAttr::SplitTransitionDep(Box::new(
             ConfiguredSplitTransitionDep {
                 deps: configured_providers,
-                required_providers: dep_attr.required_providers.dupe(),
+                required_providers: self.required_providers.dupe(),
             },
         )))
     }

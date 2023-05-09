@@ -7,12 +7,10 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDep;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use dupe::Dupe;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
@@ -32,13 +30,7 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(CoercedAttr::SplitTransitionDep(Box::new(
-            SplitTransitionDep {
-                label,
-                transition: self.transition.dupe(),
-                required_providers: self.required_providers.dupe(),
-            },
-        )))
+        Ok(CoercedAttr::SplitTransitionDep(label))
     }
 
     fn starlark_type(&self) -> String {

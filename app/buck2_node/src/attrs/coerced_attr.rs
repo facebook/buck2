@@ -43,9 +43,6 @@ use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::query::QueryAttr;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDep;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::AttrType;
@@ -197,7 +194,7 @@ pub enum CoercedAttr {
     ),
     Visibility(VisibilitySpecification),
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
-    SplitTransitionDep(Box<SplitTransitionDep>),
+    SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(TargetLabel),
     Dep(ProvidersLabel),
@@ -333,7 +330,7 @@ impl CoercedAttr {
             CoercedAttr::OneOf(box l, _) => l.to_json(ctx),
             CoercedAttr::Visibility(v) => Ok(v.to_json()),
             CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
-            CoercedAttr::SplitTransitionDep(e) => e.to_json(),
+            CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
@@ -439,8 +436,8 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
-            CoercedAttrWithType::SplitTransitionDep(dep, _t) => {
-                traversal.split_transition_dep(dep.label.target(), &dep.transition)
+            CoercedAttrWithType::SplitTransitionDep(dep, t) => {
+                traversal.split_transition_dep(dep.target(), &t.transition)
             }
             CoercedAttrWithType::ConfiguredDep(dep) => {
                 traversal.dep(dep.label.target().unconfigured())
@@ -577,9 +574,7 @@ impl CoercedAttr {
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _) => {
                 ExplicitConfiguredDepAttrType::configure(ctx, dep)?
             }
-            CoercedAttrWithType::SplitTransitionDep(dep, _) => {
-                SplitTransitionDepAttrType::configure(ctx, dep)?
-            }
+            CoercedAttrWithType::SplitTransitionDep(dep, t) => t.configure(dep, ctx)?,
             CoercedAttrWithType::ConfiguredDep(dep) => ConfiguredAttr::Dep(Box::new(dep.clone())),
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
@@ -630,7 +625,7 @@ impl CoercedAttr {
             CoercedAttr::OneOf(l, _) => l.any_matches(filter),
             CoercedAttr::Visibility(v) => v.any_matches(filter),
             CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
-            CoercedAttr::SplitTransitionDep(e) => e.any_matches(filter),
+            CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfiguredDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
             CoercedAttr::Dep(e) => filter(&e.to_string()),
