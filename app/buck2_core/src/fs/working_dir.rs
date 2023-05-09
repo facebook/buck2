@@ -40,23 +40,22 @@ impl WorkingDir {
             NotCanonical(PathBuf, PathBuf),
         }
 
-        // `current_dir` seems to return canonical path.
+        // `current_dir` seems to return canonical path everywhere except Windows,
+        // but may return non-canonical path on Windows:
+        // https://fb.workplace.com/groups/buck2windows/posts/754618429743405
         let current_dir_canonical = fs_util::canonicalize(&current_dir)?;
-        if current_dir != current_dir_canonical.as_path() {
-            let error: anyhow::Error = CurrentDirError::NotCanonical(
-                current_dir.clone(),
-                current_dir_canonical.into_path_buf(),
-            )
-            .into();
 
-            if cfg!(windows) {
-                soft_error!("current_dir_not_canonical_on_windows", error)?;
-            } else {
-                return Err(error);
+        if current_dir != current_dir_canonical.as_path() {
+            if !cfg!(windows) {
+                return Err(CurrentDirError::NotCanonical(
+                    current_dir,
+                    current_dir_canonical.into_path_buf(),
+                )
+                .into());
             }
         }
 
-        Ok(WorkingDir::unchecked_new(AbsNormPathBuf::new(current_dir)?))
+        Ok(WorkingDir::unchecked_new(current_dir_canonical))
     }
 
     pub fn resolve(&self, path: &Path) -> AbsPathBuf {
