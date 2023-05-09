@@ -43,7 +43,6 @@ members = [
     "app/buck2_profile",
     "app/buck2_protoc_dev",
     "app/buck2_query",
-    "app/buck2_query_common",
     "app/buck2_query_parser",
     "app/buck2_query_derive",
     "app/buck2_re_configuration",
@@ -299,7 +298,6 @@ buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
 buck2_profile = { path = "app/buck2_profile" }
 buck2_protoc_dev = { path = "app/buck2_protoc_dev" }
-buck2_query_common = { path = "app/buck2_query_common" }
 buck2_query_parser = { path = "app/buck2_query_parser" }
 buck2_query_derive = { path = "app/buck2_query_derive" }
 buck2_starlark = { path = "app/buck2_starlark" }

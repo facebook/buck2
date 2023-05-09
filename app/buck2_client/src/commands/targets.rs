@@ -21,10 +21,10 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
+use buck2_client_ctx::query_args::CommonAttributeArgs;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_query_common::query_args::CommonAttributeArgs;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
