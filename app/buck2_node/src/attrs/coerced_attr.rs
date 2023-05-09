@@ -487,6 +487,24 @@ impl CoercedAttr {
         Ok(matching.map(|(_k, _conf, v)| v))
     }
 
+    fn select<'a>(
+        ctx: &dyn AttrConfigurationContext,
+        select: &'a CoercedSelector,
+    ) -> anyhow::Result<&'a CoercedAttr> {
+        let CoercedSelector { entries, default } = select;
+        if let Some(v) = Self::select_the_most_specific(ctx, entries)? {
+            Ok(v)
+        } else {
+            default.as_ref().ok_or_else(|| {
+                SelectError::MissingDefault(
+                    ctx.cfg().cfg().dupe(),
+                    entries.iter().map(|(k, _)| k).duped().collect(),
+                )
+                .into()
+            })
+        }
+    }
+
     /// Returns the "configured" representation of the attribute in the provided context.
     /// This handles the resolution of the select() conditions and delegates to
     /// the actual attr type for handling any appropriate configuration-time
@@ -497,19 +515,8 @@ impl CoercedAttr {
         ctx: &dyn AttrConfigurationContext,
     ) -> anyhow::Result<ConfiguredAttr> {
         Ok(match CoercedAttrWithType::pack(self, ty)? {
-            CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
-                if let Some(v) = Self::select_the_most_specific(ctx, entries)? {
-                    return v.configure(t, ctx);
-                }
-                default
-                    .as_ref()
-                    .ok_or_else(|| {
-                        SelectError::MissingDefault(
-                            ctx.cfg().cfg().dupe(),
-                            entries.iter().map(|(k, _)| k).duped().collect(),
-                        )
-                    })?
-                    .configure(t, ctx)?
+            CoercedAttrWithType::Selector(select, t) => {
+                Self::select(ctx, select)?.configure(t, ctx)?
             }
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
