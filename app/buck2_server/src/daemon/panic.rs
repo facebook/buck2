@@ -21,6 +21,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
+use buck2_core::env_helper::EnvHelper;
 use buck2_wrapper_common::invocation_id::TraceId;
 use once_cell::sync::OnceCell;
 
@@ -71,8 +72,16 @@ pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
 /// This cell prevents a circular set of panics if this happens.
 static ALREADY_DUMPED_DICE: OnceCell<()> = OnceCell::new();
 
+static DICE_DUMP_ON_PANIC: EnvHelper<bool> = EnvHelper::new("BUCK2_DICE_DUMP_ON_PANIC");
+
 fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicInfo) {
-    if !buck2_core::is_open_source() && ALREADY_DUMPED_DICE.set(()).is_ok() {
+    if !buck2_core::is_open_source()
+        && DICE_DUMP_ON_PANIC
+            .get_copied()
+            .unwrap_or_default()
+            .unwrap_or_default()
+        && ALREADY_DUMPED_DICE.set(()).is_ok()
+    {
         let panic_id = TraceId::new();
         maybe_dice_dump(daemon_state, info, &panic_id);
     }
