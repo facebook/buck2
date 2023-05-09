@@ -38,7 +38,7 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
-use buck2_common::dice::cycles::StackedDiceCycleDetector;
+use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::io::trace::TracingIoProvider;
@@ -612,12 +612,10 @@ impl DiceDataProvider for DiceCommandDataProvider {
 }
 
 fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
-    Arc::new(StackedDiceCycleDetector {
-        inner: vec![
-            Box::new(CycleDetectorAdapter::<LoadCycleDescriptor>::new()),
-            Box::new(CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new()),
-        ],
-    })
+    Arc::new(PairDiceCycleDetector(
+        CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
+        CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
+    ))
 }
 
 struct DiceCommandUpdater {

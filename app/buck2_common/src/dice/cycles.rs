@@ -162,24 +162,22 @@ impl<D: CycleAdapterDescriptor> UserCycleDetectorGuard for CycleAdapterGuard<D> 
 }
 
 /// Allows having multiple cycle detectors (e.g. for different keys/phases) as the one Dice UserCycleDetector.
-pub struct StackedDiceCycleDetector {
-    pub inner: Vec<Box<dyn UserCycleDetector>>,
-}
+pub struct PairDiceCycleDetector<A: UserCycleDetector, B: UserCycleDetector>(pub A, pub B);
 
-impl UserCycleDetector for StackedDiceCycleDetector {
+impl<A: UserCycleDetector, B: UserCycleDetector> UserCycleDetector for PairDiceCycleDetector<A, B> {
     fn start_computing_key(&self, key: &dyn Any) -> Option<Box<dyn UserCycleDetectorGuard>> {
         // Right now, only one of the inner detectors is allowed to claim a key. We could feasibly change that, but it's a bit trickier.
-        for detector in &self.inner {
-            if let Some(v) = detector.start_computing_key(key) {
-                return Some(v);
-            }
+        if let Some(v) = self.0.start_computing_key(key) {
+            return Some(v);
+        }
+        if let Some(v) = self.1.start_computing_key(key) {
+            return Some(v);
         }
         None
     }
 
     fn finished_computing_key(&self, key: &dyn Any) {
-        for detector in &self.inner {
-            detector.finished_computing_key(key);
-        }
+        self.0.start_computing_key(key);
+        self.1.start_computing_key(key);
     }
 }
