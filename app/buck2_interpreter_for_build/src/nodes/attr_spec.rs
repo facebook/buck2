@@ -110,6 +110,10 @@ impl AttributeSpecExt for AttributeSpec {
                                 VisibilitySpecification::Public,
                             ));
                         }
+                    } else if coerced == CoercedValue::Default {
+                        coerced = CoercedValue::Custom(CoercedAttr::Visibility(
+                            internals.super_package.visibility().dupe(),
+                        ));
                     }
                 }
 
