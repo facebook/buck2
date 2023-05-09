@@ -604,6 +604,7 @@ impl RemoteExecutionClientImpl {
                 }
 
                 re_client_config.check_file_existence_when_no_cache_enabled = false;
+                re_client_config.check_parent_directories_exist = false;
                 re_client_config.features_config_path = static_metadata
                     .features_config_path
                     .as_deref()
