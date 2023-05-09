@@ -30,14 +30,14 @@ pub(super) struct AtomicDiceTaskState(AtomicU8);
 
 impl AtomicDiceTaskState {
     pub(super) fn is_ready(&self, ordering: Ordering) -> bool {
-        match DiceTaskState::unpack(self.0.load(ordering)) {
+        match DiceTaskState::from_u8_state(self.0.load(ordering)) {
             DiceTaskState::Ready => true,
             _ => false,
         }
     }
 
     pub(super) fn is_terminated(&self, ordering: Ordering) -> bool {
-        match DiceTaskState::unpack(self.0.load(ordering)) {
+        match DiceTaskState::from_u8_state(self.0.load(ordering)) {
             DiceTaskState::Terminated => true,
             _ => false,
         }
@@ -51,14 +51,14 @@ impl AtomicDiceTaskState {
             match self
                 .0
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
-                    let unpacked = DiceTaskState::unpack(old);
-                    maybe_transition(unpacked).map(DiceTaskState::pack)
+                    let unpacked = DiceTaskState::from_u8_state(old);
+                    maybe_transition(unpacked).map(DiceTaskState::into_u8_state)
                 }) {
                 Ok(_) => {
                     return TaskState::Continue;
                 }
                 Err(old) => {
-                    let unpacked = DiceTaskState::unpack(old);
+                    let unpacked = DiceTaskState::from_u8_state(old);
                     if unpacked == DiceTaskState::Sync {
                         std::hint::spin_loop();
                         continue;
@@ -114,7 +114,10 @@ enum DiceTaskState {
 }
 
 impl DiceTaskState {
-    fn unpack(state: u8) -> Self {
+    fn from_u8_state(state: u8) -> Self {
+        // The 4th bit is a boolean to indicate if its projecting
+        // We pack the state is a 3 bits corresponding to integers 0 to 4.
+        // The 4th bit is a boolean to indicate if its projecting
         match state & 0b111 {
             0 => Self::InitialLookup(IsProjecting::unpack(state)),
             1 => Self::CheckingDeps(IsProjecting::unpack(state)),
@@ -126,7 +129,9 @@ impl DiceTaskState {
         }
     }
 
-    fn pack(self) -> u8 {
+    fn into_u8_state(self) -> u8 {
+        // We pack the state is a 3 bits corresponding to integers 0 to 4.
+        // The 4th bit is a boolean to indicate if its projecting
         match self {
             DiceTaskState::InitialLookup(proj) => proj.pack(),
             DiceTaskState::CheckingDeps(proj) => 1 | proj.pack(),
@@ -253,6 +258,8 @@ enum IsProjecting {
 }
 
 impl IsProjecting {
+    /// We pack the DiceTaskState as a 3 bits corresponding to integers 0 to 4.
+    /// The 4th bit is a boolean to indicate if its projecting, so this all operates on the 4th bit.
     fn unpack(state: u8) -> Self {
         if (state & (1 << 3)) != 0 {
             IsProjecting::Projecting
