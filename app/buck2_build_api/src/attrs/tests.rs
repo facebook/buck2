@@ -338,7 +338,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(PackageLabel::testing(), &mut visitor)?;
+    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps,
         configuration_deps,
@@ -611,7 +611,7 @@ fn test_source_label_deps() -> anyhow::Result<()> {
     )?;
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(PackageLabel::testing(), &mut visitor)?;
+    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps,
         configuration_deps,
@@ -755,7 +755,7 @@ fn test_arg() -> anyhow::Result<()> {
     );
 
     let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(PackageLabel::testing(), &mut visitor)?;
+    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
     let CoercedDepsCollector {
         deps, exec_deps, ..
     } = visitor;

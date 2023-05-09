@@ -473,7 +473,9 @@ pub mod testing {
 
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
-                val.traverse(label.pkg(), &mut deps_cache).unwrap();
+                let attr = attr_spec.attribute(name).unwrap();
+                val.traverse(attr.coercer(), label.pkg(), &mut deps_cache)
+                    .unwrap();
                 attributes.push_sorted(idx, val);
             }
 

@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct IntAttrType;

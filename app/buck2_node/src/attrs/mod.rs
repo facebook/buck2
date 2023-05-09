@@ -11,6 +11,7 @@ pub mod attr;
 pub mod attr_type;
 pub mod coerced_attr;
 pub mod coerced_attr_full;
+pub mod coerced_attr_with_type;
 pub mod coerced_deps_collector;
 pub mod coerced_path;
 pub mod coercion_context;

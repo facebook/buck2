@@ -16,7 +16,7 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use serde::Serialize;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct StringAttrType;
 
 #[derive(

@@ -26,7 +26,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 ///
 /// They resolve to just the string form of the target and so aren't particularly useful to UDR
 /// directly (they are used by the framework).
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct ConfigurationDepAttrType;
 
 impl ConfigurationDepAttrType {

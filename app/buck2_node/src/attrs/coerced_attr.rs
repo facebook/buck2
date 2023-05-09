@@ -12,6 +12,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::buck_path::path::BuckPathRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
@@ -48,6 +49,8 @@ use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -75,6 +78,12 @@ enum SelectError {
     ConcatEmpty,
     #[error("duplicate key `{0}` in `select()`")]
     DuplicateKey(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+enum CoercedAttrError {
+    #[error("Inconsistent number of elements in tuple")]
+    InconsistentTupleLength,
 }
 
 enum CoercedSelectorKeyRef<'a> {
@@ -351,64 +360,99 @@ impl CoercedAttr {
     /// are passed as configuration deps).
     pub fn traverse<'a>(
         &'a self,
+        t: &AttrType,
         pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
-        match self {
-            CoercedAttr::Selector(box CoercedSelector { entries, default }) => {
+        match CoercedAttrWithType::pack(self, t)? {
+            CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 for (condition, value) in entries.iter() {
                     traversal.configuration_dep(condition)?;
-                    value.traverse(pkg.dupe(), traversal)?;
+                    value.traverse(t, pkg.dupe(), traversal)?;
                 }
                 if let Some(v) = default {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    v.traverse(t, pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
-            CoercedAttr::Concat(items) => {
-                for item in &**items {
-                    item.traverse(pkg.dupe(), traversal)?;
+            CoercedAttrWithType::Concat(items, t) => {
+                for item in items {
+                    item.traverse(t, pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
-            CoercedAttr::Bool(_) => Ok(()),
-            CoercedAttr::Int(_) => Ok(()),
-            CoercedAttr::String(_) => Ok(()),
-            CoercedAttr::EnumVariant(_) => Ok(()),
-            CoercedAttr::List(list) => {
+
+            CoercedAttrWithType::None => Ok(()),
+            CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg.dupe(), traversal),
+
+            CoercedAttrWithType::AnyList(list) => {
                 for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+                    // This is no-op now, but any may contain selects in the future.
+                    v.traverse(t, pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
-            CoercedAttr::Tuple(list) => {
-                for v in list.iter() {
-                    v.traverse(pkg.dupe(), traversal)?;
+            CoercedAttrWithType::AnyTuple(tuple) => {
+                for v in tuple.iter() {
+                    v.traverse(t, pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
-            CoercedAttr::Dict(dict) => {
+            CoercedAttrWithType::AnyDict(dict) => {
                 for (k, v) in dict.iter() {
-                    k.traverse(pkg.dupe(), traversal)?;
-                    v.traverse(pkg.dupe(), traversal)?;
+                    k.traverse(t, pkg.dupe(), traversal)?;
+                    v.traverse(t, pkg.dupe(), traversal)?;
                 }
                 Ok(())
             }
-            CoercedAttr::None => Ok(()),
-            CoercedAttr::OneOf(box l, _) => l.traverse(pkg, traversal),
-            CoercedAttr::Visibility(..) => Ok(()),
-            CoercedAttr::ExplicitConfiguredDep(dep) => dep.traverse(traversal),
-            CoercedAttr::SplitTransitionDep(dep) => {
+
+            CoercedAttrWithType::Bool(..) => Ok(()),
+            CoercedAttrWithType::Int(..) => Ok(()),
+            CoercedAttrWithType::String(..) => Ok(()),
+            CoercedAttrWithType::EnumVariant(..) => Ok(()),
+            CoercedAttrWithType::List(list, t) => {
+                for v in list.iter() {
+                    v.traverse(&t.inner, pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            CoercedAttrWithType::Tuple(list, t) => {
+                if list.len() != t.xs.len() {
+                    return Err(CoercedAttrError::InconsistentTupleLength.into());
+                }
+
+                for (v, vt) in list.iter().zip(&t.xs) {
+                    v.traverse(vt, pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+            CoercedAttrWithType::Dict(dict, t) => {
+                for (k, v) in dict.iter() {
+                    k.traverse(&t.key, pkg.dupe(), traversal)?;
+                    v.traverse(&t.value, pkg.dupe(), traversal)?;
+                }
+                Ok(())
+            }
+
+            CoercedAttrWithType::OneOf(l, i, t) => {
+                let item_type = t.xs.get(i as usize).context("invalid enum")?;
+                l.traverse(item_type, pkg, traversal)
+            }
+            CoercedAttrWithType::Visibility(..) => Ok(()),
+            CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
+            CoercedAttrWithType::SplitTransitionDep(dep, _t) => {
                 traversal.split_transition_dep(dep.label.target(), &dep.transition)
             }
-            CoercedAttr::ConfiguredDep(dep) => traversal.dep(dep.label.target().unconfigured()),
-            CoercedAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
-            CoercedAttr::Dep(dep) => dep.traverse(traversal),
-            CoercedAttr::SourceLabel(s) => traversal.dep(s.target()),
-            CoercedAttr::Label(label) => traversal.label(label),
-            CoercedAttr::Arg(arg) => arg.traverse(traversal),
-            CoercedAttr::Query(query) => query.traverse(traversal),
-            CoercedAttr::SourceFile(source) => {
+            CoercedAttrWithType::ConfiguredDep(dep) => {
+                traversal.dep(dep.label.target().unconfigured())
+            }
+            CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
+            CoercedAttrWithType::Dep(dep, _t) => dep.traverse(traversal),
+            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
+            CoercedAttrWithType::Label(label, _t) => traversal.label(label),
+            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal),
+            CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
+            CoercedAttrWithType::SourceFile(source, _t) => {
                 for x in source.inputs() {
                     traversal.input(BuckPathRef::new(pkg.dupe(), x))?;
                 }

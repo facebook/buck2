@@ -14,7 +14,7 @@ use dupe::Dupe;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative)]
 pub struct LabelAttrType;
 
 impl LabelAttrType {

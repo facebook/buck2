@@ -44,7 +44,7 @@ impl<'a> CoercedAttrFull<'a> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
         self.value
-            .traverse(pkg, traversal)
+            .traverse(self.attr.coercer(), pkg, traversal)
             .with_context(|| format!("traversing attribute `{}`", self.name))
     }
 }

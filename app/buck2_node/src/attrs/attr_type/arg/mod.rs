@@ -16,6 +16,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use static_assertions::assert_eq_size;
 
@@ -24,7 +25,7 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative)]
 pub struct ArgAttrType;
 
 /// [StringWithMacros] is the core representation for an attrs.arg() (in all of it's coerced, configured, and resolved

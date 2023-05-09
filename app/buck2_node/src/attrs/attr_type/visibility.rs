@@ -8,11 +8,12 @@
  */
 
 use allocative::Allocative;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::attrs::attr_type::AttrType;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct VisibilityAttrType;
 
 impl VisibilityAttrType {
