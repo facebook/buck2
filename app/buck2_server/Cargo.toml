@@ -39,6 +39,7 @@ tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 buck2_re_configuration = { workspace = true }
+parking_lot = { workspace = true }
 
 allocative = { workspace = true }
 fbinit = { workspace = true }

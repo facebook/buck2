@@ -11,8 +11,6 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
 
 use buck2_cli_proto::ClientContext;
 use buck2_event_observer::span_tracker;
@@ -22,6 +20,8 @@ use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 use tokio::sync::oneshot;
 
 static ACTIVE_COMMANDS: Lazy<Mutex<HashMap<TraceId, ActiveCommandHandle>>> =
@@ -30,11 +30,11 @@ static ACTIVE_COMMANDS: Lazy<Mutex<HashMap<TraceId, ActiveCommandHandle>>> =
 /// Return the active commands, if you can access them.
 pub fn try_active_commands() -> Option<HashMap<TraceId, ActiveCommandHandle>> {
     // Note that this function is accessed during panic, so have to be super careful
-    Some(ACTIVE_COMMANDS.try_lock().ok()?.clone())
+    Some(ACTIVE_COMMANDS.try_lock()?.clone())
 }
 
 pub fn active_commands() -> MutexGuard<'static, HashMap<TraceId, ActiveCommandHandle>> {
-    ACTIVE_COMMANDS.lock().unwrap_or_else(|e| e.into_inner())
+    ACTIVE_COMMANDS.lock()
 }
 
 /// Broadcasts an instant event, returns whether any subscribers were connected.
@@ -43,7 +43,7 @@ pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>
 ) -> bool {
     let mut has_subscribers = false;
 
-    for cmd in ACTIVE_COMMANDS.lock().unwrap().values() {
+    for cmd in ACTIVE_COMMANDS.lock().values() {
         cmd.dispatcher.instant_event(event.clone());
         has_subscribers = true;
     }
@@ -52,7 +52,7 @@ pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>
 }
 
 pub fn broadcast_shutdown(shutdown: &buck2_data::DaemonShutdown) {
-    for cmd in ACTIVE_COMMANDS.lock().unwrap().values() {
+    for cmd in ACTIVE_COMMANDS.lock().values() {
         cmd.notify_shutdown(shutdown.clone());
     }
 }
@@ -73,11 +73,7 @@ pub struct ActiveCommandHandle {
 
 impl ActiveCommandHandle {
     fn notify_shutdown(&self, shutdown: buck2_data::DaemonShutdown) {
-        let channel = self
-            .daemon_shutdown_channel
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
+        let channel = self.daemon_shutdown_channel.lock().take();
 
         if let Some(channel) = channel {
             let _ignored = channel.send(shutdown); // Nothing to do if receiver hung up.
@@ -95,7 +91,7 @@ pub struct ActiveCommandDropGuard {
 
 impl Drop for ActiveCommandDropGuard {
     fn drop(&mut self) {
-        ACTIVE_COMMANDS.lock().unwrap().remove(&self.trace_id);
+        ACTIVE_COMMANDS.lock().remove(&self.trace_id);
     }
 }
 
@@ -202,7 +198,7 @@ impl ActiveCommand {
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
             // Scope the guard so it's locked as little as possible
-            let mut active_commands = ACTIVE_COMMANDS.lock().unwrap();
+            let mut active_commands = ACTIVE_COMMANDS.lock();
 
             let existing_active_commands = if active_commands.len() > 1 {
                 Some(active_commands.clone())
