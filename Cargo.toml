@@ -61,6 +61,7 @@ members = [
     "app/buck2_critical_path",
     "dice/dice",
     "dice/dice_examples",
+    "dice/dice_tests",
     # @oss-disable: "dice/fuzzy_dice",
     # @oss-disable: "dice_replay",
     # @oss-disable: "host_sharing",

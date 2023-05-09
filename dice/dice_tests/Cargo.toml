@@ -1,0 +1,19 @@
+[package]
+name = "dice_tests"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "e2e tests for DICE. Live in a separate crate for faster development."
+
+[dev-dependencies]
+allocative = { workspace = true }
+dupe = { workspace = true }
+more_futures = { workspace = true }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+derive_more = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true }
+
+dice = { workspace = true }
