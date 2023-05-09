@@ -536,7 +536,8 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::BxlExecution(..)
             | Data::BxlDiceInvocation(..)
             | Data::ReUpload(..)
-            | Data::ConnectToInstaller(..),
+            | Data::ConnectToInstaller(..)
+            | Data::LocalResources(..),
         ) => true,
         None => false,
     }

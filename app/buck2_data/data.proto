@@ -77,6 +77,7 @@ message SpanStartEvent {
     BxlDiceInvocationStart bxl_dice_invocation = 77;
     ReUploadStart re_upload = 78;
     ConnectToInstallerStart connect_to_installer = 79;
+    SetupLocalResourcesStart local_resources = 80;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -120,6 +121,7 @@ message SpanEndEvent {
     BxlDiceInvocationEnd bxl_dice_invocation = 78;
     ReUploadEnd re_upload = 79;
     ConnectToInstallerEnd connect_to_installer = 80;
+    SetupLocalResourcesEnd local_resources = 81;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -864,6 +866,7 @@ message ActionKey {
     BxlFunctionKey bxl_key = 4;
     ConfiguredTargetLabel test_target_label = 5;
     AnonTarget anon_target = 6;
+    ConfiguredTargetLabel local_resource_setup = 7;
   }
 
   // The full deferred key associated with this action. Opaque to consumers.
@@ -1759,6 +1762,10 @@ message NetworkInterfaceStats {
 message TraceIoCommandStart {}
 
 message TraceIoCommandEnd {}
+
+message SetupLocalResourcesStart {}
+
+message SetupLocalResourcesEnd {}
 
 message RestartConfiguration {
   bool enable_restarter = 1;

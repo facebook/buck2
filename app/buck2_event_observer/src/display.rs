@@ -126,7 +126,8 @@ pub fn display_action_owner(
 ) -> anyhow::Result<String> {
     match owner {
         action_key::Owner::TargetLabel(target_label)
-        | action_key::Owner::TestTargetLabel(target_label) => {
+        | action_key::Owner::TestTargetLabel(target_label)
+        | action_key::Owner::LocalResourceSetup(target_label) => {
             display_configured_target_label(target_label, opts)
         }
         action_key::Owner::BxlKey(bxl_key) => display_bxl_key(bxl_key),
@@ -304,6 +305,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 Ok(format!("Connecting to installer on port {}", tcp_port))
             }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
+            Data::LocalResources(..) => Ok("Setup local resources".to_owned()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(

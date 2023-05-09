@@ -19,6 +19,7 @@ rust_library(
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:uuid",

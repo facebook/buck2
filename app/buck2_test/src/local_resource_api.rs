@@ -17,7 +17,6 @@ use indexmap::IndexMap;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 /// Represents the JSON schema for output of a local resource command setup.
 pub(crate) struct LocalResourcesSetupResult {
     /// Process ID which is holding local resources which were set up.
@@ -31,7 +30,6 @@ pub(crate) struct LocalResourcesSetupResult {
 }
 
 impl LocalResourcesSetupResult {
-    #[allow(dead_code)]
     pub(crate) fn into_state(
         self,
         resource_target: ConfiguredTargetLabel,

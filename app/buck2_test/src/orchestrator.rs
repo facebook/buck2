@@ -34,7 +34,14 @@ use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::executor_config::CommandGenerationOptions;
+use buck2_common::executor_config::Executor;
+use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::local_resource_state::LocalResourceState;
+use buck2_common::result::SharedError;
+use buck2_common::result::SharedResult;
+use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
@@ -44,6 +51,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_data::SetupLocalResourcesEnd;
+use buck2_data::SetupLocalResourcesStart;
 use buck2_data::TestDiscovery;
 use buck2_data::TestDiscoveryEnd;
 use buck2_data::TestDiscoveryStart;
@@ -95,11 +104,16 @@ use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
+use dashmap::DashMap;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
+use futures::future::BoxFuture;
+use futures::future::Shared;
+use futures::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
+use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
@@ -107,6 +121,9 @@ use sorted_vector_map::SortedVectorMap;
 use starlark::values::FrozenRef;
 use uuid::Uuid;
 
+use crate::local_resource_api::LocalResourcesSetupResult;
+use crate::local_resource_setup::required_local_resources_setup_contexts;
+use crate::local_resource_setup::LocalResourceSetupContext;
 use crate::session::TestSession;
 use crate::translations;
 
@@ -126,6 +143,8 @@ pub struct BuckTestOrchestrator<'a> {
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
     cancellations: &'a CancellationContext,
+    local_resource_state_registry:
+        DashMap<ConfiguredTargetLabel, Shared<BoxFuture<'a, SharedResult<LocalResourceState>>>>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -166,8 +185,15 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer,
             digest_config,
             cancellations,
+            local_resource_state_registry: DashMap::new(),
         }
     }
+}
+
+struct PreparedLocalResourceSetupContext {
+    pub target: ConfiguredTargetLabel,
+    pub execution_request: CommandExecutionRequest,
+    pub env_var_mapping: IndexMap<String, String>,
 }
 
 #[async_trait]
@@ -182,7 +208,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
-        _required_local_resources: RequiredLocalResources,
+        required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecutionResult2> {
         self.liveliness_observer.require_alive().await?;
 
@@ -191,7 +217,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         let fs = self.dice.get_artifact_fs().await?;
 
         let test_info = self.get_test_info(&test_target).await?;
-        let executor = self
+        let test_executor = self
             .get_test_executor(&test_target, &test_info, executor_override, &fs)
             .await?;
         let test_executable_expanded = self
@@ -201,7 +227,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 cmd,
                 env,
                 pre_create_dirs,
-                &executor.executor_fs(),
+                &test_executor.executor_fs(),
             )
             .await?;
 
@@ -215,6 +241,31 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         } = test_executable_expanded;
 
         let executor_preference = self.executor_preference(supports_re)?;
+
+        let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
+            let setup_local_resources_executor = self.get_local_executor(&fs)?;
+
+            let setup_contexts = {
+                let executor_fs = setup_local_resources_executor.executor_fs();
+                let mut cmd_line_context = DefaultCommandLineContext::new(&executor_fs);
+                required_local_resources_setup_contexts(
+                    &mut cmd_line_context,
+                    &test_info,
+                    &required_local_resources,
+                )?
+            };
+            // Some timeout is neeeded, use the same value as for the test itself which is better than nothing.
+            let resources = self
+                .setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
+                .await?;
+
+            self.liveliness_observer.require_alive().await?;
+
+            resources
+        } else {
+            vec![]
+        };
+
         let execution_request = self
             .create_command_execution_request(
                 cwd,
@@ -226,11 +277,12 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 Some(timeout),
                 Some(host_sharing_requirements),
                 Some(executor_preference),
+                required_resources,
             )
             .await?;
 
         let (stdout, stderr, status, timing, outputs) = self
-            .execute_shared(&test_target, metadata, &executor, execution_request)
+            .execute_shared(&test_target, metadata, &test_executor, execution_request)
             .await?;
 
         self.liveliness_observer.require_alive().await?;
@@ -363,6 +415,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 None,
                 None,
                 None,
+                vec![],
             )
             .await?;
 
@@ -405,7 +458,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         Ok(executor_preference)
     }
 
-    async fn execute_shared<'a>(
+    async fn execute_shared(
         &self,
         test_target: &ConfiguredProvidersLabel,
         metadata: DisplayMetadata,
@@ -561,6 +614,21 @@ impl<'b> BuckTestOrchestrator<'b> {
         Ok(executor)
     }
 
+    fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
+        let executor_config = CommandExecutorConfig {
+            executor: Executor::Local,
+            options: CommandGenerationOptions {
+                path_separator: PathSeparatorKind::system_default(),
+                output_paths_behavior: Default::default(),
+            },
+        };
+        let CommandExecutorResponse { executor, platform } =
+            self.dice.get_command_executor(fs, &executor_config)?;
+        let executor =
+            CommandExecutor::new(executor, fs.clone(), executor_config.options, platform);
+        Ok(executor)
+    }
+
     async fn get_test_info(
         &self,
         test_target: &ConfiguredProvidersLabel,
@@ -699,6 +767,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         timeout: Option<Duration>,
         host_sharing_requirements: Option<HostSharingRequirements>,
         executor_preference: Option<ExecutorPreference>,
+        required_local_resources: Vec<LocalResourceState>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -724,7 +793,8 @@ impl<'b> BuckTestOrchestrator<'b> {
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
-            .with_disable_miniperf(true);
+            .with_disable_miniperf(true)
+            .with_required_local_resources(required_local_resources)?;
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
         }
@@ -735,6 +805,168 @@ impl<'b> BuckTestOrchestrator<'b> {
             request = request.with_executor_preference(executor_preference);
         }
         Ok(request)
+    }
+
+    async fn setup_local_resources(
+        &self,
+        setup_contexts: Vec<LocalResourceSetupContext>,
+        executor: CommandExecutor,
+        timeout: Duration,
+    ) -> anyhow::Result<Vec<LocalResourceState>> {
+        let setup_commands = futures::future::try_join_all(
+            setup_contexts
+                .into_iter()
+                .map(|context| self.prepare_local_resource(context, executor.fs(), timeout)),
+        )
+        .await?;
+
+        self.liveliness_observer.require_alive().await?;
+
+        let resource_futs = setup_commands.into_iter().map(|context| {
+            let local_resource_target = context.target.dupe();
+            self.local_resource_state_registry
+                .entry(local_resource_target.dupe())
+                .or_insert_with(|| {
+                    let setup = Self::start_local_resource(
+                        self.events.dupe(),
+                        self.liveliness_observer.dupe(),
+                        self.digest_config.dupe(),
+                        executor.dupe(),
+                        context,
+                        self.cancellations,
+                    );
+                    async move {
+                        setup
+                            .await
+                            .with_context(|| {
+                                format!(
+                                    "Error setting up local resource declared in `{}`",
+                                    local_resource_target
+                                )
+                            })
+                            .shared_error()
+                    }
+                    .boxed()
+                    .shared()
+                })
+                .clone()
+        });
+
+        Ok(futures::future::try_join_all(resource_futs).await?)
+    }
+
+    async fn prepare_local_resource(
+        &self,
+        context: LocalResourceSetupContext,
+        fs: &ArtifactFs,
+        timeout: Duration,
+    ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
+        let futs = context
+            .input_artifacts
+            .iter()
+            .map(|group| self.dice.ensure_artifact_group(group));
+        let inputs = futures::future::try_join_all(futs).await?;
+        let inputs = inputs
+            .into_iter()
+            .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
+            .collect();
+        let paths = CommandExecutionPaths::new(inputs, indexset![], fs, self.digest_config)?;
+        let mut execution_request =
+            CommandExecutionRequest::new(context.cmd, paths, Default::default());
+        execution_request = execution_request.with_timeout(timeout);
+        Ok(PreparedLocalResourceSetupContext {
+            target: context.target,
+            execution_request,
+            env_var_mapping: context.env_var_mapping,
+        })
+    }
+
+    async fn start_local_resource(
+        events: EventDispatcher,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
+        digest_config: DigestConfig,
+        executor: CommandExecutor,
+        context: PreparedLocalResourceSetupContext,
+        cancellations: &'b CancellationContext,
+    ) -> SharedResult<LocalResourceState> {
+        let manager = CommandExecutionManager::new(
+            Box::new(MutexClaimManager::new()),
+            events.dupe(),
+            liveliness_observer,
+        );
+
+        let local_resource_target = LocalResourceTarget {
+            target: &context.target,
+        };
+
+        let command = executor.exec_cmd(
+            &local_resource_target as _,
+            &context.execution_request,
+            manager,
+            digest_config,
+            cancellations,
+        );
+
+        let start = SetupLocalResourcesStart {};
+        let end = SetupLocalResourcesEnd {};
+        let execution_result = events
+            .span_async(start, async move { (command.await, end) })
+            .await;
+
+        let CommandExecutionResult {
+            outputs: _,
+            report:
+                CommandExecutionReport {
+                    std_streams,
+                    exit_code,
+                    status,
+                    timing: _,
+                    ..
+                },
+            rejected_execution: _,
+            did_cache_upload: _,
+            eligible_for_full_hybrid: _,
+        } = execution_result;
+
+        let std_streams = std_streams
+            .into_bytes()
+            .await
+            .context("Error accessing setup local resource output")?;
+
+        match status {
+            CommandExecutionStatus::Success { .. } => {}
+            CommandExecutionStatus::Failure { .. } => {
+                return Err(SharedError::new(anyhow::anyhow!(
+                    "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
+                    exit_code.unwrap_or(1),
+                    String::from_utf8_lossy(&std_streams.stdout),
+                    String::from_utf8_lossy(&std_streams.stderr),
+                )));
+            }
+            CommandExecutionStatus::TimedOut { duration, .. } => {
+                return Err(SharedError::new(anyhow::anyhow!(
+                    "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
+                    duration.as_secs(),
+                    String::from_utf8_lossy(&std_streams.stdout),
+                    String::from_utf8_lossy(&std_streams.stderr),
+                )));
+            }
+            CommandExecutionStatus::Error { stage: _, error } => {
+                return Err(SharedError::new(error));
+            }
+            CommandExecutionStatus::Cancelled => {
+                return Err(SharedError::new(anyhow::anyhow!(
+                    "Local resource setup command cancelled"
+                )));
+            }
+        };
+
+        let string_content = String::from_utf8_lossy(&std_streams.stdout);
+        let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
+            .context("Error parsing local resource setup command output")?;
+        let state = data.into_state(context.target.clone(), &context.env_var_mapping)?;
+
+        Ok(state)
     }
 }
 
@@ -1000,6 +1232,38 @@ impl CommandExecutionTarget for TestTarget<'_> {
     fn as_proto_action_name(&self) -> buck2_data::ActionName {
         buck2_data::ActionName {
             category: "test".to_owned(),
+            identifier: "".to_owned(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct LocalResourceTarget<'a> {
+    target: &'a ConfiguredTargetLabel,
+}
+
+impl CommandExecutionTarget for LocalResourceTarget<'_> {
+    fn re_action_key(&self) -> String {
+        String::new()
+    }
+
+    fn re_affinity_key(&self) -> String {
+        String::new()
+    }
+
+    fn as_proto_action_key(&self) -> buck2_data::ActionKey {
+        buck2_data::ActionKey {
+            id: Default::default(),
+            owner: Some(buck2_data::action_key::Owner::LocalResourceSetup(
+                self.target.as_proto(),
+            )),
+            key: Default::default(),
+        }
+    }
+
+    fn as_proto_action_name(&self) -> buck2_data::ActionName {
+        buck2_data::ActionName {
+            category: "setup_local_resource".to_owned(),
             identifier: "".to_owned(),
         }
     }
