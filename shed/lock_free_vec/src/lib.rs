@@ -21,6 +21,9 @@ use std::slice;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use allocative::Allocative;
+use allocative::Visitor;
+
 /// Compute the number of buckets needed for a given capacity.
 /// The number of bucket is `log2(capacity) - 3`.
 #[inline]
@@ -304,6 +307,45 @@ impl<T, const BUCKETS: usize> Drop for LockFreeVec<T, BUCKETS> {
     }
 }
 
+impl<T: Allocative, const SHARDS: usize> Allocative for LockFreeVec<T, SHARDS> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        let mut rem_len = self.len();
+        for (bucket, bucket_ptr_ptr) in self.buckets.iter().enumerate() {
+            if rem_len == 0 {
+                break;
+            }
+
+            let bucket_ptr: *mut T = unsafe { *bucket_ptr_ptr.get() };
+            if bucket_ptr.is_null() {
+                break;
+            }
+
+            let bucket_len = cmp::min(rem_len, Self::bucket_capacity(bucket));
+            rem_len -= bucket_len;
+
+            let mut visitor = visitor.enter_unique(
+                allocative::Key::new("bucket"),
+                mem::size_of_val(&bucket_ptr),
+            );
+            {
+                let mut visitor = visitor.enter(
+                    allocative::Key::new("capacity"),
+                    mem::size_of::<T>() * Self::bucket_capacity(bucket),
+                );
+                for i in 0..bucket_len {
+                    let value: &T = unsafe { &*bucket_ptr.add(i) };
+                    visitor.visit_field(allocative::Key::new("item"), value);
+                }
+                visitor.exit();
+            }
+
+            visitor.exit();
+        }
+        visitor.exit();
+    }
+}
+
 /// Iterator over all elements.
 pub struct Iter<'a, T, const SHARDS: usize> {
     vec: &'a LockFreeVec<T, SHARDS>,
@@ -361,6 +403,8 @@ impl<'a, T, const SHARDS: usize> IntoIterator for &'a LockFreeVec<T, SHARDS> {
 mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
+
+    use allocative::FlameGraphBuilder;
 
     use crate::buckets_for_max_capacity;
     use crate::LockFreeVec;
@@ -516,5 +560,25 @@ mod tests {
             assert_eq!(i, *v as usize);
         }
         assert_eq!(0, iter.len());
+    }
+
+    #[test]
+    fn test_allocative() {
+        let v = LockFreeVec::<String, 10>::new();
+        for i in 0..100 {
+            v.push_at(v.len(), format!("{:<3}", i)).unwrap();
+        }
+
+        let mut builder = FlameGraphBuilder::default();
+        builder.visit_root(&v);
+        let flame_graph = builder.finish_and_write_flame_graph();
+        // Proper test is possible but expensive to maintain.
+        // So print it out and eyeball it.
+        // At the moment of writing it looks like this:
+        // https://www.internalfb.com/intern/px/p/2GgX5
+        // Alternatively we can set up a golden test.
+        if false {
+            println!("{}", flame_graph);
+        }
     }
 }
