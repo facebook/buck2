@@ -195,6 +195,10 @@ pub struct CommonBuildConfigurationOptions {
 
     #[clap(long)]
     pub reuse_current_config: bool,
+
+    /// Used for exiting a concurrent command when a different state is detected.
+    #[clap(long)]
+    pub exit_when_different_state: bool,
 }
 
 impl CommonBuildConfigurationOptions {
@@ -298,6 +302,7 @@ impl CommonBuildConfigurationOptions {
             oncall: None,
             disable_starlark_types: false,
             reuse_current_config: false,
+            exit_when_different_state: false,
         };
         &DEFAULT
     }
@@ -370,10 +375,6 @@ pub struct CommonBuildOptions {
     #[clap(long)]
     upload_all_actions: bool,
 
-    /// Exit the current command if there was a state change in the concurrently-running command.
-    #[clap(long)]
-    exit_when_different_state: bool,
-
     /// If Buck hits an error, do as little work as possible before exiting.
     #[clap(long, group = "fail-when")]
     fail_fast: bool,
@@ -421,7 +422,6 @@ impl CommonBuildOptions {
             upload_all_actions: self.upload_all_actions,
             skip_cache_read: self.no_remote_cache,
             skip_cache_write: self.no_remote_cache && !self.write_to_cache_anyway,
-            exit_when_different_state: self.exit_when_different_state,
             fail_fast: self.fail_fast,
             keep_going: self.keep_going,
         }

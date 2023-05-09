@@ -112,6 +112,7 @@ impl<'a> ClientCommandContext<'a> {
             disable_starlark_types: config_opts.disable_starlark_types,
             reuse_current_config: config_opts.reuse_current_config,
             sanitized_argv,
+            exit_when_different_state: config_opts.exit_when_different_state,
             argfiles: self
                 .argfiles_trace
                 .iter()
@@ -152,6 +153,7 @@ impl<'a> ClientCommandContext<'a> {
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
             buck2_hard_error: BUCK2_HARD_ERROR_ENV_VAR.get()?.cloned().unwrap_or_default(),
+            exit_when_different_state: false,
         })
     }
 

@@ -102,6 +102,8 @@ message ClientContext {
   HostArchOverride host_arch = 13;
   repeated string argfiles = 14;
   optional string host_xcode_version = 15;
+  /// Error out concurrent commands after there is a state change.
+  bool exit_when_different_state = 16;
 
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;
@@ -279,7 +281,7 @@ message Concurrency {
   uint32 concurrency = 1;
 }
 message CommonBuildOptions {
-  reserved 5, 8;
+  reserved 5, 8, 12;
   enum ExecutionStrategy {
     Default = 0;
     LocalOnly = 1;
@@ -300,9 +302,6 @@ message CommonBuildOptions {
 
   /// Whether to skip doing cache queries.
   bool skip_cache_read = 11;
-
-  /// Error out concurrent commands after there is a state change.
-  bool exit_when_different_state = 12;
 
   // Those two control how much faster or slower we try to fail. We keep them
   // as separate fields because we actually want to allow for a mode where both

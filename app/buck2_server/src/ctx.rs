@@ -223,6 +223,8 @@ pub struct ServerCommandContext<'a> {
     pub(crate) sanitized_argv: Vec<String>,
 
     cancellations: &'a CancellationContext,
+
+    exit_when_different_state: bool,
 }
 
 impl<'a> ServerCommandContext<'a> {
@@ -327,6 +329,7 @@ impl<'a> ServerCommandContext<'a> {
             sanitized_argv: client_context.sanitized_argv.clone(),
             debugger_handle,
             cancellations,
+            exit_when_different_state: client_context.exit_when_different_state,
         })
     }
 
@@ -704,18 +707,13 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             false
         };
 
-        let exit_when_different_state = match &self.build_options {
-            Some(v) => v.exit_when_different_state,
-            None => false,
-        };
-
         Ok(DiceAccessor {
             dice_handler: self.base_context.dice_manager.dupe(),
             data: Box::new(self.dice_data_constructor().await),
             setup: Box::new(self.dice_updater().await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
-            exit_when_different_state,
+            exit_when_different_state: self.exit_when_different_state,
         })
     }
 
