@@ -95,10 +95,7 @@ impl WhatUpCommand {
                             _ => (),
                         }
 
-                        super_console_state.update_event_observer(
-                            super_console_state.current_tick.start_time,
-                            &Arc::new(e),
-                        )?;
+                        super_console_state.update_event_observer(&Arc::new(e))?;
                     }
                     StreamValue::PartialResult(..) => {}
                     StreamValue::Result(result) => {

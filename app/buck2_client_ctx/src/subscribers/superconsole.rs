@@ -13,7 +13,6 @@ use std::io::Write;
 use std::iter;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -359,13 +358,8 @@ impl SuperConsoleState {
         })
     }
 
-    pub fn update_event_observer(
-        &mut self,
-        receive_time: Instant,
-        event: &Arc<BuckEvent>,
-    ) -> anyhow::Result<()> {
-        self.simple_console
-            .update_event_observer(receive_time, event)
+    pub fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        self.simple_console.update_event_observer(event)
     }
 
     pub fn session_info(&self) -> &SessionInfo {
@@ -400,8 +394,7 @@ impl UnpackingEventSubscriber for StatefulSuperConsole {
                 self.handle_inner_event(event)
                     .await
                     .with_context(|| display::InvalidBuckEvent(event.clone()))?;
-                self.state
-                    .update_event_observer(self.state.current_tick.start_time, event)?;
+                self.state.update_event_observer(event)?;
             }
             None => {
                 self.state.simple_console.handle_event(event).await?;
