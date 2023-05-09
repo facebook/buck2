@@ -248,11 +248,14 @@ def _compiler_cmd(ctx: "context", compiler: "cmd_args", cc: "cmd_args") -> "cmd_
 
 # The include paths for the immediate dependencies of the current target.
 def _include_paths_in_context(ctx: "context", build_mode: BuildMode.type):
-    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
-    includes = [cmd_args(ocaml_toolchain.interop_includes)] if ocaml_toolchain.interop_includes else []
     ocaml_libs = merge_ocaml_link_infos(_attr_deps_ocaml_link_infos(ctx)).info
+    includes = []
     for lib in ocaml_libs:
         includes.extend(lib.include_dirs_nat if _is_native(build_mode) else lib.include_dirs_byt)
+
+    # It's helpful if the stdlib search path comes last.
+    ocaml_toolchain = ctx.attrs._ocaml_toolchain[OCamlToolchainInfo]
+    includes.extend([cmd_args(ocaml_toolchain.interop_includes)] if ocaml_toolchain.interop_includes else [])
 
     return includes
 
