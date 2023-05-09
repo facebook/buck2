@@ -13,8 +13,8 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 
-use crate::humanized_bytes::HumanizedBytes;
-use crate::humanized_bytes::HumanizedBytesPerSecond;
+use crate::humanized::HumanizedBytes;
+use crate::humanized::HumanizedBytesPerSecond;
 use crate::two_snapshots::TwoSnapshots;
 
 pub struct ReState {

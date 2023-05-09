@@ -15,7 +15,7 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 
-use crate::humanized_bytes::HumanizedBytes;
+use crate::humanized::HumanizedBytes;
 use crate::two_snapshots::TwoSnapshots;
 
 #[derive(Default)]

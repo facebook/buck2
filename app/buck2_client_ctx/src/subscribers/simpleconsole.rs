@@ -25,7 +25,7 @@ use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
-use buck2_event_observer::humanized_bytes::HumanizedBytes;
+use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::io_state::io_in_flight_non_zero_counters;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran;
