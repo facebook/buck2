@@ -8,8 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use buck2_cli_proto::ClientContext;
@@ -100,43 +98,26 @@ pub struct ActiveCommandState {
     #[allow(unused)]
     pub argv: Vec<String>,
 
-    /// Top 32 bits for total spans. Lower 32 bits for closed spans.
-    /// We don't have that many spans that we might exceed this.
-    spans: AtomicU64,
+    spans: Mutex<Spans>,
 }
 
 impl ActiveCommandState {
     pub fn spans(&self) -> Spans {
-        Spans::unpack(self.spans.load(Ordering::Relaxed))
+        *self.spans.lock()
     }
 
     fn new(argv: Vec<String>) -> Self {
         Self {
             argv,
-            spans: AtomicU64::new(0),
+            spans: Mutex::new(Spans::default()),
         }
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default, Copy, Clone, Dupe)]
 pub struct Spans {
-    pub open: u32,
-    pub closed: u32,
-}
-
-impl Spans {
-    const INCREMENT_FINISHED: u64 = 1;
-    const INCREMENT_ACTIVE: u64 = 1 << 32;
-
-    fn unpack(val: u64) -> Self {
-        let closed: u32 = val as u32;
-        let total: u32 = (val >> 32) as u32;
-
-        Self {
-            open: total - closed,
-            closed,
-        }
-    }
+    pub open: u64,
+    pub closed: u64,
 }
 
 /// A wrapper around ActiveCommandState that allows 1 client to write to it.
@@ -163,21 +144,18 @@ impl ActiveCommandStateWriter {
         if buck_event.span_end_event().is_some() {
             // If it's a root, then we decrement.
             if self.active_spans.remove(&span_id) == Some(true) {
-                self.shared
-                    .spans
-                    .fetch_add(Spans::INCREMENT_FINISHED, Ordering::Relaxed);
+                let mut spans = self.shared.spans.lock();
+                spans.open -= 1;
+                spans.closed += 1;
             }
         } else if span_tracker::is_span_shown(buck_event) {
             let is_root = buck_event
                 .parent_id()
                 .map_or(true, |id| !self.active_spans.contains_key(&id));
             self.active_spans.insert(span_id, is_root);
-            assert!(self.active_spans.len() as u64 <= u32::MAX as u64);
 
             if is_root {
-                self.shared
-                    .spans
-                    .fetch_add(Spans::INCREMENT_ACTIVE, Ordering::Relaxed);
+                self.shared.spans.lock().open += 1;
             }
         }
     }
@@ -248,23 +226,6 @@ mod tests {
     use std::time::SystemTime;
 
     use super::*;
-
-    #[test]
-    fn test_spans() {
-        let mut val = 0;
-
-        val += Spans::INCREMENT_ACTIVE;
-        assert_eq!(Spans::unpack(val), Spans { open: 1, closed: 0 });
-
-        val += Spans::INCREMENT_ACTIVE;
-        assert_eq!(Spans::unpack(val), Spans { open: 2, closed: 0 });
-
-        val += Spans::INCREMENT_FINISHED;
-        assert_eq!(Spans::unpack(val), Spans { open: 1, closed: 1 });
-
-        val += Spans::INCREMENT_FINISHED;
-        assert_eq!(Spans::unpack(val), Spans { open: 0, closed: 2 });
-    }
 
     #[test]
     fn test_active_command_state() {
