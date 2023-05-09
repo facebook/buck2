@@ -94,18 +94,16 @@ impl DiceTask {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
     pub(crate) fn depended_on_by(&self, k: ParentKey) -> DicePromise {
-        if self.internal.state.is_ready(Ordering::Acquire) {
-            DicePromise::ready(self.internal.dupe())
+        if let Some(result) = self.internal.read_value() {
+            DicePromise::ready(result)
         } else {
             let mut wakers = self.internal.dependants.lock();
             match wakers.deref_mut() {
-                None => {
-                    assert!(
-                        self.internal.state.is_ready(Ordering::SeqCst),
-                        "invalid state where deps are taken before state is ready"
-                    );
-                    DicePromise::ready(self.internal.dupe())
-                }
+                None => DicePromise::ready(
+                    self.internal
+                        .read_value()
+                        .expect("invalid state where deps are taken before state is ready"),
+                ),
                 Some(ref mut wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));

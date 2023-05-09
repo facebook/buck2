@@ -10,7 +10,7 @@
 //! Promise is a handle to a DiceTask that will be completed
 
 use std::future::Future;
-use std::ops::Deref;
+use std::mem;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
@@ -33,18 +33,19 @@ pub(crate) struct DicePromise(pub(super) DicePromiseInternal);
 
 pub(super) enum DicePromiseInternal {
     Ready {
-        internal: Arc<DiceTaskInternal>,
+        result: DiceResult<DiceComputedValue>,
     },
     Pending {
         slab: usize,
         task_internal: Arc<DiceTaskInternal>,
         waker: Arc<AtomicWaker>,
     },
+    Done,
 }
 
 impl DicePromise {
-    pub(super) fn ready(internal: Arc<DiceTaskInternal>) -> Self {
-        Self(DicePromiseInternal::Ready { internal })
+    pub(super) fn ready(result: DiceResult<DiceComputedValue>) -> Self {
+        Self(DicePromiseInternal::Ready { result })
     }
 
     pub(super) fn pending(
@@ -64,6 +65,7 @@ impl Drop for DicePromise {
     fn drop(&mut self) {
         match &self.0 {
             DicePromiseInternal::Ready { .. } => {}
+            DicePromiseInternal::Done => {}
             DicePromiseInternal::Pending {
                 slab,
                 task_internal,
@@ -76,13 +78,14 @@ impl Drop for DicePromise {
 impl Future for DicePromise {
     type Output = DiceResult<DiceComputedValue>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match &self.deref().0 {
-            DicePromiseInternal::Ready { internal } => Poll::Ready(
-                internal
-                    .read_value()
-                    .expect("Promise ready only when value is ready"),
-            ),
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match &mut self.0 {
+            x @ DicePromiseInternal::Ready { .. } => {
+                match mem::replace(x, DicePromiseInternal::Done) {
+                    DicePromiseInternal::Ready { result } => Poll::Ready(result),
+                    _ => unreachable!(),
+                }
+            }
             DicePromiseInternal::Pending {
                 task_internal,
                 waker,
@@ -95,6 +98,7 @@ impl Future for DicePromise {
                     Poll::Pending
                 }
             }
+            DicePromiseInternal::Done => panic!("poll after ready"),
         }
     }
 }
