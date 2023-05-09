@@ -9,6 +9,8 @@
 
 #[cfg(windows)]
 pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
+    use std::env;
+    use std::ffi::OsStr;
     use std::io;
     use std::mem;
     use std::mem::MaybeUninit;
@@ -71,9 +73,23 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     let elevation_struct: TOKEN_ELEVATION = unsafe { elevation.assume_init() };
     if elevation_struct.TokenIsElevated == 1 {
-        tracing::warn!(
-            "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
-        );
+        // This environment variable is consistently set by CI providers.
+        //
+        // - GitHub Actions: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
+        // - GitLab CI/CD: https://docs.gitlab.com/ee/ci/variables/predefined_variables.html
+        // - CircleCI: https://circleci.com/docs/variables/#built-in-environment-variables
+        // - many others
+        //
+        // In CI, if buck2 got run from an admin shell, we need not worry that a
+        // subsequent invocation might come from a non-admin shell. It almost
+        // certainly will not.
+        let is_ci = env::var_os("CI").as_deref() == Some(OsStr::new("true"));
+
+        if !is_ci {
+            tracing::warn!(
+                "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
+            );
+        }
     }
     Ok(())
 }
