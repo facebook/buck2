@@ -128,7 +128,6 @@ impl StreamingCommand for CqueryCommand {
                     target_universe: self.target_universe,
                     show_providers: self.show_providers,
                     unstable_output_format,
-                    target_call_stacks: self.query_common.target_call_stacks,
                     correct_owner,
                 },
                 ctx.stdin()

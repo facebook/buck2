@@ -143,10 +143,6 @@ pub struct TargetsCommand {
     #[clap(long)]
     show_full_output: bool,
 
-    /// Show target call stacks
-    #[clap(long = "stack")]
-    target_call_stacks: bool,
-
     /// On loading errors, put buck.error in the output stream and continue
     #[clap(long)]
     keep_going: bool,
@@ -283,7 +279,6 @@ impl StreamingCommand for TargetsCommand {
                     },
                     target_hash_modified_paths,
                     target_hash_use_fast_hash,
-                    target_call_stacks: self.target_call_stacks,
                     target_hash_graph_type,
                     include_default_attributes: self.include_defaults,
                     target_hash_recursive: self.target_hash_recursive,

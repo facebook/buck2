@@ -75,6 +75,9 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         .await?;
 
         let client_ctx = self.req.client_context()?;
+
+        let target_call_stacks = client_ctx.target_call_stacks;
+
         let global_target_platform =
             target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
@@ -95,7 +98,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
             for node in nodes {
                 writeln!(serialized_targets_output, "{}", node.label())?;
-                if self.req.target_call_stacks {
+                if target_call_stacks {
                     print_target_call_stack_after_target(
                         &mut serialized_targets_output,
                         node.call_stack().as_deref(),

@@ -111,48 +111,6 @@ pub trait HasBuildOptions {
     fn build_options(&self) -> Option<&CommonBuildOptions>;
 }
 
-pub trait HasRecordTargetCallStacks {
-    /// If true, rule functions record call stacks.
-    fn record_target_call_stacks(&self) -> bool;
-}
-
-impl<T> HasRecordTargetCallStacks for T {
-    default fn record_target_call_stacks(&self) -> bool {
-        false
-    }
-}
-
-impl HasRecordTargetCallStacks for CqueryRequest {
-    fn record_target_call_stacks(&self) -> bool {
-        self.target_call_stacks
-    }
-}
-
-impl HasRecordTargetCallStacks for UqueryRequest {
-    fn record_target_call_stacks(&self) -> bool {
-        self.target_call_stacks
-    }
-}
-
-impl HasRecordTargetCallStacks for TargetsRequest {
-    fn record_target_call_stacks(&self) -> bool {
-        match &self.targets {
-            Some(targets_request::Targets::Other(other)) => other.target_call_stacks,
-            Some(targets_request::Targets::ResolveAlias(_)) => false,
-            None => {
-                // Unreachable.
-                false
-            }
-        }
-    }
-}
-
-impl HasRecordTargetCallStacks for ConfiguredTargetsRequest {
-    fn record_target_call_stacks(&self) -> bool {
-        self.target_call_stacks
-    }
-}
-
 macro_rules! result_convert {
     ( $name:ident ) => {
         impl From<$name> for command_result::Result {

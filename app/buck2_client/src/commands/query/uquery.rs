@@ -88,7 +88,6 @@ impl StreamingCommand for UqueryCommand {
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,
-                    target_call_stacks: self.query_common.target_call_stacks,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),

@@ -82,13 +82,15 @@ async fn uquery(
         query,
         query_args,
         context,
-        target_call_stacks,
         ..
     } = request;
 
     let client_ctx = context
         .as_ref()
         .context("No client context (internal error)")?;
+
+    let target_call_stacks = client_ctx.target_call_stacks;
+
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
@@ -104,7 +106,7 @@ async fn uquery(
                 .print_single_output(
                     &mut stdout,
                     targets,
-                    *target_call_stacks,
+                    target_call_stacks,
                     ShouldPrintProviders::No,
                 )
                 .await
@@ -114,7 +116,7 @@ async fn uquery(
                 .print_multi_output(
                     &mut stdout,
                     results,
-                    *target_call_stacks,
+                    target_call_stacks,
                     ShouldPrintProviders::No,
                 )
                 .await

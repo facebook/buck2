@@ -15,6 +15,7 @@ use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
+use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
@@ -348,6 +349,8 @@ pub(crate) fn create_formatter(
     let output_format = OutputFormat::from_i32(request.output_format)
         .context("Invalid value of `output_format` (internal error)")?;
 
+    let target_call_stacks = request.client_context()?.target_call_stacks;
+
     match output_format {
         OutputFormat::Json | OutputFormat::JsonLines => {}
         _ => {
@@ -362,7 +365,7 @@ pub(crate) fn create_formatter(
         OutputFormat::Unknown => Err(FormatterError::OutputFormatNotSet.into()),
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
-            target_call_stacks: other.target_call_stacks,
+            target_call_stacks,
             target_hash_graph_type: TargetHashGraphType::from_i32(other.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
         })),
@@ -377,7 +380,7 @@ pub(crate) fn create_formatter(
             } else {
                 AttrInspectOptions::DefinedOnly
             },
-            target_call_stacks: other.target_call_stacks,
+            target_call_stacks,
             writer: JsonWriter {
                 json_lines: output_format == OutputFormat::JsonLines,
             },

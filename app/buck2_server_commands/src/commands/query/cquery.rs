@@ -102,7 +102,6 @@ async fn cquery(
         query_args,
         target_universe,
         context,
-        target_call_stacks,
         show_providers,
         correct_owner,
         ..
@@ -116,6 +115,9 @@ async fn cquery(
     let client_ctx = context
         .as_ref()
         .context("No client context (internal error)")?;
+
+    let target_call_stacks = client_ctx.target_call_stacks;
+
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
@@ -156,7 +158,7 @@ async fn cquery(
                 .print_single_output(
                     &mut stdout,
                     targets,
-                    *target_call_stacks,
+                    target_call_stacks,
                     should_print_providers,
                 )
                 .await
@@ -166,7 +168,7 @@ async fn cquery(
                 .print_multi_output(
                     &mut stdout,
                     results,
-                    *target_call_stacks,
+                    target_call_stacks,
                     should_print_providers,
                 )
                 .await

@@ -90,6 +90,8 @@ message ClientContext {
   HostPlatformOverride host_platform = 6;
   string oncall = 7;
   bool disable_starlark_types = 8;
+  /// Record call stacks of rule function invocations.
+  bool target_call_stacks = 81;
   string trace_id = 9;
   bool reuse_current_config = 10;
   optional string daemon_uuid = 11;
@@ -135,7 +137,7 @@ message TargetsRequest {
   message ResolveAlias {}
 
   message Other {
-    reserved 4;
+    reserved 4, 10;
 
     repeated string output_attributes = 5;
 
@@ -143,8 +145,6 @@ message TargetsRequest {
     TargetHashFileMode target_hash_file_mode = 7;
     repeated string target_hash_modified_paths = 8;
     bool target_hash_use_fast_hash = 9;
-
-    bool target_call_stacks = 10;
 
     bool include_default_attributes = 11;
     bool target_hash_recursive = 12;
@@ -182,9 +182,9 @@ message TargetsShowOutputsResponse {
 
 // `buck2 ctargets` command
 message ConfiguredTargetsRequest {
+  reserved 10;
   ClientContext context = 1;
   repeated buck.data.TargetPattern target_patterns = 2;
-  bool target_call_stacks = 10;
   bool skip_missing_targets = 11;
 }
 
@@ -221,12 +221,12 @@ message AqueryResponse {
 }
 
 message UqueryRequest {
+  reserved 6;
   ClientContext context = 1;
   string query = 2;
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
-  bool target_call_stacks = 6;
 
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).
@@ -241,13 +241,13 @@ message UqueryResponse {
 }
 
 message CqueryRequest {
+  reserved 6;
   ClientContext context = 1;
   string query = 2;
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
   repeated string target_universe = 5;
-  bool target_call_stacks = 6;
 
   bool show_providers = 7;
 

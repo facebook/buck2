@@ -193,6 +193,15 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long)]
     pub disable_starlark_types: bool,
 
+    /// Record or show target call stacks.
+    ///
+    /// Starlark call stacks will be included in duplicate targets error.
+    ///
+    /// If a command outputs targets (like `targets` command),
+    /// starlark call stacks will be printed after the targets.
+    #[clap(long = "stack")]
+    pub target_call_stacks: bool,
+
     #[clap(long)]
     pub reuse_current_config: bool,
 
@@ -301,6 +310,7 @@ impl CommonBuildConfigurationOptions {
             fake_xcode_version: None,
             oncall: None,
             disable_starlark_types: false,
+            target_call_stacks: false,
             reuse_current_config: false,
             exit_when_different_state: false,
         };

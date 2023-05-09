@@ -118,6 +118,7 @@ impl<'a> ClientCommandContext<'a> {
                 .iter()
                 .map(|path| path.to_string())
                 .collect(),
+            target_call_stacks: config_opts.target_call_stacks,
             ..self.empty_client_context()?
         })
     }
@@ -147,6 +148,7 @@ impl<'a> ClientCommandContext<'a> {
             host_xcode_version: Default::default(),
             oncall: Default::default(),
             disable_starlark_types: false,
+            target_call_stacks: false,
             trace_id: format!("{}", self.trace_id),
             reuse_current_config: false,
             daemon_uuid,

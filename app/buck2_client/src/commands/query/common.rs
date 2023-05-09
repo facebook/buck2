@@ -46,9 +46,6 @@ pub(crate) struct CommonQueryArgs {
     #[clap(long, help = "Output in a more compact format than Graphviz Dot")]
     dot_compact: bool,
 
-    #[clap(long = "stack", help = "Show target call stacks")]
-    pub target_call_stacks: bool,
-
     #[clap(
         long,
         ignore_case = true,

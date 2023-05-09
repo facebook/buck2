@@ -428,7 +428,7 @@ impl BuckdServer {
             ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
-        Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
+        Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
@@ -478,7 +478,6 @@ impl BuckdServer {
                                     opts.starlark_profiler_instrumentation_override(&req)?,
                                     req.build_options(),
                                     daemon_state.paths.buck_out_dir(),
-                                    req.record_target_call_stacks(),
                                     cancellations,
                                 )?;
 
@@ -516,7 +515,7 @@ impl BuckdServer {
             ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
-        Req: HasClientContext + HasBuildOptions + HasRecordTargetCallStacks + Send + Sync + 'static,
+        Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {

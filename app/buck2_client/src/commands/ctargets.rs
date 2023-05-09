@@ -29,10 +29,6 @@ pub struct ConfiguredTargetsCommand {
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 
-    /// Show target call stacks
-    #[clap(long = "stack")]
-    target_call_stacks: bool,
-
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
     /// This option does not skip missing packages
     /// and does not ignore errors of `BUCK` file evaluation.
@@ -66,7 +62,6 @@ impl StreamingCommand for ConfiguredTargetsCommand {
             .ctargets(
                 ConfiguredTargetsRequest {
                     context,
-                    target_call_stacks: self.target_call_stacks,
                     target_patterns: self.patterns.map(|pat| buck2_data::TargetPattern {
                         value: pat.to_owned(),
                     }),

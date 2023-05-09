@@ -235,7 +235,6 @@ impl<'a> ServerCommandContext<'a> {
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
-        record_target_call_stacks: bool,
         cancellations: &'a CancellationContext,
     ) -> anyhow::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
@@ -322,7 +321,7 @@ impl<'a> ServerCommandContext<'a> {
             buck_out_dir,
             build_options: build_options.cloned(),
             cell_configs_loader,
-            record_target_call_stacks,
+            record_target_call_stacks: client_context.target_call_stacks,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
