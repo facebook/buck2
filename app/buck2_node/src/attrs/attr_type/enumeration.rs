@@ -12,10 +12,11 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_core::collections::ordered_set::OrderedSet;
+use buck2_util::arc_str::ArcStr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct EnumAttrType {
-    pub variants: OrderedSet<String>,
+    pub variants: OrderedSet<ArcStr>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -33,8 +34,9 @@ impl EnumAttrType {
             if x != x.to_lowercase() {
                 return Err(EnumAttrError::NotLowercase(x).into());
             }
+            let x = ArcStr::from(x);
             if result.contains(&x) {
-                return Err(EnumAttrError::DuplicateVariant(x).into());
+                return Err(EnumAttrError::DuplicateVariant(x.as_str().to_owned()).into());
             }
             result.insert(x);
         }
