@@ -830,9 +830,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                     },
                 );
 
-                let potential = critical_path_cost - replacement_durations[cp_idx];
+                let potential = critical_path_cost.runtime - replacement_durations[cp_idx].runtime;
 
-                (key, data, Some(Duration::from_micros(potential.runtime)))
+                (key, data, Some(Duration::from_micros(potential)))
             })
             .collect();
 

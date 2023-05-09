@@ -163,11 +163,11 @@ pub fn compute_critical_path_potentials(
     let mut vertices_cost = deps.allocate_vertex_data(PathCost::default());
 
     for idx in deps.iter_vertices() {
-        vertices_cost[idx] = cost_from_source[idx] + cost_to_sink[idx]
-            - PathCost {
-                runtime: weights[idx],
-                len: 1,
-            };
+        let mut cost = cost_from_source[idx] + cost_to_sink[idx];
+        // Don't double-count the vertex at `idx`.
+        cost.runtime -= weights[idx];
+        cost.len -= 1;
+        vertices_cost[idx] = cost
     }
 
     // Now, we know the longest path through each vertex, so what we need to do is find out when
@@ -231,12 +231,10 @@ pub fn compute_critical_path_potentials(
         CriticalPathVertexData::new(vec![PathCost::default(); critical_path.len()]);
 
     for (idx, vertex) in critical_path.iter() {
-        let cost_without_v = critical_path_cost
-            - PathCost {
-                runtime: weights[*vertex],
-                len: 0,
-            };
-        updated_critical_path_cost[idx] = cost_without_v;
+        // Drop this vertex's runtime.
+        let mut cost = critical_path_cost;
+        cost.runtime -= weights[*vertex];
+        updated_critical_path_cost[idx] = cost;
     }
 
     // Now, compare to other longest paths. The heap is a max heap and keeps track of the longest

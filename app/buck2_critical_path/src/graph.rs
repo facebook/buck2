@@ -273,7 +273,6 @@ pub enum AddEdgesError {
     PartialOrd,
     Ord,
     derive_more::Add,
-    derive_more::Sub,
     Debug
 )]
 pub struct PathCost {
