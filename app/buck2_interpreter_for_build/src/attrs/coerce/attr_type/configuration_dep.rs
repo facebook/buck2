@@ -34,7 +34,7 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
 
         let (label, name) = label.into_parts();
         match name {
-            ProvidersName::Default => Ok(CoercedAttr::ConfigurationDep(Box::new(label))),
+            ProvidersName::Default => Ok(CoercedAttr::ConfigurationDep(label)),
             _ => Err(CoercionError::UnexpectedSubTarget(ProvidersLabel::new(label, name)).into()),
         }
     }

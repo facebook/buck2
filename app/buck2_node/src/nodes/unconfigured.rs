@@ -180,7 +180,7 @@ impl TargetNode {
         let typ_attr = CoercedAttr::String(StringLiteral(self.rule_type().name().into()));
         let deps_attr = CoercedAttr::List(
             self.deps()
-                .map(|t| CoercedAttr::Label(Box::new(ProvidersLabel::default_for(t.dupe()))))
+                .map(|t| CoercedAttr::Label(ProvidersLabel::default_for(t.dupe())))
                 .collect(),
         );
         let package_attr = CoercedAttr::String(StringLiteral(ArcStr::from(
@@ -192,7 +192,7 @@ impl TargetNode {
                 CONFIGURATION_DEPS,
                 CoercedAttr::List(
                     self.get_configuration_deps()
-                        .map(|t| CoercedAttr::ConfigurationDep(Box::new(t.dupe())))
+                        .map(|t| CoercedAttr::ConfigurationDep(t.dupe()))
                         .collect(),
                 ),
             ),

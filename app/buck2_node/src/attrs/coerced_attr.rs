@@ -191,12 +191,12 @@ pub enum CoercedAttr {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<SplitTransitionDep>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    ConfigurationDep(Box<TargetLabel>),
+    ConfigurationDep(TargetLabel),
     Dep(Box<DepAttr<ProvidersLabel>>),
-    SourceLabel(Box<ProvidersLabel>),
+    SourceLabel(ProvidersLabel),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
-    Label(Box<ProvidersLabel>),
+    Label(ProvidersLabel),
     Arg(StringWithMacros<ProvidersLabel>),
     Query(Box<QueryAttr<ProvidersLabel>>),
     SourceFile(CoercedPath),
