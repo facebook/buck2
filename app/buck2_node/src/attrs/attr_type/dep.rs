@@ -82,14 +82,15 @@ impl DepAttr<ConfiguredProvidersLabel> {
 
 impl DepAttr<ProvidersLabel> {
     pub fn traverse<'a>(
-        &'a self,
+        label: &'a ProvidersLabel,
+        attr_type: &DepAttrType,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> anyhow::Result<()> {
-        match &self.attr_type.transition {
-            DepAttrTransition::Identity => traversal.dep(self.label.target()),
-            DepAttrTransition::Exec => traversal.exec_dep(self.label.target()),
-            DepAttrTransition::Toolchain => traversal.toolchain_dep(self.label.target()),
-            DepAttrTransition::Transition(tr) => traversal.transition_dep(self.label.target(), tr),
+        match &attr_type.transition {
+            DepAttrTransition::Identity => traversal.dep(label.target()),
+            DepAttrTransition::Exec => traversal.exec_dep(label.target()),
+            DepAttrTransition::Toolchain => traversal.toolchain_dep(label.target()),
+            DepAttrTransition::Transition(tr) => traversal.transition_dep(label.target(), tr),
         }
     }
 }
@@ -103,18 +104,18 @@ impl DepAttrType {
     }
 
     pub(crate) fn configure(
+        &self,
+        label: &ProvidersLabel,
         ctx: &dyn AttrConfigurationContext,
-        dep_attr: &DepAttr<ProvidersLabel>,
     ) -> anyhow::Result<ConfiguredAttr> {
-        let label = &dep_attr.label;
-        let configured_label = match &dep_attr.attr_type.transition {
+        let configured_label = match &self.transition {
             DepAttrTransition::Identity => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label),
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
         Ok(ConfiguredAttr::Dep(Box::new(DepAttr {
-            attr_type: dep_attr.attr_type.dupe(),
+            attr_type: self.dupe(),
             label: configured_label,
         })))
     }

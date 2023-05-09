@@ -411,7 +411,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
     // Check also that execution deps are handled slightly differently.
     let attr_exec = AttrType::list(AttrType::exec_dep(ProviderIdSet::EMPTY));
     let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured_exec = coerced_exec.configure(&attr, &configuration_ctx())?;
+    let configured_exec = coerced_exec.configure(&attr_exec, &configuration_ctx())?;
     let mut info = ConfiguredAttrInfo::new();
     configured_exec.traverse(PackageLabel::testing(), &mut info)?;
     eprintln!("{:?}", info);

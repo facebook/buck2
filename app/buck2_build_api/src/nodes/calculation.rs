@@ -972,15 +972,9 @@ mod tests {
                     "",
                     AttrType::list(AttrType::dep(ProviderIdSet::EMPTY)),
                 ),
-                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(Box::new(
-                    DepAttr {
-                        attr_type: DepAttrType::new(
-                            ProviderIdSet::EMPTY,
-                            DepAttrTransition::Identity,
-                        ),
-                        label: ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-                    },
-                ))]))),
+                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
+                    ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
+                )]))),
             ),
         ];
 

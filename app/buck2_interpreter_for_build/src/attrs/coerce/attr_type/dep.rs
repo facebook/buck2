@@ -9,7 +9,6 @@
 
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
-use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -35,10 +34,7 @@ impl AttrTypeCoerce for DepAttrType {
 
         let label = ctx.coerce_label(label)?;
 
-        Ok(CoercedAttr::Dep(Box::new(DepAttr {
-            attr_type: self.dupe(),
-            label,
-        })))
+        Ok(CoercedAttr::Dep(label))
     }
 
     fn starlark_type(&self) -> String {

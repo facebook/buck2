@@ -38,7 +38,6 @@ use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
-use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
@@ -201,7 +200,7 @@ pub enum CoercedAttr {
     SplitTransitionDep(Box<SplitTransitionDep>),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(TargetLabel),
-    Dep(Box<DepAttr<ProvidersLabel>>),
+    Dep(ProvidersLabel),
     SourceLabel(ProvidersLabel),
     // NOTE: unlike deps, labels are not traversed, as they are typically used in lieu of deps in
     // cases that would cause cycles.
@@ -447,7 +446,9 @@ impl CoercedAttr {
                 traversal.dep(dep.label.target().unconfigured())
             }
             CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
-            CoercedAttrWithType::Dep(dep, _t) => dep.traverse(traversal),
+            CoercedAttrWithType::Dep(dep, t) => {
+                DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
+            }
             CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
             CoercedAttrWithType::Label(label, _t) => traversal.label(label),
             CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal),
@@ -583,7 +584,7 @@ impl CoercedAttr {
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
-            CoercedAttrWithType::Dep(dep, _) => DepAttrType::configure(ctx, dep)?,
+            CoercedAttrWithType::Dep(dep, t) => t.configure(dep, ctx)?,
             CoercedAttrWithType::SourceLabel(source, _) => ConfiguredAttr::SourceLabel(Box::new(
                 source.configure_pair(ctx.cfg().cfg_pair().dupe()),
             )),

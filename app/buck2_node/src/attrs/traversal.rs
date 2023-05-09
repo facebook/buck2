@@ -21,7 +21,7 @@ pub trait CoercedAttrTraversal<'a> {
     fn transition_dep(
         &mut self,
         dep: &'a TargetLabel,
-        tr: &'a Arc<TransitionId>,
+        tr: &Arc<TransitionId>,
     ) -> anyhow::Result<()>;
     fn split_transition_dep(
         &mut self,

@@ -90,7 +90,7 @@ pub(crate) enum CoercedAttrWithType<'a, 't> {
     SplitTransitionDep(&'a SplitTransitionDep, &'t SplitTransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
     ConfigurationDep(&'a TargetLabel, ConfigurationDepAttrType),
-    Dep(&'a DepAttr<ProvidersLabel>, &'t DepAttrType),
+    Dep(&'a ProvidersLabel, &'t DepAttrType),
     SourceLabel(&'a ProvidersLabel, SourceAttrType),
     Label(&'a ProvidersLabel, LabelAttrType),
     Arg(&'a StringWithMacros<ProvidersLabel>, ArgAttrType),
