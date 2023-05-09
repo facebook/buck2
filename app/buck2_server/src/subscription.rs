@@ -117,8 +117,9 @@ fn active_commands_snapshot() -> buck2_subscription_proto::ActiveCommandsSnapsho
                 trace_id: trace_id.to_string(),
                 argv: state.argv.clone(),
                 stats: Some(buck2_subscription_proto::ActiveCommandStats {
-                    open_spans: spans.open as _,
-                    closed_spans: spans.closed as _,
+                    open_spans: spans.open,
+                    closed_spans: spans.closed,
+                    pending_spans: spans.pending,
                 }),
             }
         })

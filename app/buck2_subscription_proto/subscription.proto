@@ -90,6 +90,11 @@ message ActiveCommand {
 }
 
 message ActiveCommandStats {
+  /// Spans currently executing.
   uint64 open_spans = 1;
+  /// Spans that have finished executing.
   uint64 closed_spans = 2;
+  /// Spans that are expected to have to open (then close) before the command
+  /// finishes.
+  uint64 pending_spans = 3;
 }
