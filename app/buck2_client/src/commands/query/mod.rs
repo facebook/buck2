@@ -8,5 +8,6 @@
  */
 
 pub mod aquery;
+pub(crate) mod common;
 pub mod cquery;
 pub mod uquery;
