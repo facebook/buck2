@@ -187,4 +187,6 @@ CxxRuleConstructorParams = record(
     # Whether link groups liking should make `preferred_linkage = "static"` libs
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool.type, True),
+    # The intended return type is: (["_arglike"], {str.type: [DefaultInfo.type]}).
+    extra_linker_outputs_factory = field("function", lambda _context: ([], {})),
 )

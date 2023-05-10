@@ -7,6 +7,7 @@
 
 load("@prelude//apple:apple_dsym.bzl", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "SwiftDependencyInfo",  # @unused Used as a type
@@ -225,7 +226,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
             },
             additional_providers_factory = additional_providers_factory,
         ),
-        link_style_sub_targets_and_providers_factory = partial(_get_shared_link_style_sub_targets_and_providers, {}),
+        link_style_sub_targets_and_providers_factory = _get_shared_link_style_sub_targets_and_providers,
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -237,7 +238,14 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
+        extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
     )
+
+def _get_extra_linker_flags_and_outputs(
+        _ctx: "context") -> (["_arglike"], {str.type: [DefaultInfo.type]}): # @oss-enable
+        # @oss-disable: ctx: "context") -> (["_arglike"], {str.type: [DefaultInfo.type]}): 
+    # @oss-disable: return add_extra_linker_outputs(ctx) 
+    return [], {} # @oss-enable
 
 def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
     cxx_srcs = []
@@ -251,7 +259,6 @@ def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlag
     return cxx_srcs, swift_srcs
 
 def _get_shared_link_style_sub_targets_and_providers(
-        extra_linker_outputs: {str.type: [DefaultInfo.type]},
         link_style: LinkStyle.type,
         ctx: "context",
         executable: "artifact",
@@ -280,7 +287,6 @@ def _get_shared_link_style_sub_targets_and_providers(
         DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
         DEBUGINFO_SUBTARGET: [DefaultInfo(other_outputs = external_debug_info_args)],
     }
-    subtargets.update(extra_linker_outputs)
     providers = [
         AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = external_debug_info),
     ] + min_version_providers

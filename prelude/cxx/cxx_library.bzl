@@ -392,7 +392,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if swift_runtime_linkable:
         extra_static_linkables.append(swift_runtime_linkable)
 
-    library_outputs = _form_library_outputs(
+    (library_outputs, extra_linker_outputs) = _form_library_outputs(
         ctx = ctx,
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
@@ -401,6 +401,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
     )
+    sub_targets.update(extra_linker_outputs)
 
     actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
 
@@ -782,11 +783,12 @@ def _form_library_outputs(
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
         extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
-        gnu_use_link_groups: bool.type) -> _CxxAllLibraryOutputs.type:
+        gnu_use_link_groups: bool.type) -> (_CxxAllLibraryOutputs.type, {str.type: [DefaultInfo.type]}):
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
     solibs = {}
+    extra_linker_outputs = {}
 
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo.type) -> LinkInfo.type:
@@ -853,6 +855,7 @@ def _form_library_outputs(
                     children = impl_params.additional.shared_external_debug_info,
                 )
 
+                extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
                 result = _shared_library(
                     ctx,
                     impl_params,
@@ -860,6 +863,7 @@ def _form_library_outputs(
                     external_debug_info,
                     shared_links,
                     gnu_use_link_groups,
+                    extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                 )
                 shlib = result.shlib
@@ -882,11 +886,11 @@ def _form_library_outputs(
             stripped = ldflags(stripped) if stripped != None else None,
         )
 
-    return _CxxAllLibraryOutputs(
+    return (_CxxAllLibraryOutputs(
         outputs = outputs,
         libraries = libraries,
         solibs = solibs,
-    )
+    ), extra_linker_outputs)
 
 def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
     """
@@ -1093,6 +1097,7 @@ def _shared_library(
         external_debug_info: [ExternalDebugInfoTSet.type, None],
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool.type,
+        extra_linker_flags: ["_arglike"],
         link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
     """
     Generate a shared library and the associated native link info used by
@@ -1120,6 +1125,7 @@ def _shared_library(
         post_flags = (
             impl_params.extra_exported_link_flags +
             impl_params.extra_link_flags +
+            extra_linker_flags +
             _attr_post_linker_flags(ctx) +
             (linker_info.shared_dep_runtime_ld_flags or [])
         ),
