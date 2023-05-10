@@ -17,6 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -266,7 +267,7 @@ pub trait QueryEnvironment: Send + Sync {
         // First, we map all deps to their rdeps (parents).
         // This effectively allows traversing the graph later, in reverse (following dependency back-edges).
         struct ParentsCollectorDelegate<Q: QueryTarget> {
-            parents: HashMap<Q::NodeRef, Vec<Q>>,
+            parents: HashMap<Q::NodeRef, OrderedSet<Q::NodeRef>>,
             // Keep track of nodes in-universe so that, if any rdeps are collected out-of-universe,
             // we don't return them.
             nodes_in_universe: TargetSet<Q>,
@@ -291,7 +292,7 @@ pub trait QueryEnvironment: Send + Sync {
                     self.parents
                         .entry(dep.clone())
                         .or_default()
-                        .push(target.clone());
+                        .insert(target.node_ref().clone());
                 }
                 Ok(())
             }
@@ -308,7 +309,7 @@ pub trait QueryEnvironment: Send + Sync {
         // Now that we have a mapping of back-edges, traverse deps graph in reverse.
         struct ReverseDelegate<Q: QueryTarget> {
             rdeps: TargetSet<Q>,
-            parents: HashMap<Q::NodeRef, Vec<Q>>,
+            parents: HashMap<Q::NodeRef, OrderedSet<Q::NodeRef>>,
         }
 
         #[async_trait]
@@ -325,7 +326,7 @@ pub trait QueryEnvironment: Send + Sync {
             ) -> anyhow::Result<()> {
                 if let Some(parents) = self.parents.get(target.node_ref()) {
                     for parent in parents {
-                        func.visit(parent.node_ref().clone()).with_context(|| {
+                        func.visit(parent.clone()).with_context(|| {
                             format!("Error traversing parents of `{}`", target.node_ref())
                         })?;
                     }

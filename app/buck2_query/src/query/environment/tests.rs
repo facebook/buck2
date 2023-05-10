@@ -273,7 +273,7 @@ async fn test_many_paths() -> anyhow::Result<()> {
     let env = env.build();
 
     let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("1,2,10,11,3")?;
+    let expected = env.set("1,10,11,2,3")?;
     assert_eq!(path, expected);
 
     // We iterate with a stack so this is why we find this path
