@@ -17,6 +17,7 @@ rust_library(
         (
             "linux",
             [
+                "fbsource//third-party/rust:nix",
                 "fbsource//third-party/rust:tower",
                 "fbsource//third-party/rust:xattr",
             ],
@@ -24,6 +25,7 @@ rust_library(
         (
             "macos",
             [
+                "fbsource//third-party/rust:nix",
                 "fbsource//third-party/rust:tower",
                 "fbsource//third-party/rust:xattr",
             ],

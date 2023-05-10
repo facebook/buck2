@@ -43,6 +43,7 @@ pub mod ignores;
 pub mod invocation_paths;
 pub mod invocation_roots;
 pub mod io;
+pub mod kill_util;
 pub mod legacy_configs;
 pub mod liveliness_observer;
 pub mod local_resource_state;
