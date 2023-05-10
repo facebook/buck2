@@ -227,37 +227,15 @@ impl DaemonState {
         let digest_algorithms = root_config
             .parse_list("buck2", "digest_algorithms")?
             .unwrap_or_else(|| vec![default_digest_algorithm])
-            .into_try_map(|d| {
-                anyhow::Ok(match d {
-                    DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
-                    DigestAlgorithmKind::Sha256 => DigestAlgorithm::Sha256,
-                    DigestAlgorithmKind::Blake3 => DigestAlgorithm::Blake3,
-                    DigestAlgorithmKind::Blake3Keyed => {
-                        #[cfg(fbcode_build)]
-                        {
-                            let key = blake3_constants::BLAKE3_HASH_KEY
-                                .as_bytes()
-                                .try_into()
-                                .context("BLAKE3_HASH_KEY is the wrong size")?;
+            .into_try_map(convert_algorithm_kind)?;
 
-                            DigestAlgorithm::Blake3Keyed { key }
-                        }
+        let preferred_source_algorithm = root_config
+            .parse("buck2", "source_digest_algorithm")?
+            .map(convert_algorithm_kind)
+            .transpose()?;
 
-                        #[cfg(not(fbcode_build))]
-                        {
-                            // We probably should just add it as a separate buckconfig, there is
-                            // zero reason not to.
-                            return Err(anyhow::anyhow!(
-                                "{} is not supported in the open source build",
-                                d
-                            ));
-                        }
-                    }
-                })
-            })?;
-
-        let digest_config =
-            DigestConfig::leak_new(digest_algorithms).context("Error initializing DigestConfig")?;
+        let digest_config = DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
+            .context("Error initializing DigestConfig")?;
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
@@ -715,4 +693,33 @@ impl DaemonState {
 
         Ok(())
     }
+}
+
+fn convert_algorithm_kind(kind: DigestAlgorithmKind) -> anyhow::Result<DigestAlgorithm> {
+    anyhow::Ok(match kind {
+        DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
+        DigestAlgorithmKind::Sha256 => DigestAlgorithm::Sha256,
+        DigestAlgorithmKind::Blake3 => DigestAlgorithm::Blake3,
+        DigestAlgorithmKind::Blake3Keyed => {
+            #[cfg(fbcode_build)]
+            {
+                let key = blake3_constants::BLAKE3_HASH_KEY
+                    .as_bytes()
+                    .try_into()
+                    .context("BLAKE3_HASH_KEY is the wrong size")?;
+
+                DigestAlgorithm::Blake3Keyed { key }
+            }
+
+            #[cfg(not(fbcode_build))]
+            {
+                // We probably should just add it as a separate buckconfig, there is
+                // zero reason not to.
+                return Err(anyhow::anyhow!(
+                    "{} is not supported in the open source build",
+                    kind
+                ));
+            }
+        }
+    })
 }

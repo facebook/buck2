@@ -189,15 +189,21 @@ pub struct CasDigestConfig {
 impl CasDigestConfig {
     pub fn testing_default() -> Self {
         static COMPAT: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1], None).unwrap());
 
         Self { inner: &COMPAT }
     }
 
     /// We just Box::leak this since we create one per daemon and as a result just use
     /// CasDigestConfig as a pointer.
-    pub fn leak_new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
-        let inner = Box::leak(Box::new(CasDigestConfigInner::new(algorithms)?));
+    pub fn leak_new(
+        algorithms: Vec<DigestAlgorithm>,
+        preferred_source_algorithm: Option<DigestAlgorithm>,
+    ) -> Result<Self, CasDigestConfigError> {
+        let inner = Box::leak(Box::new(CasDigestConfigInner::new(
+            algorithms,
+            preferred_source_algorithm,
+        )?));
         Ok(Self { inner })
     }
 
@@ -222,23 +228,57 @@ impl CasDigestConfig {
     pub fn allows_sha1(self) -> bool {
         self.inner.digest160 == Some(DigestAlgorithm::Sha1)
     }
+
+    /// Access the config for source files. Note that:
+    ///
+    /// - This method isn't public because it really should only be called by methods in file_ops.
+    /// - There is no method to go back to the non-source config.
+    #[allow(unused)]
+    pub(crate) fn source_files_config(self) -> Self {
+        match &self.inner.source {
+            SourceFilesConfig::UseSelf => self,
+            SourceFilesConfig::UseThis(other) => Self { inner: other },
+        }
+    }
 }
 
 #[derive(Debug, Allocative, Hash, Eq, PartialEq)]
 struct CasDigestConfigInner {
+    /// The algorithm we use for non-source files, action digests, etc.
     preferred_algorithm: DigestAlgorithm,
     digest160: Option<DigestAlgorithm>,
     digest256: Option<DigestAlgorithm>,
     empty_file_digest: crate::file_ops::TrackedFileDigest,
+    /// A potentially different configuration to use when digesting source files.
+    source: SourceFilesConfig,
+}
+
+#[derive(Debug, Allocative, Hash, Eq, PartialEq)]
+enum SourceFilesConfig {
+    UseSelf,
+    UseThis(Box<CasDigestConfigInner>),
 }
 
 impl CasDigestConfigInner {
     /// Initialize a CasDigestConfigInner. The algorithms should be listed in decreasing order of
     /// preference.
-    fn new(algorithms: Vec<DigestAlgorithm>) -> Result<Self, CasDigestConfigError> {
+    fn new(
+        algorithms: Vec<DigestAlgorithm>,
+        preferred_source_algorithm: Option<DigestAlgorithm>,
+    ) -> Result<Self, CasDigestConfigError> {
         let preferred_algorithm = *algorithms
             .first()
             .ok_or(CasDigestConfigError::NotConfigured)?;
+
+        let preferred_source_algorithm = preferred_source_algorithm
+            .map(|a| {
+                if algorithms.contains(&a) {
+                    Ok(a)
+                } else {
+                    Err(CasDigestConfigError::InvalidPreferredSourceAlgorithm)
+                }
+            })
+            .transpose()?;
 
         let mut digest160 = None;
         let mut digest256 = None;
@@ -265,11 +305,17 @@ impl CasDigestConfigInner {
             }),
         };
 
+        let source = match preferred_source_algorithm {
+            Some(algo) => SourceFilesConfig::UseThis(Box::new(Self::new(vec![algo], None)?)),
+            None => SourceFilesConfig::UseSelf,
+        };
+
         Ok(Self {
             preferred_algorithm,
             digest160,
             digest256,
             empty_file_digest,
+            source,
         })
     }
 }
@@ -278,6 +324,8 @@ impl CasDigestConfigInner {
 pub enum CasDigestConfigError {
     #[error("At least one algorithm must be enabled")]
     NotConfigured,
+    #[error("The preferred source algorithm must be in the algorithms list")]
+    InvalidPreferredSourceAlgorithm,
     #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0.kind(), .1.kind())]
     Conflict(DigestAlgorithm, DigestAlgorithm),
 }
@@ -753,40 +801,43 @@ pub mod testing {
 
     pub fn sha1_sha256() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Sha256]).unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Sha256], None)
+                .unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha1_blake3() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Blake3]).unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1, DigestAlgorithm::Blake3], None)
+                .unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha256_sha1() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha1]).unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha1], None)
+                .unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha1() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha1], None).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn sha256() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Sha256], None).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 
     pub fn blake3() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> =
-            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3]).unwrap());
+            Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3], None).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
 }
