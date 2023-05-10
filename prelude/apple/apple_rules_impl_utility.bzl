@@ -12,6 +12,7 @@ load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebugg
 load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_attr")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//decls/common.bzl", "LinkableDepType", "Linkage")
 
@@ -65,6 +66,7 @@ def apple_test_extra_attrs():
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(default = "xctest"),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_execution_preference": link_execution_preference_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
         # be treated as "static" deps and linked into the shared test library.

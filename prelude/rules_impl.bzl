@@ -54,6 +54,7 @@ load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", 
 
 # Kotlin
 load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 
 # Linking
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
@@ -327,6 +328,7 @@ def _cxx_binary_and_test_attrs():
         "bolt_gdb_index": attrs.option(attrs.source(), default = None),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "enable_distributed_thinlto": attrs.bool(default = False),
+        "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "link_locally_override": attrs.option(attrs.bool(), default = None),
@@ -380,6 +382,7 @@ inlined_extra_attributes = {
         "force_emit_omnibus_shared_root": attrs.bool(default = False),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_deps_query_whole": attrs.bool(default = False),
+        "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),

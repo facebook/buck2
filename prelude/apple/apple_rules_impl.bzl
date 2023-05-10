@@ -9,6 +9,7 @@ load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:omnibus.bzl", "omnibus_environment_attr")
 load("@prelude//cxx/user:link_group_map.bzl", "link_group_map_attr")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//decls/common.bzl", "Linkage")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
@@ -63,6 +64,7 @@ extra_attributes = {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),
         "link_locally_override": attrs.option(attrs.bool(), default = None),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
@@ -78,6 +80,7 @@ extra_attributes = {
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": {
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
+        "link_execution_preference": link_execution_preference_attr(),
         "link_group_map": link_group_map_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
