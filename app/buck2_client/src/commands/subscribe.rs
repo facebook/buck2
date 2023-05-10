@@ -88,7 +88,9 @@ impl StreamingCommand for SubscribeCommand {
                     let reason = format!("Error parsing request: {:#}", e);
                     let _ignored = buck2_client_ctx::eprintln!("{}", reason);
                     SubscriptionRequest {
-                        request: Some(buck2_subscription_proto::Disconnect { reason }.into()),
+                        request: Some(
+                            buck2_subscription_proto::Disconnect { reason, ok: false }.into(),
+                        ),
                     }
                 }
             });
@@ -96,6 +98,7 @@ impl StreamingCommand for SubscribeCommand {
         let mut partial_result_handler = SubscriptionPartialResultHandler {
             buffer: Vec::new(),
             json: self.unstable_json,
+            ok: true,
         };
 
         let stream = if self.active_commands {
@@ -112,30 +115,39 @@ impl StreamingCommand for SubscribeCommand {
             request: Some(request),
         });
 
-        reborrow_stream_for_static(
-            stream,
-            |stream| async move {
-                buckd
-                    .with_flushing()
-                    .subscription(client_context, stream, &mut partial_result_handler)
-                    .await
-            },
-            || {
-                Some(buck2_cli_proto::SubscriptionRequestWrapper {
-                    request: Some(SubscriptionRequest {
-                        request: Some(
-                            buck2_subscription_proto::Disconnect {
-                                reason: "EOF on stdin".to_owned(),
-                            }
-                            .into(),
-                        ),
-                    }),
-                })
-            },
-        )
-        .await??;
+        {
+            let partial_result_handler = &mut partial_result_handler;
 
-        ExitResult::success()
+            reborrow_stream_for_static(
+                stream,
+                |stream| async move {
+                    buckd
+                        .with_flushing()
+                        .subscription(client_context, stream, partial_result_handler)
+                        .await
+                },
+                || {
+                    Some(buck2_cli_proto::SubscriptionRequestWrapper {
+                        request: Some(SubscriptionRequest {
+                            request: Some(
+                                buck2_subscription_proto::Disconnect {
+                                    reason: "EOF on stdin".to_owned(),
+                                    ok: true,
+                                }
+                                .into(),
+                            ),
+                        }),
+                    })
+                },
+            )
+            .await??;
+        };
+
+        if partial_result_handler.ok {
+            ExitResult::success()
+        } else {
+            ExitResult::failure()
+        }
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
@@ -163,6 +175,7 @@ struct SubscriptionPartialResultHandler {
     /// We reuse our output buffer here.
     buffer: Vec<u8>,
     json: bool,
+    ok: bool,
 }
 
 #[async_trait]
@@ -177,6 +190,12 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
         let response = partial_res
             .response
             .context("Empty `SubscriptionResponseWrapper`")?;
+
+        if let Some(buck2_subscription_proto::subscription_response::Response::Goodbye(goodbye)) =
+            &response.response
+        {
+            self.ok = self.ok && goodbye.ok;
+        }
 
         self.buffer.clear();
 

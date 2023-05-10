@@ -27,6 +27,8 @@ message SubscriptionRequest {
 // command exiting.
 message Disconnect {
   string reason = 1;
+  // Indicate whether this disconnect sould be considered a success or not.
+  bool ok = 2;
 }
 
 // Request eager materialization of specific paths AND notifications when they
@@ -105,4 +107,8 @@ message ActiveCommandStats {
 /// This notification is sent by the daemon when closing the connection.
 message Goodbye {
   string reason = 1;
+
+  // Indicates whether the daemon thinks this command was successful or not.
+  // This is largely just echoing what Disconnect requested.
+  bool ok = 2;
 }

@@ -54,14 +54,14 @@ pub(crate) async fn run_subscription_server_command(
             let mut ticker = tokio::time::interval(Duration::from_secs(1));
             ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-            let disconnect_reason = loop {
+            let disconnect = loop {
                 futures::select! {
                     message = req.message().fuse() => {
                         use buck2_subscription_proto::subscription_request::Request;
 
                         match message?.request.context("Empty message")?.request.context("Empty request")? {
-                            Request::Disconnect(buck2_subscription_proto::Disconnect { reason }) => {
-                                break reason;
+                            Request::Disconnect(disconnect) => {
+                                break disconnect;
                             }
                             Request::SubscribeToPaths(buck2_subscription_proto::SubscribeToPaths { paths }) => {
                                 let paths = paths.into_try_map(|path| path.try_into())?;
@@ -100,7 +100,8 @@ pub(crate) async fn run_subscription_server_command(
             partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
                 response: Some(buck2_subscription_proto::SubscriptionResponse {
                     response: Some(buck2_subscription_proto::Goodbye {
-                        reason: disconnect_reason
+                        reason: disconnect.reason,
+                        ok: disconnect.ok,
                     }.into())
                 })
             });
