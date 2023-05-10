@@ -525,7 +525,7 @@ impl CoercedAttr {
                 if singleton {
                     first
                 } else {
-                    first.concat(&mut it)?
+                    first.concat(t, &mut it)?
                 }
             }
 

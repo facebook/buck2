@@ -302,6 +302,18 @@ impl AttrType {
             AttrTypeInner::OneOf(inner) => inner.any_supports_concat(),
         }
     }
+
+    /// If type is option, return the element type.
+    /// This function is needed because we store `Some` of coerced and configured attributes
+    /// without indication they are `Some`. In other words, `[""]` is coerced and configured
+    /// identically to both `attrs.list(attrs.string())`
+    /// and `attrs.option(attrs.list(attrs.string()))`.
+    pub(crate) fn unwrap_if_option(&self) -> &AttrType {
+        match &*self.0 {
+            AttrTypeInner::Option(inner) => &inner.inner,
+            _ => self,
+        }
+    }
 }
 
 /// Invariant: All these displays look like function calls, so follow the pattern `attrs.foo(...)`.

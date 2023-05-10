@@ -141,9 +141,41 @@ fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
         .expect_err("Should fail to concatenate configured lists");
     assert!(
         err.to_string()
-            .contains("addition not supported for values of different types")
+            .contains("Cannot concatenate values coerced/configured to different oneof variants: `attrs.list(attrs.bool())` and `attrs.list(attrs.string())`"),
+        "err: {}",
+        err
     );
     Ok(())
+}
+
+#[test]
+fn test_concat_option_one_of() {
+    let globals = GlobalsBuilder::extended().with(register_select).build();
+
+    let env = Module::new();
+    let value = to_value(
+        &env,
+        &globals,
+        indoc!(
+            r#"
+            ["foo"] + select({"DEFAULT": ["bar"]})
+            "#
+        ),
+    );
+
+    let attr = AttrType::option(AttrType::one_of(vec![
+        AttrType::list(AttrType::string()),
+        AttrType::list(AttrType::bool()),
+    ]));
+
+    let coerced = attr
+        .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)
+        .unwrap();
+    let configured = coerced.configure(&attr, &configuration_ctx()).unwrap();
+    assert_eq!(
+        r#"["foo","bar"]"#,
+        configured.as_display_no_ctx().to_string()
+    );
 }
 
 #[test]

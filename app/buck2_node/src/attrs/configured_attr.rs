@@ -33,6 +33,8 @@ use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
@@ -50,14 +52,19 @@ enum ConfiguredAttrError {
     ConcatNotSupportedValues(&'static str, String),
     #[error("got same key in both sides of dictionary concat (key `{0}`).")]
     DictConcatDuplicateKeys(String),
-    #[error("addition not supported for values of different types")]
-    ConcatDifferentTypes,
+    #[error(
+        "Cannot concatenate values coerced/configured to different oneof variants: `{0}` and `{1}`"
+    )]
+    ConcatDifferentOneofVariants(AttrType, AttrType),
     #[error("while concat, LHS is oneof, expecting RHS to also be oneof (internal error)")]
     LhsOneOfRhsNotOneOf,
     #[error("expecting a list, got `{0}`")]
     ExpectingList(String),
     #[error("expecting configuration dep, got `{0}`")]
     ExpectingConfigurationDep(String),
+    #[error("Inconsistent attr value (`{}`) and attr type (`{}`) (internal error)",
+            _0.as_display_no_ctx(), _1)]
+    InconsistentAttrValueAndAttrType(ConfiguredAttr, AttrType),
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
@@ -202,6 +209,7 @@ impl ConfiguredAttr {
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
     pub(crate) fn concat(
         self,
+        attr_type: &AttrType,
         items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
     ) -> anyhow::Result<Self> {
         let mismatch = |ty, attr: ConfiguredAttr| {
@@ -214,19 +222,40 @@ impl ConfiguredAttr {
 
         match self {
             ConfiguredAttr::OneOf(box first, first_i) => {
-                first.concat(&mut items.map(|next| {
-                    match next? {
+                // Becaise if attr type if `option(oneof([list(string), ...])`,
+                // value type is `oneof(list(...))`, without indication it is an option.
+                let attr_type = attr_type.unwrap_if_option();
+
+                let oneof_type = match &*attr_type.0 {
+                    AttrTypeInner::OneOf(oneof_type) => oneof_type,
+                    _ => {
+                        return Err(ConfiguredAttrError::InconsistentAttrValueAndAttrType(
+                            ConfiguredAttr::OneOf(Box::new(first), first_i),
+                            attr_type.dupe(),
+                        )
+                        .into());
+                    }
+                };
+
+                let first_t = oneof_type.get(first_i)?;
+
+                first.concat(
+                    first_t,
+                    &mut items.map(|next| match next? {
                         ConfiguredAttr::OneOf(box next, next_i) => {
+                            let next_t = oneof_type.get(next_i)?;
                             if first_i != next_i {
-                                // TODO(nga): figure out how to make better error message.
-                                //   We already lost lhs type here.
-                                return Err(ConfiguredAttrError::ConcatDifferentTypes.into());
+                                return Err(ConfiguredAttrError::ConcatDifferentOneofVariants(
+                                    first_t.dupe(),
+                                    next_t.dupe(),
+                                )
+                                .into());
                             }
                             Ok(next)
                         }
                         _ => Err(ConfiguredAttrError::LhsOneOfRhsNotOneOf.into()),
-                    }
-                }))
+                    }),
+                )
             }
             ConfiguredAttr::List(list) => {
                 let mut res = list.to_vec();
