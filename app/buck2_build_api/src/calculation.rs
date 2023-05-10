@@ -9,7 +9,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::fmt::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -26,7 +25,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::PatternType;
-use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -375,7 +373,6 @@ fn apply_spec<T: PatternType>(
     skip_missing_targets: MissingTargetBehavior,
 ) -> anyhow::Result<LoadedPatterns<T>> {
     let mut all_targets: BTreeMap<_, SharedResult<BTreeMap<(TargetName, T), _>>> = BTreeMap::new();
-    let mut missing_targets: Vec<TargetLabel> = Vec::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
@@ -383,36 +380,12 @@ fn apply_spec<T: PatternType>(
         };
         match result {
             Ok(res) => {
-                let mut label_to_node = BTreeMap::new();
-                match pkg_spec {
-                    PackageSpec::Targets(targets) => {
-                        for (target_name, extra) in targets {
-                            match skip_missing_targets {
-                                MissingTargetBehavior::Warn => {
-                                    let node = res.get_target(target_name.as_ref());
-                                    match node {
-                                        Some(node) => {
-                                            label_to_node.insert((target_name, extra), node.dupe());
-                                        }
-                                        None => missing_targets.push(TargetLabel::new(
-                                            pkg.dupe(),
-                                            target_name.as_ref(),
-                                        )),
-                                    }
-                                }
-                                MissingTargetBehavior::Fail => {
-                                    let node = res.resolve_target(target_name.as_ref())?;
-                                    label_to_node.insert((target_name, extra), node.dupe());
-                                }
-                            }
-                        }
-                    }
-                    PackageSpec::All => {
-                        for target_info in res.targets().values() {
-                            label_to_node.insert(
-                                (target_info.label().name().to_owned(), T::default()),
-                                target_info.dupe(),
-                            );
+                let (label_to_node, missing) = res.apply_spec(pkg_spec);
+                if let Some(missing) = missing {
+                    match skip_missing_targets {
+                        MissingTargetBehavior::Fail => return Err(missing.into_error()),
+                        MissingTargetBehavior::Warn => {
+                            console_message(missing.missing_targets_warning())
                         }
                     }
                 };
@@ -424,43 +397,9 @@ fn apply_spec<T: PatternType>(
         }
     }
 
-    if !missing_targets.is_empty() {
-        console_message(missing_targets_message(missing_targets));
-    }
-
     Ok(LoadedPatterns {
         results: all_targets,
     })
-}
-
-/// Warning message emitted when missing targets are skipped.
-fn missing_targets_message(mut missing_targets: Vec<TargetLabel>) -> String {
-    missing_targets.sort_unstable();
-    let (head, middle, tail): (&[TargetLabel], &str, &[TargetLabel]) = if missing_targets.len() > 15
-    {
-        let head = &missing_targets[..5];
-        let tail = &missing_targets[missing_targets.len() - 5..];
-        (head, "...", tail)
-    } else {
-        (&missing_targets, "", &[])
-    };
-    let mut message = String::new();
-    writeln!(
-        message,
-        "Skipped {} missing targets:",
-        missing_targets.len()
-    )
-    .unwrap();
-    for target in head {
-        writeln!(message, "  {}", target).unwrap();
-    }
-    if !middle.is_empty() {
-        writeln!(message, "  {}", middle).unwrap();
-    }
-    for target in tail {
-        writeln!(message, "  {}", target).unwrap();
-    }
-    message
 }
 
 pub async fn load_patterns<T: PatternType>(
@@ -529,36 +468,5 @@ impl CycleAdapterDescriptor for ConfiguredGraphCycleDescriptor {
             return Some(ConfiguredGraphCycleKeys::ConfiguredTargetNode(v.dupe()));
         }
         None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_core::target::label::TargetLabel;
-
-    use crate::calculation::missing_targets_message;
-
-    #[test]
-    fn test_missing_targets_message() {
-        let targets: Vec<TargetLabel> = (0..30)
-            .map(|i| TargetLabel::testing_parse(&format!("aaa//bbb:{i:02}")))
-            .collect();
-        assert_eq!(
-            "Skipped 1 missing targets:\n  aaa//bbb:00\n",
-            missing_targets_message(targets[..1].to_vec())
-        );
-        assert_eq!(
-            "Skipped 20 missing targets:\
-                \n  aaa//bbb:00\n  aaa//bbb:01\n  aaa//bbb:02\n  aaa//bbb:03\n  aaa//bbb:04\
-                \n  ...\
-                \n  aaa//bbb:15\n  aaa//bbb:16\n  aaa//bbb:17\n  aaa//bbb:18\n  aaa//bbb:19\
-                \n",
-            missing_targets_message(targets[..20].to_vec())
-        );
-
-        for i in 0..targets.len() {
-            // Test it does not panic.
-            missing_targets_message(targets[..i].to_vec());
-        }
     }
 }

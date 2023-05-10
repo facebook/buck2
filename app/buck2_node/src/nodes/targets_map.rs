@@ -107,6 +107,11 @@ impl TargetsMap {
     }
 
     #[inline]
+    pub fn key_target_labels(&self) -> impl ExactSizeIterator<Item = &TargetLabel> {
+        self.map.iter().map(|NameIndexed(n)| n.label())
+    }
+
+    #[inline]
     pub fn values(&self) -> impl ExactSizeIterator<Item = &TargetNode> {
         self.iter().map(|(_, v)| v)
     }
