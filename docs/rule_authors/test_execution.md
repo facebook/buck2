@@ -75,7 +75,7 @@ For compatibility with Remote Execution (RE), there are two fields that rules sh
 * `run_from_project_root` - if `true`, tests will run from the project root (their `cwd` will be the project root, which is the same as all
   other build commands).  If `false`, it'll be the cell root.
 
-Note that passing `--unstable-force-tests-on-re` to `buck2 test` will override those fields and set them to `true`, since they are a pre-requisite to run on RE. In contrast, passing `--unstable-allow-tests-on-re` will only allow tests that already set both those fields to `true` to execute on RE.
+Note that passing `--unstable-allow-all-tests-on-re` to `buck2 test` will override those fields and set them to `true`, since they are a pre-requisite to run on RE. In contrast, passing `--unstable-allow-compatible-tests-on-re` will only allow tests that already set both those fields to `true` to execute on RE.
 
 Also note that when `executor_overrides` are set, if an executor override is used and results in execution on RE, it'll happen on RE unconditionally. Therefore, it's a good idea to set those fields if RE-only executor overrides are provided.
 
