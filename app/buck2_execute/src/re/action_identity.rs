@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use buck2_events::dispatch::get_dispatcher;
+use buck2_wrapper_common::invocation_id::TraceId;
+
 use crate::execute::request::CommandExecutionPaths;
 use crate::execute::target::CommandExecutionTarget;
 
@@ -23,6 +26,9 @@ pub struct ReActionIdentity<'a> {
 
     /// Details about the action collected while uploading
     pub paths: &'a CommandExecutionPaths,
+
+    //// Trace ID which started the execution of this action, to be added on the RE side
+    pub trace_id: TraceId,
 }
 
 impl<'a> ReActionIdentity<'a> {
@@ -36,11 +42,14 @@ impl<'a> ReActionIdentity<'a> {
             action_key = format!("{} {}", executor_action_key, action_key);
         }
 
+        let trace_id = get_dispatcher().trace_id().to_owned();
+
         Self {
             _target: target,
             action_key,
             affinity_key: target.re_affinity_key(),
             paths,
+            trace_id,
         }
     }
 }

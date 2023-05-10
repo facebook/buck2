@@ -28,6 +28,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
@@ -328,6 +329,7 @@ impl LocalExecutor {
             .collect();
 
         let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
+        let build_id: &str = &get_dispatcher().trace_id().to_string();
 
         let iter_env = || {
             tmpdirs
@@ -343,6 +345,10 @@ impl LocalExecutor {
                 .chain(std::iter::once((
                     "BUCK2_DAEMON_UUID",
                     StrOrOsStr::from(daemon_uuid),
+                )))
+                .chain(std::iter::once((
+                    "BUCK_BUILD_ID",
+                    StrOrOsStr::from(build_id),
                 )))
         };
 

@@ -25,8 +25,15 @@ pub struct HostResourceRequirements {
 }
 
 #[derive(Clone, Default)]
+pub struct BuckInfo {
+    pub build_id: String,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
 pub struct RemoteExecutionMetadata {
     pub action_history_info: Option<ActionHistoryInfo>,
+    pub buck_info: Option<BuckInfo>,
     pub host_resource_requirements: Option<HostResourceRequirements>,
     pub platform: Option<TPlatform>,
     pub use_case_id: String,

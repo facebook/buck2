@@ -36,6 +36,7 @@ use remote_execution as RE;
 use remote_execution::ActionHistoryInfo;
 use remote_execution::ActionResultRequest;
 use remote_execution::ActionResultResponse;
+use remote_execution::BuckInfo;
 use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
@@ -922,6 +923,10 @@ impl RemoteExecutionClientImpl {
             }),
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
+            buck_info: Some(BuckInfo {
+                build_id: identity.trace_id.to_string(),
+                ..Default::default()
+            }),
             ..use_case.metadata()
         };
         let request = ExecuteRequest {

@@ -51,9 +51,10 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_events = { workspace = true }
-buck2_util = { workspace = true }
 buck2_miniperf_proto = { workspace = true }
 buck2_re_configuration = { workspace = true }
+buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
