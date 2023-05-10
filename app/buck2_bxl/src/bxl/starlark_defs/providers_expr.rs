@@ -116,7 +116,6 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 }
 
 impl ProvidersExpr<ProvidersLabel> {
-    #[allow(unused)]
     pub fn unpack<'v>(
         value: Value<'v>,
         ctx: &BxlContext<'_>,
@@ -135,7 +134,6 @@ impl ProvidersExpr<ProvidersLabel> {
         })
     }
 
-    #[allow(unused)]
     fn unpack_literal<'v>(value: Value<'v>, ctx: &BxlContext<'_>) -> anyhow::Result<Option<Self>> {
         Self::unpack_providers_label(value, ctx)?
             .map_or(Ok(None), |label| Ok(Some(Self::Literal(label))))

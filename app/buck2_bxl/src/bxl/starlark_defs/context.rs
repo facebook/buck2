@@ -24,6 +24,7 @@ use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_build_api::query::dice::DiceQueryDelegate;
+use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -35,10 +36,12 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use dashmap::DashMap;
@@ -73,6 +76,7 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
+use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
@@ -460,17 +464,111 @@ fn register_context(builder: &mut MethodsBuilder) {
     ///     ensured = ctx.output.ensure(output)
     ///     ctx.output.print(ensured)
     /// ```
+    ///
+    /// There are several optional named parameters:
+    ///
+    /// `exec_deps` - These are dependencies you wish to access as executables for creating the action.
+    /// This is usually the same set of targets one would pass to rule's `attr.exec_dep`.
+    /// `toolchains` - The set of toolchains needed for the actions you intend to create.
+    /// `target_platform` - The intended target platform for your actions
+    /// `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints)
+    /// that these actions are compatible with. This is the 'exec_compatible_with' attribute of a target.
     #[starlark(return_type = "\"bxl_actions\"")]
     fn bxl_actions<'v>(
         this: &'v BxlContext<'v>,
+        #[starlark(require = named, default = NoneType)] exec_deps: Value<'v>,
+        #[starlark(require = named, default = NoneType)] toolchains: Value<'v>,
+        #[starlark(require = named, default = NoneType)] target_platform: Value<'v>,
+        #[starlark(require = named, default = NoneType)] exec_compatible_with: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        validate_action_instantiation(this, EXECUTION_PLATFORM.dupe())?;
-        Ok(eval.heap().alloc(BxlActions::new(
-            this.state,
-            eval.heap().alloc(Dict::default()),
-            eval.heap().alloc(Dict::default()),
-        )))
+        let execution_resolution = this.async_ctx.via_dice(|ctx| async {
+            let target_platform = target_platform.parse_target_platforms(
+                &this.target_alias_resolver,
+                &this.cell_resolver,
+                this.cell_name,
+                &this.global_target_platform,
+            )?;
+            let query = {
+                let query = Arc::new(this.dice_query_delegate(target_platform.dupe()).await?);
+                UqueryEnvironment::new(query.dupe(), query.dupe())
+            };
+
+            let exec_deps = if exec_deps.is_none() {
+                Vec::new()
+            } else {
+                ProvidersExpr::<ProvidersLabel>::unpack(exec_deps, this, eval)?
+                    .labels()
+                    .cloned()
+                    .collect()
+            };
+
+            let toolchains = if toolchains.is_none() {
+                Vec::new()
+            } else {
+                ProvidersExpr::<ProvidersLabel>::unpack(toolchains, this, eval)?
+                    .labels()
+                    .cloned()
+                    .collect()
+            };
+
+            let exec_compatible_with = if exec_compatible_with.is_none() {
+                Vec::new()
+            } else {
+                TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, eval)
+                    .await?
+                    .get(&query)
+                    .await?
+                    .iter()
+                    .map(|n| n.label().dupe())
+                    .collect()
+            };
+
+            resolve_bxl_execution_platform(
+                ctx,
+                this.cell_name.dupe(),
+                exec_deps,
+                toolchains,
+                target_platform,
+                exec_compatible_with,
+            )
+            .await
+        })?;
+
+        validate_action_instantiation(this, execution_resolution.resolved_execution)?;
+
+        let exec_deps = eval.heap().alloc(Dict::new(
+            execution_resolution
+                .exec_deps_configured
+                .into_iter()
+                .map(|(k, v)| {
+                    Ok((
+                        eval.heap()
+                            .alloc(StarlarkProvidersLabel::new(k))
+                            .get_hashed()?,
+                        eval.heap().alloc(Label::new(v)),
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?,
+        ));
+        let toolchains = eval.heap().alloc(Dict::new(
+            execution_resolution
+                .toolchain_deps
+                .into_iter()
+                .map(|(k, v)| {
+                    Ok((
+                        eval.heap()
+                            .alloc(StarlarkProvidersLabel::new(k))
+                            .get_hashed()?,
+                        eval.heap().alloc(Label::new(v)),
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?,
+        ));
+
+        Ok(eval
+            .heap()
+            .alloc(BxlActions::new(this.state, exec_deps, toolchains)))
     }
 
     /// Returns the action context for creating and running actions.

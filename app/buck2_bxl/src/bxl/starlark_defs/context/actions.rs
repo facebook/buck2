@@ -137,11 +137,10 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
     })
 }
 
-#[allow(unused)]
 pub(crate) struct BxlExecutionResolution {
-    resolved_execution: ExecutionPlatformResolution,
-    exec_deps_configured: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
-    toolchain_deps: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
+    pub(crate) resolved_execution: ExecutionPlatformResolution,
+    pub(crate) exec_deps_configured: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
+    pub(crate) toolchain_deps: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
 }
 
 pub(crate) fn validate_action_instantiation<'v>(
