@@ -341,10 +341,12 @@ where
         file_watcher: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
     ) -> anyhow::Result<()> {
-        for x in display_file_watcher_end(file_watcher) {
-            echo!("{}", x)?;
+        if self.verbosity.print_status() {
+            for x in display_file_watcher_end(file_watcher) {
+                echo!("{}", x)?;
+            }
+            self.notify_printed();
         }
-        self.notify_printed();
         Ok(())
     }
 
