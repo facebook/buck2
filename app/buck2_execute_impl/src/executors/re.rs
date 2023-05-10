@@ -349,7 +349,8 @@ fn is_timeout_error(err: &remote_execution::REError) -> bool {
     {
         // Not ideal, but DEADLINE_EXCEEDED will show up if you e.g. timeout connecting to RE, so we
         // need to actually match on the message :(
-        err.code == TCode::DEADLINE_EXCEEDED && err.message == "Execution timed out"
+        err.code == TCode::DEADLINE_EXCEEDED
+            && (err.message == "Execution timed out" || err.message.contains("max action timeout "))
     }
 
     #[cfg(not(fbcode_build))]
