@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-#[cfg(test)]
-mod tests;
-
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;

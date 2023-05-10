@@ -9,4 +9,5 @@
 
 #![cfg(test)]
 
+mod opaque;
 mod projection;

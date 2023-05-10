@@ -11,16 +11,15 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use dice::DetectCycles;
+use dice::Dice;
+use dice::DiceComputations;
+use dice::DiceData;
+use dice::Key;
+use dice::UserComputationData;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use parking_lot::Mutex;
-
-use crate::api::computations::DiceComputations;
-use crate::api::cycles::DetectCycles;
-use crate::api::data::DiceData;
-use crate::api::dice::Dice;
-use crate::api::key::Key;
-use crate::api::user_data::UserComputationData;
 
 #[derive(Debug, PartialEq)]
 enum KeyType {
