@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo", "filter_debug_info")
+load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
 load(
     "@prelude//ide_integrations:xcode.bzl",
@@ -89,7 +89,7 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
     dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, external_debug_info)
 
     all_debug_info = external_debug_info.traverse()
-    filtered_debug_info = filter_debug_info(all_debug_info, selective_debugging_info)
+    filtered_debug_info = selective_debugging_info.filter(all_debug_info)
     filtered_external_debug_info = maybe_external_debug_info(
         actions = ctx.actions,
         label = ctx.label,

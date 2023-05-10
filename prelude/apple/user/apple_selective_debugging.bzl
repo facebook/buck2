@@ -9,15 +9,20 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
     "@prelude//utils:build_target_pattern.bzl",
+    "BuildTargetPattern",  # @unused Used as a type
     "parse_build_target_pattern",
+)
+
+_SelectionCriteria = record(
+    include_build_target_patterns = field([BuildTargetPattern.type], []),
+    include_regular_expressions = field(["regex"], []),
+    exclude_build_target_patterns = field([BuildTargetPattern.type], []),
+    exclude_regular_expressions = field(["regex"], []),
 )
 
 AppleSelectiveDebuggingInfo = provider(fields = [
     "scrub_binary",  # function
-    "include_build_target_patterns",  # BuildTargetPattern.type
-    "include_regular_expressions",  # regex
-    "exclude_build_target_patterns",  # BuildTargetPattern.type
-    "exclude_regular_expressions",  # regex
+    "filter",  # function
 ])
 
 # The type of selective debugging json input to utilze.
@@ -29,10 +34,7 @@ _SelectiveDebuggingJsonTypes = [
     "spec",
 ]
 
-_SelectiveDebuggingJsonType = enum(
-    _SelectiveDebuggingJsonTypes[0],
-    _SelectiveDebuggingJsonTypes[1],
-)
+_SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 def _impl(ctx: "context") -> ["provider"]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
@@ -64,6 +66,13 @@ def _impl(ctx: "context") -> ["provider"]:
     else:
         fail("Expected json_type to be either `targets` or `spec`.")
 
+    selection_criteria = _SelectionCriteria(
+        include_build_target_patterns = include_build_target_patterns,
+        include_regular_expressions = include_regular_expressions,
+        exclude_build_target_patterns = exclude_build_target_patterns,
+        exclude_regular_expressions = exclude_regular_expressions,
+    )
+
     def scrub_binary(inner_ctx, executable: "artifact", adhoc_codesign_tool: ["RunInfo", None]) -> "artifact":
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
@@ -77,14 +86,18 @@ def _impl(ctx: "context") -> ["provider"]:
         inner_ctx.actions.run(inner_cmd, category = "scrub_binary", identifier = executable.short_path)
         return output
 
+    def filter_debug_info(debug_info: "transitive_set_iterator") -> ["artifact"]:
+        selected_debug_info = []
+        for info in debug_info:
+            if _is_label_included(info.label, selection_criteria):
+                selected_debug_info.extend(info.artifacts)
+        return selected_debug_info
+
     return [
         DefaultInfo(),
         AppleSelectiveDebuggingInfo(
             scrub_binary = scrub_binary,
-            include_build_target_patterns = include_build_target_patterns,
-            include_regular_expressions = include_regular_expressions,
-            exclude_build_target_patterns = exclude_build_target_patterns,
-            exclude_regular_expressions = exclude_regular_expressions,
+            filter = filter_debug_info,
         ),
     ]
 
@@ -102,17 +115,14 @@ registration_spec = RuleRegistrationSpec(
     },
 )
 
-def filter_debug_info(debug_info: "transitive_set_iterator", selective_debugging_info: AppleSelectiveDebuggingInfo.type) -> ["artifact"]:
-    selected_debug_info = []
-    for info in debug_info:
-        if selective_debugging_info.include_build_target_patterns or selective_debugging_info.include_regular_expressions:
-            is_included = _check_if_label_matches_patterns_or_expressions(info.label, selective_debugging_info.include_build_target_patterns, selective_debugging_info.include_regular_expressions)
-        else:
-            is_included = True
+def _is_label_included(label: "label", selection_criteria: _SelectionCriteria.type) -> bool.type:
+    # If no include criteria are provided, we then include everything, as long as it is not excluded.
+    if selection_criteria.include_build_target_patterns or selection_criteria.include_regular_expressions:
+        if not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.include_build_target_patterns, selection_criteria.include_regular_expressions):
+            return False
 
-        if is_included and not _check_if_label_matches_patterns_or_expressions(info.label, selective_debugging_info.exclude_build_target_patterns, selective_debugging_info.exclude_regular_expressions):
-            selected_debug_info.extend(info.artifacts)
-    return selected_debug_info
+    # If included (above snippet), ensure that this target is not excluded.
+    return not _check_if_label_matches_patterns_or_expressions(label, selection_criteria.exclude_build_target_patterns, selection_criteria.exclude_regular_expressions)
 
 def _check_if_label_matches_patterns_or_expressions(label: "label", patterns: ["BuildTargetPattern"], expressions: ["regex"]) -> bool.type:
     for pattern in patterns:
