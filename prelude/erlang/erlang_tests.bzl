@@ -210,6 +210,9 @@ def erlang_test_impl(ctx: "context") -> ["provider"]:
     default_info = _build_default_info(dependencies, output_dir)
     for output_artifact in default_info.other_outputs:
         cmd.hidden(output_artifact)
+    for config_file in config_files:
+        cmd.hidden(config_file)
+
     cmd.hidden(output_dir)
 
     # prepare shell dependencies
