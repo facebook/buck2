@@ -62,7 +62,6 @@ use futures::future::TryFutureExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use gazebo::prelude::*;
 use itertools::Itertools;
 
 use crate::commands::build::results::build_report::BuildReportCollector;
@@ -459,28 +458,25 @@ fn build_targets_for_spec<'a>(
     materialization_context: &'a MaterializationContext,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     async move {
-        let available_targets = res.targets();
-
-        let todo_targets: Vec<TargetBuildSpec> = match spec {
-            PackageSpec::All => available_targets
-                .values()
-                .map(|t| TargetBuildSpec {
-                    target: t.dupe(),
-                    providers: ProvidersName::default(),
-                    global_target_platform: global_target_platform.dupe(),
-                    skippable: true,
-                })
-                .collect(),
-            PackageSpec::Targets(targets) => targets.into_try_map(|(target_name, providers)| {
-                let target = res.resolve_target(target_name.as_ref())?.dupe();
-                anyhow::Ok(TargetBuildSpec {
-                    target,
-                    providers: providers.providers,
-                    global_target_platform: global_target_platform.dupe(),
-                    skippable: false,
-                })
-            })?,
+        let skippable = match spec {
+            PackageSpec::Targets(..) => false,
+            PackageSpec::All => true,
         };
+
+        let (targets, missing) = res.apply_spec(spec);
+        if let Some(missing) = missing {
+            return Err(missing.into_error());
+        }
+
+        let todo_targets: Vec<TargetBuildSpec> = targets
+            .into_iter()
+            .map(|((_target_name, extra), target)| TargetBuildSpec {
+                target,
+                providers: extra.providers,
+                global_target_platform: global_target_platform.dupe(),
+                skippable,
+            })
+            .collect();
 
         let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
