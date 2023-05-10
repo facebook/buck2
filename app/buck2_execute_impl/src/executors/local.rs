@@ -19,6 +19,7 @@ use std::time::SystemTime;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;
@@ -497,8 +498,11 @@ impl LocalExecutor {
         for output in request.outputs() {
             let path = output.resolve(&self.artifact_fs).into_path();
             let abspath = self.root.join(&path);
-            let entry = build_entry_from_disk(abspath, digest_config)
-                .with_context(|| format!("collecting output {:?}", path))?;
+            let entry = build_entry_from_disk(
+                abspath,
+                FileDigestConfig::build(digest_config.cas_digest_config()),
+            )
+            .with_context(|| format!("collecting output {:?}", path))?;
             if let Some(entry) = entry {
                 insert_entry(&mut builder, &path, entry)?;
                 entries.push((output.cloned(), path));

@@ -10,6 +10,7 @@
 use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_common::file_ops::FileDigestConfig;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::INTERNER;
@@ -51,7 +52,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
         .execute_io_inline(|| {
             build_entry_from_disk(
                 ctx.fs().fs().resolve(&offline_cache_path),
-                ctx.digest_config(),
+                FileDigestConfig::build(ctx.digest_config().cas_digest_config()),
             )
         })
         .await?

@@ -233,7 +233,6 @@ impl CasDigestConfig {
     ///
     /// - This method isn't public because it really should only be called by methods in file_ops.
     /// - There is no method to go back to the non-source config.
-    #[allow(unused)]
     pub(crate) fn source_files_config(self) -> Self {
         match &self.inner.source {
             SourceFilesConfig::UseSelf => self,

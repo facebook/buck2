@@ -120,9 +120,33 @@ pub type FileDigest = CasDigest<FileDigestKind>;
 
 pub type TrackedFileDigest = TrackedCasDigest<FileDigestKind>;
 
+#[derive(Copy, Dupe, Clone)]
+pub struct FileDigestConfig {
+    config: CasDigestConfig,
+}
+
+impl FileDigestConfig {
+    /// Obtain a FileDigestConfig for hashing source files.
+    pub fn source(config: CasDigestConfig) -> Self {
+        Self {
+            config: config.source_files_config(),
+        }
+    }
+
+    /// Obtain a FileDigestConfig for hashing output files.
+    pub fn build(config: CasDigestConfig) -> Self {
+        Self { config }
+    }
+
+    /// Obtain the underlying CasDigestConfig.
+    pub fn as_cas_digest_config(&self) -> CasDigestConfig {
+        self.config
+    }
+}
+
 impl FileDigest {
     /// Obtain the digest of the file if you can.
-    pub fn from_file<P>(file: P, config: CasDigestConfig) -> anyhow::Result<Self>
+    pub fn from_file<P>(file: P, config: FileDigestConfig) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -141,7 +165,7 @@ impl FileDigest {
 
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
-    fn from_file_attr(file: &Path, config: CasDigestConfig) -> Option<Self> {
+    fn from_file_attr(file: &Path, config: FileDigestConfig) -> Option<Self> {
         use std::borrow::Cow;
         use std::collections::HashSet;
 
@@ -149,7 +173,7 @@ impl FileDigest {
 
         use crate::cas_digest::RawDigest;
 
-        if !config.allows_sha1() {
+        if !config.as_cas_digest_config().allows_sha1() {
             return None;
         }
 
@@ -196,15 +220,15 @@ impl FileDigest {
 
     /// Windows doesn't support extended file attributes.
     #[cfg(windows)]
-    fn from_file_attr(_file: &Path, _config: CasDigestConfig) -> Option<Self> {
+    fn from_file_attr(_file: &Path, _config: FileDigestConfig) -> Option<Self> {
         None
     }
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &Path, config: CasDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &Path, config: FileDigestConfig) -> anyhow::Result<Self> {
         let f = File::open(file)?;
-        FileDigest::from_reader(f, config)
+        FileDigest::from_reader(f, config.as_cas_digest_config())
     }
 }
 
@@ -569,7 +593,7 @@ mod tests {
 
         #[test]
         fn test_from_file_attr() -> anyhow::Result<()> {
-            let config = CasDigestConfig::testing_default();
+            let config = FileDigestConfig::source(CasDigestConfig::testing_default());
             let tempdir = tempfile::tempdir()?;
 
             let file = tempdir.path().join("dest");
@@ -601,8 +625,11 @@ mod tests {
             assert_eq!(d1, d4);
             assert_eq!(d1, d5);
 
-            let dx = FileDigest::from_file(&file, crate::cas_digest::testing::sha256())
-                .context("disable xattr")?;
+            let dx = FileDigest::from_file(
+                &file,
+                FileDigestConfig::source(crate::cas_digest::testing::sha256()),
+            )
+            .context("disable xattr")?;
 
             assert_ne!(d1, dx);
 

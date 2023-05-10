@@ -9,6 +9,7 @@
 
 use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::DirectoryEntry;
@@ -17,7 +18,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use faccess::PathExt;
 
-use crate::digest_config::DigestConfig;
 use crate::directory::new_symlink;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
@@ -25,7 +25,7 @@ use crate::directory::ActionDirectoryMember;
 
 pub fn build_entry_from_disk(
     mut path: AbsNormPathBuf,
-    digest_config: DigestConfig,
+    digest_config: FileDigestConfig,
 ) -> anyhow::Result<Option<ActionDirectoryEntry<ActionDirectoryBuilder>>> {
     // Get file metadata. If the file is missing, ignore it.
     let m = match std::fs::symlink_metadata(&path) {
@@ -39,8 +39,8 @@ pub fn build_entry_from_disk(
     } else if m.is_file() {
         DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: TrackedFileDigest::new(
-                FileDigest::from_file(&path, digest_config.cas_digest_config())?,
-                digest_config.cas_digest_config(),
+                FileDigest::from_file(&path, digest_config)?,
+                digest_config.as_cas_digest_config(),
             ),
             is_executable: path.executable(),
         }))
@@ -54,7 +54,7 @@ pub fn build_entry_from_disk(
 
 fn build_dir_from_disk(
     disk_path: &mut AbsNormPathBuf,
-    digest_config: DigestConfig,
+    digest_config: FileDigestConfig,
 ) -> anyhow::Result<ActionDirectoryBuilder> {
     let mut builder = ActionDirectoryBuilder::empty();
 
@@ -82,8 +82,8 @@ fn build_dir_from_disk(
         } else if filetype.is_file() {
             let metadata = FileMetadata {
                 digest: TrackedFileDigest::new(
-                    FileDigest::from_file(&disk_path, digest_config.cas_digest_config())?,
-                    digest_config.cas_digest_config(),
+                    FileDigest::from_file(&disk_path, digest_config)?,
+                    digest_config.as_cas_digest_config(),
                 ),
                 is_executable: file.path().executable(),
             };

@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::RawSymlink;
@@ -218,7 +219,7 @@ async fn check_file_status(
                     } else {
                         let fs_digest = FileDigest::from_file_disk(
                             &abs_path,
-                            digest_config.cas_digest_config(),
+                            FileDigestConfig::source(digest_config.cas_digest_config()),
                         )?;
                         if &fs_digest != dice_metadata.digest.data() {
                             result.mismatch(Mismatch::FileDigest(
