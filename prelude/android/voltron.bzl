@@ -60,7 +60,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
         ctx.actions,
         ctx.label,
         android_packageable_info,
-        traversed_shared_library_info,
+        traversed_shared_library_info.values(),
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
@@ -106,7 +106,7 @@ def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["arti
         ctx.actions,
         ctx.label,
         android_packageable_info,
-        traversed_shared_library_info,
+        traversed_shared_library_info.values(),
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
@@ -123,7 +123,7 @@ def _get_base_cmd_and_output(
         actions: "actions",
         label: "label",
         android_packageable_info: "AndroidPackageableInfo",
-        traversed_shared_library_info: {str.type: "SharedLibrary"},
+        shared_libraries: ["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",
         application_module_configs: {str.type: ["dependency"]},
         application_module_dependencies: [{str.type: [str.type]}, None],
@@ -157,7 +157,7 @@ def _get_base_cmd_and_output(
     # Anything that is used by a wrap script needs to go into the primary APK, as do all
     # of their deps.
 
-    used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in traversed_shared_library_info.values() if shared_lib.for_primary_apk]
+    used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in shared_libraries if shared_lib.for_primary_apk]
     prebuilt_native_library_dirs = list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else []
     prebuilt_native_library_targets_for_primary_apk = [str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk]
     if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
