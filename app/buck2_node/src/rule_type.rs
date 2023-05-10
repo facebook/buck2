@@ -47,3 +47,21 @@ impl RuleType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::bzl::ImportPath;
+
+    use crate::rule_type::StarlarkRuleType;
+
+    #[test]
+    fn function_id_has_useful_string() {
+        let import_path = ImportPath::testing_new("root//some/subdir:foo.bzl");
+        let name = "foo_binary".to_owned();
+
+        assert_eq!(
+            "root//some/subdir/foo.bzl:foo_binary",
+            &StarlarkRuleType { import_path, name }.to_string()
+        );
+    }
+}

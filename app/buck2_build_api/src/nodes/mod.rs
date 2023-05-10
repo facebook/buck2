@@ -39,7 +39,6 @@ pub mod hacks {
 #[cfg(test)]
 mod tests {
 
-    use buck2_core::bzl::ImportPath;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -49,26 +48,10 @@ mod tests {
     use buck2_interpreter_for_build::interpreter::testing::cells;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
-    use buck2_node::rule_type::StarlarkRuleType;
     use dupe::Dupe;
     use starlark::values::Heap;
 
     use super::*;
-
-    #[test]
-    fn function_id_has_useful_string() {
-        let import = ImportPath::testing_new("root//some/subdir:foo.bzl");
-        let name = "foo_binary".to_owned();
-
-        assert_eq!(
-            "root//some/subdir/foo.bzl:foo_binary",
-            &StarlarkRuleType {
-                import_path: import,
-                name,
-            }
-            .to_string()
-        );
-    }
 
     #[test]
     fn stringifies_correctly() -> anyhow::Result<()> {
