@@ -497,7 +497,6 @@ def _create_link_group(
         link_style: LinkStyle.type = LinkStyle("static_pic"),
         link_group_libs: {str.type: (["label", None], LinkInfos.type)} = {},
         prefer_stripped_objects: bool.type = False,
-        prefer_local: bool.type = False,
         category_suffix: [str.type, None] = None) -> LinkedObject.type:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
@@ -575,7 +574,6 @@ def _create_link_group(
         links = [LinkArgs(infos = inputs)],
         category_suffix = category_suffix,
         identifier = spec.name,
-        prefer_local = prefer_local,
         enable_distributed_thinlto = spec.group.attrs.enable_distributed_thinlto,
     )
     return result
