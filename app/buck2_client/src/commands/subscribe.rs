@@ -85,9 +85,10 @@ impl StreamingCommand for SubscribeCommand {
                 Err(e) => {
                     // NOTE: if stderr is gone there is not much we can do besides not write to
                     // stderr.
-                    let _ignored = buck2_client_ctx::eprintln!("Error parsing request: {:#}", e);
+                    let reason = format!("Error parsing request: {:#}", e);
+                    let _ignored = buck2_client_ctx::eprintln!("{}", reason);
                     SubscriptionRequest {
-                        request: Some(buck2_subscription_proto::Disconnect {}.into()),
+                        request: Some(buck2_subscription_proto::Disconnect { reason }.into()),
                     }
                 }
             });
@@ -122,7 +123,12 @@ impl StreamingCommand for SubscribeCommand {
             || {
                 Some(buck2_cli_proto::SubscriptionRequestWrapper {
                     request: Some(SubscriptionRequest {
-                        request: Some(buck2_subscription_proto::Disconnect {}.into()),
+                        request: Some(
+                            buck2_subscription_proto::Disconnect {
+                                reason: "EOF on stdin".to_owned(),
+                            }
+                            .into(),
+                        ),
                     }),
                 })
             },

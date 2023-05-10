@@ -25,7 +25,9 @@ message SubscriptionRequest {
 
 // The client would like to gracefully disconnect. This will result in the
 // command exiting.
-message Disconnect {}
+message Disconnect {
+  string reason = 1;
+}
 
 // Request eager materialization of specific paths AND notifications when they
 // get materialized. If the paths have already been materialized, a
@@ -66,6 +68,7 @@ message SubscriptionResponse {
   oneof response {
     Materialized materialized = 1;
     ActiveCommandsSnapshot active_commands_snapshot = 2;
+    Goodbye goodbye = 3;
   }
 }
 
@@ -97,4 +100,9 @@ message ActiveCommandStats {
   /// Spans that are expected to have to open (then close) before the command
   /// finishes.
   uint64 pending_spans = 3;
+}
+
+/// This notification is sent by the daemon when closing the connection.
+message Goodbye {
+  string reason = 1;
 }
