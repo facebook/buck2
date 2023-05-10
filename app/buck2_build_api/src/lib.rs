@@ -26,6 +26,7 @@ pub mod actions;
 pub mod analysis;
 pub mod artifact_groups;
 pub mod attrs;
+pub mod audit_dep_files;
 pub mod audit_output;
 pub mod build;
 pub mod bxl;

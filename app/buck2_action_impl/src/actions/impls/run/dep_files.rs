@@ -77,7 +77,7 @@ fn set_flush_dep_files() {
     FLUSH_DEP_FILES.init(flush_dep_files);
 }
 
-pub fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
+pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
     DEP_FILES.get(key).map(|s| s.dupe())
 }
 

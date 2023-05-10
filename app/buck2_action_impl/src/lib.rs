@@ -10,5 +10,10 @@
 #![feature(try_blocks)]
 #![feature(type_alias_impl_trait)]
 
-pub mod actions;
+mod actions;
 mod context;
+
+/// This crate has no public API, everything it implements is linked with `LateBinding`.
+/// So declare this symbol to be referenced from main crate to make sure
+/// this crate is linked.
+pub fn ensure_linked() {}

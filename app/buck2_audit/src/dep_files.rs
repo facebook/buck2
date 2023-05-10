@@ -7,24 +7,14 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
-use std::io::Write;
-
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_action_impl::actions::impls::run::dep_files::get_dep_files;
-use buck2_action_impl::actions::impls::run::dep_files::DepFilesKey;
-use buck2_action_impl::actions::impls::run::dep_files::StoredFingerprints;
+use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_core::category::Category;
-use buck2_core::directory::Directory;
-use buck2_core::directory::DirectoryIterator;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_execute::digest_config::HasDigestConfig;
-use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -84,57 +74,14 @@ impl AuditSubcommand for AuditDepFilesCommand {
 
                 let category = Category::try_from(self.category.as_str())?;
 
-                let key = DepFilesKey::new(
-                    BaseDeferredKey::TargetLabel(label),
+                (AUDIT_DEP_FILES.get()?)(
+                    &ctx,
+                    label,
                     category,
                     self.identifier.clone(),
-                );
-
-                let state = get_dep_files(&key).context("Failed to find dep files")?;
-
-                let dep_files = state
-                    .read_dep_files(
-                        &ctx.get_artifact_fs().await?,
-                        ctx.per_transaction_data().get_materializer().as_ref(),
-                    )
-                    .await
-                    .context("Failed to read dep files")?
-                    .context("Dep fils have expired")?;
-
-                let fingerprints = state.locked_compute_fingerprints(
-                    Cow::Owned(dep_files),
-                    true,
-                    ctx.global_data().get_digest_config(),
-                );
-
-                let dirs = match &*fingerprints {
-                    StoredFingerprints::Digests(..) => {
-                        // This is bit awkward but this only for testing right now so that's OK
-                        return Err(anyhow::anyhow!("Fingerprints were stored as digests!"));
-                    }
-                    StoredFingerprints::Dirs(dirs) => dirs,
-                };
-
-                let mut stdout = stdout.as_writer();
-
-                for (path, ..) in dirs
-                    .untagged
-                    .ordered_walk()
-                    .with_paths()
-                    .filter_map(|(p, e)| Some((p, e.into_leaf()?)))
-                {
-                    writeln!(stdout, "untagged\t{}", path)?;
-                }
-
-                for (tag, dir) in dirs.tagged.iter() {
-                    for (path, ..) in dir
-                        .ordered_walk()
-                        .with_paths()
-                        .filter_map(|(p, e)| Some((p, e.into_leaf()?)))
-                    {
-                        writeln!(stdout, "{}\t{}", tag, path)?;
-                    }
-                }
+                    &mut stdout.as_writer(),
+                )
+                .await?;
 
                 Ok(())
             })

@@ -28,6 +28,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
+dice = { workspace = true }
 gazebo = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }

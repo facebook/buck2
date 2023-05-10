@@ -113,6 +113,8 @@ fn print_retry() -> anyhow::Result<()> {
 // will start up their own tokio runtime.
 #[fbinit::main]
 fn main(init: fbinit::FacebookInit) -> ! {
+    buck2_action_impl::ensure_linked();
+
     fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
         panic::initialize(init)?;
         check_cargo();

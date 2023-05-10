@@ -38,6 +38,7 @@ starlark = { workspace = true }
 # @oss-disable: user = { path = "../../../common/rust/user", optional = true }
 allocative = { workspace = true }
 
+buck2_action_impl = { workspace = true }
 buck2_audit = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_bxl = { workspace = true }

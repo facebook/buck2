@@ -88,6 +88,7 @@ buck_rust_binary(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2:buck2",
+        "//buck2/app/buck2_action_impl:buck2_action_impl",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_events:buck2_events",
