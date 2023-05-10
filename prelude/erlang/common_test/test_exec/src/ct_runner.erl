@@ -101,7 +101,7 @@ handle_info(
             ErrorMsg =
                 case ExitStatus of
                     137 ->
-                        "ct runner killed by SIGKILL (exit code 137), likely due to running out of memory. Check https://fburl.com/wiki/0jdq71a0 for information about memory limits for tests";
+                        "ct runner killed by SIGKILL (exit code 137), likely due to running out of memory. Check https://fburl.com/wiki/01s5fnom for information about memory limits for tests";
                     _ ->
                         unicode:characters_to_list(
                             io_lib:format("ct run exited with status exit ~p", [
