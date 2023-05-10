@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
@@ -126,10 +127,16 @@ impl FileDigest {
         P: AsRef<Path>,
     {
         let file = file.as_ref();
-        match Self::from_file_attr(file, config) {
-            Some(x) => Ok(x),
-            None => Self::from_file_disk(file, config),
+
+        static DISABLE_FILE_ATTR: EnvHelper<bool> = EnvHelper::new("BUCK2_DISABLE_FILE_ATTR");
+
+        if !DISABLE_FILE_ATTR.get_copied()?.unwrap_or_default() {
+            if let Some(digest) = Self::from_file_attr(file, config) {
+                return Ok(digest);
+            }
         }
+
+        Self::from_file_disk(file, config)
     }
 
     /// Read the file from the xattr, or skip if it's not available.
