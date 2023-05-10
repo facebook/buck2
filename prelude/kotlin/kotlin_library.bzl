@@ -239,6 +239,9 @@ def _add_plugins(
 
 def kotlin_library_impl(ctx: "context") -> ["provider"]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
+
+    # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
+    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, packaging_deps)
     if ctx.attrs._build_only_native_code:
         shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
         return [
@@ -249,17 +252,11 @@ def kotlin_library_impl(ctx: "context") -> ["provider"]:
             TemplatePlaceholderInfo(keyed_variables = {
                 "classpath": "unused_but_needed_for_analysis",
             }),
+            android_packageable_info,
         ]
 
     java_providers = build_kotlin_library(ctx)
-    return to_list(java_providers) + [
-        # TODO(T107163344) this shouldn't be in kotlin_library itself, use overlays to remove it.
-        merge_android_packageable_info(
-            ctx.label,
-            ctx.actions,
-            ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
-        ),
-    ]
+    return to_list(java_providers) + [android_packageable_info]
 
 def build_kotlin_library(
         ctx: "context",

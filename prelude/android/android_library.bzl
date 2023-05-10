@@ -24,6 +24,7 @@ def android_library_impl(ctx: "context") -> ["provider"]:
     if ctx.attrs._build_only_native_code:
         shared_library_info, cxx_resource_info = create_native_providers(ctx.actions, ctx.label, packaging_deps)
         return [
+            merge_android_packageable_info(ctx.label, ctx.actions, packaging_deps),
             shared_library_info,
             cxx_resource_info,
             # Add an unused default output in case this target is used as an attr.source() anywhere.
