@@ -19,6 +19,18 @@ use tokio::sync::RwLock;
 #[error("LivelinessObserver reports this session is shutting down")]
 struct NotAlive;
 
+/// A LivelinessObserver can be passed to notify callees that they should stop work and return
+/// early.
+///
+/// LivelinessObserver exposes a single method: `while_alive`. This method returns a future: when
+/// the future resolves, the callee should stop its work and return to the caller.
+///
+/// This is usually implemented by using `select` to poll both the `while_alive` future and an
+/// actual work future. Users should be mindful of not accidentally dropping handles to ongoing
+/// work by dropping the "cancelled" side of the select.
+///
+/// How exactly the callee reports to the caller that it interrupted its work is not a concern of
+/// this trait.
 #[async_trait]
 pub trait LivelinessObserver: Send + Sync {
     /// Pending while we are alive. Ready when we aren't.
@@ -38,8 +50,10 @@ impl dyn LivelinessObserver {
     }
 }
 
-/// A liveliness manager with an implementation backed by an RW Lock. The way it works is as
-/// follows:
+/// A LivelinessObserver with an implementation backed by an RW Lock. While the lock is held with
+/// write access, this LivelinessObserver is alive.
+///
+/// The way it works is as follows:
 ///
 /// - The LivelinessGuard holds a RW lock with write access.
 /// - The `while_alive()` implementation attempts to acquire the lock with read access.
@@ -95,6 +109,10 @@ pub struct CancelledLivelinessGuard {
 
 impl CancelledLivelinessGuard {
     /// If the lock is available, re-acquire it, thus allowing things to stay alive again.
+    ///
+    /// Note that callees may have already observed the "not alive" state.
+    ///
+    /// TODO: We should probably remove this API: it's a bit of a footgun.
     pub fn restore(self) -> Option<LivelinessGuard> {
         let guard = self.manager.dupe().try_write_owned().ok()?;
         Some(LivelinessGuard {
