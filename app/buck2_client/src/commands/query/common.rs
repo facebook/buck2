@@ -30,7 +30,7 @@ enum QueryOutputFormatArg {
 /// Args common to all the query commands
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(group = clap::ArgGroup::new("output_attribute_flags").multiple(false))]
-pub(crate) struct CommonQueryArgs {
+pub(crate) struct CommonQueryOptions {
     #[clap(name = "QUERY", help = "the query to evaluate")]
     query: String,
 
@@ -67,7 +67,7 @@ pub(crate) struct CommonQueryArgs {
     query_args: Vec<String>,
 }
 
-impl CommonQueryArgs {
+impl CommonQueryOptions {
     fn args_as_set(args: &[String]) -> String {
         let mut s = "set(".to_owned();
         for (i, v) in args.iter().enumerate() {

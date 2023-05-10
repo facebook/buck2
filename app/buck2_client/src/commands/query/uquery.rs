@@ -19,7 +19,7 @@ use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
-use crate::commands::query::common::CommonQueryArgs;
+use crate::commands::query::common::CommonQueryOptions;
 
 /// Perform queries on the unconfigured target graph.
 ///
@@ -57,7 +57,7 @@ pub struct UqueryCommand {
     common_opts: CommonCommandOptions,
 
     #[clap(flatten)]
-    query_common: CommonQueryArgs,
+    query_common: CommonQueryOptions,
 }
 
 #[async_trait]
