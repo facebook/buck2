@@ -32,7 +32,7 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
     primary_platform = cpu_filters[0]
     deps = deps_by_platform[primary_platform]
 
-    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps)
+    target_to_module_mapping_file = get_target_to_module_mapping(ctx, deps_by_platform)
 
     no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps)]

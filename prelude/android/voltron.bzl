@@ -59,7 +59,7 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
     cmd, output = _get_base_cmd_and_output(
         ctx.actions,
         ctx.label,
-        android_packageable_info,
+        [android_packageable_info],
         traversed_shared_library_info.values(),
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
@@ -89,24 +89,25 @@ def android_app_modularity_impl(ctx: "context") -> ["provider"]:
 
     return [DefaultInfo(default_output = output)]
 
-def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["artifact", None]:
+def get_target_to_module_mapping(ctx: "context", deps_by_platform: {str.type: ["dependency"]}) -> ["artifact", None]:
     if not ctx.attrs.application_module_configs:
         return None
 
-    all_deps = deps + flatten(ctx.attrs.application_module_configs.values())
-    android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, all_deps)
-
-    shared_library_info = merge_shared_libraries(
-        ctx.actions,
-        deps = filter(None, [x.get(SharedLibraryInfo) for x in all_deps]),
-    )
-    traversed_shared_library_info = traverse_shared_library_info(shared_library_info)
+    android_packageable_infos = []
+    shared_libraries = []
+    for deps in deps_by_platform.values() + [flatten(ctx.attrs.application_module_configs.values())]:
+        android_packageable_infos.append(merge_android_packageable_info(ctx.label, ctx.actions, deps))
+        shared_library_info = merge_shared_libraries(
+            ctx.actions,
+            deps = filter(None, [x.get(SharedLibraryInfo) for x in deps]),
+        )
+        shared_libraries.extend(traverse_shared_library_info(shared_library_info).values())
 
     cmd, output = _get_base_cmd_and_output(
         ctx.actions,
         ctx.label,
-        android_packageable_info,
-        traversed_shared_library_info.values(),
+        android_packageable_infos,
+        shared_libraries,
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
@@ -122,14 +123,18 @@ def get_target_to_module_mapping(ctx: "context", deps: ["dependency"]) -> ["arti
 def _get_base_cmd_and_output(
         actions: "actions",
         label: "label",
-        android_packageable_info: "AndroidPackageableInfo",
+        android_packageable_infos: ["AndroidPackageableInfo"],
         shared_libraries: ["SharedLibrary"],
         android_toolchain: "AndroidToolchainInfo",
         application_module_configs: {str.type: ["dependency"]},
         application_module_dependencies: [{str.type: [str.type]}, None],
         application_module_blocklist: [[["dependency"]], None]) -> ("cmd_args", "artifact"):
-    deps_infos = list(android_packageable_info.deps.traverse()) if android_packageable_info.deps else []
-    deps_map = {deps_info.name: deps_info.deps for deps_info in deps_infos}
+    deps_map = {}
+    for android_packageable_info in android_packageable_infos:
+        if android_packageable_info.deps:
+            for deps_info in android_packageable_info.deps.traverse():
+                deps = deps_map.setdefault(deps_info.name, [])
+                deps_map[deps_info.name] = dedupe(deps + deps_info.deps)
 
     target_graph_file = actions.write_json("target_graph.json", deps_map)
     application_module_configs_map = {
@@ -156,10 +161,9 @@ def _get_base_cmd_and_output(
 
     # Anything that is used by a wrap script needs to go into the primary APK, as do all
     # of their deps.
-
     used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in shared_libraries if shared_lib.for_primary_apk]
-    prebuilt_native_library_dirs = list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else []
-    prebuilt_native_library_targets_for_primary_apk = [str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk]
+    prebuilt_native_library_dirs = flatten([list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else [] for android_packageable_info in android_packageable_infos])
+    prebuilt_native_library_targets_for_primary_apk = dedupe([str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk])
     if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk:
         all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk
         if application_module_blocklist:
