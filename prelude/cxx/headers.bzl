@@ -193,10 +193,8 @@ def prepare_headers(ctx: "context", srcs: {str.type: "artifact"}, name: str.type
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
         hmap = _mk_hmap(ctx, name, headers)
-        file_prefix_args = _get_debug_prefix_args(ctx, headers)
         return Headers(
             include_path = cmd_args(hmap).hidden(srcs.values()),
-            file_prefix_args = file_prefix_args,
         )
     symlink_dir = ctx.actions.symlinked_dir(name, _normalize_header_srcs(srcs))
     if header_mode == HeaderMode("symlink_tree_only"):
