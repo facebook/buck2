@@ -11,7 +11,6 @@ use std::fs::File;
 use std::future::Future;
 use std::io::BufReader;
 use std::path::Path;
-use std::path::PathBuf;
 
 use anyhow::Context;
 use gazebo::prelude::VecExt;
@@ -33,6 +32,10 @@ use rustls::PrivateKey;
 use rustls::RootCertStore;
 use thiserror::Error;
 
+/// Support following up to 10 redirects, after which a redirected request will
+/// error out.
+const DEFAULT_MAX_REDIRECTS: usize = 10;
+
 /// Load the system root certificates into rustls cert store.
 fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     let mut roots = rustls::RootCertStore::empty();
@@ -49,6 +52,7 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
 
 /// Deserialize certificate pair at `cert` and `key` into structures that can
 /// be inserted into rustls CertStore.
+#[allow(dead_code)]
 fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
@@ -309,102 +313,86 @@ impl RedirectEngine {
     }
 }
 
-pub struct HttpClientBuilder {
-    cert_pair_paths: Option<(PathBuf, PathBuf)>,
-    max_redirects: usize,
-}
-
-impl HttpClientBuilder {
-    pub fn new() -> Self {
-        Self {
-            cert_pair_paths: None,
-            max_redirects: 10,
-        }
-    }
-
-    /// Configure this client to use the provided cert pair paths on disk for
-    /// client authentication.
-    pub fn with_cert_pair<P: AsRef<Path>>(&mut self, cert: P, key: P) -> &mut Self {
-        self.cert_pair_paths = Some((cert.as_ref().to_path_buf(), key.as_ref().to_path_buf()));
-        self
-    }
-
-    /// Configure maximum number of redirects. If this number of redirects is
-    /// exceeded, client will return HttpError::TooManyRedirects.
-    pub fn max_redirects(&mut self, max_redirects: usize) -> &mut Self {
-        self.max_redirects = max_redirects;
-        self
-    }
-
-    /// Create the https TLS config.
-    fn make_tls_config(&self) -> anyhow::Result<ClientConfig> {
-        let root_cert_store = load_system_root_certs()?;
-        let builder = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_cert_store);
-        if let Some((cert_path, key_path)) = self.cert_pair_paths.as_ref() {
-            let (certs, key) = load_cert_pair(cert_path, key_path)?;
-            builder
-                .with_single_cert(certs, key)
-                .context("Error constructing TLS config")
-        } else {
-            Ok(builder.with_no_client_auth())
-        }
-    }
-
-    pub fn build(&self) -> anyhow::Result<HttpClient> {
-        let config = self.make_tls_config()?;
-        let connector = HttpsConnectorBuilder::new()
-            .with_tls_config(config)
-            .https_or_http()
-            .enable_http1()
-            .enable_http2()
-            .build();
-
-        Ok(HttpClient::new(connector, self.max_redirects))
-    }
-}
-
-pub struct HttpClient {
-    inner: Client<HttpsConnector<HttpConnector>>,
-    max_redirects: usize,
-}
-
-impl HttpClient {
-    pub fn new(connector: HttpsConnector<HttpConnector>, max_redirects: usize) -> Self {
-        let client = Client::builder().build::<_, Body>(connector);
-        Self {
-            inner: client,
-            max_redirects,
-        }
-    }
-
-    /// Standard HEAD request.
-    pub async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
+/// Trait describe http client that can perform simple HEAD and GET requests.
+#[async_trait::async_trait]
+pub trait HttpClient {
+    /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.
+    async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
         let req = Request::builder()
             .uri(uri)
             .method(Method::HEAD)
             .body(Body::empty())
             .map_err(HttpError::BuildRequest)?;
-        let resp = self.send_request(req).await?;
-        Ok(resp.map(|_| ()))
+        self.request(req).await.map(|resp| resp.map(|_| ()))
     }
 
-    /// Standard GET request.
-    pub async fn get(&self, uri: &str) -> Result<Response<Body>, HttpError> {
+    /// Send a GET request.
+    async fn get(&self, uri: &str) -> Result<Response<Body>, HttpError> {
         let req = Request::builder()
             .uri(uri)
             .method(Method::GET)
             .body(Body::empty())
             .map_err(HttpError::BuildRequest)?;
-        self.send_request(req).await
+        self.request(req).await
     }
 
-    async fn send_request(&self, req: Request<Body>) -> Result<Response<Body>, HttpError> {
-        let pending_request = PendingRequest::from_request(&req);
-        let uri = req.uri().to_string();
-        tracing::debug!("http: request: {:?}", req);
-        let resp = self.send_request_impl(req).await?;
+    /// Send a generic request.
+    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError>;
+}
+
+/// A simple client that can make requests to HTTPS or HTTP endpoints. Handles
+/// redirects (up to `max_redirects`).
+pub struct SecureHttpClient {
+    inner: Client<HttpsConnector<HttpConnector>>,
+    max_redirects: usize,
+}
+
+impl SecureHttpClient {
+    /// Constructs a client that uses default system roots to setup TLS.
+    pub fn new() -> anyhow::Result<Self> {
+        let config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(load_system_root_certs()?)
+            .with_no_client_auth();
+        Ok(Self::configure(config, DEFAULT_MAX_REDIRECTS))
+    }
+
+    pub fn with_max_redirects(max_redirects: usize) -> anyhow::Result<Self> {
+        let config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(load_system_root_certs()?)
+            .with_no_client_auth();
+        Ok(Self::configure(config, max_redirects))
+    }
+
+    fn configure(tls_config: ClientConfig, max_redirects: usize) -> Self {
+        let connector = HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .enable_http2()
+            .build();
+        Self {
+            inner: hyper::Client::builder().build::<_, Body>(connector),
+            max_redirects,
+        }
+    }
+
+    async fn send_request_impl(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+        self.inner
+            .request(request)
+            .await
+            .map_err(HttpError::SendRequest)
+    }
+}
+
+#[async_trait::async_trait]
+impl HttpClient for SecureHttpClient {
+    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+        let pending_request = PendingRequest::from_request(&request);
+        let uri = request.uri().to_string();
+        tracing::debug!("http: request: {:?}", request);
+        let resp = self.send_request_impl(request).await?;
         tracing::debug!("http: response: {:?}", resp);
 
         // Handle redirects up to self.max_redirects times.
@@ -430,13 +418,6 @@ impl HttpClient {
 
         Ok(resp)
     }
-
-    async fn send_request_impl(&self, req: Request<Body>) -> Result<Response<Body>, HttpError> {
-        self.inner
-            .request(req)
-            .await
-            .map_err(HttpError::SendRequest)
-    }
 }
 
 #[cfg(test)]
@@ -455,7 +436,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::new().build()?;
+        let client = SecureHttpClient::new()?;
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -470,7 +451,7 @@ mod tests {
                 .respond_with(responders::status_code(404)),
         );
 
-        let client = HttpClientBuilder::new().build()?;
+        let client = SecureHttpClient::new()?;
         let url = test_server.url_str("/foo");
         let result = client.get(&url).await;
         assert!(result.is_err());
@@ -512,7 +493,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::new().build()?;
+        let client = SecureHttpClient::new()?;
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -536,7 +517,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::new().build()?;
+        let client = SecureHttpClient::new()?;
         let resp = client.head(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -574,7 +555,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::new().max_redirects(1).build()?;
+        let client = SecureHttpClient::with_max_redirects(1)?;
         let url = test_server.url_str("/foo");
         let result = client.get(&url).await;
         if let HttpError::TooManyRedirects { uri, max_redirects } = result.as_ref().err().unwrap() {
