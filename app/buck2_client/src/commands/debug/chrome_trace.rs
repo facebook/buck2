@@ -683,12 +683,18 @@ impl ChromeTraceWriter {
                         }
                     }
                     buck2_data::span_start_event::Data::ExecutorStage(stage) => {
-                        let name = display::display_executor_stage(
-                            stage.stage.as_ref().context("expected stage")?,
-                        )?;
-                        self.span_counters.bump_counter_while_span(event, name, 1)?;
+                        let name = stage
+                            .stage
+                            .as_ref()
+                            .and_then(display::display_executor_stage);
 
-                        Categorization::ShowIfParent { name: name.into() }
+                        match name {
+                            Some(name) => {
+                                self.span_counters.bump_counter_while_span(event, name, 1)?;
+                                Categorization::ShowIfParent { name: name.into() }
+                            }
+                            None => Categorization::Omit,
+                        }
                     }
                     buck2_data::span_start_event::Data::ReUpload(_) => {
                         let name = "re_upload";

@@ -233,7 +233,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::Load(load) => Ok(format!("{} -- evaluating build file", load.module_id)),
             Data::ExecutorStage(info) => {
                 let stage = info.stage.as_ref().context("executor stage is missing")?;
-                let stage = display_executor_stage(stage)?;
+                let stage = display_executor_stage(stage).context("unknown executor stage")?;
                 Ok(stage.into())
             }
             Data::TestDiscovery(discovery) => Ok(format!(
@@ -392,7 +392,7 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
 
 pub fn display_executor_stage(
     stage: &buck2_data::executor_stage_start::Stage,
-) -> anyhow::Result<&'static str> {
+) -> Option<&'static str> {
     use buck2_data::executor_stage_start::Stage;
 
     let label = match stage {
@@ -402,7 +402,7 @@ pub fn display_executor_stage(
         Stage::Re(re) => {
             use buck2_data::re_stage::Stage;
 
-            match re.stage.as_ref().context("re stage is missing")? {
+            match re.stage.as_ref()? {
                 Stage::Execute(..) => "re_execute",
                 Stage::Download(..) => "re_download",
                 Stage::Queue(..) => "re_queued",
@@ -414,7 +414,7 @@ pub fn display_executor_stage(
         Stage::Local(local) => {
             use buck2_data::local_stage::Stage;
 
-            match local.stage.as_ref().context("local stage is missing")? {
+            match local.stage.as_ref()? {
                 Stage::Queued(..) => "local_queued",
                 Stage::Execute(..) => "local_execute",
                 Stage::MaterializeInputs(..) => "local_materialize_inputs",
@@ -424,7 +424,7 @@ pub fn display_executor_stage(
         }
     };
 
-    Ok(label)
+    Some(label)
 }
 
 #[derive(Error, Debug)]
