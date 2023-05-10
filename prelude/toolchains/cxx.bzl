@@ -113,6 +113,7 @@ def _system_cxx_toolchain_impl(ctx):
                 compiler_type = ctx.attrs.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
+            cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
         ),
         CxxPlatformInfo(name = "x86_64"),
     ]
@@ -147,6 +148,7 @@ system_cxx_toolchain = rule(
         "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.string(default = "clang"),
         "compiler_type": attrs.string(default = "clang"),  # one of CxxToolProviderType
+        "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cxx_compiler": attrs.string(default = "clang++"),
         "cxx_flags": attrs.list(attrs.string(), default = []),
         "link_flags": attrs.list(attrs.string(), default = []),
