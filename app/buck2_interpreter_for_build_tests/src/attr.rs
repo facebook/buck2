@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_build_api::nodes::hacks::value_to_string;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::result::SharedResult;
@@ -23,6 +22,7 @@ use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::hacks::value_to_string;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use indoc::indoc;

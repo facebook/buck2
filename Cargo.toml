@@ -32,6 +32,7 @@ members = [
     "app/buck2_miniperf",
     "app/buck2_miniperf_proto",
     "app/buck2_node",
+    "app/buck2_node_tests",
     "app/buck2_offline_archive",
     "app/buck2_starlark",
     "app/buck2_test",

@@ -11,7 +11,6 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::nodes::hacks::value_to_json;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
@@ -20,6 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
+use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
 use buck2_node::nodes::attributes::INPUTS;

@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
-pub mod calculation;
-pub mod lookup;
+#![cfg(test)]
+
+mod attrs;

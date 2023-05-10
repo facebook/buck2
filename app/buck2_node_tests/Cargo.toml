@@ -1,0 +1,15 @@
+[package]
+name = "buck2_node_tests"
+version = "0.1.0"
+edition = "2021"
+description = "Tests for buck2_node"
+
+[dev-dependencies]
+anyhow = { workspace = true }
+
+dupe = { workspace = true }
+starlark = { workspace = true }
+
+buck2_core = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+buck2_node = { workspace = true }

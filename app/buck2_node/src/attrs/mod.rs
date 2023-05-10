@@ -23,6 +23,7 @@ pub mod configured_info;
 pub mod configured_traversal;
 pub mod display;
 pub mod fmt_context;
+pub mod hacks;
 pub mod id;
 pub mod inspect_options;
 pub mod internal;
