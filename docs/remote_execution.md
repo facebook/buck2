@@ -19,6 +19,7 @@ Keys supported include:
 * `tls_ca_certs` - path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default bundle will be used. This path contains environment variables using shell interpolation syntax (i.e. $VAR). They will be substituted before reading the file.
 * `tls_client_cert` - path to a client certificate (and intermediate chain), as well as its associated private key. This must be PEM-encoded. This path can contain environment variables using shell interpolation syntax (i.e. $VAR). They will be substituted before reading the file.
 * `http_headers` - HTTP headers to inject in all requests to RE. This is a comma-separated list of `Header: Value` pairs. Minimal validation of those headers is done here. This can contain environment variables using shell interpolation syntax ($VAR). They will be substituted before reading the file.
+* `instance_name` - an instance name to pass on execution, action cache, and CAS requests.
 
 Buck2 uses `SHA256` for all its hashing by default. If your RE engine requires something else, this can be configured in `.buckconfig` as follows:
 
