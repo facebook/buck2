@@ -19,17 +19,16 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice::DetectCycles;
+use dice::Dice;
+use dice::DiceComputations;
+use dice::DiceTransactionUpdater;
+use dice::InjectedKey;
+use dice::Key;
+use dice::WhichSpawner;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use tempfile::NamedTempFile;
-
-use crate::api::computations::DiceComputations;
-use crate::api::cycles::DetectCycles;
-use crate::api::injected::InjectedKey;
-use crate::api::key::Key;
-use crate::api::transaction::DiceTransactionUpdater;
-use crate::legacy::DiceLegacy;
-use crate::WhichSpawner;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]
 enum Encoding {
@@ -146,7 +145,8 @@ async fn demo() -> anyhow::Result<()> {
     let temp = NamedTempFile::new().unwrap();
     let f = PathBuf::from(temp.path());
 
-    let dice = DiceLegacy::builder().build(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
+    let dice = Dice::builder()
+        .build_with_which_spawner(DetectCycles::Enabled, WhichSpawner::ExplicitCancel);
 
     let mut ctx = dice.updater();
     ctx.set_encodings(Encoding::Utf8)?;
@@ -154,7 +154,7 @@ async fn demo() -> anyhow::Result<()> {
 
     let set = |x: &str| fs::write(&f, x).unwrap();
 
-    async fn get(x: &str, dice: &Arc<DiceLegacy>, f: &Path) {
+    async fn get(x: &str, dice: &Arc<Dice>, f: &Path) {
         let contents = dice
             .updater()
             .commit()

@@ -7,8 +7,5 @@
  * of this source tree.
  */
 
-#![cfg(test)]
-
-mod legacy;
-mod opaque;
+mod demo;
 mod projection;

@@ -12,6 +12,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",
         "//buck2/dice/dice:dice",
