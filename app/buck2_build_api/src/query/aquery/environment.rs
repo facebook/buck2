@@ -115,10 +115,15 @@ impl ActionQueryNode {
     }
 
     pub fn attrs(&self) -> IndexMap<String, String> {
-        self.action.action().aquery_attributes(&ExecutorFs::new(
+        let mut attrs = self.action.action().aquery_attributes(&ExecutorFs::new(
             &self.fs,
             self.action.execution_config().options.path_separator,
-        ))
+        ));
+        attrs.insert(
+            "executor_configuration".to_owned(),
+            self.action.execution_config().executor.to_string(),
+        );
+        attrs
     }
 
     pub fn action(&self) -> Arc<RegisteredAction> {
