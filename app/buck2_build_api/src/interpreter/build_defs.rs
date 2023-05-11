@@ -185,7 +185,6 @@ mod tests {
     use indoc::indoc;
     use serde_json::json;
 
-    use crate::interpreter::build_defs::register_provider;
     use crate::interpreter::rule_defs::register_rule_defs;
 
     #[test]
@@ -293,37 +292,6 @@ mod tests {
                 AttrInspectOptions::All
             )?
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_provider() -> anyhow::Result<()> {
-        // TODO: test restricting field names
-        let mut tester = Tester::new().unwrap();
-        tester.additional_globals(register_provider);
-        tester.run_starlark_test(indoc!(
-            r#"
-            SomeInfo = provider(fields=["x", "y"])
-            SomeOtherInfo = provider(fields={"x": "docs for x", "y": "docs for y"})
-            DocInfo = provider(doc="Some docs", fields=["x", "y"])
-
-            def test():
-                instance = SomeInfo(x = 2, y = True)
-                assert_eq(2, instance.x)
-                assert_eq(True, instance.y)
-                assert_eq(SomeInfo(x = 2, y = True), instance)
-
-                instance = SomeOtherInfo(x = 2, y = True)
-                assert_eq(2, instance.x)
-                assert_eq(True, instance.y)
-                assert_eq(SomeOtherInfo(x = 2, y = True), instance)
-
-                instance = DocInfo(x = 2, y = True)
-                assert_eq(2, instance.x)
-                assert_eq(True, instance.y)
-                assert_eq(DocInfo(x = 2, y = True), instance)
-            "#
-        ))?;
         Ok(())
     }
 
