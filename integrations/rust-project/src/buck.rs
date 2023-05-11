@@ -191,16 +191,28 @@ fn merge_unit_test_targets(
 ) -> BTreeMap<Target, TargetInfoEntry> {
     let mut target_index = BTreeMap::new();
 
-    let (tests, targets): (BTreeMap<Target, TargetInfo>, BTreeMap<Target, TargetInfo>) = target_map
-        .into_iter()
-        .partition(|(_, info)| info.kind == Kind::Test);
+    let (tests, mut targets): (BTreeMap<Target, TargetInfo>, BTreeMap<Target, TargetInfo>) =
+        target_map
+            .into_iter()
+            .partition(|(_, info)| info.kind == Kind::Test);
+
+    let (generated_unit_tests, standalone_tests): (
+        BTreeMap<Target, TargetInfo>,
+        BTreeMap<Target, TargetInfo>,
+    ) = tests.into_iter().partition(|(target, _)| {
+        targets
+            .iter()
+            .any(|(_, value)| value.tests.contains(target))
+    });
+
+    targets.extend(standalone_tests);
 
     for (index, (target, mut info)) in targets.into_iter().enumerate() {
         trace!(?target, ?info, index, "adding dependency");
 
         // merge the `-unittest` target with the parent target.
         for test_dep in &info.tests {
-            if let Some(test_info) = tests.get(test_dep) {
+            if let Some(test_info) = generated_unit_tests.get(test_dep) {
                 for test_dep in &test_info.deps {
                     if !info.deps.contains(test_dep) {
                         info.deps.push(test_dep.clone())
