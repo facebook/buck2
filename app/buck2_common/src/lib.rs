@@ -16,6 +16,7 @@
 #![feature(fs_try_exists)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
+#![feature(trait_alias)]
 #![feature(never_type)]
 #![feature(pattern)]
 

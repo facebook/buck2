@@ -147,6 +147,7 @@ httparse = "1.7.1"
 httptest = "0.15"
 humantime = "2.0.1"
 hyper = { version = "0.14.7", features = ["client", "http1", "http2"] }
+hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "0a5aa97a3cd00ca5be1d21559dcf8ef29dc63e08", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28.
 hyper-rustls = { version = "0.23.0", features = ["http2"] }
 indent_write = "2.2.0"
 indenter = "0.3.3"
@@ -237,6 +238,7 @@ textwrap = { version = "0.11", features = ["term_size"] }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.5", features = ["full"] }
+tokio-rustls = { package = "tokio-rustls", version = "0.23.0", features = ["dangerous_configuration"] }
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5.8"

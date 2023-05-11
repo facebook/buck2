@@ -11,6 +11,7 @@ use std::fs::File;
 use std::future::Future;
 use std::io::BufReader;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Context;
 use gazebo::prelude::VecExt;
@@ -18,19 +19,21 @@ use http::HeaderMap;
 use http::Method;
 use http::Uri;
 use hyper::body;
-use hyper::client::connect::HttpConnector;
+use hyper::client::connect::Connect;
+use hyper::client::ResponseFuture;
 use hyper::Body;
-use hyper::Client;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use hyper_rustls::HttpsConnector;
+use hyper_proxy::Proxy;
+use hyper_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnectorBuilder;
 use rustls::Certificate;
 use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 use thiserror::Error;
+use tokio_rustls::TlsConnector;
 
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
@@ -75,6 +78,13 @@ fn load_cert_pair<P: AsRef<Path>>(
     let key = PrivateKey(private_key);
 
     Ok((certs, key))
+}
+
+fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
+    Ok(ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(load_system_root_certs()?)
+        .with_no_client_auth())
 }
 
 fn http_error_label(status: StatusCode) -> &'static str {
@@ -340,29 +350,50 @@ pub trait HttpClient {
     async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError>;
 }
 
+/// Trait wrapper around a hyper::Client because hyper::Client is parameterized by
+/// the connector. At runtime, we want to pick different connectors (e.g. HttpsConnector,
+/// ProxyConnector<HttpsConnector<..>>, etc); thus wrap the client so we can switch
+/// out the concrete type without exposing implementation details to callers.
+trait RequestClient: Send + Sync {
+    fn request(&self, request: Request<Body>) -> ResponseFuture;
+}
+
+impl<C> RequestClient for hyper::Client<C>
+where
+    C: Connect + Clone + Send + Sync + 'static,
+{
+    fn request(&self, request: Request<Body>) -> ResponseFuture {
+        self.request(request)
+    }
+}
+
 /// A simple client that can make requests to HTTPS or HTTP endpoints. Handles
-/// redirects (up to `max_redirects`).
+/// redirects (up to max_redirects).
 pub struct SecureHttpClient {
-    inner: Client<HttpsConnector<HttpConnector>>,
+    inner: Arc<dyn RequestClient>,
     max_redirects: usize,
 }
 
 impl SecureHttpClient {
     /// Constructs a client that uses default system roots to setup TLS.
     pub fn new() -> anyhow::Result<Self> {
-        let config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(load_system_root_certs()?)
-            .with_no_client_auth();
+        let config = tls_config_with_system_roots()?;
         Ok(Self::configure(config, DEFAULT_MAX_REDIRECTS))
     }
 
     pub fn with_max_redirects(max_redirects: usize) -> anyhow::Result<Self> {
-        let config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(load_system_root_certs()?)
-            .with_no_client_auth();
+        let config = tls_config_with_system_roots()?;
         Ok(Self::configure(config, max_redirects))
+    }
+
+    pub fn with_connector<C: Connect + Clone + Send + Sync + 'static>(
+        connector: C,
+        max_redirects: usize,
+    ) -> Self {
+        Self {
+            inner: Arc::new(hyper::Client::builder().build::<_, Body>(connector)),
+            max_redirects,
+        }
     }
 
     fn configure(tls_config: ClientConfig, max_redirects: usize) -> Self {
@@ -372,10 +403,7 @@ impl SecureHttpClient {
             .enable_http1()
             .enable_http2()
             .build();
-        Self {
-            inner: hyper::Client::builder().build::<_, Body>(connector),
-            max_redirects,
-        }
+        Self::with_connector(connector, max_redirects)
     }
 
     async fn send_request_impl(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
@@ -420,13 +448,124 @@ impl HttpClient for SecureHttpClient {
     }
 }
 
+pub struct SecureProxiedClient {
+    inner: SecureHttpClient,
+}
+
+impl SecureProxiedClient {
+    pub fn new(proxy: Proxy) -> anyhow::Result<Self> {
+        Self::with_proxies([proxy])
+    }
+
+    pub fn with_proxies<I: IntoIterator<Item = Proxy>>(proxies: I) -> anyhow::Result<Self> {
+        let config = tls_config_with_system_roots()?;
+
+        // This connector establishes a secure connection from client -> dest
+        let https_connector = HttpsConnectorBuilder::new()
+            .with_tls_config(config.clone())
+            .https_or_http()
+            .enable_http1()
+            .enable_http2()
+            .build();
+
+        // This connector wraps the above and _also_ establishes a secure connection to
+        // the proxy, re-using the same TLS config for the above connector.
+        //
+        // The net effect is that we can establish a secure connection to the proxy and
+        // have that tunnel our secure connection to the destination.
+        let mut proxy_connector = ProxyConnector::new(https_connector)
+            .context("Error creating secured proxy connector")?;
+        proxy_connector.set_tls(Some(TlsConnector::from(Arc::new(config))));
+        proxy_connector.extend_proxies(proxies);
+
+        Ok(Self {
+            inner: SecureHttpClient::with_connector(proxy_connector, DEFAULT_MAX_REDIRECTS),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl HttpClient for SecureProxiedClient {
+    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+        self.inner.request(request).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::convert::Infallible;
+    use std::net::SocketAddr;
+    use std::net::TcpListener;
+    use std::net::ToSocketAddrs;
+
+    use http::HeaderValue;
     use httptest::matchers::*;
     use httptest::responders;
     use httptest::Expectation;
+    use hyper::service::make_service_fn;
+    use hyper::service::service_fn;
+    use hyper::Server;
+    use hyper_proxy::Intercept;
+    use tokio::task::JoinHandle;
 
     use super::*;
+
+    /// Barebones proxy server implementation that simply forwards requests onto
+    /// the destination server.
+    struct ProxyServer {
+        addr: SocketAddr,
+        // Need to hold a ref to the task so when Drop runs on Self we cancel
+        // the task.
+        #[allow(dead_code)]
+        handle: JoinHandle<()>,
+    }
+
+    impl ProxyServer {
+        async fn new() -> anyhow::Result<Self> {
+            let proxy_server_addr = "[::1]:0".to_socket_addrs().unwrap().next().unwrap();
+            let listener =
+                TcpListener::bind(proxy_server_addr).context("failed to bind to local address")?;
+            let proxy_server_addr = listener.local_addr()?;
+
+            let make_proxy_service = make_service_fn(|_conn| async move {
+                Ok::<_, Infallible>(service_fn(|mut req: Request<Body>| async move {
+                    let client = hyper::Client::new();
+                    req.headers_mut().insert(
+                        http::header::VIA,
+                        HeaderValue::from_static("testing-proxy-server"),
+                    );
+                    println!("Proxying request: {:?}", req);
+                    client
+                        .request(req)
+                        .await
+                        .context("Failed sending requeest to destination")
+                }))
+            });
+
+            let handle = tokio::task::spawn(async move {
+                println!("started proxy server");
+                Server::from_tcp(listener)
+                    .unwrap()
+                    .serve(make_proxy_service)
+                    .await
+                    .expect("Proxy server exited unexpectedly");
+            });
+
+            Ok(Self {
+                addr: proxy_server_addr,
+                handle,
+            })
+        }
+
+        fn uri(&self) -> anyhow::Result<Uri> {
+            Uri::builder()
+                .scheme("http")
+                .authority(self.addr.to_string().as_str())
+                .path_and_query("/")
+                .build()
+                .context("failed to build proxy server URI")
+        }
+    }
 
     #[tokio::test]
     async fn test_simple_get_success() -> anyhow::Result<()> {
@@ -567,6 +706,28 @@ mod tests {
                 result.err().unwrap()
             );
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_uses_http_proxy() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("GET", "/foo"),
+                request::headers(contains(("via", "testing-proxy-server")))
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let proxy_server = ProxyServer::new().await?;
+        println!("proxy_server uri: {}", proxy_server.uri()?);
+
+        let client = SecureProxiedClient::new(Proxy::new(Intercept::Http, proxy_server.uri()?))?;
+        let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
 
         Ok(())
     }

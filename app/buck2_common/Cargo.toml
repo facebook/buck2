@@ -19,6 +19,7 @@ globset = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
+hyper-proxy = { workspace = true }
 hyper-rustls = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
@@ -36,6 +37,7 @@ sha1 = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-rustls = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 num_enum = { workspace = true }
