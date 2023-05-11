@@ -5,12 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//cxx:link.bzl",
     "cxx_link_into_shared_library",
     "cxx_link_shared_library",
 )
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -471,7 +472,7 @@ def _create_root(
         # We prefer local execution because there are lot of cxx_link_omnibus_root
         # running simultaneously, so while their overall load is reasonable,
         # their peak execution load is very high.
-        prefer_local = True,
+        link_execution_preference = LinkExecutionPreference("local"),
     )
 
     return OmnibusRootProduct(
@@ -724,7 +725,7 @@ def _create_omnibus(
         ]))
 
     soname = _omnibus_soname(ctx)
-    hybrid = use_hybrid_links_for_libomnibus(ctx)
+
     result, _ = cxx_link_into_shared_library(
         ctx,
         soname,
@@ -737,11 +738,10 @@ def _create_omnibus(
         # the linker_info.link_libraries_locally that's used by `cxx_link_into_shared_library`.
         # That's because we do not want to apply the linking behavior universally,
         # just use it for omnibus.
-        prefer_local = False if hybrid else link_cxx_binary_locally(ctx, toolchain_info),
+        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, use_hybrid_links_for_libomnibus(ctx), toolchain_info),
         link_weight = linker_info.link_weight,
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,
-        force_full_hybrid_if_capable = hybrid,
     )
     return result
 

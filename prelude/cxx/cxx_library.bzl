@@ -35,6 +35,7 @@ load(
     "@prelude//java:java_providers.bzl",
     "get_java_packaging_info",
 )
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
@@ -855,6 +856,9 @@ def _form_library_outputs(
                     children = impl_params.additional.shared_external_debug_info,
                 )
 
+                # Not all rules calling `cxx_library_parameterized` have `link_execution_preference`. Notably `cxx_python_extension`.
+                link_execution_preference = get_link_execution_preference(ctx) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
+
                 extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
                 result = _shared_library(
                     ctx,
@@ -865,6 +869,7 @@ def _form_library_outputs(
                     gnu_use_link_groups,
                     extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
+                    link_execution_preference = link_execution_preference,
                 )
                 shlib = result.shlib
                 info = result.info
@@ -1098,6 +1103,7 @@ def _shared_library(
         dep_infos: "LinkArgs",
         gnu_use_link_groups: bool.type,
         extra_linker_flags: ["_arglike"],
+        link_execution_preference: LinkExecutionPreference.type,
         link_ordering: [LinkOrdering.type, None] = None) -> _CxxSharedLibraryResult.type:
     """
     Generate a shared library and the associated native link info used by
@@ -1141,6 +1147,7 @@ def _shared_library(
         shared_library_flags = impl_params.shared_library_flags,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
+        link_execution_preference = link_execution_preference,
     )
 
     exported_shlib = shlib.output
@@ -1175,6 +1182,7 @@ def _shared_library(
             name = soname,
             links = [LinkArgs(infos = [link_info])],
             identifier = soname,
+            link_execution_preference = link_execution_preference,
         )
 
         # Convert the shared library into an interface.

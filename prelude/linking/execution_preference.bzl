@@ -19,6 +19,13 @@ LinkExecutionPreferenceDeterminatorInfo = provider(fields = [
     "preference_for_links",  # function that takes a list of target labels and returns a LinkExecutionPreference
 ])
 
+_ActionExecutionAttributes = record(
+    full_hybrid = field(bool.type, default = False),
+    local_only = field(bool.type, default = False),
+    prefer_local = field(bool.type, default = False),
+    prefer_remote = field(bool.type, default = False),
+)
+
 def link_execution_preference_attr():
     # The attribute is optional, allowing for None to represent that no preference has been set and we should fallback on the toolchain.
     return attrs.option(attrs.one_of(attrs.enum(LinkExecutionPreferenceTypes), attrs.dep(providers = [LinkExecutionPreferenceDeterminatorInfo])), default = None, doc = """
@@ -47,3 +54,17 @@ def get_link_execution_preference(ctx) -> LinkExecutionPreference.type:
         return LinkExecutionPreference(link_execution_preference)
 
     return fail("link_execution_preference of type dependency currently unhandled.")
+
+def get_action_execution_attributes(preference: LinkExecutionPreference.type) -> _ActionExecutionAttributes.type:
+    if preference == LinkExecutionPreference("any"):
+        return _ActionExecutionAttributes()
+    elif preference == LinkExecutionPreference("full_hybrid"):
+        return _ActionExecutionAttributes(full_hybrid = True)
+    elif preference == LinkExecutionPreference("local"):
+        return _ActionExecutionAttributes(prefer_local = True)
+    elif preference == LinkExecutionPreference("local_only"):
+        return _ActionExecutionAttributes(local_only = True)
+    elif preference == LinkExecutionPreference("remote"):
+        return _ActionExecutionAttributes(prefer_remote = True)
+    else:
+        fail("Unhandled LinkExecutionPreference: {}".format(str(preference)))

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
+load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//:resources.bzl",
     "create_resource_db",
@@ -27,6 +27,7 @@ load(
     "XcodeDataInfo",
     "generate_xcode_data",
 )
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
     "gather_link_group_libs",
@@ -409,6 +410,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         dep_links,
     ] + impl_params.extra_link_args
 
+    link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, impl_params.force_full_hybrid_if_capable)
+
     link_result = _link_into_executable(
         ctx,
         links,
@@ -418,11 +421,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         linker_info.link_weight,
         linker_info.binary_extension,
         link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
-        prefer_local = False if impl_params.force_full_hybrid_if_capable else link_cxx_binary_locally(ctx),
+        link_execution_preference = link_execution_preference,
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         strip = impl_params.strip_executable,
         strip_args_factory = impl_params.strip_args_factory,
-        force_full_hybrid_if_capable = impl_params.force_full_hybrid_if_capable,
         category_suffix = impl_params.exe_category_suffix,
     )
     binary = link_result.exe
@@ -575,12 +577,11 @@ def _link_into_executable(
         shared_libs: {str.type: LinkedObject.type},
         link_weight: int.type,
         binary_extension: str.type,
-        prefer_local: bool.type = False,
+        link_execution_preference: LinkExecutionPreference.type = LinkExecutionPreference("any"),
         enable_distributed_thinlto: bool.type = False,
         strip: bool.type = False,
         link_ordering: [LinkOrdering.type, None] = None,
         strip_args_factory = None,
-        force_full_hybrid_if_capable: bool.type = False,
         category_suffix: [str.type, None] = None) -> _CxxLinkExecutableResult.type:
     output = ctx.actions.declare_output("{}{}".format(get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""))
     extra_args, runtime_files, shared_libs_symlink_tree = executable_shared_lib_arguments(
@@ -601,10 +602,9 @@ def _link_into_executable(
         category_suffix = category_suffix,
         strip = strip,
         strip_args_factory = strip_args_factory,
-        force_full_hybrid_if_capable = force_full_hybrid_if_capable,
         link_ordering = link_ordering,
         link_weight = link_weight,
-        prefer_local = prefer_local,
+        link_execution_preference = link_execution_preference,
     )
 
     return _CxxLinkExecutableResult(
