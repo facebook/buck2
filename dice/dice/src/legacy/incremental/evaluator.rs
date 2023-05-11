@@ -17,8 +17,8 @@ use crate::legacy::dice_futures::dice_task::DiceTask;
 use crate::legacy::incremental::graph::GraphNode;
 use crate::legacy::incremental::IncrementalComputeProperties;
 use crate::legacy::incremental::IncrementalEngine;
+use crate::legacy::EvaluationResult;
 use crate::TransactionCtx;
-use crate::ValueWithDeps;
 use crate::WeakDiceFutureHandle;
 
 #[async_trait]
@@ -44,7 +44,7 @@ pub(crate) trait Evaluator:
         transaction_ctx: Arc<TransactionCtx>,
         cancellations: &CancellationContext,
         extra: ComputationData,
-    ) -> ValueWithDeps<Self::Value>;
+    ) -> EvaluationResult<Self::Value>;
 }
 
 #[cfg(test)]
@@ -71,8 +71,8 @@ pub(crate) mod testing {
     use crate::legacy::incremental::Computable;
     use crate::legacy::incremental::IncrementalComputeProperties;
     use crate::legacy::incremental::IncrementalEngine;
+    use crate::legacy::EvaluationResult;
     use crate::TransactionCtx;
-    use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;
 
     /// Evaluator which panics on attempt to evaluate.
@@ -148,7 +148,7 @@ pub(crate) mod testing {
             _transaction_ctx: Arc<TransactionCtx>,
             _cancellations: &CancellationContext,
             _extra: ComputationData,
-        ) -> ValueWithDeps<Self::Value> {
+        ) -> EvaluationResult<Self::Value> {
             unreachable!()
         }
     }
@@ -159,7 +159,7 @@ pub(crate) mod testing {
     pub(crate) struct EvaluatorFn<K, V> {
         #[allocative(skip)]
         f: Box<
-            dyn for<'a> Fn(K, &'a CancellationContext) -> BoxFuture<'a, ValueWithDeps<V>>
+            dyn for<'a> Fn(K, &'a CancellationContext) -> BoxFuture<'a, EvaluationResult<V>>
                 + Send
                 + Sync
                 + 'static,
@@ -169,7 +169,7 @@ pub(crate) mod testing {
     impl<K, V> EvaluatorFn<K, V> {
         pub(crate) fn new<F>(f: F) -> Self
         where
-            F: for<'a> FnOnce(K, &'a CancellationContext) -> BoxFuture<'a, ValueWithDeps<V>>
+            F: for<'a> FnOnce(K, &'a CancellationContext) -> BoxFuture<'a, EvaluationResult<V>>
                 + Clone
                 + Sync
                 + Send
@@ -251,7 +251,7 @@ pub(crate) mod testing {
             _: Arc<TransactionCtx>,
             cancellations: &CancellationContext,
             _extra: ComputationData,
-        ) -> ValueWithDeps<V> {
+        ) -> EvaluationResult<V> {
             (self.f)(k.clone(), cancellations).await
         }
     }

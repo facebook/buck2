@@ -227,7 +227,6 @@ use futures::FutureExt;
 use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
 use legacy::incremental::graph::GraphNode;
 use legacy::incremental::transaction_ctx::TransactionCtx;
-use legacy::incremental::ValueWithDeps;
 use legacy::key::StoragePropertiesForKey;
 use metrics::Metrics;
 pub use more_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api

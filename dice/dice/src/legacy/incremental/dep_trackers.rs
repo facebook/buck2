@@ -420,9 +420,9 @@ mod tests {
     use crate::legacy::incremental::testing::ComputedDependencyExt;
     use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::incremental::TransactionCtx;
+    use crate::legacy::EvaluationResult;
     use crate::versions::VersionNumber;
     use crate::HashSet;
-    use crate::ValueWithDeps;
 
     #[test]
     fn recording_rdeps_tracker_tracks_rdeps() {
@@ -445,7 +445,7 @@ mod tests {
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
         let fn_for_2_and_3 = |k| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps::default(),
                 }

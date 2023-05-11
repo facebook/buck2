@@ -25,7 +25,6 @@ use incremental::transaction_ctx::TransactionCtx;
 use incremental::versions::VersionTracker;
 use incremental::IncrementalComputeProperties;
 use incremental::IncrementalEngine;
-use incremental::ValueWithDeps;
 use key::StoragePropertiesForKey;
 use map::DiceMap;
 use more_futures::cancellation::CancellationContext;
@@ -45,6 +44,7 @@ use crate::api::which::WhichSpawner;
 use crate::ctx::DiceComputationsImpl;
 use crate::legacy::ctx::ComputationData;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
+use crate::legacy::incremental::dep_trackers::BothDeps;
 use crate::metrics::Metrics;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 
@@ -274,7 +274,7 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
         transaction_ctx: Arc<TransactionCtx>,
         cancellations: &CancellationContext,
         extra: ComputationData,
-    ) -> ValueWithDeps<K::Value> {
+    ) -> EvaluationResult<K::Value> {
         let ctx = DiceComputationsImplLegacy::new_for_key_evaluation(
             self.dice
                 .upgrade()
@@ -292,6 +292,12 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 
         let both_deps = ctx.finalize();
 
-        ValueWithDeps { value, both_deps }
+        EvaluationResult { value, both_deps }
     }
+}
+
+/// Result of evaluation computation.
+pub(crate) struct EvaluationResult<T> {
+    pub(crate) value: T,
+    pub(crate) both_deps: BothDeps,
 }

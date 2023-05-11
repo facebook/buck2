@@ -76,17 +76,12 @@ use crate::legacy::incremental::transaction_ctx::TransactionCtx;
 use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::projection::ProjectionKeyProperties;
+use crate::legacy::EvaluationResult;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 use crate::HashMap;
 use crate::HashSet;
 use crate::StoragePropertiesForKey;
-
-/// Result of evaluation computation.
-pub(crate) struct ValueWithDeps<T> {
-    pub(crate) value: T,
-    pub(crate) both_deps: BothDeps,
-}
 
 #[async_trait]
 pub(crate) trait IncrementalComputeProperties: StorageProperties {
@@ -573,7 +568,7 @@ where
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let ValueWithDeps { value, both_deps } = self
+        let EvaluationResult { value, both_deps } = self
             .versioned_cache
             .storage_properties
             .eval(k, transaction_ctx, cancellation, extra)
@@ -1310,12 +1305,12 @@ mod tests {
     use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::incremental::TransactionCtx;
     use crate::legacy::incremental::VersionedGraphResultMismatch;
+    use crate::legacy::EvaluationResult;
     use crate::versions::testing::VersionRangesExt;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRange;
     use crate::versions::VersionRanges;
     use crate::HashSet;
-    use crate::ValueWithDeps;
     use crate::WeakDiceFutureHandle;
 
     #[tokio::test]
@@ -1330,7 +1325,7 @@ mod tests {
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
         let eval_fn = move |k| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps {
                         deps: HashSet::default(),
@@ -1406,13 +1401,13 @@ mod tests {
                     {
                         if k == 0 {
                             counter0.fetch_add(1, Ordering::SeqCst);
-                            ValueWithDeps {
+                            EvaluationResult {
                                 value: 1i32,
                                 both_deps: BothDeps::default(),
                             }
                         } else {
                             counter1.fetch_add(1, Ordering::SeqCst);
-                            ValueWithDeps {
+                            EvaluationResult {
                                 value: 2i32,
                                 both_deps: BothDeps::default(),
                             }
@@ -1503,7 +1498,7 @@ mod tests {
                     // spawned tasks that can only proceed if all are
                     // concurrently running
                     b.wait();
-                    ValueWithDeps {
+                    EvaluationResult {
                         value: 1usize,
                         both_deps: BothDeps::default(),
                     }
@@ -1809,7 +1804,7 @@ mod tests {
                 async move {
                     if k == 10 && !is_ran.load(Ordering::SeqCst) {
                         is_ran.store(true, Ordering::SeqCst);
-                        return ValueWithDeps {
+                        return EvaluationResult {
                             value: eval_result.load(Ordering::SeqCst),
                             both_deps: BothDeps {
                                 deps: HashSet::from_iter([Box::new(dep.lock().take().unwrap())
@@ -2021,7 +2016,7 @@ mod tests {
 
         let engine0 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps {
                         deps: HashSet::default(),
@@ -2037,7 +2032,7 @@ mod tests {
 
         let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps {
                         deps: HashSet::default(),
@@ -2053,7 +2048,7 @@ mod tests {
 
         let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps {
                         deps: HashSet::default(),
@@ -2069,7 +2064,7 @@ mod tests {
 
         let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                ValueWithDeps {
+                EvaluationResult {
                     value: k,
                     both_deps: BothDeps {
                         deps: HashSet::default(),
@@ -2160,7 +2155,7 @@ mod tests {
 
                     c.store(true, Ordering::SeqCst);
 
-                    ValueWithDeps {
+                    EvaluationResult {
                         value: 1usize,
                         both_deps: BothDeps {
                             deps: HashSet::default(),
@@ -2299,8 +2294,8 @@ mod tests {
                 transaction_ctx: Arc<TransactionCtx>,
                 _cancellations: &CancellationContext,
                 _extra: ComputationData,
-            ) -> ValueWithDeps<usize> {
-                ValueWithDeps {
+            ) -> EvaluationResult<usize> {
+                EvaluationResult {
                     value: transaction_ctx.get_version().to_string()[1..]
                         .parse::<usize>()
                         .unwrap()
@@ -2366,13 +2361,13 @@ mod tests {
                 transaction_ctx: Arc<TransactionCtx>,
                 _cancellations: &CancellationContext,
                 extra: ComputationData,
-            ) -> ValueWithDeps<usize> {
+            ) -> EvaluationResult<usize> {
                 let node = self
                     .0
                     .eval_entry_versioned(&1, &transaction_ctx, extra)
                     .await
                     .unwrap();
-                ValueWithDeps {
+                EvaluationResult {
                     value: *node.val(),
                     both_deps: BothDeps {
                         deps: HashSet::from_iter([Box::new(ComputedDep {
@@ -2440,7 +2435,7 @@ mod tests {
             let instance_count = instance.dupe();
             IncrementalEngine::new(EvaluatorFn::new(move |_k, _| {
                 async move {
-                    ValueWithDeps {
+                    EvaluationResult {
                         value: InstanceEqual {
                             instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
                         },
@@ -2505,7 +2500,7 @@ mod tests {
 
                     if *guard {
                         // Last attempt, return.
-                        ValueWithDeps {
+                        EvaluationResult {
                             value: (),
                             both_deps: BothDeps {
                                 deps: HashSet::default(),
@@ -2596,7 +2591,7 @@ mod tests {
                             .await;
                     }
 
-                    ValueWithDeps {
+                    EvaluationResult {
                         value: was_first_call,
                         both_deps: BothDeps {
                             deps: HashSet::default(),
