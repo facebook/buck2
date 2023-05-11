@@ -284,7 +284,6 @@ pub fn compute_critical_path_potentials(
 mod test {
     use std::time::Instant;
 
-    use rand::Rng;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -403,11 +402,10 @@ mod test {
     /// Run on a larger number of random graphs.
     #[test]
     fn test_random_large() {
-        let mut rng = seeded_rng();
         for i in 0..10 {
             eprintln!();
             eprintln!("test {i}");
-            let mut this_rng = ChaCha8Rng::seed_from_u64(rng.gen());
+            let mut this_rng = ChaCha8Rng::seed_from_u64(i);
             let dag = make_dag(1000, &mut this_rng);
             do_test(&dag);
         }
