@@ -150,7 +150,7 @@ def erlang_application(
             name = _extra_include_name(name),
             application_name = name,
             includes = kwargs.get("includes", []),
-            visibility = kwargs.get("visibility", []),
+            visibility = kwargs.get("visibility", None),
             labels = ["generated", "app_includes"],
         ),
     ]
