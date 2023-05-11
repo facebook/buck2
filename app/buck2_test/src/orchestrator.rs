@@ -104,12 +104,9 @@ use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::protocol::TestOrchestrator;
-use dashmap::DashMap;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
-use futures::future::BoxFuture;
-use futures::future::Shared;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
@@ -122,6 +119,7 @@ use starlark::values::FrozenRef;
 use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
+use crate::local_resource_registry::LocalResourceRegistry;
 use crate::local_resource_setup::required_local_resources_setup_contexts;
 use crate::local_resource_setup::LocalResourceSetupContext;
 use crate::session::TestSession;
@@ -143,8 +141,7 @@ pub struct BuckTestOrchestrator<'a> {
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
     cancellations: &'a CancellationContext,
-    local_resource_state_registry:
-        DashMap<ConfiguredTargetLabel, Shared<BoxFuture<'a, SharedResult<LocalResourceState>>>>,
+    local_resource_state_registry: LocalResourceRegistry<'a>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -185,7 +182,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer,
             digest_config,
             cancellations,
-            local_resource_state_registry: DashMap::new(),
+            local_resource_state_registry: LocalResourceRegistry::new(),
         }
     }
 }
@@ -825,6 +822,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let resource_futs = setup_commands.into_iter().map(|context| {
             let local_resource_target = context.target.dupe();
             self.local_resource_state_registry
+                .0
                 .entry(local_resource_target.dupe())
                 .or_insert_with(|| {
                     let setup = Self::start_local_resource(
