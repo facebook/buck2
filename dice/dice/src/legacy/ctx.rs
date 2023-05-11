@@ -105,11 +105,8 @@ impl ComputationData {
             .and_then(|v| v.start_computing_key(K::to_key_any(k)));
     }
 
-    pub(crate) fn finished_computing_key<K: StorageProperties>(
-        user_data: &UserComputationData,
-        k: &K::Key,
-    ) {
-        if let Some(v) = &user_data.cycle_detector {
+    pub(crate) fn finished_computing_key<K: StorageProperties>(self, k: &K::Key) {
+        if let Some(v) = &self.user_data.cycle_detector {
             v.finished_computing_key(K::to_key_any(k))
         }
     }

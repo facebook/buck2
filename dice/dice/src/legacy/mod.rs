@@ -304,6 +304,5 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 pub(crate) struct EvaluationResult<T> {
     pub(crate) value: T,
     pub(crate) both_deps: BothDeps,
-    #[allow(unused)]
     pub(crate) extra: ComputationData,
 }
