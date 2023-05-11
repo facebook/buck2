@@ -128,7 +128,12 @@ impl DiceTask {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));
 
-                    MaybeCancelled::Ok(DicePromise::pending(id, self.internal.dupe(), waker))
+                    MaybeCancelled::Ok(DicePromise::pending(
+                        id,
+                        self.internal.dupe(),
+                        waker,
+                        self.cancellations.dupe(),
+                    ))
                 }
             }
         }
@@ -157,12 +162,16 @@ impl DiceTask {
 }
 
 impl DiceTaskInternal {
-    pub(super) fn drop_waiter(&self, slab: usize) {
-        let mut deps = self.dependants.lock();
-        match deps.deref_mut() {
+    pub(super) fn drop_waiter(&self, slab: usize, cancellations: &Cancellations) {
+        let mut deps_lock = self.dependants.lock();
+        match deps_lock.deref_mut() {
             None => {}
             Some(ref mut deps) => {
                 deps.remove(slab);
+
+                if deps.is_empty() {
+                    cancellations.cancel(&deps_lock);
+                }
             }
         }
     }
@@ -248,6 +257,7 @@ unsafe impl Sync for DiceTaskInternal {}
 
 /// Stores either task cancellation handle which can be used to cancel the task
 /// or termination observers if task is being cancelled.
+#[derive(Clone, Dupe)]
 pub(super) struct Cancellations {
     /// `UnsafeCell` access is guarded by `DiceTaskInternal.dependants` mutex.
     /// `None` means task is not cancellable.

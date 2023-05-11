@@ -20,6 +20,7 @@ use futures::task::AtomicWaker;
 
 use crate::api::error::DiceResult;
 use crate::arc::Arc;
+use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
@@ -41,6 +42,7 @@ pub(super) enum DicePromiseInternal {
         slab: usize,
         task_internal: Arc<DiceTaskInternal>,
         waker: Arc<AtomicWaker>,
+        cancellations: Cancellations,
     },
     Done,
 }
@@ -54,11 +56,13 @@ impl DicePromise {
         slab: usize,
         internal: Arc<DiceTaskInternal>,
         waker: Arc<AtomicWaker>,
+        cancellations: Cancellations,
     ) -> Self {
         Self(DicePromiseInternal::Pending {
             slab,
             task_internal: internal,
             waker,
+            cancellations,
         })
     }
 
@@ -101,8 +105,9 @@ impl Drop for DicePromise {
             DicePromiseInternal::Pending {
                 slab,
                 task_internal,
+                cancellations,
                 ..
-            } => task_internal.drop_waiter(*slab),
+            } => task_internal.drop_waiter(*slab, cancellations),
         }
     }
 }

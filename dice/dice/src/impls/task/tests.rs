@@ -17,6 +17,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::poll;
 use futures::FutureExt;
+use more_futures::cancellation::future::TerminationStatus;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
@@ -29,6 +30,7 @@ use crate::arc::Arc;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::dice::MaybeCancelled;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
 use crate::impls::value::DiceComputedValue;
@@ -521,4 +523,67 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[tokio::test]
+async fn dropping_all_waiters_cancels_task() {
+    let barrier = Arc::new(Barrier::new(2));
+
+    let task = spawn_dice_task(&TokioSpawner, &(), {
+        let barrier = barrier.dupe();
+        |handle| {
+            async move {
+                let _handle = handle;
+                // wait for the lock too
+                barrier.wait().await;
+                futures::future::pending().await
+            }
+            .boxed()
+        }
+    });
+
+    barrier.wait().await;
+
+    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
+    assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(task.is_pending());
+
+    let promise1 = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
+        .not_cancelled()
+        .unwrap();
+
+    assert!(task.is_pending());
+
+    let promise2 = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
+        .not_cancelled()
+        .unwrap();
+
+    assert!(task.is_pending());
+
+    drop(promise1);
+
+    assert!(task.is_pending());
+
+    let promise3 = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
+        .not_cancelled()
+        .unwrap();
+
+    drop(promise2);
+    drop(promise3);
+
+    match task.depended_on_by(ParentKey::None) {
+        MaybeCancelled::Ok(_) => {
+            panic!("should be cancelled")
+        }
+        MaybeCancelled::Cancelled(termination) => {
+            assert_eq!(termination.await, TerminationStatus::Cancelled);
+        }
+    }
+
+    assert!(!task.internal.state.is_ready(Ordering::SeqCst));
+    assert!(task.internal.state.is_terminated(Ordering::SeqCst));
+    assert!(!task.is_pending());
 }
