@@ -347,10 +347,12 @@ mod imp {
                 has_command_result: Some(self.has_command_result),
                 has_end_of_stream: Some(self.has_end_of_stream),
                 // At this point we expect the event log writer to have finished
-                compressed_event_log_size_bytes: self
-                    .compressed_event_log_size_bytes
-                    .clone()
-                    .map(|x| x.load(Ordering::Relaxed)),
+                compressed_event_log_size_bytes: Some(
+                    self.compressed_event_log_size_bytes
+                        .as_ref()
+                        .map(|x| x.load(Ordering::Relaxed))
+                        .unwrap_or_default(),
+                ),
                 use_streaming_upload: self.use_streaming_upload,
                 critical_path_backend: self.critical_path_backend.take(),
             };
