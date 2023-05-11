@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -21,7 +22,9 @@ use more_futures::spawn::spawn_dropcancel;
 use more_futures::spawn::DropCancelAndTerminationObserver;
 use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
+use parking_lot::Mutex;
 
+use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
@@ -62,6 +65,10 @@ pub(crate) struct ComputationData {
     // TODO(bobyf): this seems a natural place to gather some stats about the compute too
     #[allocative(skip)]
     pub(crate) user_cycle_detector_guard: Option<Box<dyn UserCycleDetectorGuard>>,
+    /// Store extra data from provided by the key's evaluation, which will be passed to the
+    /// user_data's ActivationTracker when the key evaluation finishes.
+    #[allocative(skip)]
+    pub(crate) evaluation_data: Mutex<Option<Box<dyn Any + Send + Sync + 'static>>>,
 }
 
 impl ComputationData {
@@ -73,6 +80,7 @@ impl ComputationData {
                 DetectCycles::Disabled => None,
             },
             user_cycle_detector_guard: None,
+            evaluation_data: Mutex::new(None),
         }
     }
 
@@ -93,6 +101,7 @@ impl ComputationData {
                 .map(|detector| Ok(Box::new(CycleDetector::visit(detector, key)?)))
                 .transpose()?,
             user_cycle_detector_guard: None,
+            evaluation_data: Mutex::new(None),
         })
     }
 
@@ -105,9 +114,26 @@ impl ComputationData {
             .and_then(|v| v.start_computing_key(K::to_key_any(k)));
     }
 
-    pub(crate) fn finished_computing_key<K: StorageProperties>(self, k: &K::Key) {
+    pub(crate) fn finished_computing_key<K: StorageProperties>(
+        self,
+        k: &K::Key,
+        deps: &BothDeps,
+        reused: bool,
+    ) {
         if let Some(v) = &self.user_data.cycle_detector {
             v.finished_computing_key(K::to_key_any(k))
+        }
+
+        if let Some(v) = &self.user_data.activation_tracker {
+            let mut iter = deps.deps.iter().map(|d| d.to_key_any());
+
+            let activation_data = if reused {
+                ActivationData::Reused
+            } else {
+                ActivationData::Evaluated(self.evaluation_data.lock().take())
+            };
+
+            v.key_activated(K::to_key_any(k), &mut iter, activation_data);
         }
     }
 }
@@ -305,6 +331,7 @@ impl DiceComputationsImplLegacy {
             user_data: Arc::new(extra),
             cycle_detector: this.extra.cycle_detector.take(),
             user_cycle_detector_guard: None,
+            evaluation_data: Mutex::new(None),
         })
     }
 
@@ -389,6 +416,15 @@ impl DiceComputationsImplLegacy {
                 ))),
             },
         }
+    }
+
+    pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
+        let mut evaluation_data = self.extra.evaluation_data.lock();
+        if evaluation_data.is_some() {
+            return Err(DiceError::duplicate_activation_data());
+        }
+        *evaluation_data = Some(Box::new(value) as _);
+        Ok(())
     }
 }
 

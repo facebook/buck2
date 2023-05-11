@@ -125,6 +125,13 @@ impl DiceComputationsImpl {
         }
     }
 
+    pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
+        match self {
+            DiceComputationsImpl::Legacy(delegate) => delegate.store_evaluation_data(value),
+            DiceComputationsImpl::Modern(_) => Ok(()),
+        }
+    }
+
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),

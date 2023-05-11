@@ -467,7 +467,7 @@ where
                         }
                         DidDepsChange::NoChange(unchanged_both_deps) => {
                             debug!("dependencies are unchanged, reusing entry");
-                            extra.finished_computing_key::<K>(&ev.k);
+                            extra.finished_computing_key::<K>(&ev.k, &unchanged_both_deps, true);
                             Ok(ev.engine.reuse(
                                 ev.k.clone(),
                                 &eval_ctx,
@@ -586,6 +586,7 @@ where
         };
 
         debug!(msg = "evaluation finished. updating caches");
+        extra.finished_computing_key::<K>(k, &both_deps, false);
 
         let (entry, _old) = self.versioned_cache.update_computed_value(
             VersionedGraphKey::new(v, k.clone()),
@@ -598,7 +599,6 @@ where
         // cancellation, but our cycle detector does not currently support being notified multiple
         // times about the same key, so we don't.
         debug!(msg = "cache updates completed");
-        extra.finished_computing_key::<K>(k);
 
         Ok(entry)
     }
@@ -1069,6 +1069,7 @@ enum DidDepsChange {
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use std::any::Any;
     use std::hash::Hash;
     use std::hash::Hasher;
     use std::marker::PhantomData;
@@ -1155,6 +1156,10 @@ pub(crate) mod testing {
 
                 fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
                     (PartialEqAny::new(&self.0.0), self.0.1)
+                }
+
+                fn to_key_any(&self) -> &dyn Any {
+                    K::to_key_any(&self.0.0)
                 }
 
                 fn hash(&self, mut state: &mut dyn Hasher) {
@@ -1593,6 +1598,10 @@ mod tests {
 
             fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
                 (PartialEqAny::new(&self.0), VersionNumber(0))
+            }
+
+            fn to_key_any(&self) -> &dyn std::any::Any {
+                unimplemented!()
             }
 
             fn hash(&self, mut state: &mut dyn Hasher) {

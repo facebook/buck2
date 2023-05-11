@@ -112,6 +112,12 @@ impl DiceComputations {
     pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
         self.0.cycle_guard()
     }
+
+    /// Store some extra data that the ActivationTracker will receive if / when this key finishes
+    /// executing.
+    pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
+        self.0.store_evaluation_data(value)
+    }
 }
 
 #[cfg(test)]

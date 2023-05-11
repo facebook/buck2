@@ -14,6 +14,7 @@ use allocative::Allocative;
 use more_futures::spawner::Spawner;
 use more_futures::spawner::TokioSpawner;
 
+use crate::api::activation_tracker::ActivationTracker;
 use crate::api::data::DiceData;
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
@@ -32,6 +33,9 @@ pub struct UserComputationData {
 
     #[allocative(skip)]
     pub cycle_detector: Option<Arc<dyn UserCycleDetector>>,
+
+    #[allocative(skip)]
+    pub activation_tracker: Option<Arc<dyn ActivationTracker>>,
 
     /// We require that UserComputationData always be constructed with `..Default::default()`
     pub _requires_default: RequireDefault,
@@ -75,6 +79,7 @@ impl Default for UserComputationData {
             tracker: Arc::new(NoOpTracker),
             spawner: Arc::new(TokioSpawner::default()),
             cycle_detector: None,
+            activation_tracker: None,
             _requires_default: RequireDefault(()),
         }
     }

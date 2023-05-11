@@ -166,6 +166,7 @@ impl BothDepTrackers {
 
 mod internals {
     use std::any::type_name;
+    use std::any::Any;
     use std::fmt;
     use std::fmt::Debug;
     use std::fmt::Display;
@@ -219,6 +220,10 @@ mod internals {
 
         fn get_key_equality(&self) -> (PartialEqAny, VersionNumber) {
             (PartialEqAny::new(self.node.key()), self.version)
+        }
+
+        fn to_key_any(&self) -> &dyn Any {
+            K::to_key_any(self.node.key())
         }
 
         fn hash(&self, mut state: &mut dyn Hasher) {

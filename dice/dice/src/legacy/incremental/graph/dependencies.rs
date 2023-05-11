@@ -85,6 +85,8 @@ pub(crate) trait ComputedDependency: Allocative + Debug + Send + Sync {
 
     fn get_key_equality(&self) -> (PartialEqAny, VersionNumber);
 
+    fn to_key_any(&self) -> &dyn Any;
+
     fn hash(&self, state: &mut dyn Hasher);
 
     fn is_valid(&self) -> bool;

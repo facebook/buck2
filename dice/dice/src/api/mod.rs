@@ -9,6 +9,7 @@
 
 //! Public DICE API
 
+pub mod activation_tracker;
 pub mod computations;
 pub mod cycles;
 pub mod data;

@@ -237,6 +237,8 @@ pub use more_futures::spawn::FutureAndCancellationHandle;
 pub use more_futures::spawn::WeakFutureError; // expose future errors as api
 use serde::Serializer;
 
+pub use crate::api::activation_tracker::ActivationData;
+pub use crate::api::activation_tracker::ActivationTracker;
 pub use crate::api::computations::DiceComputations;
 pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;

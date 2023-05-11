@@ -43,6 +43,10 @@ impl DiceError {
     pub fn cancelled() -> Self {
         DiceError(Arc::new(DiceErrorImpl::Cancelled))
     }
+
+    pub fn duplicate_activation_data() -> Self {
+        DiceError(Arc::new(DiceErrorImpl::DuplicateActivationData))
+    }
 }
 
 #[derive(Debug, Error, Allocative)]
@@ -69,6 +73,8 @@ pub(crate) enum DiceErrorImpl {
         expected_type_name: String,
         actual_type_name: String,
     },
+    #[error("Activation data was already provided for this key")]
+    DuplicateActivationData,
 }
 
 pub type DiceResult<T> = Result<T, DiceError>;

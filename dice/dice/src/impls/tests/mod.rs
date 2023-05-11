@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+mod activation_tracker;
 mod demo;
 mod events;
 mod general;
