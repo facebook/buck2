@@ -9,6 +9,7 @@
 
 use std::collections::HashSet;
 use std::iter::zip;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -19,10 +20,9 @@ use buck2_common::file_ops::FileOps;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_common::result::SharedResult;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::directory::DirectoryData;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
@@ -162,17 +162,11 @@ fn ensure_source_artifact_staged<'a>(
     dice: &'a DiceComputations,
     source: &'a SourceArtifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    let digest_config = dice.global_data().get_digest_config();
-
     async move {
         Ok(EnsureArtifactGroupReady::Single(
-            path_artifact_value(
-                &dice.file_ops(),
-                source.get_path().to_cell_path().as_ref(),
-                digest_config,
-            )
-            .await?
-            .into(),
+            path_artifact_value(dice, Arc::new(source.get_path().to_cell_path()))
+                .await?
+                .into(),
         ))
     }
     .boxed()
@@ -240,37 +234,71 @@ fn _assert_ensure_artifact_group_future_size() {
 }
 
 async fn dir_artifact_value(
-    file_ops: &dyn FileOps,
-    cell_path: CellPathRef<'_>,
-    digest_config: DigestConfig,
+    ctx: &DiceComputations,
+    cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let files = file_ops.read_dir(cell_path.dupe()).await?.included;
+    // We keep running into this performance footgun where a large directory is declared
+    // as a source on a toolchain, and then every BuildKey using that toolchain ends up taking
+    // a DICE edge on PathMetadataKey of every file inside that directory, blowing up Buck2's
+    // memory use. This diff introduces an intermediate DICE key `DirArtifactValueKey` for
+    // getting the artifact value of a source directory. Every BuildKey
+    // using that directory now only depends on one DirArtifactValueKey, and that DirArtifactValueKey
+    // depends on the PathMetadataKey of every member of the directory.
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[display(fmt = "dir_artifact_value({})", .0)]
+    struct DirArtifactValueKey(Arc<CellPath>);
 
-    let entries = files.iter().map(|x| async {
-        let value = path_artifact_value(
-            file_ops,
-            cell_path.join(&x.file_name).as_ref(),
-            digest_config,
-        )
-        .await?;
-        anyhow::Ok((x.file_name.clone(), value))
-    });
+    #[async_trait]
+    impl Key for DirArtifactValueKey {
+        type Value = SharedResult<ActionSharedDirectory>;
 
-    let entries = future::try_join_all(entries).await?;
-    let entries = entries.into_iter().collect();
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
+            let file_ops = ctx.file_ops();
+            let files = file_ops.read_dir(self.0.as_ref().as_ref()).await?.included;
 
-    let d: DirectoryData<_, _, _> =
-        DirectoryData::new(entries, digest_config.as_directory_serializer());
-    Ok(ActionDirectoryEntry::Dir(INTERNER.intern(d)))
+            let entries = files.iter().map(|x| async {
+                // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
+                // Instead, this should be 1 key for the entire top-level directory since there's almost
+                // no chance of getting cache hit with a sub-directory.
+                let value =
+                    path_artifact_value(ctx, Arc::new(self.0.as_ref().join(&x.file_name))).await?;
+                anyhow::Ok((x.file_name.clone(), value))
+            });
+
+            let entries = future::try_join_all(entries).await?;
+            let entries = entries.into_iter().collect();
+
+            let digest_config = ctx.global_data().get_digest_config();
+            let d: DirectoryData<_, _, _> =
+                DirectoryData::new(entries, digest_config.as_directory_serializer());
+            Ok(INTERNER.intern(d))
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            match (x, y) {
+                (Ok(x), Ok(y)) => x.fingerprint() == y.fingerprint(),
+                _ => false,
+            }
+        }
+    }
+
+    let res = ctx.compute(&DirArtifactValueKey(cell_path)).await??;
+    Ok(ActionDirectoryEntry::Dir(res))
 }
 
 #[async_recursion]
 async fn path_artifact_value(
-    file_ops: &dyn FileOps,
-    cell_path: CellPathRef<'async_recursion>,
-    digest_config: DigestConfig,
+    ctx: &DiceComputations,
+    cell_path: Arc<CellPath>,
 ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    let raw = file_ops.read_path_metadata(cell_path.dupe()).await?;
+    let file_ops = &ctx.file_ops() as &dyn FileOps;
+    let raw = file_ops
+        .read_path_metadata(cell_path.as_ref().as_ref())
+        .await?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
@@ -279,11 +307,11 @@ async fn path_artifact_value(
             PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
                 ActionDirectoryMember::File(metadata),
             )),
-            PathMetadata::Directory => dir_artifact_value(file_ops, cell_path, digest_config).await,
+            PathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
         },
         PathMetadataOrRedirection::Redirection(r) => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(file_ops, r.as_ref().as_ref(), digest_config).await
+            path_artifact_value(ctx, r).await
         }
     }
 }
