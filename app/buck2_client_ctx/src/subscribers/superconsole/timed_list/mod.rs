@@ -60,22 +60,7 @@ struct TimedListBody<'c> {
     state: &'c SuperConsoleState,
 }
 
-struct TimedListBodyInner<'c> {
-    cutoffs: &'c Cutoffs,
-    state: &'c SuperConsoleState,
-}
-
-impl<'c> Component for TimedListBody<'c> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
-        TimedListBodyInner {
-            cutoffs: self.cutoffs,
-            state: self.state,
-        }
-        .draw(dimensions, mode)
-    }
-}
-
-impl<'c> TimedListBodyInner<'c> {
+impl<'c> TimedListBody<'c> {
     /// Render a root  as `root [first child + remaining children]`
     fn draw_root_first_child(
         &self,
@@ -171,7 +156,7 @@ impl<'c> TimedListBodyInner<'c> {
     }
 }
 
-impl<'c> Component for TimedListBodyInner<'c> {
+impl<'c> Component for TimedListBody<'c> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let config = &self.state.config;
         let max_lines = config.max_lines;
