@@ -25,16 +25,20 @@ AppleBundleDebuggableInfo = record(
     all_infos = field([AppleDebuggableInfo.type]),
 )
 
+def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: ["_arglike"], action_identifier: "string", output_path_override: ["string", None] = None) -> "artifact":
+    output_path = output_path_override or "{}.dSYM".format(executable.short_path)
+    return get_apple_dsym_ext(ctx, executable, external_debug_info, action_identifier, output_path)
+
 # TODO(T110672942): Things which are still unsupported:
 # - pass in dsymutil_extra_flags
 # - oso_prefix
 # - dsym_verification
-def get_apple_dsym(ctx: "context", executable: "artifact", external_debug_info: ["_arglike"], action_identifier: "string", output_path_override: ["string", None] = None) -> "artifact":
+def get_apple_dsym_ext(ctx: "context", executable: ["_arglike", "artifact"], external_debug_info: ["_arglike"], action_identifier: "string", output_path: "string") -> "artifact":
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
-    output_path = output_path_override or "{}.dSYM".format(executable.short_path)
     output = ctx.actions.declare_output(output_path, dir = True)
 
-    cmd = cmd_args([dsymutil, "-o", output.as_output(), executable])
+    cmd = cmd_args([dsymutil, "-o", output.as_output()])
+    cmd.add(executable)
 
     # Mach-O executables don't contain DWARF data.
     # Instead, they contain paths to the object files which themselves contain DWARF data.
