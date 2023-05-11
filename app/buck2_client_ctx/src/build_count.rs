@@ -15,7 +15,7 @@ use anyhow::Context;
 use buck2_common::client_utils;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
-use fs2::FileExt;
+use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::io::AsyncReadExt;
