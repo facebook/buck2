@@ -168,11 +168,11 @@ impl DiceComputationsImplLegacy {
         })
     }
 
-    pub(crate) fn finalize(self: Arc<Self>) -> BothDeps {
+    pub(crate) fn finalize(self: Arc<Self>) -> (BothDeps, ComputationData) {
         // TODO express this via lifetimes
         let this = Arc::try_unwrap(self).map_err(|_| "The computation lifetime of the `ctx` has ended and there should be no further references to the `Arc`").unwrap();
 
-        this.dep_trackers.collect_deps()
+        (this.dep_trackers.collect_deps(), this.extra)
     }
 
     pub(crate) fn compute_opaque<'b, 'a: 'b, K>(

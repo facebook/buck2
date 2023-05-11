@@ -420,7 +420,6 @@ mod tests {
     use crate::legacy::incremental::testing::ComputedDependencyExt;
     use crate::legacy::incremental::IncrementalEngine;
     use crate::legacy::incremental::TransactionCtx;
-    use crate::legacy::EvaluationResult;
     use crate::versions::VersionNumber;
     use crate::HashSet;
 
@@ -443,15 +442,7 @@ mod tests {
     async fn recording_deps_tracker_tracks_deps() -> anyhow::Result<()> {
         let mut deps_tracker = RecordingDepsTracker::new();
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
-        let fn_for_2_and_3 = |k| {
-            async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps::default(),
-                }
-            }
-            .boxed()
-        };
+        let fn_for_2_and_3 = |k| async move { (k, BothDeps::default()) }.boxed();
 
         let engine = IncrementalEngine::new(EvaluatorFn::new(move |k, _| fn_for_2_and_3(k)));
 

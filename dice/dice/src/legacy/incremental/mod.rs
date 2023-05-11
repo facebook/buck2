@@ -568,7 +568,11 @@ where
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        let EvaluationResult { value, both_deps } = self
+        let EvaluationResult {
+            value,
+            both_deps,
+            extra: _,
+        } = self
             .versioned_cache
             .storage_properties
             .eval(k, transaction_ctx, cancellation, extra)
@@ -1325,13 +1329,13 @@ mod tests {
         // set up so that we have keys 2 and 3 with a history of VersionNumber(1)
         let eval_fn = move |k| {
             async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps {
+                (
+                    k,
+                    BothDeps {
                         deps: HashSet::default(),
                         rdeps: vec![graph_node.dupe()],
                     },
-                }
+                )
             }
             .boxed()
         };
@@ -1401,16 +1405,10 @@ mod tests {
                     {
                         if k == 0 {
                             counter0.fetch_add(1, Ordering::SeqCst);
-                            EvaluationResult {
-                                value: 1i32,
-                                both_deps: BothDeps::default(),
-                            }
+                            (1i32, BothDeps::default())
                         } else {
                             counter1.fetch_add(1, Ordering::SeqCst);
-                            EvaluationResult {
-                                value: 2i32,
-                                both_deps: BothDeps::default(),
-                            }
+                            (2i32, BothDeps::default())
                         }
                     }
                 }
@@ -1498,10 +1496,7 @@ mod tests {
                     // spawned tasks that can only proceed if all are
                     // concurrently running
                     b.wait();
-                    EvaluationResult {
-                        value: 1usize,
-                        both_deps: BothDeps::default(),
-                    }
+                    (1usize, BothDeps::default())
                 }
                 .boxed()
             }));
@@ -1804,14 +1799,14 @@ mod tests {
                 async move {
                     if k == 10 && !is_ran.load(Ordering::SeqCst) {
                         is_ran.store(true, Ordering::SeqCst);
-                        return EvaluationResult {
-                            value: eval_result.load(Ordering::SeqCst),
-                            both_deps: BothDeps {
-                                deps: HashSet::from_iter([Box::new(dep.lock().take().unwrap())
-                                    as Box<dyn ComputedDependency>]),
-                                rdeps: Vec::new(),
-                            },
+                        let value = eval_result.load(Ordering::SeqCst);
+                        let both_deps = BothDeps {
+                            deps: HashSet::from_iter([
+                                Box::new(dep.lock().take().unwrap()) as Box<dyn ComputedDependency>
+                            ]),
+                            rdeps: Vec::new(),
                         };
+                        return (value, both_deps);
                     }
                     panic!("never called. should be cached not evaluated")
                 }
@@ -2015,16 +2010,7 @@ mod tests {
         ));
 
         let engine0 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
-            async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps {
-                        deps: HashSet::default(),
-                        rdeps: Vec::new(),
-                    },
-                }
-            }
-            .boxed()
+            async move { (k, BothDeps::default()) }.boxed()
         }));
         let node0 = engine0
             .eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
@@ -2032,13 +2018,13 @@ mod tests {
 
         let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps {
+                (
+                    k,
+                    BothDeps {
                         deps: HashSet::default(),
                         rdeps: vec![node0.into_dyn()],
                     },
-                }
+                )
             }
             .boxed()
         }));
@@ -2048,13 +2034,13 @@ mod tests {
 
         let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps {
+                (
+                    k,
+                    BothDeps {
                         deps: HashSet::default(),
                         rdeps: vec![node1.into_dyn()],
                     },
-                }
+                )
             }
             .boxed()
         }));
@@ -2064,13 +2050,13 @@ mod tests {
 
         let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
-                EvaluationResult {
-                    value: k,
-                    both_deps: BothDeps {
+                (
+                    k,
+                    BothDeps {
                         deps: HashSet::default(),
                         rdeps: vec![node2.into_dyn()],
                     },
-                }
+                )
             }
             .boxed()
         }));
@@ -2155,13 +2141,13 @@ mod tests {
 
                     c.store(true, Ordering::SeqCst);
 
-                    EvaluationResult {
-                        value: 1usize,
-                        both_deps: BothDeps {
+                    (
+                        1usize,
+                        BothDeps {
                             deps: HashSet::default(),
                             rdeps: Vec::new(),
                         },
-                    }
+                    )
                 }
                 .boxed()
             }));
@@ -2293,7 +2279,7 @@ mod tests {
                 _k: &usize,
                 transaction_ctx: Arc<TransactionCtx>,
                 _cancellations: &CancellationContext,
-                _extra: ComputationData,
+                extra: ComputationData,
             ) -> EvaluationResult<usize> {
                 EvaluationResult {
                     value: transaction_ctx.get_version().to_string()[1..]
@@ -2304,6 +2290,7 @@ mod tests {
                         deps: HashSet::default(),
                         rdeps: Vec::new(),
                     },
+                    extra,
                 }
             }
         }
@@ -2362,9 +2349,10 @@ mod tests {
                 _cancellations: &CancellationContext,
                 extra: ComputationData,
             ) -> EvaluationResult<usize> {
+                let sub_extra = extra.subrequest::<EvalEvenOdd>(&1).unwrap();
                 let node = self
                     .0
-                    .eval_entry_versioned(&1, &transaction_ctx, extra)
+                    .eval_entry_versioned(&1, &transaction_ctx, sub_extra)
                     .await
                     .unwrap();
                 EvaluationResult {
@@ -2378,6 +2366,7 @@ mod tests {
                             as Box<dyn ComputedDependency>]),
                         rdeps: vec![node.into_dyn()],
                     },
+                    extra,
                 }
             }
         }
@@ -2435,15 +2424,11 @@ mod tests {
             let instance_count = instance.dupe();
             IncrementalEngine::new(EvaluatorFn::new(move |_k, _| {
                 async move {
-                    EvaluationResult {
-                        value: InstanceEqual {
-                            instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
-                        },
-                        both_deps: BothDeps {
-                            deps: HashSet::default(),
-                            rdeps: Vec::new(),
-                        },
-                    }
+                    let value = InstanceEqual {
+                        instance_count: instance_count.fetch_add(1, Ordering::SeqCst),
+                    };
+
+                    (value, BothDeps::default())
                 }
                 .boxed()
             }))
@@ -2500,13 +2485,7 @@ mod tests {
 
                     if *guard {
                         // Last attempt, return.
-                        EvaluationResult {
-                            value: (),
-                            both_deps: BothDeps {
-                                deps: HashSet::default(),
-                                rdeps: Vec::new(),
-                            },
-                        }
+                        ((), Default::default())
                     } else {
                         // Note that we did our first execution. Keep the lock held. The point of the
                         // test is to prove that nobody will get to run before we exit and drop it.
@@ -2591,13 +2570,7 @@ mod tests {
                             .await;
                     }
 
-                    EvaluationResult {
-                        value: was_first_call,
-                        both_deps: BothDeps {
-                            deps: HashSet::default(),
-                            rdeps: Vec::new(),
-                        },
-                    }
+                    (was_first_call, BothDeps::default())
                 }
                 .boxed()
             })

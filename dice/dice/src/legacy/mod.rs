@@ -290,9 +290,13 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
             )
             .await;
 
-        let both_deps = ctx.finalize();
+        let (both_deps, extra) = ctx.finalize();
 
-        EvaluationResult { value, both_deps }
+        EvaluationResult {
+            value,
+            both_deps,
+            extra,
+        }
     }
 }
 
@@ -300,4 +304,6 @@ impl<K: Key> Evaluator for StoragePropertiesForKey<K> {
 pub(crate) struct EvaluationResult<T> {
     pub(crate) value: T,
     pub(crate) both_deps: BothDeps,
+    #[allow(unused)]
+    pub(crate) extra: ComputationData,
 }

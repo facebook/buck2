@@ -71,6 +71,7 @@ pub(crate) mod testing {
     use crate::legacy::incremental::Computable;
     use crate::legacy::incremental::IncrementalComputeProperties;
     use crate::legacy::incremental::IncrementalEngine;
+    use crate::legacy::BothDeps;
     use crate::legacy::EvaluationResult;
     use crate::TransactionCtx;
     use crate::WeakDiceFutureHandle;
@@ -159,7 +160,7 @@ pub(crate) mod testing {
     pub(crate) struct EvaluatorFn<K, V> {
         #[allocative(skip)]
         f: Box<
-            dyn for<'a> Fn(K, &'a CancellationContext) -> BoxFuture<'a, EvaluationResult<V>>
+            dyn for<'a> Fn(K, &'a CancellationContext) -> BoxFuture<'a, (V, BothDeps)>
                 + Send
                 + Sync
                 + 'static,
@@ -169,7 +170,7 @@ pub(crate) mod testing {
     impl<K, V> EvaluatorFn<K, V> {
         pub(crate) fn new<F>(f: F) -> Self
         where
-            F: for<'a> FnOnce(K, &'a CancellationContext) -> BoxFuture<'a, EvaluationResult<V>>
+            F: for<'a> FnOnce(K, &'a CancellationContext) -> BoxFuture<'a, (V, BothDeps)>
                 + Clone
                 + Sync
                 + Send
@@ -250,9 +251,14 @@ pub(crate) mod testing {
             k: &K,
             _: Arc<TransactionCtx>,
             cancellations: &CancellationContext,
-            _extra: ComputationData,
+            extra: ComputationData,
         ) -> EvaluationResult<V> {
-            (self.f)(k.clone(), cancellations).await
+            let (value, both_deps) = (self.f)(k.clone(), cancellations).await;
+            EvaluationResult {
+                value,
+                both_deps,
+                extra,
+            }
         }
     }
 }
