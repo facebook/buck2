@@ -11,6 +11,8 @@ use std::any::Any;
 
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use futures::future::Shared;
+use more_futures::cancellation::future::TerminationObserver;
 use more_futures::spawn::spawn_cancellable;
 use more_futures::spawn::FutureAndCancellationHandle;
 use more_futures::spawner::Spawner;
@@ -73,4 +75,9 @@ pub(crate) unsafe fn sync_dice_task() -> DiceTask {
         internal,
         cancellations: Cancellations::not_cancellable(),
     }
+}
+
+pub(crate) struct PreviouslyCancelledTask {
+    pub(crate) previous: DiceTask,
+    pub(crate) termination: Shared<TerminationObserver>,
 }

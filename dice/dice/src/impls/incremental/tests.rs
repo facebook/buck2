@@ -34,6 +34,7 @@ use crate::api::data::DiceData;
 use crate::api::error::DiceError;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
+use crate::api::user_data::NoOpTracker;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
 use crate::impls::core::graph::history::testing::CellHistoryExt;
@@ -47,6 +48,7 @@ use crate::impls::incremental::testing::DidDepsChangeExt;
 use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ChangeType;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -76,6 +78,37 @@ impl Key for K {
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
+}
+
+#[derive(Allocative, Clone, Debug, Display)]
+#[display(fmt = "{:?}", self)]
+struct IsRan(Arc<AtomicBool>);
+
+#[async_trait]
+impl Key for IsRan {
+    type Value = ();
+
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+        false
+    }
+}
+
+impl PartialEq for IsRan {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+impl Eq for IsRan {}
+impl Hash for IsRan {
+    fn hash<H: Hasher>(&self, _state: &mut H) {}
 }
 
 #[tokio::test]
@@ -178,37 +211,6 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
 
-    #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
-    struct IsRan(Arc<AtomicBool>);
-
-    #[async_trait]
-    impl Key for IsRan {
-        type Value = ();
-
-        async fn compute(
-            &self,
-            _ctx: &DiceComputations,
-            _cancellations: &CancellationContext,
-        ) -> Self::Value {
-            self.0.store(true, Ordering::SeqCst);
-        }
-
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
-        }
-    }
-
-    impl PartialEq for IsRan {
-        fn eq(&self, _other: &Self) -> bool {
-            true
-        }
-    }
-    impl Eq for IsRan {}
-    impl Hash for IsRan {
-        fn hash<H: Hasher>(&self, _state: &mut H) {}
-    }
-
     let is_ran = Arc::new(AtomicBool::new(false));
     let key = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
@@ -252,6 +254,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
+        None,
     );
     let res = task.depended_on_by(ParentKey::None).await?;
     assert_eq!(
@@ -283,6 +286,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
+        None,
     );
     let res = task.depended_on_by(ParentKey::None).await?;
     assert_eq!(
@@ -318,6 +322,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
+        None,
     );
     let res = task.depended_on_by(ParentKey::None).await?;
     assert_eq!(
@@ -398,6 +403,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
+        None,
     );
     let res = task.depended_on_by(ParentKey::None).await?;
 
@@ -416,6 +422,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
+        None,
     );
     let res2 = task.depended_on_by(ParentKey::None).await?;
 
@@ -442,4 +449,148 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     );
 
     Ok(())
+}
+
+#[tokio::test]
+async fn spawn_with_no_previously_cancelled_task() {
+    let dice = DiceModern::new(DiceData::new());
+
+    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+
+    let is_ran = Arc::new(AtomicBool::new(false));
+    let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
+
+    let extra = std::sync::Arc::new(UserComputationData::new());
+    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new();
+    let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
+    let previously_cancelled_task = None;
+
+    let task = IncrementalEngine::spawn_for_key(
+        k,
+        eval,
+        cycles,
+        events_dispatcher,
+        previously_cancelled_task,
+    );
+
+    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+
+    assert!(is_ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn spawn_with_previously_cancelled_task_that_cancelled() {
+    let dice = DiceModern::new(DiceData::new());
+
+    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+
+    let extra = std::sync::Arc::new(UserComputationData::new());
+    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new();
+    let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
+
+    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+    struct CancellableNeverFinish;
+
+    #[async_trait]
+    impl Key for CancellableNeverFinish {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            futures::future::pending().await
+        }
+
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            unreachable!("test")
+        }
+    }
+
+    let k = dice.key_index.index_key(CancellableNeverFinish);
+    let previous_task =
+        IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
+
+    let termination = previous_task.testing_cancel().unwrap();
+
+    let previously_cancelled_task = Some(PreviouslyCancelledTask {
+        previous: previous_task,
+        termination,
+    });
+
+    let is_ran = Arc::new(AtomicBool::new(false));
+    let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
+    let cycles = UserCycleDetectorData::new();
+    let task = IncrementalEngine::spawn_for_key(
+        k,
+        eval,
+        cycles,
+        events_dispatcher,
+        previously_cancelled_task,
+    );
+
+    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+
+    assert!(is_ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn spawn_with_previously_cancelled_task_that_finished() {
+    let dice = DiceModern::new(DiceData::new());
+
+    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+
+    let extra = std::sync::Arc::new(UserComputationData::new());
+    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new();
+    let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
+
+    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+    struct Finish;
+
+    #[async_trait]
+    impl Key for Finish {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+        }
+
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            true
+        }
+    }
+
+    let k = dice.key_index.index_key(Finish);
+    let previous_task =
+        IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
+    // wait for it to finish then trigger cancel
+    previous_task.depended_on_by(ParentKey::None).await.unwrap();
+    let termination = previous_task.testing_cancel().unwrap();
+
+    let previously_cancelled_task = Some(PreviouslyCancelledTask {
+        previous: previous_task,
+        termination,
+    });
+
+    let is_ran = Arc::new(AtomicBool::new(false));
+    let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
+    let cycles = UserCycleDetectorData::new();
+    let task = IncrementalEngine::spawn_for_key(
+        k,
+        eval,
+        cycles,
+        events_dispatcher,
+        previously_cancelled_task,
+    );
+
+    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+
+    assert!(!is_ran.load(Ordering::SeqCst));
 }

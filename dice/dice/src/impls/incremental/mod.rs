@@ -23,6 +23,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use more_futures::cancellation::future::TerminationStatus;
 use tokio::sync::oneshot;
 
 use crate::api::error::DiceError;
@@ -43,6 +44,7 @@ use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::spawn_dice_task;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
@@ -79,11 +81,34 @@ impl IncrementalEngine {
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
+        previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DiceTask {
         let eval_dupe = eval.dupe();
         spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
             async move {
+                if let Some(previous) = previously_cancelled_task {
+                    match previous.termination.await {
+                        TerminationStatus::Finished => {
+                            // old task actually finished, so just use that result
+                            handle.finished(
+                                previous
+                                    .previous
+                                    .depended_on_by(ParentKey::Some(k))
+                                    .get_or_complete(|| {
+                                        unreachable!("A finished task must have been completed")
+                                    }),
+                            );
+
+                            return Box::new(()) as Box<dyn Any + Send + 'static>;
+                        }
+                        _ => {
+                            // continue re-evaluating
+                        }
+                    }
+                }
+
                 let engine = IncrementalEngine::new(eval_dupe.dice.state_handle.dupe());
+
                 engine
                     .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, handle)
                     .await;

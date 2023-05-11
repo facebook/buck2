@@ -101,7 +101,7 @@ impl DiceTask {
             DicePromise::ready(result)
         } else {
             let mut wakers = self.internal.dependants.lock();
-            if self.cancellations.is_cancelled(&wakers) {
+            if self.cancellations.is_cancelled(&wakers).is_some() {
                 unimplemented!("todo handle canceled");
             }
             match wakers.deref_mut() {
@@ -275,14 +275,14 @@ impl Cancellations {
     pub(super) fn is_cancelled(
         &self,
         _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
-    ) -> bool {
-        self.internal.as_ref().map_or(false, |internal| {
+    ) -> Option<Shared<TerminationObserver>> {
+        self.internal.as_ref().and_then(|internal| {
             match unsafe {
                 // SAFETY: locked by the MutexGuard of Slab
                 &*internal.get()
             } {
-                CancellationsInternal::NotCancelled(_) => false,
-                CancellationsInternal::Cancelled(_) => true,
+                CancellationsInternal::NotCancelled(_) => None,
+                CancellationsInternal::Cancelled(termination) => Some(termination.clone()),
             }
         })
     }
@@ -292,3 +292,19 @@ impl Cancellations {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for Cancellations {}
 unsafe impl Sync for Cancellations {}
+
+#[cfg(test)]
+mod testing {
+    use futures::future::Shared;
+    use more_futures::cancellation::future::TerminationObserver;
+
+    use crate::impls::task::dice::DiceTask;
+
+    impl DiceTask {
+        pub(crate) fn testing_cancel(&self) -> Option<Shared<TerminationObserver>> {
+            let lock = self.internal.dependants.lock();
+            self.cancellations.cancel(&lock);
+            self.cancellations.is_cancelled(&lock)
+        }
+    }
+}

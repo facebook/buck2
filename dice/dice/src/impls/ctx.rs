@@ -312,7 +312,7 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = IncrementalEngine::spawn_for_key(key, eval, cycles, events);
+                let task = IncrementalEngine::spawn_for_key(key, eval, cycles, events, None);
 
                 let fut = task.depended_on_by(parent_key);
 
