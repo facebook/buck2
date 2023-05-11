@@ -178,6 +178,14 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     all_binary_parts, primary_binary_part = _get_binary_bundle_parts(ctx, binary_outputs)
     apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = all_binary_parts))
 
+    bundle = bundle_output(ctx)
+
+    assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
+
+    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
+    primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
+    run_cmd = cmd_args(primary_binary_path).hidden(bundle)
+
     sub_targets = {}
 
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
@@ -211,10 +219,6 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         DefaultInfo(default_output = dsym_info, other_outputs = dsym_artifacts),
     ]
 
-    bundle = bundle_output(ctx)
-
-    assemble_bundle(ctx, bundle, apple_bundle_part_list_output.parts, apple_bundle_part_list_output.info_plist_part)
-
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
 
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
@@ -223,10 +227,6 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source)
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
-
-    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
-    primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
-    run_cmd = cmd_args(primary_binary_path).hidden(bundle)
 
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
