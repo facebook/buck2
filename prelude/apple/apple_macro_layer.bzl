@@ -12,23 +12,40 @@ load(
     "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
 )
 
-_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = {
-    APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: ("apple", "link_libraries_locally_override"),
-    APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: ("apple", "archive_objects_locally_override"),
-}
+AppleBuckConfigAttributeOverride = record(
+    name = field(str.type),
+    section = field(str.type, default = "apple"),
+    key = field(str.type),
+    positive_values = field([[str.type], [bool.type]], default = ["True", "true"]),
+    value_if_true = field([str.type, bool.type, None], default = True),
+    value_if_false = field([str.type, bool.type, None], default = False),
+    skip_if_false = field(bool.type, default = False),
+)
 
-_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = {
-    "link_locally_override": ("apple", "link_binaries_locally_override"),
-}
+APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE = AppleBuckConfigAttributeOverride(
+    name = APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME,
+    key = "link_libraries_locally_override",
+)
 
-def apple_macro_layer_set_bool_override_attrs_from_config(attrib_map: {str.type: (str.type, str.type)}) -> {str.type: "selector"}:
+_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = [
+    APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE,
+    AppleBuckConfigAttributeOverride(name = APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME, key = "archive_objects_locally_override"),
+]
+
+_APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = [
+    AppleBuckConfigAttributeOverride(name = "link_locally_override", key = "link_binaries_locally_override"),
+]
+
+def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckConfigAttributeOverride.type]) -> {str.type: "selector"}:
     attribs = {}
-    for (attrib_name, (config_section, config_key)) in attrib_map.items():
-        config_value = read_config(config_section, config_key, None)
+    for override in overrides:
+        config_value = read_config(override.section, override.key, None)
         if config_value != None:
-            config_truth_value = config_value.lower() == "true"
-            attribs[attrib_name] = select({
-                "DEFAULT": config_truth_value,
+            config_is_true = config_value in override.positive_values
+            if not config_is_true and override.skip_if_false:
+                continue
+            attribs[override.name] = select({
+                "DEFAULT": override.value_if_true if config_is_true else override.value_if_false,
                 # Do not set attribute value for host tools
                 "ovr_config//platform/macos/constraints:execution-platform-transitioned": None,
             })
