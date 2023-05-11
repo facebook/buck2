@@ -24,7 +24,6 @@ load(":apple_resource.bzl", "apple_resource_impl")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
-    "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
     "apple_test_extra_attrs",
     "get_apple_toolchain_attr",
@@ -95,7 +94,6 @@ extra_attributes = {
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
-        APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     },
     "apple_package": {

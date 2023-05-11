@@ -229,13 +229,6 @@ def cxx_link(
     )
     return (linked_object, linker_map_data)
 
-def _get_overridden_link_execution_preference(ctx: "context", preference: LinkExecutionPreference.type) -> LinkExecutionPreference.type:
-    # This is temporary and will be removed.
-    if hasattr(ctx.attrs, "_link_libraries_locally_override"):
-        if ctx.attrs._link_libraries_locally_override:
-            return LinkExecutionPreference("local")
-    return preference
-
 def cxx_link_shared_library(
         ctx: "context",
         # The destination for the link output.
@@ -291,7 +284,7 @@ def cxx_link_shared_library(
         import_library = import_library,
         link_ordering = link_ordering,
         link_weight = link_weight,
-        link_execution_preference = _get_overridden_link_execution_preference(ctx, link_execution_preference),
+        link_execution_preference = link_execution_preference,
     )
 
     return (exe, linker_map_data)

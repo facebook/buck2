@@ -9,7 +9,6 @@ load(":apple_package_config.bzl", "apple_package_config")
 load(
     ":apple_rules_impl_utility.bzl",
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
-    "APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME",
 )
 
 AppleBuckConfigAttributeOverride = record(
@@ -23,8 +22,10 @@ AppleBuckConfigAttributeOverride = record(
 )
 
 APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE = AppleBuckConfigAttributeOverride(
-    name = APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME,
+    name = "link_execution_preference",
     key = "link_libraries_locally_override",
+    value_if_true = "local",
+    skip_if_false = True,
 )
 
 _APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = [

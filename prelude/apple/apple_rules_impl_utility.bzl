@@ -32,7 +32,6 @@ def get_apple_xctoolchain_bundle_id_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
 
-APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME = "_link_libraries_locally_override"
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -81,7 +80,6 @@ def apple_test_extra_attrs():
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_omnibus_environment": omnibus_environment_attr(),
-        APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs
