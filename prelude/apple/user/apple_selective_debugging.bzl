@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceDeterminatorInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
     "@prelude//utils:build_target_pattern.bzl",
@@ -93,12 +94,17 @@ def _impl(ctx: "context") -> ["provider"]:
                 selected_debug_info.extend(info.artifacts)
         return selected_debug_info
 
+    def preference_for_links(links: ["label"]) -> LinkExecutionPreference.type:
+        _ = links  # @unused Dummy function for now
+        return LinkExecutionPreference("any")
+
     return [
         DefaultInfo(),
         AppleSelectiveDebuggingInfo(
             scrub_binary = scrub_binary,
             filter = filter_debug_info,
         ),
+        LinkExecutionPreferenceDeterminatorInfo(preference_for_links = preference_for_links),
     ]
 
 registration_spec = RuleRegistrationSpec(
