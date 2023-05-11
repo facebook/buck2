@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
@@ -60,10 +62,13 @@ pub struct RemoteExecutorOptions {
 /// The actual executor portion of a RemoteEnabled executor. It's possible for a RemoteEnabled
 /// executor to wrap a local executor, which is a glorified way of saying "this is a local executor
 /// with a RE backend for caching".
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum RemoteEnabledExecutor {
+    #[display(fmt = "local")]
     Local,
+    #[display(fmt = "remote")]
     Remote(RemoteExecutorOptions),
+    #[display(fmt = "hybrid")]
     Hybrid {
         remote: RemoteExecutorOptions,
         level: HybridExecutionLevel,
@@ -84,6 +89,33 @@ pub enum Executor {
         cache_upload_behavior: CacheUploadBehavior,
         remote_cache_enabled: bool,
     },
+}
+
+impl Display for Executor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Local => {
+                write!(f, "Local")
+            }
+            Self::RemoteEnabled {
+                executor,
+                re_properties: _,
+                re_use_case: _,
+                cache_upload_behavior,
+                remote_cache_enabled,
+            } => {
+                let cache = match remote_cache_enabled {
+                    true => "enabled",
+                    false => "disabled",
+                };
+                write!(
+                    f,
+                    "RemoteEnabled + executor {} + remote cache {} + cache upload {}",
+                    executor, cache, cache_upload_behavior
+                )
+            }
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
@@ -137,9 +169,11 @@ impl Default for OutputPathsBehavior {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
 pub enum CacheUploadBehavior {
+    #[display(fmt = "enabled")]
     Enabled { max_bytes: Option<u64> },
+    #[display(fmt = "disabled")]
     Disabled,
 }
 
