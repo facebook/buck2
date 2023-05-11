@@ -56,7 +56,7 @@ def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInf
 def _is_core_tool(ctx: "context") -> bool.type:
     return "is_core_tool" in ctx.attrs.labels
 
-def _cxx_toolchain_sets_link_binaries_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
+def _cxx_toolchain_sets_link_binaries_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None]) -> bool.type:
     if not cxx_toolchain:
         cxx_toolchain = get_cxx_toolchain_info(ctx)
     return cxx_toolchain.linker_info.link_binaries_locally
