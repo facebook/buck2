@@ -45,7 +45,9 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
+use crate::impls::task::dice::MaybeCancelled;
 use crate::impls::task::sync_dice_task;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::UserCycleDetectorData;
@@ -306,7 +308,33 @@ impl SharedLiveTransactionCtx {
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
-            Entry::Occupied(occupied) => occupied.get().depended_on_by(parent_key),
+            Entry::Occupied(mut occupied) => match occupied.get().depended_on_by(parent_key) {
+                MaybeCancelled::Ok(promise) => promise,
+                MaybeCancelled::Cancelled(termination) => {
+                    let eval = eval.dupe();
+                    let events =
+                        DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
+
+                    take_mut::take(occupied.get_mut(), |previous| {
+                        IncrementalEngine::spawn_for_key(
+                            key,
+                            eval,
+                            cycles,
+                            events,
+                            Some(PreviouslyCancelledTask {
+                                previous,
+                                termination,
+                            }),
+                        )
+                    });
+
+                    occupied
+                        .get()
+                        .depended_on_by(parent_key)
+                        .not_cancelled()
+                        .expect("just created")
+                }
+            },
             Entry::Vacant(vacant) => {
                 let eval = eval.dupe();
                 let events =
@@ -314,7 +342,10 @@ impl SharedLiveTransactionCtx {
 
                 let task = IncrementalEngine::spawn_for_key(key, eval, cycles, events, None);
 
-                let fut = task.depended_on_by(parent_key);
+                let fut = task
+                    .depended_on_by(parent_key)
+                    .not_cancelled()
+                    .expect("just created");
 
                 vacant.insert(task);
 
@@ -332,26 +363,43 @@ impl SharedLiveTransactionCtx {
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> DiceResult<DiceComputedValue> {
-        let task = match self.cache.get(key) {
-            Entry::Occupied(occupied) => occupied.into_ref(),
+        let promise = match self.cache.get(key) {
+            Entry::Occupied(mut occupied) => {
+                match occupied.get().depended_on_by(parent_key) {
+                    MaybeCancelled::Ok(promise) => promise,
+                    MaybeCancelled::Cancelled(termination) => {
+                        let _ignored = termination; // for projections, since all projection evaluation is cheap and sync hence no side-effects, we ignore the termination
+                        let task = unsafe {
+                            // SAFETY: task completed below by `IncrementalEngine::project_for_key`
+                            sync_dice_task()
+                        };
+
+                        *occupied.get_mut() = task;
+
+                        occupied
+                            .get()
+                            .depended_on_by(parent_key)
+                            .not_cancelled()
+                            .expect("just created")
+                    }
+                }
+            }
             Entry::Vacant(vacant) => {
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                     sync_dice_task()
                 };
 
-                vacant.insert(task)
+                vacant
+                    .insert(task)
+                    .value()
+                    .depended_on_by(parent_key)
+                    .not_cancelled()
+                    .expect("just created")
             }
         };
 
-        IncrementalEngine::project_for_key(
-            state,
-            task.depended_on_by(parent_key),
-            key,
-            eval,
-            self.dupe(),
-            events,
-        )
+        IncrementalEngine::project_for_key(state, promise, key, eval, self.dupe(), events)
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
@@ -376,7 +424,11 @@ pub(crate) mod testing {
                 // SAFETY: completed immediately below
                 sync_dice_task()
             };
-            let _r = task.depended_on_by(ParentKey::None).get_or_complete(|| v);
+            let _r = task
+                .depended_on_by(ParentKey::None)
+                .not_cancelled()
+                .expect("just created")
+                .get_or_complete(|| v);
 
             match self.cache.get(k) {
                 Entry::Occupied(o) => {

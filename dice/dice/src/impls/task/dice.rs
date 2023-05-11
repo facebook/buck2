@@ -93,31 +93,49 @@ impl Allocative for DiceTaskInternal {
     }
 }
 
+pub(crate) enum MaybeCancelled {
+    Ok(DicePromise),
+    Cancelled(Shared<TerminationObserver>),
+}
+
+impl MaybeCancelled {
+    pub(crate) fn not_cancelled(self) -> Option<DicePromise> {
+        match self {
+            MaybeCancelled::Ok(promise) => Some(promise),
+            MaybeCancelled::Cancelled(_) => None,
+        }
+    }
+}
+
 impl DiceTask {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DicePromise {
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> MaybeCancelled {
         if let Some(result) = self.internal.read_value() {
-            DicePromise::ready(result)
+            MaybeCancelled::Ok(DicePromise::ready(result))
         } else {
             let mut wakers = self.internal.dependants.lock();
-            if self.cancellations.is_cancelled(&wakers).is_some() {
-                unimplemented!("todo handle canceled");
+            if let Some(termination) = self.cancellations.is_cancelled(&wakers) {
+                return MaybeCancelled::Cancelled(termination);
             }
             match wakers.deref_mut() {
-                None => DicePromise::ready(
+                None => MaybeCancelled::Ok(DicePromise::ready(
                     self.internal
                         .read_value()
                         .expect("invalid state where deps are taken before state is ready"),
-                ),
+                )),
                 Some(ref mut wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));
 
-                    DicePromise::pending(id, self.internal.dupe(), waker)
+                    MaybeCancelled::Ok(DicePromise::pending(id, self.internal.dupe(), waker))
                 }
             }
         }
+    }
+
+    pub(crate) fn get_finished_value(&self) -> Option<DiceResult<DiceComputedValue>> {
+        self.internal.read_value()
     }
 
     #[allow(unused)] // future introspection functions

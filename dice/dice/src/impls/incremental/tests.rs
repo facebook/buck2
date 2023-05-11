@@ -256,7 +256,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task.depended_on_by(ParentKey::None).await?;
+    let res = task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
         VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(v)])
@@ -288,7 +292,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task.depended_on_by(ParentKey::None).await?;
+    let res = task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
         VersionRanges::testing_new(sorted_vector_set![VersionRange::begins_with(v)])
@@ -324,7 +332,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task.depended_on_by(ParentKey::None).await?;
+    let res = task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await?;
     assert_eq!(
         res.history().get_verified_ranges(),
         VersionRanges::testing_new(sorted_vector_set![VersionRange::bounded(v, new_v)])
@@ -405,7 +417,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task.depended_on_by(ParentKey::None).await?;
+    let res = task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await?;
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     dice.state_handle.request(StateRequest::UpdateState {
@@ -424,7 +440,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res2 = task.depended_on_by(ParentKey::None).await?;
+    let res2 = task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await?;
 
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -474,7 +494,13 @@ async fn spawn_with_no_previously_cancelled_task() {
         previously_cancelled_task,
     );
 
-    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+    assert!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .await
+            .is_ok()
+    );
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -532,7 +558,13 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         previously_cancelled_task,
     );
 
-    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+    assert!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .await
+            .is_ok()
+    );
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -571,7 +603,12 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let previous_task =
         IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
     // wait for it to finish then trigger cancel
-    previous_task.depended_on_by(ParentKey::None).await.unwrap();
+    previous_task
+        .depended_on_by(ParentKey::None)
+        .not_cancelled()
+        .unwrap()
+        .await
+        .unwrap();
     let termination = previous_task.testing_cancel().unwrap();
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
@@ -590,7 +627,13 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         previously_cancelled_task,
     );
 
-    assert!(task.depended_on_by(ParentKey::None).await.is_ok());
+    assert!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .await
+            .is_ok()
+    );
 
     assert!(!is_ran.load(Ordering::SeqCst));
 }

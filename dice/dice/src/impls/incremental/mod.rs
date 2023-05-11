@@ -93,10 +93,8 @@ impl IncrementalEngine {
                             handle.finished(
                                 previous
                                     .previous
-                                    .depended_on_by(ParentKey::Some(k))
-                                    .get_or_complete(|| {
-                                        unreachable!("A finished task must have been completed")
-                                    }),
+                                    .get_finished_value()
+                                    .expect("A finished task must have been completed"),
                             );
 
                             return Box::new(()) as Box<dyn Any + Send + 'static>;
