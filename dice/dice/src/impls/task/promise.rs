@@ -15,11 +15,13 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
+use dupe::Dupe;
 use futures::task::AtomicWaker;
 
 use crate::api::error::DiceResult;
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
+use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
@@ -58,6 +60,36 @@ impl DicePromise {
             task_internal: internal,
             waker,
         })
+    }
+
+    /// Get the value if already complete, or complete it. Note that `f` may run even if the result
+    /// is not used.
+    pub(crate) fn get_or_complete(
+        self,
+        f: impl FnOnce() -> DiceResult<DiceComputedValue>,
+    ) -> DiceResult<DiceComputedValue> {
+        match &self.0 {
+            DicePromiseInternal::Ready { result } => result.dupe(),
+            DicePromiseInternal::Pending { task_internal, .. } => {
+                if let Some(res) = task_internal.read_value() {
+                    res
+                } else {
+                    match task_internal.state.report_project() {
+                        TaskState::Continue => {}
+                        TaskState::Finished => {
+                            return task_internal
+                                .read_value()
+                                .expect("task finished must mean result is ready");
+                        }
+                    }
+
+                    let value = f();
+
+                    task_internal.set_value(value)
+                }
+            }
+            DicePromiseInternal::Done => panic!("poll after ready"),
+        }
     }
 }
 

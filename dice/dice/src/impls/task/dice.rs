@@ -120,31 +120,6 @@ impl DiceTask {
         }
     }
 
-    /// Get the value if already complete, or complete it. Note that `f` may run even if the result
-    /// is not used.
-    pub(crate) fn get_or_complete(
-        &self,
-        f: impl FnOnce() -> DiceResult<DiceComputedValue>,
-    ) -> DiceResult<DiceComputedValue> {
-        if let Some(res) = self.internal.read_value() {
-            res
-        } else {
-            match self.internal.state.report_project() {
-                TaskState::Continue => {}
-                TaskState::Finished => {
-                    return self
-                        .internal
-                        .read_value()
-                        .expect("task finished must mean result is ready");
-                }
-            }
-
-            let value = f();
-
-            self.internal.set_value(value)
-        }
-    }
-
     #[allow(unused)] // future introspection functions
     /// true if this task is not yet complete and not yet canceled.
     pub(crate) fn is_pending(&self) -> bool {

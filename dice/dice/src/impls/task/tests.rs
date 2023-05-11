@@ -213,12 +213,13 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
     assert!(poll!(&mut promise_before).is_pending());
 
     assert!(
-        task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-            Arc::new(CellHistory::empty())
-        )))?
-        .value()
-        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+        task.depended_on_by(ParentKey::None)
+            .get_or_complete(|| Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
+                Arc::new(CellHistory::empty())
+            )))?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));
@@ -303,12 +304,13 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     barrier.wait().await;
 
     assert!(
-        task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::empty())
-        )))?
-        .value()
-        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
+        task.depended_on_by(ParentKey::None)
+            .get_or_complete(|| Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
+                Arc::new(CellHistory::empty())
+            )))?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
     let (v1, v2, v3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -356,12 +358,13 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
     let promise_before = task.depended_on_by(ParentKey::Some(DiceKey { index: 0 }));
 
     assert!(
-        task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::empty())
-        )))?
-        .value()
-        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
+        task.depended_on_by(ParentKey::None)
+            .get_or_complete(|| Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
+                Arc::new(CellHistory::empty())
+            )))?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
     drop(g);
@@ -425,12 +428,13 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     // actually completes with `2` from the spawn
     assert!(
-        task.get_or_complete(|| Ok(DiceComputedValue::new(
-            MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-            Arc::new(CellHistory::empty())
-        )))?
-        .value()
-        .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
+        task.depended_on_by(ParentKey::None)
+            .get_or_complete(|| Ok(DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
+                Arc::new(CellHistory::empty())
+            )))?
+            .value()
+            .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
     let promise_after = task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }));

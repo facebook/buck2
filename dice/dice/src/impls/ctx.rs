@@ -8,7 +8,6 @@
  */
 
 use std::future::Future;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -166,6 +165,7 @@ impl PerComputeCtx {
             .per_live_version_ctx
             .compute_projection(
                 dice_key,
+                self.data.parent_key,
                 self.data.async_evaluator.dice.state_handle.dupe(),
                 SyncEvaluator::new(
                     self.data.async_evaluator.user_data.dupe(),
@@ -327,6 +327,7 @@ impl SharedLiveTransactionCtx {
     pub(crate) fn compute_projection(
         &self,
         key: DiceKey,
+        parent_key: ParentKey,
         state: CoreStateHandle,
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
@@ -343,7 +344,14 @@ impl SharedLiveTransactionCtx {
             }
         };
 
-        IncrementalEngine::project_for_key(state, task.deref(), key, eval, self.dupe(), events)
+        IncrementalEngine::project_for_key(
+            state,
+            task.depended_on_by(parent_key),
+            key,
+            eval,
+            self.dupe(),
+            events,
+        )
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
@@ -357,6 +365,7 @@ pub(crate) mod testing {
 
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::key::DiceKey;
+    use crate::impls::key::ParentKey;
     use crate::impls::task::sync_dice_task;
     use crate::impls::value::DiceComputedValue;
     use crate::DiceResult;
@@ -367,7 +376,7 @@ pub(crate) mod testing {
                 // SAFETY: completed immediately below
                 sync_dice_task()
             };
-            let _r = task.get_or_complete(|| v);
+            let _r = task.depended_on_by(ParentKey::None).get_or_complete(|| v);
 
             match self.cache.get(k) {
                 Entry::Occupied(o) => {

@@ -41,6 +41,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -95,13 +96,13 @@ impl IncrementalEngine {
 
     pub(crate) fn project_for_key(
         state: CoreStateHandle,
-        task: &DiceTask,
+        promise: DicePromise,
         k: DiceKey,
         eval: SyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
         event_dispatcher: DiceEventDispatcher,
     ) -> DiceResult<DiceComputedValue> {
-        task.get_or_complete(|| {
+        promise.get_or_complete(|| {
             event_dispatcher.started(k);
 
             let v = transaction_ctx.get_version();
