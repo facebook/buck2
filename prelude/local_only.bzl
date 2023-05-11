@@ -15,11 +15,6 @@ def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", 
     if _is_core_tool(ctx):
         return False
 
-    # This is temporary and will be removed.
-    link_locally_override = getattr(ctx.attrs, "link_locally_override", None)
-    if link_locally_override != None:
-        return link_locally_override
-
     return _cxx_toolchain_sets_link_binaries_locally(ctx, cxx_toolchain)
 
 def get_resolved_cxx_binary_link_execution_preference(
@@ -34,11 +29,6 @@ def get_resolved_cxx_binary_link_execution_preference(
     # b) don't get build stamping so they do cache correctly.
     if _is_core_tool(ctx):
         return LinkExecutionPreference("any")
-
-    # This is temporary and will be removed.
-    link_locally_override = getattr(ctx.attrs, "link_locally_override", None)
-    if link_locally_override != None:
-        return LinkExecutionPreference("local") if link_locally_override else LinkExecutionPreference("any")
 
     # Check if the toolchain has a preference.
     if _cxx_toolchain_sets_link_binaries_locally(ctx, cxx_toolchain):

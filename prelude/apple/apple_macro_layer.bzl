@@ -34,7 +34,12 @@ _APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = [
 ]
 
 _APPLE_BINARY_LOCAL_EXECUTION_OVERRIDES = [
-    AppleBuckConfigAttributeOverride(name = "link_locally_override", key = "link_binaries_locally_override"),
+    AppleBuckConfigAttributeOverride(
+        name = "link_execution_preference",
+        key = "link_binaries_locally_override",
+        value_if_true = "local",
+        skip_if_false = True,
+    ),
 ]
 
 def apple_macro_layer_set_bool_override_attrs_from_config(overrides: [AppleBuckConfigAttributeOverride.type]) -> {str.type: "selector"}:
