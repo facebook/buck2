@@ -15,6 +15,8 @@ def _select_platform():
     return select({
         "DEFAULT": "android",
         "config//os/constraints:iphoneos": "ios",
+        "config//os/constraints:macos": "macos",
+        "config//os/constraints:windows": "windows",
     })
 
 def _is_release():
