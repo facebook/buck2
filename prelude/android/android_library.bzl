@@ -9,7 +9,6 @@ load(
     "@prelude//android:android_providers.bzl",
     "AndroidLibraryIntellijInfo",
     "AndroidResourceInfo",
-    "ExportedAndroidResourceInfo",
     "merge_android_packageable_info",
     "merge_exported_android_resource_info",
 )
@@ -77,20 +76,12 @@ def build_android_library(
 
 def _get_dummy_r_dot_java(
         ctx: "context") -> (["artifact", None], [AndroidLibraryIntellijInfo.type, None]):
-    deps = ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
-    android_resources = []
-    for dep in deps:
-        resource_info = dep.get(AndroidResourceInfo)
-        if resource_info and resource_info.res:
-            android_resources.append(resource_info)
-        exported_android_resource_info = dep.get(ExportedAndroidResourceInfo)
-        if exported_android_resource_info:
-            android_resources.extend([resource_info for resource_info in exported_android_resource_info.resource_infos if resource_info.res])
-
+    android_resources = dedupe([resource for resource in filter(None, [
+        x.get(AndroidResourceInfo)
+        for x in ctx.attrs.deps + (ctx.attrs.deps_query or []) + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
+    ]) if resource.res != None])
     if len(android_resources) == 0:
         return (None, None)
-
-    android_resources = dedupe(android_resources)
 
     dummy_r_dot_java_library_info = get_dummy_r_dot_java(
         ctx,
