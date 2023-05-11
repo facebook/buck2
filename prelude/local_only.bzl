@@ -6,24 +6,57 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-
-def _is_core_tool(ctx: "context"):
-    return "is_core_tool" in ctx.attrs.labels
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 
 def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
-    # core tools are linked on RE because they are a) small enough to do so and
+    # Core tools are linked on RE because they are
+    # a) small enough to do so and
     # b) don't get build stamping so they do cache correctly.
     if _is_core_tool(ctx):
         return False
+
+    # This is temporary and will be removed.
     link_locally_override = getattr(ctx.attrs, "link_locally_override", None)
     if link_locally_override != None:
         return link_locally_override
-    if not cxx_toolchain:
-        cxx_toolchain = get_cxx_toolchain_info(ctx)
-    return cxx_toolchain.linker_info.link_binaries_locally
+
+    return _cxx_toolchain_sets_link_binaries_locally(ctx, cxx_toolchain)
+
+def get_resolved_cxx_binary_link_execution_preference(
+        ctx: "context",
+        force_full_hybrid_if_capable: bool.type,
+        cxx_toolchain: ["CxxToolchainInfo", None] = None) -> LinkExecutionPreference.type:
+    if force_full_hybrid_if_capable:
+        return LinkExecutionPreference("full_hybrid")
+
+    # Core tools can be linked on RE because they are
+    # a) small enough to do so and
+    # b) don't get build stamping so they do cache correctly.
+    if _is_core_tool(ctx):
+        return LinkExecutionPreference("any")
+
+    # This is temporary and will be removed.
+    link_locally_override = getattr(ctx.attrs, "link_locally_override", None)
+    if link_locally_override != None:
+        return LinkExecutionPreference("local") if link_locally_override else LinkExecutionPreference("any")
+
+    # Check if the toolchain has a preference.
+    if _cxx_toolchain_sets_link_binaries_locally(ctx, cxx_toolchain):
+        return LinkExecutionPreference("local")
+
+    # Else use the preference on the target.
+    return get_link_execution_preference(ctx)
 
 def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInfo") -> bool.type:
     if _is_core_tool(ctx) or getattr(ctx.attrs, "_package_remotely", False):
         return False
 
     return python_toolchain.build_standalone_binaries_locally
+
+def _is_core_tool(ctx: "context") -> bool.type:
+    return "is_core_tool" in ctx.attrs.labels
+
+def _cxx_toolchain_sets_link_binaries_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", None] = None) -> bool.type:
+    if not cxx_toolchain:
+        cxx_toolchain = get_cxx_toolchain_info(ctx)
+    return cxx_toolchain.linker_info.link_binaries_locally
