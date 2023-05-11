@@ -50,7 +50,6 @@ use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
 use crate::versions::VersionNumber;
 use crate::DiceError;
-use crate::UserCycleDetector;
 use crate::WhichSpawner;
 
 /// A context for the duration of a top-level compute request.
@@ -107,10 +106,10 @@ impl ComputationData {
     }
 
     pub(crate) fn finished_computing_key<K: StorageProperties>(
-        cycle_detector: Option<&Arc<dyn UserCycleDetector>>,
+        user_data: &UserComputationData,
         k: &K::Key,
     ) {
-        if let Some(v) = &cycle_detector {
+        if let Some(v) = &user_data.cycle_detector {
             v.finished_computing_key(K::to_key_any(k))
         }
     }

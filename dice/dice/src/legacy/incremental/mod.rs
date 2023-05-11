@@ -472,10 +472,7 @@ where
                         }
                         DidDepsChange::NoChange(unchanged_both_deps) => {
                             debug!("dependencies are unchanged, reusing entry");
-                            ComputationData::finished_computing_key::<K>(
-                                extra.user_data.cycle_detector.as_ref(),
-                                &ev.k,
-                            );
+                            ComputationData::finished_computing_key::<K>(&extra.user_data, &ev.k);
                             Ok(ev.engine.reuse(
                                 ev.k.clone(),
                                 &eval_ctx,
@@ -564,7 +561,7 @@ where
             .tracker
             .event(DiceEvent::Started { key_type: desc });
         let tracker = extra.user_data.tracker.dupe();
-        let cycle_detector = extra.user_data.cycle_detector.clone();
+        let user_data = extra.user_data.dupe();
 
         scopeguard::defer! {
             tracker.event(DiceEvent::Finished { key_type: desc });
@@ -602,7 +599,7 @@ where
         // cancellation, but our cycle detector does not currently support being notified multiple
         // times about the same key, so we don't.
         debug!(msg = "cache updates completed");
-        ComputationData::finished_computing_key::<K>(cycle_detector.as_ref(), k);
+        ComputationData::finished_computing_key::<K>(&user_data, k);
 
         Ok(entry)
     }
