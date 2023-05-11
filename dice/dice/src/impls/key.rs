@@ -203,12 +203,6 @@ impl<'a> CowDiceKey<'a> {
             CowDiceKey::Owned(owned) => owned.as_ref(),
         }
     }
-
-    #[cfg(test)]
-    pub(crate) fn testing_into_hashed(self) -> CowDiceKeyHashed<'a> {
-        let hash = self.borrow().hash();
-        CowDiceKeyHashed { cow: self, hash }
-    }
 }
 
 pub(crate) struct CowDiceKeyHashed<'a> {

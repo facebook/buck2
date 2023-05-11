@@ -23,7 +23,6 @@ use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
-use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::UserCycleDetectorData;
@@ -207,7 +206,7 @@ impl Changes {
     }
 
     pub(crate) fn change<K: Key>(&mut self, key: K, change: ChangeType) -> DiceResult<()> {
-        let key = self.dice.key_index.index(CowDiceKeyHashed::key(key));
+        let key = self.dice.key_index.index_key(key);
         if self.changes.insert(key, change).is_some() {
             Err(DiceError::duplicate(
                 self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),

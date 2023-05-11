@@ -45,9 +45,7 @@ use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::incremental::testing::DidDepsChangeExt;
 use crate::impls::incremental::IncrementalEngine;
-use crate::impls::key::CowDiceKey;
 use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::transaction::ChangeType;
 use crate::impls::user_cycle::UserCycleDetectorData;
@@ -212,12 +210,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     }
 
     let is_ran = Arc::new(AtomicBool::new(false));
-    let key = dice.key_index.index(
-        CowDiceKey::Owned(DiceKeyErased::Key(std::sync::Arc::new(IsRan(
-            is_ran.dupe(),
-        ))))
-        .testing_into_hashed(),
-    );
+    let key = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
     // set the initial state
     let (tx, _rx) = tokio::sync::oneshot::channel();
@@ -388,10 +381,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         fn hash<H: Hasher>(&self, _state: &mut H) {}
     }
 
-    let key = dice.key_index.index(
-        CowDiceKey::Owned(DiceKeyErased::key(InstanceEqualKey(instance.dupe())))
-            .testing_into_hashed(),
-    );
+    let key = dice.key_index.index_key(InstanceEqualKey(instance.dupe()));
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     dice.state_handle.request(StateRequest::UpdateState {

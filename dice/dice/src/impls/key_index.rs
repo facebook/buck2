@@ -20,6 +20,7 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::DiceKeyErasedRef;
+use crate::Key;
 
 const KEY_BY_INDEX_BUCKETS: usize =
     lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
@@ -128,6 +129,10 @@ impl DiceKeyIndex {
         .pack()
     }
 
+    pub(crate) fn index_key<K: Key>(&self, key: K) -> DiceKey {
+        self.index(CowDiceKeyHashed::key(key))
+    }
+
     pub(crate) fn get(&self, key: DiceKey) -> &DiceKeyErased {
         let unpack = DiceKeyUnpacked::unpack(key);
         self.shards[unpack.shard_index as usize]
@@ -199,7 +204,6 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
-    use crate::impls::key::CowDiceKeyHashed;
     use crate::impls::key_index::DiceKeyIndex;
     use crate::impls::key_index::DiceKeyUnpacked;
 
@@ -246,7 +250,7 @@ mod tests {
         let mut i = 0;
         loop {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKeyHashed::key(key));
+            let coin_key = key_index.index_key(key);
 
             assert_eq!(
                 i,
@@ -275,7 +279,7 @@ mod tests {
 
         while i < 100000 {
             let key = TestKey(i);
-            let coin_key = key_index.index(CowDiceKeyHashed::key(key));
+            let coin_key = key_index.index_key(key);
 
             assert_eq!(
                 i,
