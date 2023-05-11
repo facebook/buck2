@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
@@ -15,11 +16,11 @@ load(
 )
 load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
-load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_info")
+load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
@@ -62,6 +63,9 @@ def _get_binary(ctx: "context") -> AppleBundleBinaryOutput.type:
         fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
 
     return _maybe_scrub_binary(ctx, binary_dep)
+
+def _get_bundle_dsym_name(ctx: "context") -> str.type:
+    return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
 def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutput.type:
     binary = binary_dep[DefaultInfo].default_outputs[0]
@@ -135,7 +139,7 @@ def _apple_bundle_run_validity_checks(ctx: "context"):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
 
-def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.type) -> AppleBundleDebuggableInfo.type:
+def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.type, run_cmd: "_arglike") -> AppleBundleDebuggableInfo.type:
     # `label` captures configuration as well, so it's safe to use for comparison purposes
     binary_label = getattr(ctx.attrs.binary, "label", None)
     deps_debuggable_infos = filter(
@@ -146,14 +150,27 @@ def _get_debuggable_deps(ctx: "context", binary_output: AppleBundleBinaryOutput.
     )
 
     # We don't care to process the watchkit stub binary.
-    binary_debuggable_info = None
+    bundle_debuggable_info = None
     if not binary_output.is_watchkit_stub_binary:
         binary_debuggable_info = binary_output.debuggable_info
+        bundle_binary_dsym_artifact = get_apple_dsym_ext(
+            ctx = ctx,
+            # Calling `dsymutil` on the correctly named binary in the _final bundle_
+            executable = run_cmd,
+            external_debug_info = project_external_debug_info(
+                actions = ctx.actions,
+                label = ctx.label,
+                infos = [binary_debuggable_info.external_debug_info] if binary_debuggable_info else [],
+            ),
+            action_identifier = get_bundle_dir_name(ctx),
+            output_path = _get_bundle_dsym_name(ctx),
+        )
+        bundle_debuggable_info = AppleDebuggableInfo(dsyms = [bundle_binary_dsym_artifact], external_debug_info = binary_debuggable_info.external_debug_info)
 
     return AppleBundleDebuggableInfo(
-        binary_info = binary_debuggable_info,
+        binary_info = bundle_debuggable_info,
         dep_infos = deps_debuggable_infos,
-        all_infos = deps_debuggable_infos + ([binary_debuggable_info] if binary_debuggable_info else []),
+        all_infos = deps_debuggable_infos + ([bundle_debuggable_info] if bundle_debuggable_info else []),
     )
 
 def get_apple_bundle_part_list(ctx: "context", params: AppleBundlePartListConstructorParams.type) -> AppleBundlePartListOutput.type:
@@ -191,7 +208,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
-    bundle_debuggable_info = _get_debuggable_deps(ctx, binary_outputs)
+    bundle_debuggable_info = _get_debuggable_deps(ctx, binary_outputs, run_cmd)
 
     binary_dsym_artifacts = getattr(bundle_debuggable_info.binary_info, "dsyms", [])
     dep_dsym_artifacts = flatten([info.dsyms for info in bundle_debuggable_info.dep_infos])
