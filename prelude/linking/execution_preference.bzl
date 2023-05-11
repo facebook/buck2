@@ -33,5 +33,17 @@ def link_execution_preference_attr():
     The default is None, expressing that no preference has been set on the target itself.
     """)
 
-def cxx_attr_link_execution_preference(ctx) -> [LinkExecutionPreference.type, None]:
-    return LinkExecutionPreference(ctx.attrs.link_execution_preference) if ctx.attrs.link_execution_preference else None
+def get_link_execution_preference(ctx) -> LinkExecutionPreference.type:
+    if not hasattr(ctx.attrs, "link_execution_preference"):
+        fail("`get_link_execution_preference` called on a rule that does not support link_execution_preference!")
+
+    link_execution_preference = ctx.attrs.link_execution_preference
+
+    # If no preference has been set, we default to any.
+    if not link_execution_preference:
+        return LinkExecutionPreference("any")
+
+    if not type(link_execution_preference) == "dependency":
+        return LinkExecutionPreference(link_execution_preference)
+
+    return fail("link_execution_preference of type dependency currently unhandled.")
