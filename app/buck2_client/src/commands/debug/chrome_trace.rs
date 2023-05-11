@@ -146,7 +146,7 @@ impl ChromeTraceFirstPass {
                     self.critical_path_span_ids = info
                         .critical_path2
                         .iter()
-                        .filter_map(|entry| entry.span_id)
+                        .flat_map(|entry| entry.span_ids.iter().copied())
                         .collect()
                 }
                 _ => {}

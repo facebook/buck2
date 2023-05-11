@@ -377,7 +377,11 @@ where
             .chain(std::iter::once(meta_entry))
             .map(|(entry, data, potential_improvement)| {
                 anyhow::Ok(buck2_data::CriticalPathEntry2 {
-                    span_id: data.span_id.map(|span_id| span_id.into()),
+                    span_ids: data
+                        .span_id
+                        .map(|span_id| span_id.into())
+                        .into_iter()
+                        .collect(),
                     duration: Some(data.duration.critical_path_duration().try_into()?),
                     user_duration: Some(data.duration.user.try_into()?),
                     total_duration: Some(data.duration.total.try_into()?),
