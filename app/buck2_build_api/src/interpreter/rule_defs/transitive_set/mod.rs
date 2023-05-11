@@ -16,12 +16,6 @@ mod transitive_set_iterator;
 mod transitive_set_json_projection;
 mod traversal;
 
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-pub mod testing;
-
 use thiserror::Error;
 
 pub use self::transitive_set::FrozenTransitiveSet;

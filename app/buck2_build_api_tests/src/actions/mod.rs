@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-pub(crate) mod attr_literal;
-pub mod attr_type;
-pub(crate) mod coerced_attr;
-pub mod configured_attr;
-pub mod ctx;
+mod calculation;
+mod impls;
+pub(crate) mod registry;
+pub(crate) mod testings;

@@ -39,7 +39,7 @@ enum NativesError {
 }
 
 #[starlark_module]
-pub(crate) fn register_provider(builder: &mut GlobalsBuilder) {
+pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// Create a `"provider"` type that can be returned from `rule` implementations.
     /// Used to pass information from a rule to the things that depend on it.
     /// Typically named with an `Info` suffix.

@@ -9,6 +9,13 @@
 
 use std::sync::Arc;
 
+use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
+use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_build_api::interpreter::build_defs::register_provider;
+use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -29,14 +36,7 @@ use starlark::values::FrozenRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
-use crate::attrs::resolve::ctx::AnalysisQueryResult;
-use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::build_defs::register_provider;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
-use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
 pub(crate) fn resolution_ctx<'v>(module: &'v Module) -> impl AttrResolutionContext<'v> {
     resolution_ctx_with_providers(module).0

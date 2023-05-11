@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
@@ -44,12 +48,8 @@ use starlark::environment::Module;
 use starlark::values::Heap;
 use starlark::values::Value;
 
-use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::testing::resolution_ctx;
 use crate::attrs::resolve::testing::resolution_ctx_with_providers;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
 #[test]
 fn test() -> anyhow::Result<()> {
@@ -462,7 +462,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
 fn test_resolved_deps() -> anyhow::Result<()> {
     let globals = GlobalsBuilder::extended()
         .with(register_select)
-        .with(crate::interpreter::rule_defs::register_rule_defs)
+        .with(buck2_build_api::interpreter::rule_defs::register_rule_defs)
         .build();
 
     let env = Module::new();

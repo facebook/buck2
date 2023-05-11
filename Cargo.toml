@@ -57,6 +57,7 @@ members = [
     # @oss-disable: "buck2_tpx_cli",
     "app/buck2_build_api",
     "app/buck2_build_api_derive",
+    "app/buck2_build_api_tests",
     "app/buck2_subscription_proto",
     "app/buck2_critical_path",
     "dice/dice",

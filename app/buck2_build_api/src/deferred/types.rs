@@ -846,7 +846,7 @@ pub struct DeferredId {
 
 impl DeferredId {
     /// Gets the underlying ID for this DeferredId. This should be used for logging only.
-    pub(crate) fn as_usize(self) -> usize {
+    pub fn as_usize(self) -> usize {
         self.id as _
     }
 

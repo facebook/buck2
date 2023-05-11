@@ -359,7 +359,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
 /// This is used by the action registry to make an `OwnedFrozenValue` available to
 /// Actions' register function.
 #[derive(Default)]
-pub(crate) struct AnalysisValueFetcher {
+pub struct AnalysisValueFetcher {
     frozen_module: Option<FrozenModule>,
 }
 

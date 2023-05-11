@@ -16,8 +16,6 @@ use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
 
 mod builder;
 mod options;
-#[cfg(test)]
-mod test;
 mod traits;
 mod typ;
 pub mod value_as;
@@ -57,7 +55,6 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     }
 }
 
-#[cfg(test)]
 pub mod tester {
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_core::buck_path::resolver::BuckPathResolver;

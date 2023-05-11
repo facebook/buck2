@@ -14,7 +14,6 @@ derive_more = { workspace = true }
 derivative = { workspace = true }
 hashbrown = { workspace = true }
 once_cell = { workspace = true }
-indoc = { workspace = true }
 inventory = { workspace = true }
 fancy-regex = { workspace = true }
 futures = { workspace = true }
@@ -76,6 +75,7 @@ buck2_critical_path = { workspace = true }
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }
 
+indoc = { workspace = true }
 maplit = { workspace = true }
 
 [features]

@@ -374,7 +374,6 @@ mod keys {
     pub struct DeferredResolve(pub DeferredKey);
 }
 
-#[cfg(test)]
 pub mod testing {
     // re-exports for testing
     pub use super::keys::DeferredResolve;

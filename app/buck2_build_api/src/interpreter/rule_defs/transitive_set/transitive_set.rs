@@ -60,7 +60,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 #[repr(C)]
 pub struct TransitiveSetGen<V> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
-    pub(crate) key: TransitiveSetKey,
+    pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
     pub(crate) definition: V,
@@ -73,7 +73,7 @@ pub struct TransitiveSetGen<V> {
     pub(crate) reductions: Box<[V]>,
 
     /// Further transitive sets.
-    pub(crate) children: Box<[V]>,
+    pub children: Box<[V]>,
 }
 
 #[derive(Debug, Clone, Trace, Allocative)]

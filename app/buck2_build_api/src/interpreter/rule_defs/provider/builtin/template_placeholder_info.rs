@@ -78,7 +78,7 @@ enum TemplatePlaceholderInfoError {
 #[internal_provider(template_placeholder_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct TemplatePlaceholderInfoGen<V> {
+pub struct TemplatePlaceholderInfoGen<V> {
     // Dict[String, CommandLineArg]
     unkeyed_variables: V,
     // Dict[String, Either<CommandLineArg, Dict[String, CommandLineArg]>]

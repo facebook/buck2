@@ -11,29 +11,30 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
+use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_build_api::deferred::types::testing::DeferredDataExt;
+use buck2_build_api::deferred::types::testing::DeferredIdExt;
+use buck2_build_api::deferred::types::DeferredData;
+use buck2_build_api::deferred::types::DeferredId;
+use buck2_build_api::deferred::types::DeferredKey;
+use buck2_build_api::interpreter::build_defs::register_transitive_set;
+use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
-use crate::deferred::base_deferred_key::BaseDeferredKey;
-use crate::deferred::types::testing::DeferredDataExt;
-use crate::deferred::types::testing::DeferredIdExt;
-use crate::deferred::types::DeferredData;
-use crate::deferred::types::DeferredId;
-use crate::deferred::types::DeferredKey;
-use crate::interpreter::build_defs::register_transitive_set;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[starlark_module]
-pub fn tset_factory(builder: &mut GlobalsBuilder) {
+pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     fn make_tset<'v>(
         definition: Value<'v>,
         value: Option<Value<'v>>,

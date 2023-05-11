@@ -1,0 +1,35 @@
+[package]
+name = "buck2_build_api_tests"
+version = "0.1.0"
+edition = "2021"
+description = "Tests for buck2_build_api crate"
+
+[dev-dependencies]
+anyhow = { workspace = true }
+assert_matches = { workspace = true }
+async-trait = { workspace = true }
+derivative = { workspace = true }
+indexmap = { workspace = true }
+indoc = { workspace = true }
+maplit = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+sorted_vector_map = { workspace = true }
+
+allocative = { workspace = true }
+dupe = { workspace = true }
+dice = { workspace = true }
+gazebo = { workspace = true }
+starlark = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_build_api = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+buck2_node = { workspace = true }
+buck2_events = { workspace = true }
+buck2_execute = { workspace = true }

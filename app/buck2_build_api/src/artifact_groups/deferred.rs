@@ -34,6 +34,10 @@ impl TrivialDeferred for DeferredTransitiveSetData {
 }
 
 impl DeferredTransitiveSetData {
+    pub fn testing_new(value: OwnedFrozenValue) -> DeferredTransitiveSetData {
+        DeferredTransitiveSetData(value)
+    }
+
     pub fn as_transitive_set(&self) -> anyhow::Result<&TransitiveSet> {
         TransitiveSet::from_value(self.0.value()).context("Invalid deferred")
     }

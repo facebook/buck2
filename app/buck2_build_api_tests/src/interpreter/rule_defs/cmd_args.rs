@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+use buck2_build_api::interpreter::rule_defs::cmd_args::tester;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::expect_error;
@@ -14,17 +19,13 @@ use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Value;
 
-use super::tester;
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
-use crate::interpreter::rule_defs::register_rule_defs;
 
 #[starlark_module]
-pub fn inputs_helper(builder: &mut GlobalsBuilder) {
+pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     fn make_inputs<'v>(values: Vec<Value<'v>>) -> anyhow::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         for v in values {

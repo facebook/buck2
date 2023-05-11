@@ -30,7 +30,7 @@ pub mod calculation;
 pub mod execute;
 pub mod impls;
 pub mod key;
-pub(crate) mod registry;
+pub mod registry;
 
 use std::any::Demand;
 use std::borrow::Cow;
@@ -224,7 +224,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ActionErrors {
+pub enum ActionErrors {
     #[error("Output path for artifact or metadata file cannot be empty.")]
     EmptyOutputPath,
     #[error(
@@ -346,160 +346,5 @@ impl ActionToBeRegistered {
     fn register(self, starlark_data: Option<OwnedFrozenValue>) -> anyhow::Result<Box<dyn Action>> {
         self.action
             .register(self.inputs, self.outputs, starlark_data)
-    }
-}
-
-#[cfg(test)]
-pub(crate) mod testings {
-    use std::borrow::Cow;
-
-    use allocative::Allocative;
-    use async_trait::async_trait;
-    use buck2_core::category::Category;
-    use buck2_execute::execute::request::CommandExecutionOutput;
-    use buck2_execute::execute::request::CommandExecutionPaths;
-    use buck2_execute::execute::request::CommandExecutionRequest;
-    use buck2_execute::execute::request::OutputType;
-    use derivative::Derivative;
-    use dupe::Dupe;
-    use indexmap::IndexSet;
-    use sorted_vector_map::sorted_vector_map;
-    use starlark::values::OwnedFrozenValue;
-
-    use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::box_slice_set::BoxSliceSet;
-    use crate::actions::execute::action_executor::ActionExecutionMetadata;
-    use crate::actions::execute::action_executor::ActionOutputs;
-    use crate::actions::Action;
-    use crate::actions::ActionExecutable;
-    use crate::actions::ActionExecutionCtx;
-    use crate::actions::PristineActionExecutable;
-    use crate::actions::UnregisteredAction;
-    use crate::artifact_groups::ArtifactGroup;
-
-    /// A simple unregistered action that will eventually be resolved into an action that runs the
-    /// given cmd as the action execution command. Used for testing
-    ///
-    /// This action is for testing, and bypasses the need to create starlark values and frozen
-    /// modules
-    #[derive(Allocative)]
-    pub struct SimpleUnregisteredAction {
-        cmd: Vec<String>,
-        category: Category,
-        identifier: Option<String>,
-    }
-
-    impl SimpleUnregisteredAction {
-        pub fn new(cmd: Vec<String>, category: Category, identifier: Option<String>) -> Self {
-            Self {
-                cmd,
-                category,
-                identifier,
-            }
-        }
-    }
-
-    /// The action created by SimpleUnregisteredAction, or directly.
-    #[derive(Derivative, Allocative)]
-    #[derivative(Debug)]
-    pub struct SimpleAction {
-        inputs: BoxSliceSet<ArtifactGroup>,
-        outputs: BoxSliceSet<BuildArtifact>,
-        cmd: Vec<String>,
-        category: Category,
-        identifier: Option<String>,
-    }
-
-    impl SimpleAction {
-        pub fn new(
-            inputs: IndexSet<ArtifactGroup>,
-            outputs: IndexSet<BuildArtifact>,
-            cmd: Vec<String>,
-            category: Category,
-            identifier: Option<String>,
-        ) -> Self {
-            Self {
-                inputs: BoxSliceSet::from(inputs),
-                outputs: BoxSliceSet::from(outputs),
-                cmd,
-                category,
-                identifier,
-            }
-        }
-    }
-
-    impl UnregisteredAction for SimpleUnregisteredAction {
-        fn register(
-            self: Box<Self>,
-            inputs: IndexSet<ArtifactGroup>,
-            outputs: IndexSet<BuildArtifact>,
-            _starlark_data: Option<OwnedFrozenValue>,
-        ) -> anyhow::Result<Box<dyn Action>> {
-            Ok(Box::new(SimpleAction {
-                inputs: BoxSliceSet::from(inputs),
-                outputs: BoxSliceSet::from(outputs),
-                cmd: self.cmd,
-                category: self.category,
-                identifier: self.identifier,
-            }))
-        }
-    }
-
-    #[async_trait]
-    impl Action for SimpleAction {
-        fn kind(&self) -> buck2_data::ActionKind {
-            buck2_data::ActionKind::NotSet
-        }
-
-        fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
-            Ok(Cow::Borrowed(self.inputs.as_slice()))
-        }
-
-        fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
-            Ok(Cow::Borrowed(self.outputs.as_slice()))
-        }
-
-        fn as_executable(&self) -> ActionExecutable<'_> {
-            ActionExecutable::Pristine(self)
-        }
-
-        fn category(&self) -> &Category {
-            &self.category
-        }
-
-        fn identifier(&self) -> Option<&str> {
-            self.identifier.as_deref()
-        }
-    }
-
-    #[async_trait]
-    impl PristineActionExecutable for SimpleAction {
-        async fn execute(
-            &self,
-            ctx: &mut dyn ActionExecutionCtx,
-        ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
-            let req = CommandExecutionRequest::new(
-                self.cmd.clone(),
-                CommandExecutionPaths::new(
-                    Vec::new(),
-                    self.outputs
-                        .iter()
-                        .map(|b| CommandExecutionOutput::BuildArtifact {
-                            path: b.get_path().dupe(),
-                            output_type: OutputType::File,
-                        })
-                        .collect(),
-                    ctx.fs(),
-                    ctx.digest_config(),
-                )?,
-                sorted_vector_map![],
-            );
-
-            let (outputs, meta) = ctx.exec_cmd(&req).await?;
-
-            let outputs = ActionOutputs::new(outputs);
-
-            Ok((outputs, meta))
-        }
     }
 }

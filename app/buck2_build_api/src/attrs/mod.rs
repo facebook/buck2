@@ -46,5 +46,3 @@
 //! may be strings or targets or some other thing (e.g. a lazy glob, maybe).
 
 pub mod resolve;
-#[cfg(test)]
-mod tests;
