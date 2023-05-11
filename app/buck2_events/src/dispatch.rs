@@ -13,6 +13,7 @@
 //! liberally duplicated and passed around to the depths of buck2 so that consumers can insert events into it.
 
 use std::cell::Cell;
+use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::pin::Pin;
@@ -36,6 +37,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use futures::Future;
 use pin_project::pin_project;
+use smallvec::SmallVec;
 
 use crate::sink::null::NullEventSink;
 use crate::span::SpanId;
@@ -280,6 +282,12 @@ impl Span {
         let span_id = SpanId::new();
         let start_instant = Instant::now();
 
+        with_thread_local_recorder(|tl_recorder| {
+            if let Some(tl_recorder) = tl_recorder.as_mut() {
+                tl_recorder.push(span_id);
+            }
+        });
+
         dispatcher.event_with_span_id(
             SpanStartEvent {
                 data: Some(data.into()),
@@ -337,11 +345,13 @@ impl Span {
     {
         let now = Instant::now();
 
-        let ret = CURRENT_SPAN.with(|tl_span| {
-            let previous_span = tl_span.replace(Some(self.span_id));
-            let ret = f();
-            tl_span.set(previous_span);
-            ret
+        let ret = unset_thread_local_recorder(|| {
+            CURRENT_SPAN.with(|tl_span| {
+                let previous_span = tl_span.replace(Some(self.span_id));
+                let ret = f();
+                tl_span.set(previous_span);
+                ret
+            })
         });
 
         let elapsed = now.elapsed();
@@ -493,6 +503,114 @@ where
 /// that must be ended. The span is not automatically entered.
 pub fn create_span(start: impl Into<span_start_event::Data>) -> Span {
     get_dispatcher().create_span(start)
+}
+
+/// Allows the caller to record root spans being created in their current context.
+#[derive(Default)]
+struct RootSpansRecorder {
+    spans: SmallVec<[SpanId; 1]>,
+}
+
+impl RootSpansRecorder {
+    fn new() -> Self {
+        Self {
+            spans: SmallVec::new(),
+        }
+    }
+
+    fn push(&mut self, span_id: SpanId) {
+        self.spans.push(span_id);
+    }
+
+    fn call_with_recorder<T, F>(&mut self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        let this_recorder = std::mem::take(self);
+
+        unset_thread_local_recorder(|| {
+            with_thread_local_recorder(|tl_recorder| *tl_recorder = Some(this_recorder));
+            let v = f();
+            // Unwrap safety: only this unset_thread_local_recorder ever unsets this, and it
+            // promises to put it back.
+            *self = with_thread_local_recorder(|tl_recorder| tl_recorder.take().unwrap());
+            v
+        })
+    }
+}
+
+fn unset_thread_local_recorder<F, O>(f: F) -> O
+where
+    F: FnOnce() -> O,
+{
+    struct RestoreRecorder {
+        previous_recorder: Option<RootSpansRecorder>,
+    }
+
+    impl Drop for RestoreRecorder {
+        fn drop(&mut self) {
+            with_thread_local_recorder(|tl_recorder| {
+                *tl_recorder = std::mem::take(&mut self.previous_recorder);
+            })
+        }
+    }
+
+    let previous_recorder = with_thread_local_recorder(|tl_recorder| std::mem::take(tl_recorder));
+    let _guard = RestoreRecorder { previous_recorder };
+    f()
+}
+
+fn with_thread_local_recorder<F, O>(f: F) -> O
+where
+    for<'a> F: FnOnce(&'a mut Option<RootSpansRecorder>) -> O,
+{
+    thread_local! {
+        static ROOT_SPAN_RECORDER: UnsafeCell<Option<RootSpansRecorder>> = UnsafeCell::new(None);
+    }
+
+    // SAFETY: Nobody can possibly hold a reference to the contents of this cell, since the thread
+    // local is defined within this function (so nobody besies this function can hold a reference
+    // to *that*), and the reference we pass ends when this function ends.
+    ROOT_SPAN_RECORDER.with(|tl_recorder| {
+        let recorder = unsafe { &mut *tl_recorder.get() };
+        f(recorder)
+    })
+}
+
+pub fn record_root_spans<F, R>(f: F) -> (R, SmallVec<[SpanId; 1]>)
+where
+    F: FnOnce() -> R,
+{
+    let mut recorder = RootSpansRecorder::new();
+    let v = recorder.call_with_recorder(f);
+    (v, recorder.spans)
+}
+
+#[pin_project]
+pub struct RootSpansRecordingFuture<Fut> {
+    recorder: RootSpansRecorder,
+    #[pin]
+    fut: Fut,
+}
+
+impl<Fut> Future for RootSpansRecordingFuture<Fut>
+where
+    Fut: Future,
+{
+    type Output = (<Fut as Future>::Output, SmallVec<[SpanId; 1]>);
+
+    fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> task::Poll<Self::Output> {
+        let this = self.project();
+        let v = futures::ready!(this.recorder.call_with_recorder(|| this.fut.poll(cx)));
+        task::Poll::Ready((v, std::mem::take(&mut this.recorder.spans)))
+    }
+}
+
+pub fn async_record_root_spans<Fut>(fut: Fut) -> RootSpansRecordingFuture<Fut> {
+    RootSpansRecordingFuture {
+        recorder: RootSpansRecorder::new(),
+        fut,
+    }
 }
 
 #[cfg(test)]
@@ -773,5 +891,79 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_concurrent_multi_thread() {
         test_concurrent().await;
+    }
+
+    fn with_span(f: impl FnOnce()) -> SpanId {
+        span(CommandStart::default(), || {
+            let id = current_span().unwrap();
+            f();
+            (id, CommandEnd::default())
+        })
+    }
+
+    #[test]
+    fn test_record_root_spans() {
+        let nop = || ();
+
+        // Test a basic case.
+        let (id, spans) = record_root_spans(|| with_span(nop));
+        assert_eq!(&*spans, &[id]);
+
+        // Test multiple spans.
+        let (ids, spans) = record_root_spans(|| {
+            let id1 = with_span(nop);
+            let id2 = with_span(nop);
+            vec![id1, id2]
+        });
+        assert_eq!(&*spans, &ids);
+
+        // Test we don't record nested spans.
+        let (id, spans) = record_root_spans(|| {
+            with_span(|| {
+                span(CommandStart::default(), || {
+                    (with_span(nop), CommandEnd::default())
+                });
+            })
+        });
+        assert_eq!(&*spans, &[id]);
+
+        // Test nested calls to record_root_spans work.
+        let (id, spans) = record_root_spans(|| {
+            with_span(|| {
+                let (id, spans) = record_root_spans(|| with_span(nop));
+                assert_eq!(&*spans, &[id]);
+            })
+        });
+        assert_eq!(&*spans, &[id]);
+    }
+
+    #[tokio::test]
+    async fn test_async_record_root_spans() {
+        let nop = || ();
+
+        // Easy case.
+        let (id, spans) = async_record_root_spans(async { with_span(nop) }).await;
+        assert_eq!(&*spans, &[id]);
+
+        // With yields, check we don't re-enter.
+        let (ids, spans) = async_record_root_spans(async {
+            let id1 = span_async(CommandStart::default(), async {
+                tokio::task::yield_now().await;
+                (current_span().unwrap(), CommandEnd::default())
+            })
+            .await;
+
+            tokio::task::yield_now().await;
+
+            let id2 = span_async(CommandStart::default(), async {
+                tokio::task::yield_now().await;
+                (current_span().unwrap(), CommandEnd::default())
+            })
+            .await;
+
+            vec![id1, id2]
+        })
+        .await;
+        assert_eq!(&*spans, &ids);
     }
 }

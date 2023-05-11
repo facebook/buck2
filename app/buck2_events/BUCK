@@ -22,6 +22,7 @@ rust_library(
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:sys-info",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
