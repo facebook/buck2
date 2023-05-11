@@ -17,9 +17,12 @@ use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use futures::future::Shared;
 use futures::task::AtomicWaker;
 use more_futures::cancellation::future::CancellationHandle;
+use more_futures::cancellation::future::TerminationObserver;
 use parking_lot::Mutex;
+use parking_lot::MutexGuard;
 use slab::Slab;
 
 use crate::api::error::DiceResult;
@@ -60,7 +63,7 @@ pub(crate) struct DiceTask {
     pub(super) internal: Arc<DiceTaskInternal>,
     /// Handle to cancel the spawned task
     #[allocative(skip)]
-    pub(super) cancellation_handle: Option<CancellationHandle>,
+    pub(super) cancellations: Cancellations,
 }
 
 pub(super) struct DiceTaskInternal {
@@ -98,6 +101,9 @@ impl DiceTask {
             DicePromise::ready(result)
         } else {
             let mut wakers = self.internal.dependants.lock();
+            if self.cancellations.is_cancelled(&wakers) {
+                unimplemented!("todo handle canceled");
+            }
             match wakers.deref_mut() {
                 None => DicePromise::ready(
                     self.internal
@@ -246,3 +252,68 @@ impl DiceTaskInternal {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
+
+/// Stores either task cancellation handle which can be used to cancel the task
+/// or termination observers if task is being cancelled.
+pub(super) struct Cancellations {
+    /// `UnsafeCell` access is guarded by `DiceTaskInternal.dependants` mutex.
+    /// `None` means task is not cancellable.
+    internal: Option<Arc<UnsafeCell<CancellationsInternal>>>,
+}
+
+enum CancellationsInternal {
+    NotCancelled(CancellationHandle),
+    Cancelled(Shared<TerminationObserver>),
+}
+
+impl Cancellations {
+    pub(super) fn new(cancellation_handle: CancellationHandle) -> Self {
+        Self {
+            internal: Some(Arc::new(UnsafeCell::new(
+                CancellationsInternal::NotCancelled(cancellation_handle),
+            ))),
+        }
+    }
+
+    pub(super) fn not_cancellable() -> Self {
+        Self { internal: None }
+    }
+
+    #[allow(unused)] // TODO(bobyf)
+    pub(super) fn cancel(&self, _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>) {
+        if let Some(internal) = self.internal.as_ref() {
+            take_mut::take(
+                unsafe {
+                    // SAFETY: locked by the MutexGuard of Slab
+                    &mut *internal.get()
+                },
+                |internal| match internal {
+                    CancellationsInternal::NotCancelled(handle) => {
+                        CancellationsInternal::Cancelled(handle.cancel())
+                    }
+                    cancelled => cancelled,
+                },
+            )
+        };
+    }
+
+    pub(super) fn is_cancelled(
+        &self,
+        _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
+    ) -> bool {
+        self.internal.as_ref().map_or(false, |internal| {
+            match unsafe {
+                // SAFETY: locked by the MutexGuard of Slab
+                &*internal.get()
+            } {
+                CancellationsInternal::NotCancelled(_) => false,
+                CancellationsInternal::Cancelled(_) => true,
+            }
+        })
+    }
+}
+
+// our use of `UnsafeCell` is okay to be send and sync.
+// Each unsafe block around its access has comments explaining the invariants.
+unsafe impl Send for Cancellations {}
+unsafe impl Sync for Cancellations {}

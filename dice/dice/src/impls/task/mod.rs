@@ -15,6 +15,7 @@ use more_futures::spawn::spawn_cancellable;
 use more_futures::spawn::FutureAndCancellationHandle;
 use more_futures::spawner::Spawner;
 
+use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::DiceTaskHandle;
@@ -59,7 +60,7 @@ pub(crate) fn spawn_dice_task<S>(
 
     DiceTask {
         internal,
-        cancellation_handle: Some(cancellation_handle),
+        cancellations: Cancellations::new(cancellation_handle),
     }
 }
 
@@ -70,6 +71,6 @@ pub(crate) unsafe fn sync_dice_task() -> DiceTask {
 
     DiceTask {
         internal,
-        cancellation_handle: None,
+        cancellations: Cancellations::not_cancellable(),
     }
 }
