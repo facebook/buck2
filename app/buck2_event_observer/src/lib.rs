@@ -14,6 +14,7 @@ pub mod debug_events;
 pub mod dice_state;
 pub mod display;
 pub mod event_observer;
+pub mod fmt_duration;
 pub mod humanized;
 pub mod io_state;
 pub mod last_command_execution_kind;

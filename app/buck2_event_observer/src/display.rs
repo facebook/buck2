@@ -38,6 +38,7 @@ use superconsole::Lines;
 use superconsole::Span;
 use thiserror::Error;
 
+use crate::fmt_duration;
 use crate::verbosity::Verbosity;
 
 #[derive(Copy, Clone, Dupe)]
@@ -455,10 +456,6 @@ enum ParseEventError {
 #[error("Invalid buck event: `{0:?}`")]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
-pub fn duration_as_secs_elapsed(elapsed: Duration, time_speed: f64) -> String {
-    format!("{:.1}s", elapsed.mul_f64(time_speed).as_secs_f64())
-}
-
 pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
@@ -495,7 +492,7 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
                 " ({})",
                 // Set time_speed parameter as 1.0 because this is taking the duration of something that was measured somewhere else,
                 // so it doesn't make sense to apply the speed adjustment.
-                duration_as_secs_elapsed(duration, 1.0)
+                fmt_duration::fmt_duration(duration, 1.0)
             ))?);
         }
     }

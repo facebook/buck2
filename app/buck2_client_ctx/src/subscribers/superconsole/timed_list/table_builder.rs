@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::fmt_duration;
 use buck2_event_observer::span_tracker::BuckEventSpanInfo;
 use derive_more::From;
 use superconsole::style::style;
@@ -110,7 +111,7 @@ impl TimedRow {
             &span.event,
             TargetDisplayOptions::for_console(display_platform),
         )?;
-        let time = display::duration_as_secs_elapsed(span.start.elapsed(), time_speed);
+        let time = fmt_duration::fmt_duration(span.start.elapsed(), time_speed);
         let age = span.start.elapsed().mul_f64(time_speed);
         Self::text(padding, event, time, age, cutoffs)
     }

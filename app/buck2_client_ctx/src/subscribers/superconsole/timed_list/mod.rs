@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedCount;
 use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
@@ -93,8 +94,7 @@ impl<'c> TimedListBody<'c> {
 
         // but only display the time of the subaction if it differs significantly.
         if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
-            let subaction_time =
-                display::duration_as_secs_elapsed(child_info_elapsed, time_speed.speed());
+            let subaction_time = fmt_duration::fmt_duration(child_info_elapsed, time_speed.speed());
             event_string.push(' ');
             event_string.push_str(&subaction_time);
         }
@@ -109,7 +109,7 @@ impl<'c> TimedListBody<'c> {
         TimedRow::text(
             0,
             event_string,
-            display::duration_as_secs_elapsed(info_elapsed, time_speed.speed()),
+            fmt_duration::fmt_duration(info_elapsed, time_speed.speed()),
             info_elapsed.mul_f64(time_speed.speed()),
             self.cutoffs,
         )
@@ -215,10 +215,8 @@ impl<'s> Component for CountComponent<'s> {
         let finished = spans.roots_completed() as u64;
         let progress = spans.iter_roots().len() as u64;
 
-        let elapsed = display::duration_as_secs_elapsed(
-            self.state.current_tick.elapsed_time,
-            time_speed.speed(),
-        );
+        let elapsed =
+            fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
 
         let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
         let total = finished + spans.iter_roots().len() as u64 + pending;
