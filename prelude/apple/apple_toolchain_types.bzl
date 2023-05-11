@@ -22,6 +22,7 @@ AppleToolchainInfo = provider(fields = [
     "lipo",  # "RunInfo"
     "min_version",  # [None, str.type]
     "momc",  # "RunInfo"
+    "odrcov",  # ["RunInfo", None]
     "platform_path",  # [str.type, artifact]
     "sdk_build_version",  # "[None, str.type]"
     # SDK name to be passed to tools (e.g. actool), equivalent to ApplePlatform::getExternalName() in v1.
