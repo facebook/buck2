@@ -423,6 +423,10 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 output.linker_map,
             )
 
+            # The extra linker outputs should apply to the shared link style too.
+            if link_style == LinkStyle("shared"):
+                link_style_sub_targets.update(extra_linker_outputs)
+
             if impl_params.generate_sub_targets.link_style_outputs:
                 sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
                     default_output = output.default,
