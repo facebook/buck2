@@ -738,7 +738,7 @@ def _create_omnibus(
         # the linker_info.link_libraries_locally that's used by `cxx_link_into_shared_library`.
         # That's because we do not want to apply the linking behavior universally,
         # just use it for omnibus.
-        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, use_hybrid_links_for_libomnibus(ctx), toolchain_info),
+        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], use_hybrid_links_for_libomnibus(ctx), toolchain_info),
         link_weight = linker_info.link_weight,
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
         identifier = soname,

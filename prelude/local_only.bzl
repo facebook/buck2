@@ -19,6 +19,7 @@ def link_cxx_binary_locally(ctx: "context", cxx_toolchain: ["CxxToolchainInfo", 
 
 def get_resolved_cxx_binary_link_execution_preference(
         ctx: "context",
+        links: ["label"],
         force_full_hybrid_if_capable: bool.type,
         cxx_toolchain: ["CxxToolchainInfo", None] = None) -> LinkExecutionPreference.type:
     if force_full_hybrid_if_capable:
@@ -35,7 +36,7 @@ def get_resolved_cxx_binary_link_execution_preference(
         return LinkExecutionPreference("local")
 
     # Else use the preference on the target.
-    return get_link_execution_preference(ctx)
+    return get_link_execution_preference(ctx, links)
 
 def package_python_locally(ctx: "context", python_toolchain: "PythonToolchainInfo") -> bool.type:
     if _is_core_tool(ctx) or getattr(ctx.attrs, "_package_remotely", False):

@@ -237,6 +237,11 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     disabled_link_groups = []
 
     if not link_group_mappings:
+        # We cannot support deriving link execution preference off the included links, as we've already
+        # lost the information on what is in the link.
+        # TODO(T152860998): Derive link_execution_preference based upon the included links
+        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], impl_params.force_full_hybrid_if_capable)
+
         dep_links = apple_build_link_args_with_deduped_flags(
             ctx,
             inherited_link,
@@ -330,6 +335,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         filtered_links = get_filtered_links(labels_to_links_map)
         filtered_targets = get_filtered_targets(labels_to_links_map)
 
+        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links_map.keys(), impl_params.force_full_hybrid_if_capable)
+
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
         # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
@@ -409,8 +416,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         ]),
         dep_links,
     ] + impl_params.extra_link_args
-
-    link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, impl_params.force_full_hybrid_if_capable)
 
     link_result = _link_into_executable(
         ctx,

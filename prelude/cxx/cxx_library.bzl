@@ -367,7 +367,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
     swift_runtime_linkable = create_swift_runtime_linkable(ctx)
-    shared_links, link_group_map = _get_shared_library_links(
+    shared_links, link_group_map, link_execution_preference = _get_shared_library_links(
         ctx,
         get_linkable_graph_node_map_func(deps_linkable_graph),
         link_group,
@@ -401,6 +401,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         shared_links = shared_links,
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
+        link_execution_preference = link_execution_preference,
     )
     sub_targets.update(extra_linker_outputs)
 
@@ -788,7 +789,8 @@ def _form_library_outputs(
         preferred_linkage: Linkage.type,
         shared_links: LinkArgs.type,
         extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
-        gnu_use_link_groups: bool.type) -> (_CxxAllLibraryOutputs.type, {str.type: [DefaultInfo.type]}):
+        gnu_use_link_groups: bool.type,
+        link_execution_preference: LinkExecutionPreference.type) -> (_CxxAllLibraryOutputs.type, {str.type: [DefaultInfo.type]}):
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
@@ -860,9 +862,6 @@ def _form_library_outputs(
                     children = impl_params.additional.shared_external_debug_info,
                 )
 
-                # Not all rules calling `cxx_library_parameterized` have `link_execution_preference`. Notably `cxx_python_extension`.
-                link_execution_preference = get_link_execution_preference(ctx) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
-
                 extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
                 result = _shared_library(
                     ctx,
@@ -933,7 +932,7 @@ def _get_shared_library_links(
         frameworks_linkable: [FrameworksLinkable.type, None],
         force_static_follows_dependents: bool.type = True,
         swiftmodule_linkable: [SwiftmoduleLinkable.type, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None]):
+        swift_runtime_linkable: [SwiftRuntimeLinkable.type, None] = None) -> ("LinkArgs", [DefaultInfo.type, None], LinkExecutionPreference.type):
     """
     Returns LinkArgs with the content to link, and a link group map json output if applicable.
 
@@ -962,6 +961,12 @@ def _get_shared_library_links(
         # loaded in the address space of any process at any address.
         link_style_value = "static_pic" if link_style_value == "static" else link_style_value
 
+        # We cannot support deriving link execution preference off the included links, as we've already
+        # lost the information on what is in the link.
+        # TODO(T152860998): Derive link_execution_preference based upon the included links
+        # Not all rules calling `cxx_library_parameterized` have `link_execution_preference`. Notably `cxx_python_extension`.
+        link_execution_preference = get_link_execution_preference(ctx, []) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
+
         return apple_build_link_args_with_deduped_flags(
             ctx,
             link,
@@ -969,7 +974,7 @@ def _get_shared_library_links(
             LinkStyle(link_style_value),
             swiftmodule_linkable = swiftmodule_linkable,
             swift_runtime_linkable = swift_runtime_linkable,
-        ), None
+        ), None, link_execution_preference
 
     # Else get filtered link group links
     prefer_stripped = cxx_is_gnu(ctx) and ctx.attrs.prefer_stripped_objects
@@ -991,13 +996,15 @@ def _get_shared_library_links(
     filtered_links = get_filtered_links(filtered_labels_to_links_map)
     filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
 
+    link_execution_preference = get_link_execution_preference(ctx, filtered_labels_to_links_map.keys())
+
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
     additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swiftmodule_linkable, swift_runtime_linkable)
     if additional_links:
         filtered_links.append(additional_links)
 
-    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets)
+    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
 
 def _use_pic(link_style: LinkStyle.type) -> bool.type:
     """
