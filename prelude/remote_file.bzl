@@ -20,7 +20,7 @@ def _from_mvn_url(url: str.type) -> str.type:
     if count == 4:
         mvn, group, id, typ, version = url.split(":")
         repo = _ROOT
-    if count == 6:
+    elif count == 6:
         mvn, repo_protocol, repo_host, group, id, typ, version = url.split(":")
         repo = repo_protocol + ":" + repo_host
     else:
