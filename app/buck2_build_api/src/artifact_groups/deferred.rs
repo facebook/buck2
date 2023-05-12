@@ -13,12 +13,13 @@ use allocative::Allocative;
 use anyhow::Context;
 use dupe::Dupe;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::TrivialDeferred;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 pub type TransitiveSetKey = DeferredData<DeferredTransitiveSetData>;
 
@@ -38,8 +39,8 @@ impl DeferredTransitiveSetData {
         DeferredTransitiveSetData(value)
     }
 
-    pub fn as_transitive_set(&self) -> anyhow::Result<&TransitiveSet> {
-        TransitiveSet::from_value(self.0.value()).context("Invalid deferred")
+    pub fn as_transitive_set(&self) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+        self.0.dupe().downcast().ok().context("Invalid deferred")
     }
 
     pub fn as_value(&self) -> Value {

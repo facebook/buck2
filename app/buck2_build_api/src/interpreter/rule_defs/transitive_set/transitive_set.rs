@@ -173,7 +173,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
             projection,
         }
     }
+}
 
+impl FrozenTransitiveSet {
     pub fn get_projection_sub_inputs(
         &self,
         projection: usize,
