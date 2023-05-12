@@ -290,7 +290,7 @@ def _python_executable_attrs():
         "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
         "make_pex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         # entries for the generated __manifest__ python module
-        "manifest_module_entries": attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None),
+        "manifest_module_entries": attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.any())), default = None),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "par_style": attrs.option(attrs.string(), default = None),
