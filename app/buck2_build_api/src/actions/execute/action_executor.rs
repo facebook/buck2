@@ -228,7 +228,13 @@ impl HasActionExecutor for DiceComputations {
         let io_provider = self.global_data().get_io_provider();
 
         Ok(Arc::new(BuckActionExecutor::new(
-            CommandExecutor::new(executor, artifact_fs, executor_config.options, platform),
+            CommandExecutor::new(
+                executor,
+                artifact_fs,
+                executor_config.options,
+                platform,
+                run_action_knobs.enforce_re_timeouts,
+            ),
             blocking_executor,
             materializer,
             events,
@@ -641,6 +647,7 @@ mod tests {
                     output_paths_behavior: Default::default(),
                 },
                 Default::default(),
+                false,
             ),
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),

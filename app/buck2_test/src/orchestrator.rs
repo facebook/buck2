@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -609,8 +610,14 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         let CommandExecutorResponse { executor, platform } =
             self.dice.get_command_executor(fs, executor_config)?;
-        let executor =
-            CommandExecutor::new(executor, fs.clone(), executor_config.options, platform);
+        let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
+        let executor = CommandExecutor::new(
+            executor,
+            fs.clone(),
+            executor_config.options,
+            platform,
+            run_action_knobs.enforce_re_timeouts,
+        );
         Ok(executor)
     }
 
@@ -624,8 +631,14 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
         let CommandExecutorResponse { executor, platform } =
             self.dice.get_command_executor(fs, &executor_config)?;
-        let executor =
-            CommandExecutor::new(executor, fs.clone(), executor_config.options, platform);
+        let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
+        let executor = CommandExecutor::new(
+            executor,
+            fs.clone(),
+            executor_config.options,
+            platform,
+            run_action_knobs.enforce_re_timeouts,
+        );
         Ok(executor)
     }
 

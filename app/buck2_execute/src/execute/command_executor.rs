@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::OutputPathsBehavior;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -69,6 +70,7 @@ struct CommandExecutorData {
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
+    enforce_re_timeouts: bool,
 }
 
 impl CommandExecutor {
@@ -77,12 +79,14 @@ impl CommandExecutor {
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
+        enforce_re_timeouts: bool,
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
             artifact_fs,
             options,
             re_platform,
+            enforce_re_timeouts,
         }))
     }
 
@@ -151,7 +155,11 @@ impl CommandExecutor {
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
-                request.timeout(),
+                if self.0.enforce_re_timeouts {
+                    request.timeout()
+                } else {
+                    None
+                },
                 self.0.re_platform.clone(),
                 false,
                 digest_config,
@@ -183,8 +191,6 @@ fn re_create_action(
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
 ) -> anyhow::Result<PreparedAction> {
-    let _ignored = timeout; // TODO (torozco): Fix me.
-
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
@@ -255,7 +261,10 @@ fn re_create_action(
                 .add_protobuf_message(&command, digest_config)
                 .to_grpc(),
         ),
-        timeout: None,
+        timeout: timeout
+            .map(|t| t.try_into())
+            .transpose()
+            .context("Cannot convert timeout to GRPC")?,
         do_not_cache,
         ..Default::default()
     };

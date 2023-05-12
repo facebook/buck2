@@ -24,6 +24,9 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
+
+    /// Whether to enforce timeouts when running things on RE.
+    pub enforce_re_timeouts: bool,
 }
 
 pub trait HasRunActionKnobs {
