@@ -33,7 +33,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::compatibility::MaybeCompatible;
-use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
@@ -58,9 +57,7 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
-use crate::query::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
-use crate::query::analysis::configured_graph::AnalysisDiceQueryDelegate;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
+use crate::query::analysis::eval::eval_analysis_query;
 
 #[derive(Debug, thiserror::Error)]
 enum AnalysisCalculationError {
@@ -190,20 +187,7 @@ async fn resolve_queries_impl(
                     resolved_literals.insert(literal, node.dupe());
                 }
 
-                let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
-                let delegate = AnalysisConfiguredGraphQueryDelegate {
-                    dice_query_delegate,
-                    resolved_literals,
-                };
-
-                let functions = ConfiguredGraphQueryEnvironment::functions();
-                let env = ConfiguredGraphQueryEnvironment::new(&delegate);
-                let result = {
-                    let evaluator = QueryEvaluator::new(&env, &functions);
-
-                    let result = evaluator.eval_query(&query).await?;
-                    result.try_into_targets()?
-                };
+                let result = eval_analysis_query(ctx, &query, resolved_literals).await?;
 
                 // analysis for all the deps in the query result should already have been run since they must
                 // be in our dependency graph, and so we don't worry about parallelizing these lookups.
