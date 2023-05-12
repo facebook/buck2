@@ -144,7 +144,6 @@ def generate_rustdoc(
     plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env)
 
     rustdoc_cmd = cmd_args(
-        toolchain_info.rustc_action,
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         cmd_args(str(ctx.label.raw_target()), format = "--env=RUSTDOC_BUCK_TARGET={}"),
@@ -183,6 +182,13 @@ def generate_rustdoc(
             )
 
     rustdoc_cmd.hidden(toolchain_info.rustdoc, compile_ctx.symlinked_srcs)
+
+    rustdoc_cmd = _long_command(
+        ctx = ctx,
+        exe = toolchain_info.rustc_action,
+        args = rustdoc_cmd,
+        argfile_name = "{}.args".format(subdir),
+    )
 
     ctx.actions.run(rustdoc_cmd, category = "rustdoc")
 
@@ -262,7 +268,6 @@ def generate_rustdoc_test(
         runtool = ["--runtool=/usr/bin/env"]
 
     rustdoc_cmd = cmd_args(
-        toolchain_info.rustdoc,
         "--test",
         "-Zunstable-options",
         cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
@@ -282,7 +287,12 @@ def generate_rustdoc_test(
 
     rustdoc_cmd.hidden(compile_ctx.symlinked_srcs, hidden, runtime_files)
 
-    return rustdoc_cmd
+    return _long_command(
+        ctx = ctx,
+        exe = toolchain_info.rustdoc,
+        args = rustdoc_cmd,
+        argfile_name = "{}.args".format(common_args.subdir),
+    )
 
 # Generate multiple compile artifacts so that distinct sets of artifacts can be
 # generated concurrently.
@@ -909,8 +919,6 @@ def _rustc_invoke(
     json_diag = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
     txt_diag = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
 
-    rustc_action = cmd_args(toolchain_info.rustc_action)
-
     compile_cmd = cmd_args(
         cmd_args(json_diag.as_output(), format = "--diag-json={}"),
         cmd_args(txt_diag.as_output(), format = "--diag-txt={}"),
@@ -935,7 +943,13 @@ def _rustc_invoke(
 
     compile_cmd.add(rustc_cmd)
     compile_cmd.hidden(toolchain_info.compiler, compile_ctx.symlinked_srcs)
-    compile_cmd_file, extra_args = ctx.actions.write("{}-{}.args".format(prefix, diag), compile_cmd, allow_args = True)
+
+    compile_cmd = _long_command(
+        ctx = ctx,
+        exe = toolchain_info.rustc_action,
+        args = compile_cmd,
+        argfile_name = "{}-{}.args".format(prefix, diag),
+    )
 
     incremental_enabled = ctx.attrs.incremental_enabled
     local_only = False
@@ -947,7 +961,7 @@ def _rustc_invoke(
 
     identifier = "{} {} [{}]".format(prefix, short_cmd, diag)
     ctx.actions.run(
-        cmd_args(rustc_action, cmd_args(compile_cmd_file, format = "@{}")).hidden(compile_cmd, extra_args),
+        compile_cmd,
         local_only = local_only,
         prefer_local = prefer_local,
         category = "rustc",
@@ -956,6 +970,17 @@ def _rustc_invoke(
     )
 
     return ({diag + ".json": json_diag, diag + ".txt": txt_diag}, build_status)
+
+# Our rustc and rustdoc commands can have arbitrarily large number of `--extern`
+# flags, so write to file to avoid hitting the platform's limit on command line
+# length. This limit is particularly small on Windows.
+def _long_command(
+        ctx: "context",
+        exe: RunInfo.type,
+        args: "cmd_args",
+        argfile_name: str.type) -> "cmd_args":
+    argfile, hidden = ctx.actions.write(argfile_name, args, allow_args = True)
+    return cmd_args(exe, cmd_args(argfile, format = "@{}")).hidden(args, hidden)
 
 # Separate env settings into "plain" and "with path". Path env vars are often
 # used in Rust `include!()` and similar directives, which always interpret the
