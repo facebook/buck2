@@ -15,12 +15,21 @@ use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
+use inventory::ctor;
 
+use crate::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use crate::query::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::query::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
-pub(crate) async fn eval_analysis_query(
+#[ctor]
+fn init_eval_analysis_query() {
+    EVAL_ANALYSIS_QUERY.init(|ctx, query, resolved_literals| {
+        Box::pin(eval_analysis_query(ctx, query, resolved_literals))
+    });
+}
+
+async fn eval_analysis_query(
     ctx: &DiceComputations,
     query: &str,
     resolved_literals: HashMap<String, ConfiguredTargetNode>,

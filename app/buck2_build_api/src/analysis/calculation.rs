@@ -9,6 +9,8 @@
 
 //! Rule analysis related Dice calculations
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -30,11 +32,13 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -57,7 +61,16 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
-use crate::query::analysis::eval::eval_analysis_query;
+
+pub static EVAL_ANALYSIS_QUERY: LateBinding<
+    for<'a> fn(
+        &'a DiceComputations,
+        &'a str,
+        HashMap<String, ConfiguredTargetNode>,
+    ) -> Pin<
+        Box<dyn Future<Output = anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>> + Send + 'a>,
+    >,
+> = LateBinding::new("EVAL_ANALYSIS_QUERY");
 
 #[derive(Debug, thiserror::Error)]
 enum AnalysisCalculationError {
@@ -187,7 +200,7 @@ async fn resolve_queries_impl(
                     resolved_literals.insert(literal, node.dupe());
                 }
 
-                let result = eval_analysis_query(ctx, &query, resolved_literals).await?;
+                let result = (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
 
                 // analysis for all the deps in the query result should already have been run since they must
                 // be in our dependency graph, and so we don't worry about parallelizing these lookups.
