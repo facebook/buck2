@@ -72,5 +72,10 @@ fn required_providers<'v>(
                 ))
             })
         })
+        .filter_map(|r| match r {
+            Ok(Some(x)) => Some(Ok(x)),
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        })
         .collect()
 }
