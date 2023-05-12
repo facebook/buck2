@@ -9,3 +9,4 @@
 
 mod builtin;
 mod collection;
+mod tests;
