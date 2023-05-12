@@ -229,6 +229,10 @@ impl CasDigestConfig {
         self.inner.digest160 == Some(DigestAlgorithm::Sha1)
     }
 
+    pub fn allows_sha256(self) -> bool {
+        self.inner.digest256 == Some(DigestAlgorithm::Sha256)
+    }
+
     /// Access the config for source files. Note that:
     ///
     /// - This method isn't public because it really should only be called by methods in file_ops.

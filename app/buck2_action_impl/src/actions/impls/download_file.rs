@@ -138,18 +138,23 @@ impl DownloadFileAction {
             return Ok(None);
         }
 
-        if !digest_config.cas_digest_config().allows_sha1() {
-            return Ok(None);
-        }
-
-        let sha1 = match self.inner.checksum.sha1() {
-            Some(sha1) => sha1,
-            _ => return Ok(None),
+        let digest = if digest_config.cas_digest_config().allows_sha1() {
+            self.inner
+                .checksum
+                .sha1()
+                .and_then(|sha1| RawDigest::parse_sha1(sha1.as_bytes()).ok())
+        } else if digest_config.cas_digest_config().allows_sha256() {
+            self.inner
+                .checksum
+                .sha256()
+                .and_then(|sha256| RawDigest::parse_sha256(sha256.as_bytes()).ok())
+        } else {
+            None
         };
 
-        let sha1 = match RawDigest::parse_sha1(sha1.as_bytes()) {
-            Ok(sha1) => sha1,
-            Err(_) => return Ok(None),
+        let digest = match digest {
+            Some(digest) => digest,
+            None => return Ok(None),
         };
 
         let head = http_head(client, &self.inner.url).await?;
@@ -180,7 +185,7 @@ impl DownloadFileAction {
         match content_length {
             Some(length) => {
                 let digest = TrackedFileDigest::new(
-                    FileDigest::new(sha1, length),
+                    FileDigest::new(digest, length),
                     digest_config.cas_digest_config(),
                 );
                 Ok(Some(FileMetadata {
