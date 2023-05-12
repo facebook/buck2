@@ -37,6 +37,8 @@ _SelectiveDebuggingJsonTypes = [
 
 _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
+_LOCAL_LINK_THRESHOLD = 0.2
+
 def _impl(ctx: "context") -> ["provider"]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
@@ -95,8 +97,18 @@ def _impl(ctx: "context") -> ["provider"]:
         return selected_debug_info
 
     def preference_for_links(links: ["label"]) -> LinkExecutionPreference.type:
-        _ = links  # @unused Dummy function for now
-        return LinkExecutionPreference("any")
+        # If we're not provided a list of links, we can't make an informed determination.
+        if not links:
+            return LinkExecutionPreference("any")
+
+        matching_links = filter(None, [link for link in links if _is_label_included(link, selection_criteria)])
+
+        # If more than 20% of targets being linked are also downloaded for debugging, perform the
+        # link locally, as we'd need to download the object files anyway (and can skip downloading the link output).
+        # Otherwise, perform the link remotely, and we'll just download the debug data separately.
+        if len(matching_links) / len(links) >= _LOCAL_LINK_THRESHOLD:
+            return LinkExecutionPreference("local")
+        return LinkExecutionPreference("remote")
 
     return [
         DefaultInfo(),
