@@ -540,7 +540,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let previous_task =
         IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
 
-    let termination = previous_task.testing_cancel().unwrap();
+    let termination = previous_task.cancel().unwrap();
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
@@ -609,7 +609,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         .unwrap()
         .await
         .unwrap();
-    let termination = previous_task.testing_cancel().unwrap();
+    let termination = previous_task.cancel().unwrap();
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,

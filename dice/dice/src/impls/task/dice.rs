@@ -159,6 +159,13 @@ impl DiceTask {
             .as_ref()
             .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
     }
+
+    #[allow(unused)] // temporary for D45634595
+    pub(crate) fn cancel(&self) -> Option<Shared<TerminationObserver>> {
+        let lock = self.internal.dependants.lock();
+        self.cancellations.cancel(&lock);
+        self.cancellations.is_cancelled(&lock)
+    }
 }
 
 impl DiceTaskInternal {
@@ -320,19 +327,3 @@ impl Cancellations {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for Cancellations {}
 unsafe impl Sync for Cancellations {}
-
-#[cfg(test)]
-mod testing {
-    use futures::future::Shared;
-    use more_futures::cancellation::future::TerminationObserver;
-
-    use crate::impls::task::dice::DiceTask;
-
-    impl DiceTask {
-        pub(crate) fn testing_cancel(&self) -> Option<Shared<TerminationObserver>> {
-            let lock = self.internal.dependants.lock();
-            self.cancellations.cancel(&lock);
-            self.cancellations.is_cancelled(&lock)
-        }
-    }
-}
