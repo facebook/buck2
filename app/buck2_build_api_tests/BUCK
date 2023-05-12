@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:indoc",
+        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tokio",

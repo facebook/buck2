@@ -118,6 +118,10 @@ impl AnalysisResult {
     pub fn iter_deferreds(&self) -> impl Iterator<Item = DeferredLookup<'_>> {
         self.deferred.iter()
     }
+
+    pub fn testing_deferred(&self) -> &DeferredTable {
+        &self.deferred
+    }
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s

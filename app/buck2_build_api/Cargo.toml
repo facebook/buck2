@@ -76,7 +76,6 @@ buck2_critical_path = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 indoc = { workspace = true }
-maplit = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

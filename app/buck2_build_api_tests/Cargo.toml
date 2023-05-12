@@ -21,6 +21,7 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 dice = { workspace = true }
 gazebo = { workspace = true }
+itertools = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 
