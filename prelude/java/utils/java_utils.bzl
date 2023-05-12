@@ -94,9 +94,13 @@ def get_default_info(
         for (name, artifact) in abis:
             if artifact != None:
                 sub_targets[name] = [DefaultInfo(default_output = artifact)]
+        other_outputs = []
+        if outputs.annotation_processor_output:
+            other_outputs.append(outputs.annotation_processor_output)
         default_info = DefaultInfo(
             default_output = outputs.full_library,
             sub_targets = extra_sub_targets | sub_targets,
+            other_outputs = other_outputs,
         )
     return default_info
 
