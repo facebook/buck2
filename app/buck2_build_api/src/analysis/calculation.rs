@@ -60,8 +60,13 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
-use crate::query::analysis::environment::AnalysisQueryError;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
+
+#[derive(Debug, thiserror::Error)]
+enum AnalysisCalculationError {
+    #[error("Internal error: literal `{0}` not found in `deps`")]
+    LiteralNotFoundInDeps(String),
+}
 
 #[async_trait]
 pub trait RuleAnalysisCalculation {
@@ -180,7 +185,7 @@ async fn resolve_queries_impl(
                     HashMap::with_capacity(resolved_literals_labels.0.len());
                 for (literal, label) in resolved_literals_labels.0 {
                     let node = deps.get(label.target()).ok_or_else(|| {
-                        AnalysisQueryError::LiteralNotFoundInDeps(literal.clone())
+                        AnalysisCalculationError::LiteralNotFoundInDeps(literal.clone())
                     })?;
                     resolved_literals.insert(literal, node.dupe());
                 }

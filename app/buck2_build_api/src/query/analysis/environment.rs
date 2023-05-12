@@ -63,15 +63,13 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Debug, Error)]
-pub(crate) enum AnalysisQueryError {
+enum AnalysisQueryError {
     #[error("file literals aren't supported in query attributes (got `{0}`)")]
     FileLiteralsNotAllowed(String),
     #[error(
         "template_placeholder_info `{0}` of target `{1}` used in query attributes had artifact (`{2}`) not produced by a target, only target-produced artifacts supported here"
     )]
     NonTargetBoundArtifact(String, ConfiguredTargetLabel, Artifact),
-    #[error("Internal error: literal `{0}` not found in `deps`")]
-    LiteralNotFoundInDeps(String),
 }
 
 #[async_trait]
