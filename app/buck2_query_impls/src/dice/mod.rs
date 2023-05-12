@@ -340,7 +340,7 @@ impl<'c> QueryLiterals<TargetNode> for DiceQueryDelegate<'c> {
     }
 }
 
-pub async fn get_dice_query_delegate<'a, 'c: 'a>(
+pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
     global_target_platform: Option<TargetLabel>,

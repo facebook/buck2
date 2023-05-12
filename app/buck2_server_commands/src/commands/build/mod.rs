@@ -46,7 +46,6 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query_impls::cquery::evaluator::universe_from_literals;
-use buck2_query_impls::dice::get_dice_query_delegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -159,9 +158,9 @@ async fn build(
     let target_resolution_config: TargetResolutionConfig = if request.target_universe.is_empty() {
         TargetResolutionConfig::Default(global_target_platform)
     } else {
-        let query_delegate = get_dice_query_delegate(&ctx, cwd, global_target_platform).await?;
         TargetResolutionConfig::Universe(
-            universe_from_literals(&query_delegate, &request.target_universe).await?,
+            universe_from_literals(&ctx, cwd, &request.target_universe, global_target_platform)
+                .await?,
         )
     };
 

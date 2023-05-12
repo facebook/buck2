@@ -92,11 +92,14 @@ async fn preresolve_literals_and_build_universe(
 }
 
 pub async fn universe_from_literals(
-    dice_query_delegate: &DiceQueryDelegate<'_>,
+    ctx: &DiceComputations,
+    cwd: &ProjectRelativePath,
     literals: &[String],
+    global_target_platform: Option<TargetLabel>,
 ) -> anyhow::Result<CqueryUniverse> {
+    let query_delegate = get_dice_query_delegate(ctx, cwd, global_target_platform).await?;
     Ok(
-        preresolve_literals_and_build_universe(dice_query_delegate, literals)
+        preresolve_literals_and_build_universe(&query_delegate, literals)
             .await?
             .0,
     )
