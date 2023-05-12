@@ -197,6 +197,8 @@ _CxxAllLibraryOutputs = record(
     outputs = field({LinkStyle.type: [_CxxLibraryOutput.type, None]}),
     # The link infos that are part of each output based on link style.
     libraries = field({LinkStyle.type: LinkInfos.type}),
+    # Extra sub targets to be returned as outputs of this rule, by link style.
+    sub_targets = field({LinkStyle.type: {str.type: [DefaultInfo.type]}}, default = {}),
     # Shared object name to shared library mapping.
     solibs = field({str.type: LinkedObject.type}),
 )
@@ -393,7 +395,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if swift_runtime_linkable:
         extra_static_linkables.append(swift_runtime_linkable)
 
-    (library_outputs, extra_linker_outputs) = _form_library_outputs(
+    library_outputs = _form_library_outputs(
         ctx = ctx,
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
@@ -403,7 +405,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
     )
-    sub_targets.update(extra_linker_outputs)
+
+    for _, link_style_sub_targets in library_outputs.sub_targets.items():
+        for key in link_style_sub_targets.keys():
+            expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
+        sub_targets.update(link_style_sub_targets)
 
     actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
 
@@ -424,9 +430,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
                 output.linker_map,
             )
 
-            # The extra linker outputs should apply to the shared link style too.
-            if link_style == LinkStyle("shared"):
-                link_style_sub_targets.update(extra_linker_outputs)
+            # Add any subtargets for this link style.
+            link_style_sub_targets.update(library_outputs.sub_targets.get(link_style, {}))
 
             if impl_params.generate_sub_targets.link_style_outputs:
                 sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
@@ -790,12 +795,12 @@ def _form_library_outputs(
         shared_links: LinkArgs.type,
         extra_static_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         gnu_use_link_groups: bool.type,
-        link_execution_preference: LinkExecutionPreference.type) -> (_CxxAllLibraryOutputs.type, {str.type: [DefaultInfo.type]}):
+        link_execution_preference: LinkExecutionPreference.type) -> _CxxAllLibraryOutputs.type:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     libraries = {}
     solibs = {}
-    extra_linker_outputs = {}
+    sub_targets = {}
 
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo.type) -> LinkInfo.type:
@@ -885,6 +890,7 @@ def _form_library_outputs(
                     pdb = shlib.pdb,
                 )
                 solibs[result.soname] = shlib
+                sub_targets[link_style] = extra_linker_outputs
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
@@ -894,11 +900,12 @@ def _form_library_outputs(
             stripped = ldflags(stripped) if stripped != None else None,
         )
 
-    return (_CxxAllLibraryOutputs(
+    return _CxxAllLibraryOutputs(
         outputs = outputs,
         libraries = libraries,
         solibs = solibs,
-    ), extra_linker_outputs)
+        sub_targets = sub_targets,
+    )
 
 def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
     """
