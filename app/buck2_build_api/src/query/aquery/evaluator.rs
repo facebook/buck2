@@ -17,8 +17,8 @@ use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::actions::query::ActionQueryNode;
 use crate::query::analysis::evaluator::eval_query;
-use crate::query::aquery::environment::ActionQueryNode;
 use crate::query::aquery::environment::AqueryEnvironment;
 use crate::query::dice::aquery::DiceAqueryDelegate;
 use crate::query::dice::get_dice_query_delegate;

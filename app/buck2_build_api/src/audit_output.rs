@@ -16,7 +16,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
-use crate::query::aquery::environment::ActionQueryNode;
+use crate::actions::query::ActionQueryNode;
 
 /// The result of audit output.
 pub enum AuditOutputResult {

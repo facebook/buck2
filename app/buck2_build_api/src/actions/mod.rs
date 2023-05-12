@@ -30,6 +30,7 @@ pub mod calculation;
 pub mod execute;
 pub mod impls;
 pub mod key;
+pub mod query;
 pub mod registry;
 
 use std::any::Demand;
