@@ -13,7 +13,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query_impls::aquery::evaluator::get_aquery_evaluator;
+use buck2_query_impls::frontend::eval_aquery;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -90,10 +90,14 @@ async fn aquery(
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
-    let evaluator =
-        get_aquery_evaluator(&ctx, server_ctx.working_dir(), global_target_platform).await?;
-
-    let query_result = evaluator.eval_query(query, query_args).await?;
+    let query_result = eval_aquery(
+        &ctx,
+        server_ctx.working_dir(),
+        query,
+        query_args,
+        global_target_platform,
+    )
+    .await?;
 
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {

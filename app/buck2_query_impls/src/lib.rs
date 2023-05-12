@@ -14,4 +14,5 @@ pub mod analysis;
 pub mod aquery;
 pub mod cquery;
 pub mod dice;
+pub mod frontend;
 pub mod uquery;

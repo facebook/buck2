@@ -22,7 +22,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query_impls::cquery::environment::CqueryOwnerBehavior;
-use buck2_query_impls::cquery::evaluator::get_cquery_evaluator;
+use buck2_query_impls::frontend::eval_cquery;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -107,7 +107,7 @@ async fn cquery(
         ..
     } = request;
     // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
-    let target_universe = if target_universe.is_empty() {
+    let target_universe: Option<&[String]> = if target_universe.is_empty() {
         None
     } else {
         Some(target_universe)
@@ -126,25 +126,16 @@ async fn cquery(
         false => CqueryOwnerBehavior::Deprecated,
     };
 
-    let evaluator = get_cquery_evaluator(
+    let query_result = eval_cquery(
         &ctx,
         server_ctx.working_dir(),
-        global_target_platform,
         owner_behavior,
+        query,
+        query_args,
+        global_target_platform,
+        target_universe,
     )
     .await?;
-
-    let evaluator = &evaluator;
-
-    // TODO(nga): this should support configured target patterns
-    //   similarly to what we do for `build` command.
-    //   Something like this should work:
-    //   ```
-    //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
-    //   ```
-    let query_result = evaluator
-        .eval_query(query, query_args, target_universe.as_ref().map(|v| &v[..]))
-        .await?;
 
     let should_print_providers = if *show_providers {
         ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
