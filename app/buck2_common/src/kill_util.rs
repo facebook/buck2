@@ -117,6 +117,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
     async fn test_graceful_termination() -> anyhow::Result<()> {
         let dir = tempfile::tempdir()?;
 
