@@ -236,6 +236,13 @@ impl EnsuredArtifact {
             EnsuredArtifact::DeclaredArtifact { abs, .. } => *abs,
         }
     }
+
+    pub(crate) fn get_artifact_path(&self) -> ArtifactPath {
+        match self {
+            EnsuredArtifact::Artifact { artifact, .. } => artifact.get_artifact_path(),
+            EnsuredArtifact::DeclaredArtifact { artifact, .. } => artifact.get_artifact_path(),
+        }
+    }
 }
 
 impl Display for EnsuredArtifact {

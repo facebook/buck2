@@ -184,7 +184,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         for arg in args {
             if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg) {
                 let path = get_artifact_path_display(
-                    ensured.as_artifact().get_artifact_path(),
+                    ensured.get_artifact_path(),
                     ensured.abs(),
                     &this.project_fs,
                     &this.artifact_fs,
@@ -256,7 +256,7 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
                     let path = get_artifact_path_display(
-                        ensured.as_artifact().get_artifact_path(),
+                        ensured.get_artifact_path(),
                         ensured.abs(),
                         self.project_fs,
                         self.artifact_fs,

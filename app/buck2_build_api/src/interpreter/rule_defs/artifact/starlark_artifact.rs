@@ -101,6 +101,10 @@ impl StarlarkArtifact {
     pub fn artifact(&self) -> Artifact {
         self.artifact.dupe()
     }
+
+    pub fn get_artifact_path(&self) -> ArtifactPath<'_> {
+        self.artifact.get_path()
+    }
 }
 
 impl Display for StarlarkArtifact {
@@ -165,10 +169,6 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
         self
-    }
-
-    fn get_artifact_path(&self) -> ArtifactPath<'_> {
-        self.artifact.get_path()
     }
 
     fn fingerprint(&self) -> ArtifactFingerprint<'_> {

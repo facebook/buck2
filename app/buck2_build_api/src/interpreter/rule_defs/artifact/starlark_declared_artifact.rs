@@ -102,6 +102,10 @@ impl StarlarkDeclaredArtifact {
         self.artifact.as_output()
     }
 
+    pub fn get_artifact_path(&self) -> ArtifactPath<'_> {
+        self.artifact.get_path()
+    }
+
     pub fn with_extended_associated_artifacts(
         &self,
         extra_associated_artifacts: AssociatedArtifacts,
@@ -133,10 +137,6 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 
     fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
         self
-    }
-
-    fn get_artifact_path(&self) -> ArtifactPath<'_> {
-        self.artifact.get_path()
     }
 
     fn fingerprint(&self) -> ArtifactFingerprint<'_> {
