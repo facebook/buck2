@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Barrier;
 use std::sync::Mutex;
@@ -18,6 +20,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
+use tokio::sync::oneshot;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -426,4 +429,158 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
 
         Ok(())
     })
+}
+
+/// Test that dropping request cancel execution. Test scenario is:
+/// The test has 1 barrier and 1 semaphore:
+/// - barrier is used by the task to signal that the task is started, and that the task doesn't progress
+///   to complete.
+/// - semaphore ensures that the task doesn't run until the main thread drops the request
+/// 1. we spawn a task
+/// 2. assert task is spawned
+/// 3. drop the request future
+/// 4. ensure the task is cancelled since the task will panic if it proceeds beyond the semaphore
+#[tokio::test]
+async fn dropping_request_future_cancels_execution() {
+    #[derive(Debug)]
+    struct DropSignal(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            self.0.take().unwrap().send(()).unwrap();
+        }
+    }
+
+    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
+    #[derivative(PartialEq, Eq, Hash)]
+    #[display(fmt = "{:?}", self)]
+    #[allocative(skip)]
+    struct KeyThatShouldntRun {
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        barrier1: Arc<tokio::sync::Barrier>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        barrier2: Arc<tokio::sync::Semaphore>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        drop_signal: Arc<Mutex<Option<DropSignal>>>,
+    }
+
+    #[async_trait]
+    impl Key for KeyThatShouldntRun {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            let _drop_signal = self.drop_signal.lock().unwrap().take();
+
+            self.barrier1.wait().await;
+            let _guard = self.barrier2.acquire().await.unwrap();
+
+            panic!("shouldn't run")
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            true
+        }
+    }
+
+    let barrier1 = Arc::new(tokio::sync::Barrier::new(2));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
+
+    let (tx, rx) = oneshot::channel();
+    let drop_signal = DropSignal(Some(tx));
+
+    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+
+    let ctx = dice.updater().commit().await;
+
+    let key = KeyThatShouldntRun {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        drop_signal: Arc::new(Mutex::new(Some(drop_signal))),
+    };
+    let req = ctx.compute(&key);
+
+    // ensure that the key starts computing
+    barrier1.wait().await;
+
+    drop(req);
+
+    barrier2.add_permits(1);
+
+    rx.await.unwrap();
+}
+
+/// Test that dropping request cancel execution. Test scenario is:
+/// The test has 2 barriers:
+/// - first is used by the task to signal that the task is started, and that the task doesn't progress
+///   to complete.
+/// - second ensures that the task doesn't run until the main thread drops the one of the request
+/// 1. we spawn a task, but have two requests attached to it
+/// 2. assert task is spawned
+/// 3. drop one of the request future
+/// 4. ensure the task is still finishes and runs by checking the `is-ran` atomic
+#[tokio::test]
+async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
+    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
+    #[derivative(PartialEq, Eq, Hash)]
+    #[display(fmt = "{:?}", self)]
+    #[allocative(skip)]
+    struct KeyThatRuns {
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        barrier1: Arc<tokio::sync::Barrier>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        barrier2: Arc<tokio::sync::Barrier>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        is_ran: Arc<AtomicBool>,
+    }
+
+    #[async_trait]
+    impl Key for KeyThatRuns {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            self.barrier1.wait().await;
+            self.barrier2.wait().await;
+            self.is_ran.store(true, Ordering::SeqCst);
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            true
+        }
+    }
+
+    let barrier1 = Arc::new(tokio::sync::Barrier::new(2));
+    let barrier2 = Arc::new(tokio::sync::Barrier::new(2));
+    let is_ran = Arc::new(AtomicBool::new(false));
+
+    let key = KeyThatRuns {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        is_ran: is_ran.dupe(),
+    };
+
+    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+
+    let ctx = dice.updater().commit().await;
+    let req1 = ctx.compute(&key);
+    let req2 = ctx.compute(&key);
+
+    // ensure that the key starts computing
+    barrier1.wait().await;
+
+    drop(req1);
+
+    barrier2.wait().await;
+
+    // req2 still succeed
+    req2.await.unwrap();
+
+    assert!(is_ran.load(Ordering::SeqCst));
 }
