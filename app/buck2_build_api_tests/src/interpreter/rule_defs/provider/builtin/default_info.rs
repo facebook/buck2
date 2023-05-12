@@ -8,6 +8,7 @@
  */
 
 use buck2_build_api::interpreter::build_defs::register_provider;
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
@@ -96,4 +97,24 @@ fn default_info_validates_types() -> SharedResult<()> {
                 assert_eq(DefaultInfo.type, "DefaultInfo")
             "#
     ))
+}
+
+#[test]
+fn test_to_json() {
+    let mut tester = Tester::new().unwrap();
+    tester.additional_globals(register_builtin_providers);
+    tester
+        .run_starlark_bzl_test(indoc!(
+            r#"
+            def test():
+                default = DefaultInfo(
+                    sub_targets={"foo": [DefaultInfo()]},
+                )
+                assert_eq(
+                    '{"sub_targets":{"foo":{"DefaultInfo":{"sub_targets":{},"default_outputs":[],"other_outputs":[]}}},"default_outputs":[],"other_outputs":[]}',
+                    default.to_json(),
+                )
+            "#
+        ))
+        .unwrap();
 }

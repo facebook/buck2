@@ -152,41 +152,14 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use allocative::Allocative;
-    use buck2_build_api_derive::internal_provider;
     use buck2_core::bzl::ImportPath;
     use buck2_interpreter_for_build::interpreter::testing::Tester;
     use indoc::indoc;
-    use starlark::any::ProvidesStaticType;
-    use starlark::coerce::Coerce;
-    use starlark::environment::GlobalsBuilder;
-    use starlark::values::Freeze;
-    use starlark::values::Trace;
-    use starlark::values::Value;
 
     use crate::interpreter::rule_defs::register_rule_defs;
 
-    #[internal_provider(simple_info_creator)]
-    #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
-    #[repr(C)]
-    pub struct SimpleInfoGen<V> {
-        value1: V,
-        value2: V,
-    }
-
-    #[starlark_module]
-    fn simple_info_creator(globals: &mut GlobalsBuilder) {
-        fn ConstraintSettingInfo<'v>(
-            value1: Value<'v>,
-            value2: Value<'v>,
-        ) -> anyhow::Result<SimpleInfo<'v>> {
-            Ok(SimpleInfo { value1, value2 })
-        }
-    }
-
     fn provider_tester() -> Tester {
         let mut tester = Tester::new().unwrap();
-        tester.additional_globals(simple_info_creator);
         tester.additional_globals(register_rule_defs);
         tester.additional_globals(crate::interpreter::build_defs::register_provider);
         tester
@@ -209,8 +182,6 @@ mod tests {
         assert_eq("unnamed provider", repr(provider(fields=["f1"])))
         assert_eq("FooInfo(bar, baz)", repr(FooInfo))
         assert_eq("FooInfo(bar, baz)", repr(FooInfo2))
-
-        simple_info_1 = SimpleInfo(value1="value1", value2=3)
 
         def test():
             assert_eq(FooInfo.type, "FooInfo")
@@ -236,8 +207,6 @@ mod tests {
             assert_eq(None, foo_2.baz)
 
             assert_eq("{\"bar\":\"bar_1\",\"baz\":\"baz_1\"}", foo_1.to_json())
-            assert_eq("{\"value1\":\"value1\",\"value2\":3}", simple_info_1.to_json())
-            assert_eq(json.encode(struct(value1="value1", value2=3)), simple_info_1.to_json())
         "#
         ))?;
 
