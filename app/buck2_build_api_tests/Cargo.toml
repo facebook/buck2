@@ -33,3 +33,4 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_util = { workspace = true }
