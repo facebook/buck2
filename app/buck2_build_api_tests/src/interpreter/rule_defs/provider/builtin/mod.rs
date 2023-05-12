@@ -10,3 +10,4 @@
 mod default_info;
 mod install_info;
 mod run_info;
+mod tests;
