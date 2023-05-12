@@ -238,6 +238,57 @@ enum CannotProject {
     DeclaredElsewhere(BaseDeferredKeyDyn),
 }
 
+pub(crate) struct StarlarkArtifactHelpers;
+impl StarlarkArtifactHelpers {
+    /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
+    pub(crate) fn basename<'v>(
+        artifact: &Artifact,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        artifact
+            .get_path()
+            .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
+    }
+
+    /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
+    /// this is `.sh`. If no extension is present, `""` is returned.
+    pub(crate) fn extension<'v>(
+        artifact: &Artifact,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        artifact.get_path().with_filename(|filename| {
+            Ok(match filename?.extension() {
+                None => heap.alloc_str(""),
+                Some(x) => heap.alloc_str_concat(".", x),
+            })
+        })
+    }
+
+    /// The `Label` of the rule that originally created this artifact. May also be None in
+    /// the case of source files, or if the artifact has not be used in an action, or if the
+    /// action was not created by a rule.
+    pub(crate) fn owner(artifact: &Artifact) -> anyhow::Result<Option<Label>> {
+        match artifact.owner() {
+            None => Ok(None),
+            Some(BaseDeferredKeyDyn::TargetLabel(target)) => Ok(Some(Label::new(
+                ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
+            ))),
+            Some(BaseDeferredKeyDyn::Dyn(_)) => Ok(None),
+        }
+    }
+
+    /// The interesting part of the path, relative to somewhere in the output directory.
+    /// For an artifact declared as `foo/bar`, this is `foo/bar`.
+    pub(crate) fn short_path<'v>(
+        artifact: &Artifact,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        artifact
+            .get_path()
+            .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
+    }
+}
+
 /// A single input or output file for an action.
 ///
 /// There is no `.parent` method on `artifact`, but in most cases
@@ -247,21 +298,14 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
     #[starlark(attribute)]
     fn basename<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        this.artifact
-            .get_path()
-            .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
+        StarlarkArtifactHelpers::basename(&this.artifact, heap)
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
     /// this is `.sh`. If no extension is present, `""` is returned.
     #[starlark(attribute)]
     fn extension<'v>(this: &StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        this.artifact.get_path().with_filename(|filename| {
-            Ok(match filename?.extension() {
-                None => heap.alloc_str(""),
-                Some(x) => heap.alloc_str_concat(".", x),
-            })
-        })
+        StarlarkArtifactHelpers::extension(&this.artifact, heap)
     }
 
     /// Whether the artifact represents a source file
@@ -275,13 +319,14 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
     /// action was not created by a rule.
     #[starlark(attribute)]
     fn owner<'v>(this: &StarlarkArtifact) -> anyhow::Result<Option<Label>> {
-        match this.artifact.owner() {
-            None => Ok(None),
-            Some(BaseDeferredKeyDyn::TargetLabel(target)) => Ok(Some(Label::new(
-                ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
-            ))),
-            Some(BaseDeferredKeyDyn::Dyn(_)) => Ok(None),
-        }
+        StarlarkArtifactHelpers::owner(&this.artifact)
+    }
+
+    /// The interesting part of the path, relative to somewhere in the output directory.
+    /// For an artifact declared as `foo/bar`, this is `foo/bar`.
+    #[starlark(attribute)]
+    fn short_path<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
+        StarlarkArtifactHelpers::short_path(&this.artifact, heap)
     }
 
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
@@ -298,15 +343,6 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
             }
             .into()),
         }
-    }
-
-    /// The interesting part of the path, relative to somewhere in the output directory.
-    /// For an artifact declared as `foo/bar`, this is `foo/bar`.
-    #[starlark(attribute)]
-    fn short_path<'v>(this: &'v StarlarkArtifact, heap: &Heap) -> anyhow::Result<StringValue<'v>> {
-        this.artifact
-            .get_path()
-            .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 
     /// Create an artifact that lives at path relative from this artifact.
