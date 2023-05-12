@@ -10,3 +10,5 @@
 pub mod dedupe;
 pub mod regex;
 pub mod sha256;
+pub mod soft_error;
+pub mod warning;

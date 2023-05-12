@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
-use buck2_core::soft_error;
 use buck2_interpreter::functions::regex::register_regex;
+use buck2_interpreter::functions::soft_error::register_soft_error;
+use buck2_interpreter::functions::warning::register_warning;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::rule::register_rule_function;
 use starlark::collections::SmallMap;
@@ -16,8 +17,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::none::NoneType;
 use starlark::values::Value;
-use thiserror::Error;
-use tracing::warn;
 
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 
@@ -30,20 +29,6 @@ pub mod label_relative_path;
 pub mod provider;
 pub mod transition;
 pub mod transitive_set;
-
-#[derive(Debug, Error)]
-enum ExtraFunctionErrors {
-    #[error("Error produced by Starlark: {category}: {message}\n{call_stack}")]
-    StarlarkSoftError {
-        category: String,
-        message: String,
-        call_stack: String,
-    },
-    #[error(
-        "soft_error originated from starlark should have category starting with `starlark_`, got: `{0}`"
-    )]
-    InvalidCategory(String),
-}
 
 #[starlark_module]
 fn extra_functions(builder: &mut GlobalsBuilder) {
@@ -63,51 +48,6 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
         }
         Ok(NoneType)
     }
-
-    /// Print a warning. The line will be decorated with the timestamp and other details,
-    /// including the word `WARN` (colored, if the console supports it).
-    ///
-    /// If you are not writing a warning, use `print` instead. Be aware that printing
-    /// lots of output (warnings or not) can be cause all information to be ignored by the user.
-    fn warning(#[starlark(require = pos)] x: &str) -> anyhow::Result<NoneType> {
-        warn!("{}", x);
-        Ok(NoneType)
-    }
-
-    /// Produce an error that will become a hard error at some point in the future, but
-    /// for now is a warning which is logged to the server.
-    /// In the open source version of Buck2 this function always results in an error.
-    ///
-    /// Called passing a stable key (must be `snake_case` and start with `starlark_`,
-    /// used for consistent reporting) and an arbitrary message (used for debugging).
-    ///
-    /// As an example:
-    ///
-    /// ```python
-    /// soft_error(
-    ///     "starlark_rule_is_too_long",
-    ///     "Length of property exceeds 100 characters in " + repr(ctx.label),
-    /// )
-    /// ```
-    fn soft_error(
-        #[starlark(require = pos)] category: &str,
-        #[starlark(require = pos)] message: String,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<NoneType> {
-        if !category.starts_with("starlark_") {
-            return Err(ExtraFunctionErrors::InvalidCategory(category.to_owned()).into());
-        }
-        soft_error!(
-            category,
-            ExtraFunctionErrors::StarlarkSoftError {
-                category: category.to_owned(),
-                message,
-                call_stack: eval.call_stack().to_string()
-            }
-            .into()
-        )?;
-        Ok(NoneType)
-    }
 }
 
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
@@ -117,6 +57,8 @@ pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     register_builtin_providers(globals);
     extra_functions(globals);
     register_regex(globals);
+    register_warning(globals);
+    register_soft_error(globals);
 }
 
 #[cfg(test)]
