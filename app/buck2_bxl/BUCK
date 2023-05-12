@@ -43,6 +43,7 @@ rust_library(
         "//buck2/app/buck2_query:buck2_query",
         "//buck2/app/buck2_query_parser:buck2_query_parser",
         "//buck2/app/buck2_server_ctx:buck2_server_ctx",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/display_container:display_container",
         "//buck2/gazebo/dupe:dupe",

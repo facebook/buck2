@@ -18,7 +18,7 @@ gazebo_lint.optional = true
 # @oss-disable: gazebo_lint.path = "../../gazebo_lint/gazebo_lint"
 dupe = { workspace = true }
 
-buck2_core = { workspace = true }
+buck2_util = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]

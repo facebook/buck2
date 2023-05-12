@@ -21,10 +21,10 @@ mod fbcode {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use buck2_core::truncate::truncate;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
+    use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
 

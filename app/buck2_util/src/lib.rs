@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(round_char_boundary)]
+
 pub mod arc_str;
 pub mod commas;
 pub mod cycle_detector;
@@ -15,3 +17,4 @@ pub mod late_binding;
 pub mod process;
 pub mod process_stats;
 pub mod rtabort;
+pub mod truncate;

@@ -15,7 +15,6 @@
 #![feature(const_panic)]
 #![feature(control_flow_enum)]
 #![feature(fs_try_exists)]
-#![feature(round_char_boundary)]
 #![feature(termination_trait_lib)]
 #![feature(try_trait_v2)]
 #![feature(type_alias_impl_trait)]
@@ -57,7 +56,6 @@ pub mod provider;
 pub mod rollout_percentage;
 pub mod target;
 pub mod target_aliases;
-pub mod truncate;
 pub mod unsafe_send_future;
 
 /// Marker for things that are only sensible to use inside Facebook,
