@@ -17,9 +17,11 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 use crate::actions::artifact::artifact_type::Artifact;
+use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
 /// The Starlark representation of an `Artifact`
@@ -48,10 +50,22 @@ pub trait StarlarkArtifactLike: Display {
     /// Gets any associated artifacts that should be materialized along with the bound artifact
     fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts>;
 
+    /// Return an interface for frozen and bound artifacts (`StarlarkArtifact`) to add to a CLI
+    ///
+    /// Returns None if this artifact isn't the correct type to be added to a CLI object
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike;
+
+    /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
+    /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
+    /// as the inputs to Hash/Eq to ensure they are consistent
+    fn fingerprint(&self) -> ArtifactFingerprint<'_>;
+
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
         if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
             Ok(self.fingerprint() == other.fingerprint())
         } else if let Some(other) = other.downcast_ref::<StarlarkDeclaredArtifact>() {
+            Ok(self.fingerprint() == other.fingerprint())
+        } else if let Some(other) = other.downcast_ref::<StarlarkPromiseArtifact>() {
             Ok(self.fingerprint() == other.fingerprint())
         } else {
             Ok(false)
@@ -62,16 +76,6 @@ pub trait StarlarkArtifactLike: Display {
         self.fingerprint().hash(hasher);
         Ok(())
     }
-
-    /// Return an interface for frozen and bound artifacts (`StarlarkArtifact`) to add to a CLI
-    ///
-    /// Returns None if this artifact isn't the correct type to be added to a CLI object
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike;
-
-    /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
-    /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
-    /// as the inputs to Hash/Eq to ensure they are consistent
-    fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 }
 
 pub trait ValueAsArtifactLike<'v> {
@@ -86,21 +90,38 @@ impl<'v, V: ValueLike<'v>> ValueAsArtifactLike<'v> for V {
                 self.downcast_ref::<StarlarkDeclaredArtifact>()
                     .map(|o| o as &dyn StarlarkArtifactLike)
             })
+            .or_else(|| {
+                self.downcast_ref::<StarlarkPromiseArtifact>()
+                    .map(|o| o as &dyn StarlarkArtifactLike)
+            })
     }
 }
 
 #[derive(PartialEq)]
-pub struct ArtifactFingerprint<'a> {
-    pub(crate) path: ArtifactPath<'a>,
-    pub(crate) associated_artifacts: Option<&'a AssociatedArtifacts>,
+pub enum ArtifactFingerprint<'a> {
+    Normal {
+        path: ArtifactPath<'a>,
+        associated_artifacts: Option<&'a AssociatedArtifacts>,
+    },
+    Promise {
+        id: PromiseArtifactId,
+    },
 }
 
 impl Hash for ArtifactFingerprint<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.path.hash(state);
-        if let Some(associated) = &self.associated_artifacts {
-            associated.len().hash(state);
-            associated.iter().for_each(|ag| ag.hash(state));
+        match &self {
+            ArtifactFingerprint::Normal {
+                path,
+                associated_artifacts,
+            } => {
+                path.hash(state);
+                if let Some(associated) = associated_artifacts {
+                    associated.len().hash(state);
+                    associated.iter().for_each(|ag| ag.hash(state));
+                }
+            }
+            ArtifactFingerprint::Promise { id } => id.hash(state),
         }
     }
 }

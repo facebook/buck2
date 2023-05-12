@@ -172,9 +172,13 @@ impl StarlarkArtifactLike for StarlarkArtifact {
     }
 
     fn fingerprint(&self) -> ArtifactFingerprint<'_> {
-        ArtifactFingerprint {
-            path: self.artifact.get_path(),
-            associated_artifacts: self.get_associated_artifacts(),
+        {
+            let path = self.artifact.get_path();
+            let associated_artifacts = self.get_associated_artifacts();
+            ArtifactFingerprint::Normal {
+                path,
+                associated_artifacts,
+            }
         }
     }
 }

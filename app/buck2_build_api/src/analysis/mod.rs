@@ -52,6 +52,7 @@ pub mod anon_target_node;
 pub(crate) mod anon_targets;
 pub mod calculation;
 pub(crate) mod configured_graph;
+pub(crate) mod promise_artifacts;
 pub mod registry;
 
 use allocative::Allocative;

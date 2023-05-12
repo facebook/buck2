@@ -36,6 +36,7 @@ use crate::actions::calculation::ActionCalculation;
 use crate::actions::key::ActionKey;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::calculation::Calculation;
 use crate::deferred::calculation::DeferredCalculation;
@@ -122,10 +123,12 @@ async fn convert_inputs<'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     inputs: Iter,
 ) -> anyhow::Result<Vec<ActionInput>> {
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
-        inputs.into_iter().filter_map(|input| match input {
-            ArtifactGroup::Artifact(a) => a.action_key().map(Either::Left),
-            ArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
-        }),
+        inputs
+            .into_iter()
+            .filter_map(|input| match input.assert_resolved() {
+                ResolvedArtifactGroup::Artifact(a) => a.action_key().map(Either::Left),
+                ResolvedArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
+            }),
         |v| v,
     );
     let mut deps = artifacts.into_map(|a| ActionInput::ActionKey(a.dupe()));

@@ -54,6 +54,7 @@ use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 
@@ -411,11 +412,11 @@ where
 
         let dep_keys = inputs
             .iter()
-            .filter_map(|dep| match dep {
-                ArtifactGroup::Artifact(artifact) => {
+            .filter_map(|dep| match dep.assert_resolved() {
+                ResolvedArtifactGroup::Artifact(artifact) => {
                     artifact.action_key().duped().map(NodeKey::ActionKey)
                 }
-                ArtifactGroup::TransitiveSetProjection(key) => {
+                ResolvedArtifactGroup::TransitiveSetProjection(key) => {
                     Some(NodeKey::TransitiveSetProjection(key.dupe()))
                 }
             })
@@ -499,14 +500,18 @@ where
         &mut self,
         top_level: TopLevelTargetSignal,
     ) -> Result<(), anyhow::Error> {
-        let artifact_keys = top_level.artifacts.into_iter().filter_map(|dep| match dep {
-            ArtifactGroup::Artifact(artifact) => {
-                artifact.action_key().duped().map(NodeKey::ActionKey)
-            }
-            ArtifactGroup::TransitiveSetProjection(key) => {
-                Some(NodeKey::TransitiveSetProjection(key.dupe()))
-            }
-        });
+        let artifact_keys =
+            top_level
+                .artifacts
+                .into_iter()
+                .filter_map(|dep| match dep.assert_resolved() {
+                    ResolvedArtifactGroup::Artifact(artifact) => {
+                        artifact.action_key().duped().map(NodeKey::ActionKey)
+                    }
+                    ResolvedArtifactGroup::TransitiveSetProjection(key) => {
+                        Some(NodeKey::TransitiveSetProjection(key.dupe()))
+                    }
+                });
 
         self.backend
             .process_top_level_target(NodeKey::Analysis(top_level.label), artifact_keys);

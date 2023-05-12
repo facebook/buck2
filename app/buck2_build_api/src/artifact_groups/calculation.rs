@@ -56,6 +56,7 @@ use crate::actions::calculation::ActionCalculation;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
@@ -105,9 +106,11 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
     ctx: &'a DiceComputations,
     input: &'a ArtifactGroup,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    match input {
-        ArtifactGroup::Artifact(artifact) => ensure_artifact_staged(ctx, artifact).left_future(),
-        ArtifactGroup::TransitiveSetProjection(key) => ctx
+    match input.assert_resolved() {
+        ResolvedArtifactGroup::Artifact(artifact) => {
+            ensure_artifact_staged(ctx, artifact).left_future()
+        }
+        ResolvedArtifactGroup::TransitiveSetProjection(key) => ctx
             .compute(EnsureTransitiveSetProjectionKey::ref_cast(key))
             .map(|v| Ok(EnsureArtifactGroupReady::TransitiveSet(v??)))
             .right_future(),
@@ -201,11 +204,11 @@ impl EnsureArtifactGroupReady {
     ) -> anyhow::Result<ArtifactGroupValues> {
         match self {
             EnsureArtifactGroupReady::TransitiveSet(values) => Ok(values),
-            EnsureArtifactGroupReady::Single(value) => match artifact {
-                ArtifactGroup::Artifact(artifact) => {
+            EnsureArtifactGroupReady::Single(value) => match artifact.assert_resolved() {
+                ResolvedArtifactGroup::Artifact(artifact) => {
                     Ok(ArtifactGroupValues::from_artifact(artifact.clone(), value))
                 }
-                ArtifactGroup::TransitiveSetProjection(_) => {
+                ResolvedArtifactGroup::TransitiveSetProjection(_) => {
                     Err(EnsureArtifactStagedError::ExpectedTransitiveSet.into())
                 }
             },
@@ -420,11 +423,11 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let mut children = Vec::with_capacity(sub_inputs.len() - values_count);
 
             for (group, ready) in zip(sub_inputs.iter(), ready_inputs.into_iter()) {
-                match group {
-                    ArtifactGroup::Artifact(artifact) => {
+                match group.assert_resolved() {
+                    ResolvedArtifactGroup::Artifact(artifact) => {
                         values.push((artifact.dupe(), ready.unpack_single()?))
                     }
-                    ArtifactGroup::TransitiveSetProjection(..) => {
+                    ResolvedArtifactGroup::TransitiveSetProjection(..) => {
                         children.push(ready.to_group_values(group)?)
                     }
                 }
@@ -440,13 +443,13 @@ impl Key for EnsureTransitiveSetProjectionKey {
                 let mut set_deps = HashSet::new();
 
                 for input in sub_inputs.iter() {
-                    match input {
-                        ArtifactGroup::Artifact(artifact) => {
+                    match input.assert_resolved() {
+                        ResolvedArtifactGroup::Artifact(artifact) => {
                             if let Some(key) = artifact.action_key() {
                                 artifacts.insert(key.clone());
                             }
                         }
-                        ArtifactGroup::TransitiveSetProjection(tset) => {
+                        ResolvedArtifactGroup::TransitiveSetProjection(tset) => {
                             set_deps.insert(tset.clone());
                         }
                     }

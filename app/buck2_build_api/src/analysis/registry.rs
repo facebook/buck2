@@ -41,6 +41,8 @@ use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_targets::AnonTargetsRegistry;
+use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
+use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
@@ -65,6 +67,7 @@ pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     dynamic: DynamicRegistry,
     anon_targets: AnonTargetsRegistry<'v>,
+    artifact_promises: PromiseArtifactRegistry<'v>,
     analysis_value_storage: AnalysisValueStorage<'v>,
 }
 
@@ -95,9 +98,10 @@ impl<'v> AnalysisRegistry<'v> {
             deferred,
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
-            dynamic: DynamicRegistry::new(owner),
+            dynamic: DynamicRegistry::new(owner.dupe()),
             anon_targets: AnonTargetsRegistry::new(execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
+            artifact_promises: PromiseArtifactRegistry::new(owner),
         }
     }
 
@@ -282,6 +286,14 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.assert_no_promises()
     }
 
+    pub fn register_artifact_promise(
+        &mut self,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        location: Option<FileSpan>,
+    ) -> anyhow::Result<PromiseArtifact> {
+        self.artifact_promises.register(promise, location)
+    }
+
     /// You MUST pass the same module to both the first function and the second one.
     /// It requires both to get the lifetimes to line up.
     pub fn finalize(
@@ -297,7 +309,10 @@ impl<'v> AnalysisRegistry<'v> {
             artifact_groups,
             anon_targets: _,
             analysis_value_storage,
+            artifact_promises,
         } = self;
+        artifact_promises.resolve_all()?;
+
         analysis_value_storage.write_to_module(env);
         Ok(move |env: Module| {
             let frozen_env = env.freeze()?;

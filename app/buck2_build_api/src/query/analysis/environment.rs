@@ -51,6 +51,7 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::deferred::types::DeferredValueReady;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
@@ -343,8 +344,10 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
     let mut seen = HashSet::new();
 
     while let Some((target, artifact)) = artifacts.pop_front() {
-        match artifact {
-            ArtifactGroup::Artifact(artifact) => {
+        let handle_artifact =
+            |label_to_artifact: &mut IndexMap<ConfiguredTargetLabel, Artifact>,
+             artifact: &Artifact|
+             -> anyhow::Result<()> {
                 if let Some(owner) = artifact.owner() {
                     let target_label = owner.unpack_target_label().ok_or_else(|| {
                         AnalysisQueryError::NonTargetBoundArtifact(
@@ -355,11 +358,17 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                     })?;
                     label_to_artifact.insert(target_label.dupe(), artifact.dupe());
                 }
+                Ok(())
+            };
+
+        match artifact.resolved()? {
+            ResolvedArtifactGroup::Artifact(artifact) => {
+                handle_artifact(&mut label_to_artifact, &artifact)?;
             }
-            ArtifactGroup::TransitiveSetProjection(tset_key) => {
+            ResolvedArtifactGroup::TransitiveSetProjection(tset_key) => {
                 // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).
                 if seen.insert(tset_key.dupe()) {
-                    let tset_value = dice_lookup_transitive_set(ctx, tset_key.key).await?;
+                    let tset_value = dice_lookup_transitive_set(ctx, tset_key.key.dupe()).await?;
 
                     // Now we can traverse this tset from that node. This is a different traversal than our top-level one as we will
                     // be accessing tset internals directly and so we can actually traverse the starlark objects without going back through

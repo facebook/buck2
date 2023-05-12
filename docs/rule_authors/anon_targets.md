@@ -126,3 +126,41 @@ silly_binary = rule(
     },
 )
 ```
+
+## Convert promise to artifact
+
+It can be challenging to pass around the promises from anon_target and structure functions to support that. If you only need an artifact (or multiple artifacts) from an anon_target, you can use `ctx.actions.promise_artifact()` to convert a promise to an artifact. This artifact can be passed to most things that expect artifacts, but until it is resolved (at the end of the current analysis) it can't be inspected with artifact functions like `.extension`, `.short_path`, etc. The promise must resolve to a build (not source) artifact with no associated artifacts.
+
+Example:
+
+```
+HelloInfo = provider(fields = ["hello", "world"])
+
+def _anon_impl(ctx: "context") -> ["provider"]:
+    hello = ctx.actions.write("hello.out", "hello")
+    world = ctx.actions.write("world.out", "world")
+    return [DefaultInfo(), HelloInfo(hello = hello, world = world)]
+
+_anon = rule(impl = _anon_impl, attrs = {})
+
+def _use_impl(ctx: "context") -> ["provider"]:
+    promise = ctx.actions.anon_target(_anon, {})
+    hello_promise = promise.map(lambda x: x[HelloInfo].hello)
+    world_promise = promise.map(lambda x: x[HelloInfo].world)
+    hello_artifact = ctx.actions.artifact_promise(hello_promise)
+    world_artifact = ctx.actions.artifact_promise(world_promise)
+
+    out = ctx.actions.declare_output("output")
+    ctx.actions.run([
+            ctx.attrs.some_tool,
+            hello_artifact,
+            world_artifact,
+            out.as_output()
+        ], category = "process")
+    return [DefaultInfo(default_output = out)]
+
+use_promise_artifact = rule(impl = _use_impl, attrs = {
+    "some_tool": attr.exec_dep(),
+})
+
+```

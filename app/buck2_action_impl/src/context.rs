@@ -21,6 +21,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -938,7 +939,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     /// During analysis, rules can define and access the providers of anonymous targets before producing their own providers.
     /// Two distinct rules might ask for the same anonymous target, sharing the work it performs.
     ///
-    /// For more details see http://localhost:3000/docs/rule_authors/anon_targets/.
+    /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -951,8 +952,22 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
         Ok(res)
     }
 
-    /// Generate a series of anonymous targets, equivalent to calling `anon_target` repeatedly but with greater
-    /// parallelism, and simpler `promise` management.
+    /// Converts a promise to an artifact. If the promise later resolves to a non-artifact, it is an error.
+    ///
+    /// For more details see https://buck2.build/docs/rule_authors/anon_targets/.
+    fn artifact_promise<'v>(
+        this: &AnalysisActions<'v>,
+        promise: ValueTyped<'v, StarlarkPromise<'v>>,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<StarlarkPromiseArtifact> {
+        let declaration_location = eval.call_stack_top_location();
+        let mut this = this.state();
+        let artifact = this.register_artifact_promise(promise, declaration_location.clone())?;
+        let res = StarlarkPromiseArtifact::new(declaration_location, artifact);
+        Ok(res)
+    }
+
+    /// Generate a series of anonymous targets
     fn anon_targets<'v>(
         this: &AnalysisActions<'v>,
         rules: Vec<(

@@ -13,6 +13,7 @@ pub mod starlark_artifact_like;
 mod starlark_artifact_value;
 mod starlark_declared_artifact;
 mod starlark_output_artifact;
+mod starlark_promise_artifact;
 
 use std::fmt::Debug;
 
@@ -25,6 +26,7 @@ pub use self::starlark_artifact_value::StarlarkArtifactValue;
 pub use self::starlark_declared_artifact::StarlarkDeclaredArtifact;
 pub use self::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 pub use self::starlark_output_artifact::StarlarkOutputArtifact;
+pub use self::starlark_promise_artifact::StarlarkPromiseArtifact;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum ArtifactError {
@@ -43,4 +45,9 @@ pub(crate) enum ArtifactError {
         artifact_repr: String,
         existing_owner: BaseDeferredKeyDyn,
     },
+    #[error(
+        "attempted to use promise artifact {artifact_repr} as the output of an action, but \
+        only declared artifacts can be used as an output"
+    )]
+    PromiseArtifactAsOutput { artifact_repr: String },
 }

@@ -17,6 +17,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -86,11 +87,11 @@ pub async fn visit_artifact_path_without_associated_deduped<'v>(
         if !visited.insert(ag.dupe()) {
             continue;
         }
-        match ag {
-            ArtifactGroup::Artifact(a) => {
+        match ag.resolved()? {
+            ResolvedArtifactGroup::Artifact(a) => {
                 visitor(a.get_path(), abs)?;
             }
-            ArtifactGroup::TransitiveSetProjection(t) => {
+            ResolvedArtifactGroup::TransitiveSetProjection(t) => {
                 let set = ctx
                     .compute_deferred_data(&t.key)
                     .await
