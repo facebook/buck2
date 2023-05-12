@@ -12,6 +12,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_build_api::calculation::load_patterns;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::calculation::MissingTargetBehavior;
+use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::HasFileOps;
@@ -55,14 +60,9 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::indexset;
 
-use crate::calculation::load_patterns;
-use crate::calculation::Calculation;
-use crate::calculation::MissingTargetBehavior;
-use crate::configure_targets::load_compatible_patterns;
-use crate::nodes::calculation::NodeCalculation;
-use crate::query::cquery::environment::CqueryDelegate;
-use crate::query::uquery::environment::QueryLiterals;
-use crate::query::uquery::environment::UqueryDelegate;
+use crate::cquery::environment::CqueryDelegate;
+use crate::uquery::environment::QueryLiterals;
+use crate::uquery::environment::UqueryDelegate;
 
 pub mod aquery;
 

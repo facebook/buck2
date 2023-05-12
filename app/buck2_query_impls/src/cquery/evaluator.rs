@@ -25,14 +25,14 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use gazebo::prelude::*;
 
-use crate::query::analysis::evaluator::eval_query;
-use crate::query::cquery::environment::CqueryEnvironment;
-use crate::query::cquery::environment::CqueryOwnerBehavior;
-use crate::query::dice::get_dice_query_delegate;
-use crate::query::dice::DiceQueryDelegate;
-use crate::query::uquery::environment::PreresolvedQueryLiterals;
-use crate::query::uquery::environment::QueryLiterals;
-use crate::query::uquery::environment::UqueryDelegate;
+use crate::analysis::evaluator::eval_query;
+use crate::cquery::environment::CqueryEnvironment;
+use crate::cquery::environment::CqueryOwnerBehavior;
+use crate::dice::get_dice_query_delegate;
+use crate::dice::DiceQueryDelegate;
+use crate::uquery::environment::PreresolvedQueryLiterals;
+use crate::uquery::environment::QueryLiterals;
+use crate::uquery::environment::UqueryDelegate;
 
 pub struct CqueryEvaluator<'c> {
     dice_query_delegate: Arc<DiceQueryDelegate<'c>>,

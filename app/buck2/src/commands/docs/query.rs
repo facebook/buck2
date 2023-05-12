@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use buck2_build_api::query::cquery::environment::CqueryEnvironment;
-use buck2_build_api::query::uquery::environment::UqueryEnvironment;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
+use buck2_query_impls::cquery::environment::CqueryEnvironment;
+use buck2_query_impls::uquery::environment::UqueryEnvironment;
 
 use crate::commands::docs::output::DocsOutputFormatOptions;
 

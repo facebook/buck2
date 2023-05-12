@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
+use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::result::SharedResult;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -27,10 +29,8 @@ use dupe::OptionDupedExt;
 use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::nodes::calculation::NodeCalculation;
-use crate::query::analysis::environment::get_from_template_placeholder_info;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
+use crate::analysis::environment::get_from_template_placeholder_info;
+use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 
 pub struct AnalysisDiceQueryDelegate<'c> {
     pub ctx: &'c DiceComputations,

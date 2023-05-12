@@ -11,11 +11,11 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
+use buck2_query_impls::uquery::evaluator::get_uquery_evaluator;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;

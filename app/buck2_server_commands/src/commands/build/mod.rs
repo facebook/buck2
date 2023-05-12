@@ -21,8 +21,6 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::query::cquery::evaluator::universe_from_literals;
-use buck2_build_api::query::dice::get_dice_query_delegate;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
@@ -47,6 +45,8 @@ use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculatio
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query_impls::cquery::evaluator::universe_from_literals;
+use buck2_query_impls::dice::get_dice_query_delegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

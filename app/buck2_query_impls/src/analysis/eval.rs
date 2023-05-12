@@ -10,17 +10,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use ctor::ctor;
 use dice::DiceComputations;
-use inventory::ctor;
 
-use crate::analysis::calculation::EVAL_ANALYSIS_QUERY;
-use crate::query::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
-use crate::query::analysis::configured_graph::AnalysisDiceQueryDelegate;
-use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
+use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
+use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
+use crate::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[ctor]
 fn init_eval_analysis_query() {

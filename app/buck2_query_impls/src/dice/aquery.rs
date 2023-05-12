@@ -12,6 +12,17 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::calculation::ActionCalculation;
+use buck2_build_api::actions::key::ActionKey;
+use buck2_build_api::actions::query::ActionInput;
+use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::actions::query::SetProjectionInputs;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
+use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
+use buck2_build_api::calculation::Calculation;
+use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_common::result::SharedResult;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::ParsedPattern;
@@ -32,21 +43,10 @@ use itertools::Either;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::actions::calculation::ActionCalculation;
-use crate::actions::key::ActionKey;
-use crate::actions::query::ActionInput;
-use crate::actions::query::ActionQueryNode;
-use crate::actions::query::SetProjectionInputs;
-use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::artifact_groups::ArtifactGroup;
-use crate::artifact_groups::ResolvedArtifactGroup;
-use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::calculation::Calculation;
-use crate::deferred::calculation::DeferredCalculation;
-use crate::query::aquery::environment::AqueryDelegate;
-use crate::query::cquery::environment::CqueryDelegate;
-use crate::query::dice::DiceQueryDelegate;
-use crate::query::uquery::environment::QueryLiterals;
+use crate::aquery::environment::AqueryDelegate;
+use crate::cquery::environment::CqueryDelegate;
+use crate::dice::DiceQueryDelegate;
+use crate::uquery::environment::QueryLiterals;
 
 #[derive(Debug, Error)]
 enum ActionQueryError {

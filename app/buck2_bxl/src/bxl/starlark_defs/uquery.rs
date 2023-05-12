@@ -10,14 +10,14 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_build_api::query::dice::DiceQueryDelegate;
-use buck2_build_api::query::uquery::environment::UqueryEnvironment;
-use buck2_build_api::query::uquery::evaluator::get_uquery_evaluator;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query_impls::dice::DiceQueryDelegate;
+use buck2_query_impls::uquery::environment::UqueryEnvironment;
+use buck2_query_impls::uquery::evaluator::get_uquery_evaluator;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;

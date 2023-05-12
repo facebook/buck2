@@ -40,10 +40,10 @@ allocative = { workspace = true }
 
 buck2_action_impl = { workspace = true }
 buck2_audit = { workspace = true }
-buck2_build_api = { workspace = true }
 buck2_bxl = { workspace = true }
 buck2_core = { workspace = true }
 buck2_query = { workspace = true }
+buck2_query_impls = { workspace = true }
 buck2_client = { workspace = true }
 buck2_client_ctx = { workspace = true }
 buck2_common = { workspace = true }

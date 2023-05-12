@@ -44,6 +44,7 @@ members = [
     "app/buck2_profile",
     "app/buck2_protoc_dev",
     "app/buck2_query",
+    "app/buck2_query_impls",
     "app/buck2_query_parser",
     "app/buck2_query_derive",
     "app/buck2_re_configuration",
@@ -311,6 +312,7 @@ buck2_data = { path = "app/buck2_data" }
 buck2_event_observer = { path = "app/buck2_event_observer" }
 buck2_events = { path = "app/buck2_events" }
 buck2_query = { path = "app/buck2_query" }
+buck2_query_impls = { path = "app/buck2_query_impls" }
 buck2_tpx = { path = "buck2_tpx" }
 buck2_tpx_cli = { path = "buck2_tpx_cli" }
 buck2_build_api = { path = "app/buck2_build_api" }

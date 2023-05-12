@@ -31,10 +31,10 @@ use buck2_query::query::traversal::AsyncTraversalDelegate;
 use dupe::Dupe;
 use tracing::warn;
 
-use crate::query::uquery::environment::allbuildfiles;
-use crate::query::uquery::environment::rbuildfiles;
-use crate::query::uquery::environment::QueryLiterals;
-use crate::query::uquery::environment::UqueryDelegate;
+use crate::uquery::environment::allbuildfiles;
+use crate::uquery::environment::rbuildfiles;
+use crate::uquery::environment::QueryLiterals;
+use crate::uquery::environment::UqueryDelegate;
 
 #[derive(Debug, thiserror::Error)]
 enum CqueryError {

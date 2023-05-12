@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+#![feature(async_closure)]
+#![feature(try_blocks)]
+
 pub mod analysis;
 pub mod aquery;
 pub mod cquery;

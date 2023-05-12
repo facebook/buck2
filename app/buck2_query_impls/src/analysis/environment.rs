@@ -16,6 +16,22 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::artifact_type::Artifact;
+use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
+use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
+use buck2_build_api::deferred::calculation::DeferredCalculation;
+use buck2_build_api::deferred::types::DeferredValueReady;
+use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -39,28 +55,11 @@ use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
+use ctor::ctor;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
-use inventory::ctor;
 use thiserror::Error;
-
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
-use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::artifact_groups::deferred::DeferredTransitiveSetData;
-use crate::artifact_groups::deferred::TransitiveSetKey;
-use crate::artifact_groups::ArtifactGroup;
-use crate::artifact_groups::ResolvedArtifactGroup;
-use crate::deferred::calculation::DeferredCalculation;
-use crate::deferred::types::DeferredValueReady;
-use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Debug, Error)]
 enum AnalysisQueryError {
@@ -361,7 +360,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
 
         match artifact.resolved()? {
             ResolvedArtifactGroup::Artifact(artifact) => {
-                handle_artifact(&mut label_to_artifact, &artifact)?;
+                handle_artifact(&mut label_to_artifact, artifact)?;
             }
             ResolvedArtifactGroup::TransitiveSetProjection(tset_key) => {
                 // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).
