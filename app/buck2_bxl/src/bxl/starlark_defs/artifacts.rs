@@ -77,26 +77,20 @@ pub async fn visit_artifact_path_without_associated_deduped<'v>(
 
     // `get_projection_sub_inputs()` to iterate through the tset, this is also needed to make
     // sure we aren't re-processing tests.
-    let mut visited_artifact_groups = SmallSet::new();
-    let mut visited_artifacts = SmallSet::new();
+    let mut visited = SmallSet::new();
 
     let mut todo = Vec::new();
     todo.extend(ags.iter().duped());
 
     while let Some(ag) = todo.pop() {
+        if !visited.insert(ag.dupe()) {
+            continue;
+        }
         match ag {
             ArtifactGroup::Artifact(a) => {
-                if !visited_artifacts.insert(a.dupe()) {
-                    continue;
-                }
-
                 visitor(a.get_path(), abs)?;
             }
             ArtifactGroup::TransitiveSetProjection(t) => {
-                if !visited_artifact_groups.insert(t.dupe()) {
-                    continue;
-                }
-
                 let set = ctx
                     .compute_deferred_data(&t.key)
                     .await
