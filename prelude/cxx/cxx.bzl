@@ -378,7 +378,7 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         shlink_args.extend(exported_linker_flags)
                         shlink_args.extend(non_exported_linker_flags)
                         shlink_args.extend(get_link_whole_args(linker_type, [lib]))
-                        shared_lib, _ = cxx_link_into_shared_library(
+                        shared_lib, _, _ = cxx_link_into_shared_library(
                             ctx,
                             soname,
                             [

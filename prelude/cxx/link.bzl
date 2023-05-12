@@ -15,7 +15,7 @@ load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_dist_link",
 )
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_action_execution_attributes")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -74,7 +74,7 @@ def cxx_link(
         # A function/lambda which will generate the strip args using the ctx.
         strip_args_factory = None,
         allow_bolt_optimization_and_dwp_generation: bool.type = True,
-        import_library: ["artifact", None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None]):
+        import_library: ["artifact", None] = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
@@ -104,7 +104,7 @@ def cxx_link(
             should_generate_dwp,
             is_result_executable,
         )
-        return (exe, linker_map_data)
+        return (exe, linker_map_data, LinkExecutionPreferenceInfo(preference = link_execution_preference))
 
     if linker_info.generate_linker_maps:
         links += [linker_map_args(ctx, linker_map.as_output())]
@@ -178,6 +178,7 @@ def cxx_link(
         cmd.hidden(command)
         command = cmd
 
+    link_execution_preference_info = LinkExecutionPreferenceInfo(preference = link_execution_preference)
     action_execution_properties = get_action_execution_attributes(link_execution_preference)
 
     ctx.actions.run(
@@ -227,7 +228,7 @@ def cxx_link(
         import_library = import_library,
         pdb = pdb_artifact,
     )
-    return (linked_object, linker_map_data)
+    return (linked_object, linker_map_data, link_execution_preference_info)
 
 def cxx_link_shared_library(
         ctx: "context",
@@ -248,7 +249,7 @@ def cxx_link_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None):
+        strip_args_factory = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
     """
     Link a shared library into the supplied output.
     """
@@ -271,7 +272,7 @@ def cxx_link_shared_library(
 
     links_with_extra_args = [LinkArgs(flags = extra_args)] + links + [LinkArgs(flags = import_library_args)]
 
-    exe, linker_map_data = cxx_link(
+    exe, linker_map_data, preference_info = cxx_link(
         ctx,
         links_with_extra_args,
         output,
@@ -287,7 +288,7 @@ def cxx_link_shared_library(
         link_execution_preference = link_execution_preference,
     )
 
-    return (exe, linker_map_data)
+    return (exe, linker_map_data, preference_info)
 
 def cxx_link_into_shared_library(
         ctx: "context",
@@ -307,7 +308,7 @@ def cxx_link_into_shared_library(
         # Overrides the default flags used to specify building shared libraries
         shared_library_flags: [SharedLibraryFlagOverrides.type, None] = None,
         strip: bool.type = False,
-        strip_args_factory = None):
+        strip_args_factory = None) -> (LinkedObject.type, [CxxLinkerMapData.type, None], LinkExecutionPreferenceInfo.type):
     output = ctx.actions.declare_output(name)
     return cxx_link_shared_library(
         ctx,

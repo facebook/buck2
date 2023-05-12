@@ -598,7 +598,7 @@ def _link_into_executable(
     )
     links = [LinkArgs(flags = extra_args)] + links
 
-    exe, linker_map_data = cxx_link(
+    exe, linker_map_data, _ = cxx_link(
         ctx,
         links,
         output,

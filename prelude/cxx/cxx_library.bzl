@@ -35,7 +35,7 @@ load(
     "@prelude//java:java_providers.bzl",
     "get_java_packaging_info",
 )
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_link_execution_preference")
 load(
     "@prelude//linking:link_groups.bzl",
     "LinkGroupLib",  # @unused Used as a type
@@ -199,6 +199,8 @@ _CxxAllLibraryOutputs = record(
     libraries = field({LinkStyle.type: LinkInfos.type}),
     # Extra sub targets to be returned as outputs of this rule, by link style.
     sub_targets = field({LinkStyle.type: {str.type: [DefaultInfo.type]}}, default = {}),
+    # Extra providers to be returned consumers of this rule.
+    providers = field(["provider"], default = []),
     # Shared object name to shared library mapping.
     solibs = field({str.type: LinkedObject.type}),
 )
@@ -410,6 +412,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         for key in link_style_sub_targets.keys():
             expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
         sub_targets.update(link_style_sub_targets)
+
+    providers.extend(library_outputs.providers)
 
     actual_link_style = get_actual_link_style(cxx_attr_link_style(ctx), preferred_linkage)
 
@@ -801,6 +805,7 @@ def _form_library_outputs(
     libraries = {}
     solibs = {}
     sub_targets = {}
+    providers = []
 
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo.type) -> LinkInfo.type:
@@ -891,6 +896,7 @@ def _form_library_outputs(
                 )
                 solibs[result.soname] = shlib
                 sub_targets[link_style] = extra_linker_outputs
+                providers.append(result.link_execution_preference_info)
 
         # you cannot link against header only libraries so create an empty link info
         info = info if info != None else LinkInfo()
@@ -903,8 +909,9 @@ def _form_library_outputs(
     return _CxxAllLibraryOutputs(
         outputs = outputs,
         libraries = libraries,
-        solibs = solibs,
         sub_targets = sub_targets,
+        providers = providers,
+        solibs = solibs,
     )
 
 def _strip_objects(ctx: "context", objects: ["artifact"]) -> ["artifact"]:
@@ -1111,6 +1118,7 @@ _CxxSharedLibraryResult = record(
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
     linker_map_data = [CxxLinkerMapData.type, None],
+    link_execution_preference_info = LinkExecutionPreferenceInfo.type,
 )
 
 def _shared_library(
@@ -1155,7 +1163,7 @@ def _shared_library(
         ),
         external_debug_info = external_debug_info,
     )
-    shlib, linker_map_data = cxx_link_into_shared_library(
+    shlib, linker_map_data, link_execution_preference_info = cxx_link_into_shared_library(
         ctx,
         soname,
         [LinkArgs(infos = [link_info]), dep_infos],
@@ -1222,6 +1230,7 @@ def _shared_library(
             )],
         ),
         linker_map_data = linker_map_data,
+        link_execution_preference_info = link_execution_preference_info,
     )
 
 def _attr_reexport_all_header_dependencies(ctx: "context") -> bool.type:

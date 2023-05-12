@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+
 LinkExecutionPreferenceTypes = [
     "any",
     "full_hybrid",
@@ -16,7 +18,12 @@ LinkExecutionPreferenceTypes = [
 LinkExecutionPreference = enum(*LinkExecutionPreferenceTypes)
 
 LinkExecutionPreferenceDeterminatorInfo = provider(fields = [
-    "preference_for_links",  # function that takes a list of target labels and returns a LinkExecutionPreference
+    # function that takes a list of target labels and the LinkExecutionPreferenceInfo of deps, and returns a LinkExecutionPreference
+    "preference_for_links",
+])
+
+LinkExecutionPreferenceInfo = provider(fields = [
+    "preference",  # LinkExecutionPreference
 ])
 
 _ActionExecutionAttributes = record(
@@ -53,8 +60,11 @@ def get_link_execution_preference(ctx, links: ["label"]) -> LinkExecutionPrefere
     if not type(link_execution_preference) == "dependency":
         return LinkExecutionPreference(link_execution_preference)
 
+    all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+    deps_preferences = filter(None, [dep.get(LinkExecutionPreferenceInfo) for dep in all_deps])
+
     info = link_execution_preference[LinkExecutionPreferenceDeterminatorInfo]
-    return info.preference_for_links(links)
+    return info.preference_for_links(links, deps_preferences)
 
 def get_action_execution_attributes(preference: LinkExecutionPreference.type) -> _ActionExecutionAttributes.type:
     if preference == LinkExecutionPreference("any"):

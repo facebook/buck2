@@ -263,7 +263,7 @@ def create_linkable_root(
             "omnibus/" + value_or(name, get_default_shared_library_name(linker_info, ctx.label)),
         )
 
-        shared_library, _ = cxx_link_shared_library(
+        shared_library, _, _ = cxx_link_shared_library(
             ctx,
             output,
             name = name,
@@ -462,7 +462,7 @@ def _create_root(
     )))
 
     # link the rule
-    shared_library, _ = cxx_link_shared_library(
+    shared_library, _, _ = cxx_link_shared_library(
         ctx,
         output,
         name = root.name,
@@ -726,7 +726,7 @@ def _create_omnibus(
 
     soname = _omnibus_soname(ctx)
 
-    result, _ = cxx_link_into_shared_library(
+    result, _, _ = cxx_link_into_shared_library(
         ctx,
         soname,
         links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],

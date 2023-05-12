@@ -567,7 +567,7 @@ def _create_link_group(
     inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
 
     # link the rule
-    result, _ = cxx_link_shared_library(
+    result, _, _ = cxx_link_shared_library(
         ctx,
         ctx.actions.declare_output(paths.join("__link_groups__", spec.name)),
         name = spec.name if spec.is_shared_lib else None,

@@ -6,12 +6,21 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceDeterminatorInfo")
+load(
+    "@prelude//linking:execution_preference.bzl",
+    "LinkExecutionPreference",
+    "LinkExecutionPreferenceDeterminatorInfo",
+    "LinkExecutionPreferenceInfo",  # @unused Used as a type
+)
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
     "@prelude//utils:build_target_pattern.bzl",
     "BuildTargetPattern",  # @unused Used as a type
     "parse_build_target_pattern",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "is_any",
 )
 
 _SelectionCriteria = record(
@@ -96,7 +105,13 @@ def _impl(ctx: "context") -> ["provider"]:
                 selected_debug_info.extend(info.artifacts)
         return selected_debug_info
 
-    def preference_for_links(links: ["label"]) -> LinkExecutionPreference.type:
+    def preference_for_links(links: ["label"], deps_preferences: [LinkExecutionPreferenceInfo.type]) -> LinkExecutionPreference.type:
+        # If any dependent links were run locally, prefer that the current link is also performed locally,
+        # to avoid needing to upload the previous link.
+        dep_prefered_local = is_any(lambda info: info.preference == LinkExecutionPreference("local"), deps_preferences)
+        if dep_prefered_local:
+            return LinkExecutionPreference("local")
+
         # If we're not provided a list of links, we can't make an informed determination.
         if not links:
             return LinkExecutionPreference("any")
