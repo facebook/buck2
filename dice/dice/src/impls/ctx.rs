@@ -54,6 +54,7 @@ use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
 use crate::HashSet;
 
@@ -214,7 +215,9 @@ impl PerComputeCtx {
             |cancellations| {
                 async move {
                     f(
-                        DiceTransaction(DiceComputations(DiceComputationsImpl::Modern(duped))),
+                        DiceTransaction(DiceTransactionImpl::Modern(DiceComputations(
+                            DiceComputationsImpl::Modern(duped),
+                        ))),
                         cancellations,
                     )
                     .await

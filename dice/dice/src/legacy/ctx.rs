@@ -51,6 +51,7 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
+use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::WhichSpawner;
@@ -357,7 +358,9 @@ impl DiceComputationsImplLegacy {
             WhichSpawner::DropCancel => spawn_dropcancel(
                 async move {
                     f(
-                        DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
+                        DiceTransaction(DiceTransactionImpl::Legacy(DiceComputations(
+                            DiceComputationsImpl::Legacy(duped),
+                        ))),
                         &CancellationContext::todo(),
                     )
                     .await
@@ -371,7 +374,9 @@ impl DiceComputationsImplLegacy {
                 |cancellations| {
                     async move {
                         f(
-                            DiceTransaction(DiceComputations(DiceComputationsImpl::Legacy(duped))),
+                            DiceTransaction(DiceTransactionImpl::Legacy(DiceComputations(
+                                DiceComputationsImpl::Legacy(duped),
+                            ))),
                             cancellations,
                         )
                         .await
@@ -435,6 +440,7 @@ pub(crate) mod testing {
     use crate::ctx::DiceComputationsImpl;
     use crate::legacy::ctx::ComputationData;
     use crate::legacy::incremental::versions::MinorVersion;
+    use crate::transaction::DiceTransactionImpl;
 
     pub(crate) trait DiceCtxExt {
         fn get_minor_version(&self) -> MinorVersion;
@@ -447,6 +453,17 @@ pub(crate) mod testing {
                     delegate.transaction_ctx.get_minor_version()
                 }
                 DiceComputationsImpl::Modern(_delegate) => {
+                    unimplemented!("todo")
+                }
+            }
+        }
+    }
+
+    impl DiceCtxExt for DiceTransactionImpl {
+        fn get_minor_version(&self) -> MinorVersion {
+            match self {
+                DiceTransactionImpl::Legacy(delegate) => delegate.0.get_minor_version(),
+                DiceTransactionImpl::Modern(_delegate) => {
                     unimplemented!("todo")
                 }
             }

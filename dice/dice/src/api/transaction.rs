@@ -17,6 +17,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
+use crate::transaction::DiceTransactionImpl;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 
@@ -82,7 +83,7 @@ impl DiceTransactionUpdater {
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Allocative)]
-pub struct DiceTransaction(pub(crate) DiceComputations);
+pub struct DiceTransaction(pub(crate) DiceTransactionImpl);
 
 impl DiceTransaction {
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the
@@ -97,14 +98,14 @@ impl DiceTransaction {
     }
 
     pub fn equality_token(&self) -> DiceEquality {
-        DiceEquality(self.0.0.get_version())
+        DiceEquality(self.0.get_version())
     }
 
     /// Creates an Updater to record changes to DICE that upon committing, creates a new transaction
     /// that keeps the same set of user data. This is equivalent to `Dice::updater_with_user_data(data)`
     /// where the `data` is taken from the current Transaction.
     pub fn into_updater(self) -> DiceTransactionUpdater {
-        self.0.0.into_updater()
+        self.0.into_updater()
     }
 }
 
@@ -142,7 +143,7 @@ impl Deref for DiceTransaction {
     type Target = DiceComputations;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_computations()
     }
 }
 

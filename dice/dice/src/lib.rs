@@ -212,6 +212,7 @@ pub mod introspection;
 mod legacy;
 pub(crate) mod metrics;
 mod opaque;
+mod transaction;
 mod transaction_update;
 mod versions;
 

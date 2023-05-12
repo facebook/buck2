@@ -92,7 +92,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 
         let ctx = ctx.commit().await;
 
-        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
     }
 
     {
@@ -100,7 +100,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit().await;
-        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
     }
 
     Ok(())
@@ -841,15 +841,15 @@ async fn compute_and_update_uses_proper_version_numbers() -> anyhow::Result<()> 
 
     {
         let ctx = dice.updater().commit().await;
-        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(0));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(0));
     }
 
     {
         // second context that didn't have any writes should still be the same version
         let ctx = dice.updater().commit().await;
-        assert_eq!(ctx.0.0.get_version(), VersionNumber::new(0));
-        assert_eq!(ctx.0.0.get_minor_version(), MinorVersion::testing_new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.get_minor_version(), MinorVersion::testing_new(1));
 
         // now we write something and commit
         let mut ctx = dice.updater();
