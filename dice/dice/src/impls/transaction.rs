@@ -21,6 +21,7 @@ use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
+use crate::impls::ctx::BaseComputeCtx;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
@@ -92,7 +93,7 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) async fn commit(self) -> PerComputeCtx {
+    pub(crate) async fn commit(self) -> BaseComputeCtx {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
@@ -100,19 +101,19 @@ impl TransactionUpdater {
 
         let cycles = UserCycleDetectorData::new();
 
-        PerComputeCtx::new(ParentKey::None, transaction, user_data, dice, cycles)
+        BaseComputeCtx::new(transaction, user_data, dice, cycles)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> PerComputeCtx {
+    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> BaseComputeCtx {
         let dice = self.dice.dupe();
 
         let transaction = self.commit_to_state().await;
 
         let cycles = UserCycleDetectorData::new();
 
-        PerComputeCtx::new(ParentKey::None, transaction, Arc::new(extra), dice, cycles)
+        BaseComputeCtx::new(transaction, Arc::new(extra), dice, cycles)
     }
 
     pub(crate) async fn existing_state(&self) -> PerComputeCtx {

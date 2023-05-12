@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -56,7 +57,60 @@ use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
+use crate::DiceTransactionUpdater;
 use crate::HashSet;
+
+/// Context that is the base for which all requests start from
+#[derive(Allocative, Dupe, Clone)]
+pub(crate) struct BaseComputeCtx {
+    // we need to give off references of `DiceComputation` so hold this for now, but really once we
+    // get rid of the enum, we just hold onto the base data directly and do some ref casts
+    data: DiceComputations,
+}
+
+impl BaseComputeCtx {
+    pub(crate) fn new(
+        per_live_version_ctx: SharedLiveTransactionCtx,
+        user_data: Arc<UserComputationData>,
+        dice: Arc<DiceModern>,
+        cycles: UserCycleDetectorData,
+    ) -> Self {
+        Self {
+            data: DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
+                ParentKey::None,
+                per_live_version_ctx,
+                user_data,
+                dice,
+                cycles,
+            ))),
+        }
+    }
+
+    pub(crate) fn get_version(&self) -> VersionNumber {
+        self.data.0.get_version()
+    }
+
+    pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
+        self.data.0.into_updater()
+    }
+
+    pub(crate) fn as_computations(&self) -> &DiceComputations {
+        &self.data
+    }
+}
+
+impl Deref for BaseComputeCtx {
+    type Target = PerComputeCtx;
+
+    fn deref(&self) -> &Self::Target {
+        match &self.data.0 {
+            DiceComputationsImpl::Legacy(_) => {
+                unreachable!("legacy dice instead of modern")
+            }
+            DiceComputationsImpl::Modern(ctx) => ctx,
+        }
+    }
+}
 
 /// Context given to the `compute` function of a `Key`.
 #[derive(Allocative, Dupe, Clone)]
@@ -215,9 +269,9 @@ impl PerComputeCtx {
             |cancellations| {
                 async move {
                     f(
-                        DiceTransaction(DiceTransactionImpl::Modern(DiceComputations(
-                            DiceComputationsImpl::Modern(duped),
-                        ))),
+                        DiceTransaction(DiceTransactionImpl::Modern(BaseComputeCtx {
+                            data: DiceComputations(DiceComputationsImpl::Modern(duped)),
+                        })),
                         cancellations,
                     )
                     .await

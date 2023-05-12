@@ -90,11 +90,7 @@ impl DiceTransactionUpdaterImpl {
             }
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit()
-                .map(|x| {
-                    DiceTransaction(DiceTransactionImpl::Modern(DiceComputations(
-                        DiceComputationsImpl::Modern(x),
-                    )))
-                })
+                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
                 .right_future(),
         }
     }
@@ -114,11 +110,7 @@ impl DiceTransactionUpdaterImpl {
             }
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit_with_data(extra)
-                .map(|x| {
-                    DiceTransaction(DiceTransactionImpl::Modern(DiceComputations(
-                        DiceComputationsImpl::Modern(x),
-                    )))
-                })
+                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
                 .right_future(),
         }
     }
