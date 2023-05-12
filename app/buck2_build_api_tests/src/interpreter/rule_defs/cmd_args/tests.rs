@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::cmd_args::tester;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
@@ -23,6 +22,7 @@ use starlark::starlark_module;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::cmd_args::testing;
 
 #[starlark_module]
 pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
@@ -41,7 +41,7 @@ pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
 
 fn tester() -> anyhow::Result<Tester> {
     let mut tester = Tester::new()?;
-    tester.additional_globals(tester::command_line_stringifier);
+    tester.additional_globals(testing::command_line_stringifier);
     tester.additional_globals(inputs_helper);
     tester.additional_globals(artifactory);
     tester.additional_globals(label_creator);
