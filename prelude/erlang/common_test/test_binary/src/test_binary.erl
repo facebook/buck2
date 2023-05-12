@@ -138,7 +138,8 @@ get_hooks(TestInfo) ->
     Hooks = lists:append(proplists:get_all_values(ct_hooks, TestInfo#test_info.ct_opts)),
     [
         case HookSpec of
-            {HookModule, _InitArguments} -> HookModule;
+            {HookModule, _InitArguments} when is_atom(HookModule) -> HookModule;
+            {HookModule, _InitArguments, Priority} when is_atom(HookModule), is_integer(Priority) -> HookModule;
             HookModule when is_atom(HookModule) -> HookModule
         end
      || HookSpec <- Hooks
