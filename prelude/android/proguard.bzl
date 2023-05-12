@@ -24,6 +24,7 @@ def _get_proguard_command_line_args(
         ctx: "context",
         inputs_to_unscrubbed_outputs: {"artifact": "artifact"},
         proguard_configs: ["artifact"],
+        additional_library_jars: ["artifact"],
         mapping: "artifact",
         configuration: ["artifact", None],
         seeds: ["artifact", None],
@@ -52,9 +53,10 @@ def _get_proguard_command_line_args(
     for jar_input, jar_output in inputs_to_unscrubbed_outputs.items():
         cmd.add("-injars", jar_input, "-outjars", jar_output if jar_output == jar_input else jar_output.as_output())
 
+    library_jars = android_toolchain.android_bootclasspath + additional_library_jars
     cmd.add("-libraryjars")
-    cmd.add(cmd_args(android_toolchain.android_bootclasspath, delimiter = get_path_separator()))
-    hidden.extend(android_toolchain.android_bootclasspath)
+    cmd.add(cmd_args(library_jars, delimiter = get_path_separator()))
+    hidden.extend(library_jars)
 
     cmd.add("-printmapping", mapping.as_output())
     if configuration:
@@ -104,7 +106,8 @@ def get_proguard_output(
         ctx: "context",
         input_jars: {"artifact": "target_label"},
         java_packaging_deps: ["JavaPackagingDep"],
-        aapt_generated_proguard_config: ["artifact", None]) -> ProguardOutput.type:
+        aapt_generated_proguard_config: ["artifact", None],
+        additional_library_jars: ["artifact"]) -> ProguardOutput.type:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
@@ -130,6 +133,7 @@ def get_proguard_output(
         ctx,
         inputs_to_unscrubbed_outputs,
         proguard_configs,
+        additional_library_jars,
         mapping,
         configuration,
         seeds,

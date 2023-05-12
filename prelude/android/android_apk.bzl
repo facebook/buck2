@@ -85,7 +85,13 @@ def android_apk_impl(ctx: "context") -> ["provider"]:
         if ctx.attrs.preprocess_java_classes_bash:
             jars_to_owners = get_preprocessed_java_classes(ctx, jars_to_owners)
         if has_proguard_config:
-            proguard_output = get_proguard_output(ctx, jars_to_owners, java_packaging_deps, resources_info.proguard_config_file)
+            proguard_output = get_proguard_output(
+                ctx,
+                jars_to_owners,
+                java_packaging_deps,
+                resources_info.proguard_config_file,
+                [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1],
+            )
             jars_to_owners = proguard_output.jars_to_owners
             dir_srcs = {artifact.basename: artifact for artifact in proguard_output.proguard_artifacts}
             for i, hidden_artifact in enumerate(proguard_output.proguard_hidden_artifacts):
