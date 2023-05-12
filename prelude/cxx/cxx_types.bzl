@@ -22,6 +22,7 @@ load(
     ":compile.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load(":cxx_toolchain_types.bzl", "CxxObjectFormat")
 load(
     ":headers.bzl",
     "CxxHeadersLayout",
@@ -79,6 +80,9 @@ CxxRuleProviderParams = record(
 # Params to handle an argsfile for non-Clang sources which may present in Apple rules.
 CxxAdditionalArgsfileParams = record(
     file = field("artifact"),
+    # The output of the compile step is one of the following, but defaults to "native"
+    # meaning a intermediate .o file in the native architecture
+    format = field(CxxObjectFormat.type, CxxObjectFormat("native")),
     # Hidden args necessary for the argsfile to reference
     hidden_args = field([["artifacts", "cmd_args"]]),
     # An extension of a file for which this argsfile is generated.

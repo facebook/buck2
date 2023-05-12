@@ -13,6 +13,18 @@ def cxx_toolchain_macro_impl(cxx_toolchain_rule = None, **kwargs):
             kwargs["generate_linker_maps"] = True
         else:
             kwargs["generate_linker_maps"] = False
+
+    bitcode = read_config("cxx", "bitcode")
+    if bitcode != None:
+        if bitcode.lower() == "false":
+            kwargs["object_format"] = "native"
+        elif bitcode.lower() == "true":
+            kwargs["object_format"] = "bitcode"
+        elif bitcode.lower() == "embed":
+            kwargs["object_format"] = "embedded-bitcode"
+        else:
+            kwargs["object_format"] = "native"
+
     cxx_toolchain_rule(
         **kwargs
     )

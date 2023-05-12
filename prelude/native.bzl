@@ -15,6 +15,7 @@ load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEF
 load("@prelude//apple:apple_bundle_macro_layer.bzl", "apple_bundle_macro_impl")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl")
 load("@prelude//apple:apple_test_macro_layer.bzl", "apple_test_macro_impl")
+load("@prelude//apple/swift:swift_toolchain_macro_layer.bzl", "swift_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_inheriting_target_platform")
 load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
@@ -323,6 +324,14 @@ def _apple_package_macro_stub(**kwargs):
         **kwargs
     )
 
+def _swift_toolchain_macro_stub(**kwargs):
+    rule = __rules__["swift_toolchain"]
+
+    swift_toolchain_macro_impl(
+        swift_toolchain_rule = rule,
+        **kwargs
+    )
+
 def _cxx_toolchain_macro_stub(inherit_target_platform = False, **kwargs):
     if inherit_target_platform:
         rule = cxx_toolchain_inheriting_target_platform
@@ -377,6 +386,7 @@ __extra_rules__ = {
     "export_file": _export_file_macro_stub,
     "prebuilt_cxx_library": _prebuilt_cxx_library_macro_stub,
     "python_library": _python_library_macro_stub,
+    "swift_toolchain": _swift_toolchain_macro_stub,
     "versioned_alias": _versioned_alias_macro_stub,
 }
 

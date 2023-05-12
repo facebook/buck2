@@ -8,6 +8,14 @@
 #####################################################################
 # Providers
 
+SwiftObjectFormat = enum(
+    "object",
+    "bc",
+    "ir",
+    "irgen",
+    "object-embed-bitcode",
+)
+
 SwiftToolchainInfo = provider(fields = [
     "architecture",
     "can_toolchain_emit_obj_c_header_textually",  # bool
@@ -16,6 +24,7 @@ SwiftToolchainInfo = provider(fields = [
     "compiler_flags",
     "compiler",
     "prefix_serialized_debugging_options",  # bool
+    "object_format",  # "SwiftObjectFormat"
     "resource_dir",  # "artifact",
     "sdk_path",
     "swift_stdlib_tool_flags",

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "StripFlagsInfo", "cxx_toolchain_infos")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
@@ -16,7 +16,13 @@ load("@prelude//decls/cxx_rules.bzl", "cxx_rules")
 
 def cxx_toolchain_impl(ctx):
     c_compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
+
     lto_mode = LtoMode(ctx.attrs.lto_mode)
+    if lto_mode != LtoMode("none"):
+        object_format = "bitcode"
+    else:
+        object_format = ctx.attrs.object_format if ctx.attrs.object_format else "native"
+
     c_lto_flags = lto_compiler_flags(lto_mode)
 
     c_info = CCompilerInfo(
@@ -128,6 +134,7 @@ def cxx_toolchain_impl(ctx):
         hip_compiler_info = hip_info,
         header_mode = _get_header_mode(ctx),
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
+        object_format = CxxObjectFormat(object_format),
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
         mk_hmap = ctx.attrs._mk_hmap[RunInfo],
@@ -165,6 +172,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
+        "object_format": attrs.enum(CxxObjectFormat.values(), default = "native"),
         # A placeholder tool that can be used to set up toolchain constraints.
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
         # which requires setting up separate platform-specific aliases with the correct constraints.

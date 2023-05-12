@@ -21,7 +21,7 @@ load(
     "get_pic_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
-load(":cxx_toolchain_types.bzl", "DepTrackingMode")
+load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 load(":debug.bzl", "SplitDebugMode")
 load(
     ":headers.bzl",
@@ -146,6 +146,7 @@ CxxSrcWithFlags = record(
 CxxCompileOutput = record(
     # The compiled `.o` file.
     object = field("artifact"),
+    object_format = field(CxxObjectFormat.type, CxxObjectFormat("native")),
     object_has_external_debug_info = field(bool.type, False),
     # Externally referenced debug info, which doesn't get linked with the
     # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
@@ -292,6 +293,18 @@ def compile_cxx(
     toolchain = get_cxx_toolchain_info(ctx)
     linker_info = toolchain.linker_info
 
+    object_format = toolchain.object_format or CxxObjectFormat("native")
+    bitcode_args = cmd_args()
+    if linker_info.lto_mode == LtoMode("none"):
+        if toolchain.object_format == CxxObjectFormat("bitcode"):
+            bitcode_args.add("-emit-llvm")
+            object_format = CxxObjectFormat("bitcode")
+        elif toolchain.object_format == CxxObjectFormat("embedded-bitcode"):
+            bitcode_args.add("-fembed-bitcode")
+            object_format = CxxObjectFormat("embedded-bitcode")
+    else:
+        object_format = CxxObjectFormat("bitcode")
+
     objects = []
     for src_compile_cmd in src_compile_cmds:
         identifier = src_compile_cmd.src.short_path
@@ -319,6 +332,7 @@ def compile_cxx(
         args.add(src_compile_cmd.args)
 
         cmd.add(args)
+        cmd.add(bitcode_args)
 
         action_dep_files = {}
 
@@ -368,6 +382,7 @@ def compile_cxx(
 
         objects.append(CxxCompileOutput(
             object = object,
+            object_format = object_format,
             object_has_external_debug_info = object_has_external_debug_info,
             clang_trace = clang_trace,
         ))

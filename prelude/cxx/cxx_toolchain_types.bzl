@@ -118,6 +118,13 @@ DistLtoToolsInfo = provider(
     fields = ["planner", "opt", "prepare", "copy"],
 )
 
+CxxObjectFormat = enum(
+    "native",
+    "bitcode",
+    "embedded-bitcode",
+    "swift",
+)
+
 # TODO(T110378094): We should consider if we can change this from a hardcoded
 # list of compiler_info to something more general. We could maybe do a list of
 # compiler_info where each one also declares what extensions it supports.
@@ -130,6 +137,7 @@ CxxToolchainInfo = provider(fields = [
     "header_mode",
     "headers_as_raw_headers_mode",
     "linker_info",
+    "object_format",
     "binary_utilities_info",
     "c_compiler_info",
     "cxx_compiler_info",
@@ -177,6 +185,7 @@ def cxx_toolchain_infos(
         as_compiler_info = None,
         hip_compiler_info = None,
         cuda_compiler_info = None,
+        object_format = CxxObjectFormat("native"),
         mk_comp_db = None,
         mk_hmap = None,
         use_distributed_thinlto = False,
@@ -216,6 +225,7 @@ def cxx_toolchain_infos(
         cuda_compiler_info = cuda_compiler_info,
         mk_comp_db = mk_comp_db,
         mk_hmap = mk_hmap,
+        object_format = object_format,
         dist_lto_tools_info = dist_lto_tools_info,
         use_distributed_thinlto = use_distributed_thinlto,
         use_dep_files = use_dep_files,
