@@ -484,6 +484,16 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             ),
         )]
 
+        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+        sub_targets["binary_node_count"] = [DefaultInfo(
+            default_output = ctx.actions.write_json(
+                binary.output.basename + ".binary_node_count.json",
+                {
+                    "binary_node_count": len(linkable_graph_node_map),
+                },
+            ),
+        )]
+
     # TODO(T110378140): We can't really enable this yet, as Python binaries
     # consuming C++ binaries as resources don't know how to handle the
     # extraneous debug paths and will crash.  We probably need to add a special
