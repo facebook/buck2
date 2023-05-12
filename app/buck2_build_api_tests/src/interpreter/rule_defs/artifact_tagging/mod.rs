@@ -7,13 +7,5 @@
  * of this source tree.
  */
 
-use starlark::environment::GlobalsBuilder;
-
-use super::ArtifactTag;
-
-#[starlark_module]
-pub fn artifact_tag_factory(builder: &mut GlobalsBuilder) {
-    fn make_tag() -> anyhow::Result<ArtifactTag> {
-        Ok(ArtifactTag::new())
-    }
-}
+mod artifact_tag;
+pub(crate) mod testing;

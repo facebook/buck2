@@ -14,7 +14,6 @@ use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::actions::impls::json::SerializeValue;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use buck2_build_api::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_factory;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -25,6 +24,7 @@ use starlark::starlark_module;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
+use crate::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_factory;
 
 #[test]
 fn test_tagging() -> anyhow::Result<()> {

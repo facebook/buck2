@@ -11,7 +11,6 @@ mod artifact_tag;
 mod tagged_command_line;
 mod tagged_value;
 mod tagged_visitor;
-pub mod testing;
 
 pub use artifact_tag::ArtifactTag;
 pub use tagged_command_line::FrozenTaggedCommandLine;
