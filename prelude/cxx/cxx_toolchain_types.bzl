@@ -139,6 +139,7 @@ CxxToolchainInfo = provider(fields = [
     "cuda_compiler_info",
     "mk_comp_db",
     "mk_hmap",
+    "llvm_link",
     "dist_lto_tools_info",
     "use_dep_files",
     "clang_trace",
@@ -187,6 +188,7 @@ def cxx_toolchain_infos(
         dist_lto_tools_info: [DistLtoToolsInfo.type, None] = None,
         split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False,
+        llvm_link = None,
         platform_deps_aliases = []):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
@@ -204,6 +206,7 @@ def cxx_toolchain_infos(
         header_mode = header_mode,
         headers_as_raw_headers_mode = headers_as_raw_headers_mode,
         linker_info = linker_info,
+        llvm_link = llvm_link,
         binary_utilities_info = binary_utilities_info,
         c_compiler_info = c_compiler_info,
         cxx_compiler_info = cxx_compiler_info,
