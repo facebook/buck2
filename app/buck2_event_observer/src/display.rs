@@ -306,7 +306,8 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 Ok(format!("Connecting to installer on port {}", tcp_port))
             }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
-            Data::LocalResources(..) => Ok("Setup local resources".to_owned()),
+            Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
+            Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(

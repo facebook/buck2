@@ -101,6 +101,10 @@ impl LocalResourceState {
         }
     }
 
+    pub fn source_target(&self) -> &ConfiguredTargetLabel {
+        &self.source_target
+    }
+
     /// ID of process which actually is holding a pool of resources.
     /// SIGTERM is sent to this process to free the resources.
     pub fn owning_pid(&self) -> Option<i32> {

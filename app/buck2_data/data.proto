@@ -78,6 +78,7 @@ message SpanStartEvent {
     ReUploadStart re_upload = 78;
     ConnectToInstallerStart connect_to_installer = 79;
     SetupLocalResourcesStart local_resources = 80;
+    ReleaseLocalResourcesStart release_local_resources = 81;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -122,6 +123,7 @@ message SpanEndEvent {
     ReUploadEnd re_upload = 79;
     ConnectToInstallerEnd connect_to_installer = 80;
     SetupLocalResourcesEnd local_resources = 81;
+    ReleaseLocalResourcesEnd release_local_resources = 82;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1771,6 +1773,10 @@ message TraceIoCommandEnd {}
 message SetupLocalResourcesStart {}
 
 message SetupLocalResourcesEnd {}
+
+message ReleaseLocalResourcesStart {}
+
+message ReleaseLocalResourcesEnd {}
 
 message RestartConfiguration {
   bool enable_restarter = 1;

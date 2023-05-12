@@ -84,6 +84,7 @@ use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
 use crate::executor_launcher::OutOfProcessTestExecutor;
+use crate::local_resource_registry::LocalResourceRegistry;
 use crate::orchestrator::BuckTestOrchestrator;
 use crate::orchestrator::TestResultOrExitCode;
 use crate::session::TestSession;
@@ -430,18 +431,20 @@ async fn test_targets(
                 cancellations.critical_section(move || async move {
                     // Spawn our server to listen to the test runner's requests for execution.
 
-                    let server_handle = make_server(
-                        BuckTestOrchestrator::new(
-                            ctx.dupe(),
-                            session.dupe(),
-                            liveliness_observer.dupe(),
-                            test_status_sender,
-                            CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
-                        )
-                        .await
-                        .context("Failed to create a BuckTestOrchestrator")?,
-                        BuckTestDownwardApi,
-                    );
+                    let local_resource_registry = Arc::new(LocalResourceRegistry::new());
+
+                    let orchestrator = BuckTestOrchestrator::new(
+                        ctx.dupe(),
+                        session.dupe(),
+                        liveliness_observer.dupe(),
+                        test_status_sender,
+                        CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
+                        local_resource_registry.dupe(),
+                    )
+                    .await
+                    .context("Failed to create a BuckTestOrchestrator")?;
+
+                    let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
                     let mut driver = TestDriver::new(TestDriverState {
                         ctx: &ctx,
@@ -492,6 +495,11 @@ async fn test_targets(
                         .shutdown()
                         .await
                         .context("Failed to shutdown orchestrator")?;
+
+                    local_resource_registry
+                        .release_all_resources()
+                        .await
+                        .context("Failed to release local resources")?;
 
                     // And finally return our results;
 

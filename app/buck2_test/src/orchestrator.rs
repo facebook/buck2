@@ -141,7 +141,7 @@ pub struct BuckTestOrchestrator<'a> {
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
     cancellations: &'a CancellationContext,
-    local_resource_state_registry: LocalResourceRegistry<'a>,
+    local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -151,6 +151,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
         cancellations: &'a CancellationContext,
+        local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let digest_config = dice.global_data().get_digest_config();
@@ -162,6 +163,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             events,
             digest_config,
             cancellations,
+            local_resource_state_registry,
         ))
     }
 
@@ -173,6 +175,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         events: EventDispatcher,
         digest_config: DigestConfig,
         cancellations: &'a CancellationContext,
+        local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> BuckTestOrchestrator<'a> {
         Self {
             dice,
@@ -182,7 +185,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer,
             digest_config,
             cancellations,
-            local_resource_state_registry: LocalResourceRegistry::new(),
+            local_resource_state_registry,
         }
     }
 }
@@ -1319,6 +1322,7 @@ mod tests {
                 EventDispatcher::null(),
                 DigestConfig::testing_default(),
                 CancellationContext::testing(),
+                Arc::new(LocalResourceRegistry::new()),
             ),
             receiver,
         ))
