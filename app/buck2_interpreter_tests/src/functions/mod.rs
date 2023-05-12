@@ -7,6 +7,4 @@
  * of this source tree.
  */
 
-pub mod dedupe;
-pub mod regex;
-pub mod sha256;
+mod regex;

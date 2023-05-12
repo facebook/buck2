@@ -8,9 +8,9 @@
  */
 
 use buck2_core::soft_error;
+use buck2_interpreter::functions::regex::register_regex;
 use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::rule::register_rule_function;
-use fancy_regex::Regex;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -62,20 +62,6 @@ fn extra_functions(builder: &mut GlobalsBuilder) {
             eval.set_module_variable_at_some_point(k, v)?;
         }
         Ok(NoneType)
-    }
-
-    /// Test if a regular expression matches a string. Fails if the regular expression
-    /// is malformed.
-    ///
-    /// As an example:
-    ///
-    /// ```python
-    /// regex_match("^[a-z]*$", "hello") == True
-    /// regex_match("^[a-z]*$", "1234") == False
-    /// ```
-    fn regex_match(regex: &str, str: &str) -> anyhow::Result<bool> {
-        let re = Regex::new(regex)?;
-        Ok(re.is_match(str)?)
     }
 
     /// Print a warning. The line will be decorated with the timestamp and other details,
@@ -130,6 +116,7 @@ pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     cmd_args::register_cmd_args(globals);
     register_builtin_providers(globals);
     extra_functions(globals);
+    register_regex(globals);
 }
 
 #[cfg(test)]
@@ -156,22 +143,6 @@ load_symbols({'x': 1, 'z': 3})
 load("@root//pkg:test.bzl", "x", "y", "z")
 def test():
     assert_eq(x + y + z, 6)"#,
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_regex() -> anyhow::Result<()> {
-        let mut t = Tester::new()?;
-        t.additional_globals(register_rule_defs);
-        t.run_starlark_test(
-            r#"
-def test():
-    assert_eq(regex_match("abc|def|ghi", "abc"), True)
-    assert_eq(regex_match("abc|def|ghi", "xyz"), False)
-    assert_eq(regex_match("^((?!abc).)*$", "abc"), False)
-    assert_eq(regex_match("^((?!abc).)*$", "xyz"), True)
-"#,
         )?;
         Ok(())
     }

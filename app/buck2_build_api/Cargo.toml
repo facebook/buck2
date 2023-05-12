@@ -15,7 +15,6 @@ derivative = { workspace = true }
 hashbrown = { workspace = true }
 once_cell = { workspace = true }
 inventory = { workspace = true }
-fancy-regex = { workspace = true }
 futures = { workspace = true }
 internment = { workspace = true }
 itertools = { workspace = true }

@@ -8,7 +8,9 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     test_deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:indoc",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
     ],
 )
