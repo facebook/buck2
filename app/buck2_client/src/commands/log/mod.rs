@@ -42,35 +42,19 @@ pub enum LogCommandOutputFormat {
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Commands for interacting with buck2 logs")]
 pub enum LogCommand {
-    /// Shows the commands that buck ran
     #[clap(alias = "whatran")]
     WhatRan(what_ran::WhatRanCommand),
-
-    /// Shows the commands that buck ran, but only those that failed
     #[clap(alias = "whatfailed")]
     WhatFailed(what_failed::WhatFailedCommand),
-
-    /// Shows the path to the most recent event log
     #[clap(alias = "last")]
     Path(path_log::PathLogCommand),
-
-    /// Prints the most recent log to console
     Show(show_log::ShowLogCommand),
-
     #[clap(alias = "whatcmd")]
     WhatCmd(what_cmd::WhatCmdCommand),
-
-    /// Show all the spans that where open when the log ended
     #[clap(alias = "whatup")]
     WhatUp(what_up::WhatUpCommand),
-
-    /// Shows materializations in a log.
     WhatMaterialized(what_materialized::WhatMaterializedCommand),
-
-    /// Shows how many bytes/digests were uploaded by a command.
     WhatUploaded(what_uploaded::WhatUploadedCommand),
-
-    /// Shows how many bytes/digests were uploaded by a command.
     CriticalPath(critical_path::CriticalPathCommand),
 }
 
