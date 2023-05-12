@@ -296,7 +296,11 @@ def _maybe_filter_resources(
             override_symbols_artifact.as_output(),
         ])
 
-    ctx.actions.run(filter_resources_cmd, category = "filter_resources")
+    ctx.actions.run(
+        filter_resources_cmd,
+        local_only = "run_post_filter_resources_cmd_locally" in ctx.attrs.labels,
+        category = "filter_resources",
+    )
 
     filtered_resource_infos = []
     for i, resource in enumerate(resources):
