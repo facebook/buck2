@@ -71,7 +71,7 @@ use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 pub mod builtin;
 pub mod callable;
 pub mod collection;
-pub(crate) mod dependency;
+pub mod dependency;
 pub mod registration;
 pub mod test_provider;
 pub(crate) mod user;

@@ -8,6 +8,7 @@
  */
 
 mod default_info;
+mod dependency;
 mod install_info;
 mod run_info;
 mod tests;
