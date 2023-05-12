@@ -70,7 +70,11 @@ impl Uploader {
     )> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = Utc::now();
-        let ttl_wanted = 600i64;
+        let ttl_wanted = if buck2_core::is_open_source() {
+            1
+        } else {
+            600i64
+        };
         let ttl_deadline = now + Duration::seconds(ttl_wanted);
 
         // See if anything needs uploading
@@ -136,6 +140,8 @@ impl Uploader {
             }
 
             if digest_ttl <= ttl_wanted {
+                tracing::debug!(digest=%digest, ttl=digest_ttl, "Mark for upload");
+
                 match blobs.get(digest) {
                     Some(blob) => {
                         upload_blobs.push(InlinedBlobWithDigest {
@@ -149,6 +155,7 @@ impl Uploader {
                     }
                 }
             } else {
+                tracing::debug!(digest=%digest, ttl=digest_ttl, "Not uploading");
                 let ttl = Duration::seconds(digest_ttl);
                 digest.update_expires(now + ttl);
             }
@@ -156,6 +163,7 @@ impl Uploader {
 
         Ok((upload_blobs, missing_digests))
     }
+
     pub async fn upload(
         client: &REClient,
         materializer: &Arc<dyn Materializer>,
