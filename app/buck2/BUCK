@@ -50,6 +50,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_audit:buck2_audit",
+        "//buck2/app/buck2_audit_server:buck2_audit_server",
         "//buck2/app/buck2_bxl:buck2_bxl",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client:buck2_client",

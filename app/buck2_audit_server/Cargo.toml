@@ -1,0 +1,41 @@
+[package]
+name = "buck2_audit_server"
+version = "0.1.0"
+edition = "2021"
+description = "Server side of `buck2 audit`"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+ctor = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+indent_write = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+ref-cast = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+dice = { workspace = true }
+gazebo = { workspace = true }
+dupe = { workspace = true }
+
+buck2_audit = { workspace = true }
+buck2_build_api = { workspace = true }
+buck2_client_ctx = { workspace = true }
+buck2_cli_proto = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_events = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
+buck2_node = { workspace = true }
+buck2_query = { workspace = true }
+buck2_query_impls = { workspace = true }
+buck2_server_commands = { workspace = true }
+buck2_server_ctx = { workspace = true }
+buck2_util = { workspace = true }

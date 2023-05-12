@@ -17,6 +17,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::AuditCommand;
+use crate::AuditCommandExt;
 
 pub async fn server_audit_command(
     ctx: &dyn ServerCommandContextTrait,

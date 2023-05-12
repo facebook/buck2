@@ -12,7 +12,6 @@
 #![feature(provide_any)]
 
 use async_trait::async_trait;
-use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -23,8 +22,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use classpath::AuditClasspathCommand;
 
 use crate::analysis_queries::AuditAnalysisQueriesCommand;
@@ -41,21 +38,20 @@ use crate::providers::AuditProvidersCommand;
 use crate::starlark::StarlarkCommand;
 use crate::visibility::AuditVisibilityCommand;
 
-mod analysis_queries;
-mod cell;
-mod classpath;
-mod config;
-mod configurations;
+pub mod analysis_queries;
+pub mod cell;
+pub mod classpath;
+pub mod config;
+pub mod configurations;
 pub mod deferred_materializer;
-mod dep_files;
-mod execution_platform_resolution;
-mod includes;
+pub mod dep_files;
+pub mod execution_platform_resolution;
+pub mod includes;
 pub mod output;
-mod prelude;
-mod providers;
-pub mod server;
-mod starlark;
-mod visibility;
+pub mod prelude;
+pub mod providers;
+pub mod starlark;
+pub mod visibility;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "audit", about = "Perform lower level queries")]
@@ -87,27 +83,10 @@ pub enum AuditCommand {
 /// logic here and to support that serialization to the daemon.
 #[async_trait]
 pub trait AuditSubcommand: Send + Sync + 'static {
-    async fn server_execute(
-        &self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()>;
-
     fn common_opts(&self) -> &CommonCommandOptions;
 }
 
 impl AuditCommand {
-    pub async fn server_execute(
-        &self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        self.as_subcommand()
-            .server_execute(server_ctx, stdout, client_server_ctx)
-            .await
-    }
     fn as_subcommand(&self) -> &dyn AuditSubcommand {
         match self {
             AuditCommand::Cell(cmd) => cmd,

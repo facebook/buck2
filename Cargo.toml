@@ -10,6 +10,7 @@ members = [
     "app/buck2",
     "app/buck2_action_impl",
     "app/buck2_audit",
+    "app/buck2_audit_server",
     "app/buck2_bxl",
     "app/buck2_build_info",
     "app/buck2_client",
@@ -307,6 +308,7 @@ buck2_query_parser = { path = "app/buck2_query_parser" }
 buck2_query_derive = { path = "app/buck2_query_derive" }
 buck2_starlark = { path = "app/buck2_starlark" }
 buck2_audit = { path = "app/buck2_audit" }
+buck2_audit_server = { path = "app/buck2_audit_server" }
 buck2_cli_proto = { path = "app/buck2_cli_proto" }
 buck2_data = { path = "app/buck2_data" }
 buck2_event_observer = { path = "app/buck2_event_observer" }

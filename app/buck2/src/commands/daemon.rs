@@ -20,7 +20,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_audit::server::server_audit_command;
+use buck2_audit_server::server::server_audit_command;
 use buck2_bxl::command::bxl_command;
 use buck2_bxl::profile_command::bxl_profile_command;
 use buck2_cli_proto::ConfiguredTargetsRequest;
