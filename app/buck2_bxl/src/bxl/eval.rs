@@ -201,7 +201,7 @@ pub async fn eval(
 
                         match actions {
                             Some(registry) => (
-                                Some(registry.finalize(&env)),
+                                Some(registry.finalize(&env)?),
                                 ensured_artifacts,
                                 materializations,
                             ),

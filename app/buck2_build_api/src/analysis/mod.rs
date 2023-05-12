@@ -366,7 +366,7 @@ async fn run_analysis_with_env_underlying(
         ctx.take_state()
     };
 
-    let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
+    let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
 
     profiler
         .visit_frozen_module(Some(&frozen_env))

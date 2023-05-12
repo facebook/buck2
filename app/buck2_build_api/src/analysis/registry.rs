@@ -287,7 +287,9 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn finalize(
         self,
         env: &'v Module,
-    ) -> impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> + 'static {
+    ) -> anyhow::Result<
+        impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> + 'static,
+    > {
         let AnalysisRegistry {
             mut deferred,
             dynamic,
@@ -297,7 +299,7 @@ impl<'v> AnalysisRegistry<'v> {
             analysis_value_storage,
         } = self;
         analysis_value_storage.write_to_module(env);
-        move |env| {
+        Ok(move |env: Module| {
             let frozen_env = env.freeze()?;
             let analysis_value_fetcher = AnalysisValueFetcher {
                 frozen_module: Some(frozen_env.dupe()),
@@ -306,7 +308,7 @@ impl<'v> AnalysisRegistry<'v> {
             artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             Ok((frozen_env, deferred))
-        }
+        })
     }
 }
 

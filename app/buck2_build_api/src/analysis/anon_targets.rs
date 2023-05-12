@@ -417,7 +417,7 @@ impl AnonTargetKey {
                     // Pull the ctx object back out, and steal ctx.action's state back
                     ctx.take_state()
                 };
-                let (frozen_env, deferreds) = analysis_registry.finalize(&env)(env)?;
+                let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
 
                 let res = frozen_env.get("").unwrap();
                 let provider_collection = FrozenProviderCollectionValue::try_from_value(res)

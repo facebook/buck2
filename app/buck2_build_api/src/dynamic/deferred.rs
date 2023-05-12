@@ -293,7 +293,7 @@ impl Deferred for DynamicLambda {
             ctx.take_state()
         };
 
-        let (_frozen_env, deferred) = analysis_registry.finalize(&env)(env)?;
+        let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
         let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
 
         // TODO(ndmitchell): Check we don't use anything not in `inputs`
