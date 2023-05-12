@@ -59,6 +59,7 @@ def make_install_info(installer: "_arglike", pex: PexProviders.type) -> "provide
         "{}{}".format(prefix, path): artifact
         for artifact, path in pex.other_outputs
         if path != pex.other_outputs_prefix  # don't include prefix dir
+        if path != ""  # HACK: skip artifacts without a path
     }
     files[pex.default_output.basename] = pex.default_output
     return InstallInfo(
@@ -429,10 +430,14 @@ def _pex_modules_common_args(
         [(lib.output, name) for name, lib in shared_libraries.items()]
     )
 
-    for name, lib in shared_libraries.items():
-        if lib.external_debug_info != None:
-            for debuginfo in project_external_debug_info(ctx.actions, ctx.label, [lib.external_debug_info]):
-                deps.append((debuginfo, name))
+    external_debug_info = project_external_debug_info(
+        ctx.actions,
+        ctx.label,
+        [lib.external_debug_info for lib in shared_libraries.values()],
+    )
+
+    # HACK: exclude external_debug_info from InstallInfo by providing an empty path
+    deps.extend([(d, "") for d in external_debug_info])
 
     if ctx.attrs.package_split_dwarf_dwp:
         for name, lib in shared_libraries.items():
