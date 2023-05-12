@@ -50,8 +50,6 @@ use crate::actions::build_listener::AnalysisSignal;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::NodeDuration;
 use crate::analysis::calculation::keys::AnalysisKey;
-use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
-use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::analysis::get_user_defined_rule_impl;
 use crate::analysis::run_analysis;
 use crate::analysis::AnalysisResult;
@@ -60,6 +58,8 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going;
 use crate::nodes::calculation::NodeCalculation;
+use crate::query::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
+use crate::query::analysis::configured_graph::AnalysisDiceQueryDelegate;
 use crate::query::analysis::environment::ConfiguredGraphQueryEnvironment;
 
 #[derive(Debug, thiserror::Error)]

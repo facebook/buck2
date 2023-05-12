@@ -51,7 +51,6 @@ use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 pub mod anon_target_node;
 pub(crate) mod anon_targets;
 pub mod calculation;
-pub(crate) mod configured_graph;
 pub(crate) mod promise_artifacts;
 pub mod registry;
 

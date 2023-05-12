@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub(crate) mod configured_graph;
 pub mod environment;
 pub(crate) mod evaluator;
