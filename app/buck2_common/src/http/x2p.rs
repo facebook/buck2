@@ -39,7 +39,6 @@ pub(super) struct X2PAgentUnixSocketClient {
 }
 
 impl X2PAgentUnixSocketClient {
-    #[allow(dead_code)]
     pub(super) fn new<P: AsRef<Path>>(socket_path: P) -> anyhow::Result<Self> {
         let proxy = Proxy::new(
             Intercept::All,

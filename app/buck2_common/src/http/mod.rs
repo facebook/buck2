@@ -57,11 +57,17 @@ const DEFAULT_MAX_REDIRECTS: usize = 10;
 /// buck2 codebase.
 ///
 /// This should work for internal and OSS use cases.
-pub fn http_client() -> anyhow::Result<Arc<dyn HttpClient>> {
+pub fn http_client<P: AsRef<Path>>(
+    unix_socket_proxy: Option<P>,
+) -> anyhow::Result<Arc<dyn HttpClient>> {
     if is_open_source() {
+        anyhow::ensure!(
+            unix_socket_proxy.is_none(),
+            "Unix socket proxy is unsupported for OSS"
+        );
         http_client_for_oss()
     } else {
-        http_client_for_internal()
+        http_client_for_internal(unix_socket_proxy)
     }
 }
 
@@ -116,7 +122,9 @@ fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
 
 /// Returns a client suitable for Meta-internal usecases. Supports standard
 /// $THRIFT_TLS_CL_* environment variables.
-fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
+fn http_client_for_internal<P: AsRef<Path>>(
+    unix_socket_proxy: Option<P>,
+) -> anyhow::Result<Arc<dyn HttpClient>> {
     let tls_config = if let (Some(cert_path), Some(key_path)) = (
         std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
         std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
@@ -125,6 +133,17 @@ fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
     } else {
         tls_config_with_system_roots()?
     };
+
+    #[cfg(unix)]
+    if let Some(path) = unix_socket_proxy {
+        return Ok(Arc::new(x2p::X2PAgentUnixSocketClient::new(path)?));
+    }
+    #[cfg(not(unix))]
+    anyhow::ensure!(
+        unix_socket_proxy.is_none(),
+        "Unix socket proxy is not supported for non-Unix builds"
+    );
+
     Ok(Arc::new(SecureHttpClient::new(
         tls_config,
         DEFAULT_MAX_REDIRECTS,

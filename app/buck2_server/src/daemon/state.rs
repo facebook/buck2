@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -330,7 +331,9 @@ impl DaemonState {
         )
         .await?;
 
-        let http_client = http_client()?;
+        let unix_socket_proxy_path =
+            root_config.parse::<PathBuf>("buck2", "unix_socket_proxy_path")?;
+        let http_client = http_client(unix_socket_proxy_path)?;
 
         let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
 
