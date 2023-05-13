@@ -26,10 +26,9 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -249,11 +248,8 @@ pub(crate) async fn get_rule_impl(
     ctx: &DiceComputations,
     func: &StarlarkRuleType,
 ) -> anyhow::Result<impl RuleImplFunction> {
-    let interpreter_calculation = ctx
-        .get_interpreter_calculator(func.import_path.cell(), func.import_path.build_file_cell())
-        .await?;
-    let module = interpreter_calculation
-        .eval_module(StarlarkModulePath::LoadFile(&func.import_path))
+    let module = ctx
+        .get_loaded_module_from_import_path(&func.import_path)
         .await?;
     Ok(get_user_defined_rule_impl(module.env().dupe(), func))
 }

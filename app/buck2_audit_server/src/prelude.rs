@@ -14,8 +14,7 @@ use buck2_audit::prelude::AuditPreludeCommand;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_interpreter::path::StarlarkModulePath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -39,9 +38,6 @@ impl AuditSubcommand for AuditPreludeCommand {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
                 let prelude_path = prelude_path(cell_alias_resolver)?;
-                let interpreter_calculation = ctx
-                    .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
-                    .await?;
                 writeln!(
                     stdout,
                     "{}",
@@ -50,8 +46,7 @@ impl AuditSubcommand for AuditPreludeCommand {
                 writeln!(
                     stdout,
                     "{}",
-                    interpreter_calculation
-                        .eval_module(StarlarkModulePath::LoadFile(&prelude_path))
+                    ctx.get_loaded_module_from_import_path(&prelude_path)
                         .await?
                         .env()
                         .describe()

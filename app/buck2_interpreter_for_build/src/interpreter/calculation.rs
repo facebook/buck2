@@ -119,7 +119,6 @@ impl InterpreterCalculation for DiceComputations {
         &self,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
-        // this is already cached on the delegate.
         self.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?
             .eval_module(path)

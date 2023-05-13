@@ -31,8 +31,8 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
@@ -113,15 +113,8 @@ async fn test_eval_import() {
 
     let ctx = calculation(&fs).await;
 
-    let calculation = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
-        .await
-        .unwrap();
-
-    let env = calculation
-        .eval_module(StarlarkModulePath::LoadFile(&ImportPath::testing_new(
-            "root//pkg:two.bzl",
-        )))
+    let env = ctx
+        .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
         .await
         .unwrap();
     assert_eq!(
@@ -158,15 +151,8 @@ async fn test_eval_import_with_load() {
     );
 
     let ctx = calculation(&fs).await;
-    let calculation = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
-        .await
-        .unwrap();
-
-    let env = calculation
-        .eval_module(StarlarkModulePath::LoadFile(&ImportPath::testing_new(
-            "root//pkg:two.bzl",
-        )))
+    let env = ctx
+        .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
         .await
         .unwrap();
     assert_eq!(

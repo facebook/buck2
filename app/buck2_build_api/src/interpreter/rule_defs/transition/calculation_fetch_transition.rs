@@ -11,8 +11,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_interpreter::path::StarlarkModulePath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
 use thiserror::Error;
@@ -43,12 +42,7 @@ impl FetchTransition for DiceComputations {
         &self,
         id: &TransitionId,
     ) -> SharedResult<OwnedFrozenValueTyped<FrozenTransition>> {
-        let calculation = self
-            .get_interpreter_calculator(id.path.cell(), id.path.build_file_cell())
-            .await?;
-        let module = calculation
-            .eval_module(StarlarkModulePath::LoadFile(&id.path))
-            .await?;
+        let module = self.get_loaded_module_from_import_path(&id.path).await?;
         let transition = module
             .env()
             // This is a hashmap lookup, so we are not caching the result in DICE.
