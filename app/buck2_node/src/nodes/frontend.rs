@@ -9,12 +9,16 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::nodes::eval_result::EvaluationResult;
+use crate::nodes::unconfigured::TargetNode;
 
 #[async_trait]
 pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
@@ -51,6 +55,11 @@ pub trait TargetGraphCalculation {
         &self,
         package: PackageLabel,
     ) -> anyhow::Result<Arc<EvaluationResult>>;
+
+    /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
+    /// results for the the label's package, and so this is just a utility for accessing that, it
+    /// isn't separately cached.
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode>;
 }
 
 #[async_trait]
@@ -73,5 +82,21 @@ impl TargetGraphCalculation for DiceComputations {
             .get()?
             .get_interpreter_results(self, package)
             .await
+    }
+
+    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
+        Ok(TARGET_GRAPH_CALCULATION_IMPL
+            .get()?
+            .get_interpreter_results(self, target.pkg())
+            .await
+            .with_context(|| {
+                format!(
+                    "Error loading targets in package `{}` for target `{}`",
+                    target.pkg(),
+                    target
+                )
+            })?
+            .resolve_target(target.name())?
+            .dupe())
     }
 }

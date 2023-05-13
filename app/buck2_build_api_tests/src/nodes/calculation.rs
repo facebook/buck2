@@ -37,6 +37,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
 use buck2_node::nodes::unconfigured::TargetNode;

@@ -80,11 +80,6 @@ enum NodeCalculationError {
 
 #[async_trait]
 pub trait NodeCalculation {
-    /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
-    /// results for the the label's package, and so this is just a utility for accessing that, it
-    /// isn't separately cached.
-    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode>;
-
     /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
     async fn get_configured_target_node(
         &self,
@@ -848,21 +843,6 @@ pub struct ConfiguredTransitionedNodeKey {
 
 #[async_trait]
 impl NodeCalculation for DiceComputations {
-    async fn get_target_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
-        Ok(self
-            .get_interpreter_results(target.pkg())
-            .await
-            .with_context(|| {
-                format!(
-                    "Error loading targets in package `{}` for target `{}`",
-                    target.pkg(),
-                    target
-                )
-            })?
-            .resolve_target(target.name())?
-            .dupe())
-    }
-
     async fn get_configured_target_node(
         &self,
         target: &ConfiguredTargetLabel,

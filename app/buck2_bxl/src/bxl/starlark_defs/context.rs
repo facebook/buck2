@@ -41,6 +41,7 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query_impls::dice::DiceQueryDelegate;
 use buck2_query_impls::uquery::environment::UqueryEnvironment;
