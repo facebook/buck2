@@ -14,6 +14,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::http_client;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project::ProjectRoot;
@@ -25,7 +26,6 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
-use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -204,8 +204,9 @@ impl Materializer for ImmediateMaterializer {
             )
             .await?;
 
+        let client = http_client()?;
         http_download(
-            &http_client()?,
+            &*client,
             &self.fs,
             self.digest_config,
             &path,

@@ -27,12 +27,13 @@ use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::http_client;
+use buck2_common::http::HttpClient;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
-use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::http::Checksum;
@@ -131,7 +132,7 @@ impl DownloadFileAction {
     /// Try to produce a FileMetadata without downloading the file.
     async fn declared_metadata(
         &self,
-        client: &reqwest::Client,
+        client: &dyn HttpClient,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Option<FileMetadata>> {
         if !self.inner.is_deferrable {
@@ -159,8 +160,6 @@ impl DownloadFileAction {
 
         let head = http_head(client, &self.inner.url).await?;
 
-        // NOTE: Don't use reqwest's content_length() method here, that always returns zero!
-        // https://github.com/seanmonstar/reqwest/issues/843
         let content_length = head
             .headers()
             .get(http::header::CONTENT_LENGTH)
@@ -265,7 +264,10 @@ impl IncrementalActionExecutable for DownloadFileAction {
         let client = http_client()?;
 
         let (value, execution_kind) = {
-            match self.declared_metadata(&client, ctx.digest_config()).await? {
+            match self
+                .declared_metadata(&*client, ctx.digest_config())
+                .await?
+            {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
                     let rel_path = artifact_fs.resolve_build(self.output().get_path());
@@ -295,7 +297,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     // Slow path: download now.
                     let digest = http_download(
-                        &client,
+                        &*client,
                         project_fs,
                         ctx.digest_config(),
                         &rel_path,

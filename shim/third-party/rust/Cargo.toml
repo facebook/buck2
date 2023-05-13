@@ -143,7 +143,6 @@ rand_distr = "0.4"
 ref-cast = "1.0.0"
 regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
-reqwest = { version = "0.11.4", features = ["stream", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 rustls = "0.20.4"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }

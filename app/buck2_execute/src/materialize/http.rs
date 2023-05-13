@@ -17,20 +17,18 @@ use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmKind;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::HttpClient;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::is_open_source;
 use bytes::Bytes;
 use digest::DynDigest;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::stream::Stream;
 use futures::StreamExt;
-use reqwest::Client;
-use reqwest::RequestBuilder;
-use reqwest::Response;
-use reqwest::StatusCode;
+use http::StatusCode;
+use hyper::Response;
 use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
@@ -66,84 +64,43 @@ impl Checksum {
 
 #[derive(Debug, Error)]
 pub enum HttpError {
-    #[error(
-        "HTTP {} Error ({}) when querying URL: {}. Response text: {}",
-        http_error_label(*.status),
-        .status,
-        .url,
-        .text
-    )]
-    HttpErrorStatus {
-        status: StatusCode,
-        url: String,
-        text: String,
-    },
+    #[error("HTTP Client error: {0}")]
+    Client(#[from] buck2_common::http::HttpError),
 
-    #[error(
-            "HTTP Transfer Error when querying URL: {}. Failed before receiving headers.",
-            .url,
-        )]
-    HttpHeadersTransferError {
-        url: String,
-        #[source]
-        source: reqwest::Error,
-    },
-
-    #[error(
-                "HTTP Transfer Error when querying URL: {}. Failed after {} bytes",
-                .url,
-                .received
-            )]
-    HttpTransferError {
+    #[error("HTTP Transfer Error when querying URL: {}. Failed after {} bytes", .url, .received)]
+    Transfer {
         received: u64,
         url: String,
         #[source]
-        source: reqwest::Error,
+        source: hyper::Error,
     },
 }
 
 impl HttpError {
-    /// Decide whether to retry this HTTP error. If we got a response but the server errored or
-    /// told us to come back later, we retry. If we didn't get a response, then we retry only if we
-    /// succeeded in connecting (so as to ensure we don't waste time retrying when the domain
-    /// portion of the URL is just wrong or when we don't have the right TLS credentials).
-    ///
-    /// NOTE: not retrying *any* connect errors may not be ideal, but we dont get access to more
-    /// detail with Reqwest. To fix this we should migrate to raw Hyper (which probably wouldn't be
-    /// a bad idea anyway).
     fn is_retryable(&self) -> bool {
         match self {
-            Self::HttpErrorStatus { status, .. } => {
-                status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
-            }
-            Self::HttpHeadersTransferError { source, .. }
-            | Self::HttpTransferError { source, .. } => !source.is_connect(),
+            Self::Client(client_error) => match client_error {
+                buck2_common::http::HttpError::Status { status, .. } => {
+                    status.is_server_error() || *status == StatusCode::TOO_MANY_REQUESTS
+                }
+                buck2_common::http::HttpError::SendRequest(err) => !err.is_connect(),
+                _ => false,
+            },
+            Self::Transfer { source, .. } => !source.is_connect(),
         }
     }
 }
 
-fn http_error_label(status: StatusCode) -> &'static str {
-    if status.is_server_error() {
-        return "Server";
-    }
-
-    if status.is_client_error() {
-        return "Client";
-    }
-
-    "Unknown"
-}
-
 #[derive(Debug, Error)]
 enum HttpHeadError {
-    #[error("Error performing a http_head request")]
-    HttpError(#[from] HttpError),
+    #[error("Error performing http_head request")]
+    Client(#[from] HttpError),
 }
 
 #[derive(Debug, Error)]
 enum HttpDownloadError {
-    #[error("Error performing a http_download request")]
-    HttpError(#[from] HttpError),
+    #[error("Error performing http_download request")]
+    Client(#[from] HttpError),
 
     #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
     InvalidChecksum(&'static str, String, String, String),
@@ -159,7 +116,7 @@ trait AsHttpError {
 impl AsHttpError for HttpHeadError {
     fn as_http_error(&self) -> Option<&HttpError> {
         match self {
-            Self::HttpError(e) => Some(e),
+            Self::Client(e) => Some(e),
         }
     }
 }
@@ -167,64 +124,25 @@ impl AsHttpError for HttpHeadError {
 impl AsHttpError for HttpDownloadError {
     fn as_http_error(&self) -> Option<&HttpError> {
         match self {
-            Self::HttpError(e) => Some(e),
+            Self::Client(e) => Some(e),
             Self::InvalidChecksum(..) | Self::IoError(..) => None,
         }
     }
 }
 
-pub fn http_client() -> anyhow::Result<Client> {
-    let mut builder = Client::builder();
-
-    if !is_open_source() {
-        // Buck v1 doesn't honor the `$HTTPS_PROXY` variables. That is useful because
-        // we don't want internal users fetching from the web while building,
-        // and some machines might have them misconfigured.
-        //
-        // However, for open source, we definitely want to support proxies properly.
-        builder = builder.no_proxy();
-    }
-
-    builder.build().context("Error creating http client")
-}
-
-async fn http_dispatch(req: RequestBuilder, url: &str) -> Result<Response, HttpError> {
-    let response = req
-        .send()
-        .await
-        .map_err(|source| HttpError::HttpHeadersTransferError {
-            url: url.to_owned(),
-            source,
-        })?;
-
-    let status = response.status();
-
-    if !status.is_success() {
-        let text = match response.text().await {
-            Ok(t) => t,
-            Err(e) => format!("Error decoding response text: {}", e),
-        };
-
-        return Err(HttpError::HttpErrorStatus {
-            status,
-            url: url.to_owned(),
-            text,
-        });
-    }
-
+pub async fn http_head(client: &dyn HttpClient, url: &str) -> anyhow::Result<Response<()>> {
+    let response = http_retry(|| async {
+        client
+            .head(url)
+            .await
+            .map_err(|e| HttpHeadError::Client(HttpError::Client(e)))
+    })
+    .await?;
     Ok(response)
 }
 
-pub async fn http_head(client: &Client, url: &str) -> anyhow::Result<Response> {
-    Ok(http_retry(|| async {
-        let response = http_dispatch(client.head(url), url).await?;
-        Result::<_, HttpHeadError>::Ok(response)
-    })
-    .await?)
-}
-
 pub async fn http_download(
-    client: &Client,
+    client: &dyn HttpClient,
     fs: &ProjectRoot,
     digest_config: DigestConfig,
     path: &ProjectRelativePath,
@@ -246,9 +164,11 @@ pub async fn http_download(
             .with_context(|| format!("open({})", abs_path))
             .map_err(HttpDownloadError::IoError)?;
 
-        let response = http_dispatch(client.get(url), url).await?;
-
-        let stream = response.bytes_stream();
+        let stream = client
+            .get(url)
+            .await
+            .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
+            .into_body();
         let buf_writer = std::io::BufWriter::new(file);
 
         let digest = copy_and_hash(
@@ -278,7 +198,7 @@ pub async fn http_download(
 async fn copy_and_hash(
     url: &str,
     abs_path: &(impl std::fmt::Display + ?Sized),
-    mut stream: impl Stream<Item = Result<Bytes, reqwest::Error>> + Unpin,
+    mut stream: impl Stream<Item = Result<Bytes, hyper::Error>> + Unpin,
     mut writer: impl Write,
     digest_config: CasDigestConfig,
     checksum: &Checksum,
@@ -316,7 +236,7 @@ async fn copy_and_hash(
     }
 
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|source| HttpError::HttpTransferError {
+        let chunk = chunk.map_err(|source| HttpError::Transfer {
             received: digester.bytes_read(),
             url: url.to_owned(),
             source,

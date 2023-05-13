@@ -11,10 +11,15 @@ use std::fs::File;
 use std::future::Future;
 use std::io::BufReader;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_core::is_open_source;
 use gazebo::prelude::VecExt;
+use http::uri::InvalidUri;
+use http::uri::PathAndQuery;
+use http::uri::Scheme;
 use http::HeaderMap;
 use http::Method;
 use http::Uri;
@@ -25,6 +30,7 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
+use hyper_proxy::Intercept;
 use hyper_proxy::Proxy;
 use hyper_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnectorBuilder;
@@ -38,6 +44,106 @@ use tokio_rustls::TlsConnector;
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
 const DEFAULT_MAX_REDIRECTS: usize = 10;
+
+/// General-purpose function to get a regular HTTP client for use throughout the
+/// buck2 codebase.
+///
+/// This should work for internal and OSS use cases.
+pub fn http_client() -> anyhow::Result<Arc<dyn HttpClient>> {
+    if is_open_source() {
+        http_client_for_oss()
+    } else {
+        http_client_for_internal()
+    }
+}
+
+/// Returns a client suitable for OSS usecases. Supports standard Curl-like
+/// proxy environment variables: $HTTP_PROXY, $HTTPS_PROXY.
+fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
+    // Add standard proxy variables if defined.
+    // Ignores values that cannot be turned into valid URIs.
+    let mut proxies = Vec::new();
+    if let Some(proxy) = https_proxy_from_env() {
+        proxies.push(proxy);
+    }
+    if let Some(proxy) = http_proxy_from_env() {
+        proxies.push(proxy);
+    }
+
+    if !proxies.is_empty() {
+        Ok(Arc::new(SecureProxiedClient::with_proxies(proxies)?))
+    } else {
+        let config = tls_config_with_system_roots()?;
+        Ok(Arc::new(SecureHttpClient::new(
+            config,
+            DEFAULT_MAX_REDIRECTS,
+        )))
+    }
+}
+
+/// Returns a client suitable for Meta-internal usecases. Supports standard
+/// $THRIFT_TLS_CL_* environment variables.
+fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
+    let tls_config = if let (Some(cert_path), Some(key_path)) = (
+        std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
+        std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
+    ) {
+        tls_config_with_single_cert(cert_path.as_os_str(), key_path.as_os_str())?
+    } else {
+        tls_config_with_system_roots()?
+    };
+    Ok(Arc::new(SecureHttpClient::new(
+        tls_config,
+        DEFAULT_MAX_REDIRECTS,
+    )))
+}
+
+/// Lookup environment variable and return string value. Checks first for uppercase
+/// and falls back to lowercase if unset.
+fn env_to_string(env: &'static str) -> Option<String> {
+    std::env::var_os(env)
+        .or_else(|| std::env::var_os(env.to_lowercase()))
+        .and_then(|s| s.into_string().ok())
+}
+
+fn https_proxy_from_env() -> Option<Proxy> {
+    env_to_string("HTTPS_PROXY")
+        .and_then(|https_proxy| https_proxy.parse::<DefaultSchemeUri>().ok())
+        .map(|uri| Proxy::new(Intercept::Https, uri.into()))
+}
+
+fn http_proxy_from_env() -> Option<Proxy> {
+    env_to_string("HTTP_PROXY")
+        .and_then(|http_proxy| http_proxy.parse::<DefaultSchemeUri>().ok())
+        .map(|uri| Proxy::new(Intercept::Http, uri.into()))
+}
+
+/// A wrapped Uri that handles inserting a default scheme (http) if one is not present.
+///
+/// See https://everything.curl.dev/usingcurl/proxies/type for more information about
+/// how curl treats default schemes for e.g. proxy env vars.
+struct DefaultSchemeUri(Uri);
+
+impl FromStr for DefaultSchemeUri {
+    type Err = InvalidUri;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<Uri>().map(Self)
+    }
+}
+
+impl From<DefaultSchemeUri> for Uri {
+    fn from(default_scheme_uri: DefaultSchemeUri) -> Self {
+        let mut parts = default_scheme_uri.0.into_parts();
+        if parts.scheme.is_none() {
+            parts.scheme = Some(Scheme::HTTP);
+        }
+        if parts.path_and_query.is_none() {
+            parts.path_and_query = Some(PathAndQuery::from_static("/"));
+        }
+        Uri::from_parts(parts).expect("Got invalid uri from formerly valid uri")
+    }
+}
 
 /// Load the system root certificates into rustls cert store.
 fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
@@ -55,7 +161,6 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
 
 /// Deserialize certificate pair at `cert` and `key` into structures that can
 /// be inserted into rustls CertStore.
-#[allow(dead_code)]
 fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
@@ -81,10 +186,24 @@ fn load_cert_pair<P: AsRef<Path>>(
 }
 
 fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
+    let system_roots = load_system_root_certs()?;
     Ok(ClientConfig::builder()
         .with_safe_defaults()
-        .with_root_certificates(load_system_root_certs()?)
+        .with_root_certificates(system_roots)
         .with_no_client_auth())
+}
+
+fn tls_config_with_single_cert<P: AsRef<Path>>(
+    cert_path: P,
+    key_path: P,
+) -> anyhow::Result<ClientConfig> {
+    let system_roots = load_system_root_certs()?;
+    let (cert, key) = load_cert_pair(cert_path, key_path)?;
+    ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(system_roots)
+        .with_single_cert(cert, key)
+        .context("Error creating TLS config with cert and key path")
 }
 
 fn http_error_label(status: StatusCode) -> &'static str {
@@ -195,7 +314,7 @@ struct RedirectEngine {
 }
 
 impl RedirectEngine {
-    pub fn new(
+    fn new(
         max_redirects: usize,
         pending_request: PendingRequest,
         response: Response<Body>,
@@ -210,10 +329,7 @@ impl RedirectEngine {
 
     /// Handle any redirects we get in the course of sending the request (up to
     /// self.max_redirects).
-    pub async fn handle_redirects<S, F>(
-        mut self,
-        sender_func: S,
-    ) -> Result<Response<Body>, HttpError>
+    async fn handle_redirects<S, F>(mut self, sender_func: S) -> Result<Response<Body>, HttpError>
     where
         F: Future<Output = Result<Response<Body>, HttpError>>,
         S: Fn(Request<Body>) -> F,
@@ -325,7 +441,7 @@ impl RedirectEngine {
 
 /// Trait describe http client that can perform simple HEAD and GET requests.
 #[async_trait::async_trait]
-pub trait HttpClient {
+pub trait HttpClient: Send + Sync {
     /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.
     async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
         let req = Request::builder()
@@ -376,27 +492,7 @@ pub struct SecureHttpClient {
 
 impl SecureHttpClient {
     /// Constructs a client that uses default system roots to setup TLS.
-    pub fn new() -> anyhow::Result<Self> {
-        let config = tls_config_with_system_roots()?;
-        Ok(Self::configure(config, DEFAULT_MAX_REDIRECTS))
-    }
-
-    pub fn with_max_redirects(max_redirects: usize) -> anyhow::Result<Self> {
-        let config = tls_config_with_system_roots()?;
-        Ok(Self::configure(config, max_redirects))
-    }
-
-    pub fn with_connector<C: Connect + Clone + Send + Sync + 'static>(
-        connector: C,
-        max_redirects: usize,
-    ) -> Self {
-        Self {
-            inner: Arc::new(hyper::Client::builder().build::<_, Body>(connector)),
-            max_redirects,
-        }
-    }
-
-    fn configure(tls_config: ClientConfig, max_redirects: usize) -> Self {
+    fn new(tls_config: ClientConfig, max_redirects: usize) -> Self {
         let connector = HttpsConnectorBuilder::new()
             .with_tls_config(tls_config)
             .https_or_http()
@@ -404,6 +500,16 @@ impl SecureHttpClient {
             .enable_http2()
             .build();
         Self::with_connector(connector, max_redirects)
+    }
+
+    fn with_connector<C: Connect + Clone + Send + Sync + 'static>(
+        connector: C,
+        max_redirects: usize,
+    ) -> Self {
+        Self {
+            inner: Arc::new(hyper::Client::builder().build::<_, Body>(connector)),
+            max_redirects,
+        }
     }
 
     async fn send_request_impl(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
@@ -448,16 +554,12 @@ impl HttpClient for SecureHttpClient {
     }
 }
 
-pub struct SecureProxiedClient {
+struct SecureProxiedClient {
     inner: SecureHttpClient,
 }
 
 impl SecureProxiedClient {
-    pub fn new(proxy: Proxy) -> anyhow::Result<Self> {
-        Self::with_proxies([proxy])
-    }
-
-    pub fn with_proxies<I: IntoIterator<Item = Proxy>>(proxies: I) -> anyhow::Result<Self> {
+    fn with_proxies<I: IntoIterator<Item = Proxy>>(proxies: I) -> anyhow::Result<Self> {
         let config = tls_config_with_system_roots()?;
 
         // This connector establishes a secure connection from client -> dest
@@ -574,7 +676,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = SecureHttpClient::new()?;
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -589,7 +691,7 @@ mod tests {
                 .respond_with(responders::status_code(404)),
         );
 
-        let client = SecureHttpClient::new()?;
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
         let url = test_server.url_str("/foo");
         let result = client.get(&url).await;
         assert!(result.is_err());
@@ -631,7 +733,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = SecureHttpClient::new()?;
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -655,7 +757,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = SecureHttpClient::new()?;
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
         let resp = client.head(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -693,7 +795,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = SecureHttpClient::with_max_redirects(1)?;
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 1);
         let url = test_server.url_str("/foo");
         let result = client.get(&url).await;
         if let HttpError::TooManyRedirects { uri, max_redirects } = result.as_ref().err().unwrap() {
@@ -725,10 +827,38 @@ mod tests {
         let proxy_server = ProxyServer::new().await?;
         println!("proxy_server uri: {}", proxy_server.uri()?);
 
-        let client = SecureProxiedClient::new(Proxy::new(
+        let client = SecureProxiedClient::with_proxies([Proxy::new(
             hyper_proxy::Intercept::Http,
             proxy_server.uri()?,
-        ))?;
+        )])?;
+        let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    async fn test_uses_http_proxy_with_no_scheme_in_proxy_uri() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("GET", "/foo"),
+                request::headers(contains(("via", "testing-proxy-server")))
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let proxy_server = ProxyServer::new().await?;
+
+        let authority = proxy_server.uri()?.authority().unwrap().clone();
+        let proxy_uri = format!("{}:{}", authority.host(), authority.port().unwrap());
+        println!("proxy_uri: {}", proxy_uri);
+        let client = SecureProxiedClient::with_proxies([Proxy::new(
+            hyper_proxy::Intercept::Http,
+            DefaultSchemeUri(proxy_uri.try_into()?).into(),
+        )])?;
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 

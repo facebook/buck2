@@ -15,6 +15,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::http::http_client;
 use buck2_common::result::SharedError;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::directory::unordered_entry_walk;
@@ -32,7 +33,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_execute::materialize::http::http_client;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -191,9 +191,10 @@ impl DefaultIoHandler {
                     })?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
+                let client = http_client()?;
                 async {
                     let downloaded = http_download(
-                        &http_client()?,
+                        &*client,
                         &self.fs,
                         self.digest_config,
                         &path,
