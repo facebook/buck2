@@ -31,7 +31,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
-use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
@@ -46,7 +45,6 @@ use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -534,20 +532,6 @@ impl<'c> DiceCalculationDelegate<'c> {
             },
         )
         .await
-    }
-
-    /// Eval build file, return one requested target node.
-    pub async fn testing_eval_single_target(&self, target_label: &str) -> TargetNode {
-        let target_label = TargetLabel::testing_parse(target_label);
-        self.eval_build_file(
-            target_label.pkg(),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
-        )
-        .await
-        .unwrap()
-        .get_target(target_label.name())
-        .unwrap()
-        .dupe()
     }
 }
 

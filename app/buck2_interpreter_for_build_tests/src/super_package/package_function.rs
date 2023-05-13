@@ -7,13 +7,12 @@
  * of this source tree.
  */
 
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_core::target::label::TargetLabel;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::visibility::VisibilitySpecification;
 
 use crate::tests::calculation;
-use crate::tests::root_cell;
 
 const RULES_BZL: &str = r#"
 simple = rule(
@@ -47,14 +46,10 @@ simple(name = "a")
 
     let ctx = calculation(&fs).await;
 
-    let interpreter = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+    let a = ctx
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
-
-    let a = interpreter
-        .testing_eval_single_target("root//juxtaposition:a")
-        .await;
 
     assert_eq!(
         &VisibilitySpecification::testing_parse(&["root//aaa/..."]),
@@ -94,14 +89,10 @@ simple(name = "a")
 
     let ctx = calculation(&fs).await;
 
-    let interpreter = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+    let a = ctx
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
-
-    let a = interpreter
-        .testing_eval_single_target("root//juxtaposition:a")
-        .await;
 
     assert_eq!(
         &VisibilitySpecification::testing_parse(&["root//aaa/...", "root//bbb/..."]),
@@ -140,14 +131,10 @@ simple(name = "a")
 
     let ctx = calculation(&fs).await;
 
-    let interpreter = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
+    let a = ctx
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
-
-    let a = interpreter
-        .testing_eval_single_target("root//juxtaposition:a")
-        .await;
 
     assert_eq!(
         &VisibilitySpecification::testing_parse(&["root//bbb/..."]),
