@@ -46,7 +46,7 @@ mod redirect;
 use redirect::PendingRequest;
 use redirect::RedirectEngine;
 
-#[cfg(unix)]
+#[cfg(all(unix, fbcode_build))]
 mod x2p;
 
 /// Support following up to 10 redirects, after which a redirected request will
@@ -57,18 +57,62 @@ const DEFAULT_MAX_REDIRECTS: usize = 10;
 /// buck2 codebase.
 ///
 /// This should work for internal and OSS use cases.
-pub fn http_client<P: AsRef<Path>>(
-    unix_socket_proxy: Option<P>,
-) -> anyhow::Result<Arc<dyn HttpClient>> {
+pub fn http_client() -> anyhow::Result<Arc<dyn HttpClient>> {
     if is_open_source() {
-        anyhow::ensure!(
-            unix_socket_proxy.is_none(),
-            "Unix socket proxy is unsupported for OSS"
-        );
         http_client_for_oss()
     } else {
-        http_client_for_internal(unix_socket_proxy)
+        http_client_for_internal()
     }
+}
+
+/// Returns a client suitable for OSS usecases. Supports standard Curl-like
+/// proxy environment variables: $HTTP_PROXY, $HTTPS_PROXY.
+pub fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
+    // Add standard proxy variables if defined.
+    // Ignores values that cannot be turned into valid URIs.
+    let mut proxies = Vec::new();
+    if let Some(proxy) = https_proxy_from_env() {
+        proxies.push(proxy);
+    }
+    if let Some(proxy) = http_proxy_from_env() {
+        proxies.push(proxy);
+    }
+
+    if !proxies.is_empty() {
+        Ok(Arc::new(SecureProxiedClient::with_proxies(proxies)?))
+    } else {
+        let config = tls_config_with_system_roots()?;
+        Ok(Arc::new(SecureHttpClient::new(
+            config,
+            DEFAULT_MAX_REDIRECTS,
+        )))
+    }
+}
+
+/// Returns a client suitable for Meta-internal usecases. Supports standard
+/// $THRIFT_TLS_CL_* environment variables.
+fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
+    let tls_config = if let (Some(cert_path), Some(key_path)) = (
+        std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
+        std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
+    ) {
+        tls_config_with_single_cert(cert_path.as_os_str(), key_path.as_os_str())?
+    } else {
+        tls_config_with_system_roots()?
+    };
+
+    #[cfg(all(unix, fbcode_build))]
+    if cpe::x2p::is_edge_enabled() && cpe::user::is_gk_enabled("cpe_x2p_edgeterm_remote_execution")
+    {
+        return Ok(Arc::new(x2p::X2PAgentUnixSocketClient::new(
+            cpe::x2p::proxy_url_http1(),
+        )?));
+    }
+
+    Ok(Arc::new(SecureHttpClient::new(
+        tls_config,
+        DEFAULT_MAX_REDIRECTS,
+    )))
 }
 
 /// Dice implementations so we can pass along the HttpClient to various subsystems
@@ -94,60 +138,6 @@ impl SetHttpClient for UserComputationData {
     fn set_http_client(&mut self, client: Arc<dyn HttpClient>) {
         self.data.set(client);
     }
-}
-
-/// Returns a client suitable for OSS usecases. Supports standard Curl-like
-/// proxy environment variables: $HTTP_PROXY, $HTTPS_PROXY.
-fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
-    // Add standard proxy variables if defined.
-    // Ignores values that cannot be turned into valid URIs.
-    let mut proxies = Vec::new();
-    if let Some(proxy) = https_proxy_from_env() {
-        proxies.push(proxy);
-    }
-    if let Some(proxy) = http_proxy_from_env() {
-        proxies.push(proxy);
-    }
-
-    if !proxies.is_empty() {
-        Ok(Arc::new(SecureProxiedClient::with_proxies(proxies)?))
-    } else {
-        let config = tls_config_with_system_roots()?;
-        Ok(Arc::new(SecureHttpClient::new(
-            config,
-            DEFAULT_MAX_REDIRECTS,
-        )))
-    }
-}
-
-/// Returns a client suitable for Meta-internal usecases. Supports standard
-/// $THRIFT_TLS_CL_* environment variables.
-fn http_client_for_internal<P: AsRef<Path>>(
-    unix_socket_proxy: Option<P>,
-) -> anyhow::Result<Arc<dyn HttpClient>> {
-    let tls_config = if let (Some(cert_path), Some(key_path)) = (
-        std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
-        std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
-    ) {
-        tls_config_with_single_cert(cert_path.as_os_str(), key_path.as_os_str())?
-    } else {
-        tls_config_with_system_roots()?
-    };
-
-    #[cfg(unix)]
-    if let Some(path) = unix_socket_proxy {
-        return Ok(Arc::new(x2p::X2PAgentUnixSocketClient::new(path)?));
-    }
-    #[cfg(not(unix))]
-    anyhow::ensure!(
-        unix_socket_proxy.is_none(),
-        "Unix socket proxy is not supported for non-Unix builds"
-    );
-
-    Ok(Arc::new(SecureHttpClient::new(
-        tls_config,
-        DEFAULT_MAX_REDIRECTS,
-    )))
 }
 
 /// Lookup environment variable and return string value. Checks first for uppercase
