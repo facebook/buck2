@@ -45,12 +45,9 @@ impl<'a> CachedGlobals<'a> {
     }
 
     async fn load_module(&self, path: &ImportPath) -> anyhow::Result<LoadedModule> {
-        // This is mostly correct - in theory a .bzl file can evaluate differently based on which cell it is in.
-        // In practice, for the stuff we are doing, its close enough just to use the cell it lives in.
-        let cell = path.cell();
         let calc = self
             .dice
-            .get_interpreter_calculator(cell, BuildFileCell::new(cell))
+            .get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?;
         calc.eval_module(StarlarkModulePath::LoadFile(path)).await
     }
