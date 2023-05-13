@@ -40,6 +40,8 @@ use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::http::ClientForTest;
+use buck2_common::http::SetHttpClient;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::category::Category;
@@ -195,6 +197,7 @@ async fn make_default_dice_state(
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
     extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
+    extra.set_http_client(Arc::new(ClientForTest {}));
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());
     extra.spawner = Arc::new(BuckSpawner::default());

@@ -16,6 +16,8 @@ use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::http::HasHttpClient;
+use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -226,6 +228,7 @@ impl HasActionExecutor for DiceComputations {
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
         let io_provider = self.global_data().get_io_provider();
+        let http_client = self.per_transaction_data().get_http_client();
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -242,6 +245,7 @@ impl HasActionExecutor for DiceComputations {
             digest_config,
             run_action_knobs,
             io_provider,
+            http_client,
         )))
     }
 }
@@ -255,6 +259,7 @@ pub struct BuckActionExecutor {
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
+    http_client: Arc<dyn HttpClient>,
 }
 
 impl BuckActionExecutor {
@@ -267,6 +272,7 @@ impl BuckActionExecutor {
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
+        http_client: Arc<dyn HttpClient>,
     ) -> Self {
         Self {
             command_executor,
@@ -277,6 +283,7 @@ impl BuckActionExecutor {
             digest_config,
             run_action_knobs,
             io_provider,
+            http_client,
         }
     }
 }
@@ -440,6 +447,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn io_provider(&self) -> Arc<dyn IoProvider> {
         self.executor.io_provider.dupe()
     }
+
+    fn http_client(&self) -> Arc<dyn HttpClient> {
+        self.executor.http_client.dupe()
+    }
 }
 
 #[async_trait]
@@ -551,6 +562,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
+    use buck2_common::http::ClientForTest;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
@@ -661,6 +673,7 @@ mod tests {
                 project_fs,
                 CasDigestConfig::testing_default(),
             )),
+            Arc::new(ClientForTest {}),
         );
 
         #[derive(Debug, Allocative)]

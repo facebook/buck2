@@ -41,6 +41,8 @@ use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::http::HttpClient;
+use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -164,6 +166,8 @@ pub struct BaseServerCommandContext {
     pub daemon_start_time: Instant,
     /// Mutex for creating symlinks
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
+    /// Http client used during run actions; shared with materializer.
+    pub http_client: Arc<dyn HttpClient>,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -406,6 +410,7 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .map_or(false, |opts| opts.keep_going),
+            http_client: self.base_context.http_client.dupe(),
         }
     }
 
@@ -503,6 +508,7 @@ struct DiceCommandDataProvider {
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
+    http_client: Arc<dyn HttpClient>,
 }
 
 #[async_trait]
@@ -598,6 +604,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .to_owned(),
         )));
         data.set_blocking_executor(self.blocking_executor.dupe());
+        data.set_http_client(self.http_client.dupe());
         data.set_materializer(self.materializer.dupe());
         data.set_build_signals(self.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);

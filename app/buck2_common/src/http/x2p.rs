@@ -9,6 +9,7 @@
 
 use std::path::Path;
 
+use allocative::Allocative;
 use anyhow::Context;
 use http::uri::Scheme;
 use http::Uri;
@@ -32,6 +33,7 @@ use crate::http::DEFAULT_MAX_REDIRECTS;
 /// 1. Requests are http-only. The proxy server handles TLS encapsulation + picking
 ///    correct certs.
 /// 2. Requests must be sent to a unix domain socket
+#[derive(Allocative)]
 pub(super) struct X2PAgentUnixSocketClient {
     inner: SecureHttpClient,
 }

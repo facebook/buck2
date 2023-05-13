@@ -13,8 +13,11 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::is_open_source;
+use dice::UserComputationData;
+use dupe::Dupe;
 use gazebo::prelude::VecExt;
 use http::uri::InvalidUri;
 use http::uri::PathAndQuery;
@@ -59,6 +62,31 @@ pub fn http_client() -> anyhow::Result<Arc<dyn HttpClient>> {
         http_client_for_oss()
     } else {
         http_client_for_internal()
+    }
+}
+
+/// Dice implementations so we can pass along the HttpClient to various subsystems
+/// that need to use it (Materializer, RunActions, etc).
+pub trait HasHttpClient {
+    fn get_http_client(&self) -> Arc<dyn HttpClient>;
+}
+
+pub trait SetHttpClient {
+    fn set_http_client(&mut self, client: Arc<dyn HttpClient>);
+}
+
+impl HasHttpClient for UserComputationData {
+    fn get_http_client(&self) -> Arc<dyn HttpClient> {
+        self.data
+            .get::<Arc<dyn HttpClient>>()
+            .expect("HttpClient should be set")
+            .dupe()
+    }
+}
+
+impl SetHttpClient for UserComputationData {
+    fn set_http_client(&mut self, client: Arc<dyn HttpClient>) {
+        self.data.set(client);
     }
 }
 
@@ -243,11 +271,13 @@ pub enum HttpError {
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request: {0}")]
     MutateRequest(#[from] anyhow::Error),
+    #[error("HTTP: Testing client, http methods not supported")]
+    Test,
 }
 
 /// Trait describe http client that can perform simple HEAD and GET requests.
 #[async_trait::async_trait]
-pub trait HttpClient: Send + Sync {
+pub trait HttpClient: Allocative + Send + Sync {
     /// Send a HEAD request. Assumes no body will be returned. If one is returned, it will be ignored.
     async fn head(&self, uri: &str) -> Result<Response<()>, HttpError> {
         let req = Request::builder()
@@ -291,7 +321,10 @@ where
 
 /// A simple client that can make requests to HTTPS or HTTP endpoints. Handles
 /// redirects (up to max_redirects).
+#[derive(Allocative)]
 pub struct SecureHttpClient {
+    // hyper::Client doesn't implement Allocative.
+    #[allocative(skip)]
     inner: Arc<dyn RequestClient>,
     max_redirects: usize,
 }
@@ -360,6 +393,7 @@ impl HttpClient for SecureHttpClient {
     }
 }
 
+#[derive(Allocative)]
 struct SecureProxiedClient {
     inner: SecureHttpClient,
 }
@@ -396,6 +430,17 @@ impl SecureProxiedClient {
 impl HttpClient for SecureProxiedClient {
     async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
         self.inner.request(request).await
+    }
+}
+
+/// Http client used for unit testing; errors on any calls to underlying http methods.
+#[derive(Allocative)]
+pub struct ClientForTest {}
+
+#[async_trait::async_trait]
+impl HttpClient for ClientForTest {
+    async fn request(&self, _request: Request<Body>) -> Result<Response<Body>, HttpError> {
+        Err(HttpError::Test)
     }
 }
 

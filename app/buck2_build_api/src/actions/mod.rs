@@ -41,6 +41,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -222,6 +223,9 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// I/O layer access to add non-source files (e.g. downloaded files) to
     /// offline archive trace. If None, tracing is not enabled.
     fn io_provider(&self) -> Arc<dyn IoProvider>;
+
+    /// Http client used for fetching and downloading remote artifacts.
+    fn http_client(&self) -> Arc<dyn HttpClient>;
 }
 
 #[derive(Error, Debug)]

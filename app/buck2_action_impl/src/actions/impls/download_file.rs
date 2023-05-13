@@ -27,7 +27,6 @@ use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::http_client;
 use buck2_common::http::HttpClient;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
@@ -261,11 +260,9 @@ impl IncrementalActionExecutable for DownloadFileAction {
             return self.execute_for_offline(ctx).await;
         }
 
-        let client = http_client()?;
-
         let (value, execution_kind) = {
             match self
-                .declared_metadata(&*client, ctx.digest_config())
+                .declared_metadata(&*ctx.http_client(), ctx.digest_config())
                 .await?
             {
                 Some(metadata) => {
@@ -297,7 +294,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     // Slow path: download now.
                     let digest = http_download(
-                        &*client,
+                        &*ctx.http_client(),
                         project_fs,
                         ctx.digest_config(),
                         &rel_path,

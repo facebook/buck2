@@ -19,6 +19,8 @@ use buck2_build_api::actions::build_listener::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::http::http_client;
+use buck2_common::http::HttpClient;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -152,6 +154,9 @@ pub struct DaemonStateData {
     /// Whether to enable the restarter. This controls whether the client will attempt to restart
     /// the daemon when we hit an error.
     pub enable_restarter: bool,
+
+    /// Http client used for materializer and RunAction implementations.
+    pub http_client: Arc<dyn HttpClient>,
 }
 
 impl DaemonStateData {
@@ -325,6 +330,8 @@ impl DaemonState {
         )
         .await?;
 
+        let http_client = http_client()?;
+
         let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
 
         let re_client_manager = Arc::new(ReConnectionManager::new(
@@ -346,6 +353,7 @@ impl DaemonState {
             deferred_materializer_configs,
             materializer_db,
             materializer_state,
+            http_client.dupe(),
         )?;
 
         // Create this after the materializer because it'll want to write to buck-out, and an Eden
@@ -454,6 +462,7 @@ impl DaemonState {
             critical_path_backend,
             materializer_state_identity,
             enable_restarter,
+            http_client,
         }))
     }
 
@@ -468,6 +477,7 @@ impl DaemonState {
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
+        http_client: Arc<dyn HttpClient>,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
@@ -475,6 +485,7 @@ impl DaemonState {
                 digest_config,
                 re_client_manager,
                 blocking_executor,
+                http_client,
             ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
                 Ok(Arc::new(DeferredMaterializer::new(
@@ -486,6 +497,7 @@ impl DaemonState {
                     deferred_materializer_configs,
                     materializer_db,
                     materializer_state,
+                    http_client,
                 )?))
             }
             MaterializationMethod::Eden => {
@@ -510,6 +522,7 @@ impl DaemonState {
                                     re_client_manager,
                                 )
                                 .context("Failed to create EdenFS-based buck-out")?,
+                                http_client,
                             )
                             .context("Failed to create Eden materializer")?,
                         ))
@@ -639,6 +652,7 @@ impl DaemonState {
             _drop_guard: drop_guard,
             daemon_start_time: data.start_time,
             create_unhashed_outputs_lock: data.create_unhashed_outputs_lock.dupe(),
+            http_client: data.http_client.dupe(),
         })
     }
 
