@@ -14,16 +14,12 @@ use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
-use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::SetStarlarkProfilerInstrumentation;
@@ -31,13 +27,12 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::super_package::defs::register_package_natives;
 use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
@@ -226,25 +221,10 @@ async fn test_eval_build_file() {
     );
 
     let ctx = calculation(&fs).await;
-    let calculation = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
-        .await
-        .unwrap();
 
-    let package = PackageLabel::new(
-        root_cell(),
-        CellRelativePath::new(ForwardRelativePath::new("pkg").unwrap()),
-    );
-    let eval_result = with_dispatcher_async(
-        EventDispatcher::null(),
-        calculation.eval_build_file(
-            package.dupe(),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
-        ),
-    )
-    .await
-    .unwrap();
-    assert_eq!(package.dupe(), eval_result.package());
+    let package = PackageLabel::testing_parse("root//pkg");
+    let eval_result = ctx.get_interpreter_results(package.dupe()).await.unwrap();
+    assert_eq!(package, eval_result.package());
     let target_names = eval_result
         .targets()
         .keys()

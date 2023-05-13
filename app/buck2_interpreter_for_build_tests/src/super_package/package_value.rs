@@ -16,6 +16,7 @@ use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use indoc::indoc;
 
 use crate::tests::calculation;
@@ -178,16 +179,8 @@ async fn test_overwrite_package_value_with_flag() {
     );
 
     let ctx = calculation(&fs).await;
-    let interpreter = ctx
-        .get_interpreter_calculator(root_cell(), BuildFileCell::new(root_cell()))
-        .await
-        .unwrap();
-
-    let result = interpreter
-        .eval_build_file(
-            PackageLabel::testing_parse("root//foo"),
-            &mut StarlarkProfilerOrInstrumentation::disabled(),
-        )
+    let result = ctx
+        .get_interpreter_results(PackageLabel::testing_parse("root//foo"))
         .await
         .unwrap();
 
