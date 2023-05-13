@@ -23,9 +23,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
-use buck2_interpreter::path::StarlarkModulePath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::DiceCalculationDelegate;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -33,6 +31,7 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
@@ -137,19 +136,11 @@ pub async fn get_prelude_docs(
     let cell_resolver = ctx.get_cell_resolver().await?;
     let cell_alias_resolver = cell_resolver.root_cell_instance().cell_alias_resolver();
     let prelude_path = prelude_path(cell_alias_resolver)?;
-    let interpreter_calculation = ctx
-        .get_interpreter_calculator(prelude_path.cell(), prelude_path.build_file_cell())
-        .await?;
-    get_docs_from_module(
-        &interpreter_calculation,
-        prelude_path,
-        Some(existing_globals),
-    )
-    .await
+    get_docs_from_module(ctx, prelude_path, Some(existing_globals)).await
 }
 
 async fn get_docs_from_module(
-    interpreter_calc: &DiceCalculationDelegate<'_>,
+    ctx: &DiceComputations,
     import_path: ImportPath,
     // If we want to promote `native`, what should we exclude
     promote_native: Option<&HashSet<&str>>,
@@ -161,9 +152,7 @@ async fn get_docs_from_module(
         import_path.path().parent().unwrap(),
         import_path.path().path().file_name().unwrap()
     );
-    let module = interpreter_calc
-        .eval_module(StarlarkModulePath::LoadFile(&import_path))
-        .await?;
+    let module = ctx.get_loaded_module_from_import_path(&import_path).await?;
     let frozen_module = module.env();
     let mut module_docs = frozen_module.documentation();
 
@@ -291,12 +280,7 @@ async fn docs(
 
     let module_calcs: Vec<_> = lookups
         .into_iter()
-        .map(|import_path| async {
-            let interpreter_calc = dice_ctx
-                .get_interpreter_calculator(import_path.cell(), import_path.build_file_cell())
-                .await?;
-            get_docs_from_module(&interpreter_calc, import_path, None).await
-        })
+        .map(|import_path| async { get_docs_from_module(&dice_ctx, import_path, None).await })
         .collect();
 
     let modules_docs = futures::future::try_join_all(module_calcs).await?;
