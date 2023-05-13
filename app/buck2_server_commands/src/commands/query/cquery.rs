@@ -13,6 +13,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -21,8 +23,6 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query_impls::cquery::environment::CqueryOwnerBehavior;
-use buck2_query_impls::frontend::eval_cquery;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -126,16 +126,18 @@ async fn cquery(
         false => CqueryOwnerBehavior::Deprecated,
     };
 
-    let query_result = eval_cquery(
-        &ctx,
-        server_ctx.working_dir(),
-        owner_behavior,
-        query,
-        query_args,
-        global_target_platform,
-        target_universe,
-    )
-    .await?;
+    let query_result = QUERY_FRONTEND
+        .get()?
+        .eval_cquery(
+            &ctx,
+            server_ctx.working_dir(),
+            owner_behavior,
+            query,
+            query_args,
+            global_target_platform,
+            target_universe,
+        )
+        .await?;
 
     let should_print_providers = if *show_providers {
         ShouldPrintProviders::Yes(&*ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)

@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
@@ -66,13 +67,6 @@ pub trait CqueryDelegate: Send + Sync {
         &self,
         target: &TargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
-}
-
-/// [Context](https://fburl.com/adiagq2f).
-#[derive(Copy, Clone, Dupe)]
-pub enum CqueryOwnerBehavior {
-    Deprecated,
-    Correct,
 }
 
 pub struct CqueryEnvironment<'c> {

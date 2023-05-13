@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
@@ -27,7 +28,6 @@ use gazebo::prelude::*;
 
 use crate::analysis::evaluator::eval_query;
 use crate::cquery::environment::CqueryEnvironment;
-use crate::cquery::environment::CqueryOwnerBehavior;
 use crate::dice::get_dice_query_delegate;
 use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
@@ -78,7 +78,7 @@ impl CqueryEvaluator<'_> {
     }
 }
 
-async fn preresolve_literals_and_build_universe(
+pub(crate) async fn preresolve_literals_and_build_universe(
     dice_query_delegate: &DiceQueryDelegate<'_>,
     literals: &[String],
 ) -> anyhow::Result<(
@@ -89,20 +89,6 @@ async fn preresolve_literals_and_build_universe(
         PreresolvedQueryLiterals::pre_resolve(dice_query_delegate, literals).await;
     let universe = CqueryUniverse::build(&resolved_literals.literals()?).await?;
     Ok((universe, resolved_literals))
-}
-
-pub async fn universe_from_literals(
-    ctx: &DiceComputations,
-    cwd: &ProjectRelativePath,
-    literals: &[String],
-    global_target_platform: Option<TargetLabel>,
-) -> anyhow::Result<CqueryUniverse> {
-    let query_delegate = get_dice_query_delegate(ctx, cwd, global_target_platform).await?;
-    Ok(
-        preresolve_literals_and_build_universe(&query_delegate, literals)
-            .await?
-            .0,
-    )
 }
 
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from

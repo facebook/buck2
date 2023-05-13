@@ -11,11 +11,11 @@ use std::io::Write;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use buck2_query_impls::frontend::eval_uquery;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
@@ -94,14 +94,16 @@ async fn uquery(
     let global_target_platform =
         target_platform_from_client_context(client_ctx, server_ctx, &ctx).await?;
 
-    let query_result = eval_uquery(
-        &ctx,
-        server_ctx.working_dir(),
-        query,
-        query_args,
-        global_target_platform,
-    )
-    .await?;
+    let query_result = QUERY_FRONTEND
+        .get()?
+        .eval_uquery(
+            &ctx,
+            server_ctx.working_dir(),
+            query,
+            query_args,
+            global_target_platform,
+        )
+        .await?;
 
     let result = match query_result {
         QueryEvaluationResult::Single(targets) => {

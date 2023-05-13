@@ -40,4 +40,5 @@ pub mod dynamic;
 pub mod interpreter;
 pub mod keep_going;
 pub mod nodes;
+pub mod query;
 pub mod spawner;

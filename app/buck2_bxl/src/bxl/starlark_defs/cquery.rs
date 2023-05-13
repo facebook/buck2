@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -18,7 +19,6 @@ use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query_impls::cquery::environment::CqueryEnvironment;
-use buck2_query_impls::cquery::environment::CqueryOwnerBehavior;
 use buck2_query_impls::cquery::evaluator::get_cquery_evaluator;
 use derivative::Derivative;
 use derive_more::Display;
