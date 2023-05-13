@@ -20,6 +20,7 @@ strsim = { workspace = true }
 thiserror = { workspace = true }
 
 gazebo = { workspace = true }
+dice = { workspace = true }
 dupe = { workspace = true }
 gazebo_lint.version = "0.1"
 gazebo_lint.optional = true

@@ -28,6 +28,7 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;

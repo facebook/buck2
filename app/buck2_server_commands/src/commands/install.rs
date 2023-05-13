@@ -62,7 +62,7 @@ use buck2_install_proto::installer_client::InstallerClient;
 use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
 use buck2_install_proto::ShutdownRequest;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

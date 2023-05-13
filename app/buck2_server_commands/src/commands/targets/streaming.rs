@@ -29,6 +29,7 @@ use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceComputations;

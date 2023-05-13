@@ -20,7 +20,7 @@ use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersName;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

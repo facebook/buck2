@@ -50,6 +50,7 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
