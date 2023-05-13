@@ -10,7 +10,6 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -19,11 +18,7 @@ use buck2_core::is_open_source;
 use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
-use http::uri::InvalidUri;
-use http::uri::PathAndQuery;
-use http::uri::Scheme;
 use http::Method;
-use http::Uri;
 use hyper::body;
 use hyper::client::connect::Connect;
 use hyper::client::ResponseFuture;
@@ -31,7 +26,6 @@ use hyper::Body;
 use hyper::Request;
 use hyper::Response;
 use hyper::StatusCode;
-use hyper_proxy::Intercept;
 use hyper_proxy::Proxy;
 use hyper_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnectorBuilder;
@@ -42,7 +36,10 @@ use rustls::RootCertStore;
 use thiserror::Error;
 use tokio_rustls::TlsConnector;
 
+mod proxy;
 mod redirect;
+use proxy::http_proxy_from_env;
+use proxy::https_proxy_from_env;
 use redirect::PendingRequest;
 use redirect::RedirectEngine;
 
@@ -71,10 +68,10 @@ pub fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
     // Add standard proxy variables if defined.
     // Ignores values that cannot be turned into valid URIs.
     let mut proxies = Vec::new();
-    if let Some(proxy) = https_proxy_from_env() {
+    if let Some(proxy) = https_proxy_from_env()? {
         proxies.push(proxy);
     }
-    if let Some(proxy) = http_proxy_from_env() {
+    if let Some(proxy) = http_proxy_from_env()? {
         proxies.push(proxy);
     }
 
@@ -137,53 +134,6 @@ impl HasHttpClient for UserComputationData {
 impl SetHttpClient for UserComputationData {
     fn set_http_client(&mut self, client: Arc<dyn HttpClient>) {
         self.data.set(client);
-    }
-}
-
-/// Lookup environment variable and return string value. Checks first for uppercase
-/// and falls back to lowercase if unset.
-fn env_to_string(env: &'static str) -> Option<String> {
-    std::env::var_os(env)
-        .or_else(|| std::env::var_os(env.to_lowercase()))
-        .and_then(|s| s.into_string().ok())
-}
-
-fn https_proxy_from_env() -> Option<Proxy> {
-    env_to_string("HTTPS_PROXY")
-        .and_then(|https_proxy| https_proxy.parse::<DefaultSchemeUri>().ok())
-        .map(|uri| Proxy::new(Intercept::Https, uri.into()))
-}
-
-fn http_proxy_from_env() -> Option<Proxy> {
-    env_to_string("HTTP_PROXY")
-        .and_then(|http_proxy| http_proxy.parse::<DefaultSchemeUri>().ok())
-        .map(|uri| Proxy::new(Intercept::Http, uri.into()))
-}
-
-/// A wrapped Uri that handles inserting a default scheme (http) if one is not present.
-///
-/// See https://everything.curl.dev/usingcurl/proxies/type for more information about
-/// how curl treats default schemes for e.g. proxy env vars.
-struct DefaultSchemeUri(Uri);
-
-impl FromStr for DefaultSchemeUri {
-    type Err = InvalidUri;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse::<Uri>().map(Self)
-    }
-}
-
-impl From<DefaultSchemeUri> for Uri {
-    fn from(default_scheme_uri: DefaultSchemeUri) -> Self {
-        let mut parts = default_scheme_uri.0.into_parts();
-        if parts.scheme.is_none() {
-            parts.scheme = Some(Scheme::HTTP);
-        }
-        if parts.path_and_query.is_none() {
-            parts.path_and_query = Some(PathAndQuery::from_static("/"));
-        }
-        Uri::from_parts(parts).expect("Got invalid uri from formerly valid uri")
     }
 }
 
@@ -518,8 +468,8 @@ mod tests {
             })
         }
 
-        fn uri(&self) -> anyhow::Result<Uri> {
-            Uri::builder()
+        fn uri(&self) -> anyhow::Result<http::Uri> {
+            http::Uri::builder()
                 .scheme("http")
                 .authority(self.addr.to_string().as_str())
                 .path_and_query("/")
@@ -717,7 +667,69 @@ mod tests {
         println!("proxy_uri: {}", proxy_uri);
         let client = SecureProxiedClient::with_proxies([Proxy::new(
             hyper_proxy::Intercept::Http,
-            DefaultSchemeUri(proxy_uri.try_into()?).into(),
+            crate::http::proxy::DefaultSchemeUri(proxy_uri.try_into()?).into(),
+        )])?;
+        let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    async fn test_does_not_proxy_when_no_proxy_matches() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![request::method_path("GET", "/foo")])
+                .times(1)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let proxy_server = ProxyServer::new().await?;
+        println!("proxy_server uri: {}", proxy_server.uri()?);
+
+        let test_server_host = test_server
+            .url("/")
+            .authority()
+            .unwrap()
+            .clone()
+            .host()
+            .to_owned();
+        let no_proxy = crate::http::proxy::NoProxy::new(http::uri::Scheme::HTTP, test_server_host);
+
+        // Don't proxy connections to test_server.
+        let client = SecureProxiedClient::with_proxies([Proxy::new(
+            no_proxy.into_proxy_intercept(),
+            proxy_server.uri()?,
+        )])?;
+        let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    async fn test_proxies_when_no_proxy_does_not_match() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("GET", "/foo"),
+                request::headers(contains(("via", "testing-proxy-server")))
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let proxy_server = ProxyServer::new().await?;
+        println!("proxy_server uri: {}", proxy_server.uri()?);
+
+        // Don't proxy HTTPS connections to *.foobar.com
+        let no_proxy = crate::http::proxy::NoProxy::new(http::uri::Scheme::HTTP, ".foobar.com");
+
+        let client = SecureProxiedClient::with_proxies([Proxy::new(
+            no_proxy.into_proxy_intercept(),
+            proxy_server.uri()?,
         )])?;
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());

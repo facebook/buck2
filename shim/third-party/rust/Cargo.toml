@@ -97,6 +97,7 @@ indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
 internment = { version = "0.7", features = ["arc"] }
 inventory = "0.1.9"
+ipnetwork = "0.15"
 is_proc_translated = "0.1.1"
 itertools = "0.10.3"
 jemallocator = { version = "0.5.0", features = ["profiling"] }

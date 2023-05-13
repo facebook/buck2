@@ -22,6 +22,7 @@ hyper = { workspace = true }
 hyper-proxy = { workspace = true }
 hyper-rustls = { workspace = true }
 indexmap = { workspace = true }
+ipnetwork = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 once_cell = { workspace = true }

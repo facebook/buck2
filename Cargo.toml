@@ -152,6 +152,7 @@ hyper = { version = "0.14.7", features = ["client", "http1", "http2"] }
 hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "0a5aa97a3cd00ca5be1d21559dcf8ef29dc63e08", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28.
 hyper-rustls = { version = "0.23.0", features = ["http2"] }
 hyper-unix-connector = "0.2"
+ipnetwork = "0.15"
 indent_write = "2.2.0"
 indenter = "0.3.3"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
