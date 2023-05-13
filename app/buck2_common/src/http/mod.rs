@@ -43,6 +43,9 @@ mod redirect;
 use redirect::PendingRequest;
 use redirect::RedirectEngine;
 
+#[cfg(unix)]
+mod x2p;
+
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
 const DEFAULT_MAX_REDIRECTS: usize = 10;
@@ -238,8 +241,8 @@ pub enum HttpError {
     },
     #[error("HTTP Error: Exceeded max redirects ({max_redirects}) while fetching URI: {uri}. ")]
     TooManyRedirects { uri: String, max_redirects: usize },
-    #[error("HTTP: Error while processing redirect: {0}")]
-    RedirectError(#[from] anyhow::Error),
+    #[error("HTTP: Error mutating request: {0}")]
+    MutateRequest(#[from] anyhow::Error),
 }
 
 /// Trait describe http client that can perform simple HEAD and GET requests.

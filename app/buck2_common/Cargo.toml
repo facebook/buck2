@@ -67,6 +67,7 @@ buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
+hyper-unix-connector = { workspace = true }
 nix = { workspace = true }
 tower = { workspace = true }
 xattr = { workspace = true }

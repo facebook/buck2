@@ -136,7 +136,7 @@ impl RedirectEngine {
 
             if let Some(redirect_request) = self
                 .update_and_create_request()
-                .map_err(HttpError::RedirectError)?
+                .map_err(HttpError::MutateRequest)?
             {
                 self.response = sender_func(redirect_request).await?;
                 self.processed_redirects += 1;
