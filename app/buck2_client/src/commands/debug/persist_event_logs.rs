@@ -58,7 +58,7 @@ impl PersistEventLogsCommand {
         let mut stdin = io::BufReader::new(ctx.stdin());
         runtime
             .block_on(self.write_and_upload(&mut stdin))
-            .context("Error writing")?;
+            .context("Error writing or uploading event log")?;
         ExitResult::success()
     }
 
