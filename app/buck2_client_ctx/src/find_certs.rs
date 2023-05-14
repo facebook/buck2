@@ -21,7 +21,13 @@ pub fn find_tls_cert() -> anyhow::Result<OsString> {
 
     #[cfg(not(fbcode_build))]
     {
-        cert = Err(anyhow::anyhow!("Disabled in Cargo builds"));
+        if buck2_core::is_open_source() {
+            cert = Err(anyhow::anyhow!(
+                "Cannot access internal Meta certs in open source builds"
+            ));
+        } else {
+            cert = Err(anyhow::anyhow!("Cannot access certs in Cargo builds"));
+        }
     }
 
     cert.context("Error finding a cert")
