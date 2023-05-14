@@ -122,6 +122,16 @@ pub(crate) fn filter_incompatible(
     Ok(target_set)
 }
 
+fn unpack_target_label<'v>(value: Value<'v>) -> Option<&'v TargetLabel> {
+    if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
+        Some(target.label())
+    } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
+        Some(node.0.label())
+    } else {
+        None
+    }
+}
+
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
     pub async fn get<QueryEnv: QueryEnvironment<Target = TargetNode>>(
@@ -242,22 +252,12 @@ impl<'v> TargetExpr<'v, ConfiguredTargetNode> {
                 }
             }
         } else {
-            #[allow(clippy::manual_map)] // `if else if` looks better here
-            let maybe_unconfigured =
-                if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-                    Some(Cow::Borrowed(target.label()))
-                } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-                    Some(Cow::Borrowed(node.0.label()))
-                } else {
-                    None
-                };
-
-            match maybe_unconfigured {
+            match unpack_target_label(value) {
                 None => Ok(None),
                 Some(label) => Ok(Some(Self::Label(Cow::Owned(
                     ctx.async_ctx
                         .0
-                        .get_configured_target(&*label, target_platform.as_ref())
+                        .get_configured_target(label, target_platform.as_ref())
                         .await?,
                 )))),
             }
@@ -361,19 +361,9 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 }
             }
         } else {
-            #[allow(clippy::manual_map)] // `if else if` looks better here
-            let maybe_unconfigured =
-                if let Some(target) = value.downcast_ref::<StarlarkTargetLabel>() {
-                    Some(Cow::Borrowed(target.label()))
-                } else if let Some(node) = value.downcast_ref::<StarlarkTargetNode>() {
-                    Some(Cow::Borrowed(node.0.label()))
-                } else {
-                    None
-                };
-
-            match maybe_unconfigured {
+            match unpack_target_label(value) {
                 None => Ok(None),
-                Some(label) => Ok(Some(Self::Label(label))),
+                Some(label) => Ok(Some(Self::Label(Cow::Borrowed(label)))),
             }
         }
     }
