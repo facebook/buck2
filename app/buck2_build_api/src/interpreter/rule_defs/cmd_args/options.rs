@@ -11,7 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::marker::PhantomData;
+use std::fmt::Formatter;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePath;
@@ -26,13 +26,17 @@ use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::coerce::Coerce;
+use starlark::coerce::coerce;
 use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
+use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
@@ -75,31 +79,278 @@ impl QuoteStyle {
     }
 }
 
-#[derive(Debug, Default_, Clone, Trace, Serialize, Freeze, Allocative)]
+pub(crate) trait CommandLineOptionsTrait<'v>: Display {
+    fn ignore_artifacts(&self) -> bool;
+    fn delimiter(&self) -> Option<StringValue<'v>>;
+
+    fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a>;
+}
+
+#[derive(Debug, Default_, Clone, Trace, Allocative)]
 #[repr(C)]
-pub(crate) struct CommandLineOptions<'v, V: ValueLike<'v>> {
-    #[serde(bound = "V: Display", serialize_with = "serialize_opt_display")]
+pub(crate) struct CommandLineOptions<'v> {
     // These impact how artifacts are rendered
     /// The value of V must be convertible to a `RelativeOrigin`
-    pub(crate) relative_to: Option<(V, usize)>,
-    pub(crate) absolute_prefix: Option<V::String>,
-    pub(crate) absolute_suffix: Option<V::String>,
-    pub(crate) parent: usize,
+    pub(crate) relative_to: Option<(Value<'v>, usize)>,
+    pub(crate) absolute_prefix: Option<StringValue<'v>>,
+    pub(crate) absolute_suffix: Option<StringValue<'v>>,
+    pub(crate) parent: u32,
     pub(crate) ignore_artifacts: bool,
 
     // These impact the formatting of each string
-    pub(crate) delimiter: Option<V::String>,
-    pub(crate) format: Option<V::String>,
-    pub(crate) prepend: Option<V::String>,
+    pub(crate) delimiter: Option<StringValue<'v>>,
+    pub(crate) format: Option<StringValue<'v>>,
+    pub(crate) prepend: Option<StringValue<'v>>,
     pub(crate) quote: Option<QuoteStyle>,
-    pub(crate) replacements: Option<Box<Vec<(V::String, V::String)>>>,
-
-    pub(crate) lifetime: PhantomData<&'v ()>,
+    #[allow(clippy::box_collection)]
+    pub(crate) replacements: Option<Box<Vec<(StringValue<'v>, StringValue<'v>)>>>,
 }
 
-unsafe impl<'v> Coerce<CommandLineOptions<'v, Value<'v>>>
-    for CommandLineOptions<'static, FrozenValue>
-{
+#[derive(Default, Serialize)]
+pub(crate) struct CommandLineOptionsRef<'v, 'a> {
+    #[serde(serialize_with = "serialize_opt_display")]
+    pub(crate) relative_to: Option<(Value<'v>, usize)>,
+    pub(crate) absolute_prefix: Option<StringValue<'v>>,
+    pub(crate) absolute_suffix: Option<StringValue<'v>>,
+    pub(crate) parent: u32,
+    pub(crate) ignore_artifacts: bool,
+
+    pub(crate) delimiter: Option<StringValue<'v>>,
+    pub(crate) format: Option<StringValue<'v>>,
+    pub(crate) prepend: Option<StringValue<'v>>,
+    pub(crate) quote: Option<QuoteStyle>,
+    pub(crate) replacements: &'a [(StringValue<'v>, StringValue<'v>)],
+}
+
+impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
+    pub(crate) fn to_owned(&self) -> CommandLineOptions<'v> {
+        CommandLineOptions {
+            relative_to: self.relative_to,
+            absolute_prefix: self.absolute_prefix,
+            absolute_suffix: self.absolute_suffix,
+            parent: self.parent,
+            ignore_artifacts: self.ignore_artifacts,
+            delimiter: self.delimiter,
+            format: self.format,
+            prepend: self.prepend,
+            quote: self.quote.dupe(),
+            replacements: if self.replacements.is_empty() {
+                None
+            } else {
+                Some(Box::new(self.replacements.to_vec()))
+            },
+        }
+    }
+}
+
+impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
+    fn ignore_artifacts(&self) -> bool {
+        self.ignore_artifacts
+    }
+
+    fn delimiter(&self) -> Option<StringValue<'v>> {
+        self.delimiter.dupe()
+    }
+
+    fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a> {
+        CommandLineOptionsRef {
+            relative_to: self.relative_to,
+            absolute_prefix: self.absolute_prefix,
+            absolute_suffix: self.absolute_suffix,
+            parent: self.parent,
+            ignore_artifacts: self.ignore_artifacts,
+            delimiter: self.delimiter,
+            format: self.format,
+            prepend: self.prepend,
+            quote: self.quote.dupe(),
+            replacements: match &self.replacements {
+                None => &[],
+                Some(v) => v.as_slice(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Allocative)]
+enum FrozenCommandLineOption {
+    RelativeTo(FrozenValue, u32),
+    AbsolutePrefix(FrozenStringValue),
+    AbsoluteSuffix(FrozenStringValue),
+    Parent(u32),
+    IgnoreArtifacts,
+    Delimiter(FrozenStringValue),
+    Format(FrozenStringValue),
+    Prepend(FrozenStringValue),
+    Quote(QuoteStyle),
+    #[allow(clippy::box_collection)]
+    Replacements(Box<Vec<(FrozenStringValue, FrozenStringValue)>>),
+}
+
+assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
+
+#[derive(Debug, Default, Allocative)]
+pub(crate) struct FrozenCommandLineOptions {
+    options: Box<[FrozenCommandLineOption]>,
+}
+
+impl FrozenCommandLineOptions {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.options.is_empty()
+    }
+}
+
+impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
+    fn ignore_artifacts(&self) -> bool {
+        for option in self.options.iter() {
+            if let FrozenCommandLineOption::IgnoreArtifacts = option {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn delimiter(&self) -> Option<StringValue<'v>> {
+        for option in self.options.iter() {
+            if let FrozenCommandLineOption::Delimiter(value) = option {
+                return Some(value.to_string_value());
+            }
+        }
+        None
+    }
+
+    fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a> {
+        let mut options = CommandLineOptionsRef::default();
+        for option in &*self.options {
+            match option {
+                FrozenCommandLineOption::RelativeTo(value, parent) => {
+                    options.relative_to = Some((value.to_value(), *parent as usize));
+                }
+                FrozenCommandLineOption::AbsolutePrefix(value) => {
+                    options.absolute_prefix = Some(value.to_string_value());
+                }
+                FrozenCommandLineOption::AbsoluteSuffix(value) => {
+                    options.absolute_suffix = Some(value.to_string_value());
+                }
+                FrozenCommandLineOption::Parent(parent) => {
+                    options.parent = *parent;
+                }
+                FrozenCommandLineOption::IgnoreArtifacts => {
+                    options.ignore_artifacts = true;
+                }
+                FrozenCommandLineOption::Delimiter(value) => {
+                    options.delimiter = Some(value.to_string_value());
+                }
+                FrozenCommandLineOption::Format(value) => {
+                    options.format = Some(value.to_string_value());
+                }
+                FrozenCommandLineOption::Prepend(value) => {
+                    options.prepend = Some(value.to_string_value());
+                }
+                FrozenCommandLineOption::Quote(value) => {
+                    options.quote = Some(value.dupe());
+                }
+                FrozenCommandLineOption::Replacements(value) => {
+                    options.replacements = coerce(value.as_slice());
+                }
+            }
+        }
+        options
+    }
+}
+
+impl<'v> Serialize for CommandLineOptions<'v> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_command_line_options().serialize(serializer)
+    }
+}
+
+impl Serialize for FrozenCommandLineOptions {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_command_line_options().serialize(serializer)
+    }
+}
+
+impl<'v> Display for CommandLineOptions<'v> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.to_command_line_options(), f)
+    }
+}
+
+impl Display for FrozenCommandLineOptions {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.to_command_line_options(), f)
+    }
+}
+
+impl<'v> Freeze for CommandLineOptions<'v> {
+    type Frozen = FrozenCommandLineOptions;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenCommandLineOptions> {
+        let CommandLineOptions {
+            relative_to,
+            absolute_prefix,
+            absolute_suffix,
+            parent,
+            ignore_artifacts,
+            delimiter,
+            format,
+            prepend,
+            quote,
+            replacements,
+        } = self;
+
+        let mut options = Vec::new();
+        if let Some(relative_to) = relative_to {
+            let (relative, parent) = relative_to.freeze(freezer)?;
+            let parent: u32 = parent.try_into()?;
+            options.push(FrozenCommandLineOption::RelativeTo(relative, parent));
+        }
+        if let Some(absolute_prefix) = absolute_prefix {
+            let absolute_prefix = absolute_prefix.freeze(freezer)?;
+            options.push(FrozenCommandLineOption::AbsolutePrefix(absolute_prefix));
+        }
+        if let Some(absolute_suffix) = absolute_suffix {
+            let absolute_suffix = absolute_suffix.freeze(freezer)?;
+            options.push(FrozenCommandLineOption::AbsoluteSuffix(absolute_suffix));
+        }
+        if parent != 0 {
+            options.push(FrozenCommandLineOption::Parent(parent));
+        }
+        if ignore_artifacts {
+            options.push(FrozenCommandLineOption::IgnoreArtifacts);
+        }
+        if let Some(delimiter) = delimiter {
+            let delimiter = delimiter.freeze(freezer)?;
+            options.push(FrozenCommandLineOption::Delimiter(delimiter));
+        }
+        if let Some(format) = format {
+            let format = format.freeze(freezer)?;
+            options.push(FrozenCommandLineOption::Format(format));
+        }
+        if let Some(prepend) = prepend {
+            let prepend = prepend.freeze(freezer)?;
+            options.push(FrozenCommandLineOption::Prepend(prepend));
+        }
+        if let Some(quote) = quote {
+            options.push(FrozenCommandLineOption::Quote(quote));
+        }
+        if let Some(replacements) = replacements {
+            if !replacements.is_empty() {
+                let replacements = replacements.freeze(freezer)?;
+                options.push(FrozenCommandLineOption::Replacements(replacements));
+            }
+        }
+
+        Ok(FrozenCommandLineOptions {
+            options: options.into_boxed_slice(),
+        })
+    }
 }
 
 fn serialize_opt_display<V: Display, S>(v: &Option<(V, usize)>, s: S) -> Result<S::Ok, S::Error>
@@ -112,7 +363,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
+impl<'v, 'a> Display for CommandLineOptionsRef<'v, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut comma = commas();
         if let Some((v, i)) = &self.relative_to {
@@ -155,11 +406,11 @@ impl<'v, V: ValueLike<'v>> Display for CommandLineOptions<'v, V> {
             comma(f)?;
             write!(f, "quote = \"{}\"", v)?;
         }
-        if let Some(v) = &self.replacements {
+        if !self.replacements.is_empty() {
             comma(f)?;
             write!(f, "replacements = [")?;
             let mut vec_comma = commas();
-            for p in v.as_ref() {
+            for p in self.replacements {
                 vec_comma(f)?;
                 write!(f, "({:?}, {:?})", p.0, p.1)?;
             }
@@ -211,7 +462,7 @@ impl<'v> RelativeOrigin<'v> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
+impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
     fn changes_builder(&self) -> bool {
         match self {
             Self {
@@ -223,9 +474,8 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
                 format: None,
                 prepend: None,
                 quote: None,
-                replacements: None,
+                replacements: &[],
                 ignore_artifacts: _, // Doesn't impact the builder
-                lifetime: _,
             } => false,
             _ => true,
         }
@@ -240,22 +490,22 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             &'b mut dyn CommandLineContext,
         ) -> anyhow::Result<R>,
     ) -> anyhow::Result<R> {
-        struct ExtrasBuilder<'a, 'v, V: ValueLike<'v>> {
+        struct ExtrasBuilder<'a, 'v> {
             builder: &'a mut dyn CommandLineBuilder,
-            opts: &'a CommandLineOptions<'v, V>,
+            opts: &'a CommandLineOptionsRef<'v, 'a>,
             // Auxiliary field to store concatenation result (when arguments are concatenated) and
             // a flag stating that the result is not yet started to be computated (i.e. the first
             // argument to be concatenated is not yet processed).
             concatenation_context: Option<(String, bool)>,
         }
 
-        struct ExtrasContext<'a, 'v, V: ValueLike<'v>> {
+        struct ExtrasContext<'a, 'v> {
             ctx: &'a mut dyn CommandLineContext,
-            opts: &'a CommandLineOptions<'v, V>,
+            opts: &'a CommandLineOptionsRef<'v, 'a>,
             relative_to: Option<RelativePathBuf>,
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> CommandLineContext for ExtrasContext<'a, 'v, V> {
+        impl<'a, 'v> CommandLineContext for ExtrasContext<'a, 'v> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
@@ -316,7 +566,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> ExtrasBuilder<'a, 'v, V> {
+        impl<'a, 'v> ExtrasBuilder<'a, 'v> {
             /// If any items need to be concatted/formatted and added to the original CLI,
             /// do it here
             fn finalize_args(mut self) -> Self {
@@ -346,14 +596,12 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
 
             fn format(&self, mut arg: String) -> String {
-                if let Some(replacements) = &self.opts.replacements {
-                    for (pattern, replacement) in replacements.iter() {
-                        // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                        let re = Regex::new(pattern.as_str()).unwrap();
-                        match re.replace_all(&arg, replacement.as_str()) {
-                            Cow::Borrowed(_) => {}
-                            Cow::Owned(new) => arg = new,
-                        }
+                for (pattern, replacement) in self.opts.replacements {
+                    // We checked that regex is valid in replace_regex(), so unwrap is safe.
+                    let re = Regex::new(pattern.as_str()).unwrap();
+                    match re.replace_all(&arg, replacement.as_str()) {
+                        Cow::Borrowed(_) => {}
+                        Cow::Owned(new) => arg = new,
                     }
                 }
                 if let Some(format) = &self.opts.format {
@@ -369,7 +617,7 @@ impl<'v, V: ValueLike<'v>> CommandLineOptions<'v, V> {
             }
         }
 
-        impl<'a, 'v, V: ValueLike<'v>> CommandLineBuilder for ExtrasBuilder<'a, 'v, V> {
+        impl<'a, 'v> CommandLineBuilder for ExtrasBuilder<'a, 'v> {
             fn push_arg(&mut self, s: String) {
                 // We apply options impacting formatting in the order:
                 //   format, quote, (prepend + delimiter)
