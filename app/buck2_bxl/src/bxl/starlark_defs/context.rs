@@ -47,7 +47,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query_impls::dice::DiceQueryDelegate;
-use buck2_query_impls::uquery::environment::UqueryEnvironment;
 use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
@@ -92,7 +91,6 @@ use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
-use crate::bxl::starlark_defs::uquery::get_uquery_env;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
@@ -426,7 +424,6 @@ fn register_context(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let res: anyhow::Result<Value<'v>> = this.async_ctx.via_dice(|ctx| async move {
-            let query_env = get_uquery_env(this).await?;
             Ok(
                 match TargetExpr::<'v, TargetNode>::unpack(labels, this, eval).await? {
                     TargetExpr::Label(label) => {
@@ -436,9 +433,9 @@ fn register_context(builder: &mut MethodsBuilder) {
                     }
 
                     TargetExpr::Node(node) => node.alloc(eval.heap()),
-                    multi => eval.heap().alloc(StarlarkTargetSet::from(
-                        multi.get(&query_env).await?.into_owned(),
-                    )),
+                    multi => eval
+                        .heap()
+                        .alloc(StarlarkTargetSet::from(multi.get(ctx).await?.into_owned())),
                 },
             )
         });
@@ -508,10 +505,6 @@ fn register_context(builder: &mut MethodsBuilder) {
                 this.cell_name,
                 &this.global_target_platform,
             )?;
-            let query = {
-                let query = Arc::new(this.dice_query_delegate(target_platform.dupe()).await?);
-                UqueryEnvironment::new(query.dupe(), query.dupe())
-            };
 
             let exec_deps = if exec_deps.is_none() {
                 Vec::new()
@@ -536,7 +529,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             } else {
                 TargetExpr::<TargetNode>::unpack(exec_compatible_with, this, eval)
                     .await?
-                    .get(&query)
+                    .get(ctx)
                     .await?
                     .iter()
                     .map(|n| n.label().dupe())

@@ -22,10 +22,10 @@ use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::compatibility::IncompatiblePlatformReason;
 use buck2_query::query::compatibility::MaybeCompatible;
-use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_util::truncate::truncate;
@@ -134,9 +134,9 @@ fn unpack_target_label<'v>(value: Value<'v>) -> Option<&'v TargetLabel> {
 
 impl<'v> TargetExpr<'v, TargetNode> {
     /// Get a `TargetSet<TargetNode>` from the `TargetExpr`
-    pub async fn get<QueryEnv: QueryEnvironment<Target = TargetNode>>(
+    pub async fn get(
         self,
-        env: &QueryEnv,
+        ctx: &DiceComputations,
     ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
         match self {
             TargetExpr::Node(val) => {
@@ -145,7 +145,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 Ok(Cow::Owned(set))
             }
             TargetExpr::Label(label) => {
-                let node = env.get_node(&label).await?;
+                let node = ctx.get_target_node(&label).await?;
                 let mut set = TargetSet::new();
                 set.insert(node);
                 Ok(Cow::Owned(set))
@@ -155,7 +155,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
                 let futs = val.into_iter().map(|node_or_ref| async {
                     match node_or_ref {
                         Either::Left(node) => Ok(node),
-                        Either::Right(node_ref) => env.get_node(&node_ref).await,
+                        Either::Right(node_ref) => ctx.get_target_node(&node_ref).await,
                     }
                 });
 
