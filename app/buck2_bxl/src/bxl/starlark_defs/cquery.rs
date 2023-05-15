@@ -12,14 +12,13 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::query::oneshot::CqueryOwnerBehavior;
-use buck2_common::dice::cells::HasCellResolver;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query_impls::cquery::environment::CqueryEnvironment;
-use buck2_query_impls::cquery::evaluator::get_cquery_evaluator;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -623,7 +622,7 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<Value<'v>>,
-        #[starlark(default = NoneOr::None)] target_universe: NoneOr<Vec<&'v str>>,
+        #[starlark(default = NoneOr::None)] target_universe: NoneOr<Vec<String>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let query_args = if query_args.is_none() {
@@ -651,29 +650,21 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         };
 
         this.ctx.async_ctx.via_dice(|ctx| async {
-            match get_cquery_evaluator(
-                ctx,
-                ctx.get_cell_resolver()
-                    .await?
-                    .get(this.ctx.current_bxl.label().bxl_path.cell())?
-                    .path(),
-                this.target_platform.dupe(),
-                CqueryOwnerBehavior::Deprecated,
+            parse_query_evaluation_result(
+                QUERY_FRONTEND
+                    .get()?
+                    .eval_cquery(
+                        ctx,
+                        &this.ctx.working_dir()?,
+                        CqueryOwnerBehavior::Deprecated,
+                        query,
+                        &query_args,
+                        this.target_platform.dupe(),
+                        target_universe.into_option().as_ref().map(|v| &v[..]),
+                    )
+                    .await?,
+                eval,
             )
-            .await
-            {
-                Ok(evaluator) => parse_query_evaluation_result::<CqueryEnvironment>(
-                    evaluator
-                        .eval_query(
-                            query,
-                            &query_args,
-                            target_universe.into_option().as_ref().map(|v| &v[..]),
-                        )
-                        .await?,
-                    eval,
-                ),
-                Err(e) => Err(e),
-            }
         })
     }
 

@@ -35,6 +35,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -199,6 +200,14 @@ impl<'v> BxlContext<'v> {
         &self.output_stream.project_fs
     }
 
+    /// Working dir for resolving literals.
+    /// Note, unlike buck2 command line UI, we resolve targets and literals
+    /// against the cell root instead of user working dir.
+    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
+        let cell = self.cell_resolver.get(self.cell_name)?;
+        Ok(cell.path().as_project_relative_path().to_owned())
+    }
+
     pub(crate) async fn dice_query_delegate(
         &'v self,
         target_platform: Option<TargetLabel>,
@@ -206,8 +215,7 @@ impl<'v> BxlContext<'v> {
         let ctx = self.async_ctx.0;
         let cell_resolver = ctx.get_cell_resolver().await?;
 
-        let cell = self.cell_resolver.get(self.cell_name)?;
-        let working_dir = cell.path().as_project_relative_path().to_owned();
+        let working_dir = self.working_dir()?;
         let project_root = self.project_root().clone();
 
         let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use starlark::eval::Evaluator;
@@ -18,13 +17,10 @@ use super::targetset::NodeLike;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
-pub(crate) fn parse_query_evaluation_result<'v, Env: QueryEnvironment>(
-    result: QueryEvaluationResult<Env::Target>,
+pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
+    result: QueryEvaluationResult<T>,
     eval: &mut Evaluator<'v, '_>,
-) -> anyhow::Result<Value<'v>>
-where
-    <Env as QueryEnvironment>::Target: NodeLike,
-{
+) -> anyhow::Result<Value<'v>> {
     Ok(match result {
         QueryEvaluationResult::Single(result) => match result {
             QueryEvaluationValue::TargetSet(targets) => {

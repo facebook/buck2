@@ -10,13 +10,12 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::dice::cells::HasCellResolver;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query_impls::uquery::environment::UqueryEnvironment;
-use buck2_query_impls::uquery::evaluator::get_uquery_evaluator;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -498,22 +497,13 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         };
 
         this.ctx.async_ctx.via_dice(|ctx| async {
-            match get_uquery_evaluator(
-                ctx,
-                ctx.get_cell_resolver()
-                    .await?
-                    .get(this.ctx.current_bxl.label().bxl_path.cell())?
-                    .path(),
-                None,
+            parse_query_evaluation_result(
+                QUERY_FRONTEND
+                    .get()?
+                    .eval_uquery(ctx, &this.ctx.working_dir()?, query, &query_args, None)
+                    .await?,
+                eval,
             )
-            .await
-            {
-                Ok(evaluator) => parse_query_evaluation_result::<UqueryEnvironment>(
-                    evaluator.eval_query(query, &query_args).await?,
-                    eval,
-                ),
-                Err(e) => Err(e),
-            }
         })
     }
 }
