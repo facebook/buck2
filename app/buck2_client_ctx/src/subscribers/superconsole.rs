@@ -1060,7 +1060,7 @@ mod tests {
             assert!(frame_contains(&frame, "Build ID:"));
         }
         assert!(frame_contains(&frame, "RE: reSessionID-123"));
-        assert!(frame_contains(&frame, "Running"));
+        assert!(frame_contains(&frame, "Progress"));
 
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })

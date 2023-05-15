@@ -213,7 +213,6 @@ impl<'s> Component for CountComponent<'s> {
         let time_speed = self.state.time_speed;
 
         let finished = spans.roots_completed() as u64;
-        let progress = spans.iter_roots().len() as u64;
 
         let elapsed =
             fmt_duration::fmt_duration(self.state.current_tick.elapsed_time, time_speed.speed());
@@ -222,15 +221,13 @@ impl<'s> Component for CountComponent<'s> {
         let total = finished + spans.iter_roots().len() as u64 + pending;
 
         let finished = HumanizedCount::new(finished);
-        let progress = HumanizedCount::new(progress);
         let total = HumanizedCount::new(total);
 
         let contents = match mode {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
                     let mut actions_summary = format!(
-                        "Jobs: Running: {}. Progress: {}/{}. Cache hits: {}%. ",
-                        progress,
+                        "Jobs: Progress: {}/{}. Cache hits: {}%. ",
                         finished,
                         total,
                         action_stats.action_cache_hit_percentage()
@@ -247,8 +244,8 @@ impl<'s> Component for CountComponent<'s> {
                     actions_summary
                 } else {
                     format!(
-                        "Jobs: Running: {}. Progress: {}/{}. Time elapsed: {}",
-                        progress, finished, total, elapsed
+                        "Jobs: Progress: {}/{}. Time elapsed: {}",
+                        finished, total, elapsed
                     )
                 }
             }
@@ -476,7 +473,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testJobs: Running: 2. Progress: 0/2. Cac",
+            "testJobs: Progress: 0/2. Cache hits: 100",
             "----------------------------------------",
             "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
             "foo -- speak of the devil           1.0s",
@@ -561,7 +558,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testJobs: Running: 3. Progress: 0/3. Cac",
+            "testJobs: Progress: 0/3. Cache hits: 100",
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
             "<span italic>... and 2 more</span>",
@@ -674,7 +671,7 @@ mod tests {
             )?;
 
             let expected = [
-                "test     Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
+                "test                 Jobs: Progress: 0/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
                 "<span italic>... and 2 more</span>",
@@ -695,7 +692,7 @@ mod tests {
             )?;
 
             let expected = [
-                "test     Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
+                "test                 Jobs: Progress: 0/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span italic>... and 3 more</span>",
             ]
@@ -804,7 +801,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test       Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                   Jobs: Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
@@ -850,7 +847,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test       Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                   Jobs: Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
