@@ -81,6 +81,7 @@ def get_abi_generation_mode(abi_generation_mode):
     }[abi_generation_mode]
 
 def get_default_info(
+        java_toolchain: "JavaToolchainInfo",
         outputs: ["JavaCompileOutputs", None],
         extra_sub_targets: dict.type = {}) -> DefaultInfo.type:
     sub_targets = {}
@@ -95,7 +96,7 @@ def get_default_info(
             if artifact != None:
                 sub_targets[name] = [DefaultInfo(default_output = artifact)]
         other_outputs = []
-        if outputs.annotation_processor_output:
+        if not java_toolchain.is_bootstrap_toolchain and outputs.annotation_processor_output:
             other_outputs.append(outputs.annotation_processor_output)
         default_info = DefaultInfo(
             default_output = outputs.full_library,
