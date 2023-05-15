@@ -244,14 +244,6 @@ impl<'v> BxlContext<'v> {
         )
     }
 
-    pub(crate) fn sync_dice_query_delegate(
-        &'v self,
-        global_target_platform: Option<TargetLabel>,
-    ) -> anyhow::Result<DiceQueryDelegate<'_>> {
-        self.async_ctx
-            .via(|| self.dice_query_delegate(global_target_platform))
-    }
-
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
@@ -456,8 +448,7 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// Returns the [`StarlarkUQueryCtx`] that holds all uquery functions.
     fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
-        let delegate = this.sync_dice_query_delegate(None)?;
-        StarlarkUQueryCtx::new(this, Arc::new(delegate))
+        StarlarkUQueryCtx::new(this)
     }
 
     /// Returns the [`StarlarkCQueryCtx`] that holds all the cquery functions.
