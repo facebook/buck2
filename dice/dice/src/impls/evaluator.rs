@@ -65,7 +65,7 @@ impl AsyncEvaluator {
         key: DiceKey,
         cycles: UserCycleDetectorData,
         cancellation: &CancellationContext,
-    ) -> DiceResult<DiceValueStorageAndDeps> {
+    ) -> DiceResult<KeyEvaluationResult> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
@@ -85,7 +85,7 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize_deps(),
                 };
 
-                Ok(DiceValueStorageAndDeps {
+                Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, dep_validity),
                     deps,
                     storage: key_dyn.storage_type(),
@@ -109,7 +109,7 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
-                Ok(DiceValueStorageAndDeps {
+                Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, base.value().validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
@@ -140,7 +140,7 @@ impl SyncEvaluator {
         }
     }
 
-    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<DiceValueStorageAndDeps> {
+    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<KeyEvaluationResult> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(_) => {
@@ -154,7 +154,7 @@ impl SyncEvaluator {
 
                 let value = proj.proj().compute(&self.base, &ctx);
 
-                Ok(DiceValueStorageAndDeps {
+                Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, self.base.validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
@@ -165,7 +165,7 @@ impl SyncEvaluator {
 }
 
 #[allow(unused)] // TODO(bobyf)
-pub(crate) struct DiceValueStorageAndDeps {
+pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
     pub(crate) deps: HashSet<DiceKey>,
     pub(crate) storage: StorageType,
