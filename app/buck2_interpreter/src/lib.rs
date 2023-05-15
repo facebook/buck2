@@ -29,6 +29,7 @@ pub mod file_type;
 pub mod functions;
 pub mod globspec;
 pub mod import_paths;
+pub mod load_module;
 pub mod package_imports;
 pub mod parse_import;
 pub mod path;

@@ -47,7 +47,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;

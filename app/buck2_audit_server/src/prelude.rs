@@ -14,7 +14,7 @@ use buck2_audit::prelude::AuditPreludeCommand;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;

@@ -23,5 +23,8 @@ pub mod transition;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
-    ONCE.call_once(interpreter::calculation::init_target_graph_calculation_impl);
+    ONCE.call_once(|| {
+        interpreter::calculation::init_interpreter_calculation_impl();
+        interpreter::calculation::init_target_graph_calculation_impl();
+    });
 }

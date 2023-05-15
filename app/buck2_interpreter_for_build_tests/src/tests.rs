@@ -27,7 +27,7 @@ use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::dice::starlark_types::SetDisableStarlarkTypes;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_interpreter_for_build::super_package::defs::register_package_natives;

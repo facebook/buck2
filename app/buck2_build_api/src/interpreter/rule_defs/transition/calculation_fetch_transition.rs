@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_interpreter_for_build::interpreter::calculation::InterpreterCalculation;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
 use thiserror::Error;

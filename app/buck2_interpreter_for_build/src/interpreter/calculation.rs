@@ -15,11 +15,12 @@ use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::load_module::InterpreterCalculationImpl;
+use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -100,36 +101,23 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     }
 }
 
-#[async_trait]
-pub trait InterpreterCalculation {
-    /// Returns the LoadedModule for a given starlark file. This is cached on the dice graph.
-    async fn get_loaded_module(&self, path: StarlarkModulePath<'_>)
-    -> anyhow::Result<LoadedModule>;
+struct InterpreterCalculationInstance;
 
-    async fn get_loaded_module_from_import_path(
-        &self,
-        path: &ImportPath,
-    ) -> anyhow::Result<LoadedModule>;
+pub(crate) fn init_interpreter_calculation_impl() {
+    INTERPRETER_CALCULATION_IMPL.init(&InterpreterCalculationInstance);
 }
 
 #[async_trait]
-impl InterpreterCalculation for DiceComputations {
+impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
         &self,
+        ctx: &DiceComputations,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
-        self.get_interpreter_calculator(path.cell(), path.build_file_cell())
+        ctx.get_interpreter_calculator(path.cell(), path.build_file_cell())
             .await?
             .eval_module(path)
             .await
-    }
-
-    async fn get_loaded_module_from_import_path(
-        &self,
-        path: &ImportPath,
-    ) -> anyhow::Result<LoadedModule> {
-        let module_path = StarlarkModulePath::LoadFile(path);
-        self.get_loaded_module(module_path).await
     }
 }
 

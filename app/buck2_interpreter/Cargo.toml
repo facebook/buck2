@@ -33,6 +33,7 @@ starlark = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
+buck2_util = { workspace = true }
 
 [features]
 # @oss-disable: default = ["gazebo_lint"]
