@@ -7,8 +7,11 @@
  * of this source tree.
  */
 
+mod configuration_info;
 mod default_info;
 mod dependency;
+mod external_runner_test_info;
 mod install_info;
+mod local_resource_info;
 mod run_info;
 mod tests;
