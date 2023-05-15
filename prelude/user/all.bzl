@@ -8,6 +8,7 @@
 load("@prelude//android/user:android_emulators.bzl", _android_emulators_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_selective_debugging.bzl", _apple_selective_debugging_spec = "registration_spec")
+load("@prelude//apple/user:apple_simulators.bzl", _apple_simulators_spec = "registration_spec")
 load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_override_spec = "registration_spec")
 load("@prelude//apple/user:apple_tools.bzl", _apple_tools_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
@@ -28,6 +29,7 @@ _all_specs = [
     _apple_toolchain_override_spec,
     _cxx_toolchain_override_spec,
     _cxx_toolchain_override_inheriting_target_platform_spec,
+    _apple_simulators_spec,
 ]
 
 rules = {s.name: rule(impl = s.impl, attrs = s.attrs, is_toolchain_rule = s.is_toolchain_rule, **{k: v for k, v in {"cfg": s.cfg}.items() if v != None}) for s in _all_specs}

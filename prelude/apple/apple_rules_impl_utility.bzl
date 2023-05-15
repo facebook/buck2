@@ -79,6 +79,7 @@ def apple_test_extra_attrs():
         "resource_group_map": attrs.option(attrs.string(), default = None),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": get_apple_toolchain_attr(),
+        "_ios_booted_simulator": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo])),
         "_omnibus_environment": omnibus_environment_attr(),
     }
     attribs.update(_apple_bundle_like_common_attrs())
