@@ -29,10 +29,13 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
@@ -117,6 +120,7 @@ pub struct BxlContext<'v> {
     #[derivative(Debug = "ignore")]
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
     pub(crate) cell_name: CellName,
+    pub(crate) cell_root_abs: AbsNormPathBuf,
     #[derivative(Debug = "ignore")]
     pub(crate) cell_resolver: CellResolver,
     cli_args: Value<'v>, // Struct of the cli args
@@ -150,11 +154,18 @@ impl<'v> BxlContext<'v> {
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
         global_target_platform: Option<TargetLabel>,
-    ) -> Self {
-        Self {
+    ) -> anyhow::Result<Self> {
+        let cell_root_abs = project_fs.root().join(
+            cell_resolver
+                .get(cell_name)?
+                .path()
+                .as_project_relative_path(),
+        );
+        Ok(Self {
             current_bxl,
             target_alias_resolver,
             cell_name,
+            cell_root_abs,
             cell_resolver,
             cli_args,
             async_ctx: async_ctx.clone(),
@@ -177,7 +188,7 @@ impl<'v> BxlContext<'v> {
             )),
             global_target_platform,
             materializations: Arc::new(DashMap::new()),
-        }
+        })
     }
 
     // Used for caching error logs emitted from within the BXL core.
@@ -214,6 +225,22 @@ impl<'v> BxlContext<'v> {
             target_platform,
             package_boundary_exceptions,
             target_alias_resolver,
+        )
+    }
+
+    pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
+        parse_query_file_literal(
+            literal,
+            self.cell_resolver
+                .get(self.cell_name)?
+                .cell_alias_resolver(),
+            &self.cell_resolver,
+            // NOTE(nga): we pass cell root as working directory here,
+            //   which is inconsistent with the rest of buck2:
+            //   The same query `owner(foo.h)` is resolved using
+            //   current directory in `buck2 query`, but relative to cell root in BXL.
+            &self.cell_root_abs,
+            self.project_root(),
         )
     }
 

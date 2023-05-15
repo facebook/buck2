@@ -56,6 +56,10 @@ impl FileSet {
         Ok(Self { files })
     }
 
+    pub fn insert(&mut self, file: FileNode) {
+        self.files.insert(file);
+    }
+
     pub fn insert_all(&mut self, other: &FileSet) {
         for v in other.files.iter() {
             self.files.insert(v.clone());
@@ -92,5 +96,13 @@ impl FileSet {
 
     pub fn len(&self) -> usize {
         self.files.len()
+    }
+}
+
+impl FromIterator<FileNode> for FileSet {
+    fn from_iter<T: IntoIterator<Item = FileNode>>(iter: T) -> FileSet {
+        FileSet {
+            files: IndexSet::from_iter(iter),
+        }
     }
 }

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_query::query::environment::QueryEnvironment;
+use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -35,6 +35,8 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use crate::bxl::starlark_defs::context::BxlContext;
+
 /// FileSetExpr is just a simple type that can be used in starlark_module
 /// functions for arguments that should be file sets. It will accept either a
 /// literal (like `//path/to/some/file.txt`) or a FileSet Value (from one of the
@@ -46,16 +48,15 @@ pub enum FileSetExpr<'a> {
 }
 
 impl<'a> FileSetExpr<'a> {
-    pub async fn get<QueryEnv: QueryEnvironment>(
-        self,
-        env: &QueryEnv,
-    ) -> anyhow::Result<Cow<'a, FileSet>> {
+    pub async fn get(self, bxl: &BxlContext<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
         let set = match self {
-            FileSetExpr::Literal(val) => Cow::Owned(env.eval_file_literal(val).await?),
+            FileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
+                bxl.parse_query_file_literal(val)?,
+            )])),
             FileSetExpr::Literals(val) => {
                 let mut file_set = FileSet::new(IndexSet::new());
                 for arg in val.iter() {
-                    file_set.insert_all(&env.eval_file_literal(arg).await?);
+                    file_set.insert(FileNode(bxl.parse_query_file_literal(arg)?));
                 }
                 Cow::Owned(file_set)
             }

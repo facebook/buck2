@@ -436,7 +436,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
             .async_ctx
             .via(|| async {
                 this.functions
-                    .owner(&this.env, (files.get(&this.env).await?).as_ref())
+                    .owner(&this.env, (files.get(this.ctx).await?).as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)

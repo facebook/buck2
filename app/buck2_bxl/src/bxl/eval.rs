@@ -171,7 +171,7 @@ pub async fn eval(
                             error_file,
                             digest_config,
                             global_target_platform,
-                        );
+                        )?;
                         let bxl_ctx =
                             ValueTyped::<BxlContext>::new(env.heap().alloc(bxl_ctx)).unwrap();
 
