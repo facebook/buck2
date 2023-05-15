@@ -540,6 +540,9 @@ pub enum Token {
 
     #[regex(
         "as|\
+        assert|\
+        async|\
+        await|\
         class|\
         del|\
         except|\

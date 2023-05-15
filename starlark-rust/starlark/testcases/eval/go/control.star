@@ -3,7 +3,7 @@
 
 # Tests of Starlark control flow
 
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def controlflow():
   # elif
@@ -11,28 +11,28 @@ def controlflow():
   if True:
     x=1
   elif False:
-    assert.fail("else of true")
+    asserts.fail("else of true")
   else:
-    assert.fail("else of else of true")
-  assert.true(x)
+    asserts.fail("else of else of true")
+  asserts.true(x)
 
   x = 0
   if False:
-    assert.fail("then of false")
+    asserts.fail("then of false")
   elif True:
     x = 1
   else:
-    assert.fail("else of true")
-  assert.true(x)
+    asserts.fail("else of true")
+  asserts.true(x)
 
   x = 0
   if False:
-    assert.fail("then of false")
+    asserts.fail("then of false")
   elif False:
-    assert.fail("then of false")
+    asserts.fail("then of false")
   else:
     x = 1
-  assert.true(x)
+  asserts.true(x)
 controlflow()
 
 def loops():
@@ -44,7 +44,7 @@ def loops():
       break
     y = y + str(x)
   return y
-assert.eq(loops(), "13")
+asserts.eq(loops(), "13")
 
 # return
 g = 123
@@ -52,9 +52,9 @@ def f(x):
   for g in (1, 2, 3):
     if g == x:
       return g
-assert.eq(f(2), 2)
-assert.eq(f(4), None) # falling off end => return None
-assert.eq(g, 123) # unchanged by local use of g in function
+asserts.eq(f(2), 2)
+asserts.eq(f(4), None) # falling off end => return None
+asserts.eq(g, 123) # unchanged by local use of g in function
 
 # infinite sequences
 def fib(n):
@@ -64,4 +64,4 @@ def fib(n):
       break
     seq.append(x)
   return seq
-assert.eq(fib(10),  [0, 1, 1, 2, 3, 5, 8, 13, 21, 34])
+asserts.eq(fib(10),  [0, 1, 1, 2, 3, 5, 8, 13, 21, 34])

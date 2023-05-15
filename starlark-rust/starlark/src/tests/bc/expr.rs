@@ -37,14 +37,14 @@ fn test_format_one() {
 fn test_percent_s_one_format_one_eval() {
     assert::pass(
         r#"
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def test(x):
     return ("<{}>".format(x), "<%s>" % x)
 
-assert.eq(("<1>", "<1>"), test(1))
+asserts.eq(("<1>", "<1>"), test(1))
 # Test format does not accidentally call `PercentSOne`.
-assert.eq(("<(1,)>", "<1>"), test((1,)))
+asserts.eq(("<(1,)>", "<1>"), test((1,)))
 "#,
     );
 }

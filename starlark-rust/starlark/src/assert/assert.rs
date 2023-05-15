@@ -60,17 +60,17 @@ fn mk_environment() -> GlobalsBuilder {
 
 static GLOBALS: Lazy<Globals> = Lazy::new(|| mk_environment().build());
 
-static ASSERT_STAR: Lazy<FrozenModule> = Lazy::new(|| {
+static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     let g = GlobalsBuilder::new()
-        .with_struct("assert", assert_star)
+        .with_struct("asserts", asserts_star)
         .build();
     let m = Module::new();
     m.frozen_heap().add_reference(g.heap());
-    let assert = g.get("assert").unwrap();
-    m.set("assert", assert);
+    let asserts = g.get("asserts").unwrap();
+    m.set("asserts", asserts);
     m.set(
         "freeze",
-        assert.get_attr("freeze", m.heap()).unwrap().unwrap(),
+        asserts.get_attr("freeze", m.heap()).unwrap().unwrap(),
     );
     m.freeze().unwrap()
 });
@@ -111,7 +111,7 @@ enum GcStrategy {
 /// Definitions to support assert.star as used by the Go test suite
 #[starlark_module]
 // Deliberately qualify the GlobalsBuild type to test that we can
-fn assert_star(builder: &mut crate::environment::GlobalsBuilder) {
+fn asserts_star(builder: &mut crate::environment::GlobalsBuilder) {
     fn eq<'v>(a: Value<'v>, b: Value<'v>) -> anyhow::Result<NoneType> {
         assert_equals(a, b)
     }
@@ -250,7 +250,7 @@ impl<'a> Assert<'a> {
     pub fn new() -> Self {
         Self {
             dialect: Dialect::Extended,
-            modules: hashmap!["assert.star".to_owned() => Lazy::force(&ASSERT_STAR).dupe()],
+            modules: hashmap!["asserts.star".to_owned() => Lazy::force(&ASSERTS_STAR).dupe()],
             globals: Lazy::force(&GLOBALS).dupe(),
             gc_strategy: None,
             setup_eval: Box::new(|_| ()),

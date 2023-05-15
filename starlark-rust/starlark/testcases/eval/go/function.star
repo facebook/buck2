@@ -9,15 +9,15 @@
 #   and test that functions have correct position, free vars, names of locals, etc.
 # - move the hard-coded tests of parameter passing from eval_test.go to here.
 
-load("assert.star", "assert", "freeze")
+load("asserts.star", "asserts", "freeze")
 
 hf = hasfields()
 hf.x = [len]
-assert.eq(hf.x[0]("abc"), 3)
+asserts.eq(hf.x[0]("abc"), 3)
 def f():
    return lambda: 1
-assert.eq(f()(), 1)
-assert.eq(["abc"][0][0].upper(), "A")
+asserts.eq(f()(), 1)
+asserts.eq(["abc"][0][0].upper(), "A")
 
 # functions may be recursively defined,
 # so long as they don't dynamically recur.
@@ -33,48 +33,48 @@ def yang(x):
     yin(False)
 
 yin(True)
-assert.eq(calls, ["yin", "yang"])
+asserts.eq(calls, ["yin", "yang"])
 
 calls.clear()
 yang(True)
-assert.eq(calls, ["yang", "yin"])
+asserts.eq(calls, ["yang", "yin"])
 
 
 # builtin_function_or_method use identity equivalence.
 closures = set(["".count for _ in range(10)])
-assert.eq(len(closures), 10)
+asserts.eq(len(closures), 10)
 
 ---
 # Default values of function parameters are mutable.
-load("assert.star", "assert", "freeze")
+load("asserts.star", "asserts", "freeze")
 
 def f(x=[0]):
   return x
 
-assert.eq(f(), [0])
+asserts.eq(f(), [0])
 
 f().append(1)
-assert.eq(f(), [0, 1])
+asserts.eq(f(), [0, 1])
 
 # Freezing a function value freezes its parameter defaults.
 freeze(f)
-assert.fails(lambda: f().append(2), "cannot append to frozen list")
+asserts.fails(lambda: f().append(2), "cannot append to frozen list")
 
 ---
 # This is a well known corner case of parsing in Python.
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 f = lambda x: 1 if x else 0
-assert.eq(f(True), 1)
-assert.eq(f(False), 0)
+asserts.eq(f(True), 1)
+asserts.eq(f(False), 0)
 
 x = True
 f2 = (lambda x: 1) if x else 0
-assert.eq(f2(123), 1)
+asserts.eq(f2(123), 1)
 
 tf = lambda: True, lambda: False
-assert.true(tf[0]())
-assert.true(not tf[1]())
+asserts.true(tf[0]())
+asserts.true(not tf[1]())
 
 ---
 # Missing parameters are correctly reported
@@ -82,7 +82,7 @@ assert.true(not tf[1]())
 # (This tests a corner case of the implementation:
 # we avoid a map allocation for <64 parameters)
 
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def f(a, b, c, d, e, f, g, h,
       i, j, k, l, m, n, o, p,
@@ -95,7 +95,7 @@ def f(a, b, c, d, e, f, g, h,
       mm):
   pass
 
-assert.fails(lambda: f(
+asserts.fails(lambda: f(
     1, 2, 3, 4, 5, 6, 7, 8,
     9, 10, 11, 12, 13, 14, 15, 16,
     17, 18, 19, 20, 21, 22, 23, 24,
@@ -105,7 +105,7 @@ assert.fails(lambda: f(
     49, 50, 51, 52, 53, 54, 55, 56,
     57, 58, 59, 60, 61, 62, 63, 64), "missing 1 argument \\(mm\\)")
 
-assert.fails(lambda: f(
+asserts.fails(lambda: f(
     1, 2, 3, 4, 5, 6, 7, 8,
     9, 10, 11, 12, 13, 14, 15, 16,
     17, 18, 19, 20, 21, 22, 23, 24,
@@ -122,33 +122,33 @@ assert.fails(lambda: f(
 # Related: https://github.com/bazelbuild/starlark/issues/21,
 # which concerns static checks.
 
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def f(*args, **kwargs):
   return args, kwargs
 
-assert.eq(f(x=1, y=2), ((), {"x": 1, "y": 2}))
-assert.fails(lambda: f(x=1, **dict(x=2)), 'multiple values for parameter "x"')
+asserts.eq(f(x=1, y=2), ((), {"x": 1, "y": 2}))
+asserts.fails(lambda: f(x=1, **dict(x=2)), 'multiple values for parameter "x"')
 
 def g(x, y):
   return x, y
 
-assert.eq(g(1, y=2), (1, 2))
-assert.fails(lambda: g(1, y=2, **{'y': 3}), 'multiple values for parameter "y"')
+asserts.eq(g(1, y=2), (1, 2))
+asserts.fails(lambda: g(1, y=2, **{'y': 3}), 'multiple values for parameter "y"')
 
 ---
 # Regression test for a bug in CALL_VAR_KW.
 
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def f(a, b, x, y):
   return a+b+x+y
 
-assert.eq(f(*("a", "b"), **dict(y="y", x="x")) + ".", 'abxy.')
+asserts.eq(f(*("a", "b"), **dict(y="y", x="x")) + ".", 'abxy.')
 ---
 # Order of evaluation of function arguments.
 # Regression test for github.com/google/skylark/issues/135.
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 r = []
 
@@ -160,18 +160,18 @@ def f(*args, **kwargs):
   return (args, kwargs)
 
 y = f(id(1), id(2), x=id(3), *[id(4)], **dict(z=id(5)))
-assert.eq(y, ((1, 2, 4), dict(x=3, z=5)))
+asserts.eq(y, ((1, 2, 4), dict(x=3, z=5)))
 
 # This matches Python2 and Starlark-in-Java, but not Python3 [1 2 4 3 6].
 # *args and *kwargs are evaluated last.
 # (Python[23] also allows keyword arguments after *args.)
 # See github.com/bazelbuild/starlark#13 for spec change.
-assert.eq(r, [1, 2, 3, 4, 5])
+asserts.eq(r, [1, 2, 3, 4, 5])
 
 ---
 # option:nesteddef option:recursion
 # See github.com/bazelbuild/starlark#170
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def a():
     list = []
@@ -183,7 +183,7 @@ def a():
     b(3)
     return list
 
-assert.eq(a(), [3, 2, 1, 0])
+asserts.eq(a(), [3, 2, 1, 0])
 
 def c():
     list = []
@@ -195,7 +195,7 @@ def c():
     d()
     return list
 
-assert.eq(c(), [1, 2])
+asserts.eq(c(), [1, 2])
 
 def e():
     def f():
@@ -203,11 +203,11 @@ def e():
     x = 1
     return f()
 
-assert.eq(e(), 1)
+asserts.eq(e(), 1)
 
 ---
 # option:nesteddef
-load("assert.star", "assert")
+load("asserts.star", "asserts")
 
 def e():
     x = 1
@@ -216,7 +216,7 @@ def e():
       x = 3    # because this assignment makes x local to f
     f()
 
-assert.fails(e, "local variable x referenced before assignment")
+asserts.fails(e, "local variable x referenced before assignment")
 
 
 ---
