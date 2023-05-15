@@ -227,7 +227,7 @@ impl<'s> Component for CountComponent<'s> {
             DrawMode::Normal => {
                 if action_stats.log_stats() {
                     let mut actions_summary = format!(
-                        "Jobs: Progress: {}/{}. Cache hits: {}%. ",
+                        "Progress: {}/{}. Cache hits: {}%. ",
                         finished,
                         total,
                         action_stats.action_cache_hit_percentage()
@@ -244,7 +244,7 @@ impl<'s> Component for CountComponent<'s> {
                     actions_summary
                 } else {
                     format!(
-                        "Jobs: Progress: {}/{}. Time elapsed: {}",
+                        "Progress: {}/{}. Time elapsed: {}",
                         finished, total, elapsed
                     )
                 }
@@ -473,7 +473,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testJobs: Progress: 0/2. Cache hits: 100",
+            "testProgress: 0/2. Cache hits: 100%. Tim",
             "----------------------------------------",
             "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
             "foo -- speak of the devil           1.0s",
@@ -558,7 +558,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "testJobs: Progress: 0/3. Cache hits: 100",
+            "testProgress: 0/3. Cache hits: 100%. Tim",
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
             "<span italic>... and 2 more</span>",
@@ -671,7 +671,7 @@ mod tests {
             )?;
 
             let expected = [
-                "test                 Jobs: Progress: 0/3. Time elapsed: 0.0s",
+                "test                       Progress: 0/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
                 "<span italic>... and 2 more</span>",
@@ -692,7 +692,7 @@ mod tests {
             )?;
 
             let expected = [
-                "test                 Jobs: Progress: 0/3. Time elapsed: 0.0s",
+                "test                       Progress: 0/3. Time elapsed: 0.0s",
                 "------------------------------------------------------------",
                 "<span italic>... and 3 more</span>",
             ]
@@ -801,7 +801,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                   Jobs: Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                         Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
@@ -847,7 +847,7 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "test                   Jobs: Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "test                         Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
         ].iter().map(|l| format!("{}\n", l)).join("");
