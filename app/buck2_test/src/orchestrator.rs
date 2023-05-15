@@ -624,7 +624,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
     fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
         let executor_config = CommandExecutorConfig {
-            executor: Executor::Local(LocalExecutorOptions {}),
+            executor: Executor::Local(LocalExecutorOptions::default()),
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),

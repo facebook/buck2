@@ -140,7 +140,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             }
 
             return Ok(CommandExecutorResponse {
-                executor: Arc::new(local_executor_new(&LocalExecutorOptions {})),
+                executor: Arc::new(local_executor_new(&LocalExecutorOptions::default())),
                 platform: Default::default(),
             });
         }
@@ -304,11 +304,11 @@ impl ExecutionStrategyExt for ExecutionStrategy {
 /// This is used when execution platforms are not configured.
 pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> CommandExecutorConfig {
     let executor = if buck2_core::is_open_source() {
-        Executor::Local(LocalExecutorOptions {})
+        Executor::Local(LocalExecutorOptions::default())
     } else {
         Executor::RemoteEnabled {
             executor: RemoteEnabledExecutor::Hybrid {
-                local: LocalExecutorOptions {},
+                local: LocalExecutorOptions::default(),
                 remote: RemoteExecutorOptions::default(),
                 level: HybridExecutionLevel::Limited,
             },

@@ -22,8 +22,10 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
-pub struct LocalExecutorOptions {}
+#[derive(Debug, Default, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
+pub struct LocalExecutorOptions {
+    pub use_persistent_workers: bool,
+}
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
 pub struct RemoteExecutorUseCase(Intern<String>);
@@ -98,8 +100,12 @@ pub enum Executor {
 impl Display for Executor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local(_options) => {
-                write!(f, "Local")
+            Self::Local(options) => {
+                write!(
+                    f,
+                    "Local + use persistent workers {}",
+                    options.use_persistent_workers
+                )
             }
             Self::RemoteEnabled {
                 executor,
@@ -218,7 +224,7 @@ pub enum HybridExecutionLevel {
 impl CommandExecutorConfig {
     pub fn testing_local() -> Arc<CommandExecutorConfig> {
         Arc::new(CommandExecutorConfig {
-            executor: Executor::Local(LocalExecutorOptions {}),
+            executor: Executor::Local(LocalExecutorOptions::default()),
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),

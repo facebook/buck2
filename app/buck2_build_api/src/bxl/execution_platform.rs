@@ -27,7 +27,7 @@ pub static EXECUTION_PLATFORM: Lazy<ExecutionPlatformResolution> = Lazy::new(|| 
     ExecutionPlatformResolution::new(
         Some(ExecutionPlatform::legacy_execution_platform(
             Arc::new(CommandExecutorConfig {
-                executor: Executor::Local(LocalExecutorOptions {}),
+                executor: Executor::Local(LocalExecutorOptions::default()),
                 options: CommandGenerationOptions {
                     path_separator: PathSeparatorKind::system_default(),
                     output_paths_behavior: Default::default(),
