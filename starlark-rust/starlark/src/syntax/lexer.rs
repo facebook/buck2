@@ -539,7 +539,21 @@ pub enum Token {
     RawDoubleQuote,
 
     #[regex(
-        "as|import|is|class|nonlocal|del|raise|except|try|finally|while|from|with|global|yield"
+        "as|\
+        class|\
+        del|\
+        except|\
+        finally|\
+        from|\
+        global|\
+        import|\
+        is|\
+        nonlocal|\
+        raise|\
+        try|\
+        while|\
+        with|\
+        yield"
     )]
     Reserved, // One of the reserved keywords
 
