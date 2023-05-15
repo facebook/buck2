@@ -68,3 +68,9 @@ pub fn is_open_source() -> bool {
     // @oss-disable: false
     true // @oss-enable
 }
+
+/// Internal build with `buck2`.
+#[inline]
+pub fn is_fbcode_build() -> bool {
+    cfg!(fbcode_build)
+}

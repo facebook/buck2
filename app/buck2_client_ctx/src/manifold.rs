@@ -140,9 +140,10 @@ impl<'a> Upload<'a> {
             None => {
                 if cfg!(windows) {
                     Ok(None) // We do not have `curl` on Windows.
-                } else {
-                    let cert = find_tls_cert()?;
+                } else if let Some(cert) = find_tls_cert()? {
                     curl_write_command(bucket, bucket_path, self.ttl_s, &cert)
+                } else {
+                    Ok(None)
                 }
             }
             Some(cli_path) => Ok(Some(cli_upload_command(

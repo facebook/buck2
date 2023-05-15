@@ -10,8 +10,22 @@
 use std::ffi::OsString;
 
 use anyhow::Context as _;
+use buck2_core::is_fbcode_build;
 
-pub fn find_tls_cert() -> anyhow::Result<OsString> {
+/// Find TLS certs.
+///
+/// Return `None` in Cargo or open source builds.
+/// Return `Err` if certificates cannot be found in internal buck2 builds.
+pub fn find_tls_cert() -> anyhow::Result<Option<OsString>> {
+    if is_fbcode_build() {
+        find_meta_internal_tls_cert().map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+/// Error in open source or Cargo builds.
+pub fn find_meta_internal_tls_cert() -> anyhow::Result<OsString> {
     let cert;
 
     #[cfg(fbcode_build)]

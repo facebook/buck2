@@ -126,7 +126,7 @@ async fn upload_task(
     }
     let manifold_path = format!("flat/{}", manifold_name);
     let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
-    let cert = find_certs::find_tls_cert()?;
+    let cert = find_certs::find_meta_internal_tls_cert()?;
     let mut read_position = 0;
     let mut total_bytes = 0_u64;
 
