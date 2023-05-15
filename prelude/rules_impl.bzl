@@ -353,7 +353,6 @@ def _python_binary_attrs():
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
         "_python_toolchain": toolchains_common.python(),
-        "_target_os_type": buck.target_os_type_arg(),
     })
     return binary_attrs
 

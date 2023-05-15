@@ -285,27 +285,14 @@ def _make_pex_impl(
         runtime_files.extend(dep_artifacts)
         runtime_files.append((symlink_tree_path, symlink_tree_path.short_path))
         if make_pex_cmd != None:
-            # Use the rule-provided tool to build the pex
             cmd = cmd_args(make_pex_cmd)
             cmd.add(modules_args)
             cmd.add(bootstrap_args)
             ctx.actions.run(cmd, category = "par", identifier = "inplace{}".format(output_suffix))
         else:
-            # Use the default tooling
             modules = cmd_args(python_toolchain.make_pex_modules)
             modules.add(modules_args)
             ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
-
-            # For in-place pars with multiprocessing/subprocesses that want to load native libs,
-            # wrap the execution with a shim to handle library loading. This is not necessary
-            # for packaged pars since they're launched in a filesystem with the libraries in the
-            # correct location.
-            interpreter_wrapper_path = ctx.actions.declare_output(
-                "{}#interpreter_wrapper{}".format(name, python_toolchain.pex_extension),
-            )
-            bootstrap_args.add("--interpreter-wrapper", interpreter_wrapper_path.as_output())
-            bootstrap_args.add("--target-platform", ctx.attrs._target_os_type[OsLookup].platform)
-            runtime_files.append((interpreter_wrapper_path, interpreter_wrapper_path.short_path))
 
             bootstrap = cmd_args(python_toolchain.make_pex_inplace)
             bootstrap.add(bootstrap_args)
@@ -314,7 +301,7 @@ def _make_pex_impl(
     run_args = []
 
     # Windows can't run PAR directly.
-    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
         run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
     run_args.append(output)
 
