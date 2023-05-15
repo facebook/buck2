@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -26,6 +27,7 @@ use more_futures::spawn::WeakFutureError;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
+use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -57,6 +59,7 @@ use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
+use crate::DiceError;
 use crate::DiceTransactionUpdater;
 use crate::HashSet;
 
@@ -125,6 +128,9 @@ pub(crate) struct PerComputeCtxData {
     parent_key: ParentKey,
     #[allocative(skip)]
     cycles: UserCycleDetectorData,
+    // Same as above, PerComputeCtx isn't actually geting shared.
+    #[allocative(skip)]
+    evaluation_data: Mutex<EvaluationData>,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
@@ -146,6 +152,7 @@ impl PerComputeCtx {
                 dep_trackers: Mutex::new(RecordingDepsTracker::new()),
                 parent_key,
                 cycles,
+                evaluation_data: Mutex::new(EvaluationData::none()),
             }),
         }
     }
@@ -315,16 +322,33 @@ impl PerComputeCtx {
         self.data.dep_trackers.lock()
     }
 
-    pub(crate) fn finalize_deps(self) -> (HashSet<DiceKey>, DiceValidity) {
+    pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
+        &self,
+        value: T,
+    ) -> DiceResult<()> {
+        let mut evaluation_data = self.data.evaluation_data.lock();
+        if evaluation_data.0.is_some() {
+            return Err(DiceError::duplicate_activation_data());
+        }
+        evaluation_data.0 = Some(Box::new(value) as _);
+        Ok(())
+    }
+
+    pub(crate) fn finalize(self) -> ((HashSet<DiceKey>, DiceValidity), EvaluationData) {
         // TODO need to clean up these ctxs so we have less runtime errors from Arc references
         let data = Arc::try_unwrap(self.data)
             .map_err(|_| "Error: tried to finalize when there are more references")
             .unwrap();
+
         data.cycles.finished_computing_key(
             &data.async_evaluator.dice.key_index,
             data.async_evaluator.user_data.cycle_detector.as_deref(),
         );
-        data.dep_trackers.into_inner().collect_deps()
+
+        (
+            data.dep_trackers.into_inner().collect_deps(),
+            data.evaluation_data.into_inner(),
+        )
     }
 }
 
@@ -461,6 +485,19 @@ impl SharedLiveTransactionCtx {
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.version
+    }
+}
+
+/// Opaque data that the key may have provided during evalution via store_evaluation_data.
+pub(crate) struct EvaluationData(Option<Box<dyn Any + Send + Sync + 'static>>);
+
+impl EvaluationData {
+    pub(crate) fn none() -> Self {
+        Self(None)
+    }
+
+    pub(crate) fn into_activation_data(self) -> ActivationData {
+        ActivationData::Evaluated(self.0)
     }
 }
 

@@ -26,6 +26,7 @@ use futures::StreamExt;
 use more_futures::cancellation::future::TerminationStatus;
 use tokio::sync::oneshot;
 
+use crate::api::activation_tracker::ActivationData;
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::arc::Arc;
@@ -40,6 +41,7 @@ use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
@@ -48,6 +50,7 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::versions::VersionRanges;
+use crate::ActivationTracker;
 
 #[cfg(test)]
 mod tests;
@@ -239,6 +242,14 @@ impl IncrementalEngine {
                             eval.user_data.cycle_detector.as_deref(),
                         );
 
+                        report_key_activation(
+                            &eval.dice.key_index,
+                            eval.user_data.activation_tracker.as_deref(),
+                            k,
+                            deps.iter().copied(),
+                            ActivationData::Reused,
+                        );
+
                         // report reuse
                         let (tx, rx) = tokio::sync::oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
@@ -297,26 +308,36 @@ impl IncrementalEngine {
         debug!(msg = "evaluation finished. updating caches");
 
         match eval_result {
-            Ok(res) => match res.value.into_valid_value() {
-                Ok(value) => {
-                    let (tx, rx) = tokio::sync::oneshot::channel();
-                    self.state.request(StateRequest::UpdateComputed {
-                        key: VersionedGraphKey::new(v, k),
-                        storage: res.storage,
-                        value,
-                        deps: Arc::new(res.deps.into_iter().collect()),
-                        resp: tx,
-                    });
+            Ok(res) => {
+                report_key_activation(
+                    &eval.dice.key_index,
+                    eval.user_data.activation_tracker.as_deref(),
+                    k,
+                    res.deps.iter().copied(),
+                    res.evaluation_data.into_activation_data(),
+                );
 
-                    task_handle.finished(Ok(rx.await.unwrap()))
+                match res.value.into_valid_value() {
+                    Ok(value) => {
+                        let (tx, rx) = tokio::sync::oneshot::channel();
+                        self.state.request(StateRequest::UpdateComputed {
+                            key: VersionedGraphKey::new(v, k),
+                            storage: res.storage,
+                            value,
+                            deps: Arc::new(res.deps.into_iter().collect()),
+                            resp: tx,
+                        });
+
+                        task_handle.finished(Ok(rx.await.unwrap()))
+                    }
+                    Err(value) => {
+                        task_handle.finished(Ok(DiceComputedValue::new(
+                            value,
+                            Arc::new(CellHistory::verified(v)),
+                        )));
+                    }
                 }
-                Err(value) => {
-                    task_handle.finished(Ok(DiceComputedValue::new(
-                        value,
-                        Arc::new(CellHistory::verified(v)),
-                    )));
-                }
-            },
+            }
             Err(e) => task_handle.finished(Err(e)),
         }
 
@@ -390,6 +411,20 @@ enum DidDepsChange {
     /// These deps did not change
     NoChange(Arc<Vec<DiceKey>>),
     NoDeps,
+}
+
+fn report_key_activation(
+    key_index: &DiceKeyIndex,
+    activation_tracker: Option<&dyn ActivationTracker>,
+    key: DiceKey,
+    deps: impl Iterator<Item = DiceKey>,
+    activation_data: ActivationData,
+) {
+    if let Some(activation_tracker) = &activation_tracker {
+        let key = key_index.get(key).as_any();
+        let mut iter = deps.map(|dep| key_index.get(dep).as_any());
+        activation_tracker.key_activated(key, &mut iter, activation_data);
+    }
 }
 
 #[cfg(test)]

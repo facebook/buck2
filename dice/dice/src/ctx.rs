@@ -128,7 +128,7 @@ impl DiceComputationsImpl {
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.store_evaluation_data(value),
-            DiceComputationsImpl::Modern(_) => Ok(()),
+            DiceComputationsImpl::Modern(delegate) => delegate.store_evaluation_data(value),
         }
     }
 

@@ -205,4 +205,7 @@ async fn test_events_legacy() -> anyhow::Result<()> {
     test_events_impl(Dice::builder()).await
 }
 
-// TODO: make this work in modern DICE as well.
+#[tokio::test]
+async fn test_events_modern() -> anyhow::Result<()> {
+    test_events_impl(Dice::modern()).await
+}

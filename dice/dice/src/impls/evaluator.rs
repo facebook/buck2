@@ -19,6 +19,7 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::impls::ctx::EvaluationData;
 use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::dice::DiceModern;
@@ -78,17 +79,18 @@ impl AsyncEvaluator {
                 )));
 
                 let value = key_dyn.compute(&new_ctx, cancellation).await;
-                let (deps, dep_validity) = match new_ctx.0 {
+                let ((deps, dep_validity), evaluation_data) = match new_ctx.0 {
                     DiceComputationsImpl::Legacy(_) => {
                         unreachable!("modern dice created above")
                     }
-                    DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize_deps(),
+                    DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 
                 Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, dep_validity),
                     deps,
                     storage: key_dyn.storage_type(),
+                    evaluation_data,
                 })
             }
             DiceKeyErased::Projection(proj) => {
@@ -113,6 +115,7 @@ impl AsyncEvaluator {
                     value: MaybeValidDiceValue::new(value, base.value().validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
+                    evaluation_data: EvaluationData::none(), // Projection keys can't set this.
                 })
             }
         }
@@ -158,6 +161,7 @@ impl SyncEvaluator {
                     value: MaybeValidDiceValue::new(value, self.base.validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
+                    evaluation_data: EvaluationData::none(), // Projection keys can't set this.
                 })
             }
         }
@@ -169,4 +173,5 @@ pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
     pub(crate) deps: HashSet<DiceKey>,
     pub(crate) storage: StorageType,
+    pub(crate) evaluation_data: EvaluationData,
 }
