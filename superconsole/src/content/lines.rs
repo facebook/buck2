@@ -9,6 +9,9 @@
 
 use std::cmp;
 use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::iter;
 use std::mem;
 
@@ -319,6 +322,19 @@ impl Lines {
             // safe to unwrap because at least one child component required
             .unwrap()
     }
+
+    pub fn fmt_for_test(&self) -> impl Display + '_ {
+        struct Impl<'a>(&'a Lines);
+        impl<'a> Display for Impl<'a> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                for line in self.0.iter() {
+                    writeln!(f, "{}", line.fmt_for_test())?;
+                }
+                Ok(())
+            }
+        }
+        Impl(self)
+    }
 }
 
 impl FromIterator<Line> for Lines {
@@ -625,5 +641,17 @@ strips out {bs}invalid control sequences",
         let lines = Lines::from_colored_multiline_string(&test_string);
 
         assert_eq!(expected, lines);
+    }
+
+    #[test]
+    fn test_fmt_for_test() {
+        let lines = Lines::from_iter([
+            Line::unstyled("orange").unwrap(),
+            Line::from_iter([Span::new_colored("pineapple", Color::Yellow).unwrap()]),
+        ]);
+        assert_eq!(
+            "orange\n<span fg=yellow>pineapple</span>\n",
+            format!("{}", lines.fmt_for_test())
+        );
     }
 }

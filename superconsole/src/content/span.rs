@@ -9,7 +9,10 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
+use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
 use crossterm::style::ResetColor;
@@ -205,6 +208,93 @@ impl Span {
 
         Ok(())
     }
+
+    pub fn fmt_for_test(&self) -> impl Display + '_ {
+        fn to_snake_case(s: &str) -> String {
+            let mut result = String::new();
+            for c in s.chars() {
+                if c.is_uppercase() {
+                    if !result.is_empty() {
+                        result.push('_');
+                    }
+                    result.push(c.to_ascii_lowercase());
+                } else {
+                    result.push(c);
+                }
+            }
+            result
+        }
+
+        fn fmt_color(color: Color) -> impl Display {
+            struct Impl(Color);
+            impl Display for Impl {
+                fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                    match self.0 {
+                        Color::Reset
+                        | Color::Black
+                        | Color::Red
+                        | Color::Green
+                        | Color::Yellow
+                        | Color::Blue
+                        | Color::Magenta
+                        | Color::Cyan
+                        | Color::White
+                        | Color::Grey
+                        | Color::DarkGrey
+                        | Color::DarkRed
+                        | Color::DarkGreen
+                        | Color::DarkYellow
+                        | Color::DarkBlue
+                        | Color::DarkMagenta
+                        | Color::DarkCyan => {
+                            write!(f, "{}", to_snake_case(&format!("{:?}", self.0)))
+                        }
+                        Color::Rgb { r, g, b } => write!(f, "rgb({}, {}, {})", r, g, b),
+                        Color::AnsiValue(v) => write!(f, "ansi({})", v),
+                    }
+                }
+            }
+            Impl(color)
+        }
+
+        struct Impl<'a>(&'a Span);
+        impl<'a> Display for Impl<'a> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                let style_is_default = self.0.style.foreground_color.is_none()
+                    && self.0.style.background_color.is_none()
+                    && self.0.style.attributes.is_empty();
+                if style_is_default {
+                    write!(f, "{}", self.0.content)
+                } else {
+                    write!(f, "<span")?;
+                    if let Some(fg) = self.0.style.foreground_color {
+                        write!(f, " fg={}", fmt_color(fg))?;
+                    }
+                    if let Some(bg) = self.0.style.background_color {
+                        write!(f, " bg={}", fmt_color(bg))?;
+                    }
+                    if !self.0.style.attributes.is_empty() {
+                        let mut a = self.0.style.attributes;
+                        for known in Attribute::iterator() {
+                            if a.has(known) {
+                                write!(f, " {}", to_snake_case(&format!("{:?}", known)))?;
+                                a.unset(known);
+                            }
+                        }
+                        if !a.is_empty() {
+                            write!(f, " unknown_attributes={:?}", a)?;
+                        }
+                    }
+                    write!(f, ">")?;
+                    write!(f, "{}", self.0.content)?;
+                    write!(f, "</span>")?;
+                    Ok(())
+                }
+            }
+        }
+
+        Impl(self)
+    }
 }
 
 impl TryFrom<String> for Span {
@@ -247,6 +337,7 @@ impl<'a> Iterator for SpanIterator<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crossterm::style::Attributes;
     use crossterm::style::Stylize;
 
     use super::*;
@@ -298,5 +389,22 @@ mod tests {
         let rhs = Span::new_styled_lossy("hello".to_owned().red().on_yellow());
 
         assert_eq!(lhs, rhs);
+    }
+
+    #[test]
+    fn test_fmt_for_test() {
+        let span = Span::new_styled(StyledContent::new(
+            ContentStyle {
+                foreground_color: Some(Color::Cyan),
+                background_color: None,
+                attributes: Attributes::from(Attribute::Bold) | Attributes::from(Attribute::Italic),
+            },
+            "fish".to_owned(),
+        ))
+        .unwrap();
+        assert_eq!(
+            "<span fg=cyan bold italic>fish</span>",
+            span.fmt_for_test().to_string()
+        );
     }
 }

@@ -8,6 +8,9 @@
  */
 
 use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::fmt::Write as _;
 use std::mem;
 use std::slice;
@@ -203,6 +206,19 @@ impl Line {
         self.push(span);
         self.extend(this);
     }
+
+    pub fn fmt_for_test(&self) -> impl Display + '_ {
+        struct Impl<'a>(&'a Line);
+        impl<'a> Display for Impl<'a> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                for span in &self.0.0 {
+                    write!(f, "{}", span.fmt_for_test())?;
+                }
+                Ok(())
+            }
+        }
+        Impl(self)
+    }
 }
 
 /// Iterate spans in a line.
@@ -395,5 +411,18 @@ mod tests {
         ]);
 
         assert_eq!(expected, line);
+    }
+
+    #[test]
+    fn test_fmt_for_test() {
+        let line = Line::from_iter([
+            Span::new_colored("abra", Color::Blue).unwrap(),
+            Span::new_colored("cadabra", Color::Red).unwrap(),
+        ]);
+
+        assert_eq!(
+            "<span fg=blue>abra</span><span fg=red>cadabra</span>",
+            format!("{}", line.fmt_for_test())
+        );
     }
 }
