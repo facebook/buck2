@@ -74,9 +74,6 @@ pub struct StarlarkCQueryCtx<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     functions: DefaultQueryFunctions<CqueryEnvironment<'v>>,
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    env: CqueryEnvironment<'v>,
     #[derivative(Debug = "ignore")]
     target_platform: Option<TargetLabel>,
 }
@@ -136,11 +133,9 @@ impl<'v> StarlarkCQueryCtx<'v> {
             default_target_platform,
         )?;
 
-        let env = get_cquery_env(ctx, target_platform.dupe()).await?;
         Ok(Self {
             ctx,
             functions: DefaultQueryFunctions::new(),
-            env,
             target_platform,
         })
     }
@@ -161,10 +156,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
+            let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
             Ok(this
                 .functions
                 .allpaths(
-                    &this.env,
+                    &env,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
@@ -205,10 +201,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.async_ctx.via(|| async {
+            let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
             Ok(this
                 .functions
                 .somepath(
-                    &this.env,
+                    &env,
                     &filter_incompatible(
                         TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                             from,
@@ -361,8 +358,9 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
+                let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
                 this.functions
-                    .owner(&this.env, (files.get(this.ctx).await?).as_ref())
+                    .owner(&env, (files.get(this.ctx).await?).as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -386,13 +384,14 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
+                let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
                 let filter = filter
                     .into_option()
                     .try_map(buck2_query_parser::parse_expr)?;
 
                 this.functions
                     .deps(
-                        &this.env,
+                        &env,
                         &DefaultQueryFunctionsModule::new(),
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
@@ -497,9 +496,10 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
+                let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
                 this.functions
                     .testsof(
-                        &this.env,
+                        &env,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
@@ -529,10 +529,11 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
+                let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
                 let maybe_compatibles = this
                     .functions
                     .testsof_with_default_target_platform(
-                        &this.env,
+                        &env,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                                 targets,
@@ -572,9 +573,10 @@ fn register_cquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
+                let env = get_cquery_env(this.ctx, this.target_platform.dupe()).await?;
                 this.functions
                     .rdeps(
-                        &this.env,
+                        &env,
                         &filter_incompatible(
                             TargetExpr::<'v, ConfiguredTargetNode>::unpack(
                                 universe,
