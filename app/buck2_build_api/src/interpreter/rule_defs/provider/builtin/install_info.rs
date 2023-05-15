@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use std::ops::Deref;
-
 use allocative::Allocative;
+use anyhow::Context as _;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
@@ -22,13 +21,13 @@ use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 // Provider that signals a rule is installable (ex. android_binary)
 
@@ -36,6 +35,12 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 enum InstallInfoProviderErrors {
     #[error("expected a label, got `{0}` (type `{1}`)")]
     ExpectedLabel(String, String),
+    #[error("Expected a dictionary of artifacts but key `{key}` contained `{got}`")]
+    ExpectedArtifact { key: String, got: String },
+    #[error("Expected a dictionary with string keys, but got key `{0}`")]
+    ExpectedStringKey(String),
+    #[error("File with key `{key}`: `{artifact}` should not have any associated artifacts")]
+    AssociatedArtifacts { key: String, artifact: String },
 }
 
 #[internal_provider(install_info_creator)]
@@ -51,7 +56,7 @@ pub struct InstallInfoGen<V> {
     files: V,
 }
 
-impl FrozenInstallInfo {
+impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
     pub fn get_installer(&self) -> anyhow::Result<ConfiguredProvidersLabel> {
         let label = Label::from_value(self.installer.to_value())
             .ok_or_else(|| {
@@ -65,18 +70,39 @@ impl FrozenInstallInfo {
         Ok(label)
     }
 
-    pub fn get_files(&self) -> anyhow::Result<SmallMap<&str, Artifact>> {
-        let files = DictRef::from_value(self.files.to_value()).expect("Value is a Dict");
-        let mut artifacts: SmallMap<&str, Artifact> = SmallMap::with_capacity(files.len());
-        for (k, v) in files.iter() {
-            artifacts.insert(
-                k.unpack_str().expect("should be a string"),
+    fn get_files_dict(&self) -> DictRef<'v> {
+        DictRef::from_value(self.files.to_value()).expect("Value is a Dict")
+    }
+
+    fn get_files_iter<'a>(
+        files: &'a DictRef<'v>,
+    ) -> impl Iterator<Item = anyhow::Result<(&'v str, &'v dyn StarlarkArtifactLike)>> + 'a {
+        files.iter().map(|(k, v)| {
+            let k = k
+                .unpack_str()
+                .ok_or_else(|| InstallInfoProviderErrors::ExpectedStringKey(k.to_string()))?;
+            Ok((
+                k,
                 v.as_artifact()
-                    .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
-                    .get_bound_artifact()?,
-            );
-        }
-        Ok(artifacts)
+                    .ok_or_else(|| InstallInfoProviderErrors::ExpectedArtifact {
+                        key: k.to_owned(),
+                        got: v.get_type().to_owned(),
+                    })?,
+            ))
+        })
+    }
+
+    pub fn get_files(&self) -> anyhow::Result<SmallMap<&'v str, Artifact>> {
+        Self::get_files_iter(&self.get_files_dict())
+            .map(|x| {
+                let (k, v) = x?;
+                Ok((
+                    k,
+                    v.get_bound_artifact()
+                        .with_context(|| format!("For key `{k}`"))?,
+                ))
+            })
+            .collect()
     }
 }
 
@@ -86,13 +112,9 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
         installer: ValueOf<'v, &'v Label>,
         files: ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
-        for v in files.typed.values() {
-            v.as_artifact().ok_or(ValueError::IncorrectParameterType)?;
-        }
-        let files = files.value;
         let info = InstallInfo {
             installer: *installer,
-            files,
+            files: files.value,
         };
         validate_install_info(&info)?;
         Ok(info)
@@ -103,22 +125,16 @@ fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> anyhow::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let files = DictRef::from_value(info.files.to_value()).expect("Value is a Dict");
-    for (k, v) in files.deref().iter() {
-        let as_artifact = v
-            .as_artifact()
-            .ok_or_else(|| anyhow::anyhow!("not an artifact"))?;
-        let artifact = as_artifact.get_bound_artifact()?;
-        let other_artifacts = as_artifact.get_associated_artifacts();
-        match other_artifacts {
-            Some(v) if !v.is_empty() => {
-                return Err(anyhow::anyhow!(
-                    "File with key `{}`: `{}` should not have any associated artifacts",
-                    k,
-                    artifact
-                ));
+    for x in InstallInfoGen::<V>::get_files_iter(&info.get_files_dict()) {
+        let (k, v) = x?;
+        if let Some(other_artifacts) = v.get_associated_artifacts() {
+            if !other_artifacts.is_empty() {
+                return Err(InstallInfoProviderErrors::AssociatedArtifacts {
+                    key: k.to_owned(),
+                    artifact: v.to_string(),
+                }
+                .into());
             }
-            _ => {}
         }
     }
     Ok(())
