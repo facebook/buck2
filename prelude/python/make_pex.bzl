@@ -366,6 +366,7 @@ def _pex_modules_common_args(
         shared_libraries: {str.type: LinkedObject.type}) -> ("cmd_args", [("_arglike", str.type)]):
     srcs = []
     src_artifacts = []
+    deps = []
 
     srcs.extend(pex_modules.manifests.src_manifests())
     src_artifacts.extend(pex_modules.manifests.src_artifacts_with_paths())
@@ -378,8 +379,9 @@ def _pex_modules_common_args(
         srcs.append(pex_modules.extra_manifests.manifest)
         src_artifacts.extend(pex_modules.extra_manifests.artifacts)
 
+    deps.extend(src_artifacts)
     resources = pex_modules.manifests.resource_manifests()
-    resource_artifacts = pex_modules.manifests.resource_artifacts_with_paths()
+    deps.extend(pex_modules.manifests.resource_artifacts_with_paths())
 
     src_manifests_path = ctx.actions.write(
         "__src_manifests.txt",
@@ -411,24 +413,22 @@ def _pex_modules_common_args(
     cmd.add(cmd_args(native_library_dests_path, format = "@{}"))
 
     if ctx.attrs.package_split_dwarf_dwp:
-        dwp = [s.dwp for s in shared_libraries.values() if s.dwp != None]
+        dwp = [(s.dwp, "{}.dwp".format(n)) for n, s in shared_libraries.items() if s.dwp != None]
         dwp_srcs_path = ctx.actions.write(
             "__dwp___srcs.txt",
-            _srcs(dwp, format = "--dwp-src={}"),
+            _srcs([src for src, _ in dwp], format = "--dwp-src={}"),
         )
         dwp_dests_path = ctx.actions.write(
             "__dwp___dests.txt",
-            ["--dwp-dest={}.dwp".format(lib) for lib, s in shared_libraries.items() if s.dwp != None],
+            _srcs([dest for _, dest in dwp], format = "--dwp-dest={}"),
         )
         dwp_srcs_args = cmd_args(dwp_srcs_path)
         cmd.add(cmd_args(dwp_srcs_args, format = "@{}"))
         cmd.add(cmd_args(dwp_dests_path, format = "@{}"))
 
-    deps = (
-        src_artifacts +
-        resource_artifacts +
-        [(lib.output, name) for name, lib in shared_libraries.items()]
-    )
+        deps.extend(dwp)
+
+    deps.extend([(lib.output, name) for name, lib in shared_libraries.items()])
 
     external_debug_info = project_external_debug_info(
         ctx.actions,
@@ -438,11 +438,6 @@ def _pex_modules_common_args(
 
     # HACK: exclude external_debug_info from InstallInfo by providing an empty path
     deps.extend([(d, "") for d in external_debug_info])
-
-    if ctx.attrs.package_split_dwarf_dwp:
-        for name, lib in shared_libraries.items():
-            if lib.dwp:
-                deps.append((lib.dwp, name))
 
     return (cmd, deps)
 
