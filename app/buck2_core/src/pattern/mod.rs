@@ -14,6 +14,7 @@
 mod ascii_pattern;
 pub mod parse_package;
 pub mod pattern_type;
+pub mod query_file_literal;
 
 use std::fmt;
 use std::fmt::Debug;
