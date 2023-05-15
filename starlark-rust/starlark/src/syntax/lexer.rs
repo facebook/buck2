@@ -569,34 +569,34 @@ pub enum Token {
     // Keywords
     #[token("and")]
     And,
-    #[token("else")]
-    Else,
-    #[token("load")]
-    Load,
     #[token("break")]
     Break,
-    #[token("for")]
-    For,
-    #[token("not")]
-    Not,
     #[token("continue")]
     Continue,
-    #[token("if")]
-    If,
-    #[token("or")]
-    Or,
     #[token("def")]
     Def,
-    #[token("in")]
-    In,
-    #[token("pass")]
-    Pass,
     #[token("elif")]
     Elif,
-    #[token("return")]
-    Return,
+    #[token("else")]
+    Else,
+    #[token("for")]
+    For,
+    #[token("if")]
+    If,
+    #[token("in")]
+    In,
     #[token("lambda")]
     Lambda,
+    #[token("load")]
+    Load,
+    #[token("not")]
+    Not,
+    #[token("or")]
+    Or,
+    #[token("pass")]
+    Pass,
+    #[token("return")]
+    Return,
     // Symbols
     #[token(",")]
     Comma,
