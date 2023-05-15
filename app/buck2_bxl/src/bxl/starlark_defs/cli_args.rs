@@ -247,6 +247,8 @@ pub(crate) enum CliArgError {
     NoDefaultsAllowed(CliArgType),
     #[error("Duplicate short args are not allowed: `{0}` was already used")]
     DuplicateShort(char),
+    #[error("An argument can be kebab-case OR snake-case, not both: `{0}`")]
+    DefinedBothKebabAndSnakeCase(String),
 }
 
 impl CliArgType {

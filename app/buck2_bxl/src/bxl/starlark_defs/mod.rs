@@ -241,7 +241,8 @@ impl FrozenBxlFunction {
         clap
     }
 
-    /// parses the cli args as defined by this bxl function
+    /// Parses the cli args as defined by this bxl function. Automatically changes the CLI args
+    /// to snakecase when accessed from the bxl context.
     pub async fn parse_clap<'a>(
         &self,
         clap: clap::ArgMatches,
@@ -250,8 +251,12 @@ impl FrozenBxlFunction {
         let mut res = OrderedMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
+            let snake_case_args = arg.replace('-', "_");
+            if res.contains_key(&snake_case_args) {
+                return Err(CliArgError::DefinedBothKebabAndSnakeCase(arg.clone()).into());
+            }
             res.insert(
-                arg.clone(),
+                snake_case_args,
                 cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
                     .await
                     .with_context(|| {

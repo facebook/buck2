@@ -649,6 +649,10 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// A struct of the command line args as declared using the [`cli_args`] module.
     /// These command lines are resolved per the users input on the cli when invoking the bxl script.
+    ///
+    /// If you wish to pass in a kebab-cased arg, the arg accessed from the BXL context's `cli_args`
+    /// attrbute will always be in snakecase. For example, if you passed in `my-arg`, accessing it
+    /// within BXL would look like `ctx.cli_args.my_arg`.
     #[starlark(attribute)]
     fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<Value<'v>> {
         Ok(this.cli_args)
