@@ -26,9 +26,7 @@ use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
-use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
@@ -47,7 +45,6 @@ use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query_impls::dice::DiceQueryDelegate;
 use dashmap::DashMap;
 use derivative::Derivative;
 use derive_more::Display;
@@ -206,32 +203,6 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
         let cell = self.cell_resolver.get(self.cell_name)?;
         Ok(cell.path().as_project_relative_path().to_owned())
-    }
-
-    pub(crate) async fn dice_query_delegate(
-        &'v self,
-        target_platform: Option<TargetLabel>,
-    ) -> anyhow::Result<DiceQueryDelegate<'_>> {
-        let ctx = self.async_ctx.0;
-        let cell_resolver = ctx.get_cell_resolver().await?;
-
-        let working_dir = self.working_dir()?;
-        let project_root = self.project_root().clone();
-
-        let package_boundary_exceptions = ctx.get_package_boundary_exceptions().await?;
-        let target_alias_resolver = ctx
-            .target_alias_resolver_for_working_dir(&working_dir)
-            .await?;
-
-        DiceQueryDelegate::new(
-            ctx,
-            &working_dir,
-            project_root,
-            cell_resolver,
-            target_platform,
-            package_boundary_exceptions,
-            target_alias_resolver,
-        )
     }
 
     pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {

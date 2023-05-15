@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub(crate) mod bxl;
 pub mod environment;
 pub mod evaluator;

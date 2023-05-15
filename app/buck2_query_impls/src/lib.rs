@@ -25,5 +25,7 @@ pub fn init_late_bindings() {
         analysis::environment::init_query_functions();
         analysis::eval::init_eval_analysis_query();
         frontend::init_query_frontend();
+        cquery::bxl::init_new_bxl_cquery_functions();
+        uquery::bxl::init_new_bxl_uquery_functions();
     });
 }

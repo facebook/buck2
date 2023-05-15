@@ -329,7 +329,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     }
 
     async fn kind(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
-        Ok(self.implementation.kind(&regex, &targets)?.into())
+        Ok(targets.kind(&regex)?.into())
     }
 
     async fn labels(&self, attr: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
@@ -512,14 +512,6 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
 
     pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> anyhow::Result<FileSet> {
         targets.inputs()
-    }
-
-    pub fn kind(
-        &self,
-        regex: &str,
-        targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
-        targets.kind(regex)
     }
 
     pub fn labels(

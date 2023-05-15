@@ -7,15 +7,13 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
+use buck2_build_api::query::bxl::BxlUqueryFunctions;
+use buck2_build_api::query::bxl::NEW_BXL_UQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::syntax::simple::eval::set::TargetSetExt;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
-use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
-use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
-use buck2_query_impls::uquery::environment::UqueryEnvironment;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -49,10 +47,6 @@ use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
-fn uquery_functions<'v>() -> DefaultQueryFunctions<UqueryEnvironment<'v>> {
-    DefaultQueryFunctions::new()
-}
-
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -83,13 +77,9 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 
 pub(crate) async fn get_uquery_env<'v>(
     ctx: &'v BxlContext<'v>,
-) -> anyhow::Result<UqueryEnvironment<'v>> {
-    let dice_query_delegate = ctx.dice_query_delegate(None).await?;
-    let uquery_delegate = Arc::new(dice_query_delegate);
-    Ok(UqueryEnvironment::new(
-        uquery_delegate.dupe(),
-        uquery_delegate,
-    ))
+) -> anyhow::Result<Box<dyn BxlUqueryFunctions<'v> + 'v>> {
+    (NEW_BXL_UQUERY_FUNCTIONS.get()?)(ctx.async_ctx.0, ctx.project_root().dupe(), ctx.cell_name)
+        .await
 }
 
 impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
@@ -128,10 +118,9 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.async_ctx.via_dice(|ctx| async {
-            let env = get_uquery_env(this.ctx).await?;
-            Ok(uquery_functions()
+            get_uquery_env(this.ctx)
+                .await?
                 .allpaths(
-                    &env,
                     &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, eval)
                         .await?
                         .get(ctx)
@@ -142,7 +131,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                         .await?,
                 )
                 .await
-                .map(StarlarkTargetSet::from)?)
+                .map(StarlarkTargetSet::from)
         })
     }
 
@@ -154,10 +143,9 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.async_ctx.via_dice(|ctx| async {
-            let env = get_uquery_env(this.ctx).await?;
-            Ok(uquery_functions()
+            get_uquery_env(this.ctx)
+                .await?
                 .somepath(
-                    &env,
                     &*TargetExpr::<'v, TargetNode>::unpack(from, this.ctx, eval)
                         .await?
                         .get(ctx)
@@ -168,7 +156,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                         .await?,
                 )
                 .await
-                .map(StarlarkTargetSet::from)?)
+                .map(StarlarkTargetSet::from)
         })
     }
 
@@ -181,15 +169,12 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.async_ctx.via_dice(|ctx| async {
-            uquery_functions()
-                .attrfilter(
-                    attr,
-                    value,
-                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
-                        .await?
-                        .get(ctx)
-                        .await?,
-                )
+            let targets = TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                .await?
+                .get(ctx)
+                .await?;
+            targets
+                .attrfilter(attr, &|v| Ok(v == value))
                 .map(StarlarkTargetSet::from)
         })
     }
@@ -210,12 +195,11 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via_dice(|ctx| async {
-                uquery_functions().inputs(
-                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
-                        .await?
-                        .get(ctx)
-                        .await?,
-                )
+                let targets = TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                    .await?
+                    .get(ctx)
+                    .await?;
+                targets.inputs()
             })
             .map(StarlarkFileSet::from)
     }
@@ -235,15 +219,11 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.async_ctx.via_dice(|ctx| async {
-            uquery_functions()
-                .kind(
-                    regex,
-                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
-                        .await?
-                        .get(ctx)
-                        .await?,
-                )
-                .map(StarlarkTargetSet::from)
+            let targets = TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                .await?
+                .get(ctx)
+                .await?;
+            targets.kind(regex).map(StarlarkTargetSet::from)
         })
     }
 
@@ -265,15 +245,13 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via_dice(|ctx| async {
-                let env = get_uquery_env(this.ctx).await?;
                 let filter = filter
                     .into_option()
                     .try_map(buck2_query_parser::parse_expr)?;
 
-                uquery_functions()
+                get_uquery_env(this.ctx)
+                    .await?
                     .deps(
-                        &env,
-                        &DefaultQueryFunctionsModule::new(),
                         &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, eval)
                             .await?
                             .get(ctx)
@@ -307,10 +285,9 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via_dice(|ctx| async {
-                let env = get_uquery_env(this.ctx).await?;
-                uquery_functions()
+                get_uquery_env(this.ctx)
+                    .await?
                     .rdeps(
-                        &env,
                         &*TargetExpr::<'v, TargetNode>::unpack(universe, this.ctx, eval)
                             .await?
                             .get(ctx)
@@ -343,13 +320,11 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via_dice(|ctx| async {
-                uquery_functions().filter_target_set(
-                    regex,
-                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
-                        .await?
-                        .get(ctx)
-                        .await?,
-                )
+                let targets = TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                    .await?
+                    .get(ctx)
+                    .await?;
+                targets.filter_name(regex)
             })
             .map(StarlarkTargetSet::from)
     }
@@ -370,10 +345,9 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via_dice(|ctx| async {
-                let env = get_uquery_env(this.ctx).await?;
-                uquery_functions()
+                get_uquery_env(this.ctx)
+                    .await?
                     .testsof(
-                        &env,
                         &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
                             .await?
                             .get(ctx)
@@ -406,7 +380,7 @@ fn register_uquery(builder: &mut MethodsBuilder) {
                     .get(ctx)
                     .await?;
 
-                Ok(uquery_functions().buildfile(targets))
+                Ok(targets.buildfile())
             })
             .map(StarlarkFileSet::from)
     }
@@ -426,9 +400,9 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         this.ctx
             .async_ctx
             .via(|| async {
-                let env = get_uquery_env(this.ctx).await?;
-                uquery_functions()
-                    .owner(&env, (files.get(this.ctx).await?).as_ref())
+                get_uquery_env(this.ctx)
+                    .await?
+                    .owner((files.get(this.ctx).await?).as_ref())
                     .await
             })
             .map(StarlarkTargetSet::from)
@@ -450,15 +424,12 @@ fn register_uquery(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.async_ctx.via_dice(|ctx| async {
-            uquery_functions()
-                .attrregexfilter(
-                    attribute,
-                    value,
-                    &*TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
-                        .await?
-                        .get(ctx)
-                        .await?,
-                )
+            let targets = TargetExpr::<'v, TargetNode>::unpack(targets, this.ctx, eval)
+                .await?
+                .get(ctx)
+                .await?;
+            targets
+                .attrregexfilter(attribute, value)
                 .map(StarlarkTargetSet::from)
         })
     }
