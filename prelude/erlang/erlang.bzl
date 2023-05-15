@@ -36,6 +36,7 @@ rules_attributes = {
     "erlang_app": dict({
         "app_src": attrs.option(attrs.source(), default = None),
         "build_edoc_chunks": attrs.bool(default = True),
+        "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
         "erl_opts": attrs.option(attrs.list(attrs.string()), default = None),
         "extra_includes": attrs.list(attrs.dep(), default = []),
         "includes": attrs.list(attrs.source(), default = []),
