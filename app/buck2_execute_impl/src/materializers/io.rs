@@ -15,7 +15,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -146,15 +145,7 @@ where
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) => {
             if let Some(src) = file_src(dest) {
-                if fs_util::symlink_metadata(&dest).is_err() {
-                    fs_util::copy(src, dest)?;
-                } else {
-                    soft_error!(
-                        "materialize_recursively_unexpected_file",
-                        anyhow::anyhow!("Unexpected file at: {}", dest),
-                        quiet: true
-                    )?;
-                }
+                fs_util::copy(src, dest)?;
             }
             Ok(())
         }
