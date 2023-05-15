@@ -13,10 +13,12 @@
 use std::collections::HashMap;
 
 use allocative::Allocative;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::configuration::calculation::ConfigurationCalculation;
 use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::nodes::calculation::ExecutionPlatformConstraints;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -36,6 +38,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::environment::Module;
 use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -61,15 +64,16 @@ enum BxlActionsError {
     RegistryAlreadyCreated,
 }
 
-#[allow(unused)] // TODO(bobyf) temporary
+#[allow(unused)]
 pub(crate) async fn resolve_bxl_execution_platform<'v>(
-    ctx: &DiceComputations,
+    ctx: &'v DiceComputations,
     cell: CellName,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Vec<TargetLabel>,
-) -> anyhow::Result<BxlExecutionResolution> {
+    module: &'v Module,
+) -> anyhow::Result<BxlExecutionResolution<'v>> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();
 
@@ -98,49 +102,73 @@ pub(crate) async fn resolve_bxl_execution_platform<'v>(
         &resolved_transitions,
         &platform_cfgs,
     );
-    let toolchain_deps = toolchain_deps
-        .into_iter()
-        .map(|dep| {
-            let configured = configuration_ctx.configure_toolchain_target(&dep);
-            (dep, configured)
-        })
-        .collect::<HashMap<_, _>>();
+    let mut toolchain_deps_configured = HashMap::new();
+
+    for dep in toolchain_deps.into_iter() {
+        let configured = configuration_ctx.configure_toolchain_target(&dep);
+
+        let dependency = get_dependency_for_label(configured, ctx, module).await?;
+
+        toolchain_deps_configured.insert(dep, dependency);
+    }
 
     let execution_constraints = ExecutionPlatformConstraints::new_constraints(
         exec_deps
             .iter()
             .map(|label| label.target().dupe())
             .collect(),
-        toolchain_deps
+        toolchain_deps_configured
             .values()
-            .map(|label| label.target().dupe())
+            .map(|dep| dep.label().inner().target().clone())
             .collect(),
         exec_compatible_with,
     );
 
     let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
 
-    let exec_deps_configured = exec_deps
-        .into_iter()
-        .map(|exec_dep| {
-            let configured = exec_dep
-                .configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
+    let mut exec_deps_configured = HashMap::new();
 
-            Ok((exec_dep, configured))
-        })
-        .collect::<anyhow::Result<HashMap<_, _>>>()?;
+    for exec_dep in exec_deps.into_iter() {
+        let configured = exec_dep
+            .configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
+
+        let dependency = get_dependency_for_label(configured, ctx, module).await?;
+
+        exec_deps_configured.insert(exec_dep, dependency);
+    }
 
     Ok(BxlExecutionResolution {
         resolved_execution,
         exec_deps_configured,
-        toolchain_deps,
+        toolchain_deps_configured,
     })
 }
 
-pub(crate) struct BxlExecutionResolution {
+async fn get_dependency_for_label<'v>(
+    configured: ConfiguredProvidersLabel,
+    ctx: &'v DiceComputations,
+    module: &'v Module,
+) -> anyhow::Result<Dependency<'v>> {
+    let analysis_result = ctx
+        .get_analysis_result(configured.target())
+        .await?
+        .require_compatible()?;
+
+    let v = analysis_result.lookup_inner(&configured)?;
+
+    let dependency = Dependency::new(
+        module.heap(),
+        configured,
+        v.value().owned_value(module.frozen_heap()),
+    );
+
+    Ok(dependency)
+}
+
+pub(crate) struct BxlExecutionResolution<'v> {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
-    pub(crate) exec_deps_configured: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
-    pub(crate) toolchain_deps: HashMap<ProvidersLabel, ConfiguredProvidersLabel>,
+    pub(crate) exec_deps_configured: HashMap<ProvidersLabel, Dependency<'v>>,
+    pub(crate) toolchain_deps_configured: HashMap<ProvidersLabel, Dependency<'v>>,
 }
 
 pub(crate) fn validate_action_instantiation<'v>(

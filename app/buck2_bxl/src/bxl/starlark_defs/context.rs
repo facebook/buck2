@@ -532,6 +532,7 @@ fn register_context(builder: &mut MethodsBuilder) {
                 toolchains,
                 target_platform,
                 exec_compatible_with,
+                eval.module(),
             )
             .await
         })?;
@@ -547,21 +548,21 @@ fn register_context(builder: &mut MethodsBuilder) {
                         eval.heap()
                             .alloc(StarlarkProvidersLabel::new(k))
                             .get_hashed()?,
-                        eval.heap().alloc(Label::new(v)),
+                        eval.heap().alloc(v),
                     ))
                 })
                 .collect::<anyhow::Result<_>>()?,
         ));
         let toolchains = eval.heap().alloc(Dict::new(
             execution_resolution
-                .toolchain_deps
+                .toolchain_deps_configured
                 .into_iter()
                 .map(|(k, v)| {
                     Ok((
                         eval.heap()
                             .alloc(StarlarkProvidersLabel::new(k))
                             .get_hashed()?,
-                        eval.heap().alloc(Label::new(v)),
+                        eval.heap().alloc(v),
                     ))
                 })
                 .collect::<anyhow::Result<_>>()?,
