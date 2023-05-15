@@ -356,7 +356,7 @@ mod tests {
     use buck2_events::BuckEvent;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
-    use superconsole::style::style;
+    use itertools::Itertools;
 
     use super::*;
     use crate::subscribers::subscriber::Tick;
@@ -475,22 +475,14 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = Lines(vec![
-            vec!["test", "Jobs: Running: 2. Progress: 0/2. Cac"].try_into()?,
-            Line::sanitized(&"-".repeat(40)),
-            Line::from_iter([
-                Span::new_styled("test -- speak of the devil".to_owned().dark_yellow())?,
-                Span::padding(10),
-                Span::new_styled("3.0s".to_owned().dark_yellow())?,
-            ]),
-            Line::from_iter([
-                Span::new_unstyled("foo -- speak of the devil".to_owned())?,
-                Span::padding(11),
-                Span::new_unstyled("1.0s".to_owned())?,
-            ]),
-        ]);
+        let expected = [
+            "testJobs: Running: 2. Progress: 0/2. Cac",
+            "----------------------------------------",
+            "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
+            "foo -- speak of the devil           1.0s",
+        ].iter().map(|l| format!("{}\n", l)).join("");
 
-        pretty_assertions::assert_eq!(output, expected);
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         Ok(())
     }
@@ -568,18 +560,17 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = Lines(vec![
-            vec!["test", "Jobs: Running: 3. Progress: 0/3. Cac"].try_into()?,
-            Line::sanitized(&"-".repeat(40)),
-            Line::from_iter([
-                Span::new_styled(style("e1 -- speak of the devil".to_owned()))?,
-                Span::padding(12),
-                Span::new_styled(style("1.0s".to_owned()))?,
-            ]),
-            Line::from_iter([Span::new_styled("... and 2 more".to_owned().italic())?]),
-        ]);
+        let expected = [
+            "testJobs: Running: 3. Progress: 0/3. Cac",
+            "----------------------------------------",
+            "e1 -- speak of the devil            1.0s",
+            "<span italic>... and 2 more</span>",
+        ]
+        .iter()
+        .map(|l| format!("{}\n", l))
+        .join("");
 
-        pretty_assertions::assert_eq!(output, expected);
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         Ok(())
     }
@@ -676,33 +667,20 @@ mod tests {
         {
             let output = TimedList::new(&CUTOFFS, "test", &state).draw(
                 Dimensions {
-                    width: 80,
+                    width: 60,
                     height: 10,
                 },
                 DrawMode::Normal,
             )?;
 
-            let expected = Lines(vec![
-                vec![
-                    "test",
-                    "                         ",
-                    "Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
-                ]
-                .try_into()?,
-                Line::sanitized(&"-".repeat(80)),
-                Line::from_iter([
-                    Span::new_styled(
-                        "pkg:target -- action (category identifier)"
-                            .to_owned()
-                            .dark_red(),
-                    )?,
-                    Span::padding(33),
-                    Span::new_styled("10.0s".to_owned().dark_red())?,
-                ]),
-                Line::from_iter([Span::new_styled("... and 2 more".to_owned().italic())?]),
-            ]);
+            let expected = [
+                "test     Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
+                "------------------------------------------------------------",
+                "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
+                "<span italic>... and 2 more</span>",
+            ].iter().map(|l| format!("{}\n", l)).join("");
 
-            pretty_assertions::assert_eq!(output, expected);
+            pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
         }
 
         {
@@ -710,24 +688,22 @@ mod tests {
 
             let output = TimedList::new(&CUTOFFS, "test", &state).draw(
                 Dimensions {
-                    width: 80,
+                    width: 60,
                     height: 10,
                 },
                 DrawMode::Normal,
             )?;
 
-            let expected = Lines(vec![
-                vec![
-                    "test",
-                    "                         ",
-                    "Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
-                ]
-                .try_into()?,
-                Line::sanitized(&"-".repeat(80)),
-                Line::from_iter([Span::new_styled("... and 3 more".to_owned().italic())?]),
-            ]);
+            let expected = [
+                "test     Jobs: Running: 1. Progress: 0/3. Time elapsed: 0.0s",
+                "------------------------------------------------------------",
+                "<span italic>... and 3 more</span>",
+            ]
+            .iter()
+            .map(|l| format!("{}\n", l))
+            .join("");
 
-            pretty_assertions::assert_eq!(output, expected);
+            pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
         }
 
         Ok(())
@@ -827,26 +803,13 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = Lines(vec![
-            vec![
-                "test",
-                "       ",
-                "Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
-            ]
-            .try_into()?,
-            Line::sanitized(&"-".repeat(80)),
-            Line::from_iter([
-                Span::new_styled(
-                    "pkg:target -- action (category identifier) [prepare 5.0s]"
-                        .to_owned()
-                        .dark_red(),
-                )?,
-                Span::padding(18),
-                Span::new_styled("10.0s".to_owned().dark_red())?,
-            ]),
-        ]);
+        let expected = [
+            "test       Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "--------------------------------------------------------------------------------",
+            "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
+        ].iter().map(|l| format!("{}\n", l)).join("");
 
-        pretty_assertions::assert_eq!(output, expected);
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         // Now, add another action. Normally we don't have multiple stages actually running
         // concurrently but this is a test!
@@ -886,26 +849,13 @@ mod tests {
             },
             DrawMode::Normal,
         )?;
-        let expected = Lines(vec![
-            vec![
-                "test",
-                "       ",
-                "Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
-            ]
-            .try_into()?,
-            Line::sanitized(&"-".repeat(80)),
-            Line::from_iter([
-                Span::new_styled(
-                    "pkg:target -- action (category identifier) [prepare 5.0s + 1]"
-                        .to_owned()
-                        .dark_red(),
-                )?,
-                Span::padding(14),
-                Span::new_styled("10.0s".to_owned().dark_red())?,
-            ]),
-        ]);
+        let expected = [
+            "test       Jobs: Running: 1. Progress: 0/1. Cache hits: 100%. Time elapsed: 0.0s",
+            "--------------------------------------------------------------------------------",
+            "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
+        ].iter().map(|l| format!("{}\n", l)).join("");
 
-        pretty_assertions::assert_eq!(output, expected);
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         Ok(())
     }
