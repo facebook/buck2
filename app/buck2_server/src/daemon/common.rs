@@ -17,6 +17,7 @@ use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
 use buck2_common::executor_config::HybridExecutionLevel;
+use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::executor_config::RemoteEnabledExecutor;
 use buck2_common::executor_config::RemoteExecutorOptions;
@@ -113,7 +114,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
-        let local_executor_new = || {
+        let local_executor_new = |_options| {
             LocalExecutor::new(
                 artifact_fs.clone(),
                 self.materializer.dupe(),
@@ -139,7 +140,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             }
 
             return Ok(CommandExecutorResponse {
-                executor: Arc::new(local_executor_new()),
+                executor: Arc::new(local_executor_new(&LocalExecutorOptions {})),
                 platform: Default::default(),
             });
         }
@@ -168,12 +169,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = match &executor_config.executor {
-            Executor::Local => {
+            Executor::Local(local) => {
                 if self.strategy.ban_local() {
                     None
                 } else {
                     Some(CommandExecutorResponse {
-                        executor: Arc::new(local_executor_new()),
+                        executor: Arc::new(local_executor_new(local)),
                         platform: Default::default(),
                     })
                 }
@@ -186,8 +187,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote_cache_enabled,
             } => {
                 let inner_executor: Option<Arc<dyn PreparedCommandExecutor>> = match &executor {
-                    RemoteEnabledExecutor::Local if !self.strategy.ban_local() => {
-                        Some(Arc::new(local_executor_new()))
+                    RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
+                        Some(Arc::new(local_executor_new(local)))
                     }
                     RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
                         Some(Arc::new(remote_executor_new(
@@ -196,17 +197,17 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             *remote_cache_enabled,
                         )))
                     }
-                    RemoteEnabledExecutor::Hybrid { remote, level }
-                        if !self.strategy.ban_hybrid() =>
-                    {
-                        Some(Arc::new(HybridExecutor {
-                            local: local_executor_new(),
-                            remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
-                            level: *level,
-                            executor_preference: self.strategy.hybrid_preference(),
-                            low_pass_filter: self.low_pass_filter.dupe(),
-                        }))
-                    }
+                    RemoteEnabledExecutor::Hybrid {
+                        local,
+                        remote,
+                        level,
+                    } if !self.strategy.ban_hybrid() => Some(Arc::new(HybridExecutor {
+                        local: local_executor_new(local),
+                        remote: remote_executor_new(remote, re_use_case, *remote_cache_enabled),
+                        level: *level,
+                        executor_preference: self.strategy.hybrid_preference(),
+                        low_pass_filter: self.low_pass_filter.dupe(),
+                    })),
                     _ => None,
                 };
 
@@ -303,10 +304,11 @@ impl ExecutionStrategyExt for ExecutionStrategy {
 /// This is used when execution platforms are not configured.
 pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> CommandExecutorConfig {
     let executor = if buck2_core::is_open_source() {
-        Executor::Local
+        Executor::Local(LocalExecutorOptions {})
     } else {
         Executor::RemoteEnabled {
             executor: RemoteEnabledExecutor::Hybrid {
+                local: LocalExecutorOptions {},
                 remote: RemoteExecutorOptions::default(),
                 level: HybridExecutionLevel::Limited,
             },

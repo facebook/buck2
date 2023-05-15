@@ -37,6 +37,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::executor_config::CommandGenerationOptions;
 use buck2_common::executor_config::Executor;
+use buck2_common::executor_config::LocalExecutorOptions;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceState;
@@ -623,7 +624,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
     fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
         let executor_config = CommandExecutorConfig {
-            executor: Executor::Local,
+            executor: Executor::Local(LocalExecutorOptions {}),
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),

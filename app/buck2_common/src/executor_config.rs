@@ -22,6 +22,9 @@ use internment_tweaks::Intern;
 use internment_tweaks::StaticInterner;
 use once_cell::sync::Lazy;
 
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
+pub struct LocalExecutorOptions {}
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
 pub struct RemoteExecutorUseCase(Intern<String>);
 
@@ -65,11 +68,12 @@ pub struct RemoteExecutorOptions {
 #[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum RemoteEnabledExecutor {
     #[display(fmt = "local")]
-    Local,
+    Local(LocalExecutorOptions),
     #[display(fmt = "remote")]
     Remote(RemoteExecutorOptions),
     #[display(fmt = "hybrid")]
     Hybrid {
+        local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
         level: HybridExecutionLevel,
     },
@@ -78,7 +82,7 @@ pub enum RemoteEnabledExecutor {
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum Executor {
     /// This executor only runs local commands.
-    Local,
+    Local(LocalExecutorOptions),
 
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
@@ -94,7 +98,7 @@ pub enum Executor {
 impl Display for Executor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Local => {
+            Self::Local(_options) => {
                 write!(f, "Local")
             }
             Self::RemoteEnabled {
@@ -214,7 +218,7 @@ pub enum HybridExecutionLevel {
 impl CommandExecutorConfig {
     pub fn testing_local() -> Arc<CommandExecutorConfig> {
         Arc::new(CommandExecutorConfig {
-            executor: Executor::Local,
+            executor: Executor::Local(LocalExecutorOptions {}),
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
