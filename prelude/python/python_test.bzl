@@ -75,5 +75,8 @@ def python_test_impl(ctx: "context") -> ["provider"]:
             # the cell root (e.g. fbcode root).
             run_from_project_root = re_executor != None,
             use_project_relative_paths = re_executor != None,
+            local_resources = {
+                "macos_idb_companion": None,
+            },
         ),
     ) + [make_default_info(pex)]
