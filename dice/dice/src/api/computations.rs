@@ -12,7 +12,6 @@ use std::future::Future;
 use allocative::Allocative;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 
 use crate::api::data::DiceData;
@@ -53,18 +52,6 @@ impl DiceComputations {
         K: Key,
     {
         self.0.compute(key)
-    }
-
-    /// same as `compute` but for a multiple keys. The returned results will be in order of the
-    /// keys given
-    pub fn compute_many<'a, K>(
-        &'a self,
-        keys: &[&'a K],
-    ) -> Vec<impl Future<Output = DiceResult<<K as Key>::Value>> + 'a>
-    where
-        K: Key,
-    {
-        keys.map(|k| self.compute(*k))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.

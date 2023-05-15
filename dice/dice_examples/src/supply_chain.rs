@@ -157,12 +157,8 @@ impl Setup for DiceTransactionUpdater {
             .unzip();
 
         // get the remote resources => company mapping
-        let remote_resources = join_all(
-            self.existing_state()
-                .await
-                .compute_many(&resources.iter().collect::<Vec<_>>()),
-        )
-        .await;
+        let state = self.existing_state().await;
+        let remote_resources = join_all(resources.iter().map(|res| state.compute(res))).await;
 
         // combine remote company list with local company list for reach resource
         let joined: Vec<_> = resources
