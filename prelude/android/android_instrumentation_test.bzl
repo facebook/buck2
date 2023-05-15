@@ -91,6 +91,9 @@ def android_instrumentation_test_impl(ctx: "context"):
             ),
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
         },
+        local_resources = {
+            "android_emulator": ctx.attrs._android_emulators[LocalResourceInfo],
+        },
     )
     return inject_test_run_info(ctx, test_info) + [
         DefaultInfo(),

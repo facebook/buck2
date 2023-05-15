@@ -155,6 +155,7 @@ extra_attributes = {
         "_java_toolchain": java_toolchain_for_android(),
     },
     "android_instrumentation_test": {
+        "_android_emulators": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/platform/android:android_emulators", providers = [LocalResourceInfo])),
         "_android_toolchain": android_toolchain(),
         "_java_toolchain": java_toolchain_for_android(),
     },
