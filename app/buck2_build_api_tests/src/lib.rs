@@ -15,3 +15,11 @@ mod artifact_groups;
 mod attrs;
 mod interpreter;
 mod nodes;
+
+#[test]
+fn init_late_bindings_for_test() {
+    #[ctor::ctor]
+    fn init() {
+        buck2_interpreter_for_build::init_late_bindings();
+    }
+}

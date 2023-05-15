@@ -8,6 +8,7 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     doctests = False,  # FIXME
     test_deps = [
+        "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:maplit",
         "//buck2/app/buck2_interpreter:buck2_interpreter",
     ],
@@ -15,7 +16,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:clap-3",
-        "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",

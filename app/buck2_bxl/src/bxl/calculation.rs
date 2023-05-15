@@ -18,7 +18,6 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
-use ctor::ctor;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -43,8 +42,7 @@ impl BxlCalculationDyn for BxlCalculationImpl {
     }
 }
 
-#[ctor]
-fn set_bxl_calculation_impl() {
+pub(crate) fn init_bxl_calculation_impl() {
     BXL_CALCULATION_IMPL.init(&BxlCalculationImpl);
 }
 

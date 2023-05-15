@@ -10,9 +10,20 @@
 #![feature(async_closure)]
 #![feature(try_blocks)]
 
+use std::sync::Once;
+
 pub mod analysis;
 pub mod aquery;
 pub mod cquery;
 pub mod dice;
 pub mod frontend;
 pub mod uquery;
+
+pub fn init_late_bindings() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        analysis::environment::init_query_functions();
+        analysis::eval::init_eval_analysis_query();
+        frontend::init_query_frontend();
+    });
+}

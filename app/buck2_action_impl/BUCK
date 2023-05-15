@@ -7,6 +7,7 @@ rust_library(
     name = "buck2_action_impl",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
+        "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:maplit",
         "//buck2/app/buck2_node:buck2_node",
@@ -15,7 +16,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:chrono",
-        "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",

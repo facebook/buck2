@@ -20,15 +20,13 @@ use buck2_core::directory::DirectoryIterator;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
-use ctor::ctor;
 use dice::DiceTransaction;
 
 use crate::actions::impls::run::dep_files::get_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesKey;
 use crate::actions::impls::run::dep_files::StoredFingerprints;
 
-#[ctor]
-fn init_audit_dep_files() {
+pub(crate) fn init_audit_dep_files() {
     AUDIT_DEP_FILES.init(|ctx, label, category, identifier, stdout| {
         Box::pin(audit_dep_files(ctx, label, category, identifier, stdout))
     });

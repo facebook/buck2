@@ -55,7 +55,6 @@ use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncTraversalDelegate;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
-use ctor::ctor;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -177,8 +176,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
     }
 }
 
-#[ctor]
-fn set_query_functions() {
+pub(crate) fn init_query_functions() {
     QUERY_FUNCTIONS.init(Arc::new(ConfiguredGraphQueryEnvironment::functions()));
 }
 

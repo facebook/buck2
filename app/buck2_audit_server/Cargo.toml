@@ -7,7 +7,6 @@ description = "Server side of `buck2 audit`"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-ctor = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }

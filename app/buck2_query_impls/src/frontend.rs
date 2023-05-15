@@ -18,7 +18,6 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
-use ctor::ctor;
 use dice::DiceComputations;
 
 use crate::aquery::evaluator::get_aquery_evaluator;
@@ -29,8 +28,7 @@ use crate::uquery::evaluator::get_uquery_evaluator;
 
 struct QueryFrontendImpl;
 
-#[ctor]
-fn init_query_frontend() {
+pub(crate) fn init_query_frontend() {
     QUERY_FRONTEND.init(&QueryFrontendImpl);
 }
 

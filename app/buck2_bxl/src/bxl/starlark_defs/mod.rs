@@ -28,7 +28,6 @@ use buck2_interpreter_for_build::interpreter::configuror::CONFIGURE_BXL_FILE_GLO
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use cli_args::CliArgs;
-use ctor::ctor;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -138,8 +137,7 @@ pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_builtin_providers(globals_builder);
 }
 
-#[ctor]
-fn init_configure_bxl_file_globals() {
+pub(crate) fn init_configure_bxl_file_globals() {
     CONFIGURE_BXL_FILE_GLOBALS.init(configure_bxl_file_globals);
 }
 

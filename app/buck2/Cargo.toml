@@ -52,6 +52,7 @@ buck2_data = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_forkserver = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
 buck2_server = { workspace = true }
 buck2_server_commands = { workspace = true }
 buck2_server_ctx = { workspace = true }

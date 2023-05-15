@@ -39,7 +39,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern::target_platform_from_client_context;
-use ctor::ctor;
 use dice::DiceComputations;
 use thiserror::Error;
 use tracing::debug;
@@ -182,8 +181,7 @@ async fn audit_output<'v>(
     )
 }
 
-#[ctor]
-fn set_audit_output() {
+pub(crate) fn init_audit_output() {
     AUDIT_OUTPUT.init(
         |output_path, working_dir, cell_resolver, dice_ctx, global_target_platform| {
             Box::pin(audit_output(

@@ -65,7 +65,7 @@ use crate::actions::impls::run::dep_files::DepFilesKey;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
-mod audit_dep_files;
+pub(crate) mod audit_dep_files;
 pub mod dep_files;
 mod metadata;
 

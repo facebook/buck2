@@ -9,7 +9,6 @@ description = "uquery, cquery, aquery and analysis query implementations for Buc
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-ctor = { workspace = true }
 futures = { workspace = true }
 dashmap = { workspace = true }
 derive_more = { workspace = true }

@@ -11,6 +11,8 @@
 #![feature(try_blocks)]
 #![feature(provide_any)]
 
+use std::sync::Once;
+
 use async_trait::async_trait;
 use buck2_audit::AuditCommand;
 use buck2_cli_proto::ClientContext;
@@ -92,4 +94,9 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::Output(cmd) => cmd,
         }
     }
+}
+
+pub fn init_late_bindings() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(output::command::init_audit_output)
 }

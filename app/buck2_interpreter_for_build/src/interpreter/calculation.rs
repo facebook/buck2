@@ -26,7 +26,6 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
-use ctor::ctor;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -37,8 +36,7 @@ use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 
 struct TargetGraphCalculationInstance;
 
-#[ctor]
-fn init_target_graph_calculation_impl() {
+pub(crate) fn init_target_graph_calculation_impl() {
     TARGET_GRAPH_CALCULATION_IMPL.init(&TargetGraphCalculationInstance);
 }
 

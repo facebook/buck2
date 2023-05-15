@@ -8,6 +8,7 @@ description = "Tests for buck2_build_api crate"
 anyhow = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
+ctor = { workspace = true }
 derivative = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }

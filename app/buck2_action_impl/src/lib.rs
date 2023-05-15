@@ -10,10 +10,24 @@
 #![feature(try_blocks)]
 #![feature(type_alias_impl_trait)]
 
+use std::sync::Once;
+
 mod actions;
 mod context;
 
-/// This crate has no public API, everything it implements is linked with `LateBinding`.
-/// So declare this symbol to be referenced from main crate to make sure
-/// this crate is linked.
-pub fn ensure_linked() {}
+pub fn init_late_bindings() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        actions::impls::run::audit_dep_files::init_audit_dep_files();
+        actions::impls::run::dep_files::init_flush_dep_files();
+        context::init_register_context_actions();
+    });
+}
+
+#[test]
+fn init_late_bindings_for_test() {
+    #[ctor::ctor]
+    fn init() {
+        init_late_bindings();
+    }
+}

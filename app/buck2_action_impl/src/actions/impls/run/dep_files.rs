@@ -46,7 +46,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
-use ctor::ctor;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -72,8 +71,7 @@ fn flush_dep_files() {
     DEP_FILES.clear();
 }
 
-#[ctor]
-fn set_flush_dep_files() {
+pub(crate) fn init_flush_dep_files() {
     FLUSH_DEP_FILES.init(flush_dep_files);
 }
 

@@ -42,7 +42,6 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use chrono::TimeZone;
 use chrono::Utc;
-use ctor::ctor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use host_sharing::WeightClass;
@@ -983,8 +982,7 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 }
 
-#[ctor]
-fn init_register_context_actions() {
+pub(crate) fn init_register_context_actions() {
     REGISTER_CONTEXT_ACTIONS.init(register_context_actions);
 }
 

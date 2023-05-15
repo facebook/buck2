@@ -8,7 +8,6 @@ description = "Buck V2 extension language"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
-ctor = { workspace = true }
 dashmap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
@@ -52,4 +51,5 @@ buck2_util = { workspace = true }
 buck2_cli_proto = { workspace = true }
 
 [dev-dependencies]
+ctor = { workspace = true }
 maplit = { workspace = true }
