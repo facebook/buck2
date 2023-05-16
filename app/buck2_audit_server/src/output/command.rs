@@ -9,7 +9,6 @@
 
 use std::any;
 use std::io::Write;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_audit::output::command::AuditOutputCommand;
@@ -32,7 +31,6 @@ use buck2_core::target::label::TargetLabel;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use buck2_query_impls::aquery::evaluator::get_dice_aquery_delegate;
-use buck2_query_impls::dice::aquery::DiceAqueryDelegate;
 use buck2_server_commands::commands::query::printer::QueryResultPrinter;
 use buck2_server_commands::commands::query::printer::ShouldPrintProviders;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -107,10 +105,15 @@ async fn write_output(
 }
 
 async fn find_matching_action<'v>(
-    dice_aquery_delegate: Arc<DiceAqueryDelegate<'v>>,
+    ctx: &DiceComputations,
+    working_dir: &ProjectRelativePath,
+    global_target_platform: Option<TargetLabel>,
     analysis: &AnalysisResult,
     path_after_target_name: ForwardRelativePathBuf,
 ) -> anyhow::Result<Option<ActionQueryNode>> {
+    let dice_aquery_delegate =
+        get_dice_aquery_delegate(ctx, working_dir, global_target_platform.clone()).await?;
+
     for entry in analysis.iter_deferreds() {
         match any::request_value::<ProvideOutputs>(entry.as_complex()) {
             Some(outputs) => {
@@ -166,19 +169,20 @@ async fn audit_output<'v>(
         return Ok(Some(AuditOutputResult::MaybeRelevant(target_label)));
     }
 
-    let dice_aquery_delegate =
-        get_dice_aquery_delegate(dice_ctx, working_dir, global_target_platform.clone()).await?;
-
     let analysis = dice_ctx
         .get_analysis_result(&configured_target_label)
         .await?
         .require_compatible()?;
 
-    Ok(
-        find_matching_action(dice_aquery_delegate, &analysis, path_after_target_name)
-            .await?
-            .map(AuditOutputResult::Match),
+    Ok(find_matching_action(
+        dice_ctx,
+        working_dir,
+        global_target_platform,
+        &analysis,
+        path_after_target_name,
     )
+    .await?
+    .map(AuditOutputResult::Match))
 }
 
 pub(crate) fn init_audit_output() {
