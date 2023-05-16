@@ -18,6 +18,7 @@ mod builder;
 mod options;
 mod traits;
 mod typ;
+pub(crate) mod value;
 pub mod value_as;
 
 pub use builder::*;

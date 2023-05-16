@@ -20,7 +20,6 @@ use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_util::commas::commas;
 use buck2_util::thin_box::ThinBoxSlice;
-use derive_more::Display;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -33,7 +32,6 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
-use starlark::coerce::Coerce;
 use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -44,7 +42,6 @@ use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -71,67 +68,13 @@ use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-
-/// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
-///
-/// This should be unnecessary, however I'm not smart enough to figure out how to get
-/// things to live long enough, in `ValueAsCommandLineArgLike`, so I'm moving on with my life
-/// for now. All values contained in here are guaranteed to implement `CommandLineArgLike`.
-#[derive(
-    Debug, Clone, Copy, Dupe, Trace, Freeze, Display, Serialize, Allocative, Coerce
-)]
-#[serde(bound = "V: Display", transparent)]
-#[repr(transparent)]
-struct CommandLineArgGen<V>(#[serde(serialize_with = "serialize_as_display")] V);
-
-fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.collect_str(v)
-}
-
-impl<'v, V: ValueLike<'v>> CommandLineArgGen<V> {
-    fn try_from_value(value: V) -> anyhow::Result<Self> {
-        value.to_value().as_command_line_err()?;
-        Ok(Self(value))
-    }
-
-    fn visit_inner<R>(&self, f: impl FnOnce(&dyn CommandLineArgLike) -> R) -> R {
-        f(self.0.to_value().as_command_line().unwrap())
-    }
-}
-
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for CommandLineArgGen<V> {
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.add_to_command_line(cli, context))
-    }
-
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.visit_artifacts(visitor))
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        self.visit_inner(|x| x.contains_arg_attr())
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.visit_write_to_file_macros(visitor))
-    }
-}
+use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
+use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 
 /// Fields of `cmd_args`. Abstract mutable and frozen versions.
 trait Fields<'v> {
-    fn items(&self) -> &[CommandLineArgGen<Value<'v>>];
-    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>];
+    fn items(&self) -> &[CommandLineArg<'v>];
+    fn hidden(&self) -> &[CommandLineArg<'v>];
     fn options(&self) -> Option<&dyn CommandLineOptionsTrait<'v>>;
 }
 
@@ -147,8 +90,8 @@ impl<'v, F: Fields<'v>> Serialize for FieldsRef<'v, F> {
         /// by routing through this struct.
         #[derive(Serialize)]
         struct Mirror<'v, 'a> {
-            items: &'a [CommandLineArgGen<Value<'v>>],
-            hidden: &'a [CommandLineArgGen<Value<'v>>],
+            items: &'a [CommandLineArg<'v>],
+            hidden: &'a [CommandLineArg<'v>],
             options: Option<CommandLineOptionsRef<'v, 'a>>,
         }
 
@@ -173,8 +116,8 @@ impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
                     Some(self.0.hidden())
                         .filter(|x| !x.is_empty())
                         .map(|hidden| {
-                            struct Wrapper<'a, V>(&'a [CommandLineArgGen<V>]);
-                            impl<'a, V: Display> Display for Wrapper<'a, V> {
+                            struct Wrapper<'a, 'v>(&'a [CommandLineArg<'v>]);
+                            impl<'a, 'v> Display for Wrapper<'a, 'v> {
                                 fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                                     fmt_container(f, "[", "]", self.0.iter())
                                 }
@@ -300,8 +243,8 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
 #[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct StarlarkCommandLineData<'v> {
-    items: Vec<CommandLineArgGen<Value<'v>>>,
-    hidden: Vec<CommandLineArgGen<Value<'v>>>,
+    items: Vec<CommandLineArg<'v>>,
+    hidden: Vec<CommandLineArg<'v>>,
     options: Option<Box<CommandLineOptions<'v>>>,
 }
 
@@ -327,8 +270,8 @@ impl<'v> Serialize for StarlarkCommandLine<'v> {
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenStarlarkCommandLine {
-    items: ThinBoxSlice<CommandLineArgGen<FrozenValue>>,
-    hidden: ThinBoxSlice<CommandLineArgGen<FrozenValue>>,
+    items: ThinBoxSlice<FrozenCommandLineArg>,
+    hidden: ThinBoxSlice<FrozenCommandLineArg>,
     options: FrozenCommandLineOptions,
 }
 
@@ -342,11 +285,11 @@ impl Serialize for FrozenStarlarkCommandLine {
 }
 
 impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
-    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn items(&self) -> &[CommandLineArg<'v>] {
         &self.items
     }
 
-    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn hidden(&self) -> &[CommandLineArg<'v>] {
         &self.hidden
     }
 
@@ -359,11 +302,11 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
 }
 
 impl<'v> Fields<'v> for FrozenStarlarkCommandLine {
-    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn items(&self) -> &[CommandLineArg<'v>] {
         coerce(&*self.items)
     }
 
-    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn hidden(&self) -> &[CommandLineArg<'v>] {
         coerce(&*self.hidden)
     }
 
@@ -377,11 +320,11 @@ impl<'v> Fields<'v> for FrozenStarlarkCommandLine {
 }
 
 impl<'a, 'v, F: Fields<'v>> Fields<'v> for &'a F {
-    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn items(&self) -> &[CommandLineArg<'v>] {
         (*self).items()
     }
 
-    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn hidden(&self) -> &[CommandLineArg<'v>] {
         (*self).hidden()
     }
 
@@ -391,14 +334,14 @@ impl<'a, 'v, F: Fields<'v>> Fields<'v> for &'a F {
 }
 
 impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
-    fn items(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn items(&self) -> &[CommandLineArg<'v>] {
         match self {
             Either::Left(x) => x.items(),
             Either::Right(x) => x.items(),
         }
     }
 
-    fn hidden(&self) -> &[CommandLineArgGen<Value<'v>>] {
+    fn hidden(&self) -> &[CommandLineArg<'v>] {
         match self {
             Either::Left(x) => x.hidden(),
             Either::Right(x) => x.hidden(),
@@ -605,7 +548,7 @@ impl<'v> StarlarkCommandLineData<'v> {
         if let Some(values) = ListRef::from_value(value) {
             self.add_values(values.content())?;
         } else {
-            self.items.push(CommandLineArgGen::try_from_value(value)?);
+            self.items.push(CommandLineArg::try_from_value(value)?);
         }
         Ok(())
     }
@@ -627,7 +570,7 @@ impl<'v> StarlarkCommandLineData<'v> {
             if let Some(values) = ListRef::from_value(*value) {
                 self.add_hidden(values.content())?;
             } else {
-                self.hidden.push(CommandLineArgGen::try_from_value(*value)?);
+                self.hidden.push(CommandLineArg::try_from_value(*value)?);
             }
         }
         Ok(())
