@@ -59,8 +59,10 @@ where
 
     let state = SharedState::new();
 
-    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context);
-    let handle = CancellationHandle::new(state);
+    let (termination_notifier, termination_observer) = oneshot::channel();
+
+    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context, termination_notifier);
+    let handle = CancellationHandle::new(state, termination_observer);
 
     (fut, handle)
 }
@@ -82,18 +84,26 @@ pub struct ExplicitlyCancellableFuture<F> {
 
     #[pin]
     future: F,
+
+    termination_notifier: Option<oneshot::Sender<TerminationStatus>>,
 }
 
 impl<F> ExplicitlyCancellableFuture<F>
 where
     F: Future,
 {
-    fn new(future: F, shared: SharedState, execution: ExecutionContext) -> Self {
+    fn new(
+        future: F,
+        shared: SharedState,
+        execution: ExecutionContext,
+        termination_notifier: oneshot::Sender<TerminationStatus>,
+    ) -> Self {
         ExplicitlyCancellableFuture {
             shared,
             execution,
             started: false,
             future,
+            termination_notifier: Some(termination_notifier),
         }
     }
 }
@@ -164,17 +174,32 @@ where
         if poll.is_ready() {
             let state = mem::replace(&mut *this.shared.inner.state.lock(), State::Exited);
             match state {
-                State::Cancelled { tx } => {
+                State::Cancelled => {
                     if this.execution.shared.lock().can_exit() {
                         // if we got canceled during our poll, make sure to still result in canceled
-                        let _ = tx.send(TerminationStatus::Cancelled);
+                        let _ignored = this
+                            .termination_notifier
+                            .take()
+                            .expect("polled after completion")
+                            .send(TerminationStatus::Cancelled);
+
                         return Poll::Ready(None);
                     } else {
                         // we blocked cancellation so this now finishes normally
-                        let _ = tx.send(TerminationStatus::Finished);
+                        let _ignored = this
+                            .termination_notifier
+                            .take()
+                            .expect("polled after completion")
+                            .send(TerminationStatus::Finished);
                     }
                 }
-                _ => {}
+                _ => {
+                    let _ignored = this
+                        .termination_notifier
+                        .take()
+                        .expect("polled after completion")
+                        .send(TerminationStatus::Finished);
+                }
             }
         }
 
@@ -185,19 +210,15 @@ where
 pub struct CancellationHandle {
     shared_state: SharedState,
     observer: Shared<oneshot::Receiver<TerminationStatus>>,
-    sender: oneshot::Sender<TerminationStatus>,
 }
 
 impl CancellationHandle {
-    fn new(shared_state: SharedState) -> Self {
-        let (sender, observer) = oneshot::channel();
-
+    fn new(shared_state: SharedState, observer: oneshot::Receiver<TerminationStatus>) -> Self {
         let observer = observer.shared();
 
         CancellationHandle {
             shared_state,
             observer,
-            sender,
         }
     }
 
@@ -221,16 +242,15 @@ impl CancellationHandle {
             }
             State::Exited => {
                 // Nothing to do, that future is done.
-                let _ = self.sender.send(TerminationStatus::Finished);
             }
             state @ State::Pending => {
                 // we wait for the future to `poll` once even if it has yet to do so.
                 // Since we always should be spawning the `ExplicitlyCancellableFuture` on tokio,
                 // it should be polled once.
-                let _old = std::mem::replace(state, State::Cancelled { tx: self.sender });
+                let _old = std::mem::replace(state, State::Cancelled);
             }
             state @ State::Polled { .. } => {
-                let old = std::mem::replace(state, State::Cancelled { tx: self.sender });
+                let old = std::mem::replace(state, State::Cancelled);
                 match old {
                     State::Polled { waker } => waker.wake(),
                     _ => {
@@ -323,9 +343,7 @@ enum State {
     Polled { waker: Waker },
 
     /// This future has already been cancelled.
-    Cancelled {
-        tx: oneshot::Sender<TerminationStatus>,
-    },
+    Cancelled,
 
     /// This future has already finished executing.
     Exited,
@@ -651,6 +669,23 @@ mod tests {
 
         task.await.unwrap();
         assert!(*dropped.lock());
+    }
+
+    #[tokio::test]
+    async fn test_termination_observer_notifier_even_when_not_cancelled() {
+        let (fut, handle) = make_cancellable_future(|_| futures::future::ready(()).boxed());
+
+        let observer = handle.termination_observer();
+        futures::pin_mut!(observer);
+        assert_matches!(futures::poll!(&mut observer), Poll::Pending);
+
+        futures::pin_mut!(fut);
+        assert_matches!(futures::poll!(fut), Poll::Ready(Some(())));
+
+        assert_matches!(
+            futures::poll!(&mut observer),
+            Poll::Ready(TerminationStatus::Finished)
+        );
     }
 
     #[tokio::test]
