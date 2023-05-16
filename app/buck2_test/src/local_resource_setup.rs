@@ -12,6 +12,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_test_api::data::RequiredLocalResources;
 use indexmap::IndexMap;
@@ -75,7 +76,10 @@ fn required_providers<'v>(
         .filter_map(|r| match r {
             Ok(Some(x)) => Some(Ok(x)),
             Ok(None) => None,
-            Err(e) => Some(Err(e)),
+            Err(e) => {
+                let _ignore = soft_error!("missing_required_local_resource", e, quiet: true);
+                None
+            }
         })
         .collect()
 }
