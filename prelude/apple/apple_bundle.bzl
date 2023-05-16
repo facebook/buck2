@@ -18,7 +18,7 @@ load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list", "get_is_watch_bundle")
-load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
+load(":apple_bundle_types.bzl", "AppleBinaryExtraOutputsInfo", "AppleBundleExtraOutputsInfo", "AppleBundleInfo", "AppleBundleLinkerMapInfo", "AppleBundleResourceInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_product_name")
 load(":apple_dsym.bzl", "AppleBundleDebuggableInfo", "AppleDebuggableInfo", "DEBUGINFO_SUBTARGET", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -245,6 +245,9 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
     install_data = generate_install_data(ctx)
 
+    # Collect extra bundle outputs
+    extra_output_provider = _extra_output_provider(ctx)
+
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(
@@ -265,6 +268,7 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
         RunInfo(args = run_cmd),
         linker_map_info,
         xcode_data_info,
+        extra_output_provider,
     ]
 
 def _xcode_populate_attributes(ctx, processed_info_plist: "artifact") -> {str.type: ""}:
@@ -293,6 +297,25 @@ def _linker_maps_data(ctx: "context") -> ("artifact", AppleBundleLinkerMapInfo.t
     )
     provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
     return (directory, provider)
+
+def _extra_output_provider(ctx: "context") -> AppleBundleExtraOutputsInfo.type:
+    # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.
+    extra_outputs = []
+    if ctx.attrs.binary != None:
+        linker_outputs = ctx.attrs._apple_toolchain[AppleToolchainInfo].extra_linker_outputs
+        binary_outputs = {k: v[DefaultInfo].default_outputs for k, v in ctx.attrs.binary[DefaultInfo].sub_targets.items() if k in linker_outputs}
+        extra_outputs.append(AppleBinaryExtraOutputsInfo(
+            name = get_product_name(ctx),
+            default_output = ctx.attrs.binary[DefaultInfo].default_outputs[0],
+            extra_outputs = binary_outputs,
+        ))
+
+    # Collect the transitive extra bundle outputs from the deps.
+    for dep in ctx.attrs.deps:
+        if AppleBundleExtraOutputsInfo in dep:
+            extra_outputs.extend(dep[AppleBundleExtraOutputsInfo].extra_outputs)
+
+    return AppleBundleExtraOutputsInfo(extra_outputs = extra_outputs)
 
 def generate_install_data(
         ctx: "context",

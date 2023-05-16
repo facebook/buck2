@@ -41,3 +41,15 @@ AppleBundleResourceInfo = provider(fields = [
 AppleBundleLinkerMapInfo = provider(fields = [
     "linker_maps",  # ["artifact"]
 ])
+
+# Providers used to merge extra linker outputs as a top level output
+# of an application bundle.
+AppleBinaryExtraOutputsInfo = provider(fields = [
+    "default_output",  # "artifact"
+    "extra_outputs",  # {`str.type`: ["artifact"]}
+    "name",  # `str.type`
+])
+
+AppleBundleExtraOutputsInfo = provider(fields = [
+    "extra_outputs",  # [AppleBinaryExtraOutputsInfo]
+])
