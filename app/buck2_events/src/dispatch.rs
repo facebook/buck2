@@ -265,6 +265,8 @@ pub struct Span {
     stats: SpanStats,
     parent_id: Option<SpanId>,
     sent: bool,
+    /// Whether we recorded (in any active span recorder) that this span was entered.
+    recorded: bool,
 }
 
 impl Span {
@@ -282,12 +284,6 @@ impl Span {
         let span_id = SpanId::new();
         let start_instant = Instant::now();
 
-        with_thread_local_recorder(|tl_recorder| {
-            if let Some(tl_recorder) = tl_recorder.as_mut() {
-                tl_recorder.push(span_id);
-            }
-        });
-
         dispatcher.event_with_span_id(
             SpanStartEvent {
                 data: Some(data.into()),
@@ -303,6 +299,7 @@ impl Span {
             parent_id,
             stats: Default::default(),
             sent: false,
+            recorded: false,
         }
     }
 
@@ -344,6 +341,16 @@ impl Span {
         F: FnOnce() -> T,
     {
         let now = Instant::now();
+
+        if !self.recorded {
+            with_thread_local_recorder(|tl_recorder| {
+                if let Some(tl_recorder) = tl_recorder.as_mut() {
+                    tl_recorder.push(self.span_id);
+                }
+            });
+
+            self.recorded = true;
+        }
 
         let ret = unset_thread_local_recorder(|| {
             CURRENT_SPAN.with(|tl_span| {
@@ -943,6 +950,13 @@ mod tests {
 
         // Easy case.
         let (id, spans) = async_record_root_spans(async { with_span(nop) }).await;
+        assert_eq!(&*spans, &[id]);
+
+        // Easy case (2).
+        let (id, spans) = async_record_root_spans(span_async(CommandStart::default(), async {
+            (current_span().unwrap(), CommandEnd::default())
+        }))
+        .await;
         assert_eq!(&*spans, &[id]);
 
         // With yields, check we don't re-enter.
