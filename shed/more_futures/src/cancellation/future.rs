@@ -236,10 +236,10 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let state = mem::replace(&mut *self.shared.inner.state.lock(), State::Exited);
-
             // free the future
             self.future.take();
+
+            let state = mem::replace(&mut *self.shared.inner.state.lock(), State::Exited);
 
             match state {
                 State::Cancelled => {
