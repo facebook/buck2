@@ -30,6 +30,7 @@ use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
+use static_assertions::assert_eq_size;
 
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::resolve::attr_type::arg::query::ResolvedQueryMacro;
@@ -63,6 +64,8 @@ pub enum ResolvedMacro {
     /// Holds a resolved query placeholder
     Query(ResolvedQueryMacro),
 }
+
+assert_eq_size!(ResolvedMacro, [usize; 7]);
 
 impl Display for ResolvedMacro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

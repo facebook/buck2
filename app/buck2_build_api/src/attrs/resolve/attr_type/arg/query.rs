@@ -18,6 +18,7 @@ use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::values::FrozenRef;
+use static_assertions::assert_eq_size;
 
 use crate::attrs::resolve::attr_type::arg::value::add_output_to_arg;
 use crate::attrs::resolve::attr_type::arg::ArgBuilder;
@@ -40,6 +41,8 @@ pub enum ResolvedQueryMacro {
         )>,
     ),
 }
+
+assert_eq_size!(ResolvedQueryMacro, [usize; 7]);
 
 impl Display for ResolvedQueryMacro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
