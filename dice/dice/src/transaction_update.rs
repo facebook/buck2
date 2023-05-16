@@ -20,6 +20,7 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
+use crate::impls::ctx::BaseComputeCtx;
 use crate::impls::transaction::TransactionUpdater;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::transaction::DiceTransactionImpl;
@@ -35,15 +36,21 @@ pub(crate) enum DiceTransactionUpdaterImpl {
 }
 
 impl DiceTransactionUpdaterImpl {
-    pub(crate) fn existing_state(&self) -> impl Future<Output = DiceComputations> + '_ {
+    pub(crate) fn existing_state(&self) -> impl Future<Output = DiceTransaction> + '_ {
         match self {
             DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                futures::future::ready(DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())))
-                    .left_future()
+                futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
+                    DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
+                )))
+                .left_future()
             }
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .existing_state()
-                .map(|d| DiceComputations(DiceComputationsImpl::Modern(d)))
+                .map(|d| {
+                    DiceTransaction(DiceTransactionImpl::Modern(
+                        BaseComputeCtx::from_computations(d),
+                    ))
+                })
                 .right_future(),
         }
     }

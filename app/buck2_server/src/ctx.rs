@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -647,7 +648,7 @@ impl DiceUpdater for DiceCommandUpdater {
     async fn update(&self, ctx: DiceTransactionUpdater) -> anyhow::Result<DiceTransactionUpdater> {
         let (cell_resolver, legacy_configs, _): (CellResolver, LegacyBuckConfigs, _) = self
             .cell_config_loader
-            .cells_and_configs(&ctx.existing_state().await)
+            .cells_and_configs(ctx.existing_state().await.deref())
             .await?;
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.

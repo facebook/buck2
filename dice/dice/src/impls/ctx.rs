@@ -87,6 +87,12 @@ impl BaseComputeCtx {
         }
     }
 
+    pub(crate) fn from_computations(ctx: PerComputeCtx) -> Self {
+        Self {
+            data: DiceComputations(DiceComputationsImpl::Modern(ctx)),
+        }
+    }
+
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.data.0.get_version()
     }

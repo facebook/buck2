@@ -15,6 +15,7 @@
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -527,7 +528,9 @@ impl ConcurrencyHandler {
 
                     let transaction = async {
                         let updater = self.dice.updater();
-                        let user_data = user_data.provide(&updater.existing_state().await).await?;
+                        let user_data = user_data
+                            .provide(updater.existing_state().await.deref())
+                            .await?;
 
                         let transaction = updates.update(updater).await?;
 
