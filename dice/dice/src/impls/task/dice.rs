@@ -17,7 +17,6 @@ use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::future::Shared;
 use futures::task::AtomicWaker;
 use more_futures::cancellation::future::CancellationHandle;
 use more_futures::cancellation::future::TerminationObserver;
@@ -95,7 +94,7 @@ impl Allocative for DiceTaskInternal {
 
 pub(crate) enum MaybeCancelled {
     Ok(DicePromise),
-    Cancelled(Shared<TerminationObserver>),
+    Cancelled(TerminationObserver),
 }
 
 impl MaybeCancelled {
@@ -161,7 +160,7 @@ impl DiceTask {
     }
 
     #[allow(unused)] // temporary for D45634595
-    pub(crate) fn cancel(&self) -> Option<Shared<TerminationObserver>> {
+    pub(crate) fn cancel(&self) -> Option<TerminationObserver> {
         let lock = self.internal.dependants.lock();
         self.cancellations.cancel(&lock);
         self.cancellations.is_cancelled(&lock)
@@ -273,7 +272,7 @@ pub(super) struct Cancellations {
 
 enum CancellationsInternal {
     NotCancelled(CancellationHandle),
-    Cancelled(Shared<TerminationObserver>),
+    Cancelled(TerminationObserver),
 }
 
 impl Cancellations {
@@ -310,7 +309,7 @@ impl Cancellations {
     pub(super) fn is_cancelled(
         &self,
         _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
-    ) -> Option<Shared<TerminationObserver>> {
+    ) -> Option<TerminationObserver> {
         self.internal.as_ref().and_then(|internal| {
             match unsafe {
                 // SAFETY: locked by the MutexGuard of Slab

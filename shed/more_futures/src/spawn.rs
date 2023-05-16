@@ -19,7 +19,6 @@ use std::task::Poll;
 use allocative::Allocative;
 use futures::future::BoxFuture;
 use futures::future::Future;
-use futures::future::Shared;
 use futures::FutureExt;
 use pin_project::pin_project;
 use pin_project::pinned_drop;
@@ -231,7 +230,7 @@ impl<T> FutureAndCancellationHandle<T> {
 pub struct DropCancelAndTerminationObserver<T> {
     #[pin]
     pub future: DropCancelFuture<T>,
-    pub termination: Shared<TerminationObserver>,
+    pub termination: TerminationObserver,
 }
 
 impl<T> Future for DropCancelAndTerminationObserver<T> {
