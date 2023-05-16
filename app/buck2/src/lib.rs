@@ -114,6 +114,11 @@ struct BeforeSubcommandOptions {
     #[clap(long, hidden(true))]
     reject_materializer_state: Option<String>,
 
+    /// Set by the client, then echoed in the daemon constraints. Used by the client to reject
+    /// daemons even if their binary version matches.
+    #[clap(long, hidden(true))]
+    daemon_buster: Option<u64>,
+
     /// How verbose buck should be while logging.
     /// Values:
     /// 0 = Quiet, errors only;
@@ -153,6 +158,7 @@ impl BeforeSubcommandOptions {
             which_dice: self.which_dice,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.clone().map(|s| s.into()),
+            daemon_buster: self.daemon_buster,
         }
     }
 }

@@ -23,6 +23,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::fs_util;
 use buck2_util::process::async_background_command;
 use dupe::Dupe;
 use futures::future::try_join3;
@@ -69,19 +70,27 @@ impl ConstraintCheckResult {
 pub struct DaemonConstraintsRequest {
     version: String,
     user_version: Option<String>,
+    daemon_buster: Option<u64>,
     desired_trace_io_state: DesiredTraceIoState,
     pub reject_daemon: Option<String>,
     pub reject_materializer_state: Option<String>,
 }
 
 impl DaemonConstraintsRequest {
-    pub fn new(desired_trace_io_state: DesiredTraceIoState) -> anyhow::Result<Self> {
+    pub fn new(
+        paths: &InvocationPaths,
+        desired_trace_io_state: DesiredTraceIoState,
+    ) -> anyhow::Result<Self> {
+        let daemon_buster =
+            read_daemon_buster(paths).context("Error reading daemon buster data")?;
+
         Ok(Self {
             version: daemon_constraints::version(),
             user_version: daemon_constraints::user_version()?,
             desired_trace_io_state,
             reject_daemon: None,
             reject_materializer_state: None,
+            daemon_buster,
         })
     }
 
@@ -91,6 +100,10 @@ impl DaemonConstraintsRequest {
         }
 
         if self.user_version != daemon.user_version {
+            return false;
+        }
+
+        if self.daemon_buster != daemon.daemon_buster {
             return false;
         }
 
@@ -126,6 +139,20 @@ impl DaemonConstraintsRequest {
 
         true
     }
+}
+
+fn read_daemon_buster(paths: &InvocationPaths) -> anyhow::Result<Option<u64>> {
+    let path = paths.daemon_buster_path();
+    let content = fs_util::read_to_string_opt(&path)?;
+    content
+        .map(|content| content.parse())
+        .transpose()
+        .with_context(|| {
+            format!(
+                "Invalid daemon buster data at: `{}` (an integer is expected)",
+                path
+            )
+        })
 }
 
 #[derive(Debug, Clone, Copy, Dupe)]
@@ -185,6 +212,13 @@ impl BuckdConnectConstraints {
     pub fn reject_materializer_state(&self) -> Option<&str> {
         match self {
             Self::Constraints(c) => c.reject_materializer_state.as_deref(),
+            Self::ExistingOnly => None,
+        }
+    }
+
+    pub fn daemon_buster(&self) -> Option<u64> {
+        match self {
+            Self::Constraints(c) => c.daemon_buster,
             Self::ExistingOnly => None,
         }
     }
@@ -272,6 +306,13 @@ impl<'a> BuckdLifecycle<'a> {
         if let Some(r) = self.constraints.reject_materializer_state() {
             args.push("--reject-materializer-state");
             args.push(r);
+        }
+
+        let tmp; // Allocate a String for the entry below and keep it alive.
+        if let Some(daemon_buster) = self.constraints.daemon_buster() {
+            args.push("--daemon-buster");
+            tmp = daemon_buster.to_string();
+            args.push(&tmp);
         }
 
         let daemon_env_vars = if env::var_os("RUST_BACKTRACE").is_some()
@@ -769,6 +810,7 @@ mod tests {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             daemon_id: "foo".to_owned(),
+            daemon_buster: None,
             extra: Some(buck2_cli_proto::ExtraDaemonConstraints {
                 trace_io_enabled,
                 materializer_state_identity: None,
@@ -783,6 +825,7 @@ mod tests {
             desired_trace_io_state,
             reject_daemon: None,
             reject_materializer_state: None,
+            daemon_buster: None,
         })
     }
 
@@ -831,6 +874,7 @@ mod tests {
             desired_trace_io_state: DesiredTraceIoState::Existing,
             reject_daemon: None,
             reject_materializer_state: None,
+            daemon_buster: None,
         };
 
         let daemon = buck2_cli_proto::DaemonConstraints {
@@ -838,6 +882,7 @@ mod tests {
             user_version: None,
             daemon_id: "ddd".to_owned(),
             extra: None,
+            daemon_buster: None,
         };
 
         assert!(req.satisfied(&daemon));
@@ -855,6 +900,7 @@ mod tests {
             desired_trace_io_state: DesiredTraceIoState::Existing,
             reject_daemon: None,
             reject_materializer_state: None,
+            daemon_buster: None,
         };
 
         let daemon = buck2_cli_proto::DaemonConstraints {
@@ -865,12 +911,40 @@ mod tests {
                 trace_io_enabled: false,
                 materializer_state_identity: Some("mmm".to_owned()),
             }),
+            daemon_buster: None,
         };
 
         assert!(req.satisfied(&daemon));
         req.reject_materializer_state = Some("zzz".to_owned());
         assert!(req.satisfied(&daemon));
         req.reject_materializer_state = Some("mmm".to_owned());
+        assert!(!req.satisfied(&daemon));
+    }
+
+    #[test]
+    fn test_daemon_buster() {
+        let mut req = DaemonConstraintsRequest {
+            version: "foo".to_owned(),
+            user_version: None,
+            desired_trace_io_state: DesiredTraceIoState::Existing,
+            reject_daemon: None,
+            reject_materializer_state: None,
+            daemon_buster: None,
+        };
+
+        let daemon = buck2_cli_proto::DaemonConstraints {
+            version: "foo".to_owned(),
+            user_version: None,
+            daemon_id: "ddd".to_owned(),
+            extra: Some(buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled: false,
+                materializer_state_identity: Some("mmm".to_owned()),
+            }),
+            daemon_buster: None,
+        };
+
+        assert!(req.satisfied(&daemon));
+        req.daemon_buster = Some(1);
         assert!(!req.satisfied(&daemon));
     }
 }

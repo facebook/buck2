@@ -203,6 +203,20 @@ impl InvocationPaths {
     pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
         vec![self.materializer_state_dir_name()]
     }
+
+    /// When client and server versions mismatch, we restart the daemon. This file allows doing the
+    /// same thing: it contains a single integer. If the client and daemon have a different
+    /// version, the client will restart the daemon.
+    ///
+    /// This allows forcing daemons to restart via a commit in the repository. This can be used to
+    /// force the daemon to pick up a buckconfig change, or for other remediation task that require
+    /// a daemon restart to take effect.
+    pub fn daemon_buster_path(&self) -> AbsNormPathBuf {
+        self.roots
+            .project_root
+            .root()
+            .join(ForwardRelativePath::unchecked_new(".buck2.daemon_buster"))
+    }
 }
 
 #[cfg(test)]
