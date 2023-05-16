@@ -14,7 +14,6 @@ use std::sync::Once;
 pub mod attrs;
 pub mod interpreter;
 pub mod label;
-pub mod load_signals;
 pub mod nodes;
 pub mod provider;
 pub mod rule;

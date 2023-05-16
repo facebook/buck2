@@ -18,8 +18,9 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_data::ToProtoMessage;
-use buck2_events::dispatch::current_span;
+use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;
+use buck2_events::span::SpanId;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
@@ -35,12 +36,10 @@ use futures::FutureExt;
 use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
 use ref_cast::RefCast;
+use smallvec::SmallVec;
 use tracing::debug;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::build_listener::ActionExecutionSignal;
-use crate::actions::build_listener::ActionRedirectionSignal;
-use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::NodeDuration;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
@@ -70,16 +69,6 @@ async fn build_action_impl(
         // underlying action only gets called once, so call build_action once
         // again with the new key to get DICE deduplication.
         let res = ActionCalculation::build_action(ctx, action.key()).await;
-
-        if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-            // Notify our critical path tracking that *this action* is secretly that
-            // other action we just jumped to.
-            signals.signal(ActionRedirectionSignal {
-                key: key.dupe(),
-                dest: action.key().dupe(),
-            });
-        }
-
         return res;
     }
 
@@ -123,6 +112,7 @@ async fn build_action_no_redirect(
         .context(format!("for action `{}`", action))?;
 
     let now = Instant::now();
+    let action = &action;
 
     let fut = async move {
         let (execute_result, command_reports) = executor
@@ -156,17 +146,6 @@ async fn build_action_no_redirect(
 
         match execute_result {
             Ok((outputs, meta)) => {
-                if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-                    signals.signal(ActionExecutionSignal {
-                        action: action.dupe(),
-                        duration: NodeDuration {
-                            user: meta.timing.wall_time,
-                            total: now.elapsed(),
-                        },
-                        span_id: current_span(),
-                    });
-                }
-
                 output_size = outputs.calc_output_count_and_bytes().bytes;
                 action_result = Ok(outputs);
                 execution_kind = Some(meta.execution_kind.as_enum());
@@ -219,7 +198,7 @@ async fn build_action_no_redirect(
             .unwrap_or_default();
 
         (
-            action_result,
+            (action_result, wall_time),
             Box::new(buck2_data::ActionExecutionEnd {
                 key: Some(action.key().as_proto()),
                 kind: action.kind().into(),
@@ -247,8 +226,28 @@ async fn build_action_no_redirect(
             }),
         )
     };
+
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
-    span_async(start_event, fut.boxed()).await
+    let ((res, wall_time), spans) =
+        async_record_root_spans(span_async(start_event, fut.boxed())).await;
+
+    // TODO: This wall time is rather wrong. We should report a wall time on failures too.
+    ctx.store_evaluation_data(BuildKeyActivationData {
+        action: action.dupe(),
+        duration: NodeDuration {
+            user: wall_time.unwrap_or_default(),
+            total: now.elapsed(),
+        },
+        spans,
+    })?;
+
+    res
+}
+
+pub struct BuildKeyActivationData {
+    pub action: Arc<RegisteredAction>,
+    pub duration: NodeDuration,
+    pub spans: SmallVec<[SpanId; 1]>,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls

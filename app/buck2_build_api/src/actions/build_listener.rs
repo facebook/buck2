@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
@@ -28,22 +29,23 @@ use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_critical_path::PushError;
 use buck2_data::ToProtoMessage;
-use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_events::span::SpanId;
-use buck2_interpreter_for_build::load_signals::LoadSignalSender;
-use buck2_interpreter_for_build::load_signals::SetLoadSignals;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_interpreter_for_build::interpreter::calculation::IntepreterResultsKeyActivationData;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use derive_more::From;
+use dice::ActivationData;
+use dice::ActivationTracker;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::VecExt;
 use itertools::Itertools;
+use smallvec::SmallVec;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -51,24 +53,79 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
 use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::key::ActionKey;
+use crate::actions::calculation::BuildKey;
+use crate::actions::calculation::BuildKeyActivationData;
 use crate::actions::RegisteredAction;
+use crate::analysis::calculation::AnalysisKey;
+use crate::analysis::calculation::AnalysisKeyActivationData;
+use crate::artifact_groups::calculation::EnsureProjectedArtifactKey;
+use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroup;
-use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::calculation::DeferredCompute;
+use crate::deferred::calculation::DeferredResolve;
+use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
-pub struct ActionExecutionSignal {
-    pub action: Arc<RegisteredAction>,
-    pub duration: NodeDuration,
-    pub span_id: Option<SpanId>,
+/// A node in our critical path graph.
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, From)]
+enum NodeKey {
+    // Those are DICE keys.
+    BuildKey(BuildKey),
+    AnalysisKey(AnalysisKey),
+    EnsureProjectedArtifactKey(EnsureProjectedArtifactKey),
+    EnsureTransitiveSetProjectionKey(EnsureTransitiveSetProjectionKey),
+    DeferredCompute(DeferredCompute),
+    DeferredResolve(DeferredResolve),
+    ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
+    InterpreterResultsKey(InterpreterResultsKey),
+
+    // This one is not a DICE key.
+    Materialization(BuildArtifact),
 }
 
-pub struct AnalysisSignal {
-    pub label: ConfiguredTargetLabel,
-    pub node: ConfiguredTargetNode,
-    pub duration: NodeDuration,
-    pub span_id: Option<SpanId>,
+impl NodeKey {
+    fn from_any(key: &dyn Any) -> Option<Self> {
+        let key = if let Some(key) = key.downcast_ref::<BuildKey>() {
+            Self::BuildKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<AnalysisKey>() {
+            Self::AnalysisKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<EnsureProjectedArtifactKey>() {
+            Self::EnsureProjectedArtifactKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<EnsureTransitiveSetProjectionKey>() {
+            Self::EnsureTransitiveSetProjectionKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<DeferredCompute>() {
+            Self::DeferredCompute(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<DeferredResolve>() {
+            Self::DeferredResolve(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
+            Self::ConfiguredTargetNodeKey(key.dupe())
+        } else if let Some(key) = key.downcast_ref::<InterpreterResultsKey>() {
+            Self::InterpreterResultsKey(key.dupe())
+        } else {
+            return None;
+        };
+
+        Some(key)
+    }
+}
+
+impl fmt::Display for NodeKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::BuildKey(k) => write!(f, "BuildKey({})", k),
+            Self::AnalysisKey(k) => write!(f, "AnalysisKey({})", k),
+            Self::EnsureProjectedArtifactKey(k) => write!(f, "EnsureProjectedArtifactKey({})", k),
+            Self::EnsureTransitiveSetProjectionKey(k) => {
+                write!(f, "EnsureTransitiveSetProjectionKey({})", k)
+            }
+            Self::DeferredCompute(k) => write!(f, "DeferredCompute({})", k),
+            Self::DeferredResolve(k) => write!(f, "DeferredResolve({})", k),
+            Self::ConfiguredTargetNodeKey(k) => write!(f, "ConfiguredTargetNodeKey({})", k),
+            Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
+            Self::Materialization(k) => write!(f, "Materialization({})", k),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Dupe)]
@@ -95,21 +152,6 @@ impl NodeDuration {
         }
     }
 }
-pub struct TransitiveSetComputationSignal {
-    pub key: TransitiveSetProjectionKey,
-    pub artifacts: HashSet<ActionKey>,
-    pub set_deps: HashSet<TransitiveSetProjectionKey>,
-}
-
-/// When dealing with dynamic outputs, we obtain an action key that'll result in us doing
-/// (deferred) analysis and resolve to another action (the deferred action). We then go and execute
-/// that action instead. Our predecessor map tracks action keys so we need to track this
-/// redirection otherwise we'll have a broken link in our chain.
-pub struct ActionRedirectionSignal {
-    pub key: ActionKey,
-    pub dest: ActionKey,
-}
-
 pub struct TopLevelTargetSignal {
     pub label: ConfiguredTargetLabel,
     pub artifacts: Vec<ArtifactGroup>,
@@ -121,13 +163,6 @@ pub struct FinalMaterializationSignal {
     pub span_id: Option<SpanId>,
 }
 
-pub struct LoadSignal {
-    pub package: PackageLabel,
-    pub deps: Vec<PackageLabel>,
-    pub duration: NodeDuration,
-    pub span_id: Option<SpanId>,
-}
-
 /* These signals are distinct from the main Buck event bus because some
  * analysis needs access to the entire build graph, and serializing the
  * entire build graph isn't feasible - therefore, we have these signals
@@ -135,14 +170,32 @@ pub struct LoadSignal {
  */
 #[derive(From)]
 pub enum BuildSignal {
-    ActionExecution(ActionExecutionSignal),
-    TransitiveSetComputation(TransitiveSetComputationSignal),
-    ActionRedirection(ActionRedirectionSignal),
-    Analysis(AnalysisSignal),
+    Evaluation(Evaluation),
     TopLevelTarget(TopLevelTargetSignal),
     FinalMaterialization(FinalMaterializationSignal),
-    Load(LoadSignal),
     BuildFinished,
+}
+
+/// Data for a BuildSignal that is the result of a DICE key evaluation.
+pub struct Evaluation {
+    /// The key we evaluated.
+    key: NodeKey,
+    /// The duration. By default this'll be zero, unless activation data says otherwise.
+    duration: NodeDuration,
+    /// The dependencies.
+    dep_keys: Vec<NodeKey>,
+    /// Spans that correspond to this key. We use this when producing a chrome trace.
+    spans: SmallVec<[SpanId; 1]>,
+
+    // NOTE: The fields below aren't usually going to be both set, but it doesn't really hurt (for
+    // now) to have them not tied to the right variant.
+    /// The RegisteredAction that corresponds to this Evaluation (this will only be present for
+    /// NodeKey::BuildKey).
+    action: Option<Arc<RegisteredAction>>,
+
+    /// The Load result that corresponds to this Evaluation (this will only be pesent for
+    /// InterpreterResultsKey).
+    load_result: Option<Arc<EvaluationResult>>,
 }
 
 #[derive(Clone, Dupe)]
@@ -156,26 +209,77 @@ impl BuildSignalSender {
     }
 }
 
-impl LoadSignalSender for BuildSignalSender {
-    fn send_load(&self, package: PackageLabel, res: &EvaluationResult, duration: Duration) {
-        let deps = res
-            .targets()
-            .values()
-            .flat_map(|target| target.deps().map(|t| t.pkg()))
-            .unique()
-            .map(|pkg| pkg.dupe())
-            .collect::<Vec<_>>();
+impl ActivationTracker for BuildSignalSender {
+    /// We received a DICE key. Check if it's one of the keys we care about (i.e. can we downcast
+    /// it to NodeKey?), and then if that's the case, extract its dependencies and activation data
+    /// (if any).
+    fn key_activated(
+        &self,
+        key: &dyn Any,
+        deps: &mut dyn Iterator<Item = &dyn Any>,
+        activation_data: ActivationData,
+    ) {
+        let key = match NodeKey::from_any(key) {
+            Some(key) => key,
+            None => return,
+        };
 
-        self.signal(LoadSignal {
-            package,
-            deps,
-            duration: NodeDuration {
-                user: duration,
-                total: duration,
-            },
-            // Not quite right, that should encompass the load stage too
-            span_id: current_span(),
-        });
+        let mut signal = Evaluation {
+            key,
+            action: None,
+            duration: NodeDuration::zero(),
+            dep_keys: deps.into_iter().filter_map(NodeKey::from_any).collect(),
+            spans: Default::default(),
+            load_result: None,
+        };
+
+        /// Given an Option containing an Any, take it if and only if it contains a T.
+        fn downcast_and_take<T: 'static>(
+            data: &mut Option<Box<dyn Any + Send + Sync + 'static>>,
+        ) -> Option<T> {
+            if data.as_ref().map(|d| d.is::<T>()) != Some(true) {
+                return None;
+            }
+
+            // Unwrap safety: we just checked that the option is occupied and the type matches
+            Some(*data.take().unwrap().downcast().ok().unwrap())
+        }
+
+        if let ActivationData::Evaluated(mut activation_data) = activation_data {
+            if let Some(BuildKeyActivationData {
+                action,
+                duration,
+                spans,
+            }) = downcast_and_take(&mut activation_data)
+            {
+                signal.action = Some(action);
+                signal.duration = duration;
+                signal.spans = spans;
+            } else if let Some(AnalysisKeyActivationData { duration, spans }) =
+                downcast_and_take(&mut activation_data)
+            {
+                signal.duration = NodeDuration {
+                    user: duration,
+                    total: duration,
+                };
+                signal.spans = spans;
+            } else if let Some(IntepreterResultsKeyActivationData {
+                duration,
+                result,
+                spans,
+            }) = downcast_and_take(&mut activation_data)
+            {
+                signal.duration = NodeDuration {
+                    user: duration,
+                    total: duration,
+                };
+
+                signal.load_result = result.ok();
+                signal.spans = spans;
+            }
+        }
+
+        self.signal(signal);
     }
 }
 
@@ -188,39 +292,7 @@ struct CriticalPathNode<TKey: Eq, TValue> {
     pub prev: Option<TKey>,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug)]
-pub enum NodeKey {
-    ActionKey(ActionKey),
-    TransitiveSetProjection(TransitiveSetProjectionKey),
-    // NOTE: we do not currently support analysis of anonymous targets or BXL.
-    Analysis(ConfiguredTargetLabel),
-    Materialization(BuildArtifact),
-    Load(PackageLabel),
-}
-
-impl fmt::Display for NodeKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ActionKey(k) => {
-                write!(f, "ActionKey: {}", k)
-            }
-            Self::TransitiveSetProjection(k) => {
-                write!(f, "TransitiveSetProjection: {}", k)
-            }
-            Self::Analysis(k) => {
-                write!(f, "Analysis: {}", k)
-            }
-            Self::Materialization(k) => {
-                write!(f, "Materialization: {}", k)
-            }
-            Self::Load(k) => {
-                write!(f, "Load: {}", k)
-            }
-        }
-    }
-}
-
-pub struct BuildSignalReceiver<T> {
+struct BuildSignalReceiver<T> {
     receiver: UnboundedReceiverStream<BuildSignal>,
     // Maps a PackageLabel to the first PackageLabel that had an edge to it. When that PackageLabel
     // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
@@ -281,21 +353,13 @@ where
     pub async fn run_and_log(mut self) -> anyhow::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
-                BuildSignal::ActionExecution(execution) => self.process_action(execution)?,
-                BuildSignal::TransitiveSetComputation(tset) => {
-                    self.process_transitive_set_computation(tset)?
-                }
-                BuildSignal::ActionRedirection(redirection) => {
-                    self.process_action_redirection(redirection)?
-                }
-                BuildSignal::Analysis(analysis) => self.process_analysis(analysis)?,
+                BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
                 BuildSignal::TopLevelTarget(top_level) => {
                     self.process_top_level_target(top_level)?
                 }
                 BuildSignal::FinalMaterialization(final_materialization) => {
                     self.process_final_materialization(final_materialization)?
                 }
-                BuildSignal::Load(load) => self.process_load(load)?,
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -312,11 +376,11 @@ where
 
         let meta_entry_data = NodeData {
             action: None,
-            span_id: None,
             duration: NodeDuration {
                 user: Duration::ZERO,
                 total: compute_elapsed,
             },
+            span_ids: Default::default(),
         };
 
         let meta_entry = (
@@ -329,15 +393,16 @@ where
             .iter()
             .filter_map(|(key, data, potential_improvement)| {
                 let entry: buck2_data::critical_path_entry2::Entry = match key {
-                    NodeKey::ActionKey(action_key) => {
-                        let owner = match action_key.owner() {
+                    NodeKey::BuildKey(key) => {
+                        let owner = match key.0.owner() {
                             BaseDeferredKey::TargetLabel(t) => t.as_proto().into(),
                             BaseDeferredKey::AnonTarget(t) => t.as_proto().into(),
                             BaseDeferredKey::BxlLabel(t) => t.as_proto().into(),
                         };
 
                         // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
-                        // in our data.
+                        // in our data (unless we didn't actually run it because of e.g. early
+                        // cutoff, in which case omitting it is what we want).
                         let action = data.action.as_ref()?;
 
                         buck2_data::critical_path_entry2::ActionExecution {
@@ -349,8 +414,8 @@ where
                         }
                         .into()
                     }
-                    NodeKey::Analysis(key) => buck2_data::critical_path_entry2::Analysis {
-                        target: Some(key.as_proto().into()),
+                    NodeKey::AnalysisKey(key) => buck2_data::critical_path_entry2::Analysis {
+                        target: Some(key.0.as_proto().into()),
                     }
                     .into(),
                     NodeKey::Materialization(key) => {
@@ -366,11 +431,15 @@ where
                         }
                         .into()
                     }
-                    NodeKey::Load(package) => buck2_data::critical_path_entry2::Load {
-                        package: package.to_string(),
+                    NodeKey::InterpreterResultsKey(key) => buck2_data::critical_path_entry2::Load {
+                        package: key.0.to_string(),
                     }
                     .into(),
-                    NodeKey::TransitiveSetProjection(..) => return None,
+                    NodeKey::EnsureProjectedArtifactKey(..) => return None,
+                    NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
+                    NodeKey::DeferredCompute(..) => return None,
+                    NodeKey::DeferredResolve(..) => return None,
+                    NodeKey::ConfiguredTargetNodeKey(..) => return None,
                 };
 
                 Some((entry, data, potential_improvement))
@@ -379,9 +448,9 @@ where
             .map(|(entry, data, potential_improvement)| {
                 anyhow::Ok(buck2_data::CriticalPathEntry2 {
                     span_ids: data
-                        .span_id
-                        .map(|span_id| span_id.into())
-                        .into_iter()
+                        .span_ids
+                        .iter()
+                        .map(|span_id| (*span_id).into())
                         .collect(),
                     duration: Some(data.duration.critical_path_duration().try_into()?),
                     user_duration: Some(data.duration.user.try_into()?),
@@ -406,93 +475,57 @@ where
         Ok(())
     }
 
-    fn process_action(&mut self, execution: ActionExecutionSignal) -> Result<(), anyhow::Error> {
-        // Identify most costly predecessor.
-        let inputs = execution.action.inputs()?;
+    /// Receive an Evaluation. Do a little enrichment if it's a load, then pass through to the
+    /// underying backend.
+    fn process_evaluation(&mut self, mut evaluation: Evaluation) {
+        self.enrich_load(&mut evaluation);
 
-        let dep_keys = inputs
-            .iter()
-            .filter_map(|dep| match dep.assert_resolved() {
-                ResolvedArtifactGroup::Artifact(artifact) => {
-                    artifact.action_key().duped().map(NodeKey::ActionKey)
+        self.backend.process_node(
+            evaluation.key,
+            evaluation.action,
+            evaluation.duration,
+            evaluation.dep_keys.into_iter(),
+            evaluation.spans,
+        );
+    }
+
+    /// If the evaluation is a load (InterpreterResultsKey) and carries a load_result, then inject
+    /// some extra edges that indicate which packages have now become visibile as a result of this
+    /// load.
+    fn enrich_load(&mut self, evaluation: &mut Evaluation) {
+        let pkg = match &evaluation.key {
+            NodeKey::InterpreterResultsKey(InterpreterResultsKey(pkg)) => pkg,
+            _ => return,
+        };
+
+        if let Some(load_result) = &evaluation.load_result {
+            let deps_pkg = load_result
+                .targets()
+                .values()
+                .flat_map(|target| target.deps().map(|t| t.pkg()))
+                .unique()
+                .map(|pkg| pkg.dupe());
+
+            for dep_pkg in deps_pkg {
+                if dep_pkg == *pkg {
+                    continue;
                 }
-                ResolvedArtifactGroup::TransitiveSetProjection(key) => {
-                    Some(NodeKey::TransitiveSetProjection(key.dupe()))
-                }
-            })
-            .chain(
-                execution
-                    .action
-                    .owner()
-                    .unpack_target_label()
-                    .duped()
-                    .map(NodeKey::Analysis)
-                    .into_iter(),
-            );
 
-        self.backend.process_node(
-            NodeKey::ActionKey(execution.action.key().dupe()),
-            Some(execution.action.dupe()),
-            execution.duration,
-            dep_keys,
-            execution.span_id,
-        );
+                self.first_edge_to_load
+                    .entry(dep_pkg)
+                    .or_insert_with(|| pkg.dupe());
+            }
+        }
 
-        Ok(())
-    }
+        let first_edge = self.first_edge_to_load.get(pkg);
 
-    fn process_action_redirection(
-        &mut self,
-        redirection: ActionRedirectionSignal,
-    ) -> anyhow::Result<()> {
-        self.backend.process_node(
-            NodeKey::ActionKey(redirection.key),
-            None,
-            NodeDuration::zero(), // Those nodes don't carry a duration.
-            std::iter::once(NodeKey::ActionKey(redirection.dest)),
-            None,
-        );
-
-        Ok(())
-    }
-
-    fn process_transitive_set_computation(
-        &mut self,
-        set: TransitiveSetComputationSignal,
-    ) -> anyhow::Result<()> {
-        let artifacts = set.artifacts.into_iter().map(NodeKey::ActionKey);
-        let sets = set
-            .set_deps
-            .into_iter()
-            .map(NodeKey::TransitiveSetProjection);
-
-        self.backend.process_node(
-            NodeKey::TransitiveSetProjection(set.key),
-            None,
-            NodeDuration::zero(), // Those nodes don't carry a duration.
-            artifacts.chain(sets),
-            None,
-        );
-
-        Ok(())
-    }
-
-    fn process_analysis(&mut self, analysis: AnalysisSignal) -> Result<(), anyhow::Error> {
-        let dep_keys = analysis
-            .node
-            .deps()
-            .map(|d| NodeKey::Analysis(d.label().dupe()))
-            .chain(std::iter::once(NodeKey::Load(analysis.label.pkg())));
-
-        self.backend.process_node(
-            NodeKey::Analysis(analysis.label),
-            None,
-            analysis.duration,
-            dep_keys,
-            analysis.span_id,
-        );
-
-        Ok(())
+        if let Some(first_edge) = first_edge {
+            evaluation
+                .dep_keys
+                .push(NodeKey::InterpreterResultsKey(InterpreterResultsKey(
+                    first_edge.dupe(),
+                )));
+        }
     }
 
     // TODO: We would need something similar with anon targets.
@@ -505,16 +538,22 @@ where
                 .artifacts
                 .into_iter()
                 .filter_map(|dep| match dep.assert_resolved() {
-                    ResolvedArtifactGroup::Artifact(artifact) => {
-                        artifact.action_key().duped().map(NodeKey::ActionKey)
-                    }
+                    ResolvedArtifactGroup::Artifact(artifact) => artifact
+                        .action_key()
+                        .duped()
+                        .map(BuildKey)
+                        .map(NodeKey::BuildKey),
                     ResolvedArtifactGroup::TransitiveSetProjection(key) => {
-                        Some(NodeKey::TransitiveSetProjection(key.dupe()))
+                        Some(NodeKey::EnsureTransitiveSetProjectionKey(
+                            EnsureTransitiveSetProjectionKey(key.dupe()),
+                        ))
                     }
                 });
 
-        self.backend
-            .process_top_level_target(NodeKey::Analysis(top_level.label), artifact_keys);
+        self.backend.process_top_level_target(
+            NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
+            artifact_keys,
+        );
 
         Ok(())
     }
@@ -523,56 +562,28 @@ where
         &mut self,
         materialization: FinalMaterializationSignal,
     ) -> Result<(), anyhow::Error> {
-        let dep = NodeKey::ActionKey(materialization.artifact.key().dupe());
+        let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
 
         self.backend.process_node(
             NodeKey::Materialization(materialization.artifact),
             None,
             materialization.duration,
             std::iter::once(dep),
-            materialization.span_id,
-        );
-
-        Ok(())
-    }
-
-    fn process_load(&mut self, load: LoadSignal) -> Result<(), anyhow::Error> {
-        for d in load.deps {
-            if d == load.package {
-                continue;
-            }
-            self.first_edge_to_load
-                .entry(d)
-                .or_insert_with(|| load.package.dupe());
-        }
-
-        let edge = self
-            .first_edge_to_load
-            .get(&load.package)
-            .duped()
-            .map(NodeKey::Load)
-            .into_iter();
-
-        self.backend.process_node(
-            NodeKey::Load(load.package),
-            None,
-            load.duration,
-            edge,
-            load.span_id,
+            materialization.span_id.into_iter().collect(),
         );
 
         Ok(())
     }
 }
 
-pub trait BuildListenerBackend {
+trait BuildListenerBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
-        span_id: Option<SpanId>,
+        span_ids: SmallVec<[SpanId; 1]>,
     );
 
     fn process_top_level_target(
@@ -616,7 +627,7 @@ impl BuildListenerBackend for DefaultBackend {
         value: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
-        span_id: Option<SpanId>,
+        span_ids: SmallVec<[SpanId; 1]>,
     ) {
         let longest_ancestor = dep_keys
             .unique()
@@ -630,7 +641,7 @@ impl BuildListenerBackend for DefaultBackend {
         let value = NodeData {
             action: value,
             duration,
-            span_id,
+            span_ids,
         };
 
         let node = match longest_ancestor {
@@ -660,7 +671,7 @@ impl BuildListenerBackend for DefaultBackend {
     fn finish(self) -> anyhow::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
             .context("Error extracting critical path")?
-            .into_map(|(key, data, _duration)| (key.dupe(), data.dupe(), None));
+            .into_map(|(key, data, _duration)| (key.dupe(), data.clone(), None));
 
         Ok(BuildInfo {
             critical_path,
@@ -681,11 +692,11 @@ struct LongestPathGraphBackend {
     top_level_analysis: Vec<VisibilityEdge>,
 }
 
-#[derive(Dupe, Clone)]
+#[derive(Clone)]
 struct NodeData {
     action: Option<Arc<RegisteredAction>>,
     duration: NodeDuration,
-    span_id: Option<SpanId>,
+    span_ids: SmallVec<[SpanId; 1]>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
@@ -710,7 +721,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         action: Option<Arc<RegisteredAction>>,
         duration: NodeDuration,
         dep_keys: impl Iterator<Item = NodeKey>,
-        span_id: Option<SpanId>,
+        span_ids: SmallVec<[SpanId; 1]>,
     ) {
         let builder = match self.builder.as_mut() {
             Ok(b) => b,
@@ -723,7 +734,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             NodeData {
                 action,
                 duration,
-                span_id,
+                span_ids,
             },
         );
 
@@ -770,6 +781,12 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
                 let mut queue = Vec::new();
 
+                // We have an analysis and a set of artifacts that we decided to build after having
+                // evaluated this analysis. So, traverse all of those artifacts' dependencies, and
+                // label them as depending on this top level analysis (but we only do that once).
+                // Concretely, this expresses the idea that we only started knowing we cared about
+                // those artifacts once we finished that analysis.
+
                 for artifact in artifacts {
                     let artifact = match keys.get(artifact) {
                         Some(a) => a,
@@ -786,12 +803,14 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                             continue;
                         }
 
-                        // Only add those new edges on things that analysis produces
+                        // We only traverse edges to things that produce artifacts here.
                         match keys[i] {
-                            NodeKey::Analysis(..)
-                            | NodeKey::Materialization(..)
-                            | NodeKey::Load(..) => continue,
-                            NodeKey::ActionKey(..) | NodeKey::TransitiveSetProjection(..) => {}
+                            NodeKey::BuildKey(..)
+                            | NodeKey::EnsureTransitiveSetProjectionKey(..)
+                            | NodeKey::EnsureProjectedArtifactKey(..) => {}
+                            _ => {
+                                continue;
+                            }
                         };
 
                         first_analysis[i] = analysis.into();
@@ -835,7 +854,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                     NodeData {
                         action: None,
                         duration: NodeDuration::zero(),
-                        span_id: None,
+                        span_ids: Default::default(),
                     },
                 );
 
@@ -864,7 +883,6 @@ pub trait SetBuildSignals {
 impl SetBuildSignals for UserComputationData {
     fn set_build_signals(&mut self, sender: BuildSignalSender) {
         self.data.set(sender.dupe());
-        self.set_load_signals(sender);
     }
 }
 

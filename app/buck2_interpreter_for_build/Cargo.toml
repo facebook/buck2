@@ -19,6 +19,7 @@ once_cell = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 twox-hash = { workspace = true }
+smallvec = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }

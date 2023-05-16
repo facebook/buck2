@@ -10,6 +10,8 @@
 //! Interpreter related Dice calculations
 
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -18,6 +20,8 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
+use buck2_events::dispatch::async_record_root_spans;
+use buck2_events::span::SpanId;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
@@ -33,6 +37,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
+use smallvec::SmallVec;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 
@@ -85,9 +90,21 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                 ctx: &DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                ctx.get_interpreter_results_uncached(self.0.dupe())
-                    .await
-                    .shared_error()
+                let now = Instant::now();
+
+                let (result, spans) =
+                    async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe()))
+                        .await;
+
+                let result = result.shared_error();
+
+                ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
+                    duration: now.elapsed(),
+                    result: result.dupe(),
+                    spans,
+                })?;
+
+                result
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -124,4 +141,10 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .eval_module(path)
             .await
     }
+}
+
+pub struct IntepreterResultsKeyActivationData {
+    pub duration: Duration,
+    pub result: SharedResult<Arc<EvaluationResult>>,
+    pub spans: SmallVec<[SpanId; 1]>,
 }

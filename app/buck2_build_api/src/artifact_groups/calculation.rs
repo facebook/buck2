@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashSet;
 use std::iter::zip;
 use std::sync::Arc;
 
@@ -50,8 +49,6 @@ use crate::actions::artifact::artifact_type::BaseArtifactKind;
 use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::projected_artifact::ProjectedArtifact;
 use crate::actions::artifact::source_artifact::SourceArtifact;
-use crate::actions::build_listener::HasBuildSignals;
-use crate::actions::build_listener::TransitiveSetComputationSignal;
 use crate::actions::calculation::ActionCalculation;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
@@ -438,30 +435,6 @@ impl Key for EnsureTransitiveSetProjectionKey {
         // At this point we're holding a lot of data and want to ensure that we don't hold that across any
         // .await, so move into a little sync closure and call that
         (move || {
-            if let Some(build_signals) = ctx.per_transaction_data().get_build_signals() {
-                let mut artifacts = HashSet::new();
-                let mut set_deps = HashSet::new();
-
-                for input in sub_inputs.iter() {
-                    match input.assert_resolved() {
-                        ResolvedArtifactGroup::Artifact(artifact) => {
-                            if let Some(key) = artifact.action_key() {
-                                artifacts.insert(key.clone());
-                            }
-                        }
-                        ResolvedArtifactGroup::TransitiveSetProjection(tset) => {
-                            set_deps.insert(tset.clone());
-                        }
-                    }
-                }
-
-                build_signals.signal(TransitiveSetComputationSignal {
-                    key: self.0.dupe(),
-                    artifacts,
-                    set_deps,
-                });
-            }
-
             let digest_config = ctx.global_data().get_digest_config();
 
             let values = ArtifactGroupValues::new(values, children, &artifact_fs, digest_config)

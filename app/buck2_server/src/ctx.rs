@@ -582,6 +582,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
             cycle_detector,
+            activation_tracker: Some(Arc::new(self.build_signals.dupe()) as _),
             ..Default::default()
         };
 

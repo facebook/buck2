@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -24,8 +25,9 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
-use buck2_events::dispatch::current_span;
+use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::span_async;
+use buck2_events::span::SpanId;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
@@ -48,11 +50,9 @@ use futures::stream::FuturesOrdered;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use more_futures::cancellation::CancellationContext;
+use smallvec::SmallVec;
 use starlark::eval::ProfileMode;
 
-use crate::actions::build_listener::AnalysisSignal;
-use crate::actions::build_listener::HasBuildSignals;
-use crate::actions::build_listener::NodeDuration;
 use crate::analysis::get_user_defined_rule_impl;
 use crate::analysis::run_analysis;
 use crate::analysis::AnalysisResult;
@@ -267,90 +267,86 @@ async fn get_analysis_result(
     let configured_node: MaybeCompatible<ConfiguredTargetNode> =
         ctx.get_configured_target_node(target).await?;
     let configured_node: ConfiguredTargetNode = match configured_node {
-        MaybeCompatible::Incompatible(reason) => return Ok(MaybeCompatible::Incompatible(reason)),
+        MaybeCompatible::Incompatible(reason) => {
+            return Ok(MaybeCompatible::Incompatible(reason));
+        }
         MaybeCompatible::Compatible(configured_node) => configured_node,
     };
 
-    let mut dep_analysis = get_dep_analysis(&configured_node, ctx).await?;
+    let configured_node = &configured_node;
+    let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
 
     let now = Instant::now();
 
-    let mut span_id = None;
-
-    let func = configured_node.rule_type();
-    let res = match func {
-        RuleType::Starlark(func) => {
-            let rule_impl = get_rule_impl(ctx, func).await?;
-            let start_event = buck2_data::AnalysisStart {
-                target: Some(target.as_proto().into()),
-                rule: func.to_string(),
-            };
-
-            span_async(start_event, async {
-                let mut profile = None;
-                span_id = current_span();
-
-                let result: anyhow::Result<_> = try {
-                    let query_results = resolve_queries(ctx, &configured_node).await?;
-
-                    let result = span_async(
-                        buck2_data::AnalysisStageStart {
-                            stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(())),
-                        },
-                        async {
-                            (
-                                run_analysis(
-                                    ctx,
-                                    target,
-                                    dep_analysis,
-                                    query_results,
-                                    configured_node.execution_platform_resolution(),
-                                    &rule_impl,
-                                    &configured_node,
-                                    profile_mode,
-                                )
-                                .await,
-                                buck2_data::AnalysisStageEnd {},
-                            )
-                        },
-                    )
-                    .await?;
-
-                    profile = Some(make_analysis_profile(&result));
-
-                    MaybeCompatible::Compatible(result)
+    let (res, spans) = async_record_root_spans(async move {
+        let func = configured_node.rule_type();
+        match func {
+            RuleType::Starlark(func) => {
+                let rule_impl = get_rule_impl(ctx, func).await?;
+                let start_event = buck2_data::AnalysisStart {
+                    target: Some(target.as_proto().into()),
+                    rule: func.to_string(),
                 };
 
-                (
-                    result,
-                    buck2_data::AnalysisEnd {
-                        target: Some(target.as_proto().into()),
-                        rule: func.to_string(),
-                        profile,
-                    },
-                )
-            })
-            .await
-        }
-        RuleType::Forward => {
-            assert!(dep_analysis.len() == 1);
-            Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
-        }
-    };
+                span_async(start_event, async {
+                    let mut profile = None;
 
-    if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        let duration = now.elapsed();
+                    let result: anyhow::Result<_> = try {
+                        let query_results = resolve_queries(ctx, configured_node).await?;
 
-        signals.signal(AnalysisSignal {
-            label: target.dupe(),
-            node: configured_node,
-            duration: NodeDuration {
-                user: duration,
-                total: duration,
-            },
-            span_id,
-        });
-    }
+                        let result = span_async(
+                            buck2_data::AnalysisStageStart {
+                                stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
+                                    (),
+                                )),
+                            },
+                            async {
+                                (
+                                    run_analysis(
+                                        ctx,
+                                        target,
+                                        dep_analysis,
+                                        query_results,
+                                        configured_node.execution_platform_resolution(),
+                                        &rule_impl,
+                                        configured_node,
+                                        profile_mode,
+                                    )
+                                    .await,
+                                    buck2_data::AnalysisStageEnd {},
+                                )
+                            },
+                        )
+                        .await?;
+
+                        profile = Some(make_analysis_profile(&result));
+
+                        MaybeCompatible::Compatible(result)
+                    };
+
+                    (
+                        result,
+                        buck2_data::AnalysisEnd {
+                            target: Some(target.as_proto().into()),
+                            rule: func.to_string(),
+                            profile,
+                        },
+                    )
+                })
+                .await
+            }
+            RuleType::Forward => {
+                assert!(dep_analysis.len() == 1);
+                Ok(MaybeCompatible::Compatible(dep_analysis.pop().unwrap().1))
+            }
+        }
+    })
+    .await;
+
+    ctx.store_evaluation_data(AnalysisKeyActivationData {
+        duration: now.elapsed(),
+        spans,
+    })?;
 
     res
 }
@@ -435,4 +431,9 @@ pub async fn profile_analysis_recursively(
     }
 
     StarlarkProfileDataAndStats::merge(profile_datas.iter().map(|x| &**x))
+}
+
+pub struct AnalysisKeyActivationData {
+    pub duration: Duration,
+    pub spans: SmallVec<[SpanId; 1]>,
 }
