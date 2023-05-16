@@ -528,18 +528,19 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             frameworks_linkable = frameworks_linkable,
         ), LinkGroupLibInfo(libs = {}), SharedLibraryInfo(set = None)] + additional_providers
 
-    header_symlink_mapping = {}
-    for records in propagated_preprocessor.set.traverse():
-        for record in records:
-            for header in record.headers:
-                header_path = header.name
-                if header.namespace:
-                    header_path = paths.join(header.namespace, header_path)
-                header_symlink_mapping[paths.normalize(header_path)] = header.artifact
+    if getattr(ctx.attrs, "supports_header_symlink_subtarget", False):
+        header_symlink_mapping = {}
+        for records in propagated_preprocessor.set.traverse():
+            for record in records:
+                for header in record.headers:
+                    header_path = header.name
+                    if header.namespace:
+                        header_path = paths.join(header.namespace, header_path)
+                    header_symlink_mapping[paths.normalize(header_path)] = header.artifact
 
-    sub_targets["header-symlink-tree"] = [DefaultInfo(
-        default_output = ctx.actions.symlinked_dir("header_symlink_tree", header_symlink_mapping),
-    )]
+        sub_targets["header-symlink-tree"] = [DefaultInfo(
+            default_output = ctx.actions.symlinked_dir("header_symlink_tree", header_symlink_mapping),
+        )]
 
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers

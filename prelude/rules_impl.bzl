@@ -388,6 +388,7 @@ inlined_extra_attributes = {
         "prefer_stripped_objects": attrs.bool(default = False),
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         "supports_shlib_interfaces": attrs.bool(default = True),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
