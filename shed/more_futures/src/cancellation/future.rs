@@ -106,10 +106,6 @@ impl<T> ExplicitlyCancellableTask<T> {
     fn poll(self: &mut Pin<Box<Self>>, cx: &mut Context<'_>) -> Poll<T> {
         self.as_mut().project().fut.poll(cx)
     }
-
-    fn take(self: &mut Pin<Box<Self>>) {
-        self.as_mut().project().fut.take()
-    }
 }
 
 /// Defines a future that operates with the 'CancellationContext' to provide explicit cancellation.
@@ -117,7 +113,13 @@ impl<T> ExplicitlyCancellableTask<T> {
 /// NOTE: this future is intended only to be polled in a consistent tokio runtime, and never moved
 /// from one executor to another.
 /// The general safe way of using this future is to spawn it directly via `tokio::spawn`.
+#[pin_project]
 pub struct ExplicitlyCancellableFuture<T> {
+    #[pin]
+    fut: MaybeFuture<ExplicitlyCancellableFutureInner<T>>,
+}
+
+struct ExplicitlyCancellableFutureInner<T> {
     shared: SharedState,
 
     execution: ExecutionContext,
@@ -128,7 +130,23 @@ pub struct ExplicitlyCancellableFuture<T> {
 
     future: Pin<Box<ExplicitlyCancellableTask<T>>>,
 
-    termination_notifier: Option<oneshot::Sender<TerminationStatus>>,
+    // NOTE: the termination notifier must come after `future` so that it's `Drop` is after the
+    // `future` gets dropped, so that we can guarantee that we only notify termination observers
+    // that the future is done after its been dropped.
+    termination_notifier: TerminationNotifier,
+}
+
+struct TerminationNotifier {
+    notify: Option<oneshot::Sender<TerminationStatus>>,
+    status: TerminationStatus,
+}
+
+impl Drop for TerminationNotifier {
+    fn drop(&mut self) {
+        if let Some(notify) = self.notify.take() {
+            let _ = notify.send(self.status.dupe());
+        }
+    }
 }
 
 #[pin_project(project = MaybeFutureProj)]
@@ -171,16 +189,37 @@ impl<T> ExplicitlyCancellableFuture<T> {
         termination_notifier: oneshot::Sender<TerminationStatus>,
     ) -> Self {
         ExplicitlyCancellableFuture {
-            shared,
-            execution,
-            started: false,
-            future,
-            termination_notifier: Some(termination_notifier),
+            fut: MaybeFuture::Fut(ExplicitlyCancellableFutureInner {
+                shared,
+                execution,
+                started: false,
+                future,
+                termination_notifier: TerminationNotifier {
+                    notify: Some(termination_notifier),
+                    status: TerminationStatus::ExecutorShutdown,
+                },
+            }),
         }
     }
 }
 
-impl<T> ExplicitlyCancellableFuture<T> {
+impl<T> Future for ExplicitlyCancellableFuture<T> {
+    type Output = Option<T>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
+        match this.fut.as_mut().poll(cx) {
+            Poll::Ready(res) => {
+                this.fut.take();
+                Poll::Ready(res)
+            }
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl<T> ExplicitlyCancellableFutureInner<T> {
     fn poll_inner(self: &mut Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
         let is_cancelled = self.shared.inner.cancelled.load(Ordering::SeqCst);
 
@@ -204,7 +243,7 @@ impl<T> ExplicitlyCancellableFuture<T> {
     }
 }
 
-impl<T> Future for ExplicitlyCancellableFuture<T> {
+impl<T> Future for ExplicitlyCancellableFutureInner<T> {
     type Output = Option<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -236,37 +275,22 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            // free the future
-            self.future.take();
-
             let state = mem::replace(&mut *self.shared.inner.state.lock(), State::Exited);
 
             match state {
                 State::Cancelled => {
                     if self.execution.shared.lock().can_exit() {
                         // if we got canceled during our poll, make sure to still result in canceled
-                        let _ignored = self
-                            .termination_notifier
-                            .take()
-                            .expect("polled after completion")
-                            .send(TerminationStatus::Cancelled);
+                        self.termination_notifier.status = TerminationStatus::Cancelled;
 
                         return Poll::Ready(None);
                     } else {
                         // we blocked cancellation so this now finishes normally
-                        let _ignored = self
-                            .termination_notifier
-                            .take()
-                            .expect("polled after completion")
-                            .send(TerminationStatus::Finished);
+                        self.termination_notifier.status = TerminationStatus::Finished;
                     }
                 }
                 _ => {
-                    let _ignored = self
-                        .termination_notifier
-                        .take()
-                        .expect("polled after completion")
-                        .send(TerminationStatus::Finished);
+                    self.termination_notifier.status = TerminationStatus::Finished;
                 }
             }
         }
