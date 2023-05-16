@@ -48,6 +48,8 @@ use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
+// TODO(@wendyy) move into `buck2_node`
+pub mod anon_target_attr;
 pub mod anon_target_node;
 pub(crate) mod anon_targets;
 pub mod calculation;

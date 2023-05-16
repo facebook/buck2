@@ -62,7 +62,7 @@ enum CoercedAttrWithTypeError {
 }
 
 /// Bind `CoercedAttr` to `AttrType`.
-pub(crate) enum CoercedAttrWithType<'a, 't> {
+pub enum CoercedAttrWithType<'a, 't> {
     Selector(&'a CoercedSelector, &'t AttrType),
     Concat(&'a [CoercedAttr], &'t AttrType),
 
@@ -99,7 +99,7 @@ pub(crate) enum CoercedAttrWithType<'a, 't> {
 
 impl<'a, 't> CoercedAttrWithType<'a, 't> {
     #[inline]
-    pub(crate) fn pack(
+    pub fn pack(
         attr: &'a CoercedAttr,
         ty: &'t AttrType,
     ) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
