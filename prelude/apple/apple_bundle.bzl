@@ -7,6 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//cxx:debug.bzl", "maybe_external_debug_info", "project_external_debug_info")
 load(
@@ -247,6 +248,8 @@ def apple_bundle_impl(ctx: "context") -> ["provider"]:
 
     # Collect extra bundle outputs
     extra_output_provider = _extra_output_provider(ctx)
+    # @oss-disable: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider) 
+    # @oss-disable: sub_targets.update(extra_output_subtargets) 
 
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
