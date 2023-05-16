@@ -47,11 +47,9 @@ def _filter_root_targets(
     )
     return filtered_targets
 
-def _get_python_library_manifest(
-        ctx: "bxl_ctx",
-        target: "target_node") -> [PythonLibraryManifestsTSet.type, None]:
-    providers = ctx.analysis(target).providers()
-    sub_target = providers[DefaultInfo].sub_targets.get("source-db-no-deps")
+def _get_python_library_manifests_from_analysis_result(
+        analysis_result: "analysis_result") -> [PythonLibraryManifestsTSet.type, None]:
+    sub_target = analysis_result.providers()[DefaultInfo].sub_targets.get("source-db-no-deps")
     if sub_target == None:
         return None
     python_library_info = sub_target.get(PythonLibraryInfo)
@@ -59,16 +57,21 @@ def _get_python_library_manifest(
         return None
     return python_library_info.manifests
 
+def _get_python_library_manifests_from_targets(
+        ctx: "bxl_ctx",
+        targets: "target_set") -> [PythonLibraryManifestsTSet.type]:
+    return filter(None, [
+        _get_python_library_manifests_from_analysis_result(analysis_result)
+        for analysis_result in ctx.analysis(targets).values()
+    ])
+
 def _expand_and_filter_dependencies(
         ctx: "bxl_ctx",
         actions: "actions",
         root_targets: "target_set") -> ["configured_target_label"]:
     manifests_of_transitive_dependencies = actions.tset(
         PythonLibraryManifestsTSet,
-        children = filter(None, [
-            _get_python_library_manifest(ctx, target)
-            for target in root_targets
-        ]),
+        children = _get_python_library_manifests_from_targets(ctx, root_targets),
     )
     return [
         manifest.label.configured_target()
