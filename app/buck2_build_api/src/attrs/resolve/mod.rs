@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-#[allow(unused)] // TODO(@wendyy) temporary
-pub(crate) mod anon_target_attr;
+pub mod anon_target_attr;
 pub(crate) mod attr_literal;
 pub mod attr_type;
 pub(crate) mod coerced_attr;

@@ -43,22 +43,14 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::label::Label;
-use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeInnerExt;
 use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
-use buck2_node::attrs::attr_type::dep::DepAttr;
-use buck2_node::attrs::attr_type::dep::DepAttrTransition;
-use buck2_node::attrs::attr_type::dep::DepAttrType;
-use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
-use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use buck2_util::arc_str::ArcSlice;
@@ -79,27 +71,28 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
 use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use crate::analysis::anon_target_node::AnonTarget;
+use super::anon_target_node::AnonTarget;
+use crate::analysis::anon_target_attr::AnonTargetAttr;
+use crate::analysis::anon_target_attr::AnonTargetAttrTraversal;
+use crate::analysis::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::analysis::calculation::get_rule_impl;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::analysis::AnalysisResult;
 use crate::analysis::RuleAnalysisAttrResolutionContext;
 use crate::analysis::RuleImplFunction;
-use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use crate::attrs::resolve::anon_target_attr::AnonTargetAttrExt;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::DeferredTable;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::interpreter::rule_defs::provider::dependency::Dependency;
 use crate::keep_going;
 use crate::nodes::calculation::find_execution_platform_by_configuration;
 
@@ -116,7 +109,7 @@ pub struct AnonTargetsRegistry<'v> {
 }
 
 #[derive(Debug, Error)]
-enum AnonTargetsError {
+pub enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,
     #[error(
@@ -133,10 +126,6 @@ enum AnonTargetsError {
     InternalAttribute(String),
     #[error("Missing attribute `{0}`")]
     MissingAttribute(String),
-    #[error("Invalid `attr.dep` value, expected `dependency`, got `{0}`")]
-    InvalidDep(String),
-    #[error("Invalid `attr.list` value, expected `list`, got `{0}`")]
-    InvalidList(String),
 }
 
 #[repr(transparent)]
@@ -168,7 +157,7 @@ impl AnonTargetKey {
                     .ok_or_else(|| AnonTargetsError::UnknownAttribute(k.to_owned()))?;
                 attrs.insert(
                     k.to_owned(),
-                    Self::coerce_attr(attr.coercer(), v)
+                    Self::coerce_to_anon_target_attr(attr.coercer(), v)
                         .with_context(|| format!("Error coercing attribute `{}`", k))?,
                 );
             }
@@ -176,7 +165,10 @@ impl AnonTargetKey {
         for (k, _, a) in attrs_spec.attr_specs() {
             if !attrs.contains_key(k) && !internal_attrs.contains_key(k) {
                 if let Some(x) = a.default() {
-                    attrs.insert(k.to_owned(), Self::configure_attr(x, a.coercer())?);
+                    attrs.insert(
+                        k.to_owned(),
+                        Self::coerced_to_anon_target_attr(x, a.coercer())?,
+                    );
                 } else {
                     return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
                 }
@@ -242,48 +234,17 @@ impl AnonTargetKey {
         }
     }
 
-    fn coerce_attr(attr: &AttrType, x: Value) -> anyhow::Result<ConfiguredAttr> {
-        fn unpack_dep(x: &AttrTypeInner) -> Option<DepAttrType> {
-            match x {
-                AttrTypeInner::Dep(d) => Some(d.dupe()),
-                AttrTypeInner::ConfiguredDep(d) => Some(DepAttrType {
-                    required_providers: d.required_providers.dupe(),
-                    transition: DepAttrTransition::Identity,
-                }),
-                _ => None,
-            }
-        }
-
+    fn coerce_to_anon_target_attr(attr: &AttrType, x: Value) -> anyhow::Result<AnonTargetAttr> {
         let ctx = AnonAttrCtx::new();
-        // TODO: refactor these attrs into a separate anon targets attr.
-        let a = if let Some(attr_type) = unpack_dep(&attr.0) {
-            match Dependency::from_value(x) {
-                Some(dep) => {
-                    let label = dep.label().inner().clone();
-                    CoercedAttr::ConfiguredDep(Box::new(DepAttr { attr_type, label }))
-                }
-                _ => return Err(AnonTargetsError::InvalidDep(x.get_type().to_owned()).into()),
-            }
-        } else if let AttrTypeInner::List(inner) = &*attr.0 {
-            match ListRef::from_value(x) {
-                // We don't do anything special for list, but we want to make sure that dependencies inside lists are looked up properly
-                Some(list) => {
-                    return Ok(ConfiguredAttr::List(ListLiteral(
-                        list.content()
-                            .try_map(|v| Self::coerce_attr(&inner.inner, *v))?
-                            .into(),
-                    )));
-                }
-                None => return Err(AnonTargetsError::InvalidList(x.to_string()).into()),
-            }
-        } else {
-            attr.0.coerce_item(AttrIsConfigurable::No, &ctx, x)?
-        };
-        a.configure(attr, &ctx)
+
+        attr.coerce_item(AttrIsConfigurable::No, &ctx, x)
     }
 
-    fn configure_attr(x: &CoercedAttr, ty: &AttrType) -> anyhow::Result<ConfiguredAttr> {
-        x.configure(ty, &AnonAttrCtx::new())
+    fn coerced_to_anon_target_attr(
+        x: &CoercedAttr,
+        ty: &AttrType,
+    ) -> anyhow::Result<AnonTargetAttr> {
+        AnonTargetAttr::from_coerced_attr(x, ty, &AnonAttrCtx::new())
     }
 
     async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
@@ -318,7 +279,7 @@ impl AnonTargetKey {
     fn deps(&self) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
         struct Traversal(Vec<ConfiguredTargetLabel>);
 
-        impl ConfiguredAttrTraversal for Traversal {
+        impl AnonTargetAttrTraversal for Traversal {
             fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())

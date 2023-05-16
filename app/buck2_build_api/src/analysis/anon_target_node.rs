@@ -24,9 +24,10 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::ToProtoMessage;
-use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::rule_type::StarlarkRuleType;
 use gazebo::cmp::PartialEqAny;
+
+use crate::analysis::anon_target_attr::AnonTargetAttr;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {
@@ -36,7 +37,7 @@ pub struct AnonTarget {
     rule_type: Arc<StarlarkRuleType>,
     /// The attributes the target was defined with.
     /// We use a sorted map since we want to iterate in a defined order.
-    attrs: SortedMap<String, ConfiguredAttr>,
+    attrs: SortedMap<String, AnonTargetAttr>,
     /// The hash of the `rule_type` and `attrs`
     hash: String,
     /// The execution configuration - same as the parent.
@@ -62,7 +63,7 @@ impl ToProtoMessage for AnonTarget {
 }
 
 impl AnonTarget {
-    fn mk_hash(rule_type: &StarlarkRuleType, attrs: &SortedMap<String, ConfiguredAttr>) -> String {
+    fn mk_hash(rule_type: &StarlarkRuleType, attrs: &SortedMap<String, AnonTargetAttr>) -> String {
         // This is the same hasher as we use for Configuration, so is probably fine.
         // But quite possibly should be a crypto hasher in future.
         let mut hasher = DefaultHasher::new();
@@ -74,7 +75,7 @@ impl AnonTarget {
     pub fn new(
         rule_type: Arc<StarlarkRuleType>,
         name: TargetLabel,
-        attrs: SortedMap<String, ConfiguredAttr>,
+        attrs: SortedMap<String, AnonTargetAttr>,
         exec_cfg: ConfigurationNoExec,
     ) -> Self {
         let hash = Self::mk_hash(&rule_type, &attrs);
@@ -95,7 +96,7 @@ impl AnonTarget {
         &self.name
     }
 
-    pub fn attrs(&self) -> &SortedMap<String, ConfiguredAttr> {
+    pub fn attrs(&self) -> &SortedMap<String, AnonTargetAttr> {
         &self.attrs
     }
 
