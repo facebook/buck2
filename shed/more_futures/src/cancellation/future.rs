@@ -83,9 +83,37 @@ pub struct ExplicitlyCancellableFuture<F> {
     started: bool,
 
     #[pin]
-    future: F,
+    future: MaybeFuture<F>,
 
     termination_notifier: Option<oneshot::Sender<TerminationStatus>>,
+}
+
+#[pin_project(project = MaybeFutureProj)]
+enum MaybeFuture<F> {
+    Fut(#[pin] F),
+    None,
+}
+
+impl<F: Future> MaybeFuture<F> {
+    fn take(mut self: Pin<&mut Self>) {
+        self.set(MaybeFuture::None);
+    }
+}
+
+impl<F> Future for MaybeFuture<F>
+where
+    F: Future,
+{
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.project() {
+            MaybeFutureProj::Fut(f) => f.poll(cx),
+            MaybeFutureProj::None => {
+                panic!("polled again after completion")
+            }
+        }
+    }
 }
 
 impl<F> ExplicitlyCancellableFuture<F>
@@ -102,7 +130,7 @@ where
             shared,
             execution,
             started: false,
-            future,
+            future: MaybeFuture::Fut(future),
             termination_notifier: Some(termination_notifier),
         }
     }
@@ -173,6 +201,10 @@ where
         // this task.
         if poll.is_ready() {
             let state = mem::replace(&mut *this.shared.inner.state.lock(), State::Exited);
+
+            // free the future
+            this.future.take();
+
             match state {
                 State::Cancelled => {
                     if this.execution.shared.lock().can_exit() {
@@ -528,6 +560,8 @@ struct CancellationNotificationData {
 mod tests {
     use std::future::Future;
     use std::pin::Pin;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
     use std::sync::Arc;
     use std::task::Context;
     use std::task::Poll;
@@ -538,6 +572,8 @@ mod tests {
     use futures::future::join;
     use futures::FutureExt;
     use parking_lot::Mutex;
+    use pin_project::pin_project;
+    use pin_project::pinned_drop;
 
     use crate::cancellation::future::make_cancellable_future;
     use crate::cancellation::future::CancellationHandle;
@@ -1124,5 +1160,73 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Finished)
         );
+    }
+
+    #[tokio::test]
+    async fn test_finished_future_dropped_when_ready() {
+        #[pin_project(PinnedDrop)]
+        struct DropFuture(Arc<AtomicBool>);
+
+        impl Future for DropFuture {
+            type Output = ();
+
+            fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+                Poll::Ready(())
+            }
+        }
+
+        #[pinned_drop]
+        impl PinnedDrop for DropFuture {
+            fn drop(self: Pin<&mut Self>) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let is_dropped = Arc::new(AtomicBool::new(false));
+        let fut = DropFuture(is_dropped.dupe());
+
+        let (fut, _handle) = make_cancellable_future(|_cancellations| fut.boxed());
+        futures::pin_mut!(fut);
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+
+        assert!(is_dropped.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn test_finished_future_dropped_when_cancelled() {
+        struct DropFuture(Arc<AtomicBool>);
+
+        impl Future for DropFuture {
+            type Output = ();
+
+            fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+                Poll::Pending
+            }
+        }
+
+        impl Drop for DropFuture {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let is_dropped = Arc::new(AtomicBool::new(false));
+        let fut = DropFuture(is_dropped.dupe());
+
+        let (fut, handle) = make_cancellable_future(|_cancellations| fut.boxed());
+
+        futures::pin_mut!(fut);
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
+        let termination = handle.cancel();
+
+        futures::pin_mut!(termination);
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(
+            futures::poll!(&mut termination),
+            Poll::Ready(TerminationStatus::Cancelled)
+        );
+        assert!(is_dropped.load(Ordering::SeqCst));
     }
 }
