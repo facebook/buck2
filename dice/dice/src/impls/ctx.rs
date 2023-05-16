@@ -60,6 +60,7 @@ use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
 use crate::HashSet;
+use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
 #[derive(Allocative, Dupe, Clone)]
@@ -348,6 +349,10 @@ impl PerComputeCtx {
             data.dep_trackers.into_inner().collect_deps(),
             data.evaluation_data.into_inner(),
         )
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        self.data.cycles.cycle_guard()
     }
 }
 

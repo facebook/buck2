@@ -121,7 +121,7 @@ impl DiceComputationsImpl {
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
         match self {
             DiceComputationsImpl::Legacy(delegate) => delegate.cycle_guard(),
-            DiceComputationsImpl::Modern(_) => Ok(None),
+            DiceComputationsImpl::Modern(delegate) => delegate.cycle_guard(),
         }
     }
 

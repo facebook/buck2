@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
+use crate::api::error::DiceError;
+use crate::api::error::DiceErrorImpl;
+use crate::api::error::DiceResult;
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;
@@ -56,6 +61,21 @@ impl UserCycleDetectorData {
 
         UserCycleDetectorData {
             user_cycle_detector_guard: None,
+        }
+    }
+
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
+        match &self.user_cycle_detector_guard {
+            Some((_, Some(guard))) => match guard.as_any().downcast_ref() {
+                Some(guard) => Ok(Some(guard)),
+                None => Err(DiceError(Arc::new(
+                    DiceErrorImpl::UnexpectedCycleGuardType {
+                        expected_type_name: std::any::type_name::<T>().to_owned(),
+                        actual_type_name: guard.type_name().to_owned(),
+                    },
+                ))),
+            },
+            _ => Ok(None),
         }
     }
 }
