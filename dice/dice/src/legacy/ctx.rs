@@ -32,7 +32,6 @@ use crate::api::error::DiceErrorImpl;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
-use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::ctx::DiceComputationsImpl;
@@ -51,7 +50,6 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::DiceLegacy;
-use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::WhichSpawner;
@@ -347,7 +345,7 @@ impl DiceComputationsImplLegacy {
         DropCancelAndTerminationObserver<R>,
     >
     where
-        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send
             + 'static,
         R: Send + 'static,
@@ -358,9 +356,7 @@ impl DiceComputationsImplLegacy {
             WhichSpawner::DropCancel => spawn_dropcancel(
                 async move {
                     f(
-                        DiceTransaction(DiceTransactionImpl::Legacy(DiceComputations(
-                            DiceComputationsImpl::Legacy(duped),
-                        ))),
+                        &DiceComputations(DiceComputationsImpl::Legacy(duped)),
                         &CancellationContext::todo(),
                     )
                     .await
@@ -374,9 +370,7 @@ impl DiceComputationsImplLegacy {
                 |cancellations| {
                     async move {
                         f(
-                            DiceTransaction(DiceTransactionImpl::Legacy(DiceComputations(
-                                DiceComputationsImpl::Legacy(duped),
-                            ))),
+                            &DiceComputations(DiceComputationsImpl::Legacy(duped)),
                             cancellations,
                         )
                         .await

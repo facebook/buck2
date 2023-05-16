@@ -30,7 +30,6 @@ use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::DashMap;
 use dice::DiceComputations;
-use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -149,9 +148,9 @@ async fn convert_inputs<'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
 
 fn compute_tset_node(
     node_cache: DiceAqueryNodesCache,
-    ctx: DiceTransaction,
+    ctx: &DiceComputations,
     key: TransitiveSetProjectionKey,
-) -> BoxFuture<'static, SharedResult<SetProjectionInputs>> {
+) -> BoxFuture<SharedResult<SetProjectionInputs>> {
     async move {
         let set = ctx
             .compute_deferred_data(&key.key)
@@ -192,12 +191,12 @@ async fn get_tset_node(
 
 fn compute_action_node(
     node_cache: DiceAqueryNodesCache,
-    ctx: DiceTransaction,
+    ctx: &DiceComputations,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
-) -> BoxFuture<'static, SharedResult<ActionQueryNode>> {
+) -> BoxFuture<SharedResult<ActionQueryNode>> {
     async move {
-        let action = ActionCalculation::get_action(&ctx, &key).await?;
+        let action = ActionCalculation::get_action(ctx, &key).await?;
         let deps = convert_inputs(&ctx, node_cache, action.inputs()?.iter()).await?;
         Ok(ActionQueryNode::new(action, deps, fs))
     }

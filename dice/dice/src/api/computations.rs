@@ -18,7 +18,6 @@ use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
-use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::UserCycleDetectorGuard;
@@ -73,7 +72,7 @@ impl DiceComputations {
     /// the Arc, which makes lifetimes weird.
     pub fn temporary_spawn<F, R>(&self, f: F) -> impl Future<Output = R>
     where
-        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send
             + 'static,
         R: Send + 'static,

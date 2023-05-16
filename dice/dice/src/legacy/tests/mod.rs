@@ -653,9 +653,7 @@ async fn test_wait_for_idle() -> anyhow::Result<()> {
     let rx = rx.shared();
 
     let key = TestKey { id: 1, channel: rx };
-    let handle = ctx.temporary_spawn(move |ctx: crate::DiceTransaction, _| {
-        async move { ctx.compute(&key).await }.boxed()
-    });
+    let handle = ctx.temporary_spawn(move |ctx, _| async move { ctx.compute(&key).await }.boxed());
 
     let idle = dice.wait_for_idle();
     futures::pin_mut!(idle);

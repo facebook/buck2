@@ -33,7 +33,6 @@ use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
-use crate::api::transaction::DiceTransaction;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::cache::SharedCache;
@@ -57,7 +56,6 @@ use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::transaction::DiceTransactionImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
@@ -265,7 +263,7 @@ impl PerComputeCtx {
         DropCancelAndTerminationObserver<R>,
     >
     where
-        F: for<'a> FnOnce(DiceTransaction, &'a CancellationContext) -> BoxFuture<'a, R>
+        F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send
             + 'static,
         R: Send + 'static,
@@ -276,9 +274,7 @@ impl PerComputeCtx {
             |cancellations| {
                 async move {
                     f(
-                        DiceTransaction(DiceTransactionImpl::Modern(BaseComputeCtx {
-                            data: DiceComputations(DiceComputationsImpl::Modern(duped)),
-                        })),
+                        &DiceComputations(DiceComputationsImpl::Modern(duped)),
                         cancellations,
                     )
                     .await
