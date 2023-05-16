@@ -62,7 +62,7 @@ impl<'v> ConstraintValueInfo<'v> {
 
 #[starlark_module]
 fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(type = "ConstraintValueInfo")]
+    #[starlark(dot_type = "ConstraintValueInfo")]
     fn ConstraintValueInfo<'v>(
         #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,

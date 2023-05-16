@@ -133,7 +133,7 @@ enum ConfigurationInfoError {
 
 #[starlark_module]
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(type = "ConfigurationInfo")]
+    #[starlark(dot_type = "ConfigurationInfo")]
     fn ConfigurationInfo<'v>(
         #[starlark(require = named)] constraints: DictOf<
             'v,

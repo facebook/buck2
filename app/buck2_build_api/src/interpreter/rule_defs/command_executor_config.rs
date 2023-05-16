@@ -82,7 +82,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `max_cache_upload_mebibytes`: Maximum size to upload in cache uploads
     /// * `experimental_low_pass_filter`: Whether to use the experimental low pass filter
     /// * `remote_output_paths`: How to express output paths to RE
-    #[starlark(type = "command_executor_config")]
+    #[starlark(dot_type = "command_executor_config")]
     fn CommandExecutorConfig<'v>(
         #[starlark(require = named)] local_enabled: bool,
         #[starlark(require = named)] remote_enabled: bool,

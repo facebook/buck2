@@ -26,7 +26,7 @@ use crate::values::Heap;
 
 #[starlark_module]
 pub fn global(builder: &mut GlobalsBuilder) {
-    #[starlark(type = Struct::TYPE)]
+    #[starlark(dot_type = Struct::TYPE)]
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Struct<'v>> {
         args.no_positional_args(heap)?;
         // TODO(nga): missing optimization: practically most `struct` invocations are

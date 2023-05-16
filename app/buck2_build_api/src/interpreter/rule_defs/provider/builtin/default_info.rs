@@ -379,7 +379,7 @@ enum DefaultOutputError {
 
 #[starlark_module]
 fn default_info_creator(builder: &mut GlobalsBuilder) {
-    #[starlark(type = "DefaultInfo")]
+    #[starlark(dot_type = "DefaultInfo")]
     fn DefaultInfo<'v>(
         #[starlark(default = NoneType)] default_output: Value<'v>,
         #[starlark(default = NoneType)] default_outputs: Value<'v>,

@@ -57,7 +57,7 @@ mod vtable;
 /// * It is type `Option`, in which case it will be considered optional.
 /// * It is a single argument of type `Arguments`, in which case all arguments will be passed together with minimal interpretation.
 ///
-/// There are a number of attributes that can be made to each parameter by writing attributes before the
+/// There are a number of attributes that can be add to each parameter by writing attributes before the
 /// parameter name:
 ///
 /// * `#[starlark(default = "a default")]` - provide a deafult for the parameter if it is omitted.
@@ -70,7 +70,7 @@ mod vtable;
 /// There are a number of attributes that can be applied to the entire function by writing attributes
 /// before the `fn` of the function:
 ///
-/// * `#[starlark(type = "foo")]` - if the function has `.type` applied, return this string. Usually used on
+/// * `#[starlark(attribute_type = "foo")]` - if the function has `.type` applied, return this string. Usually used on
 ///   constructor functions so that `ctor.type` can be used in Starlark code.
 /// * `#[starlark(return_type = "foo")]` - the return type of the function used for documention.
 /// * `#[starlark(speculative_exec_safe)]` - the function

@@ -202,7 +202,7 @@ impl<'v> TemplatePlaceholderInfo<'v> {
 
 #[starlark_module]
 fn template_placeholder_info_creator(builder: &mut GlobalsBuilder) {
-    #[starlark(type = "TemplatePlaceholderInfo")]
+    #[starlark(dot_type = "TemplatePlaceholderInfo")]
     fn TemplatePlaceholderInfo<'v>(
         #[starlark(default = AllocDict::EMPTY)] unkeyed_variables: Value<'v>,
         #[starlark(default = AllocDict::EMPTY)] keyed_variables: Value<'v>,

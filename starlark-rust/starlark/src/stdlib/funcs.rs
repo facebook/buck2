@@ -239,7 +239,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// bool("1") == True
     /// # "#);
     /// ```
-    #[starlark(type = BOOL_TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = BOOL_TYPE, speculative_exec_safe)]
     fn bool(#[starlark(require = pos)] x: Option<Value>) -> anyhow::Result<bool> {
         match x {
             None => Ok(false),
@@ -315,7 +315,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// x == {'a': 1} and y == {'x': 2, 'a': 1}
     /// # "#);
     /// ```
-    #[starlark(type = Dict::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = Dict::TYPE, speculative_exec_safe)]
     fn dict<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> anyhow::Result<Dict<'v>> {
         // Dict is super hot, and has a slightly odd signature, so we can do a bunch of special cases on it.
         // In particular, we don't generate the kwargs if there are no positional arguments.
@@ -429,7 +429,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// float([])   # error: argument must be a string, a number, or a boolean
     /// # "#, "argument must be a string, a number, or a boolean");
     /// ```
-    #[starlark(type = StarlarkFloat::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = StarlarkFloat::TYPE, speculative_exec_safe)]
     fn float(
         #[starlark(require = pos, type = "[str.type, int.type, float.type, bool.type]")] a: Option<
             Value,
@@ -609,7 +609,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(float("inf"))   # error: cannot convert infinity to int
     /// # "#, "cannot convert float to integer");
     /// ```
-    #[starlark(type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
+    #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
         #[starlark(require = pos)] a: Option<Value<'v>>,
         #[starlark(type = "[int.type, bool.type]")] base: Option<Value<'v>>,
@@ -756,7 +756,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list("strings are not iterable") # error: not supported
     /// # "#, "not supported");
     /// ```
-    #[starlark(type = ListRef::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
+    #[starlark(dot_type = ListRef::TYPE, speculative_exec_safe, return_type = "[\"\"]")]
     fn list<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,
@@ -892,7 +892,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// list(range(10, 3, -2))                  == [10, 8, 6, 4]
     /// # "#);
     /// ```
-    #[starlark(type = Range::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = Range::TYPE, speculative_exec_safe)]
     fn range(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
@@ -1046,7 +1046,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// str([1, "x"])                   == "[1, \"x\"]"
     /// # "#);
     /// ```
-    #[starlark(type = STRING_TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = STRING_TYPE, speculative_exec_safe)]
     fn str<'v>(
         #[starlark(require = pos)] a: Value<'v>,
         eval: &mut Evaluator<'v, '_>,
@@ -1075,7 +1075,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// tuple([1,2,3]) == (1, 2, 3)
     /// # "#);
     /// ```
-    #[starlark(type = Tuple::TYPE, speculative_exec_safe)]
+    #[starlark(dot_type = Tuple::TYPE, speculative_exec_safe)]
     fn tuple<'v>(
         #[starlark(require = pos, type = "iter(\"\")")] a: Option<Value<'v>>,
         heap: &'v Heap,

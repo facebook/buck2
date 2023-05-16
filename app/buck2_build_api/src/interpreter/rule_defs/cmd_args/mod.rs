@@ -27,7 +27,7 @@ pub use typ::*;
 
 #[starlark_module]
 pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
-    #[starlark(type = "cmd_args")]
+    #[starlark(dot_type = "cmd_args")]
     /// The `cmd_args` type is created by this function and is consumed by `ctx.actions.run`.
     /// The type is a mutable collection of strings and artifact values.
     /// In general, command lines, artifacts, strings, `RunInfo` and lists thereof can be added to or used to construct a `cmd_args` value.

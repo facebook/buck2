@@ -164,32 +164,31 @@ fn parse_starlark_fn_attr(tokens: &Attribute, attrs: &mut FnAttrs) -> syn::Resul
             }
             first = false;
 
-            if parser.parse::<Token![type]>().is_ok() {
+            let ident = parser.parse::<Ident>()?;
+            if ident == "dot_type" {
                 parser.parse::<Token![=]>()?;
                 attrs.type_attribute = Some(parser.parse::<Expr>()?);
                 continue;
-            } else {
-                let ident = parser.parse::<Ident>()?;
-                if ident == "attribute" {
-                    attrs.is_attribute = true;
-                    continue;
-                } else if ident == "speculative_exec_safe" {
-                    attrs.speculative_exec_safe = true;
-                    continue;
-                } else if ident == "return_type" {
-                    parser.parse::<Token![=]>()?;
-                    attrs.starlark_return_type = Some(parser.parse::<Expr>()?);
-                    continue;
-                }
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Expecting \
+            }
+            if ident == "attribute" {
+                attrs.is_attribute = true;
+                continue;
+            } else if ident == "speculative_exec_safe" {
+                attrs.speculative_exec_safe = true;
+                continue;
+            } else if ident == "return_type" {
+                parser.parse::<Token![=]>()?;
+                attrs.starlark_return_type = Some(parser.parse::<Expr>()?);
+                continue;
+            }
+            return Err(syn::Error::new(
+                ident.span(),
+                "Expecting \
                     `#[starlark(type = \"ty\")]`, \
                     `#[starlark(attribute)]`, \
                     `#[starlark(return_type = \"type\")]`, \
                     `#[starlark(speculative_exec_safe)]` attribute",
-                ));
-            }
+            ));
         }
 
         Ok(())

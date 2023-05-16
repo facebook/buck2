@@ -25,7 +25,7 @@ const FOO_TYPE: &str = "Foo";
 
 #[starlark_module]
 fn type_annotation_functions(globals: &mut GlobalsBuilder) {
-    #[starlark(type = FOO_TYPE)]
+    #[starlark(dot_type = FOO_TYPE)]
     fn foo(x: i32) -> anyhow::Result<i32> {
         Ok(x)
     }
