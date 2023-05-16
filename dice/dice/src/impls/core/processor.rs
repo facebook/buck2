@@ -57,8 +57,8 @@ impl StateProcessor {
             } => {
                 let cache = self.state.ctx_at_version(version);
 
-                let ctx = SharedLiveTransactionCtx::new(version, guard, cache);
-                let _ignored = resp.send(ctx);
+                let ctx = SharedLiveTransactionCtx::new(version, cache);
+                let _ignored = resp.send((ctx, guard));
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
             StateRequest::CurrentVersion { resp } => {

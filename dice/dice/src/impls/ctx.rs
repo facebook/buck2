@@ -67,6 +67,7 @@ pub(crate) struct BaseComputeCtx {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
     data: DiceComputations,
+    live_version_guard: ActiveTransactionGuard,
 }
 
 impl BaseComputeCtx {
@@ -75,6 +76,7 @@ impl BaseComputeCtx {
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
         cycles: UserCycleDetectorData,
+        live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
             data: DiceComputations(DiceComputationsImpl::Modern(PerComputeCtx::new(
@@ -84,12 +86,7 @@ impl BaseComputeCtx {
                 dice,
                 cycles,
             ))),
-        }
-    }
-
-    pub(crate) fn from_computations(ctx: PerComputeCtx) -> Self {
-        Self {
-            data: DiceComputations(DiceComputationsImpl::Modern(ctx)),
+            live_version_guard,
         }
     }
 
@@ -360,23 +357,13 @@ impl PerComputeCtx {
 pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,
     #[derivative(Debug = "ignore")]
-    live_version_guard: ActiveTransactionGuard,
-    #[derivative(Debug = "ignore")]
     cache: SharedCache,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
 impl SharedLiveTransactionCtx {
-    pub(crate) fn new(
-        v: VersionNumber,
-        live_version_guard: ActiveTransactionGuard,
-        cache: SharedCache,
-    ) -> Self {
-        Self {
-            version: v,
-            live_version_guard,
-            cache,
-        }
+    pub(crate) fn new(v: VersionNumber, cache: SharedCache) -> Self {
+        Self { version: v, cache }
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.

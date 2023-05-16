@@ -120,7 +120,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
     let cycles = UserCycleDetectorData::new();
 
-    let ctx = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
@@ -147,7 +147,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             .is_changed()
     );
 
-    let ctx = dice.testing_shared_ctx(VersionNumber::new(2)).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
@@ -177,7 +177,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     // Now we also check that when deps have cycles, we ignore it since its possible the cycle
     // is no longer valid
 
-    let ctx = dice.testing_shared_ctx(VersionNumber::new(2)).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
     ctx.inject(
         DiceKey { index: 200 },
         Err(DiceError::cycle(std::sync::Arc::new(K), indexset![])),
@@ -239,7 +239,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     });
     let v = rx.await.unwrap();
 
-    let ctx = dice.testing_shared_ctx(v).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
@@ -275,7 +275,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     });
     let v = rx.await.unwrap();
 
-    let ctx = dice.testing_shared_ctx(v).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
@@ -315,7 +315,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     });
     let new_v = rx.await.unwrap();
 
-    let ctx = dice.testing_shared_ctx(v).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
         Ok(DiceComputedValue::new(
@@ -407,7 +407,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     });
     let v = rx.await.unwrap();
 
-    let ctx = dice.testing_shared_ctx(v).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
@@ -430,7 +430,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     });
     let v = rx.await.unwrap();
 
-    let ctx = dice.testing_shared_ctx(v).await;
+    let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
 
     let task = IncrementalEngine::spawn_for_key(
@@ -475,7 +475,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 async fn spawn_with_no_previously_cancelled_task() {
     let dice = DiceModern::new(DiceData::new());
 
-    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
@@ -509,7 +509,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let dice = DiceModern::new(DiceData::new());
 
-    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
@@ -573,7 +573,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 async fn spawn_with_previously_cancelled_task_that_finished() {
     let dice = DiceModern::new(DiceData::new());
 
-    let shared_ctx = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());

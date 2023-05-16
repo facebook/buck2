@@ -135,7 +135,7 @@ pub(crate) mod testing {
         pub(crate) async fn testing_shared_ctx(
             &self,
             v: VersionNumber,
-        ) -> SharedLiveTransactionCtx {
+        ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
             let (tx, rx) = tokio::sync::oneshot::channel();
 
             let guard = ActiveTransactionGuard::new(v, self.state_handle.dupe());

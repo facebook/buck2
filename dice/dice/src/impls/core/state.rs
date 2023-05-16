@@ -46,7 +46,7 @@ pub(crate) enum StateRequest {
     CtxAtVersion {
         version: VersionNumber,
         guard: ActiveTransactionGuard,
-        resp: Sender<SharedLiveTransactionCtx>,
+        resp: Sender<(SharedLiveTransactionCtx, ActiveTransactionGuard)>,
     },
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },

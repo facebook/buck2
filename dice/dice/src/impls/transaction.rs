@@ -22,10 +22,8 @@ use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::BaseComputeCtx;
-use crate::impls::ctx::PerComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
-use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
@@ -97,11 +95,11 @@ impl TransactionUpdater {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
-        let transaction = self.commit_to_state().await;
+        let (transaction, guard) = self.commit_to_state().await;
 
         let cycles = UserCycleDetectorData::new();
 
-        BaseComputeCtx::new(transaction, user_data, dice, cycles)
+        BaseComputeCtx::new(transaction, user_data, dice, cycles, guard)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -109,14 +107,14 @@ impl TransactionUpdater {
     pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> BaseComputeCtx {
         let dice = self.dice.dupe();
 
-        let transaction = self.commit_to_state().await;
+        let (transaction, guard) = self.commit_to_state().await;
 
         let cycles = UserCycleDetectorData::new();
 
-        BaseComputeCtx::new(transaction, Arc::new(extra), dice, cycles)
+        BaseComputeCtx::new(transaction, Arc::new(extra), dice, cycles, guard)
     }
 
-    pub(crate) async fn existing_state(&self) -> PerComputeCtx {
+    pub(crate) async fn existing_state(&self) -> BaseComputeCtx {
         let (tx, rx) = oneshot::channel();
         self.dice
             .state_handle
@@ -131,13 +129,13 @@ impl TransactionUpdater {
             resp: tx,
         });
 
-        let transaction = rx.await.unwrap();
-        PerComputeCtx::new(
-            ParentKey::None,
+        let (transaction, guard) = rx.await.unwrap();
+        BaseComputeCtx::new(
             transaction,
             self.user_data.dupe(),
             self.dice.dupe(),
             UserCycleDetectorData::new(),
+            guard,
         )
     }
 
@@ -147,7 +145,7 @@ impl TransactionUpdater {
             .request(StateRequest::UnstableDropEverything)
     }
 
-    async fn commit_to_state(self) -> SharedLiveTransactionCtx {
+    async fn commit_to_state(self) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
         let (tx, rx) = oneshot::channel();
         self.dice.state_handle.request(StateRequest::UpdateState {
             changes: self.scheduled_changes.changes.into_iter().collect(),
@@ -231,6 +229,7 @@ pub(crate) enum ChangeType {
 
 #[cfg(test)]
 mod tests {
+
     use allocative::Allocative;
     use assert_matches::assert_matches;
     use async_trait::async_trait;

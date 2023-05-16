@@ -20,7 +20,6 @@ use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
-use crate::impls::ctx::BaseComputeCtx;
 use crate::impls::transaction::TransactionUpdater;
 use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::transaction::DiceTransactionImpl;
@@ -46,11 +45,7 @@ impl DiceTransactionUpdaterImpl {
             }
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .existing_state()
-                .map(|d| {
-                    DiceTransaction(DiceTransactionImpl::Modern(
-                        BaseComputeCtx::from_computations(d),
-                    ))
-                })
+                .map(|d| DiceTransaction(DiceTransactionImpl::Modern(d)))
                 .right_future(),
         }
     }
