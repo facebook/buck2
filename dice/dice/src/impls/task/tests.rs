@@ -122,8 +122,9 @@ async fn simple_task() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
-    let task = spawn_dice_task(&TokioSpawner, &(), |_handle| {
+    let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
         async move {
+            let _handle = handle;
             // never report ready
 
             Box::new(()) as Box<dyn Any + Send + 'static>

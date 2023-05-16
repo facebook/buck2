@@ -15,6 +15,7 @@
 //!
 
 use std::future::Future;
+use std::marker::PhantomPinned;
 use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
@@ -40,10 +41,7 @@ use crate::cancellation::CancellationContextInner;
 
 pub(crate) fn make_cancellable_future<F, T>(
     f: F,
-) -> (
-    ExplicitlyCancellableFuture<impl Future<Output = T> + Send + 'static>,
-    CancellationHandle,
-)
+) -> (ExplicitlyCancellableFuture<T>, CancellationHandle)
 where
     F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
 {
@@ -51,10 +49,9 @@ where
 
     let fut = {
         let context = context.dupe();
-        async move {
-            let cancel = CancellationContext(CancellationContextInner::Explicit(context));
-            f(&cancel).await
-        }
+        let cancel = CancellationContext(CancellationContextInner::Explicit(context));
+
+        ExplicitlyCancellableTask::new(cancel, f)
     };
 
     let state = SharedState::new();
@@ -67,13 +64,60 @@ where
     (fut, handle)
 }
 
+#[pin_project]
+pub struct ExplicitlyCancellableTask<T> {
+    // NOTE: The order of these two fields is important. The `MaybeFuture` holds a
+    // reference to the `context`, and so absolutely must be dropped first.
+    #[pin]
+    fut: MaybeFuture<BoxFuture<'static, T>>, // not actually static but the lifetime of this struct
+    context: CancellationContext,
+
+    _p: PhantomPinned,
+}
+
+impl<T> ExplicitlyCancellableTask<T> {
+    fn new<F>(context: CancellationContext, f: F) -> Pin<Box<Self>>
+    where
+        F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    {
+        let this = ExplicitlyCancellableTask {
+            context,
+            fut: MaybeFuture::None,
+            _p: Default::default(),
+        };
+
+        let mut this = Box::pin(this);
+        let fut = unsafe {
+            // SAFETY: The `ExplicitlyCancellableTask` is always immediately pinned upon
+            // construction, so the self-reference will remain valid at least until this value
+            // is dropped. Furthermore, the future is dropped before the `CancellationContext`,
+            // and so the reference will remain valid even during the drop of the `Future`
+            mem::transmute::<BoxFuture<'_, T>, BoxFuture<'static, T>>(f(&this.context))
+        };
+
+        {
+            let this = this.as_mut().project();
+            this.fut.set_fut(fut);
+        }
+
+        this
+    }
+
+    fn poll(self: &mut Pin<Box<Self>>, cx: &mut Context<'_>) -> Poll<T> {
+        self.as_mut().project().fut.poll(cx)
+    }
+
+    fn take(self: &mut Pin<Box<Self>>) {
+        self.as_mut().project().fut.take()
+    }
+}
+
 /// Defines a future that operates with the 'CancellationContext' to provide explicit cancellation.
 ///
 /// NOTE: this future is intended only to be polled in a consistent tokio runtime, and never moved
 /// from one executor to another.
 /// The general safe way of using this future is to spawn it directly via `tokio::spawn`.
-#[pin_project(project = ExplicitlyCancellableFutureProj)]
-pub struct ExplicitlyCancellableFuture<F> {
+pub struct ExplicitlyCancellableFuture<T> {
     shared: SharedState,
 
     execution: ExecutionContext,
@@ -82,8 +126,7 @@ pub struct ExplicitlyCancellableFuture<F> {
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
     started: bool,
 
-    #[pin]
-    future: MaybeFuture<F>,
+    future: Pin<Box<ExplicitlyCancellableTask<T>>>,
 
     termination_notifier: Option<oneshot::Sender<TerminationStatus>>,
 }
@@ -97,6 +140,10 @@ enum MaybeFuture<F> {
 impl<F: Future> MaybeFuture<F> {
     fn take(mut self: Pin<&mut Self>) {
         self.set(MaybeFuture::None);
+    }
+
+    fn set_fut(mut self: Pin<&mut Self>, f: F) {
+        self.set(MaybeFuture::Fut(f));
     }
 }
 
@@ -116,12 +163,9 @@ where
     }
 }
 
-impl<F> ExplicitlyCancellableFuture<F>
-where
-    F: Future,
-{
+impl<T> ExplicitlyCancellableFuture<T> {
     fn new(
-        future: F,
+        future: Pin<Box<ExplicitlyCancellableTask<T>>>,
         shared: SharedState,
         execution: ExecutionContext,
         termination_notifier: oneshot::Sender<TerminationStatus>,
@@ -130,17 +174,14 @@ where
             shared,
             execution,
             started: false,
-            future: MaybeFuture::Fut(future),
+            future,
             termination_notifier: Some(termination_notifier),
         }
     }
 }
 
-impl<F> ExplicitlyCancellableFutureProj<'_, F>
-where
-    F: Future,
-{
-    fn poll_inner(&mut self, cx: &mut Context<'_>) -> Poll<Option<<F as Future>::Output>> {
+impl<T> ExplicitlyCancellableFuture<T> {
+    fn poll_inner(self: &mut Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
         let is_cancelled = self.shared.inner.cancelled.load(Ordering::SeqCst);
 
         if is_cancelled {
@@ -151,7 +192,7 @@ where
             execution.notify_cancelled();
         }
 
-        let res = self.future.as_mut().poll(cx).map(Some);
+        let res = self.future.poll(cx).map(Some);
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
@@ -163,27 +204,22 @@ where
     }
 }
 
-impl<F> Future for ExplicitlyCancellableFuture<F>
-where
-    F: Future,
-{
-    type Output = Option<<F as Future>::Output>;
+impl<T> Future for ExplicitlyCancellableFuture<T> {
+    type Output = Option<T>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
-
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Update the state before we check for cancellation so that the cancellation logic can
         // observe whether this future has entered `poll` or not. This lets cancellation set the
         // termination observer correctly so that the state is picked up.
         // Once we start, the `poll_inner` will check whether we are actually canceled and return
         // the proper poll value.
-        if !*this.started {
+        if !self.started {
             // we only update the Waker once at the beginning of the poll. For the same tokio
             // runtime, this is always safe and behaves correctly, as such, this future is
             // restricted to be ran on the same tokio executor and never moved from one runtime to
             // another
             take_mut::take(
-                &mut *this.shared.inner.state.lock(),
+                &mut *self.shared.inner.state.lock(),
                 |future| match future {
                     State::Pending => State::Polled {
                         waker: cx.waker().clone(),
@@ -192,24 +228,24 @@ where
                 },
             );
 
-            *this.started = true;
+            self.started = true;
         }
 
-        let poll = this.poll_inner(cx);
+        let poll = self.poll_inner(cx);
 
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let state = mem::replace(&mut *this.shared.inner.state.lock(), State::Exited);
+            let state = mem::replace(&mut *self.shared.inner.state.lock(), State::Exited);
 
             // free the future
-            this.future.take();
+            self.future.take();
 
             match state {
                 State::Cancelled => {
-                    if this.execution.shared.lock().can_exit() {
+                    if self.execution.shared.lock().can_exit() {
                         // if we got canceled during our poll, make sure to still result in canceled
-                        let _ignored = this
+                        let _ignored = self
                             .termination_notifier
                             .take()
                             .expect("polled after completion")
@@ -218,7 +254,7 @@ where
                         return Poll::Ready(None);
                     } else {
                         // we blocked cancellation so this now finishes normally
-                        let _ignored = this
+                        let _ignored = self
                             .termination_notifier
                             .take()
                             .expect("polled after completion")
@@ -226,7 +262,7 @@ where
                     }
                 }
                 _ => {
-                    let _ignored = this
+                    let _ignored = self
                         .termination_notifier
                         .take()
                         .expect("polled after completion")
@@ -1228,5 +1264,32 @@ mod tests {
             Poll::Ready(TerminationStatus::Cancelled)
         );
         assert!(is_dropped.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn test_lambda_is_ran_without_poll() {
+        let mut panic = MaybePanicOnDrop { panic: true };
+        tokio::task::yield_now().await;
+        panic.panic = false;
+
+        let (fut, handle) = make_cancellable_future(move |_cancellations| {
+            panic.panic = false;
+
+            async move {
+                panic!("polled");
+            }
+            .boxed()
+        });
+        futures::pin_mut!(fut);
+
+        // cancel before any polls
+        let cancel = handle.cancel();
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+
+        futures::pin_mut!(cancel);
+        assert_matches!(
+            futures::poll!(&mut cancel),
+            Poll::Ready(TerminationStatus::Cancelled)
+        );
     }
 }
