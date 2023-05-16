@@ -49,6 +49,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -300,7 +301,7 @@ async fn test(
     });
 
     let test_outcome = test_targets(
-        &ctx,
+        ctx,
         resolved_pattern,
         global_target_platform,
         request.test_executor_args.clone(),
@@ -375,7 +376,7 @@ async fn test(
 }
 
 async fn test_targets(
-    ctx: &DiceComputations,
+    ctx: DiceTransaction,
     pattern: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     global_target_platform: Option<TargetLabel>,
     external_runner_args: Vec<String>,
@@ -422,13 +423,13 @@ async fn test_targets(
 
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
-    let future_and_cancellation = ctx.temporary_spawn({
-        let test_status_sender = test_status_sender.clone();
-        move |ctx, cancellations| {
-            {
-                // NOTE: This is made a critical section so that we shut down gracefully. We'll cancel
-                // if the liveliness guard indicates we should.
-                cancellations.critical_section(move || async move {
+    let test_server =
+        tokio::spawn({
+            let test_status_sender = test_status_sender.clone();
+            with_dispatcher_async(
+                ctx.per_transaction_data().get_dispatcher().dupe(),
+                // NOTE: This is will cancel if the liveliness guard indicates we should.
+                async move {
                     // Spawn our server to listen to the test runner's requests for execution.
 
                     let local_resource_registry = Arc::new(LocalResourceRegistry::new());
@@ -504,11 +505,9 @@ async fn test_targets(
                     // And finally return our results;
 
                     anyhow::Ok((driver.build_errors, test_statuses))
-                })
-            }
-            .boxed()
-        }
-    });
+                },
+            )
+        });
 
     let executor_output = executor_handle
         .await
@@ -529,9 +528,9 @@ async fn test_targets(
     )));
 
     // TODO(bobyf, torozco) we can use cancellation handle here instead of liveliness observer
-    let (build_errors, executor_report) = future_and_cancellation
+    let (build_errors, executor_report) = test_server
         .await
-        .context("Failed to collect executor report")?;
+        .context("Failed to collect executor report")??;
 
     Ok(TestOutcome {
         error_messages: build_errors,
