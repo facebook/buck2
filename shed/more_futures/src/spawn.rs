@@ -251,7 +251,7 @@ pub fn spawn_cancellable_with_preamble<F, T, P, S>(
     span: Span,
 ) -> FutureAndCancellationHandle<T>
 where
-    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
     P: Future<Output = ()> + Send + 'static,
     T: Any + Send + 'static,
 {
@@ -302,7 +302,7 @@ pub fn spawn_cancellable<F, T, S>(
     span: Span,
 ) -> FutureAndCancellationHandle<T>
 where
-    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
     T: Any + Send + 'static,
 {
     spawn_cancellable_with_preamble(f, futures::future::ready(()), spawner, ctx, span)

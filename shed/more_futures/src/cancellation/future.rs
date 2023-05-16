@@ -43,7 +43,7 @@ pub(crate) fn make_cancellable_future<F, T>(
     f: F,
 ) -> (ExplicitlyCancellableFuture<T>, CancellationHandle)
 where
-    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
 {
     let context = ExecutionContext::new();
 
@@ -78,7 +78,7 @@ pub struct ExplicitlyCancellableTask<T> {
 impl<T> ExplicitlyCancellableTask<T> {
     fn new<F>(context: CancellationContext, f: F) -> Pin<Box<Self>>
     where
-        F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send + 'static,
+        F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
     {
         let this = ExplicitlyCancellableTask {
             context,

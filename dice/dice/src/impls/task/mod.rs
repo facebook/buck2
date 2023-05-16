@@ -32,7 +32,7 @@ mod tests;
 pub(crate) fn spawn_dice_task<S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
-    f: impl for<'a> FnOnce(DiceTaskHandle<'a>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send + 'static,
+    f: impl for<'a> FnOnce(DiceTaskHandle<'a>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
 ) -> DiceTask {
     let internal = DiceTaskInternal::new();
 
