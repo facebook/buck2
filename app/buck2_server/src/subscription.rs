@@ -51,7 +51,7 @@ pub(crate) async fn run_subscription_server_command(
 
             let mut wants_active_commands = false;
 
-            let mut ticker = tokio::time::interval(Duration::from_secs(1));
+            let mut ticker = tokio::time::interval(Duration::from_millis(100));
             ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
             let disconnect = loop {
