@@ -33,10 +33,10 @@ enum ViaError {
 /// code.
 /// This also provides a handle for dice.
 #[derive(Clone, Dupe)]
-pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations, &'a CancellationObserver);
+pub struct BxlSafeDiceComputations<'a>(pub(crate) &'a DiceComputations, CancellationObserver);
 
 impl<'a> BxlSafeDiceComputations<'a> {
-    pub fn new(dice: &'a DiceComputations, cancellation: &'a CancellationObserver) -> Self {
+    pub fn new(dice: &'a DiceComputations, cancellation: CancellationObserver) -> Self {
         Self(dice, cancellation)
     }
 

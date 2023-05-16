@@ -45,9 +45,9 @@ use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrin
 use clap::ErrorKind;
 use dashmap::DashMap;
 use dice::DiceComputations;
-use dice::DiceTransaction;
 use dupe::Dupe;
-use more_futures::cancellation::CancellationContext;
+use futures::FutureExt;
+use more_futures::cancellable_future::CancellationObserver;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
@@ -62,44 +62,51 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::FrozenBxlFunction;
 
 pub async fn eval(
-    ctx: DiceTransaction,
+    ctx: &DiceComputations,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,
-    cancellations: &CancellationContext,
+    liveness: CancellationObserver,
 ) -> anyhow::Result<(
     BxlResult,
     Option<StarlarkProfileDataAndStats>,
     Arc<DashMap<BuildArtifact, ()>>,
 )> {
-    let bxl_module = ctx
-        .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
-        .await?;
+    // Note: because we use `block_in_place`, that will prevent the inner future from being polled
+    // and yielded. So, for cancellation observers to work properly within the dice cancellable
+    // future context, we need the future that it's attached to the cancellation context can
+    // yield and be polled. To ensure that, we have to spawn the future that then enters block_in_place
+    ctx.temporary_spawn(move |ctx, _cancellations| {
+        async move {
+            let bxl_module = ctx
+                .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
+                .await?;
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
+            let cell_resolver = ctx.get_cell_resolver().await?;
 
-    let bxl_cell = cell_resolver
-        .get(key.label().bxl_path.cell())
-        .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
-        .dupe();
+            let bxl_cell = cell_resolver
+                .get(key.label().bxl_path.cell())
+                .with_context(|| format!("Cell does not exist: `{}`", key.label().bxl_path.cell()))?
+                .dupe();
 
-    let target_alias_resolver = ctx
-        .target_alias_resolver_for_cell(key.label().bxl_path.cell())
-        .await?;
+            let target_alias_resolver = ctx
+                .target_alias_resolver_for_cell(key.label().bxl_path.cell())
+                .await?;
 
-    let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
-    let artifact_fs = ctx.get_artifact_fs().await?;
+            let project_fs = ctx.global_data().get_io_provider().project_root().dupe();
+            let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let digest_config = ctx.global_data().get_digest_config();
+            let digest_config = ctx.global_data().get_digest_config();
 
-    // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
-    // will be blocking calls so that starlark can remain synchronous.
-    // To avoid blocking a tokio thread, we spawn bxl as a blocking tokio task
-    let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
+            let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
 
-    cancellations
-        .with_structured_cancellation(|cancellation| async move {
-            tokio::task::spawn_blocking(with_dispatcher(dispatcher.clone(), || {
-                move || {
+            // The bxl function may trigger async operations like builds, analysis, parsing etc, but those
+            // will be blocking calls so that starlark can remain synchronous.
+            // So indicate to tokio that this may block in place to avoid starvation. Ideally we use
+            // spawn_blocking but that requires a static lifetime. There is no `join`s of multiple
+            // futures that requires work to be done on the current thread, so using block_in_place
+            // should have no noticeable different compared to spawn_blocking
+            tokio::task::block_in_place(move || {
+                with_dispatcher(dispatcher.clone(), move || {
                     let env = Module::new();
 
                     let resolved_args = env.heap().alloc(AllocStruct(
@@ -166,7 +173,7 @@ pub async fn eval(
                             artifact_fs,
                             cell_resolver,
                             bxl_cell.name(),
-                            BxlSafeDiceComputations::new(&ctx, &cancellation),
+                            BxlSafeDiceComputations::new(&ctx, liveness),
                             file,
                             error_file,
                             digest_config,
@@ -249,11 +256,12 @@ pub async fn eval(
                     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
 
                     anyhow::Ok((bxl_result, profile_data, materializations))
-                }
-            }))
-            .await
-        })
-        .await?
+                })
+            })
+        }
+        .boxed()
+    })
+    .await
 }
 
 fn eval_bxl<'a>(

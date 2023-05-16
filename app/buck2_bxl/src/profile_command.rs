@@ -28,6 +28,7 @@ use buck2_server_ctx::pattern::target_platform_from_client_context;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
+use futures::FutureExt;
 
 use crate::bxl::eval::eval;
 use crate::bxl::eval::BxlResolvedCliArgs;
@@ -108,16 +109,28 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         let bxl_key =
                             BxlKey::new(bxl_label.clone(), bxl_args, global_target_platform);
 
-                        eval(
-                            ctx,
-                            bxl_key,
-                            StarlarkProfileModeOrInstrumentation::Profile(profile_mode),
-                            server_ctx.cancellation_context(),
-                        )
-                        .await?
-                        .1
-                        .map(Arc::new)
-                        .expect("No bxl profile data found")
+                        server_ctx
+                            .cancellation_context()
+                            .with_structured_cancellation(|observer| {
+                                async move {
+                                    anyhow::Ok(
+                                        eval(
+                                            &ctx,
+                                            bxl_key,
+                                            StarlarkProfileModeOrInstrumentation::Profile(
+                                                profile_mode,
+                                            ),
+                                            observer,
+                                        )
+                                        .await?
+                                        .1
+                                        .map(Arc::new)
+                                        .expect("No bxl profile data found"),
+                                    )
+                                }
+                                .boxed()
+                            })
+                            .await?
                     }
                     _ => {
                         return Err(anyhow::anyhow!("Incorrect profile mode (internal error)"));
