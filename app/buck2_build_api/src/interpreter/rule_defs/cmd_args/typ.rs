@@ -19,6 +19,7 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_util::commas::commas;
+use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -326,8 +327,8 @@ impl<'v> Serialize for StarlarkCommandLine<'v> {
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenStarlarkCommandLine {
-    items: Box<[CommandLineArgGen<FrozenValue>]>,
-    hidden: Box<[CommandLineArgGen<FrozenValue>]>,
+    items: ThinBoxSlice<CommandLineArgGen<FrozenValue>>,
+    hidden: ThinBoxSlice<CommandLineArgGen<FrozenValue>>,
     options: FrozenCommandLineOptions,
 }
 
@@ -414,7 +415,7 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
 assert_eq_size!(StarlarkCommandLine<'static>, [usize; 8]);
-assert_eq_size!(FrozenStarlarkCommandLine, [usize; 6]);
+assert_eq_size!(FrozenStarlarkCommandLine, [usize; 3]);
 assert_eq_size!(CommandLineOptions<'static>, [usize; 10]);
 
 impl<'v> Display for StarlarkCommandLine<'v> {
@@ -552,8 +553,8 @@ impl<'v> Freeze for StarlarkCommandLine<'v> {
             options,
         } = self.0.into_inner();
 
-        let items = items.freeze(freezer)?.into_boxed_slice();
-        let hidden = hidden.freeze(freezer)?.into_boxed_slice();
+        let items = ThinBoxSlice::from_iter(items.freeze(freezer)?);
+        let hidden = ThinBoxSlice::from_iter(hidden.freeze(freezer)?);
         let options = options
             .try_map(|options| (*options).freeze(freezer))?
             .unwrap_or_default();

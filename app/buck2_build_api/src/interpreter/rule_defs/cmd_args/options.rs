@@ -20,6 +20,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_util::commas::commas;
+use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -183,14 +184,14 @@ enum FrozenCommandLineOption {
     Prepend(FrozenStringValue),
     Quote(QuoteStyle),
     #[allow(clippy::box_collection)]
-    Replacements(Box<Vec<(FrozenStringValue, FrozenStringValue)>>),
+    Replacements(ThinBoxSlice<(FrozenStringValue, FrozenStringValue)>),
 }
 
 assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
 
 #[derive(Debug, Default, Allocative)]
 pub(crate) struct FrozenCommandLineOptions {
-    options: Box<[FrozenCommandLineOption]>,
+    options: ThinBoxSlice<FrozenCommandLineOption>,
 }
 
 impl FrozenCommandLineOptions {
@@ -250,7 +251,7 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
                     options.quote = Some(value.dupe());
                 }
                 FrozenCommandLineOption::Replacements(value) => {
-                    options.replacements = coerce(value.as_slice());
+                    options.replacements = coerce::<&[_], &[_]>(value);
                 }
             }
         }
@@ -342,13 +343,13 @@ impl<'v> Freeze for CommandLineOptions<'v> {
         }
         if let Some(replacements) = replacements {
             if !replacements.is_empty() {
-                let replacements = replacements.freeze(freezer)?;
+                let replacements = ThinBoxSlice::from_iter((*replacements).freeze(freezer)?);
                 options.push(FrozenCommandLineOption::Replacements(replacements));
             }
         }
 
         Ok(FrozenCommandLineOptions {
-            options: options.into_boxed_slice(),
+            options: ThinBoxSlice::from_iter(options),
         })
     }
 }
