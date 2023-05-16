@@ -223,9 +223,11 @@ impl CancellationHandle {
                 // Nothing to do, that future is done.
                 let _ = self.sender.send(TerminationStatus::Finished);
             }
-            State::Pending => {
-                // future never started, so it's immediately canceled
-                let _ = self.sender.send(TerminationStatus::Cancelled);
+            state @ State::Pending => {
+                // we wait for the future to `poll` once even if it has yet to do so.
+                // Since we always should be spawning the `ExplicitlyCancellableFuture` on tokio,
+                // it should be polled once.
+                let _old = std::mem::replace(state, State::Cancelled { tx: self.sender });
             }
             state @ State::Polled { .. } => {
                 let old = std::mem::replace(state, State::Cancelled { tx: self.sender });
@@ -570,12 +572,14 @@ mod tests {
         let cancel = handle.cancel();
 
         futures::pin_mut!(cancel);
+        // if the future isn't polled yet, we are still pending
+        assert_matches!(futures::poll!(&mut cancel), Poll::Pending);
+
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
         assert_matches!(
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
     }
 
     #[tokio::test]
