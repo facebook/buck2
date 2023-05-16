@@ -827,7 +827,7 @@ impl Materializer for DeferredMaterializer {
             .context("Sending Ensure() command.")?;
         let materialization_fut = recv
             .await
-            .context("Recv'ing materialization future from command thread.")?;
+            .context("Receiving materialization future from command thread.")?;
         Ok(materialization_fut)
     }
 
