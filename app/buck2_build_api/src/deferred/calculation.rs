@@ -44,7 +44,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BxlCalculation;
 use crate::bxl::result::BxlResult;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
-use crate::deferred::calculation::keys::DeferredResolve;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredId;
@@ -58,6 +57,14 @@ use crate::deferred::types::DeferredValueAnyReady;
 use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
 use crate::nodes::calculation::NodeCalculation;
+
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "ResolveDeferred({})", _0)]
+pub struct DeferredResolve(pub DeferredKey);
+
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "ComputeDeferred({})", _0)]
+pub struct DeferredCompute(pub DeferredKey);
 
 #[async_trait]
 pub trait DeferredCalculation {
@@ -183,10 +190,6 @@ async fn compute_deferred(
     dice: &DiceComputations,
     deferred: &DeferredKey,
 ) -> anyhow::Result<DeferredResult> {
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "ComputeDeferred({})", _0)]
-    struct DeferredCompute(DeferredKey);
-
     #[async_trait]
     impl Key for DeferredCompute {
         type Value = SharedResult<DeferredResult>;
@@ -362,23 +365,6 @@ impl DeferredHolder {
     }
 }
 
-mod keys {
-    use allocative::Allocative;
-    use derive_more::Display;
-    use dupe::Dupe;
-
-    use crate::deferred::types::DeferredKey;
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "ResolveDeferred({})", _0)]
-    pub struct DeferredResolve(pub DeferredKey);
-}
-
-pub mod testing {
-    // re-exports for testing
-    pub use super::keys::DeferredResolve;
-}
-
 #[cfg(test)]
 mod tests {
     use std::any;
@@ -405,7 +391,7 @@ mod tests {
     use indexmap::IndexSet;
     use indoc::indoc;
 
-    use crate::analysis::calculation::testing::AnalysisKey;
+    use crate::analysis::calculation::AnalysisKey;
     use crate::analysis::AnalysisResult;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::calculation::DeferredCalculation;

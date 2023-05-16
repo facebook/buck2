@@ -47,7 +47,7 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
-use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;

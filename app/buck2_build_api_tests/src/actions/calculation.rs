@@ -24,7 +24,7 @@ use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::calculation::testing::DeferredResolve;
+use buck2_build_api::deferred::calculation::DeferredResolve;
 use buck2_build_api::deferred::types::testing::DeferredIdExt;
 use buck2_build_api::deferred::types::AnyValue;
 use buck2_build_api::deferred::types::DeferredId;

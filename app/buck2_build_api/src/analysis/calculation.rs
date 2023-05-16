@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
+use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
@@ -38,6 +39,7 @@ use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_util::late_binding::LateBinding;
+use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -51,7 +53,6 @@ use starlark::eval::ProfileMode;
 use crate::actions::build_listener::AnalysisSignal;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::NodeDuration;
-use crate::analysis::calculation::keys::AnalysisKey;
 use crate::analysis::get_user_defined_rule_impl;
 use crate::analysis::run_analysis;
 use crate::analysis::AnalysisResult;
@@ -76,6 +77,10 @@ enum AnalysisCalculationError {
     #[error("Internal error: literal `{0}` not found in `deps`")]
     LiteralNotFoundInDeps(String),
 }
+
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[display(fmt = "{}", "_0")]
+pub(crate) struct AnalysisKey(pub ConfiguredTargetLabel);
 
 #[async_trait]
 pub trait RuleAnalysisCalculation {
@@ -430,25 +435,4 @@ pub async fn profile_analysis_recursively(
     }
 
     StarlarkProfileDataAndStats::merge(profile_datas.iter().map(|x| &**x))
-}
-
-mod keys {
-    use allocative::Allocative;
-    use buck2_core::target::label::ConfiguredTargetLabel;
-    use derive_more::Display;
-    use dupe::Dupe;
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{}", "_0")]
-    pub(crate) struct AnalysisKey(pub ConfiguredTargetLabel);
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq)]
-    #[display(fmt = "{}", "_0")]
-    pub struct ConfiguredGraphKey(pub ConfiguredTargetLabel);
-}
-
-#[cfg(test)]
-pub mod testing {
-    // re-exports for testing
-    pub(crate) use super::keys::AnalysisKey;
 }

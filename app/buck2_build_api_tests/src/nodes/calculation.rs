@@ -22,7 +22,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
-use buck2_interpreter_for_build::interpreter::calculation::testing::InterpreterResultsKey;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;

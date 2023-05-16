@@ -11,6 +11,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -27,13 +28,17 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
+use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 
-use crate::interpreter::calculation::keys::InterpreterResultsKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+
+// Key for 'InterpreterCalculation::get_interpreter_results'
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+pub struct InterpreterResultsKey(pub PackageLabel);
 
 struct TargetGraphCalculationInstance;
 
@@ -119,20 +124,4 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .eval_module(path)
             .await
     }
-}
-
-mod keys {
-    use allocative::Allocative;
-    use buck2_core::package::PackageLabel;
-    use derive_more::Display;
-    use dupe::Dupe;
-
-    // Key for 'InterpreterCalculation::get_interpreter_results'
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    pub struct InterpreterResultsKey(pub PackageLabel);
-}
-
-pub mod testing {
-    // re-exports for testing
-    pub use super::keys::InterpreterResultsKey;
 }

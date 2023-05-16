@@ -321,7 +321,7 @@ async fn path_artifact_value(
 
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
 #[repr(transparent)]
-pub(crate) struct EnsureProjectedArtifactKey(ProjectedArtifact);
+pub(crate) struct EnsureProjectedArtifactKey(pub(crate) ProjectedArtifact);
 
 #[async_trait]
 impl Key for EnsureProjectedArtifactKey {
@@ -376,7 +376,7 @@ impl Key for EnsureProjectedArtifactKey {
 
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
 #[repr(transparent)]
-pub(crate) struct EnsureTransitiveSetProjectionKey(TransitiveSetProjectionKey);
+pub(crate) struct EnsureTransitiveSetProjectionKey(pub(crate) TransitiveSetProjectionKey);
 
 #[async_trait]
 impl Key for EnsureTransitiveSetProjectionKey {

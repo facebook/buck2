@@ -17,7 +17,7 @@ use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::calculation::testing::DeferredResolve;
+use buck2_build_api::deferred::calculation::DeferredResolve;
 use buck2_build_api::deferred::types::AnyValue;
 use buck2_build_api::deferred::types::DeferredValueAnyReady;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
