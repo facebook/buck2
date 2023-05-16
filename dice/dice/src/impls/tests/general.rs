@@ -30,6 +30,7 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::versions::VersionNumber;
+use crate::Dice;
 use crate::DiceData;
 use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
@@ -583,4 +584,76 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
     req2.await.unwrap();
 
     assert!(is_ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn user_cycle_detector_is_present_legacy() -> anyhow::Result<()> {
+    user_cycle_detector_is_present(Dice::builder().build(DetectCycles::Disabled)).await
+}
+
+#[tokio::test]
+async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
+    user_cycle_detector_is_present(Dice::modern().build(DetectCycles::Disabled)).await
+}
+
+async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
+    #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
+    #[display(fmt = "{:?}", self)]
+    struct AccessCycleGuardKey;
+
+    #[async_trait]
+    impl Key for AccessCycleGuardKey {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            assert!(
+                ctx.cycle_guard::<AccessCycleDetectorGuard>()
+                    .unwrap()
+                    .is_some()
+            );
+        }
+
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            true
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct AccessCycleDetector;
+
+    struct AccessCycleDetectorGuard;
+
+    impl UserCycleDetector for AccessCycleDetector {
+        fn start_computing_key(
+            &self,
+            _key: &dyn std::any::Any,
+        ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+            Some(Box::new(AccessCycleDetectorGuard))
+        }
+
+        fn finished_computing_key(&self, _key: &dyn std::any::Any) {}
+    }
+
+    impl UserCycleDetectorGuard for AccessCycleDetectorGuard {
+        fn add_edge(&self, _key: &dyn std::any::Any) {}
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn type_name(&self) -> &'static str {
+            std::any::type_name::<Self>()
+        }
+    }
+
+    let user_data = UserComputationData {
+        cycle_detector: Some(Arc::new(AccessCycleDetector)),
+        ..Default::default()
+    };
+    let ctx = dice.updater_with_data(user_data).commit().await;
+    Ok(ctx.compute(&AccessCycleGuardKey).await?)
 }
