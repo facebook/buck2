@@ -9,6 +9,7 @@
 
 use std::future::Future;
 
+use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use buck2_cli_proto::ClientContext;
@@ -139,7 +140,7 @@ impl<'a> ClientCommandContext<'a> {
                 .working_dir
                 .path()
                 .to_str()
-                .ok_or(CurrentDirIsNotUtf8)?
+                .context(CurrentDirIsNotUtf8)?
                 .to_owned(),
             config_overrides: Default::default(),
             target_platform: Default::default(),

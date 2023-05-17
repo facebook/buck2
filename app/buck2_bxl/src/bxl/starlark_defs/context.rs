@@ -310,8 +310,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             .get_io_provider()
             .project_root()
             .root()
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Non utf-8 path"))?
+            .to_str()?
             .to_owned())
     }
 

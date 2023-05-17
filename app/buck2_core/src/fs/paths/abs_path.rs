@@ -126,6 +126,13 @@ impl AbsPath {
         &self.0
     }
 
+    pub fn to_str(&self) -> anyhow::Result<&str> {
+        match self.0.to_str() {
+            Some(s) => Ok(s),
+            None => Err(AbsPathError::PathCannotBeConvertedToUtf8(self.0.to_owned().into()).into()),
+        }
+    }
+
     pub fn join<P: AsRef<Path>>(&self, other: P) -> AbsPathBuf {
         let path = self.0.join(other);
         assert!(path.is_absolute());
