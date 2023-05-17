@@ -100,6 +100,15 @@ impl VersionTracker {
         (entry.version_epoch, entry.per_transaction_data.dupe())
     }
 
+    /// check if the given version and epoch are "relevant", that is the current active version's
+    /// epoch matches the given epoch
+    #[allow(unused)] // D45925966
+    pub(crate) fn is_relevant(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
+        self.active_versions
+            .get(&v)
+            .map_or(false, |active| active.version_epoch == epoch)
+    }
+
     /// Drops reference to a VersionNumber given the token
     pub(crate) fn drop_at_version(&mut self, v: VersionNumber) {
         let ref_count = {
@@ -153,6 +162,7 @@ impl<'a> VersionForWrites<'a> {
 mod tests {
     use assert_matches::assert_matches;
 
+    use crate::impls::core::versions::VersionEpoch;
     use crate::impls::core::versions::VersionTracker;
     use crate::versions::VersionNumber;
 
@@ -177,6 +187,26 @@ mod tests {
 
         vt.drop_at_version(VersionNumber::new(0));
         assert_matches!(vt.active_versions.get(&VersionNumber::new(0)), None);
+    }
+
+    #[test]
+    fn version_epoch_relevant() {
+        let mut vt = VersionTracker::new();
+
+        let (epoch, _s) = vt.at(VersionNumber::new(0));
+        assert!(vt.is_relevant(VersionNumber::new(0), epoch));
+        assert!(!vt.is_relevant(VersionNumber::new(0), VersionEpoch::testing_new(9999)));
+
+        let (epoch1, _s) = vt.at(VersionNumber::new(2));
+        assert!(!vt.is_relevant(VersionNumber::new(0), epoch1));
+        assert!(vt.is_relevant(VersionNumber::new(2), epoch1));
+        assert!(!vt.is_relevant(VersionNumber::new(2), epoch));
+
+        vt.drop_at_version(VersionNumber::new(2));
+        let (epoch2, _s) = vt.at(VersionNumber::new(2));
+        assert!(!vt.is_relevant(VersionNumber::new(0), epoch1));
+        assert!(!vt.is_relevant(VersionNumber::new(2), epoch1));
+        assert!(vt.is_relevant(VersionNumber::new(2), epoch2));
     }
 
     #[test]
