@@ -17,6 +17,7 @@ use std::str::FromStr;
 
 use allocative::Allocative;
 use derive_more::Display;
+use ref_cast::RefCast;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,7 +28,7 @@ enum AbsPathError {
     PathCannotBeConvertedToUtf8(OsString),
 }
 
-#[derive(Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Hash, Eq, PartialEq, PartialOrd, Ord, RefCast)]
 #[repr(transparent)]
 pub struct AbsPath(Path);
 
@@ -145,6 +146,11 @@ impl AbsPath {
 
     pub fn strip_prefix<P: AsRef<AbsPath>>(&self, prefix: P) -> anyhow::Result<&Path> {
         Ok(self.0.strip_prefix(prefix.as_ref())?)
+    }
+
+    pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsPath> {
+        // Taking the ancestors of an AbsPath gives you more AbsPath.
+        self.0.ancestors().map(AbsPath::ref_cast)
     }
 }
 
