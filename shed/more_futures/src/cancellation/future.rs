@@ -275,7 +275,9 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let state = mem::replace(&mut *self.shared.inner.state.lock(), State::Exited);
+            let inner = self.shared.inner.dupe();
+            let mut locked_state = inner.state.lock();
+            let state = mem::replace(&mut *locked_state, State::Exited);
 
             match state {
                 State::Cancelled => {
@@ -354,12 +356,14 @@ impl CancellationHandle {
 
         TerminationObserver {
             receiver: self.observer,
+            state: self.shared_state,
         }
     }
 
     pub(crate) fn termination_observer(&self) -> TerminationObserver {
         TerminationObserver {
             receiver: self.observer.clone(),
+            state: self.shared_state.dupe(),
         }
     }
 }
@@ -370,6 +374,7 @@ impl CancellationHandle {
 pub struct TerminationObserver {
     #[pin]
     receiver: Shared<oneshot::Receiver<TerminationStatus>>,
+    state: SharedState,
 }
 
 #[derive(Clone, Dupe, PartialEq, Eq, Debug)]
@@ -377,6 +382,15 @@ pub enum TerminationStatus {
     Finished,
     Cancelled,
     ExecutorShutdown,
+}
+
+impl TerminationObserver {
+    pub fn is_terminated(&self) -> bool {
+        match &*self.state.inner.state.lock() {
+            State::Exited => true,
+            _ => false,
+        }
+    }
 }
 
 impl Future for TerminationObserver {
@@ -804,6 +818,7 @@ mod tests {
         // is dropped and then immediately check for cancellation and yield.
         let cancel = handle.cancel();
         futures::pin_mut!(cancel);
+        assert!(!cancel.is_terminated());
         assert_matches!(futures::poll!(&mut cancel), Poll::Pending);
 
         // Poll again, this time we don't enter the future's poll because it is cancelled.
@@ -813,6 +828,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -916,6 +932,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
 
         futures::pin_mut!(cancel);
+        assert!(cancel.is_terminated());
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
     }
 
@@ -944,6 +961,7 @@ mod tests {
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -966,6 +984,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
 
         futures::pin_mut!(cancel);
+        assert!(cancel.is_terminated());
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
     }
 
@@ -989,6 +1008,7 @@ mod tests {
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1019,6 +1039,7 @@ mod tests {
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1056,6 +1077,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1082,6 +1104,7 @@ mod tests {
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1111,6 +1134,7 @@ mod tests {
 
         futures::pin_mut!(cancel);
         assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1134,6 +1158,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Finished)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1156,6 +1181,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1186,6 +1212,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1220,6 +1247,7 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Finished)
         );
+        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1287,6 +1315,7 @@ mod tests {
             futures::poll!(&mut termination),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(termination.is_terminated());
         assert!(is_dropped.load(Ordering::SeqCst));
     }
 
@@ -1315,5 +1344,6 @@ mod tests {
             futures::poll!(&mut cancel),
             Poll::Ready(TerminationStatus::Cancelled)
         );
+        assert!(cancel.is_terminated());
     }
 }
