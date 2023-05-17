@@ -295,9 +295,9 @@ pub fn metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     fs::metadata(path.as_ref()).with_context(|| format!("metadata({})", P::as_ref(&path).display()))
 }
 
-pub fn symlink_metadata<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::Metadata> {
+pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::symlink_metadata(&path)
+    fs::symlink_metadata(path.as_ref())
         .with_context(|| format!("symlink_metadata({})", P::as_ref(&path).display()))
 }
 
