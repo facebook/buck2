@@ -466,7 +466,7 @@ impl Read for FileReadGuard {
     }
 }
 
-pub fn open_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileReadGuard> {
+pub fn open_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileReadGuard> {
     let guard = IoCounterKey::Read.guard();
     let file = File::open(path.as_ref())
         .with_context(|| format!("open_file({})", P::as_ref(&path).display()))?;
