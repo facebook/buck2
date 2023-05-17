@@ -100,6 +100,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     use anyhow::Context;
     use buck2_core::fs::fs_util;
+    use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::soft_error;
 
     #[derive(Debug, thiserror::Error)]
@@ -108,9 +109,11 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     if nix::unistd::geteuid().is_root() {
         let home_dir = dirs::home_dir().context("home dir not found")?;
-        let home_dir_metadata = fs_util::metadata(home_dir)?;
-        if home_dir_metadata.uid() != 0 {
-            soft_error!("root_not_allowed", RootError.into())?;
+        if let Ok(home_dir) = AbsPath::new(&home_dir) {
+            let home_dir_metadata = fs_util::metadata(home_dir)?;
+            if home_dir_metadata.uid() != 0 {
+                soft_error!("root_not_allowed", RootError.into())?;
+            }
         }
     }
     Ok(())

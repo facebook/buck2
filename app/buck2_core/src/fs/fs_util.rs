@@ -290,9 +290,9 @@ pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> anyhow:
     Ok(())
 }
 
-pub fn metadata<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::Metadata> {
+pub fn metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::metadata(&path).with_context(|| format!("metadata({})", P::as_ref(&path).display()))
+    fs::metadata(path.as_ref()).with_context(|| format!("metadata({})", P::as_ref(&path).display()))
 }
 
 pub fn symlink_metadata<P: AsRef<Path>>(path: P) -> anyhow::Result<fs::Metadata> {
