@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
-
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::trace_io_request;
@@ -23,6 +21,7 @@ use buck2_client_ctx::daemon::client::connect::DesiredTraceIoState;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -54,7 +53,7 @@ enum Subcommand {
     /// Exports the I/O trace taken by the daemon in a structured manifest format.
     ExportManifest {
         #[clap(short, long, help = "Output path to write manifest to")]
-        out: Option<PathBuf>,
+        out: Option<PathArg>,
     },
 }
 
@@ -144,7 +143,7 @@ impl StreamingCommand for TraceIoCommand {
                 let serialized = serde_json::to_string(&manifest)
                     .context("serializing offline archive manifest to json")?;
                 if let Some(output_path) = &out {
-                    fs_util::write(output_path, &serialized)
+                    fs_util::write(output_path.resolve(&ctx.working_dir), &serialized)
                         .context("writing offline archive manifest")?;
                 } else {
                     buck2_client_ctx::println!("{}", serialized)?;
