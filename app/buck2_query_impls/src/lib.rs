@@ -9,6 +9,7 @@
 
 #![feature(async_closure)]
 #![feature(try_blocks)]
+#![feature(provide_any)]
 
 use std::sync::Once;
 
@@ -24,6 +25,7 @@ pub fn init_late_bindings() {
     ONCE.call_once(|| {
         analysis::environment::init_query_functions();
         analysis::eval::init_eval_analysis_query();
+        aquery::find_matching_action::init_find_matching_action();
         frontend::init_query_frontend();
         cquery::bxl::init_new_bxl_cquery_functions();
         uquery::bxl::init_new_bxl_uquery_functions();

@@ -16,7 +16,6 @@ ref-cast = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tracing = { workspace = true }
 
 dice = { workspace = true }
 gazebo = { workspace = true }

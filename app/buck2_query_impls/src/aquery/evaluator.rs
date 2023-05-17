@@ -64,7 +64,7 @@ pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a>(
 }
 
 // Provides the dice query delegate for aquery evaluator
-pub async fn get_dice_aquery_delegate<'a, 'c: 'a>(
+pub(crate) async fn get_dice_aquery_delegate<'a, 'c: 'a>(
     ctx: &'c DiceComputations,
     working_dir: &'a ProjectRelativePath,
     global_target_platform: Option<TargetLabel>,

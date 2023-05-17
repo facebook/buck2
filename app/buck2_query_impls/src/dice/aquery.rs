@@ -104,7 +104,7 @@ impl DiceAqueryNodesCache {
     }
 }
 
-pub struct DiceAqueryDelegate<'c> {
+pub(crate) struct DiceAqueryDelegate<'c> {
     base_delegate: DiceQueryDelegate<'c>,
     nodes_cache: DiceAqueryNodesCache,
     artifact_fs: Arc<ArtifactFs>,

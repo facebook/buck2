@@ -10,16 +10,23 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryTarget;
+use buck2_util::late_binding::LateBinding;
 use derivative::Derivative;
+use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 use indexmap::IndexMap;
@@ -30,6 +37,7 @@ use serde::Serializer;
 
 use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
+use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 
 impl NodeLabel for ActionKey {}
@@ -271,3 +279,18 @@ impl QueryTarget for ActionQueryNode {
         attr.serialize(serializer)
     }
 }
+
+pub static FIND_MATCHING_ACTION: LateBinding<
+    for<'c> fn(
+        &'c DiceComputations,
+        // Working dir.
+        &'c ProjectRelativePath,
+        // global_target_platform
+        Option<TargetLabel>,
+        &'c AnalysisResult,
+        // path_after_target_name
+        ForwardRelativePathBuf,
+    ) -> Pin<
+        Box<dyn Future<Output = anyhow::Result<Option<ActionQueryNode>>> + Send + 'c>,
+    >,
+> = LateBinding::new("FIND_MATCHING_ACTION");
