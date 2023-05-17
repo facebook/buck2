@@ -42,6 +42,62 @@ def cfg_env(rustc_cfg: Path) -> Dict[str, str]:
     return cfgs
 
 
+def create_cwd(path: Path, manifest_dir: Path) -> Path:
+    """Create a directory with most of the same contents as manifest_dir, but
+    excluding Rustup's rust-toolchain.toml configuration file.
+
+    Keeping rust-toolchain.toml goes wrong in the situation that all of the
+    following happen:
+
+      1. toolchains//:rust uses compiler = "rustc", like the
+         system_rust_toolchain.
+
+      2. The rustc in $PATH is rustup's rustc shim.
+
+      3. A third-party dependency has both a rust-toolchain.toml and a build.rs
+         that runs "rustc" or env::var_os("RUSTC"), such as to inspect `rustc
+         --version` or to compile autocfg-style probe code.
+
+    Cargo defines that build scripts run using the package's manifest directory
+    as the current directory, so the rustc subprocess spawned from build.rs
+    would also run in that manifest directory. But other rustc invocations
+    performed by Buck run from the repo root.
+
+    Rustup only looks at one rust-toolchain.toml file, using the nearest one
+    present in any parent directory. The file can set `channel` to control which
+    installed version of rustc to run.
+
+    It is bad if it's possible for the rustc run by a build script vs rustc run
+    by the rest of the build to be different toolchains. In order to configure
+    their crate appropriately, build scripts rely on using the same rustc that
+    their crate will be later compiled by.
+
+    This problem doesn't happen during Cargo-based builds because rustup
+    installs both a cargo shim and a rustc shim. When you run a rustup-managed
+    Cargo, one of the first things it does is define a RUSTUP_TOOLCHAIN
+    environment variable pointing to the rustup channel id of the currently
+    selected cargo. Subsequent invocations of the rustup cargo shim or rustc
+    shim with this variable in the environment no longer pay attention to any
+    rust-toolchain.toml file.
+
+    We cannot follow the same approach because there is no API in rustup for
+    finding out a suitable RUSTUP_TOOLCHAIN value consistent with which
+    toolchain "rustc" currently refers to, and even if there were, it isn't
+    guaranteed that "rustc" refers to a rustup-managed toolchain in the first
+    place.
+    """
+
+    path.mkdir(exist_ok=True)
+
+    for dir_entry in manifest_dir.iterdir():
+        if dir_entry.name not in ["rust-toolchain", "rust-toolchain.toml"]:
+            link = path.joinpath(dir_entry.name)
+            link.unlink(missing_ok=True)
+            link.symlink_to(os.path.relpath(dir_entry, path))
+
+    return path
+
+
 def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
     try:
         proc = subprocess.run(
@@ -65,6 +121,8 @@ def run_buildscript(buildscript: str, env: Dict[str, str], cwd: str) -> str:
 class Args(NamedTuple):
     buildscript: str
     rustc_cfg: Path
+    manifest_dir: Path
+    create_cwd: Path
     outfile: IO[str]
 
 
@@ -72,6 +130,8 @@ def arg_parse() -> Args:
     parser = argparse.ArgumentParser(description="Run Rust build script")
     parser.add_argument("--buildscript", type=str, required=True)
     parser.add_argument("--rustc-cfg", type=Path, required=True)
+    parser.add_argument("--manifest-dir", type=Path, required=True)
+    parser.add_argument("--create-cwd", type=Path, required=True)
     parser.add_argument("--outfile", type=argparse.FileType("w"), required=True)
 
     return Args(**vars(parser.parse_args()))
@@ -86,11 +146,11 @@ def main() -> None:  # noqa: C901
     os.makedirs(out_dir, exist_ok=True)
     env["OUT_DIR"] = os.path.abspath(out_dir)
 
-    manifest_dir = os.getenv("CARGO_MANIFEST_DIR")
-    env["CARGO_MANIFEST_DIR"] = os.path.abspath(manifest_dir)
+    cwd = create_cwd(args.create_cwd, args.manifest_dir)
+    env["CARGO_MANIFEST_DIR"] = os.path.abspath(cwd)
 
     env = dict(os.environ, **env)
-    script_output = run_buildscript(args.buildscript, env, cwd=manifest_dir)
+    script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
     flags = ""
