@@ -21,6 +21,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
+use buck2_core::target::name::EQ_SIGN_SUBST;
 use buck2_interpreter::path::BxlFilePath;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -192,7 +193,7 @@ fn get_target_name<'v>(
             let target_name_with_underscores = target_name_with_underscores.as_str();
             let target_name =
                 &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
-            Ok(target_name.to_owned())
+            Ok(target_name.replace(EQ_SIGN_SUBST, "="))
         }
         None => Err(anyhow::anyhow!("Invalid target name")),
     }
@@ -458,7 +459,7 @@ mod tests {
         let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
 
         let expected_target_label_with_slashes = TargetLabel::new(
-            pkg,
+            pkg.clone(),
             TargetNameRef::new("target_name_start/target_name_end")?,
         );
 
@@ -474,6 +475,34 @@ mod tests {
                     ForwardRelativePathBuf::new("output".to_owned())?,
                 );
                 assert_eq!(target_label, expected_target_label_with_slashes,);
+                assert_eq!(path, expected_cell_path,);
+                assert_eq!(config_hash, expected_config_hash.as_str());
+            }
+            _ => panic!("Should have parsed buck-out path successfully"),
+        }
+
+        let rule_path_with_equal_sign = format!(
+            "buck-out/v2/gen/bar/{}/path/to/target/__target_name_eqsb_out__/output",
+            expected_config_hash
+        );
+
+        let res = buck_out_parser.parse(&rule_path_with_equal_sign)?;
+
+        let expected_target_label_with_equal_sign =
+            TargetLabel::new(pkg, TargetNameRef::new("target_name=out")?);
+
+        match res {
+            BuckOutPathType::RuleOutput {
+                _path: path,
+                target_label,
+                path_after_target_name,
+                config_hash,
+            } => {
+                assert_eq!(
+                    path_after_target_name,
+                    ForwardRelativePathBuf::new("output".to_owned())?,
+                );
+                assert_eq!(target_label, expected_target_label_with_equal_sign,);
                 assert_eq!(path, expected_cell_path,);
                 assert_eq!(config_hash, expected_config_hash.as_str());
             }

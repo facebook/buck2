@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -23,6 +24,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::target::label::ConfiguredTargetLabel;
+use crate::target::name::EQ_SIGN_SUBST;
 
 pub trait BaseDeferredKeyDynImpl: Debug + Display + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
@@ -85,6 +87,7 @@ impl BaseDeferredKeyDyn {
         match self {
             BaseDeferredKeyDyn::TargetLabel(target) => {
                 let cell_relative_path = target.pkg().cell_relative_path().as_str();
+                let escaped_target_name = Self::escape_target_name(target.name().as_str());
 
                 // It is performance critical that we use slices and allocate via `join` instead of
                 // repeated calls to `join` on the path object because `join` allocates on each call,
@@ -110,7 +113,7 @@ impl BaseDeferredKeyDyn {
                         "/"
                     },
                     "__",
-                    target.name().as_str(),
+                    escaped_target_name.as_ref(),
                     "__",
                     "/",
                     if action_key.is_none() {
@@ -137,6 +140,16 @@ impl BaseDeferredKeyDyn {
                     .join(target.pkg().cell_relative_path()),
             ),
             _ => None,
+        }
+    }
+
+    fn escape_target_name(target_name: &str) -> Cow<str> {
+        // Equals sign is difficult to escape especially for cmd.exe on Windows
+        // which doesn't follow common escaping rules.
+        if target_name.contains('=') {
+            Cow::Owned(target_name.replace('=', EQ_SIGN_SUBST))
+        } else {
+            Cow::Borrowed(target_name)
         }
     }
 }

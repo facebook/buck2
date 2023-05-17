@@ -16,6 +16,8 @@ use dupe::Dupe;
 
 use crate::ascii_char_set::AsciiCharSet;
 
+pub const EQ_SIGN_SUBST: &str = "_eqsb_";
+
 /// 'TargetName' is the name given to a particular target.
 /// e.g. `foo` in the label `fbsource//package/path:foo`.
 #[derive(
@@ -50,6 +52,8 @@ enum TargetNameError {
     LabelHasSpecialCharacter(String, char),
     #[error("Target name must not be equal to `...`")]
     DotDotDot,
+    #[error("Target name `{0}` should not contain pattern: `{1}`")]
+    InvalidPattern(String, String),
 }
 
 impl TargetName {
@@ -80,6 +84,12 @@ impl TargetName {
 
         if name.is_empty() || !name.as_bytes().iter().all(|&b| SET.contains(b)) {
             return Err(Self::bad_name_error(name));
+        }
+
+        if name.contains(EQ_SIGN_SUBST) {
+            return Err(
+                TargetNameError::InvalidPattern(name.to_owned(), EQ_SIGN_SUBST.to_owned()).into(),
+            );
         }
 
         if name == "..." {
@@ -215,6 +225,7 @@ mod tests {
         );
         assert!(TargetName::new("foo bar").is_err());
         assert!(TargetName::new("foo?bar").is_err());
+        assert!(TargetName::new("foo_eqsb_bar").is_err());
 
         if let Err(e) = TargetName::new("target[label]") {
             let msg = format!("{:#}", e);
