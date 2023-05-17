@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub mod analysis;
 pub mod bxl;
 pub mod oneshot;

@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
+use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -424,14 +425,12 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
 }
 
 /// Used by `audit classpath`
-pub async fn classpath(
-    ctx: &DiceComputations,
-    targets: impl Iterator<Item = ConfiguredTargetNode>,
-) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
-    get_from_template_placeholder_info(
-        ctx,
-        "classpath",
-        targets.map(|target| target.label().dupe()),
-    )
-    .await
+pub(crate) fn init_classpath_for_targets() {
+    CLASSPATH_FOR_TARGETS.init(|ctx, targets| {
+        Box::pin(get_from_template_placeholder_info(
+            ctx,
+            "classpath",
+            targets,
+        ))
+    })
 }

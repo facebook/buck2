@@ -14,9 +14,9 @@ use buck2_audit::classpath::AuditClasspathCommand;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
 use buck2_cli_proto::ClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_query_impls::analysis::environment::classpath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -70,7 +70,7 @@ impl AuditSubcommand for AuditClasspathCommand {
                             async move {
                                 let label = target.label().dupe();
                                 let label_to_artifact =
-                                    classpath(ctx, std::iter::once(target)).await?;
+                                    (CLASSPATH_FOR_TARGETS.get()?)(ctx, vec![label.dupe()]).await?;
                                 anyhow::Ok((label, label_to_artifact))
                             }
                         }))
@@ -98,7 +98,11 @@ impl AuditSubcommand for AuditClasspathCommand {
                         serde_json::to_string_pretty(&target_to_classpaths?)?
                     )?;
                 } else {
-                    let label_to_artifact = classpath(&ctx, targets.into_iter()).await?;
+                    let label_to_artifact = (CLASSPATH_FOR_TARGETS.get()?)(
+                        &ctx,
+                        targets.into_iter().map(|t| t.label().dupe()).collect(),
+                    )
+                    .await?;
                     for (_label, artifact) in label_to_artifact {
                         let path = artifact.get_path().resolve(&artifact_fs)?;
                         let abs_path = artifact_fs.fs().resolve(&path);
