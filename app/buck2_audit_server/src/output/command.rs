@@ -11,22 +11,17 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_audit::output::command::AuditOutputCommand;
-use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
+use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::AUDIT_OUTPUT;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::ClientContext;
-use buck2_cli_proto::QueryOutputFormat;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
-use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
-use buck2_server_commands::commands::query::printer::QueryResultPrinter;
-use buck2_server_commands::commands::query::printer::ShouldPrintProviders;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -44,39 +39,6 @@ pub(crate) enum AuditOutputError {
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"
     )]
     UnsupportedPathType(String),
-}
-
-async fn write_output(
-    stdout: &mut impl Write,
-    action: ActionQueryNode,
-    json: bool,
-    output_attributes: &[String],
-    cell_resolver: &CellResolver,
-) -> anyhow::Result<()> {
-    // Dot/DotCompact output format don't make sense here.
-    let unstable_output_format = if json {
-        QueryOutputFormat::Json
-    } else {
-        QueryOutputFormat::Default
-    } as i32;
-
-    let query_result_printer = QueryResultPrinter::from_request_options(
-        cell_resolver,
-        output_attributes,
-        unstable_output_format,
-    )?;
-
-    let mut result = TargetSet::new();
-    result.insert(action);
-
-    query_result_printer
-        .print_single_output(
-            stdout,
-            QueryEvaluationValue::TargetSet(result),
-            false,
-            ShouldPrintProviders::No,
-        )
-        .await
 }
 
 async fn audit_output<'v>(
@@ -178,7 +140,7 @@ impl AuditSubcommand for AuditOutputCommand {
                     Some(result) => {
                         match result {
                             AuditOutputResult::Match(action) => {
-                                write_output(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
+                                (PRINT_ACTION_NODE.get()?)(&mut stdout, action, self.json, &self.query_attributes.get()?, &cell_resolver).await?
                             },
                             AuditOutputResult::MaybeRelevant(label) => {
                                 writeln!(

@@ -11,11 +11,13 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::future::Future;
+use std::io::Write;
 use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -294,3 +296,14 @@ pub static FIND_MATCHING_ACTION: LateBinding<
         Box<dyn Future<Output = anyhow::Result<Option<ActionQueryNode>>> + Send + 'c>,
     >,
 > = LateBinding::new("FIND_MATCHING_ACTION");
+
+/// Hook to link printer in `buck2_server_commands` from `buck2_audit_server`.
+pub static PRINT_ACTION_NODE: LateBinding<
+    for<'a> fn(
+        stdout: &'a mut (dyn Write + Send),
+        action: ActionQueryNode,
+        json: bool,
+        output_attributes: &'a [String],
+        cell_resolver: &'a CellResolver,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>,
+> = LateBinding::new("PRINT_ACTION_NODE");

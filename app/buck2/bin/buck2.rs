@@ -118,6 +118,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
     buck2_bxl::init_late_bindings();
     buck2_query_impls::init_late_bindings();
     buck2_interpreter_for_build::init_late_bindings();
+    buck2_server_commands::init_late_bindings();
 
     fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
         panic::initialize(init)?;

@@ -11,8 +11,11 @@
 
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::io::Write;
 
 use async_trait::async_trait;
+use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::QueryOutputFormat;
 use buck2_core::cells::CellResolver;
@@ -430,4 +433,49 @@ async fn printable_targets<'a, T: QueryTarget>(
     .await
     .into_iter()
     .collect::<anyhow::Result<_>>()
+}
+
+async fn print_action_node(
+    stdout: &mut (dyn Write + Send),
+    action: ActionQueryNode,
+    json: bool,
+    output_attributes: &[String],
+    cell_resolver: &CellResolver,
+) -> anyhow::Result<()> {
+    // Dot/DotCompact output format don't make sense here.
+    let unstable_output_format = if json {
+        QueryOutputFormat::Json
+    } else {
+        QueryOutputFormat::Default
+    } as i32;
+
+    let query_result_printer = QueryResultPrinter::from_request_options(
+        cell_resolver,
+        output_attributes,
+        unstable_output_format,
+    )?;
+
+    let mut result = TargetSet::new();
+    result.insert(action);
+
+    query_result_printer
+        .print_single_output(
+            stdout,
+            QueryEvaluationValue::TargetSet(result),
+            false,
+            ShouldPrintProviders::No,
+        )
+        .await
+}
+
+pub(crate) fn init_print_action_node() {
+    PRINT_ACTION_NODE.init(|stdout, action, json, output_attributes, cell_resolver| {
+        Box::pin(print_action_node(
+            stdout,
+            action,
+            json,
+            output_attributes,
+            cell_resolver,
+        ))
+    });
 }
