@@ -308,7 +308,7 @@ pub fn set_permissions<P: AsRef<Path>>(path: P, perm: fs::Permissions) -> anyhow
     Ok(())
 }
 
-pub fn set_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
 
     #[cfg(unix)]
