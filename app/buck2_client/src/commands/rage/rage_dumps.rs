@@ -8,7 +8,6 @@
  */
 
 use std::path::Path;
-use std::path::PathBuf;
 
 use anyhow::Context;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
@@ -19,6 +18,7 @@ use buck2_client_ctx::manifold;
 use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process::background_command;
 
 pub async fn upload_dice_dump(
@@ -38,12 +38,12 @@ pub async fn upload_dice_dump(
 
 struct DiceDump {
     buck_out_dice: AbsNormPathBuf,
-    dump_folder: PathBuf,
+    dump_folder: AbsPathBuf,
 }
 
 impl DiceDump {
     fn new(buck_out_dice: AbsNormPathBuf, dump_folder_name: &str) -> Self {
-        let dump_folder = buck_out_dice.as_path().join(Path::new(dump_folder_name));
+        let dump_folder = buck_out_dice.as_abs_path().join(dump_folder_name);
 
         Self {
             buck_out_dice,
