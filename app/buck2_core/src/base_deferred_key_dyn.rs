@@ -14,6 +14,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 
@@ -33,6 +34,7 @@ pub trait BaseDeferredKeyDynImpl: Debug + Display + Allocative + Send + Sync + '
         action_key: Option<&str>,
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf;
+    fn to_proto(&self) -> BaseDeferredKeyProto;
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]

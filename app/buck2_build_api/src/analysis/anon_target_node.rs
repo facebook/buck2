@@ -23,6 +23,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_node::rule_type::StarlarkRuleType;
 use gazebo::cmp::PartialEqAny;
@@ -50,19 +51,15 @@ impl fmt::Display for AnonTarget {
     }
 }
 
-impl ToProtoMessage for AnonTarget {
-    type Message = buck2_data::AnonTarget;
-
-    fn as_proto(&self) -> Self::Message {
+impl AnonTarget {
+    pub(crate) fn as_proto(&self) -> buck2_data::AnonTarget {
         buck2_data::AnonTarget {
             name: Some(self.name.as_proto()),
             execution_configuration: Some(self.exec_cfg.cfg().as_proto()),
             hash: self.hash.clone(),
         }
     }
-}
 
-impl AnonTarget {
     fn mk_hash(rule_type: &StarlarkRuleType, attrs: &SortedMap<String, AnonTargetAttr>) -> String {
         // This is the same hasher as we use for Configuration, so is probably fine.
         // But quite possibly should be a crypto hasher in future.
@@ -163,5 +160,9 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
         ];
 
         ProjectRelativePathBuf::unchecked_new(parts.concat())
+    }
+
+    fn to_proto(&self) -> BaseDeferredKeyProto {
+        BaseDeferredKeyProto::AnonTarget(self.as_proto())
     }
 }

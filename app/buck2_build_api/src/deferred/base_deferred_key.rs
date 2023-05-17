@@ -11,7 +11,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
+use buck2_data::ToProtoMessage;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -45,6 +48,14 @@ impl BaseDeferredKey {
             BaseDeferredKey::BxlLabel(label) => {
                 BaseDeferredKeyDyn::Dyn(label.into_base_deferred_key_dyn_impl())
             }
+        }
+    }
+
+    pub fn to_proto(&self) -> BaseDeferredKeyProto {
+        match self {
+            BaseDeferredKey::TargetLabel(t) => BaseDeferredKeyProto::TargetLabel(t.as_proto()),
+            BaseDeferredKey::AnonTarget(a) => a.to_proto(),
+            BaseDeferredKey::BxlLabel(b) => BaseDeferredKeyProto::BxlKey(b.as_proto()),
         }
     }
 }

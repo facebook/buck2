@@ -62,7 +62,6 @@ use crate::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroup;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::calculation::DeferredCompute;
 use crate::deferred::calculation::DeferredResolve;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
@@ -394,11 +393,7 @@ where
             .filter_map(|(key, data, potential_improvement)| {
                 let entry: buck2_data::critical_path_entry2::Entry = match key {
                     NodeKey::BuildKey(key) => {
-                        let owner = match key.0.owner() {
-                            BaseDeferredKey::TargetLabel(t) => t.as_proto().into(),
-                            BaseDeferredKey::AnonTarget(t) => t.as_proto().into(),
-                            BaseDeferredKey::BxlLabel(t) => t.as_proto().into(),
-                        };
+                        let owner = key.0.owner().to_proto().into();
 
                         // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
                         // in our data (unless we didn't actually run it because of e.g. early
@@ -419,11 +414,7 @@ where
                     }
                     .into(),
                     NodeKey::Materialization(key) => {
-                        let owner = match key.key().owner() {
-                            BaseDeferredKey::TargetLabel(t) => t.as_proto().into(),
-                            BaseDeferredKey::AnonTarget(t) => t.as_proto().into(),
-                            BaseDeferredKey::BxlLabel(t) => t.as_proto().into(),
-                        };
+                        let owner = key.key().owner().to_proto().into();
 
                         buck2_data::critical_path_entry2::Materialization {
                             owner: Some(owner),

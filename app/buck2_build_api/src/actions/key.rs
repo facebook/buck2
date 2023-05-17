@@ -62,15 +62,7 @@ impl ToProtoMessage for ActionKey {
     fn as_proto(&self) -> Self::Message {
         buck2_data::ActionKey {
             id: self.deferred_key().id().as_usize().to_ne_bytes().to_vec(),
-            owner: Some(match self.deferred_key().owner() {
-                BaseDeferredKey::TargetLabel(t) => {
-                    buck2_data::action_key::Owner::TargetLabel(t.as_proto())
-                }
-                BaseDeferredKey::BxlLabel(l) => buck2_data::action_key::Owner::BxlKey(l.as_proto()),
-                BaseDeferredKey::AnonTarget(t) => {
-                    buck2_data::action_key::Owner::AnonTarget(t.as_proto())
-                }
-            }),
+            owner: Some(self.deferred_key().owner().to_proto().into()),
             key: self.deferred_key().action_key(),
         }
     }

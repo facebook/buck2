@@ -20,6 +20,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use buck2_interpreter::path::BxlFilePath;
 use derive_more::Display;
@@ -83,6 +84,10 @@ impl BxlKey {
     pub fn global_target_platform(&self) -> &Option<TargetLabel> {
         &self.0.global_target_platform
     }
+
+    pub(crate) fn as_proto(&self) -> buck2_data::BxlFunctionKey {
+        self.0.as_proto()
+    }
 }
 
 #[derive(
@@ -99,6 +104,14 @@ fn print_like_args(args: &Arc<OrderedMap<String, CliArgValue>>) -> String {
     args.iter()
         .map(|(arg, argv)| format!("--{}={}", arg, argv))
         .join(" ")
+}
+
+impl BxlKeyData {
+    fn as_proto(&self) -> buck2_data::BxlFunctionKey {
+        buck2_data::BxlFunctionKey {
+            label: Some(self.spec.as_proto()),
+        }
+    }
 }
 
 impl BaseDeferredKeyDynImpl for BxlKeyData {
@@ -158,15 +171,9 @@ impl BaseDeferredKeyDynImpl for BxlKeyData {
 
         ProjectRelativePathBuf::unchecked_new(parts.concat())
     }
-}
 
-impl ToProtoMessage for BxlKey {
-    type Message = buck2_data::BxlFunctionKey;
-
-    fn as_proto(&self) -> Self::Message {
-        buck2_data::BxlFunctionKey {
-            label: Some(self.label().as_proto()),
-        }
+    fn to_proto(&self) -> BaseDeferredKeyProto {
+        BaseDeferredKeyProto::BxlKey(self.as_proto())
     }
 }
 
