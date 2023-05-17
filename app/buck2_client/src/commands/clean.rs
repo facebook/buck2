@@ -26,6 +26,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use humantime;
@@ -176,7 +177,8 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
     let mut reverse_dir_paths = Vec::new();
     for dir_entry in walk.into_iter().flatten() {
         if dir_entry.file_type().is_dir() {
-            reverse_dir_paths.push(dir_entry.into_path());
+            // The walk gives us back absolute paths since we give it absolute paths.
+            reverse_dir_paths.push(AbsPathBuf::new(dir_entry.into_path()).unwrap());
         } else {
             let error = error.dupe();
             thread_pool.execute(move || {

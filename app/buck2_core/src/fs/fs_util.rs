@@ -424,9 +424,10 @@ pub fn simplified(path: &AbsPath) -> anyhow::Result<&AbsPath> {
     AbsPath::new(path)
 }
 
-pub fn remove_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDir.guard();
-    fs::remove_dir(&path).with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
+    fs::remove_dir(path.as_ref())
+        .with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
 }
 
 pub struct FileWriteGuard {
