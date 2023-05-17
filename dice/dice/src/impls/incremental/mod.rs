@@ -35,6 +35,7 @@ use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
+use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
@@ -81,6 +82,7 @@ impl IncrementalEngine {
 
     pub(crate) fn spawn_for_key(
         k: DiceKey,
+        version_epoch: VersionEpoch,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
@@ -124,6 +126,7 @@ impl IncrementalEngine {
         state: CoreStateHandle,
         promise: DicePromise,
         k: DiceKey,
+        version_epoch: VersionEpoch,
         eval: SyncEvaluator,
         transaction_ctx: SharedLiveTransactionCtx,
         event_dispatcher: DiceEventDispatcher,

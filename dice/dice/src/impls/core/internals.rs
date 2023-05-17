@@ -14,6 +14,7 @@ use crate::impls::core::graph::storage::InvalidateKind;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ChangeType;
@@ -65,7 +66,7 @@ impl CoreState {
         }
     }
 
-    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> SharedCache {
+    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
         self.version_tracker.at(v)
     }
 
@@ -147,21 +148,24 @@ mod tests {
         let mut core = CoreState::new();
         let v = VersionNumber::new(0);
 
-        let ctx = core.ctx_at_version(v);
+        let (epoch, ctx) = core.ctx_at_version(v);
 
-        let ctx1 = core.ctx_at_version(v);
+        let (epoch1, ctx1) = core.ctx_at_version(v);
         assert!(ctx.ptr_eq(&ctx1));
+        assert_eq!(epoch, epoch1);
 
         // if you drop one, there is still reference so getting the same version should give the
         // same instance of ctx
         core.drop_ctx_at_version(v);
-        let ctx2 = core.ctx_at_version(v);
+        let (epoch2, ctx2) = core.ctx_at_version(v);
         assert!(ctx.ptr_eq(&ctx2));
+        assert_eq!(epoch1, epoch2);
 
         // drop all references, should give a different ctx instance
         core.drop_ctx_at_version(v);
         core.drop_ctx_at_version(v);
-        let another = core.ctx_at_version(v);
+        let (another_epoch, another) = core.ctx_at_version(v);
         assert!(!ctx.ptr_eq(&another));
+        assert_ne!(another_epoch, epoch);
     }
 }

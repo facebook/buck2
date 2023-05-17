@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use derivative::Derivative;
+use derive_more::Display;
 use dupe::Dupe;
 
 use crate::impls::cache::SharedCache;
@@ -22,6 +23,36 @@ pub(crate) struct VersionTracker {
     current: VersionNumber,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: HashMap<VersionNumber, ActiveVersionData>,
+    epoch_tracker: VersionEpochTracker,
+}
+
+// an epoch counter that increases each time we create a new instance of state at a version. This
+// will increase the first time we create a version AND when we reuse a version that has been idle
+#[derive(Allocative)]
+struct VersionEpochTracker(usize);
+
+impl VersionEpochTracker {
+    fn next(&mut self) -> VersionEpoch {
+        let e = VersionEpoch(self.0);
+        self.0 += 1;
+
+        e
+    }
+
+    fn new() -> Self {
+        Self(0)
+    }
+}
+
+#[derive(Copy, Clone, Eq, Debug, Display, Dupe, PartialEq, Allocative)]
+#[display(fmt = "v{}", "_0")]
+pub(crate) struct VersionEpoch(usize);
+
+impl VersionEpoch {
+    #[cfg(test)]
+    pub(crate) fn testing_new(e: usize) -> Self {
+        Self(e)
+    }
 }
 
 #[derive(Derivative, Allocative)]
@@ -30,6 +61,7 @@ struct ActiveVersionData {
     #[derivative(Debug = "ignore")]
     per_transaction_data: SharedCache,
     ref_count: usize,
+    version_epoch: VersionEpoch,
 }
 
 impl VersionTracker {
@@ -37,6 +69,7 @@ impl VersionTracker {
         VersionTracker {
             current: VersionNumber::ZERO,
             active_versions: HashMap::default(),
+            epoch_tracker: VersionEpochTracker::new(),
         }
     }
 
@@ -51,7 +84,7 @@ impl VersionTracker {
         self.current
     }
 
-    pub(crate) fn at(&mut self, v: VersionNumber) -> SharedCache {
+    pub(crate) fn at(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
         let mut entry = self
             .active_versions
             .entry(v)
@@ -59,11 +92,12 @@ impl VersionTracker {
                 // TODO properly create the PerLiveTransactionCtx
                 per_transaction_data: SharedCache::new(),
                 ref_count: 0,
+                version_epoch: self.epoch_tracker.next(),
             });
 
         entry.ref_count += 1;
 
-        entry.per_transaction_data.dupe()
+        (entry.version_epoch, entry.per_transaction_data.dupe())
     }
 
     /// Drops reference to a VersionNumber given the token

@@ -41,6 +41,7 @@ use crate::impls::core::graph::history::testing::CellHistoryExt;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::state::StateRequest;
+use crate::impls::core::versions::VersionEpoch;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -251,6 +252,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
+        VersionEpoch::testing_new(0),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -287,6 +289,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
+        VersionEpoch::testing_new(0),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -327,6 +330,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
+        VersionEpoch::testing_new(0),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -412,6 +416,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
+        VersionEpoch::testing_new(0),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -435,6 +440,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
+        VersionEpoch::testing_new(0),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -488,6 +494,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
     let task = IncrementalEngine::spawn_for_key(
         k,
+        VersionEpoch::testing_new(0),
         eval,
         cycles,
         events_dispatcher,
@@ -537,8 +544,14 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     }
 
     let k = dice.key_index.index_key(CancellableNeverFinish);
-    let previous_task =
-        IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
+    let previous_task = IncrementalEngine::spawn_for_key(
+        k,
+        VersionEpoch::testing_new(0),
+        eval.dupe(),
+        cycles,
+        events_dispatcher.dupe(),
+        None,
+    );
 
     let termination = previous_task.cancel().unwrap();
 
@@ -552,6 +565,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let cycles = UserCycleDetectorData::new();
     let task = IncrementalEngine::spawn_for_key(
         k,
+        VersionEpoch::testing_new(0),
         eval,
         cycles,
         events_dispatcher,
@@ -600,8 +614,14 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     }
 
     let k = dice.key_index.index_key(Finish);
-    let previous_task =
-        IncrementalEngine::spawn_for_key(k, eval.dupe(), cycles, events_dispatcher.dupe(), None);
+    let previous_task = IncrementalEngine::spawn_for_key(
+        k,
+        VersionEpoch::testing_new(0),
+        eval.dupe(),
+        cycles,
+        events_dispatcher.dupe(),
+        None,
+    );
     // wait for it to finish then trigger cancel
     previous_task
         .depended_on_by(ParentKey::None)
@@ -621,6 +641,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let cycles = UserCycleDetectorData::new();
     let task = IncrementalEngine::spawn_for_key(
         k,
+        VersionEpoch::testing_new(0),
         eval,
         cycles,
         events_dispatcher,

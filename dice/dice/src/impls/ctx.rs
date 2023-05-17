@@ -37,6 +37,7 @@ use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::impls::cache::SharedCache;
 use crate::impls::core::state::CoreStateHandle;
+use crate::impls::core::versions::VersionEpoch;
 use crate::impls::dep_trackers::RecordingDepsTracker;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
@@ -361,14 +362,19 @@ impl PerComputeCtx {
 #[derivative(Debug)]
 pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,
+    version_epoch: VersionEpoch,
     #[derivative(Debug = "ignore")]
     cache: SharedCache,
 }
 
 #[allow(clippy::manual_async_fn, unused)]
 impl SharedLiveTransactionCtx {
-    pub(crate) fn new(v: VersionNumber, cache: SharedCache) -> Self {
-        Self { version: v, cache }
+    pub(crate) fn new(v: VersionNumber, version_epoch: VersionEpoch, cache: SharedCache) -> Self {
+        Self {
+            version: v,
+            version_epoch,
+            cache,
+        }
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -393,6 +399,7 @@ impl SharedLiveTransactionCtx {
                     take_mut::take(occupied.get_mut(), |previous| {
                         IncrementalEngine::spawn_for_key(
                             key,
+                            self.version_epoch,
                             eval,
                             cycles,
                             events,
@@ -415,7 +422,14 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = IncrementalEngine::spawn_for_key(key, eval, cycles, events, None);
+                let task = IncrementalEngine::spawn_for_key(
+                    key,
+                    self.version_epoch,
+                    eval,
+                    cycles,
+                    events,
+                    None,
+                );
 
                 let fut = task
                     .depended_on_by(parent_key)
@@ -474,7 +488,15 @@ impl SharedLiveTransactionCtx {
             }
         };
 
-        IncrementalEngine::project_for_key(state, promise, key, eval, self.dupe(), events)
+        IncrementalEngine::project_for_key(
+            state,
+            promise,
+            key,
+            self.version_epoch,
+            eval,
+            self.dupe(),
+            events,
+        )
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
