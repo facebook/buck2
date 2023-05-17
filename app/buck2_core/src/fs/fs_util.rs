@@ -254,18 +254,6 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn hard_link<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> anyhow::Result<()> {
-    let _guard = IoCounterKey::Hardlink.guard();
-    fs::hard_link(&src, &dst).with_context(|| {
-        format!(
-            "hard_link(src={}, dst={})",
-            P::as_ref(&src).display(),
-            Q::as_ref(&dst).display()
-        )
-    })?;
-    Ok(())
-}
-
 pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<u64> {
     let _guard = IoCounterKey::Copy.guard();
     fs::copy(&from, &to).with_context(|| {
