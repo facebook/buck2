@@ -22,6 +22,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
@@ -318,6 +319,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn upload(
         &self,
+        fs: &ProjectRoot,
         materializer: &Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
@@ -329,6 +331,7 @@ impl ManagedRemoteExecutionClient {
             .get()
             .await?
             .upload(
+                fs,
                 materializer,
                 blobs,
                 dir_path,

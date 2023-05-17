@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -257,6 +258,7 @@ impl RemoteExecutionClient {
 
     pub async fn upload(
         &self,
+        fs: &ProjectRoot,
         materializer: &Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
@@ -270,6 +272,7 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .upload(
+                    fs,
                     materializer,
                     blobs,
                     dir_path,
@@ -680,6 +683,7 @@ impl RemoteExecutionClientImpl {
 
     async fn upload(
         &self,
+        fs: &ProjectRoot,
         materializer: &Arc<dyn Materializer>,
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
@@ -690,6 +694,7 @@ impl RemoteExecutionClientImpl {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
         Uploader::upload(
+            fs,
             self.client().get_cas_client(),
             materializer,
             dir_path,

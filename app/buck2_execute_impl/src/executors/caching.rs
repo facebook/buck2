@@ -97,6 +97,7 @@ impl CachingExecutor {
         if self.upload_all_actions {
             match re_client
                 .upload(
+                    self.artifact_fs.fs(),
                     &self.materializer,
                     action_blobs,
                     ProjectRelativePath::empty(),
@@ -291,10 +292,17 @@ impl CachingExecutor {
                     });
 
                     let fut = async move {
+                        let name = self
+                            .artifact_fs
+                            .fs()
+                            .resolve(output.path())
+                            .to_str()?
+                            .to_owned();
+
                         self.re_client
                             .upload_files_and_directories(
                                 vec![NamedDigest {
-                                    name: output.path().to_string(),
+                                    name,
                                     digest: f.digest.to_re(),
                                     ..Default::default()
                                 }],
@@ -323,6 +331,7 @@ impl CachingExecutor {
                     let fut = async move {
                         self.re_client
                             .upload(
+                                self.artifact_fs.fs(),
                                 &self.materializer,
                                 &action_blobs,
                                 output.path(),

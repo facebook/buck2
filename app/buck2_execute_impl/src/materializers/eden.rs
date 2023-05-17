@@ -96,14 +96,14 @@ impl Materializer for EdenMaterializer {
             match copied_artifact.dest_entry {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
                     files.push(NamedDigest {
-                        name: copied_artifact.src.to_string(),
+                        name: self.fs.resolve(&copied_artifact.src).to_str()?.to_owned(),
                         digest: file.digest.to_re(),
                         ..Default::default()
                     });
                 }
                 DirectoryEntry::Dir(dir) => {
                     directories.push(remote_execution::Path {
-                        path: copied_artifact.src.to_string(),
+                        path: self.fs.resolve(&copied_artifact.src).to_str()?.to_owned(),
                         follow_symlinks: false,
                         digest: Some(dir.fingerprint().to_re()),
                         ..Default::default()
@@ -129,6 +129,7 @@ impl Materializer for EdenMaterializer {
             .get_re_connection()
             .get_client()
             .upload(
+                &self.fs,
                 &self.delegator,
                 &ActionBlobs::new(self.digest_config),
                 ProjectRelativePath::empty(),

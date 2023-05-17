@@ -21,6 +21,7 @@ use buck2_core::directory::DirectoryEntry;
 use buck2_core::directory::DirectoryIterator;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use chrono::Duration;
@@ -165,6 +166,7 @@ impl Uploader {
     }
 
     pub async fn upload(
+        fs: &ProjectRoot,
         client: &REClient,
         materializer: &Arc<dyn Materializer>,
         dir_path: &ProjectRelativePath,
@@ -242,7 +244,7 @@ impl Uploader {
                 match name {
                     Ok(name) => {
                         upload_files.push(NamedDigest {
-                            name: name.to_string(),
+                            name: fs.resolve(&name).to_str()?.to_owned(),
                             digest,
                             ..Default::default()
                         });
@@ -302,7 +304,7 @@ impl Uploader {
                     }
                     Err(ArtifactNotMaterializedReason::RequiresMaterialization { path }) => {
                         upload_files.push(NamedDigest {
-                            name: path.to_string(),
+                            name: fs.resolve(&path).to_str()?.to_owned(),
                             digest,
                             ..Default::default()
                         });

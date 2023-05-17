@@ -174,7 +174,11 @@ impl Materializer for ImmediateMaterializer {
                     files.push(NamedDigestWithPermissions {
                         named_digest: NamedDigest {
                             digest: m.digest.to_re(),
-                            name: path.join_normalized(entry_path.get())?.to_string(),
+                            name: self
+                                .fs
+                                .resolve(&path.join_normalized(entry_path.get())?)
+                                .to_str()?
+                                .to_owned(),
                             ..Default::default()
                         },
                         is_executable: m.is_executable,

@@ -90,6 +90,7 @@ impl ReExecutor {
         let upload_response = span_async(buck2_data::ReUploadStart {}, async move {
             let res = re_client
                 .upload(
+                    &self.project_fs,
                     &self.materializer,
                     blobs,
                     ProjectRelativePath::empty(),
