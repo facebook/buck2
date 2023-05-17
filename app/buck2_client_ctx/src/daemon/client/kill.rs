@@ -89,7 +89,10 @@ mod os_specific {
         behavior: KillBehavior,
         timeout: Duration,
     ) -> anyhow::Result<()> {
-        let daemon_pid = nix::unistd::Pid::from_raw(pid as i32);
+        let daemon_pid = nix::unistd::Pid::from_raw(
+            pid.try_into()
+                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
+        );
         enum WaitFor {
             Exited,
             WaitTimedOut,
@@ -165,6 +168,7 @@ mod os_specific {
 mod os_specific {
     use std::time::Duration;
 
+    use anyhow::Context as _;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
@@ -197,7 +201,9 @@ mod os_specific {
         behavior: KillBehavior,
         timeout: Duration,
     ) -> anyhow::Result<()> {
-        let daemon_pid = pid as u32;
+        let daemon_pid: u32 = pid
+            .try_into()
+            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
         let proc_handle = unsafe { OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, 0, daemon_pid) };
         // If proc_handle is null, process died already.
         if proc_handle.is_null() {
