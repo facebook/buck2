@@ -181,7 +181,8 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         match self.0.options() {
             None => {
                 for item in self.0.items() {
-                    item.add_to_command_line(cli, context)?;
+                    item.as_command_line_arg()
+                        .add_to_command_line(cli, context)?;
                 }
                 Ok(())
             }
@@ -190,7 +191,8 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
                     .to_command_line_options()
                     .wrap_builder(cli, context, |cli, context| {
                         for item in self.0.items() {
-                            item.add_to_command_line(cli, context)?;
+                            item.as_command_line_arg()
+                                .add_to_command_line(cli, context)?;
                         }
                         Ok(())
                     })
@@ -202,7 +204,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         if !self.ignore_artifacts() {
             for item in self.0.items().iter().chain(self.0.hidden().iter()) {
                 visitor.push_frame()?;
-                item.visit_artifacts(visitor)?;
+                item.as_command_line_arg().visit_artifacts(visitor)?;
                 visitor.pop_frame();
             }
         }
@@ -210,8 +212,15 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
     }
 
     fn contains_arg_attr(&self) -> bool {
-        self.0.items().iter().any(|x| x.contains_arg_attr())
-            || self.0.hidden().iter().any(|x| x.contains_arg_attr())
+        self.0
+            .items()
+            .iter()
+            .any(|x| x.as_command_line_arg().contains_arg_attr())
+            || self
+                .0
+                .hidden()
+                .iter()
+                .any(|x| x.as_command_line_arg().contains_arg_attr())
     }
 
     fn visit_write_to_file_macros(
@@ -221,10 +230,12 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         visitor.set_current_relative_to_path(&|ctx| self.relative_to_path(ctx))?;
 
         for item in self.0.items() {
-            item.visit_write_to_file_macros(visitor)?;
+            item.as_command_line_arg()
+                .visit_write_to_file_macros(visitor)?;
         }
         for item in self.0.hidden() {
-            item.visit_write_to_file_macros(visitor)?;
+            item.as_command_line_arg()
+                .visit_write_to_file_macros(visitor)?;
         }
         Ok(())
     }

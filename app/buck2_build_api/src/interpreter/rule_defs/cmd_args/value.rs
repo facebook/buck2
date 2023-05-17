@@ -23,10 +23,6 @@ use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
 where
@@ -69,33 +65,10 @@ impl<'v> CommandLineArg<'v> {
         Ok(Self(value))
     }
 
-    fn visit_inner<R>(self, f: impl FnOnce(&dyn CommandLineArgLike) -> R) -> R {
-        f(self.0.to_value().as_command_line().unwrap())
-    }
-}
-
-impl<'v> CommandLineArgLike for CommandLineArg<'v> {
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.add_to_command_line(cli, context))
-    }
-
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.visit_artifacts(visitor))
-    }
-
-    fn contains_arg_attr(&self) -> bool {
-        self.visit_inner(|x| x.contains_arg_attr())
-    }
-
-    fn visit_write_to_file_macros(
-        &self,
-        visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
-        self.visit_inner(|x| x.visit_write_to_file_macros(visitor))
+    pub(crate) fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {
+        self.0
+            .as_command_line_err()
+            .expect("checked type in constructor")
     }
 }
 
@@ -120,11 +93,7 @@ impl FrozenCommandLineArg {
         Ok(FrozenCommandLineArg(value))
     }
 
-    pub(crate) fn as_command_line_arg<'v>(self) -> CommandLineArg<'v> {
-        CommandLineArg(self.0.to_value())
-    }
-
-    pub fn as_command_line_arg_like(self) -> &'static dyn CommandLineArgLike {
-        self.0.to_value().as_command_line_err().unwrap()
+    pub fn as_command_line_arg<'v>(self) -> &'v dyn CommandLineArgLike {
+        CommandLineArg(self.0.to_value()).as_command_line_arg()
     }
 }
