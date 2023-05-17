@@ -140,7 +140,7 @@ pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 /// Create directory if not exists.
 ///
 /// Fail if exists but is not a directory or creation failed.
-pub fn create_dir_if_not_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     let _guard = IoCounterKey::MkDir.guard();
     let e = match fs::create_dir(path).with_context(|| format!("create_dir({})", path.display())) {
@@ -898,24 +898,25 @@ mod tests {
     #[test]
     fn create_dir_if_not_exists() {
         let tempdir = tempfile::tempdir().unwrap();
-        fs_util::create_dir_if_not_exists(tempdir.path().join("dir1")).unwrap();
+        let tempdir = AbsPath::new(tempdir.path()).unwrap();
+        fs_util::create_dir_if_not_exists(tempdir.join("dir1")).unwrap();
         assert!(
-            fs_util::symlink_metadata(tempdir.path().join("dir1"))
+            fs_util::symlink_metadata(tempdir.join("dir1"))
                 .unwrap()
                 .is_dir()
         );
-        fs_util::create_dir_if_not_exists(tempdir.path().join("dir1")).unwrap();
+        fs_util::create_dir_if_not_exists(tempdir.join("dir1")).unwrap();
         assert!(
-            fs_util::symlink_metadata(tempdir.path().join("dir1"))
+            fs_util::symlink_metadata(tempdir.join("dir1"))
                 .unwrap()
                 .is_dir()
         );
 
-        assert!(fs_util::create_dir_if_not_exists(tempdir.path().join("dir2/file")).is_err());
-        assert!(!fs_util::try_exists(tempdir.path().join("dir2")).unwrap());
+        assert!(fs_util::create_dir_if_not_exists(tempdir.join("dir2/file")).is_err());
+        assert!(!fs_util::try_exists(tempdir.join("dir2")).unwrap());
 
-        fs_util::write(tempdir.path().join("file"), b"rrr").unwrap();
-        assert!(fs_util::create_dir_if_not_exists(tempdir.path().join("file")).is_err());
+        fs_util::write(tempdir.join("file"), b"rrr").unwrap();
+        assert!(fs_util::create_dir_if_not_exists(tempdir.join("file")).is_err());
     }
 
     #[test]
