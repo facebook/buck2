@@ -349,9 +349,11 @@ pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
 }
 
 /// `None` if file does not exist.
-pub fn symlink_metadata_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<fs::Metadata>> {
+pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> anyhow::Result<Option<fs::Metadata>> {
     let _guard = IoCounterKey::Stat.guard();
-    match fs::symlink_metadata(&path) {
+    match fs::symlink_metadata(path.as_ref()) {
         Ok(metadata) => Ok(Some(metadata)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(err) => {
@@ -362,7 +364,7 @@ pub fn symlink_metadata_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Opt
 
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
-pub fn remove_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn remove_all<P: AsRef<Path> + AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let guard = IoCounterKey::RmDirAll.guard();
     let metadata = match symlink_metadata_if_exists(&path)? {
         Some(s) => s,
@@ -836,14 +838,16 @@ mod tests {
     #[test]
     fn remove_all_nonexistent() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        remove_all(tempdir.path().join("nonexistent"))?;
+        let root = AbsPath::new(tempdir.path())?;
+        remove_all(root.join("nonexistent"))?;
         Ok(())
     }
 
     #[test]
     fn remove_all_regular() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let path = tempdir.path().join("file");
+        let root = AbsPath::new(tempdir.path())?;
+        let path = root.join("file");
         fs::write(&path, b"regular")?;
         remove_all(&path)?;
         assert!(!fs::try_exists(&path)?);
@@ -853,7 +857,8 @@ mod tests {
     #[test]
     fn remove_all_dir() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let path = tempdir.path().join("dir");
+        let root = AbsPath::new(tempdir.path())?;
+        let path = root.join("dir");
         fs::create_dir(&path)?;
         fs::write(path.join("file"), b"regular file in a dir")?;
         remove_all(&path)?;
@@ -872,11 +877,12 @@ mod tests {
         }
 
         let tempdir = tempfile::tempdir()?;
-        let target = tempdir.path().join("non-existent-target");
-        let path = tempdir.path().join("symlink");
-        symlink(target, AbsPath::new(&path)?)?;
+        let root = AbsPath::new(tempdir.path())?;
+        let target = root.join("non-existent-target");
+        let path = root.join("symlink");
+        symlink(target, &path)?;
 
-        assert_eq!(vec![path.clone()], ls(tempdir.path())?, "Sanity check");
+        assert_eq!(vec![path.as_path()], ls(tempdir.path())?, "Sanity check");
 
         remove_all(&path)?;
 

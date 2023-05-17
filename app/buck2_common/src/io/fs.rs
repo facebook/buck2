@@ -168,7 +168,6 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
     let mut curr_abspath = root.to_owned();
     curr_abspath.reserve(relpath.as_path().as_os_str().len());
 
-    #[cfg(test)]
     let curr_abspath_capacity = curr_abspath.capacity();
 
     let mut curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
@@ -235,8 +234,7 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
         })
     };
 
-    #[cfg(test)]
-    {
+    if cfg!(test) {
         assert!(curr_abspath.as_os_str().len() <= curr_abspath_capacity);
         assert!(curr_path.as_str().len() <= curr_path_capacity);
     }

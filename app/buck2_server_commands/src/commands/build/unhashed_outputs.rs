@@ -9,7 +9,6 @@
 
 use std::collections::HashSet;
 use std::path;
-use std::path::Path;
 
 use anyhow::Context;
 use buck2_build_api::actions::artifact::artifact_type::BaseArtifactKind;
@@ -18,6 +17,7 @@ use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use itertools::Itertools;
@@ -97,14 +97,12 @@ fn create_unhashed_link(
         abs_unhashed_path = AbsNormPathBuf::from(path.to_owned())?;
     }
 
-    let buck_out_root: &Path = buck_out_root.as_ref();
-
     // We are going to need to clear the path between buck-out and the symlink we want to create.
     // To do this, we need to traverse forward out of buck_out_root and towards our symlink, and
     // delete any files or symlinks we find along the way. As soon as we find one, we can stop.
 
     if let Some(parent) = abs_unhashed_path.parent() {
-        for prefix in iter_reverse_ancestors(parent, buck_out_root) {
+        for prefix in iter_reverse_ancestors(parent, buck_out_root.as_ref()) {
             let meta = match fs_util::symlink_metadata_if_exists(prefix)? {
                 Some(meta) => meta,
                 None => continue,
@@ -138,7 +136,10 @@ fn create_unhashed_link(
 }
 
 /// Iterate over the path components between stop_at and path.
-fn iter_reverse_ancestors<'a>(path: &'a Path, stop_at: &'_ Path) -> impl Iterator<Item = &'a Path> {
+fn iter_reverse_ancestors<'a>(
+    path: &'a AbsPath,
+    stop_at: &'_ AbsPath,
+) -> impl Iterator<Item = &'a AbsPath> {
     let ancestors = path
         .ancestors()
         .take_while(|a| *a != stop_at)
