@@ -30,6 +30,7 @@ use buck2_common::result::ToSharedResultExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::facebook_only;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -157,6 +158,9 @@ pub struct DaemonStateData {
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: Arc<dyn HttpClient>,
+
+    /// Are we using buck-out as our cwd?
+    pub cwd_buck_out: bool,
 }
 
 impl DaemonStateData {
@@ -216,6 +220,21 @@ impl DaemonState {
         let root_config = legacy_configs
             .get(cells.root_cell())
             .context("No config for root cell")?;
+
+        // This really should belong in  in DaemonCommand::run, but we can't read configs there. In
+        // practice, while changing cwd after starting is not a great idea, it's ... fine.
+
+        fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
+
+        let cwd_buck_out = root_config
+            .parse::<RolloutPercentage>("buck2", "cwd_buck_out")?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll();
+
+        if cwd_buck_out {
+            std::env::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
+            buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
+        }
 
         static DEFAULT_DIGEST_ALGORITHM: EnvHelper<DigestAlgorithmKind> =
             EnvHelper::new("BUCK_DEFAULT_DIGEST_ALGORITHM");
@@ -463,6 +482,7 @@ impl DaemonState {
             materializer_state_identity,
             enable_restarter,
             http_client,
+            cwd_buck_out,
         }))
     }
 
@@ -625,6 +645,7 @@ impl DaemonState {
                 "sqlite-materializer-state:{}",
                 data.disk_state_options.sqlite_materializer_state
             ),
+            format!("cwd-buck-out:{}", data.cwd_buck_out),
         ];
 
         dispatcher.instant_event(buck2_data::TagEvent { tags });
@@ -663,7 +684,6 @@ impl DaemonState {
     fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
         #[cfg(any(fbcode_build, cargo_internal_build))]
         {
-            use buck2_core::fs::fs_util;
             use buck2_core::soft_error;
 
             let project_root = self.paths.project_root().root();

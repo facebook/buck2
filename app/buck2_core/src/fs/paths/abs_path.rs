@@ -20,6 +20,8 @@ use derive_more::Display;
 use ref_cast::RefCast;
 use thiserror::Error;
 
+use crate::fs::cwd;
+
 #[derive(Error, Debug)]
 enum AbsPathError {
     #[error("expected an absolute path but got a relative path instead: `{0}`")]
@@ -151,6 +153,14 @@ impl AbsPath {
     pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsPath> {
         // Taking the ancestors of an AbsPath gives you more AbsPath.
         self.0.ancestors().map(AbsPath::ref_cast)
+    }
+
+    pub fn as_maybe_relativized(&self) -> &Path {
+        cwd::maybe_relativize(&self.0)
+    }
+
+    pub fn as_maybe_relativized_str(&self) -> anyhow::Result<&str> {
+        Ok(cwd::maybe_relativize_str(self.to_str()?))
     }
 }
 
