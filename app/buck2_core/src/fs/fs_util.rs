@@ -374,21 +374,21 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     r
 }
 
-pub fn read<P: AsRef<Path>>(path: P) -> anyhow::Result<Vec<u8>> {
+pub fn read<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Vec<u8>> {
     let _guard = IoCounterKey::Read.guard();
-    fs::read(&path).with_context(|| format!("read({})", P::as_ref(&path).display()))
+    fs::read(path.as_ref()).with_context(|| format!("read({})", P::as_ref(&path).display()))
 }
 
-pub fn read_to_string<P: AsRef<Path>>(path: P) -> anyhow::Result<String> {
+pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
     let _guard = IoCounterKey::Read.guard();
-    fs::read_to_string(&path)
+    fs::read_to_string(path.as_ref())
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<String>> {
+pub fn read_to_string_opt<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
     let _guard = IoCounterKey::Read.guard();
-    match fs::read_to_string(&path) {
+    match fs::read_to_string(path.as_ref()) {
         Ok(d) => Ok(Some(d)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(anyhow::Error::from(e).context(format!(
@@ -680,10 +680,7 @@ mod tests {
         write(root.join("dir1/file1"), b"File content")?;
         assert_eq!(read_to_string(&relative_symlink1_path)?, "File content");
         write(&relative_symlink1_path, b"File content 2")?;
-        assert_eq!(
-            read_to_string(tempdir.path().join("dir1/file1"))?,
-            "File content 2"
-        );
+        assert_eq!(read_to_string(root.join("dir1/file1"))?, "File content 2");
         Ok(())
     }
 
