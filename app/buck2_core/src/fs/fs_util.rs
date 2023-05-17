@@ -444,7 +444,7 @@ impl Write for FileWriteGuard {
     }
 }
 
-pub fn create_file<P: AsRef<Path>>(path: P) -> anyhow::Result<FileWriteGuard> {
+pub fn create_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileWriteGuard> {
     let guard = IoCounterKey::Write.guard();
     let file = File::create(path.as_ref())
         .with_context(|| format!("create_file({})", P::as_ref(&path).display()))?;

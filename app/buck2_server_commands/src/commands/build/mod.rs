@@ -270,7 +270,7 @@ async fn build(
         if !build_opts.unstable_build_report_filename.is_empty() {
             let file = fs_util::create_file(
                 fs.resolve(cwd)
-                    .as_path()
+                    .as_abs_path()
                     .join(&build_opts.unstable_build_report_filename),
             )
             .context("Error writing build report")?;
