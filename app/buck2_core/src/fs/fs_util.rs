@@ -130,9 +130,10 @@ pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn create_dir<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::MkDir.guard();
-    fs::create_dir(&path).with_context(|| format!("create_dir({})", P::as_ref(&path).display()))?;
+    fs::create_dir(path.as_ref())
+        .with_context(|| format!("create_dir({})", P::as_ref(&path).display()))?;
     Ok(())
 }
 

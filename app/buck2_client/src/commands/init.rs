@@ -143,7 +143,7 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
     } else {
         // For the no-prelude mode, create an empty prelude/prelude.bzl as Buck2 expects one.
         let prelude_dir = repo_root.join("prelude");
-        fs_util::create_dir(prelude_dir.as_path())?;
+        fs_util::create_dir(&prelude_dir)?;
         fs_util::create_file(prelude_dir.join("prelude.bzl"))?;
     }
     if git {

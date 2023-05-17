@@ -989,9 +989,9 @@ mod tests {
         let project_root = ProjectRootTemp::new().unwrap();
         let project_root = project_root.path();
 
-        fs_util::create_dir(project_root.root().as_path().join("foo")).unwrap();
-        fs_util::create_dir(project_root.root().as_path().join("foo/bar")).unwrap();
-        fs_util::create_dir(project_root.root().as_path().join("link-target")).unwrap();
+        fs_util::create_dir(project_root.root().as_abs_path().join("foo")).unwrap();
+        fs_util::create_dir(project_root.root().as_abs_path().join("foo/bar")).unwrap();
+        fs_util::create_dir(project_root.root().as_abs_path().join("link-target")).unwrap();
         fs_util::write(
             project_root.root().as_path().join("link-target/fff"),
             "hello",
