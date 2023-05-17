@@ -155,6 +155,7 @@ where
 /// be used for windows for now.
 #[cfg(all(test, not(windows)))]
 mod tests {
+    use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use tempfile::TempDir;
 
@@ -176,21 +177,22 @@ mod tests {
     /// Creates a tree of entries rooted at
     fn create_tree(entries: Vec<Entry>) -> anyhow::Result<TempDir> {
         let working_dir = TempDir::new()?;
+        let abs = AbsPath::new(working_dir.path())?;
         for entry in entries {
             match entry {
                 Entry::File(path) => {
-                    fs_util::create_file(working_dir.path().join(path))?;
+                    fs_util::create_file(abs.join(path))?;
                 }
                 Entry::Dir(dir) => {
-                    fs_util::create_dir_all(working_dir.path().join(dir))?;
+                    fs_util::create_dir_all(abs.join(dir))?;
                 }
                 Entry::RelativeSymlink(symlink) => {
-                    fs_util::symlink(symlink.target, working_dir.path().join(symlink.link))?;
+                    fs_util::symlink(symlink.target, abs.join(symlink.link))?;
                 }
                 Entry::AbsoluteSymlink(symlink) => {
                     fs_util::symlink(
                         working_dir.path().join(symlink.target),
-                        working_dir.path().join(symlink.link),
+                        abs.join(symlink.link),
                     )?;
                 }
             }

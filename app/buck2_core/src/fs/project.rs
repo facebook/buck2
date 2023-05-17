@@ -959,7 +959,11 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let temp_dir = AbsPath::new(temp_dir.path()).unwrap();
 
-        fs_util::symlink(project_root.path.root(), temp_dir.join("foo")).unwrap();
+        fs_util::symlink(
+            project_root.path.root(),
+            AbsPath::new(&temp_dir.join("foo")).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             Path::new(""),
             project_root
@@ -995,7 +999,9 @@ mod tests {
         .unwrap();
         fs_util::symlink(
             Path::new("../../link-target"),
-            project_root.root().as_path().join("foo/bar/baz"),
+            project_root
+                .root()
+                .join(ForwardRelativePath::new("foo/bar/baz").unwrap()),
         )
         .unwrap();
 
