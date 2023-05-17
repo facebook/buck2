@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -17,6 +17,7 @@ use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_profile::get_profile_response;
@@ -72,7 +73,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             .expect("BXL profile opts not populated")
         {
             ProfileOpts::BxlProfile(opts) => {
-                let output: PathBuf = self.req.destination_path.clone().into();
+                let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
                 let profile_mode = starlark_profiler_configuration_from_request(&self.req)?;
 

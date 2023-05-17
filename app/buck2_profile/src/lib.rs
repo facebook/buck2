@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::profile_request::Profiler;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
@@ -64,7 +64,7 @@ pub fn starlark_profiler_configuration_from_request(
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
     req: &buck2_cli_proto::ProfileRequest,
-    output: PathBuf,
+    output: &AbsPath,
 ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
     let command_profile_mode = buck2_cli_proto::profile_request::Profiler::from_i32(req.profiler)
         .context("Invalid profiler")?;
@@ -84,7 +84,7 @@ pub fn get_profile_response(
             )
             .context("writing SVG from profile data")?;
 
-            fs_util::create_dir_if_not_exists(&output)?;
+            fs_util::create_dir_if_not_exists(output)?;
 
             fs_util::write(output.join("flame.src"), &profile)
                 .context("Failed to write profile")?;
@@ -92,7 +92,7 @@ pub fn get_profile_response(
         }
         _ => {
             let profile = profile_data.profile_data.gen()?;
-            fs_util::write(&output, profile).context("Failed to write profile")?;
+            fs_util::write(output, profile).context("Failed to write profile")?;
         }
     };
 

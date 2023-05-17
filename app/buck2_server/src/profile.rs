@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
+use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
@@ -23,6 +23,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::HasFileOps;
 use buck2_common::pattern::resolve::resolve_target_patterns;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::PackageSpec;
@@ -133,7 +134,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        let output: PathBuf = self.req.destination_path.clone().into();
+        let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
         let profile_mode = starlark_profiler_configuration_from_request(&self.req)?;
 
