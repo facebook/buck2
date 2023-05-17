@@ -1829,7 +1829,8 @@ mod tests {
         fn dir_with_file() -> anyhow::Result<()> {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
-            let file = dir.path().join("foo");
+            let root = AbsPath::new(dir.path())?;
+            let file = root.join("foo");
             fs_util::write(&file, "")?;
 
             let file = AbsNormPath::new(&file)?;

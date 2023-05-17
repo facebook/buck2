@@ -993,7 +993,7 @@ mod tests {
         fs_util::create_dir(project_root.root().as_abs_path().join("foo/bar")).unwrap();
         fs_util::create_dir(project_root.root().as_abs_path().join("link-target")).unwrap();
         fs_util::write(
-            project_root.root().as_path().join("link-target/fff"),
+            project_root.root().as_abs_path().join("link-target/fff"),
             "hello",
         )
         .unwrap();

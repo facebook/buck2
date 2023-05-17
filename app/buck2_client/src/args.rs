@@ -364,6 +364,7 @@ fn resolve_flagfile(path: &str, context: &mut ArgExpansionContext) -> anyhow::Re
 mod tests {
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::paths::abs_path::AbsPath;
 
     use crate::args::expand_argfile_contents;
     use crate::args::ArgFile;
@@ -371,7 +372,8 @@ mod tests {
     #[test]
     fn test_expand_argfile_content() {
         let tempdir = tempfile::tempdir().unwrap();
-        let mode_file = tempdir.path().join("mode-file");
+        let root = AbsPath::new(tempdir.path()).unwrap();
+        let mode_file = root.join("mode-file");
         // Test skips empty lines.
         fs_util::write(&mode_file, "a\n\nb\n").unwrap();
         let lines = expand_argfile_contents(&ArgFile::Path(

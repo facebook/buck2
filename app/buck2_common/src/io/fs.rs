@@ -268,8 +268,9 @@ mod tests {
     #[test]
     fn test_read_not_symlink() -> anyhow::Result<()> {
         let t = TempDir::new()?;
+        let root = AbsPath::new(t.path())?;
 
-        fs_util::write(t.path().join("x"), "xx")?;
+        fs_util::write(root.join("x"), "xx")?;
 
         assert_matches!(
             read_path_metadata(
