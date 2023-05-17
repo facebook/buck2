@@ -254,9 +254,9 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<u64> {
+pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<u64> {
     let _guard = IoCounterKey::Copy.guard();
-    fs::copy(&from, &to).with_context(|| {
+    fs::copy(from.as_ref(), to.as_ref()).with_context(|| {
         format!(
             "copy(from={}, to={})",
             P::as_ref(&from).display(),
