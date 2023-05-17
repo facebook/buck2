@@ -7,9 +7,7 @@
  * of this source tree.
  */
 
-use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -160,19 +158,20 @@ fn read_path_metadata<P: AsRef<AbsNormPath>>(
     relpath: &ForwardRelativePath,
     file_digest_config: FileDigestConfig,
 ) -> anyhow::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
-    let root = root.as_ref().as_path();
+    let root = root.as_ref();
 
     let mut relpath_components = relpath.iter();
     let mut meta = None;
 
-    let curr_abspath_capacity =
-        root.as_os_str().len() + relpath.as_path().as_os_str().len() + OsStr::new("/").len();
     let curr_path_capacity = relpath.as_str().len();
 
-    let mut curr_abspath = PathBuf::with_capacity(curr_abspath_capacity);
-    let mut curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
+    let mut curr_abspath = root.to_owned();
+    curr_abspath.reserve(relpath.as_path().as_os_str().len());
 
-    curr_abspath.push(root);
+    #[cfg(test)]
+    let curr_abspath_capacity = curr_abspath.capacity();
+
+    let mut curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
 
     while let Some(c) = relpath_components.next() {
         // We track both paths so we don't need to convert the abspath back to a relative path if

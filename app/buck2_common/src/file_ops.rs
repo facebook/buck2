@@ -9,7 +9,6 @@
 
 use std::fs::File;
 use std::hash::Hash;
-use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -17,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
@@ -146,12 +146,7 @@ impl FileDigestConfig {
 
 impl FileDigest {
     /// Obtain the digest of the file if you can.
-    pub fn from_file<P>(file: P, config: FileDigestConfig) -> anyhow::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let file = file.as_ref();
-
+    pub fn from_file(file: &AbsNormPath, config: FileDigestConfig) -> anyhow::Result<Self> {
         static DISABLE_FILE_ATTR: EnvHelper<bool> = EnvHelper::new("BUCK2_DISABLE_FILE_ATTR");
 
         if !DISABLE_FILE_ATTR.get_copied()?.unwrap_or_default() {
@@ -165,7 +160,7 @@ impl FileDigest {
 
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
-    fn from_file_attr(file: &Path, config: FileDigestConfig) -> Option<Self> {
+    fn from_file_attr(file: &AbsNormPath, config: FileDigestConfig) -> Option<Self> {
         use buck2_core::fs::fs_util;
 
         use crate::cas_digest::RawDigest;
@@ -194,13 +189,13 @@ impl FileDigest {
 
     /// Windows doesn't support extended file attributes.
     #[cfg(windows)]
-    fn from_file_attr(_file: &Path, _config: FileDigestConfig) -> Option<Self> {
+    fn from_file_attr(_file: &AbsNormPath, _config: FileDigestConfig) -> Option<Self> {
         None
     }
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &Path, config: FileDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &AbsNormPath, config: FileDigestConfig) -> anyhow::Result<Self> {
         let f = File::open(file)?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
