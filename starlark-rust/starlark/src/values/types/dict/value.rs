@@ -46,6 +46,7 @@ use crate::hint::unlikely;
 use crate::starlark_type;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::refcell::unleak_borrow;
+use crate::values::dict::AllocDict;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
@@ -130,6 +131,18 @@ impl AllocFrozenValue for FrozenDictData {
         } else {
             heap.alloc_simple(DictGen(self))
         }
+    }
+}
+
+impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        AllocDict(self).alloc_value(heap)
+    }
+}
+
+impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for SmallMap<K, V> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        AllocDict(self).alloc_frozen_value(heap)
     }
 }
 
