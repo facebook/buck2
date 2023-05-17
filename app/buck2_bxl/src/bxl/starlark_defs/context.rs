@@ -465,7 +465,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// `exec_deps` - These are dependencies you wish to access as executables for creating the action.
     /// This is usually the same set of targets one would pass to rule's `attr.exec_dep`.
     /// `toolchains` - The set of toolchains needed for the actions you intend to create.
-    /// `target_platform` - The intended target platform for your actions
+    /// `target_platform` - The intended target platform for your toolchains
     /// `exec_compatible_with` - Explicit list of configuration nodes (like platforms or constraints)
     /// that these actions are compatible with. This is the 'exec_compatible_with' attribute of a target.
     #[starlark(return_type = "\"bxl_actions\"")]
