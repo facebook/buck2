@@ -301,9 +301,9 @@ pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metada
         .with_context(|| format!("symlink_metadata({})", P::as_ref(&path).display()))
 }
 
-pub fn set_permissions<P: AsRef<Path>>(path: P, perm: fs::Permissions) -> anyhow::Result<()> {
+pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Chmod.guard();
-    fs::set_permissions(&path, perm)
+    fs::set_permissions(path.as_ref(), perm)
         .with_context(|| format!("set_permissions({}, _)", P::as_ref(&path).display()))?;
     Ok(())
 }
