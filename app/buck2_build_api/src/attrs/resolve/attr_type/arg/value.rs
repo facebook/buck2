@@ -65,7 +65,7 @@ pub enum ResolvedMacro {
     Query(ResolvedQueryMacro),
 }
 
-assert_eq_size!(ResolvedMacro, [usize; 7]);
+assert_eq_size!(ResolvedMacro, [usize; 2]);
 
 impl Display for ResolvedMacro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
