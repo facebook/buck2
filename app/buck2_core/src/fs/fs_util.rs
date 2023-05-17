@@ -229,7 +229,7 @@ pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<bool> {
         .with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
 }
 
-pub fn remove_file<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Remove.guard();
     remove_file_impl(path.as_ref())
         .with_context(|| format!("remove_file({})", P::as_ref(&path).display()))
@@ -341,9 +341,9 @@ pub fn set_executable<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn remove_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDirAll.guard();
-    fs::remove_dir_all(&path)
+    fs::remove_dir_all(path.as_ref())
         .with_context(|| format!("remove_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
@@ -364,7 +364,7 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
 
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
-pub fn remove_all<P: AsRef<Path> + AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let guard = IoCounterKey::RmDirAll.guard();
     let metadata = match symlink_metadata_if_exists(&path)? {
         Some(s) => s,
@@ -806,7 +806,8 @@ mod tests {
     #[test]
     fn remove_file_does_not_remove_directory() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let dir_path = tempdir.path().join("dir");
+        let root = AbsPath::new(tempdir.path())?;
+        let dir_path = root.join("dir");
         create_dir_all(AbsPath::new(&dir_path)?)?;
         assert_matches!(remove_file(&dir_path), Err(..));
         assert!(fs::try_exists(&dir_path)?);
@@ -830,7 +831,8 @@ mod tests {
     #[test]
     fn remove_file_non_existing_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let file_path = tempdir.path().join("file_doesnt_exist");
+        let root = AbsPath::new(tempdir.path())?;
+        let file_path = root.join("file_doesnt_exist");
         assert_matches!(remove_file(file_path), Err(..));
         Ok(())
     }
@@ -895,7 +897,8 @@ mod tests {
     #[test]
     fn remove_dir_all_does_not_remove_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let file_path = tempdir.path().join("file");
+        let root = AbsPath::new(tempdir.path())?;
+        let file_path = root.join("file");
         fs::write(&file_path, b"File content")?;
         assert!(remove_dir_all(&file_path).is_err());
         assert!(fs::try_exists(&file_path)?);

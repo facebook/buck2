@@ -25,6 +25,7 @@ use buck2_client_ctx::subscribers::recorder::try_get_invocation_recorder;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use humantime;
@@ -178,12 +179,17 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
             reverse_dir_paths.push(dir_entry.into_path());
         } else {
             let error = error.dupe();
-            thread_pool.execute(move || match fs_util::remove_file(dir_entry.path()) {
-                Ok(_) => {}
-                Err(e) => {
-                    let mut error = error.lock().unwrap();
-                    if error.is_none() {
-                        *error = Some(e);
+            thread_pool.execute(move || {
+                // The wlak gives us back absolute paths since we give it absolute paths.
+                let res = AbsPath::new(dir_entry.path()).and_then(fs_util::remove_file);
+
+                match res {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let mut error = error.lock().unwrap();
+                        if error.is_none() {
+                            *error = Some(e);
+                        }
                     }
                 }
             })
