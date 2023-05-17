@@ -223,9 +223,10 @@ pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Opti
     Ok(Some(ReadDir { read_dir, _guard }))
 }
 
-pub fn try_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<bool> {
+pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<bool> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::try_exists(&path).with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
+    fs::try_exists(path.as_ref())
+        .with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
 }
 
 pub fn remove_file<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {

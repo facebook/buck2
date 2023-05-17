@@ -1010,8 +1010,12 @@ mod tests {
 
         let existing_path = "foo/bar/baz/../link-target/fff";
         let non_exist_path = "foo/bar/link-target/fff";
-        assert!(fs_util::try_exists(project_root.root().as_path().join(existing_path)).unwrap());
-        assert!(!fs_util::try_exists(project_root.root().as_path().join(non_exist_path)).unwrap());
+        assert!(
+            fs_util::try_exists(project_root.root().as_abs_path().join(existing_path)).unwrap()
+        );
+        assert!(
+            !fs_util::try_exists(project_root.root().as_abs_path().join(non_exist_path)).unwrap()
+        );
 
         assert_eq!(
             ProjectRelativePath::new(non_exist_path).unwrap(),
