@@ -166,9 +166,6 @@ impl FileDigest {
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
     fn from_file_attr(file: &Path, config: FileDigestConfig) -> Option<Self> {
-        use std::borrow::Cow;
-        use std::collections::HashSet;
-
         use buck2_core::fs::fs_util;
 
         use crate::cas_digest::RawDigest;
@@ -177,35 +174,12 @@ impl FileDigest {
             return None;
         }
 
-        let mut file = Cow::Borrowed(file);
-        let mut meta;
-        let mut visited = HashSet::new();
+        let meta = fs_util::symlink_metadata(file).ok()?;
 
-        // NOTE: We have to look through symlinks first because `xattr::get` doesn't (at least not
-        // on MacOS, it seems), and instead we end up with the hash of the symlink destination as a
-        // string.
-        loop {
-            meta = fs_util::symlink_metadata(&file).ok()?;
-            if !meta.is_symlink() {
-                break;
-            }
-
-            let dest = fs_util::read_link(&file).ok()?;
-            let dest = if dest.is_absolute() {
-                dest
-            } else {
-                match file.parent() {
-                    Some(parent) => parent.join(dest),
-                    None => dest,
-                }
-            };
-
-            let prev = std::mem::replace(&mut file, Cow::Owned(dest));
-
-            if !visited.insert(prev.into_owned()) {
-                // We hit a loop.
-                return None;
-            }
+        // This really shouldn't happen (and it better not because we're about to read the xattr of
+        // a symlink otherwise) but this method doesn't have the ability to return an error.
+        if meta.is_symlink() {
+            return None;
         }
 
         match xattr::get(&file, "user.sha1") {
@@ -580,72 +554,6 @@ mod tests {
     use std::hash::Hasher;
 
     use super::*;
-
-    #[cfg(unix)]
-    mod unix {
-        use std::os::unix::fs::symlink;
-
-        use anyhow::Context;
-        use buck2_core::fs::fs_util;
-
-        use super::*;
-        use crate::cas_digest::SHA1_SIZE;
-
-        #[test]
-        fn test_from_file_attr() -> anyhow::Result<()> {
-            let config = FileDigestConfig::source(CasDigestConfig::testing_default());
-            let tempdir = tempfile::tempdir()?;
-
-            let file = tempdir.path().join("dest");
-            fs_util::write(&file, "foo")?;
-            xattr::set(
-                &file,
-                "user.sha1",
-                b"0000000000000000000000000000000000000000",
-            )?;
-
-            symlink("dest", tempdir.path().join("link"))?;
-            symlink(tempdir.path().join("dest"), tempdir.path().join("abs_link"))?;
-            symlink("link", tempdir.path().join("recurse_link"))?;
-            symlink("recurse_link", tempdir.path().join("recurse_recurse_link"))?;
-
-            let d1 = FileDigest::from_file(&file, config).context("file")?;
-            let d2 = FileDigest::from_file(tempdir.path().join("link"), config).context("file")?;
-            let d3 = FileDigest::from_file(tempdir.path().join("abs_link"), config)
-                .context("abs_link")?;
-            let d4 = FileDigest::from_file(tempdir.path().join("recurse_link"), config)
-                .context("recurse_link")?;
-            let d5 = FileDigest::from_file(tempdir.path().join("recurse_recurse_link"), config)
-                .context("recurse_recurse_link")?;
-
-            assert_eq!(d1.raw_digest().as_bytes(), &[0; SHA1_SIZE][..]);
-            assert_eq!(d1.size(), 3);
-            assert_eq!(d1, d2);
-            assert_eq!(d1, d3);
-            assert_eq!(d1, d4);
-            assert_eq!(d1, d5);
-
-            let dx = FileDigest::from_file(
-                &file,
-                FileDigestConfig::source(crate::cas_digest::testing::sha256()),
-            )
-            .context("disable xattr")?;
-
-            assert_ne!(d1, dx);
-
-            Ok(())
-        }
-
-        #[test]
-        fn test_from_file_attr_loop() -> anyhow::Result<()> {
-            let tempdir = tempfile::tempdir()?;
-
-            symlink("loop1", tempdir.path().join("loop2"))?;
-            symlink("loop2", tempdir.path().join("loop1"))?;
-
-            Ok(())
-        }
-    }
 
     #[test]
     fn test_tracked_file_digest_equivalence() {
