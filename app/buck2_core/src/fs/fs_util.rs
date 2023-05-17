@@ -362,6 +362,12 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
     }
 }
 
+/// Like fs::exists but gives you the metadata. More efficient than calling `symlink_metadata().ok()` (no anyhow, no backtrace) or `exists()` (one stat call).
+pub fn symlink_metadata_if_available<P: AsRef<AbsPath>>(path: P) -> Option<fs::Metadata> {
+    let _guard = IoCounterKey::Stat.guard();
+    fs::symlink_metadata(path.as_ref().as_maybe_relativized()).ok()
+}
+
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
 pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {

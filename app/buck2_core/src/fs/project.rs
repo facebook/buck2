@@ -439,10 +439,15 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn remove_path_recursive(&self, path: impl PathLike) -> anyhow::Result<()> {
         let path = self.resolve(path);
-        if !path.exists() {
-            return Ok(());
-        }
-        let path_type = fs_util::symlink_metadata(&path)?.file_type();
+
+        // TODO: This should probably not use symlink_metadata_if_available... But it used to use
+        // Path::exists()...
+        let meta = match fs_util::symlink_metadata_if_available(&path) {
+            Some(m) => m,
+            None => return Ok(()),
+        };
+
+        let path_type = meta.file_type();
 
         if path_type.is_dir() {
             fs_util::remove_dir_all(&path)
