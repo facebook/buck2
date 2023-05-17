@@ -26,9 +26,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use thiserror::Error;
 
+use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsFrozenCommandLineLike;
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, Error)]
@@ -86,16 +85,14 @@ pub struct TemplatePlaceholderInfoGen<V> {
 }
 
 impl FrozenTemplatePlaceholderInfo {
-    pub fn unkeyed_variables(
-        &self,
-    ) -> SmallMap<FrozenRef<'static, str>, FrozenRef<'static, dyn FrozenCommandLineArgLike>> {
+    pub fn unkeyed_variables(&self) -> SmallMap<FrozenRef<'static, str>, FrozenCommandLineArg> {
         FrozenDictRef::from_frozen_value(self.unkeyed_variables)
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
                 (
                     k.downcast_frozen_str().expect("should have string keys"),
-                    v.as_frozen_command_line().expect("should be command line"),
+                    FrozenCommandLineArg::new(v).unwrap(),
                 )
             })
             .collect()
@@ -105,34 +102,29 @@ impl FrozenTemplatePlaceholderInfo {
         &self,
     ) -> SmallMap<
         FrozenRef<'static, str>,
-        Either<
-            FrozenRef<'static, dyn FrozenCommandLineArgLike>,
-            SmallMap<FrozenRef<'static, str>, FrozenRef<'static, dyn FrozenCommandLineArgLike>>,
-        >,
+        Either<FrozenCommandLineArg, SmallMap<FrozenRef<'static, str>, FrozenCommandLineArg>>,
     > {
         FrozenDictRef::from_frozen_value(self.keyed_variables)
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
                 (k.downcast_frozen_str().expect("should have string keys"), {
-                    let either = if let Some(dict) = FrozenDictRef::from_frozen_value(v) {
+                    if let Some(dict) = FrozenDictRef::from_frozen_value(v) {
                         Either::Right(
                             dict.iter()
                                 .map(|(k, v)| {
                                     (
                                         k.downcast_frozen_str().expect("should have string keys"),
-                                        v.as_frozen_command_line().expect("should be command line"),
+                                        FrozenCommandLineArg::new(v).unwrap(),
                                     )
                                 })
                                 .collect(),
                         )
-                    } else if let Some(cmd) = v.as_frozen_command_line() {
+                    } else if let Ok(cmd) = FrozenCommandLineArg::new(v) {
                         Either::Left(cmd)
                     } else {
                         unreachable!("should be dict or command line")
-                    };
-
-                    either
+                    }
                 })
             })
             .collect()

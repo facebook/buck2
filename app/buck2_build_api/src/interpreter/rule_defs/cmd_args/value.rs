@@ -99,8 +99,32 @@ impl<'v> CommandLineArgLike for CommandLineArg<'v> {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(
+    Debug,
+    Allocative,
+    Eq,
+    PartialEq,
+    derive_more::Display,
+    Clone,
+    Copy,
+    Dupe
+)]
 #[repr(transparent)]
-pub(crate) struct FrozenCommandLineArg(FrozenValue);
+pub struct FrozenCommandLineArg(FrozenValue);
 
 unsafe impl<'v> Coerce<CommandLineArg<'v>> for FrozenCommandLineArg {}
+
+impl FrozenCommandLineArg {
+    pub(crate) fn new(value: FrozenValue) -> anyhow::Result<FrozenCommandLineArg> {
+        value.to_value().as_command_line_err()?;
+        Ok(FrozenCommandLineArg(value))
+    }
+
+    pub(crate) fn as_command_line_arg<'v>(self) -> CommandLineArg<'v> {
+        CommandLineArg(self.0.to_value())
+    }
+
+    pub fn as_command_line_arg_like(self) -> &'static dyn CommandLineArgLike {
+        self.0.to_value().as_command_line_err().unwrap()
+    }
+}

@@ -18,7 +18,7 @@ use buck2_build_api::analysis::resolve_query;
 use buck2_build_api::analysis::resolve_unkeyed_placeholder;
 use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
-use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -27,7 +27,6 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use once_cell::sync::OnceCell;
 use starlark::environment::Module;
-use starlark::values::FrozenRef;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 
@@ -82,7 +81,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>> {
+    ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
         match self.dep_analysis_results() {
             Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, self.module)),
             Err(e) => Err(anyhow::anyhow!(

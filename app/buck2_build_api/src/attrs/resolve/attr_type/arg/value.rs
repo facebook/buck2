@@ -39,11 +39,11 @@ use crate::attrs::resolve::attr_type::arg::SpaceSeparatedCommandLineBuilder;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
@@ -60,7 +60,7 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 pub enum ResolvedMacro {
     Location(FrozenRef<'static, FrozenDefaultInfo>),
     /// Holds an arg-like value
-    ArgLike(FrozenRef<'static, dyn FrozenCommandLineArgLike>),
+    ArgLike(FrozenCommandLineArg),
     /// Holds a resolved query placeholder
     Query(ResolvedQueryMacro),
 }
@@ -144,16 +144,14 @@ impl ResolvedMacro {
                 // Don't need to consider exec_dep as it already was applied when configuring the label.
                 let providers_value = ctx.get_dep(label)?;
                 let providers = providers_value.provider_collection();
-                let run_info = match providers.get_provider(RunInfoCallable::provider_id_t()) {
-                    Some(value) => value,
+                let run_info = match providers.get_provider_raw(RunInfoCallable::provider_id()) {
+                    Some(value) => *value,
                     None => {
                         return Err(ResolvedMacroError::ExpectedRunInfo(label.to_string()).into());
                     }
                 };
                 // A RunInfo is an arg-like value.
-                Ok(ResolvedMacro::ArgLike(
-                    run_info.map(|x| x as &dyn FrozenCommandLineArgLike),
-                ))
+                Ok(ResolvedMacro::ArgLike(FrozenCommandLineArg::new(run_info)?))
             }
             ConfiguredMacro::UserUnkeyedPlaceholder(name) => {
                 let provider = ctx.resolve_unkeyed_placeholder(name)?.ok_or_else(|| {
@@ -176,8 +174,8 @@ impl ResolvedMacro {
                     )
                 })?;
 
-                let value = match (arg, either_cmd_or_mapping) {
-                    (None, Either::Left(mapping)) => mapping,
+                let value: FrozenCommandLineArg = match (arg, either_cmd_or_mapping) {
+                    (None, Either::Left(mapping)) => *mapping,
                     (Some(arg), Either::Left(_)) => {
                         return Err(ResolvedMacroError::KeyedPlaceholderMappingNotADict(
                             (**name).to_owned(),
@@ -188,7 +186,7 @@ impl ResolvedMacro {
                     }
                     (arg, Either::Right(mapping)) => {
                         let arg = arg.as_deref().unwrap_or("DEFAULT");
-                        mapping.get(arg).ok_or_else(|| {
+                        mapping.get(arg).copied().ok_or_else(|| {
                             ResolvedMacroError::KeyedPlaceholderArgMissing(
                                 (**name).to_owned(),
                                 label.clone(),
@@ -198,7 +196,7 @@ impl ResolvedMacro {
                     }
                 };
 
-                Ok(ResolvedMacro::ArgLike(*value))
+                Ok(ResolvedMacro::ArgLike(value))
             }
             ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
             ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
@@ -223,7 +221,9 @@ impl ResolvedMacro {
             }
             Self::ArgLike(command_line_like) => {
                 let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(builder);
-                command_line_like.add_to_command_line(&mut cli_builder, ctx)?;
+                command_line_like
+                    .as_command_line_arg()
+                    .add_to_command_line(&mut cli_builder, ctx)?;
             }
             Self::Query(value) => value.add_to_arg(builder, ctx)?,
         };
@@ -240,7 +240,9 @@ impl ResolvedMacro {
                 })?;
             }
             Self::ArgLike(command_line_like) => {
-                command_line_like.visit_artifacts(visitor)?;
+                command_line_like
+                    .as_command_line_arg()
+                    .visit_artifacts(visitor)?;
             }
             Self::Query(value) => value.visit_artifacts(visitor)?,
         }

@@ -13,10 +13,9 @@ use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use starlark::environment::Module;
-use starlark::values::FrozenRef;
 use starlark::values::Heap;
 
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 pub type AnalysisQueryResult = Vec<(ConfiguredTargetLabel, FrozenProviderCollectionValue)>;
@@ -40,7 +39,7 @@ pub trait AttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>>;
+    ) -> anyhow::Result<Option<FrozenCommandLineArg>>;
 
     /// Provides the result of the query. This will only provide results for queries that are reported during the configured attr traversal.
     // TODO(cjhopman): Ideally, we wouldn't need to split query attr resolution in this way, but processing queries is an async operation and the starlark Heap cannot be used in async code.

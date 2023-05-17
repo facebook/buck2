@@ -12,7 +12,7 @@ use std::sync::Arc;
 use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::build_defs::register_provider;
-use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -32,7 +32,6 @@ use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::values::dict::FrozenDictRef;
-use starlark::values::FrozenRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
@@ -225,7 +224,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn resolve_unkeyed_placeholder(
             &self,
             name: &str,
-        ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike>>> {
+        ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
             for providers in self.deps.values() {
                 if let Some(placeholders) =
                     FrozenTemplatePlaceholderInfo::from_providers(providers.provider_collection())

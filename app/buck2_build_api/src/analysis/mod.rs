@@ -31,7 +31,6 @@ use futures::Future;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::FrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -43,7 +42,6 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
-use crate::interpreter::rule_defs::cmd_args::FrozenCommandLineArgLike;
 use crate::interpreter::rule_defs::context::AnalysisContext;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
@@ -69,6 +67,7 @@ use starlark::values::structs::AllocStruct;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Error, Debug)]
@@ -151,7 +150,7 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>>> {
+    ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
         Ok(resolve_unkeyed_placeholder(
             &self.dep_analysis_results,
             name,
@@ -184,7 +183,7 @@ pub fn resolve_unkeyed_placeholder<'v>(
     dep_analysis_results: &HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
     module: &'v Module,
-) -> Option<FrozenRef<'static, dyn FrozenCommandLineArgLike + 'static>> {
+) -> Option<FrozenCommandLineArg> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {
         if let Some(placeholder_info) =
