@@ -296,7 +296,7 @@ impl CachingExecutor {
                             .artifact_fs
                             .fs()
                             .resolve(output.path())
-                            .to_str()?
+                            .as_maybe_relativized_str()?
                             .to_owned();
 
                         self.re_client

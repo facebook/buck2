@@ -177,7 +177,7 @@ impl Materializer for ImmediateMaterializer {
                             name: self
                                 .fs
                                 .resolve(&path.join_normalized(entry_path.get())?)
-                                .to_str()?
+                                .as_maybe_relativized_str()?
                                 .to_owned(),
                             ..Default::default()
                         },

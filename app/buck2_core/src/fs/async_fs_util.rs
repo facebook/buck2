@@ -15,7 +15,7 @@ use crate::io_counters::IoCounterKey;
 
 pub async fn open<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<File> {
     let _guard = IoCounterKey::Read.guard();
-    tokio::fs::File::open(path.as_ref())
+    tokio::fs::File::open(path.as_ref().as_maybe_relativized())
         .await
         .with_context(|| format!("open({})", path.as_ref().display()))
 }

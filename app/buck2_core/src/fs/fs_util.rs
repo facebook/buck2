@@ -48,7 +48,7 @@ where
 
 #[cfg(unix)]
 fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
-    std::os::unix::fs::symlink(original, link).map_err(|e| e.into())
+    std::os::unix::fs::symlink(original, link.as_maybe_relativized()).map_err(|e| e.into())
 }
 
 /// Create symlink on Windows.
@@ -125,14 +125,14 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
 
 pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::MkDir.guard();
-    fs::create_dir_all(path.as_ref())
+    fs::create_dir_all(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("create_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::MkDir.guard();
-    fs::create_dir(path.as_ref())
+    fs::create_dir(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("create_dir({})", P::as_ref(&path).display()))?;
     Ok(())
 }
@@ -143,7 +143,9 @@ pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     let _guard = IoCounterKey::MkDir.guard();
-    let e = match fs::create_dir(path).with_context(|| format!("create_dir({})", path.display())) {
+    let e = match fs::create_dir(path.as_maybe_relativized())
+        .with_context(|| format!("create_dir({})", path.display()))
+    {
         Ok(()) => return Ok(()),
         Err(e) => e,
     };
@@ -225,13 +227,13 @@ pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> anyhow::Result<Opti
 
 pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<bool> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::try_exists(path.as_ref())
+    fs::try_exists(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("try_exists({})", P::as_ref(&path).display()))
 }
 
 pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Remove.guard();
-    remove_file_impl(path.as_ref())
+    remove_file_impl(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("remove_file({})", P::as_ref(&path).display()))
 }
 
@@ -256,7 +258,11 @@ fn remove_file_impl(path: &Path) -> anyhow::Result<()> {
 
 pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<u64> {
     let _guard = IoCounterKey::Copy.guard();
-    fs::copy(from.as_ref(), to.as_ref()).with_context(|| {
+    fs::copy(
+        from.as_ref().as_maybe_relativized(),
+        to.as_ref().as_maybe_relativized(),
+    )
+    .with_context(|| {
         format!(
             "copy(from={}, to={})",
             P::as_ref(&from).display(),
@@ -267,13 +273,17 @@ pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Res
 
 pub fn read_link<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<PathBuf> {
     let _guard = IoCounterKey::ReadLink.guard();
-    fs::read_link(path.as_ref())
+    fs::read_link(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("read_link({})", P::as_ref(&path).display()))
 }
 
 pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Rename.guard();
-    fs::rename(from.as_ref(), to.as_ref()).with_context(|| {
+    fs::rename(
+        from.as_ref().as_maybe_relativized(),
+        to.as_ref().as_maybe_relativized(),
+    )
+    .with_context(|| {
         format!(
             "rename(from={}, to={})",
             P::as_ref(&from).display(),
@@ -285,25 +295,26 @@ pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::R
 
 pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Write.guard();
-    fs::write(path.as_ref(), &contents)
+    fs::write(path.as_ref().as_maybe_relativized(), &contents)
         .with_context(|| format!("write({}, _)", P::as_ref(&path).display()))?;
     Ok(())
 }
 
 pub fn metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::metadata(path.as_ref()).with_context(|| format!("metadata({})", P::as_ref(&path).display()))
+    fs::metadata(path.as_ref().as_maybe_relativized())
+        .with_context(|| format!("metadata({})", P::as_ref(&path).display()))
 }
 
 pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<fs::Metadata> {
     let _guard = IoCounterKey::Stat.guard();
-    fs::symlink_metadata(path.as_ref())
+    fs::symlink_metadata(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("symlink_metadata({})", P::as_ref(&path).display()))
 }
 
 pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Chmod.guard();
-    fs::set_permissions(path.as_ref(), perm)
+    fs::set_permissions(path.as_ref().as_maybe_relativized(), perm)
         .with_context(|| format!("set_permissions({}, _)", P::as_ref(&path).display()))?;
     Ok(())
 }
@@ -332,7 +343,7 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 
 pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDirAll.guard();
-    fs::remove_dir_all(path.as_ref())
+    fs::remove_dir_all(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("remove_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
@@ -342,7 +353,7 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
     path: P,
 ) -> anyhow::Result<Option<fs::Metadata>> {
     let _guard = IoCounterKey::Stat.guard();
-    match fs::symlink_metadata(path.as_ref()) {
+    match fs::symlink_metadata(path.as_ref().as_maybe_relativized()) {
         Ok(metadata) => Ok(Some(metadata)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(err) => {
@@ -376,19 +387,20 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
 
 pub fn read<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Vec<u8>> {
     let _guard = IoCounterKey::Read.guard();
-    fs::read(path.as_ref()).with_context(|| format!("read({})", P::as_ref(&path).display()))
+    fs::read(path.as_ref().as_maybe_relativized())
+        .with_context(|| format!("read({})", P::as_ref(&path).display()))
 }
 
 pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<String> {
     let _guard = IoCounterKey::Read.guard();
-    fs::read_to_string(path.as_ref())
+    fs::read_to_string(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("read_to_string({})", P::as_ref(&path).display()))
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
 pub fn read_to_string_opt<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<Option<String>> {
     let _guard = IoCounterKey::Read.guard();
-    match fs::read_to_string(path.as_ref()) {
+    match fs::read_to_string(path.as_ref().as_maybe_relativized()) {
         Ok(d) => Ok(Some(d)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(anyhow::Error::from(e).context(format!(
@@ -426,7 +438,7 @@ pub fn simplified(path: &AbsPath) -> anyhow::Result<&AbsPath> {
 
 pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::RmDir.guard();
-    fs::remove_dir(path.as_ref())
+    fs::remove_dir(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("remove_dir({})", P::as_ref(&path).display()))
 }
 
@@ -447,7 +459,7 @@ impl Write for FileWriteGuard {
 
 pub fn create_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileWriteGuard> {
     let guard = IoCounterKey::Write.guard();
-    let file = File::create(path.as_ref())
+    let file = File::create(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("create_file({})", P::as_ref(&path).display()))?;
     Ok(FileWriteGuard {
         file,
@@ -468,7 +480,7 @@ impl Read for FileReadGuard {
 
 pub fn open_file<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<FileReadGuard> {
     let guard = IoCounterKey::Read.guard();
-    let file = File::open(path.as_ref())
+    let file = File::open(path.as_ref().as_maybe_relativized())
         .with_context(|| format!("open_file({})", P::as_ref(&path).display()))?;
     Ok(FileReadGuard {
         file,

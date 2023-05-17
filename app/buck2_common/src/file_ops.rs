@@ -177,7 +177,7 @@ impl FileDigest {
             return None;
         }
 
-        match xattr::get(&file, "user.sha1") {
+        match xattr::get(file.as_maybe_relativized(), "user.sha1") {
             Ok(Some(v)) => {
                 let sha1 = RawDigest::parse_sha1(&v).ok()?;
                 let size = meta.len();
@@ -196,7 +196,7 @@ impl FileDigest {
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
     pub fn from_file_disk(file: &AbsNormPath, config: FileDigestConfig) -> anyhow::Result<Self> {
-        let f = File::open(file)?;
+        let f = File::open(file.as_maybe_relativized())?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
 }

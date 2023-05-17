@@ -153,7 +153,11 @@ impl DefaultIoHandler {
                             let digest = maybe_tombstone_digest(f.digest.data())?.to_re();
 
                             tracing::trace!(name = %name, digest = %digest, "push download");
-                            let name = self.fs.resolve(&name).to_str()?.to_owned();
+                            let name = self
+                                .fs
+                                .resolve(&name)
+                                .as_maybe_relativized_str()?
+                                .to_owned();
 
                             files.push(NamedDigestWithPermissions {
                                 named_digest: NamedDigest {

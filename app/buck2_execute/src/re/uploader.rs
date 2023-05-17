@@ -244,7 +244,7 @@ impl Uploader {
                 match name {
                     Ok(name) => {
                         upload_files.push(NamedDigest {
-                            name: fs.resolve(&name).to_str()?.to_owned(),
+                            name: fs.resolve(&name).as_maybe_relativized_str()?.to_owned(),
                             digest,
                             ..Default::default()
                         });
@@ -304,7 +304,7 @@ impl Uploader {
                     }
                     Err(ArtifactNotMaterializedReason::RequiresMaterialization { path }) => {
                         upload_files.push(NamedDigest {
-                            name: fs.resolve(&path).to_str()?.to_owned(),
+                            name: fs.resolve(&path).as_maybe_relativized_str()?.to_owned(),
                             digest,
                             ..Default::default()
                         });
