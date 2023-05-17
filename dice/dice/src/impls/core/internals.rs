@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
@@ -88,8 +89,8 @@ impl CoreState {
         storage: StorageType,
         value: DiceValidValue,
         deps: Arc<Vec<DiceKey>>,
-    ) -> DiceComputedValue {
-        self.graph.update(key, value, deps, storage).0
+    ) -> DiceResult<DiceComputedValue> {
+        Ok(self.graph.update(key, value, deps, storage).0)
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {

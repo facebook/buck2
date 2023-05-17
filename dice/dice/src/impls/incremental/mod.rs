@@ -263,7 +263,7 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        task_handle.finished(Ok(rx.await.unwrap()))
+                        task_handle.finished(rx.await.unwrap())
                     }
                 }
             }
@@ -331,7 +331,7 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        task_handle.finished(Ok(rx.await.unwrap()))
+                        task_handle.finished(rx.await.unwrap())
                     }
                     Err(value) => {
                         task_handle.finished(Ok(DiceComputedValue::new(

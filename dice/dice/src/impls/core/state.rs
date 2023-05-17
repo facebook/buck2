@@ -13,6 +13,7 @@ use dupe::Dupe;
 use gazebo::variants::VariantName;
 use tokio::sync::oneshot::Sender;
 
+use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
@@ -66,7 +67,7 @@ pub(crate) enum StateRequest {
         deps: Arc<Vec<DiceKey>>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<DiceComputedValue>,
+        resp: Sender<DiceResult<DiceComputedValue>>,
     },
     /// For unstable take
     UnstableDropEverything,
