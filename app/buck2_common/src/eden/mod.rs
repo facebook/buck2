@@ -21,6 +21,7 @@ use anyhow::Context as _;
 use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
 use edenfs::client::EdenService;
 use edenfs::errors::eden_service::ListMountsError;
@@ -76,11 +77,11 @@ impl EdenConnectionManager {
         root: &AbsNormPath,
         semaphore: Semaphore,
     ) -> anyhow::Result<Option<Self>> {
-        let eden_root = root.as_path().join(".eden");
+        let eden_root = root.as_abs_path().join(".eden");
         if !eden_root.exists() {
             return Ok(None);
         }
-        let connector = Self::get_eden_connector(fb, eden_root)?;
+        let connector = Self::get_eden_connector(fb, &eden_root)?;
 
         let connection = Mutex::new(EdenConnection {
             epoch: 0,
@@ -94,22 +95,22 @@ impl EdenConnectionManager {
         }))
     }
 
-    fn get_eden_connector(fb: FacebookInit, eden_root: PathBuf) -> anyhow::Result<EdenConnector> {
+    fn get_eden_connector(fb: FacebookInit, eden_root: &AbsPath) -> anyhow::Result<EdenConnector> {
         // Based off of how watchman picks up the config: fbcode/watchman/watcher/eden.cpp:138
         if cfg!(windows) {
-            let config_path = eden_root.as_path().join("config");
+            let config_path = eden_root.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
             let config: EdenConfig = toml::from_str(&config_contents)?;
             let root = Arc::new(config.config.root);
             let socket = PathBuf::from(config.config.socket);
             Ok(EdenConnector { fb, root, socket })
         } else {
-            let root = fs_util::read_link(eden_root.as_path().join("root"))?
+            let root = fs_util::read_link(eden_root.join("root"))?
                 .to_str()
                 .context("Eden root is not UTF-8")?
                 .to_owned();
             let root = Arc::new(root);
-            let socket = fs_util::read_link(eden_root.as_path().join("socket"))?;
+            let socket = fs_util::read_link(eden_root.join("socket"))?;
             Ok(EdenConnector { fb, root, socket })
         }
     }

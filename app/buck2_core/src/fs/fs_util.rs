@@ -265,9 +265,10 @@ pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Res
     })
 }
 
-pub fn read_link<P: AsRef<Path>>(path: P) -> anyhow::Result<PathBuf> {
+pub fn read_link<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<PathBuf> {
     let _guard = IoCounterKey::ReadLink.guard();
-    fs::read_link(&path).with_context(|| format!("read_link({})", P::as_ref(&path).display()))
+    fs::read_link(path.as_ref())
+        .with_context(|| format!("read_link({})", P::as_ref(&path).display()))
 }
 
 pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<()> {
