@@ -23,6 +23,7 @@ use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
 use buck2_node::nodes::attributes::INPUTS;
+use buck2_node::nodes::attributes::ONCALL;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
@@ -200,6 +201,11 @@ impl TargetFormatter for JsonFormat {
         print_attr(self, buffer, &mut first, PACKAGE, || {
             QuotedJson::quote_display(target_info.node.label().pkg())
         });
+        if let Some(oncall) = target_info.node.oncall() {
+            print_attr(self, buffer, &mut first, ONCALL, || {
+                QuotedJson::quote_display(oncall)
+            });
+        }
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
             print_attr(self, buffer, &mut first, a.name, || {
