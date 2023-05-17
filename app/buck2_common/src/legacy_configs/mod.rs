@@ -1345,6 +1345,7 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::fs::paths::abs_path::AbsPath;
     use indoc::indoc;
     use itertools::Itertools;
 
@@ -1875,10 +1876,10 @@ mod tests {
         fn dir_in_dir() -> anyhow::Result<()> {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
-            fs_util::create_dir_all(dir.path().join("bad"))?;
-            let dir = AbsNormPath::new(&dir)?;
+            let dir = AbsPath::new(dir.path())?;
+            fs_util::create_dir_all(dir.join("bad"))?;
 
-            push_all_files_from_a_directory(&mut v, dir, false)?;
+            push_all_files_from_a_directory(&mut v, AbsNormPath::new(dir)?, false)?;
             assert_eq!(v, vec![]);
 
             Ok(())
@@ -1900,7 +1901,8 @@ mod tests {
         fn dir_with_file_in_dir() -> anyhow::Result<()> {
             let mut v = vec![];
             let dir = tempfile::tempdir()?;
-            let nested_dir = dir.path().join("nested");
+            let dir = AbsPath::new(dir.path())?;
+            let nested_dir = dir.join("nested");
             fs_util::create_dir_all(&nested_dir)?;
             let file = nested_dir.join("foo");
             fs_util::write(&file, "")?;

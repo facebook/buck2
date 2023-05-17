@@ -123,9 +123,9 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
     }
 }
 
-pub fn create_dir_all<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
     let _guard = IoCounterKey::MkDir.guard();
-    fs::create_dir_all(&path)
+    fs::create_dir_all(path.as_ref())
         .with_context(|| format!("create_dir_all({})", P::as_ref(&path).display()))?;
     Ok(())
 }
@@ -537,21 +537,21 @@ mod tests {
     fn create_and_remove_symlink_dir() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
+        let root = AbsPath::new(&root)?;
         create_dir_all(&root)?;
         let dir1 = root.join("dir1");
         let symlink_dir1 = root.join("symlink_dir1");
-        let symlink_dir1 = AbsPath::new(&symlink_dir1)?;
 
         // Create dir1 and link symlink_dir1 to dir1
         create_dir_all(&dir1)?;
         assert!(symlink_metadata(&dir1)?.is_dir());
-        symlink(&dir1, symlink_dir1)?;
-        assert!(symlink_metadata(symlink_dir1)?.is_symlink());
+        symlink(&dir1, &symlink_dir1)?;
+        assert!(symlink_metadata(&symlink_dir1)?.is_symlink());
 
         // Remove the symlink, dir1 should still be in tact
-        remove_file(symlink_dir1)?;
+        remove_file(&symlink_dir1)?;
         assert!(symlink_metadata(&dir1)?.is_dir());
-        assert_matches!(symlink_metadata(symlink_dir1), Err(..));
+        assert_matches!(symlink_metadata(&symlink_dir1), Err(..));
 
         // Clean up
         remove_dir_all(&root)?;
@@ -562,24 +562,24 @@ mod tests {
     fn create_and_remove_symlink_file() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
+        let root = AbsPath::new(&root)?;
         create_dir_all(&root)?;
         let file1 = root.join("file1");
         let symlink_file1 = root.join("symlink_file1");
-        let symlink_file1 = AbsPath::new(&symlink_file1)?;
 
         // Create file1 and link symlink_file1 to file1
         File::create(&file1)?;
         assert!(symlink_metadata(&file1)?.is_file());
-        symlink(&file1, symlink_file1)?;
-        assert!(symlink_metadata(symlink_file1)?.is_symlink());
+        symlink(&file1, &symlink_file1)?;
+        assert!(symlink_metadata(&symlink_file1)?.is_symlink());
 
         // Remove the symlink, file1 should still be in tact
-        remove_file(symlink_file1)?;
+        remove_file(&symlink_file1)?;
         assert!(symlink_metadata(&file1)?.is_file());
-        assert_matches!(symlink_metadata(symlink_file1), Err(..));
+        assert_matches!(symlink_metadata(&symlink_file1), Err(..));
 
         // Clean up
-        remove_dir_all(&root)?;
+        remove_dir_all(root)?;
         Ok(())
     }
 
@@ -601,7 +601,7 @@ mod tests {
         let target_path1 = tempdir.path().join(long_sub_path);
         assert!(target_path1.to_str().unwrap().len() > max_path);
 
-        create_dir_all(target_path1.parent().unwrap())?;
+        create_dir_all(AbsPath::new(target_path1.parent().unwrap())?)?;
         symlink(&target_path1, symlink1)?;
         write(&target_path1, b"This is File1")?;
         assert_eq!(read_to_string(symlink1)?, "This is File1");
@@ -618,7 +618,7 @@ mod tests {
             .join("../abs_with_relative");
         assert!(target_path2.is_absolute());
         assert!(target_path2.to_str().unwrap().len() > max_path);
-        create_dir_all(&target_path2)?;
+        create_dir_all(AbsPath::new(&target_path2)?)?;
         let target_path2 = target_path2.join("file2");
         symlink(&target_path2, symlink2)?;
         write(&target_path2, b"This is File2")?;
@@ -642,17 +642,16 @@ mod tests {
     fn symlink_to_symlinked_dir() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir");
+        let dir_path = AbsPath::new(&dir_path)?;
         let file_path = dir_path.join("file");
-        create_dir_all(&dir_path)?;
+        create_dir_all(dir_path)?;
         write(file_path, b"Content")?;
-        let symlink1_path = tempdir.path().join("symlink1");
-        let symlink1_path = AbsPath::new(&symlink1_path)?;
-        let symlink2_path = tempdir.path().join("symlink2");
-        let symlink2_path = AbsPath::new(&symlink2_path)?;
-        symlink(&dir_path, symlink1_path)?;
-        symlink(symlink1_path, symlink2_path)?;
+        let symlink1_path = dir_path.join("symlink1");
+        let symlink2_path = dir_path.join("symlink2");
+        symlink(dir_path, &symlink1_path)?;
+        symlink(&symlink1_path, &symlink2_path)?;
         assert_eq!(read_to_string(symlink2_path.join("file"))?, "Content");
-        assert!(metadata(symlink1_path)?.is_dir());
+        assert!(metadata(&symlink1_path)?.is_dir());
         assert!(metadata(symlink2_path)?.is_dir());
         Ok(())
     }
@@ -664,6 +663,7 @@ mod tests {
         //      \ symlink1 to dir1/file1
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir1");
+        let dir_path = AbsPath::new(&dir_path)?;
         create_dir_all(dir_path)?;
         let relative_symlink1_path = tempdir.path().join("relative_symlink1");
         let relative_symlink1_path = AbsPath::new(&relative_symlink1_path)?;
@@ -679,19 +679,19 @@ mod tests {
         //     \
         //      \ dir2 -- relative_symlink1 to ../dir1/file1
         let tempdir = tempfile::tempdir()?;
-        let dir1 = tempdir.path().join("dir1");
-        let dir2 = tempdir.path().join("dir2");
+        let root = AbsPath::new(tempdir.path())?;
+        let dir1 = root.join("dir1");
+        let dir2 = root.join("dir2");
         // Only create dir2 for the symlink creation
         create_dir_all(&dir2)?;
-        let relative_symlink1_path = dir2.as_path().join("relative_symlink1");
-        let relative_symlink1_path = AbsPath::new(&relative_symlink1_path)?;
+        let relative_symlink1_path = dir2.join("relative_symlink1");
         // Symlink creation should still work even if dir1 doesn't exist yet
-        symlink("../dir1/file1", relative_symlink1_path)?;
+        symlink("../dir1/file1", &relative_symlink1_path)?;
         // Create dir1, test that we can write into file1 and symlink1
         create_dir_all(dir1)?;
         write(tempdir.path().join("dir1/file1"), b"File content")?;
-        assert_eq!(read_to_string(relative_symlink1_path)?, "File content");
-        write(relative_symlink1_path, b"File content 2")?;
+        assert_eq!(read_to_string(&relative_symlink1_path)?, "File content");
+        write(&relative_symlink1_path, b"File content 2")?;
         assert_eq!(
             read_to_string(tempdir.path().join("dir1/file1"))?,
             "File content 2"
@@ -721,8 +721,8 @@ mod tests {
         let dir2 = tempdir2.path().join("dir2");
         let file2 = dir2.join("file2");
         let file3 = dir2.join("file3");
-        create_dir_all(&subdir1)?;
-        create_dir_all(&dir2)?;
+        create_dir_all(AbsPath::new(&subdir1)?)?;
+        create_dir_all(AbsPath::new(&dir2)?)?;
         write(&file1, b"File content 1")?;
         write(&file2, b"File content 2")?;
 
@@ -773,7 +773,7 @@ mod tests {
         let abs_symlink1_path = AbsPath::new(&abs_symlink1_path)?;
         let target_abs_path = tempdir.path().join("dir1/file1");
         symlink(&target_abs_path, abs_symlink1_path)?;
-        create_dir_all(tempdir.path().join("dir1"))?;
+        create_dir_all(AbsPath::new(&tempdir.path().join("dir1"))?)?;
         write(&target_abs_path, b"File content")?;
         assert_eq!(read_to_string(abs_symlink1_path)?, "File content");
         Ok(())
@@ -786,7 +786,7 @@ mod tests {
         let symlink_path = AbsPath::new(&symlink_path)?;
         let dir_path = tempdir.path().join("dir");
         let file_path = dir_path.join("file");
-        create_dir_all(&dir_path)?;
+        create_dir_all(AbsPath::new(&dir_path)?)?;
         write(file_path, b"File content")?;
         symlink(&dir_path, symlink_path)?;
         let symlinked_path = symlink_path.join("file");
@@ -803,7 +803,7 @@ mod tests {
     fn remove_file_does_not_remove_directory() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let dir_path = tempdir.path().join("dir");
-        create_dir_all(&dir_path)?;
+        create_dir_all(AbsPath::new(&dir_path)?)?;
         assert_matches!(remove_file(&dir_path), Err(..));
         assert!(fs::try_exists(&dir_path)?);
         Ok(())

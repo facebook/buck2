@@ -262,6 +262,7 @@ mod tests {
     use std::os::unix;
 
     use assert_matches::assert_matches;
+    use buck2_core::fs::paths::abs_path::AbsPath;
     use tempfile::TempDir;
 
     use super::*;
@@ -303,12 +304,13 @@ mod tests {
     #[test]
     fn test_read_symlink_in_dir() -> anyhow::Result<()> {
         let t = TempDir::new()?;
+        let t = AbsPath::new(t.path())?;
 
-        fs_util::create_dir_all(t.path().join("x/xx"))?;
-        unix::fs::symlink("../y", t.path().join("x/xx/xxx"))?;
+        fs_util::create_dir_all(t.join("x/xx"))?;
+        unix::fs::symlink("../y", t.join("x/xx/xxx"))?;
 
         assert_matches!(
-            read_path_metadata(AbsNormPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsNormPath::new(t)?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
                 assert_eq!(r, "x/y");
             }
