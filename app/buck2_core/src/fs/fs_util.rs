@@ -271,9 +271,9 @@ pub fn read_link<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<PathBuf> {
         .with_context(|| format!("read_link({})", P::as_ref(&path).display()))
 }
 
-pub fn rename<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> anyhow::Result<()> {
+pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> anyhow::Result<()> {
     let _guard = IoCounterKey::Rename.guard();
-    fs::rename(&from, &to).with_context(|| {
+    fs::rename(from.as_ref(), to.as_ref()).with_context(|| {
         format!(
             "rename(from={}, to={})",
             P::as_ref(&from).display(),
