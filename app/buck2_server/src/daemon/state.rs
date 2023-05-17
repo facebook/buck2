@@ -339,8 +339,8 @@ impl DaemonState {
             false,
             10,
             static_metadata,
-            Some(paths.re_logs_dir().to_string()),
-            paths.buck_out_dir().to_string(),
+            Some(paths.re_logs_dir()),
+            paths.buck_out_path(),
         ));
         let materializer = Self::create_materializer(
             fb,

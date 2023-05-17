@@ -17,6 +17,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::env_helper::EnvHelper;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -166,8 +167,8 @@ impl RemoteExecutionClient {
         fb: FacebookInit,
         skip_remote_cache: bool,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        logs_dir_path: Option<&str>,
-        buck_out_path: &str,
+        logs_dir_path: Option<&AbsNormPath>,
+        buck_out_path: &AbsNormPath,
     ) -> anyhow::Result<Self> {
         let client = RemoteExecutionClientImpl::new(
             fb,
@@ -203,8 +204,8 @@ impl RemoteExecutionClient {
         skip_remote_cache: bool,
         times: usize, // 0 is treated as 1
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        logs_dir_path: Option<&str>,
-        buck_out_path: &str,
+        logs_dir_path: Option<&AbsNormPath>,
+        buck_out_path: &AbsNormPath,
     ) -> anyhow::Result<Self> {
         // Loop happens times-1 times at most
         for i in 1..times {
@@ -499,8 +500,8 @@ impl RemoteExecutionClientImpl {
         fb: FacebookInit,
         skip_remote_cache: bool,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        maybe_logs_dir_path: Option<&str>,
-        buck_out_path: &str,
+        maybe_logs_dir_path: Option<&AbsNormPath>,
+        buck_out_path: &AbsNormPath,
     ) -> anyhow::Result<Self> {
         let res: anyhow::Result<Self> = try {
             static DOWNLOAD_CONCURRENCY: EnvHelper<usize> =
@@ -588,8 +589,12 @@ impl RemoteExecutionClientImpl {
 
                 // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
                 embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
-                embedded_cas_daemon_config.meterialization_mount_path =
-                    Some(buck_out_path.to_owned());
+                embedded_cas_daemon_config.meterialization_mount_path = Some(
+                    buck_out_path
+                        .to_str()
+                        .context("invalid meterialization_mount_path")?
+                        .to_owned(),
+                );
 
                 embedded_cas_daemon_config.thread_count = static_metadata.cas_thread_count;
 
@@ -602,7 +607,12 @@ impl RemoteExecutionClientImpl {
                 if let Some(logs_dir_path) = maybe_logs_dir_path {
                     // make sure that the log dir exists as glog is expecting that :(
                     fs_util::create_dir_all(logs_dir_path)?;
-                    re_client_config.log_file_location = Some(logs_dir_path.to_owned());
+                    re_client_config.log_file_location = Some(
+                        logs_dir_path
+                            .to_str()
+                            .context("Invalid log_file_location")?
+                            .to_owned(),
+                    );
                     // keep last 10 sessions (similar to a number of buck builds)
                     re_client_config.log_rollup_window_size = 10;
                 }

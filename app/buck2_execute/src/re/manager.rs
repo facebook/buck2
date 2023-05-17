@@ -22,6 +22,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::result::SharedResult;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -85,8 +86,8 @@ struct RemoteExecutionConfig {
     /// number of retries when attempting the initial RE connection
     connection_retries: usize,
     static_metadata: Arc<RemoteExecutionStaticMetadata>,
-    logs_dir_path: Option<String>,
-    buck_out_path: String,
+    logs_dir_path: Option<AbsNormPathBuf>,
+    buck_out_path: AbsNormPathBuf,
 }
 
 impl RemoteExecutionConfig {
@@ -197,8 +198,8 @@ impl ReConnectionManager {
         skip_remote_cache: bool,
         connection_retries: usize,
         static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        logs_dir_path: Option<String>,
-        buck_out_path: String,
+        logs_dir_path: Option<AbsNormPathBuf>,
+        buck_out_path: AbsNormPathBuf,
     ) -> Self {
         Self {
             data: RwLock::new(Weak::new()),
