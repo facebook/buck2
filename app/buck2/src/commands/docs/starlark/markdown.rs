@@ -12,7 +12,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::working_dir::WorkingDir;
 // TODO(nga): `output_subdir_for_doc` is the only function which prevents
 //   moving `docs` command to `buck2_client`. Possible solution is to generate docs
 //   (or maybe even write to the filesystem) on the server side.
@@ -29,7 +32,7 @@ pub(crate) struct MarkdownFileOptions {
         long = "markdown-files-destination-dir",
         required_if_eq("format", "markdown_files")
     )]
-    destination_dir: Option<PathBuf>,
+    destination_dir: Option<PathArg>,
     #[structopt(long = "markdown-files-native-subdir", default_value="native", parse(try_from_str = PathBuf::try_from))]
     native_subdir: PathBuf,
     #[structopt(long = "markdown-files-starlark-subdir", default_value="starlark", parse(try_from_str = PathBuf::try_from))]
@@ -42,7 +45,7 @@ struct MarkdownOutput {
 }
 
 impl MarkdownOutput {
-    fn write_to_file(&self, path: &Path) -> anyhow::Result<String> {
+    fn write_to_file(&self, path: &AbsPath) -> anyhow::Result<String> {
         let mut contents = self.sections.join("\n\n---\n");
         if !contents.ends_with('\n') {
             contents.push('\n');
@@ -89,6 +92,7 @@ impl MarkdownOutput {
 
 /// Does the heavy work of processing the docs and writing them to markdown files.
 pub(crate) fn generate_markdown_files(
+    cwd: &WorkingDir,
     opts: &MarkdownFileOptions,
     docs: Vec<Doc>,
 ) -> anyhow::Result<()> {
@@ -117,11 +121,7 @@ pub(crate) fn generate_markdown_files(
         }
     }
 
-    let abs_destination = if destination_dir.is_relative() {
-        std::env::current_dir()?.join(destination_dir)
-    } else {
-        destination_dir.to_owned()
-    };
+    let abs_destination = destination_dir.resolve(cwd);
 
     for (relative_path, markdown_file) in outputs.iter() {
         let path = abs_destination.join(relative_path);

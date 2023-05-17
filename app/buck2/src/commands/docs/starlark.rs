@@ -113,7 +113,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                 serde_json::to_writer_pretty(std::io::stdout(), &docs)?;
             }
             DocsOutputFormatArg::MarkdownFiles => {
-                generate_markdown_files(&self.markdown_file_opts, docs)?;
+                generate_markdown_files(&ctx.working_dir, &self.markdown_file_opts, docs)?;
             }
         }
 
