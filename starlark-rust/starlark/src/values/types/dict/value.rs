@@ -484,9 +484,13 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
     }
 }
 
-impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> StarlarkTypeRepr for SmallMap<K, V> {
+impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, V> {
     fn starlark_type_repr() -> String {
-        DictOf::<K, V>::starlark_type_repr()
+        format!(
+            "{{{}: {}}}",
+            K::starlark_type_repr(),
+            V::starlark_type_repr()
+        )
     }
 }
 
