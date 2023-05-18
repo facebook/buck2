@@ -588,3 +588,24 @@ async fn dropping_all_waiters_cancels_task() {
     assert!(task.internal.state.is_terminated(Ordering::SeqCst));
     assert!(!task.is_pending());
 }
+
+#[tokio::test]
+async fn task_that_already_cancelled_returns_cancelled() {
+    let task = spawn_dice_task(&TokioSpawner, &(), {
+        |_handle| async move { futures::future::pending().await }.boxed()
+    });
+
+    assert_eq!(
+        task.cancel().expect("should be cancellable").await,
+        TerminationStatus::Cancelled
+    );
+
+    match task.depended_on_by(ParentKey::None) {
+        MaybeCancelled::Ok(_) => {
+            panic!("should be cancelled")
+        }
+        MaybeCancelled::Cancelled(termination) => {
+            assert_eq!(termination.await, TerminationStatus::Cancelled);
+        }
+    }
+}

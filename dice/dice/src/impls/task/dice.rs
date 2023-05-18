@@ -31,7 +31,6 @@ use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
-use crate::DiceError;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
@@ -200,8 +199,6 @@ impl DiceTaskInternal {
                 .duped()
                 .expect("result should be present"),
             )
-        } else if self.state.is_terminated(Ordering::Acquire) {
-            Some(Err(DiceError::cancelled()))
         } else {
             None
         }

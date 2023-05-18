@@ -12,6 +12,7 @@
 use std::future::Future;
 use std::mem;
 use std::pin::Pin;
+use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
 
@@ -24,6 +25,7 @@ use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
+use crate::DiceError;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -131,6 +133,8 @@ impl Future for DicePromise {
                 waker.register(cx.waker());
                 if let Some(res) = task_internal.read_value() {
                     Poll::Ready(res)
+                } else if task_internal.state.is_terminated(Ordering::Acquire) {
+                    Poll::Ready(Err(DiceError::cancelled()))
                 } else {
                     Poll::Pending
                 }

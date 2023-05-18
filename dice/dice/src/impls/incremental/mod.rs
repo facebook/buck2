@@ -28,7 +28,6 @@ use tokio::sync::oneshot;
 use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
-use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::arc::Arc;
 use crate::impls::core::graph::history::CellHistory;
@@ -321,7 +320,6 @@ impl IncrementalEngine {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
-                task_handle.finished(Err(DiceError::cancelled()));
                 return;
             }
         };
