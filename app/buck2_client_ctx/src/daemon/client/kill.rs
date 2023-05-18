@@ -24,8 +24,8 @@ use tonic::Request;
 
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 
-static GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
-static FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
+const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 enum KillBehavior {
     WaitForExit,
