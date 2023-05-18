@@ -63,7 +63,10 @@ pub async fn kill(
                 }
             }
         }
-        Err(_) => KillBehavior::WaitForExit,
+        Err(e) => {
+            let _assert_type: tokio::time::error::Elapsed = e;
+            KillBehavior::WaitForExit
+        }
     };
     // Then we do a wait_for on the pid, and if that times out, we kill it harder
     tokio::task::spawn_blocking(move || {
