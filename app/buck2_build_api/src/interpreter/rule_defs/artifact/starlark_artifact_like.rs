@@ -61,15 +61,9 @@ pub trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn equals<'v>(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        if let Some(other) = other.downcast_ref::<StarlarkArtifact>() {
-            Ok(self.fingerprint() == other.fingerprint())
-        } else if let Some(other) = other.downcast_ref::<StarlarkDeclaredArtifact>() {
-            Ok(self.fingerprint() == other.fingerprint())
-        } else if let Some(other) = other.downcast_ref::<StarlarkPromiseArtifact>() {
-            Ok(self.fingerprint() == other.fingerprint())
-        } else {
-            Ok(false)
-        }
+        Ok(other
+            .as_artifact()
+            .map_or(false, |other| self.fingerprint() == other.fingerprint()))
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
