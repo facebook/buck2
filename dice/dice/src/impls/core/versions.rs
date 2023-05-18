@@ -172,6 +172,69 @@ impl<'a> VersionForWrites<'a> {
     }
 }
 
+#[allow(unused)] // temporary
+pub(crate) mod introspection {
+    use std::collections::HashMap;
+
+    use dupe::Dupe;
+
+    use crate::impls::cache::SharedCache;
+    use crate::impls::core::versions::VersionTracker;
+    use crate::impls::key::DiceKey;
+    use crate::introspection::graph::AnyKey;
+    use crate::introspection::graph::VersionNumber;
+    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+
+    pub(crate) struct VersionIntrospectable(Vec<(usize, SharedCache)>);
+
+    impl VersionIntrospectable {
+        pub(crate) fn versions_currently_running(&self) -> Vec<VersionNumber> {
+            self.0.iter().map(|(v, _)| VersionNumber(*v)).collect()
+        }
+
+        pub(crate) fn keys_currently_running(
+            &self,
+            key_map: &HashMap<DiceKey, AnyKey>,
+        ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)> {
+            self.0
+                .iter()
+                .flat_map(|(v, cache)| {
+                    cache.iter_tasks().map(|(k, state)| {
+                        (
+                            key_map.get(&k).expect("key should exist").clone(),
+                            VersionNumber(*v),
+                            state,
+                        )
+                    })
+                })
+                .collect()
+        }
+
+        fn currently_running_key_count(&self) -> usize {
+            self.0
+                .iter()
+                .flat_map(|(_, cache)| {
+                    cache.iter_tasks().filter(|(_, state)| match state {
+                        DiceTaskStateForDebugging::AsyncInProgress => true,
+                        DiceTaskStateForDebugging::SyncInProgress => true,
+                        _ => false,
+                    })
+                })
+                .count()
+        }
+    }
+
+    impl VersionTracker {
+        pub(crate) fn introspect(&self) -> VersionIntrospectable {
+            VersionIntrospectable(
+                self.currently_active()
+                    .map(|(v, cache)| (v, cache.dupe()))
+                    .collect(),
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
