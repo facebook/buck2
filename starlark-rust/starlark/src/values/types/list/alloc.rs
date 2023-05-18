@@ -45,13 +45,13 @@ impl AllocList<iter::Empty<FrozenValue>> {
     pub const EMPTY: AllocList<iter::Empty<FrozenValue>> = AllocList(iter::empty());
 }
 
-impl<'v, L> StarlarkTypeRepr for AllocList<L>
+impl<L> StarlarkTypeRepr for AllocList<L>
 where
     L: IntoIterator,
-    L::Item: AllocValue<'v>,
+    L::Item: StarlarkTypeRepr,
 {
     fn starlark_type_repr() -> String {
-        format!("[{}]", L::Item::starlark_type_repr())
+        Vec::<L::Item>::starlark_type_repr()
     }
 }
 
