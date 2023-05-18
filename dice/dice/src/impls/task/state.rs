@@ -97,6 +97,28 @@ impl AtomicDiceTaskState {
     }
 }
 
+#[allow(unused)] // temporary
+pub(crate) mod introspection {
+    use std::sync::atomic::Ordering;
+
+    use crate::impls::task::state::AtomicDiceTaskState;
+    use crate::impls::task::state::DiceTaskState;
+    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+
+    impl AtomicDiceTaskState {
+        pub(crate) fn introspect_state(&self) -> DiceTaskStateForDebugging {
+            match DiceTaskState::from_u8_state(self.0.load(Ordering::Acquire)) {
+                DiceTaskState::InitialLookup(_) => DiceTaskStateForDebugging::AsyncInProgress,
+                DiceTaskState::CheckingDeps(_) => DiceTaskStateForDebugging::AsyncInProgress,
+                DiceTaskState::Computing(_) => DiceTaskStateForDebugging::AsyncInProgress,
+                DiceTaskState::Sync => DiceTaskStateForDebugging::SyncInProgress,
+                DiceTaskState::Ready => DiceTaskStateForDebugging::AsyncReady,
+                DiceTaskState::Terminated => DiceTaskStateForDebugging::AsyncDropped,
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum DiceTaskState {
     /// When waiting for the initial lookup of the cache
