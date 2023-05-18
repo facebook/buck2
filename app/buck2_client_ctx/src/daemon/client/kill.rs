@@ -142,9 +142,19 @@ mod os_specific {
                     Err(e) => return Err(e).context("Failed to kill daemon"),
                 };
 
+                let start = Instant::now();
                 loop {
                     if !process_exists(daemon_pid)? {
                         return Ok(());
+                    }
+                    if start.elapsed() > timeout {
+                        // Wait may not terminate for various reasons for example:
+                        // - Another process with the same pid was started
+                        // - Debugger is attached to the process
+                        return Err(anyhow::anyhow!(
+                            "Daemon {} did not exit after SIGKILL within timeout",
+                            daemon_pid
+                        ));
                     }
                     thread::sleep(Duration::from_millis(100));
                 }
