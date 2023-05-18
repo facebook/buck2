@@ -5,6 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkStyle",
+)
+load(
+    "@prelude//utils:utils.bzl",
+    "map_val",
+    "value_or",
+)
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":compile.bzl", "GoTestInfo", "compile", "get_filtered_srcs")
 load(":coverage.bzl", "GoCoverageMode", "cover_srcs")
@@ -77,7 +86,13 @@ def go_test_impl(ctx: "context") -> ["provider"]:
     main = compile(ctx, "main", cmd_args(gen_main), pkgs = {pkg_name: tests})
 
     # Link the above into a Go binary.
-    (bin, runtime_files) = link(ctx, main, pkgs = {pkg_name: tests}, deps = deps)
+    (bin, runtime_files) = link(
+        ctx = ctx,
+        main = main,
+        pkgs = {pkg_name: tests},
+        deps = deps,
+        link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
+    )
 
     run_cmd = cmd_args(bin).hidden(runtime_files)
 

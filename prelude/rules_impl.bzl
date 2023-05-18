@@ -31,6 +31,7 @@ load("@prelude//go:coverage.bzl", "GoCoverageMode")
 
 # Go
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
+load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
 
@@ -186,6 +187,7 @@ extra_implemented_rules = struct(
     #go
     cgo_library = cgo_library_impl,
     go_binary = go_binary_impl,
+    go_exported_library = go_exported_library_impl,
     go_library = go_library_impl,
     go_test = go_test_impl,
 
@@ -406,6 +408,10 @@ inlined_extra_attributes = {
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
+        "_go_toolchain": toolchains_common.go(),
+    },
+    "go_exported_library": {
+        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_go_toolchain": toolchains_common.go(),
     },
     "go_library": {
