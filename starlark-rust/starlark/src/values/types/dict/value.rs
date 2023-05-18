@@ -147,6 +147,27 @@ impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for SmallMap<K, 
     }
 }
 
+impl<'a, 'v, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocValue<'v>
+    for &'a SmallMap<K, V>
+where
+    &'a K: AllocValue<'v>,
+    &'a V: AllocValue<'v>,
+{
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        AllocDict(self).alloc_value(heap)
+    }
+}
+
+impl<'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue for &'a SmallMap<K, V>
+where
+    &'a K: AllocFrozenValue,
+    &'a V: AllocFrozenValue,
+{
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        AllocDict(self).alloc_frozen_value(heap)
+    }
+}
+
 impl<'v> Dict<'v> {
     pub(crate) fn is_dict_type(x: TypeId) -> bool {
         x == TypeId::of::<DictGen<FrozenDictData>>()
@@ -495,6 +516,12 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
         S: serde::Serializer,
     {
         serializer.collect_map(self.0.content().iter())
+    }
+}
+
+impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a SmallMap<K, V> {
+    fn starlark_type_repr() -> String {
+        DictType::<K, V>::starlark_type_repr()
     }
 }
 
