@@ -14,12 +14,13 @@
 
 use std::collections::HashSet;
 
+use anyhow::Context;
 use sysinfo::Pid;
 use sysinfo::PidExt;
+use sysinfo::Process;
 use sysinfo::ProcessExt;
 use sysinfo::System;
 use sysinfo::SystemExt;
-
 pub mod invocation_id;
 pub mod kill;
 pub mod winapi_handle;
@@ -60,7 +61,16 @@ pub fn killall(write: impl Fn(String)) -> bool {
     let mut ok = true;
 
     for process in buck2_processes {
-        let result = if process.kill() {
+        fn kill(process: &Process) -> anyhow::Result<()> {
+            let pid = process.pid();
+            let pid = pid
+                .as_u32()
+                .try_into()
+                .with_context(|| format!("Integer overflow converting {}", pid))?;
+            kill::kill(pid)
+        }
+
+        let result = if kill(process).is_ok() {
             // TODO(nga): this says "killed", but it doesn't wait for the process to exit.
             "Killed"
         } else {
