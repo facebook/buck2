@@ -65,7 +65,8 @@ pub async fn kill(
         }
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
-            KillBehavior::WaitForExit
+            crate::eprintln!("Timed out requesting graceful shutdown")?;
+            KillBehavior::TerminateFirst
         }
     };
     // Then we do a wait_for on the pid, and if that times out, we kill it harder
