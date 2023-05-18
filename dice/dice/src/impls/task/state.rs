@@ -97,7 +97,6 @@ impl AtomicDiceTaskState {
     }
 }
 
-#[allow(unused)] // temporary
 pub(crate) mod introspection {
     use std::sync::atomic::Ordering;
 

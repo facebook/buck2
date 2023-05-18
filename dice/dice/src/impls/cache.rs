@@ -82,7 +82,6 @@ impl SharedCache {
     }
 }
 
-#[allow(unused)] // temporary
 pub(crate) mod introspection {
     use crate::impls::cache::SharedCache;
     use crate::impls::key::DiceKey;

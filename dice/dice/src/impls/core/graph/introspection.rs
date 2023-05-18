@@ -16,12 +16,14 @@ use crate::impls::core::graph::nodes::VersionedGraphNode;
 use crate::impls::core::graph::storage::VersionedGraph;
 use crate::impls::key::DiceKey;
 use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::EngineForIntrospection;
 use crate::introspection::graph::GraphNodeKind;
 use crate::introspection::graph::KeyID;
 use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
 use crate::introspection::graph::VersionNumber;
+use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::HashMap;
 use crate::HashSet;
 

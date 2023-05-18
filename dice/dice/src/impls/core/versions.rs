@@ -172,10 +172,7 @@ impl<'a> VersionForWrites<'a> {
     }
 }
 
-#[allow(unused)] // temporary
 pub(crate) mod introspection {
-    use std::collections::HashMap;
-
     use dupe::Dupe;
 
     use crate::impls::cache::SharedCache;
@@ -184,6 +181,7 @@ pub(crate) mod introspection {
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::VersionNumber;
     use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+    use crate::HashMap;
 
     pub(crate) struct VersionIntrospectable(Vec<(usize, SharedCache)>);
 
@@ -210,7 +208,7 @@ pub(crate) mod introspection {
                 .collect()
         }
 
-        fn currently_running_key_count(&self) -> usize {
+        pub(crate) fn currently_running_key_count(&self) -> usize {
             self.0
                 .iter()
                 .flat_map(|(_, cache)| {

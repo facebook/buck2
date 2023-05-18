@@ -26,6 +26,7 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 use crate::HashMap;
@@ -142,9 +143,16 @@ impl CoreState {
     }
 
     pub(super) fn introspection(&self, key_map: HashMap<DiceKey, AnyKey>) -> GraphIntrospectable {
-        let graph = self.graph.introspect(key_map);
+        let graph = self.graph.introspect(key_map.clone());
+        let version_data = self.version_tracker.introspect();
 
-        GraphIntrospectable::Modern { graph }
+        GraphIntrospectable::Modern {
+            introspection: ModernIntrospectable {
+                graph,
+                version_data,
+                key_map,
+            },
+        }
     }
 }
 

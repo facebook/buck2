@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::iter;
 use std::sync::Arc;
 
 use derivative::Derivative;
@@ -29,6 +30,8 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
+use crate::impls::core::versions::introspection::VersionIntrospectable;
+use crate::impls::key::DiceKey;
 use crate::introspection::serialize_dense_graph;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::legacy::incremental::ErasedEngine;
@@ -44,7 +47,7 @@ pub enum GraphIntrospectable {
     },
     Modern {
         #[derivative(Debug = "ignore")]
-        graph: VersionedGraphIntrospectable,
+        introspection: ModernIntrospectable,
     },
 }
 
@@ -56,8 +59,51 @@ impl GraphIntrospectable {
             GraphIntrospectable::Legacy { introspectables } => {
                 Either::Left(introspectables.0.iter().map(|e| e.introspect()))
             }
-            GraphIntrospectable::Modern { .. } => Either::Right(std::iter::empty()),
+            GraphIntrospectable::Modern { introspection } => {
+                Either::Right(iter::once(introspection as _))
+            }
         }
+    }
+}
+
+pub struct ModernIntrospectable {
+    pub(crate) graph: VersionedGraphIntrospectable,
+    pub(crate) version_data: VersionIntrospectable,
+    pub(crate) key_map: HashMap<DiceKey, AnyKey>,
+}
+
+impl EngineForIntrospection for ModernIntrospectable {
+    fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
+        Box::new(self.graph.keys())
+    }
+
+    fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a> {
+        Box::new(self.graph.edges())
+    }
+
+    fn keys_currently_running<'a>(
+        &'a self,
+    ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)> {
+        self.version_data.keys_currently_running(&self.key_map)
+    }
+
+    fn versions_currently_running<'a>(&'a self) -> Vec<VersionNumber> {
+        self.version_data.versions_currently_running()
+    }
+
+    fn nodes<'a>(
+        &'a self,
+        _keys: &'a mut HashMap<AnyKey, KeyID>,
+    ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
+        Box::new(self.graph.nodes())
+    }
+
+    fn len_for_introspection(&self) -> usize {
+        self.graph.len_for_introspection()
+    }
+
+    fn currently_running_key_count(&self) -> usize {
+        self.version_data.currently_running_key_count()
     }
 }
 

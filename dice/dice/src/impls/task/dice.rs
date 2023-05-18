@@ -325,7 +325,6 @@ impl Cancellations {
 unsafe impl Send for Cancellations {}
 unsafe impl Sync for Cancellations {}
 
-#[allow(unused)] // temporary
 pub(crate) mod introspection {
     use crate::impls::task::dice::DiceTask;
     use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
