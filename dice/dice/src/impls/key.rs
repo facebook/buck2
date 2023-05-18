@@ -438,10 +438,12 @@ mod introspection {
     use std::hash::Hasher;
 
     use dupe::Dupe;
+    use gazebo::cmp::PartialEqAny;
 
     use crate::impls::key::DiceKey;
     use crate::impls::key::DiceKeyErased;
     use crate::introspection::graph::AnyKey;
+    use crate::introspection::graph::KeyForIntrospection;
     use crate::introspection::graph::KeyID;
 
     impl DiceKey {
@@ -454,12 +456,6 @@ mod introspection {
         pub(crate) fn introspect(&self) -> AnyKey {
             #[derive(Clone, Dupe)]
             struct Wrap(DiceKeyErased);
-
-            impl Hash for Wrap {
-                fn hash<H: Hasher>(&self, state: &mut H) {
-                    self.0.hash().hash(state);
-                }
-            }
 
             impl PartialEq for Wrap {
                 fn eq(&self, other: &Self) -> bool {
@@ -478,6 +474,27 @@ mod introspection {
                         DiceKeyErased::Projection(p) => {
                             write!(f, "{}", p.proj)
                         }
+                    }
+                }
+            }
+
+            impl KeyForIntrospection for Wrap {
+                fn get_key_equality(&self) -> PartialEqAny {
+                    PartialEqAny::new(self)
+                }
+
+                fn hash(&self, mut state: &mut dyn Hasher) {
+                    Hash::hash(&self.0.hash(), &mut state);
+                }
+
+                fn box_clone(&self) -> Box<AnyKey> {
+                    Box::new(AnyKey::new(self.clone()))
+                }
+
+                fn type_name(&self) -> &'static str {
+                    match &self.0 {
+                        DiceKeyErased::Key(k) => k.key_type_name(),
+                        DiceKeyErased::Projection(p) => p.proj.key_type_name(),
                     }
                 }
             }
