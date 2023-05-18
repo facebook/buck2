@@ -109,7 +109,7 @@ impl VersionTracker {
     }
 
     /// Drops reference to a VersionNumber given the token
-    pub(crate) fn drop_at_version(&mut self, v: VersionNumber) {
+    pub(crate) fn drop_at_version(&mut self, v: VersionNumber) -> Option<SharedCache> {
         let ref_count = {
             let entry = self
                 .active_versions
@@ -121,7 +121,14 @@ impl VersionTracker {
         };
 
         if ref_count == 0 {
-            self.active_versions.remove(&v).expect("existed above");
+            Some(
+                self.active_versions
+                    .remove(&v)
+                    .expect("existed above")
+                    .per_transaction_data,
+            )
+        } else {
+            None
         }
     }
 

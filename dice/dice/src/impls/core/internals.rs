@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use more_futures::cancellation::future::TerminationObserver;
+
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
@@ -32,6 +34,7 @@ use crate::HashMap;
 pub(super) struct CoreState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
+    pending_termination_tasks: Vec<TerminationObserver>,
 }
 
 impl CoreState {
@@ -39,6 +42,7 @@ impl CoreState {
         Self {
             version_tracker: VersionTracker::new(),
             graph: VersionedGraph::new(),
+            pending_termination_tasks: Vec::new(),
         }
     }
 
@@ -77,7 +81,12 @@ impl CoreState {
     }
 
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
-        self.version_tracker.drop_at_version(v)
+        if let Some(evicted_cache) = self.version_tracker.drop_at_version(v) {
+            self.pending_termination_tasks
+                .retain(|task| !task.is_terminated());
+            self.pending_termination_tasks
+                .extend(evicted_cache.cancel_pending_tasks());
+        }
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
@@ -130,9 +139,31 @@ impl CoreState {
 
 #[cfg(test)]
 mod tests {
+    use std::any::Any;
+
+    use allocative::Allocative;
+    use async_trait::async_trait;
+    use derive_more::Display;
+    use dupe::Dupe;
+    use futures::FutureExt;
+    use more_futures::cancellation::CancellationContext;
+    use more_futures::spawner::TokioSpawner;
+    use tokio::sync::Semaphore;
+
+    use crate::api::computations::DiceComputations;
+    use crate::api::key::Key;
+    use crate::arc::Arc;
+    use crate::impls::core::graph::history::CellHistory;
     use crate::impls::core::internals::CoreState;
     use crate::impls::key::DiceKey;
+    use crate::impls::key::ParentKey;
+    use crate::impls::task::dice::DiceTask;
+    use crate::impls::task::spawn_dice_task;
     use crate::impls::transaction::ChangeType;
+    use crate::impls::value::DiceComputedValue;
+    use crate::impls::value::DiceKeyValue;
+    use crate::impls::value::DiceValidValue;
+    use crate::impls::value::MaybeValidDiceValue;
     use crate::versions::VersionNumber;
 
     #[test]
@@ -174,5 +205,195 @@ mod tests {
         let (another_epoch, another) = core.ctx_at_version(v);
         assert!(!ctx.ptr_eq(&another));
         assert_ne!(another_epoch, epoch);
+    }
+
+    async fn make_completed_task(val: usize) -> DiceTask {
+        let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
+            async move {
+                handle.finished(Ok(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(val),
+                    )),
+                    Arc::new(CellHistory::empty()),
+                )));
+
+                Box::new(()) as Box<dyn Any + Send>
+            }
+            .boxed()
+        });
+
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .await
+            .unwrap();
+
+        task
+    }
+
+    async fn make_finished_cancelling_task() -> DiceTask {
+        let finished_cancelling_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+            async move {
+                let _handle = handle;
+                futures::future::pending().await
+            }
+            .boxed()
+        });
+        finished_cancelling_tasks.cancel().unwrap().await;
+
+        finished_cancelling_tasks
+    }
+
+    struct BlockCancel(Arc<Semaphore>);
+
+    impl Drop for BlockCancel {
+        fn drop(&mut self) {
+            self.0.add_permits(1)
+        }
+    }
+
+    async fn make_yet_to_cancel_tasks() -> (DiceTask, BlockCancel, Arc<Semaphore>) {
+        let block_cancel = Arc::new(Semaphore::new(0));
+        let arrive_cancel = Arc::new(Semaphore::new(0));
+        let yet_to_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+            let block_cancel = block_cancel.dupe();
+            let arrive_cancel = arrive_cancel.dupe();
+            async move {
+                handle
+                    .cancellation_ctx()
+                    .critical_section(|| async move {
+                        arrive_cancel.add_permits(1);
+                        let _guard = block_cancel.acquire().await.unwrap();
+                        arrive_cancel.add_permits(1);
+                    })
+                    .await;
+
+                Box::new(()) as Box<dyn Any + Send>
+            }
+            .boxed()
+        });
+        let _started_critical_section = arrive_cancel.acquire().await.unwrap().forget();
+
+        (
+            yet_to_cancel_tasks,
+            BlockCancel(block_cancel),
+            arrive_cancel,
+        )
+    }
+
+    async fn make_never_cancellable_task() -> DiceTask {
+        let arrive_never_cancel = Arc::new(Semaphore::new(0));
+        let never_cancel_tasks = spawn_dice_task(&TokioSpawner, &(), |handle| {
+            let arrive_never_cancel = arrive_never_cancel.dupe();
+            async move {
+                handle
+                    .cancellation_ctx()
+                    .critical_section(|| async move {
+                        arrive_never_cancel.add_permits(1);
+                        futures::future::pending().await
+                    })
+                    .await
+            }
+            .boxed()
+        });
+
+        let _started_critical_section = arrive_never_cancel.acquire().await.unwrap().forget();
+
+        never_cancel_tasks
+    }
+
+    #[tokio::test]
+    async fn state_tracks_pending_cancellation() {
+        let mut core = CoreState::new();
+        let v = VersionNumber::new(0);
+
+        let (_epoch, cache) = core.ctx_at_version(v);
+
+        let completed_task1 = make_completed_task(1).await;
+        let completed_task2 = make_completed_task(2).await;
+
+        let finished_cancelling_tasks1 = make_finished_cancelling_task().await;
+        let finished_cancelling_tasks2 = make_finished_cancelling_task().await;
+
+        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) = make_yet_to_cancel_tasks().await;
+        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) = make_yet_to_cancel_tasks().await;
+
+        let never_cancel_tasks1 = make_never_cancellable_task().await;
+
+        cache
+            .get(DiceKey { index: 1 })
+            .unwrap()
+            .or_insert(completed_task1);
+        cache
+            .get(DiceKey { index: 2 })
+            .unwrap()
+            .or_insert(completed_task2);
+        cache
+            .get(DiceKey { index: 3 })
+            .unwrap()
+            .or_insert(finished_cancelling_tasks1);
+        cache
+            .get(DiceKey { index: 4 })
+            .unwrap()
+            .or_insert(finished_cancelling_tasks2);
+        cache
+            .get(DiceKey { index: 5 })
+            .unwrap()
+            .or_insert(yet_to_cancel_tasks1);
+        cache
+            .get(DiceKey { index: 6 })
+            .unwrap()
+            .or_insert(yet_to_cancel_tasks2);
+        cache
+            .get(DiceKey { index: 7 })
+            .unwrap()
+            .or_insert(never_cancel_tasks1);
+
+        core.drop_ctx_at_version(v);
+
+        assert_eq!(core.pending_termination_tasks.len(), 3);
+
+        assert!(cache.get(DiceKey { index: 999 }).is_none());
+
+        // let the cancellable tasks cancel
+        drop(guard1);
+        drop(guard2);
+
+        // wait for the cancellable tasks to actually cancel
+        let _p = arrive_cancel1.acquire().await.unwrap();
+        let _p = arrive_cancel2.acquire().await.unwrap();
+
+        let (_epoch, cache) = core.ctx_at_version(v);
+
+        let never_cancel_tasks2 = make_never_cancellable_task().await;
+
+        cache
+            .get(DiceKey { index: 8 })
+            .unwrap()
+            .or_insert(never_cancel_tasks2);
+
+        core.drop_ctx_at_version(v);
+
+        assert_eq!(core.pending_termination_tasks.len(), 2);
+    }
+
+    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+    struct K;
+
+    #[async_trait]
+    impl Key for K {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            _ctx: &DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            unimplemented!("test")
+        }
+
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            true
+        }
     }
 }
