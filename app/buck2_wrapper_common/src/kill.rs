@@ -1,0 +1,150 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+//! Cross-platform process killing.
+
+pub fn process_exists(pid: i64) -> anyhow::Result<bool> {
+    os_specific::process_exists(pid)
+}
+
+/// Send `KILL` or call `TerminateProcess` on the given process.
+/// Return `Ok(())` if call is successful or process does not exist.
+pub fn kill(pid: i64) -> anyhow::Result<()> {
+    os_specific::kill(pid)
+}
+
+#[cfg(unix)]
+mod os_specific {
+    use anyhow::Context;
+    use nix::sys::signal::Signal;
+
+    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+        let pid = nix::unistd::Pid::from_raw(
+            pid.try_into()
+                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
+        );
+        match nix::sys::signal::kill(pid, None) {
+            Ok(_) => Ok(true),
+            Err(nix::errno::Errno::ESRCH) => Ok(false),
+            Err(e) => Err(e)
+                .with_context(|| format!("unexpected error checking if process {} exists", pid)),
+        }
+    }
+
+    pub(super) fn kill(pid: i64) -> anyhow::Result<()> {
+        let daemon_pid = nix::unistd::Pid::from_raw(
+            pid.try_into()
+                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
+        );
+
+        match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
+            Ok(()) => Ok(()),
+            Err(nix::errno::Errno::ESRCH) => Ok(()),
+            Err(e) => Err(e).context("Failed to kill daemon"),
+        }
+    }
+}
+
+#[cfg(windows)]
+mod os_specific {
+    use std::io;
+
+    use anyhow::Context;
+    use winapi::um::processthreadsapi::OpenProcess;
+    use winapi::um::processthreadsapi::TerminateProcess;
+    use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
+    use winapi::um::winnt::PROCESS_TERMINATE;
+
+    use crate::winapi_handle::WinapiHandle;
+
+    fn open_process(desired_access: u32, pid: i64) -> anyhow::Result<Option<WinapiHandle>> {
+        let daemon_pid: u32 = pid
+            .try_into()
+            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
+        let proc_handle = unsafe { OpenProcess(desired_access, 0, daemon_pid) };
+        if proc_handle.is_null() {
+            // If proc_handle is null, process died already, or other error like access denied.
+            // TODO(nga): handle error properly.
+            return Ok(None);
+        }
+        Ok(Some(unsafe { WinapiHandle::new(proc_handle) }))
+    }
+
+    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+        Ok(open_process(PROCESS_QUERY_INFORMATION, pid)?.is_some())
+    }
+
+    pub(super) fn kill(pid: i64) -> anyhow::Result<()> {
+        let daemon_pid: u32 = pid
+            .try_into()
+            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
+        let proc_handle = match open_process(PROCESS_TERMINATE, pid)? {
+            Some(proc_handle) => proc_handle,
+            None => return Ok(()),
+        };
+        unsafe {
+            if TerminateProcess(proc_handle.handle(), 1) == 0 {
+                return Err(io::Error::last_os_error())
+                    .with_context(|| format!("Failed to kill daemon ({})", daemon_pid));
+            }
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+    use std::time::Instant;
+
+    use buck2_util::process::background_command;
+
+    use crate::kill::kill;
+    use crate::kill::process_exists;
+
+    #[test]
+    fn test_process_exists_kill() {
+        let mut command = if !cfg!(windows) {
+            let mut command = background_command("sh");
+            command.args(["-c", "sleep 10000"]);
+            command
+        } else {
+            let mut command = background_command("powershell");
+            command.args(["-c", "Start-Sleep -Seconds 10000"]);
+            command
+        };
+        let mut child = command.spawn().unwrap();
+        let pid = child.id().try_into().unwrap();
+        for _ in 0..5 {
+            assert!(process_exists(pid).unwrap());
+        }
+
+        kill(pid).unwrap();
+
+        child.wait().unwrap();
+        // Drop child to ensure the Windows handle is closed.
+        drop(child);
+
+        if !cfg!(windows) {
+            assert!(!process_exists(pid).unwrap());
+        } else {
+            let start = Instant::now();
+            loop {
+                if !process_exists(pid).unwrap() {
+                    break;
+                }
+                assert!(
+                    start.elapsed() < Duration::from_secs(20),
+                    "Timed out waiting for process to die"
+                );
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
+}

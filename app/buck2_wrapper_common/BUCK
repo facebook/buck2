@@ -10,11 +10,13 @@ rust_library(
         (
             "linux",
             [
+                "fbsource//third-party/rust:nix",
             ],
         ),
         (
             "macos",
             [
+                "fbsource//third-party/rust:nix",
             ],
         ),
         (
@@ -26,6 +28,7 @@ rust_library(
     ],
     test_deps = [
         "fbsource//third-party/rust:serde_json",
+        "//buck2/app/buck2_util:buck2_util",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
