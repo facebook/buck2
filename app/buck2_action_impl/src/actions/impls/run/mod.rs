@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;

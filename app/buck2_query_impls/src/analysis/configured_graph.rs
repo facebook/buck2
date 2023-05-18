@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::result::SharedResult;
 use buck2_core::target::label::ConfiguredTargetLabel;

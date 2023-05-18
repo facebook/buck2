@@ -9,61 +9,23 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
-use buck2_data::ToProtoMessage;
-use dupe::Dupe;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::deferred::data::DeferredData;
 
 use crate::actions::RegisteredAction;
-use crate::deferred::types::DeferredData;
-use crate::deferred::types::DeferredKey;
 
-/// A key to look up an 'Action' from the 'ActionAnalysisResult'.
-/// Since 'Action's are registered as 'Deferred's
-#[derive(
-    Debug,
-    Eq,
-    PartialEq,
-    Hash,
-    Clone,
-    Dupe,
-    derive_more::Display,
-    Allocative
-)]
-pub struct ActionKey(DeferredData<Arc<RegisteredAction>>);
-
-impl ActionKey {
-    pub fn new(key: DeferredData<Arc<RegisteredAction>>) -> ActionKey {
-        ActionKey(key)
-    }
-
-    #[cfg(test)]
-    pub fn testing_new(key: DeferredKey) -> ActionKey {
-        use crate::deferred::types::testing::DeferredDataExt;
-        ActionKey(DeferredData::testing_new(key))
-    }
-
-    pub fn deferred_key(&self) -> &DeferredKey {
-        self.0.deferred_key()
-    }
-
-    pub fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>> {
-        &self.0
-    }
-
-    pub fn owner(&self) -> &BaseDeferredKeyDyn {
-        self.deferred_key().owner()
-    }
+pub trait ActionKeyExt {
+    #[allow(clippy::new_ret_no_self)]
+    fn new(key: DeferredData<Arc<RegisteredAction>>) -> ActionKey;
+    fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>>;
 }
 
-impl ToProtoMessage for ActionKey {
-    type Message = buck2_data::ActionKey;
+impl ActionKeyExt for ActionKey {
+    fn new(key: DeferredData<Arc<RegisteredAction>>) -> ActionKey {
+        ActionKey::unchecked_new(key.into_deferred_key())
+    }
 
-    fn as_proto(&self) -> Self::Message {
-        buck2_data::ActionKey {
-            id: self.deferred_key().id().as_usize().to_ne_bytes().to_vec(),
-            owner: Some(self.deferred_key().owner().to_proto().into()),
-            key: self.deferred_key().action_key(),
-        }
+    fn deferred_data(&self) -> &DeferredData<Arc<RegisteredAction>> {
+        DeferredData::unchecked_new_ref(self.deferred_key())
     }
 }

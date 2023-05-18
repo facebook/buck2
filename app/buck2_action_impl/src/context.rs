@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;

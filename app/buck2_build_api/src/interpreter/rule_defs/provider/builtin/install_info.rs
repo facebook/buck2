@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::label::Label;
@@ -25,7 +26,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;

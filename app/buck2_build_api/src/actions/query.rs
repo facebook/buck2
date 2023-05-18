@@ -15,6 +15,7 @@ use std::io::Write;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use buck2_artifact::actions::key::ActionKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
@@ -36,7 +37,6 @@ use ref_cast::RefCast;
 use serde::Serialize;
 use serde::Serializer;
 
-use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;

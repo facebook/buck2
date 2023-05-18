@@ -10,6 +10,8 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -33,8 +35,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::BaseArtifactKind;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;

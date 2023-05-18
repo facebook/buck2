@@ -15,9 +15,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_execution_target::ActionExecutionTarget;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::impls::dep_files::FLUSH_DEP_FILES;
@@ -821,9 +821,9 @@ impl CommandLineArtifactVisitor for DepFilesCommandLineVisitor<'_> {
 
 #[cfg(test)]
 mod test {
-    use buck2_build_api::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-    use buck2_build_api::deferred::types::testing::DeferredIdExt;
-    use buck2_build_api::deferred::types::DeferredId;
+
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_artifact::deferred::id::DeferredId;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;

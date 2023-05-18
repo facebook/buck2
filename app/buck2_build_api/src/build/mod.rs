@@ -15,6 +15,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_common::result::SharedResult;
@@ -37,8 +39,6 @@ use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use tokio::sync::Mutex;
 
-use crate::actions::artifact::artifact_type::BaseArtifactKind;
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::build_listener::HasBuildSignals;
 use crate::actions::build_listener::TopLevelTargetSignal;

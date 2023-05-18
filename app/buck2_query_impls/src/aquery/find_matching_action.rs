@@ -9,9 +9,9 @@
 
 use std::any;
 
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
-use buck2_build_api::actions::artifact::provide_outputs::ProvideOutputs;
-use buck2_build_api::actions::key::ActionKey;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
 use buck2_build_api::analysis::AnalysisResult;

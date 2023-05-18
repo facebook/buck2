@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
@@ -27,7 +28,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;

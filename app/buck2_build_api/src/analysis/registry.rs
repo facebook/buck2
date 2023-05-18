@@ -12,6 +12,10 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -34,11 +38,7 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueTyped;
-use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::DeclaredArtifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_targets::AnonTargetsRegistry;
@@ -47,7 +47,6 @@ use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::types::BaseKey;
-use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::registry::DynamicRegistry;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -71,7 +70,7 @@ pub struct AnalysisRegistry<'v> {
     analysis_value_storage: AnalysisValueStorage<'v>,
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 enum DeclaredArtifactError {
     #[error("Can't declare an artifact with an empty filename component")]
     DeclaredEmptyFileName,

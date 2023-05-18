@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
+
 use super::ArtifactTag;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 

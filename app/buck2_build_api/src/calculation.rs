@@ -12,6 +12,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::dice::data::HasIoProvider;
@@ -50,10 +52,8 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::calculation as action_calculation;
 use crate::actions::execute::action_executor::ActionOutputs;
-use crate::actions::key::ActionKey;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::context::HasBuildContextData;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;

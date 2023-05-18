@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::directory::Directory;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -26,8 +27,6 @@ use buck2_execute::directory::INTERNER;
 use dupe::Dupe;
 use smallvec::smallvec;
 use smallvec::SmallVec;
-
-use crate::actions::artifact::artifact_type::Artifact;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
 #[derive(Clone, Dupe, Allocative)]
@@ -241,16 +240,15 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
 
 #[cfg(test)]
 mod tests {
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_artifact::artifact::build_artifact::BuildArtifact;
+    use buck2_artifact::deferred::id::DeferredId;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
     use buck2_execute::artifact_value::ArtifactValue;
 
     use super::*;
-    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::deferred::types::testing::DeferredIdExt;
-    use crate::deferred::types::DeferredId;
 
     fn artifact(name: &str) -> (Artifact, ArtifactValue) {
         let target =

@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
@@ -57,7 +58,6 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
@@ -558,6 +558,14 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_artifact::actions::key::ActionKey;
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_artifact::artifact::artifact_type::Artifact;
+    use buck2_artifact::artifact::build_artifact::BuildArtifact;
+    use buck2_artifact::artifact::source_artifact::SourceArtifact;
+    use buck2_artifact::deferred::data::DeferredData;
+    use buck2_artifact::deferred::id::DeferredId;
+    use buck2_artifact::deferred::key::DeferredKey;
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
@@ -606,17 +614,13 @@ mod tests {
     use once_cell::sync::Lazy;
     use sorted_vector_map::SortedVectorMap;
 
-    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::artifact_type::Artifact;
-    use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionKind;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionExecutor;
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::execute::action_executor::BuckActionExecutor;
-    use crate::actions::key::ActionKey;
+    use crate::actions::key::ActionKeyExt;
     use crate::actions::Action;
     use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
@@ -624,11 +628,6 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
-    use crate::deferred::types::testing::DeferredDataExt;
-    use crate::deferred::types::testing::DeferredIdExt;
-    use crate::deferred::types::DeferredData;
-    use crate::deferred::types::DeferredId;
-    use crate::deferred::types::DeferredKey;
 
     #[tokio::test]
     async fn can_execute_some_action() {
@@ -799,7 +798,7 @@ mod tests {
         )];
 
         let action = RegisteredAction::new(
-            ActionKey::new(DeferredData::testing_new(DeferredKey::Base(
+            ActionKey::new(DeferredData::unchecked_new(DeferredKey::Base(
                 BaseDeferredKeyDyn::TargetLabel(label.dupe()),
                 DeferredId::testing_new(0),
             ))),

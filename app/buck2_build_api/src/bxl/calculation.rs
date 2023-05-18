@@ -14,12 +14,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_util::late_binding::LateBinding;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::bxl::result::BxlResult;
 use crate::bxl::types::BxlKey;
 

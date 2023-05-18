@@ -12,6 +12,7 @@ use std::ptr;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -35,7 +36,6 @@ use starlark::values::ValueError;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;

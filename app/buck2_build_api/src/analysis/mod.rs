@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_artifact::deferred::id::DeferredId;
 use buck2_common::result::SharedResult;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -39,7 +40,6 @@ use thiserror::Error;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
 use crate::interpreter::rule_defs::context::AnalysisContext;

@@ -27,6 +27,7 @@ gazebo = { workspace = true }
 more_futures = { workspace = true }
 starlark = { workspace = true }
 
+buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }

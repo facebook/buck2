@@ -40,6 +40,7 @@ buck2_execute = { workspace = true }
 buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
+buck2_artifact = { workspace = true }
 host_sharing = { workspace = true }
 remote_execution = { workspace = true }
 

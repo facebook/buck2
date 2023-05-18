@@ -17,11 +17,11 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 

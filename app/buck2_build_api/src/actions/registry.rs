@@ -12,6 +12,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::directory;
@@ -30,16 +34,13 @@ use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 
-use crate::actions::artifact::artifact_type::DeclaredArtifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
-use crate::actions::key::ActionKey;
+use crate::actions::key::ActionKeyExt;
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::ReservedTrivialDeferredData;
 

@@ -1,0 +1,26 @@
+[package]
+name = "buck2_artifact"
+version = "0.1.0"
+edition = "2021"
+description = "Artifact types"
+
+[dependencies]
+anyhow = { workspace = true }
+derivative = { workspace = true }
+derive_more = { workspace = true }
+either = { workspace = true }
+itertools = { workspace = true }
+take_mut = { workspace = true }
+thiserror = { workspace = true }
+
+allocative = { workspace = true }
+dupe = { workspace = true }
+gazebo = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_core = { workspace = true }
+buck2_data = { workspace = true }
+buck2_execute = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }

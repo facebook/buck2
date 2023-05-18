@@ -16,7 +16,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;

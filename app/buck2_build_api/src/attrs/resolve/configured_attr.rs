@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
@@ -31,8 +33,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;

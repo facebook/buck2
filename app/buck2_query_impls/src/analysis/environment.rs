@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;

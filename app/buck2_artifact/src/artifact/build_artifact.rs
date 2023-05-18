@@ -23,18 +23,18 @@ use crate::actions::key::ActionKey;
 #[derivative(PartialEq, Eq, Hash)]
 #[display(fmt = "`{}`, action: {}", path, key)]
 pub struct BuildArtifact {
-    pub(super) path: BuckOutPath,
+    pub path: BuckOutPath,
     // If two BuildArtifact's have the same path then they are basically the same,
     // even if the ActionKey differs due to things like `dynamic_output`.
     // TODO(ndmitchell): Clean this up by making it more explicit in ActionKey.
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub(super) key: ActionKey,
+    pub key: ActionKey,
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub(super) output_type: OutputType,
+    pub output_type: OutputType,
 }
 
 impl BuildArtifact {
-    pub(super) fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> Self {
+    pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> Self {
         BuildArtifact {
             path,
             key,

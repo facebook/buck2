@@ -14,6 +14,7 @@ use std::io::BufReader;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -29,8 +30,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use thiserror::Error;
-
-use crate::actions::artifact::artifact_type::Artifact;
 
 /// The Starlark representation of an `Artifact` on disk which can be accessed.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]

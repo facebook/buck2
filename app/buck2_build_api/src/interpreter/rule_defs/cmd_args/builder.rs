@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -16,7 +17,6 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use indexmap::IndexSet;
 use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 

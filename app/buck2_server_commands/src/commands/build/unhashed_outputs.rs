@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::path;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::artifact_type::BaseArtifactKind;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;

@@ -7,16 +7,15 @@
  * of this source tree.
  */
 
-use buck2_build_api::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
+use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_artifact::deferred::id::DeferredId;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::testing::DeferredIdExt;
 use buck2_build_api::deferred::types::BaseKey;
-use buck2_build_api::deferred::types::DeferredId;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;

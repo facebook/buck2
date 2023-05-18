@@ -10,7 +10,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
+use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;

@@ -11,6 +11,8 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 
 use anyhow::Context as _;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -23,8 +25,6 @@ use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::values::string::StarlarkStr;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;

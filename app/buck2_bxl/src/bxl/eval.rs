@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;

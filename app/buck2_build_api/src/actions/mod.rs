@@ -40,6 +40,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
@@ -61,14 +64,11 @@ use derive_more::Display;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use key::ActionKey;
 use more_futures::cancellation::CancellationContext;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::provide_outputs::ProvideOutputs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;

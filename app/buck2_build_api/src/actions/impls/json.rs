@@ -11,6 +11,7 @@ use std::io::sink;
 use std::io::Write;
 
 use anyhow::Context;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::label::Label;
@@ -27,7 +28,6 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;

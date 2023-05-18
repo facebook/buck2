@@ -32,12 +32,11 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use starlark_map::Hashed;
-use thiserror::Error;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-use crate::actions::artifact::projected_artifact::ProjectedArtifact;
-use crate::actions::artifact::source_artifact::SourceArtifact;
 use crate::actions::key::ActionKey;
+use crate::artifact::build_artifact::BuildArtifact;
+use crate::artifact::projected_artifact::ProjectedArtifact;
+use crate::artifact::source_artifact::SourceArtifact;
 
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
 /// but we do store many copies of it, which is why we store this as an Arc.
@@ -251,7 +250,7 @@ pub struct DeclaredArtifact {
 }
 
 impl DeclaredArtifact {
-    pub(crate) fn new(
+    pub fn new(
         path: BuckOutPath,
         output_type: OutputType,
         hidden_components_count: usize,
@@ -311,7 +310,7 @@ impl DeclaredArtifact {
         }
     }
 
-    pub(crate) fn output_type(&self) -> OutputType {
+    pub fn output_type(&self) -> OutputType {
         match &*self.artifact.borrow() {
             DeclaredArtifactKind::Bound(x) => x.output_type,
             DeclaredArtifactKind::Unbound(x) => x.1,
@@ -343,7 +342,7 @@ impl DeclaredArtifact {
         })
     }
 
-    pub(crate) fn is_bound(&self) -> bool {
+    pub fn is_bound(&self) -> bool {
         self.artifact.borrow().is_bound()
     }
 
@@ -377,7 +376,7 @@ enum DeclaredArtifactKind {
 }
 
 impl DeclaredArtifactKind {
-    pub(crate) fn is_bound(&self) -> bool {
+    pub fn is_bound(&self) -> bool {
         match self {
             DeclaredArtifactKind::Bound(_) => true,
             DeclaredArtifactKind::Unbound(_) => false,
@@ -385,7 +384,7 @@ impl DeclaredArtifactKind {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ArtifactErrors {
     #[error("artifact `{0}` was already bound, but attempted to bind to action id `{1}`")]
     DuplicateBind(BuildArtifact, ActionKey),
@@ -406,7 +405,7 @@ impl From<DeclaredArtifact> for OutputArtifact {
 }
 
 impl OutputArtifact {
-    pub(crate) fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
                 // NOTE: If the artifact was already bound to the same action, we leave it alone.
@@ -442,7 +441,7 @@ impl OutputArtifact {
         })
     }
 
-    pub(crate) fn ensure_output_type(&self, output_type: OutputType) -> anyhow::Result<()> {
+    pub fn ensure_output_type(&self, output_type: OutputType) -> anyhow::Result<()> {
         output_type.check_path(self, self.0.output_type())
     }
 }
@@ -473,14 +472,12 @@ pub mod testing {
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
 
-    use crate::actions::artifact::artifact_type::DeclaredArtifact;
-    use crate::actions::artifact::artifact_type::DeclaredArtifactKind;
-    use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::key::ActionKey;
-    use crate::deferred::types::testing::DeferredDataExt;
-    use crate::deferred::types::DeferredData;
-    use crate::deferred::types::DeferredId;
-    use crate::deferred::types::DeferredKey;
+    use crate::artifact::artifact_type::DeclaredArtifact;
+    use crate::artifact::artifact_type::DeclaredArtifactKind;
+    use crate::artifact::build_artifact::BuildArtifact;
+    use crate::deferred::id::DeferredId;
+    use crate::deferred::key::DeferredKey;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -530,10 +527,10 @@ pub mod testing {
         ) -> BuildArtifact {
             BuildArtifact::new(
                 BuckOutPath::new(BaseDeferredKeyDyn::TargetLabel(target.dupe()), path),
-                ActionKey::new(DeferredData::testing_new(DeferredKey::Base(
+                ActionKey::unchecked_new(DeferredKey::Base(
                     BaseDeferredKeyDyn::TargetLabel(target),
                     id,
-                ))),
+                )),
                 OutputType::File,
             )
         }
@@ -570,16 +567,15 @@ mod tests {
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
 
-    use crate::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-    use crate::actions::artifact::artifact_type::Artifact;
-    use crate::actions::artifact::artifact_type::DeclaredArtifact;
-    use crate::actions::artifact::artifact_type::DeclaredArtifactKind;
-    use crate::actions::artifact::build_artifact::BuildArtifact;
-    use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::key::ActionKey;
-    use crate::deferred::types::testing::DeferredIdExt;
-    use crate::deferred::types::DeferredId;
-    use crate::deferred::types::DeferredKey;
+    use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use crate::artifact::artifact_type::Artifact;
+    use crate::artifact::artifact_type::DeclaredArtifact;
+    use crate::artifact::artifact_type::DeclaredArtifactKind;
+    use crate::artifact::build_artifact::BuildArtifact;
+    use crate::artifact::source_artifact::SourceArtifact;
+    use crate::deferred::id::DeferredId;
+    use crate::deferred::key::DeferredKey;
 
     #[test]
     fn artifact_binding() -> anyhow::Result<()> {
@@ -593,7 +589,7 @@ mod tests {
             OutputType::File,
             0,
         );
-        let key = ActionKey::testing_new(DeferredKey::Base(
+        let key = ActionKey::unchecked_new(DeferredKey::Base(
             BaseDeferredKeyDyn::TargetLabel(target.dupe()),
             DeferredId::testing_new(0),
         ));
@@ -615,7 +611,7 @@ mod tests {
         out.bind(key)?;
 
         // Binding again to a different key should fail
-        let other_key = ActionKey::testing_new(DeferredKey::Base(
+        let other_key = ActionKey::unchecked_new(DeferredKey::Base(
             BaseDeferredKeyDyn::TargetLabel(target),
             DeferredId::testing_new(1),
         ));

@@ -7,9 +7,6 @@
  * of this source tree.
  */
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
-
-/// Dynamic data requested from deferreds.
-///
-/// Newtype to grep easier and to provide some type safety.
-pub struct ProvideOutputs(pub anyhow::Result<Vec<BuildArtifact>>);
+pub mod actions;
+pub mod artifact;
+pub mod deferred;

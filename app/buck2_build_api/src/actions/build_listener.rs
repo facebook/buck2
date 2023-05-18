@@ -21,6 +21,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -52,7 +53,6 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
-use crate::actions::artifact::build_artifact::BuildArtifact;
 use crate::actions::calculation::BuildKey;
 use crate::actions::calculation::BuildKeyActivationData;
 use crate::actions::RegisteredAction;

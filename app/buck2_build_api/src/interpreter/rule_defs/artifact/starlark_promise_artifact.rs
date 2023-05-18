@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_interpreter::types::label::Label;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -30,7 +31,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;

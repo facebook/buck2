@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
@@ -275,8 +275,8 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
 
 #[cfg(test)]
 mod tests {
-    use buck2_build_api::actions::artifact::artifact_type::Artifact;
-    use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
+    use buck2_artifact::artifact::artifact_type::Artifact;
+    use buck2_artifact::artifact::source_artifact::SourceArtifact;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::PackageLabel;

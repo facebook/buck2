@@ -11,13 +11,13 @@ use std::any::Demand;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_artifact::deferred::data::DeferredData;
 use dupe::Dupe;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
 use crate::deferred::types::AnyValue;
-use crate::deferred::types::DeferredData;
 use crate::deferred::types::TrivialDeferred;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 

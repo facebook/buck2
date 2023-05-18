@@ -12,6 +12,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -41,9 +44,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
-use crate::actions::artifact::artifact_type::Artifact;
-use crate::actions::artifact::artifact_type::DeclaredArtifact;
-use crate::actions::artifact::artifact_type::OutputArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ArtifactFingerprint;

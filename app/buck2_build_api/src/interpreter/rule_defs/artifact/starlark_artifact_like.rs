@@ -11,12 +11,12 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use starlark::collections::StarlarkHasher;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-use crate::actions::artifact::artifact_type::Artifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;

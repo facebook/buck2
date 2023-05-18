@@ -8,16 +8,16 @@
  */
 
 use assert_matches::assert_matches;
-use buck2_build_api::actions::artifact::artifact_type::testing::ArtifactTestingExt;
-use buck2_build_api::actions::artifact::artifact_type::testing::BuildArtifactTestingExt;
-use buck2_build_api::actions::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::artifact_type::testing::ArtifactTestingExt;
+use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::id::DeferredId;
+use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::actions::ActionErrors;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::testing::DeferredIdExt;
 use buck2_build_api::deferred::types::BaseKey;
-use buck2_build_api::deferred::types::DeferredId;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;

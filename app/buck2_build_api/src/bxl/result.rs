@@ -8,12 +8,12 @@
  */
 
 use allocative::Allocative;
+use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use indexmap::IndexSet;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::build_result::BxlBuildResult;
-use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredTable;
 

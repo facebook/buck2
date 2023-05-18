@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use buck2_build_api::actions::artifact::artifact_type::Artifact;
-use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
 use buck2_build_api::artifact_groups::ArtifactGroup;
