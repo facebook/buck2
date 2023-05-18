@@ -527,9 +527,9 @@ impl SharedLiveTransactionCtx {
             state,
             promise,
             key,
+            self.version,
             self.version_epoch,
             eval,
-            self.dupe(),
             events,
         )
     }

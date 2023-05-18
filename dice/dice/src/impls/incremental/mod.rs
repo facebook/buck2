@@ -36,7 +36,6 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::StateRequest;
 use crate::impls::core::versions::VersionEpoch;
-use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -50,6 +49,7 @@ use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 use crate::ActivationTracker;
 
@@ -132,22 +132,20 @@ impl IncrementalEngine {
 
     #[instrument(
         level = "debug",
-        skip(state, promise, eval, transaction_ctx, event_dispatcher),
-        fields(k = ?k, version = %transaction_ctx.get_version()),
+        skip(state, promise, eval, event_dispatcher),
+        fields(k = ?k, version = %v),
     )]
     pub(crate) fn project_for_key(
         state: CoreStateHandle,
         promise: DicePromise,
         k: DiceKey,
+        v: VersionNumber,
         version_epoch: VersionEpoch,
         eval: SyncEvaluator,
-        transaction_ctx: SharedLiveTransactionCtx,
         event_dispatcher: DiceEventDispatcher,
     ) -> DiceResult<DiceComputedValue> {
         promise.get_or_complete(|| {
             event_dispatcher.started(k);
-
-            let v = transaction_ctx.get_version();
 
             debug!(msg = "running projection");
 
@@ -182,12 +180,7 @@ impl IncrementalEngine {
             debug!(msg = "update future completed");
             event_dispatcher.finished(k);
 
-            res.map(|v| {
-                DiceComputedValue::new(
-                    v,
-                    Arc::new(CellHistory::verified(transaction_ctx.get_version())),
-                )
-            })
+            res.map(|val| DiceComputedValue::new(val, Arc::new(CellHistory::verified(v))))
         })
     }
 
