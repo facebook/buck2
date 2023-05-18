@@ -111,7 +111,7 @@ mod os_specific {
         }
         fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> anyhow::Result<WaitFor> {
             let start = Instant::now();
-            while Instant::now() - start < timeout {
+            while start.elapsed() < timeout {
                 if !process_exists(pid)? {
                     return Ok(WaitFor::Exited);
                 }
