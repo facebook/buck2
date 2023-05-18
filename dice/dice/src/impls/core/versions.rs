@@ -150,7 +150,6 @@ impl<'a> VersionForWrites<'a> {
         self.tracker.current
     }
 
-    #[allow(unused)]
     pub(crate) fn version(&self) -> VersionNumber {
         let mut v = self.tracker.current;
         v.inc();

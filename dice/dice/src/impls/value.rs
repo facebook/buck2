@@ -30,8 +30,8 @@ impl Debug for DiceValidValue {
     }
 }
 
-#[allow(unused)]
 impl DiceValidValue {
+    #[cfg(test)]
     pub(crate) fn downcast_ref<V: Any>(&self) -> Option<&V> {
         self.0.downcast_ref()
     }
@@ -119,7 +119,6 @@ impl DiceComputedValue {
         &self.value
     }
 
-    #[allow(unused)]
     pub(crate) fn history(&self) -> &CellHistory {
         &self.valid
     }

@@ -518,7 +518,7 @@ impl VersionedGraph {
 
 pub(crate) enum InvalidateKind {
     ForceDirty,
-    #[allow(unused)]
+    #[allow(unused)] // constructed for tests
     Invalidate,
     Update(DiceValidValue, StorageType),
 }

@@ -57,7 +57,6 @@ impl SharedCache {
         self.data.storage.len()
     }
 
-    #[allow(unused)] // temporary
     /// This function gets the termination observer for all running tasks when transaction is
     /// cancelled and prevents further tasks from being added
     pub(crate) fn cancel_pending_tasks(self) -> Vec<TerminationObserver> {
