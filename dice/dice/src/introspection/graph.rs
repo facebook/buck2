@@ -266,7 +266,7 @@ pub(crate) trait KeyForIntrospection: Display + Send + 'static {
         std::any::type_name::<Self>()
     }
 
-    fn box_clone(&self) -> Box<AnyKey>;
+    fn box_clone(&self) -> Box<dyn KeyForIntrospection>;
 }
 
 impl<K> KeyForIntrospection for K
@@ -281,8 +281,8 @@ where
         K::hash(self, &mut state)
     }
 
-    fn box_clone(&self) -> Box<AnyKey> {
-        Box::new(AnyKey::new(self.clone()))
+    fn box_clone(&self) -> Box<dyn KeyForIntrospection> {
+        Box::new(self.clone())
     }
 }
 

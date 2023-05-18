@@ -487,8 +487,8 @@ mod introspection {
                     Hash::hash(&self.0.hash(), &mut state);
                 }
 
-                fn box_clone(&self) -> Box<AnyKey> {
-                    Box::new(AnyKey::new(self.clone()))
+                fn box_clone(&self) -> Box<dyn KeyForIntrospection> {
+                    Box::new(self.clone())
                 }
 
                 fn type_name(&self) -> &'static str {
