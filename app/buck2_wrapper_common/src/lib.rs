@@ -13,6 +13,9 @@
 //! meaning code changes here are not "atomically" updated.
 
 use std::collections::HashSet;
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
 
 use anyhow::Context;
 use sysinfo::Pid;
@@ -67,7 +70,22 @@ pub fn killall(write: impl Fn(String)) -> bool {
                 .as_u32()
                 .try_into()
                 .with_context(|| format!("Integer overflow converting {}", pid))?;
-            kill::kill(pid)
+            kill::kill(pid)?;
+            let start = Instant::now();
+            // 5 seconds is not enough on macOS to shutdown forkserver.
+            // We don't really need to wait for forkserver shutdown,
+            // we care about buckd shutdown. But logic to distinguish
+            // between forkserver and buckd would be too fragile.
+            let timeout_secs = 10;
+            while start.elapsed() < Duration::from_secs(timeout_secs) {
+                if !kill::process_exists(pid)? {
+                    return Ok(());
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(anyhow::anyhow!(
+                "Process {pid} still exists after {timeout_secs}s after kill sent"
+            ))
         }
 
         let result = kill(process);
