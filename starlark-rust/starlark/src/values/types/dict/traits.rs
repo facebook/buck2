@@ -82,8 +82,9 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
 
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let dict = DictRef::from_value(value)?;
-        let mut r = SmallMap::new();
-        for (k, v) in dict.iter() {
+        let it = dict.iter();
+        let mut r = SmallMap::with_capacity(it.len());
+        for (k, v) in it {
             r.insert(K::unpack_value(k)?, V::unpack_value(v)?);
         }
         Some(r)
