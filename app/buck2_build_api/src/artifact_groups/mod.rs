@@ -46,13 +46,7 @@ pub enum ArtifactGroup {
 
 impl ArtifactGroup {
     pub fn assert_resolved(&self) -> ResolvedArtifactGroup {
-        match self {
-            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a),
-            ArtifactGroup::TransitiveSetProjection(a) => {
-                ResolvedArtifactGroup::TransitiveSetProjection(a)
-            }
-            ArtifactGroup::Promise(p) => ResolvedArtifactGroup::Artifact(p.unwrap()),
-        }
+        self.resolved().unwrap()
     }
 
     pub fn resolved(&self) -> anyhow::Result<ResolvedArtifactGroup> {
