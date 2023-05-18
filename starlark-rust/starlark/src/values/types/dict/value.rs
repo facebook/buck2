@@ -46,13 +46,11 @@ use crate::hint::unlikely;
 use crate::starlark_type;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::refcell::unleak_borrow;
-use crate::values::dict::AllocDict;
 use crate::values::dict::DictOf;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::string::hash_string_value;
-use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -65,7 +63,6 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
-use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
@@ -132,39 +129,6 @@ impl AllocFrozenValue for FrozenDictData {
         } else {
             heap.alloc_simple(DictGen(self))
         }
-    }
-}
-
-impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        AllocDict(self).alloc_value(heap)
-    }
-}
-
-impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for SmallMap<K, V> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        AllocDict(self).alloc_frozen_value(heap)
-    }
-}
-
-impl<'a, 'v, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocValue<'v>
-    for &'a SmallMap<K, V>
-where
-    &'a K: AllocValue<'v>,
-    &'a V: AllocValue<'v>,
-{
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        AllocDict(self).alloc_value(heap)
-    }
-}
-
-impl<'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue for &'a SmallMap<K, V>
-where
-    &'a K: AllocFrozenValue,
-    &'a V: AllocFrozenValue,
-{
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        AllocDict(self).alloc_frozen_value(heap)
     }
 }
 
@@ -516,33 +480,6 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
         S: serde::Serializer,
     {
         serializer.collect_map(self.0.content().iter())
-    }
-}
-
-impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a SmallMap<K, V> {
-    fn starlark_type_repr() -> String {
-        DictType::<K, V>::starlark_type_repr()
-    }
-}
-
-impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, V> {
-    fn starlark_type_repr() -> String {
-        DictType::<K, V>::starlark_type_repr()
-    }
-}
-
-impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for SmallMap<K, V> {
-    fn expected() -> String {
-        format!("dict mapping {} to {}", K::expected(), V::expected())
-    }
-
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = DictRef::from_value(value)?;
-        let mut r = SmallMap::new();
-        for (k, v) in dict.content.iter() {
-            r.insert(K::unpack_value(*k)?, V::unpack_value(*v)?);
-        }
-        Some(r)
     }
 }
 

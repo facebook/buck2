@@ -21,6 +21,7 @@ mod alloc;
 mod of;
 pub(crate) mod refcell;
 mod refs;
+mod traits;
 pub(crate) mod value;
 
 pub use crate::values::dict::alloc::AllocDict;
