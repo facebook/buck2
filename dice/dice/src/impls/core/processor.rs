@@ -78,6 +78,9 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(key, epoch, storage, value, deps)));
             }
+            StateRequest::GetTasksPendingCancellation { resp } => {
+                let _ignored = resp.send(self.state.get_tasks_pending_cancellation());
+            }
             StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
             StateRequest::Metrics { resp } => {
                 let _ignored = resp.send(self.state.metrics());

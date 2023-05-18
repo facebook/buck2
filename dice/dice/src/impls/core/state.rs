@@ -11,6 +11,7 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
+use more_futures::cancellation::future::TerminationObserver;
 use tokio::sync::oneshot::Sender;
 
 use crate::api::error::DiceResult;
@@ -70,6 +71,12 @@ pub(crate) enum StateRequest {
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceResult<DiceComputedValue>>,
+    },
+    #[allow(unused)] // TODO(temporary)
+    /// Get all the tasks pending cancellation
+    GetTasksPendingCancellation {
+        #[derivative(Debug = "ignore")]
+        resp: Sender<Vec<TerminationObserver>>,
     },
     /// For unstable take
     UnstableDropEverything,

@@ -108,6 +108,13 @@ impl CoreState {
         }
     }
 
+    pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<TerminationObserver> {
+        self.pending_termination_tasks
+            .retain(|task| !task.is_terminated());
+
+        self.pending_termination_tasks.clone()
+    }
+
     pub(super) fn unstable_drop_everything(&mut self) {
         self.version_tracker.write().commit();
         self.graph.last_n.clear();
@@ -351,7 +358,7 @@ mod tests {
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_termination_tasks.len(), 3);
+        assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
 
         assert!(cache.get(DiceKey { index: 999 }).is_none());
 
@@ -374,7 +381,7 @@ mod tests {
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_termination_tasks.len(), 2);
+        assert_eq!(core.get_tasks_pending_cancellation().len(), 2);
     }
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
