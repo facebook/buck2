@@ -477,7 +477,6 @@ pub mod testing {
     use crate::actions::artifact::artifact_type::DeclaredArtifactKind;
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::key::ActionKey;
-    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredDataExt;
     use crate::deferred::types::DeferredData;
     use crate::deferred::types::DeferredId;
@@ -532,7 +531,7 @@ pub mod testing {
             BuildArtifact::new(
                 BuckOutPath::new(BaseDeferredKeyDyn::TargetLabel(target.dupe()), path),
                 ActionKey::new(DeferredData::testing_new(DeferredKey::Base(
-                    BaseDeferredKey::TargetLabel(target),
+                    BaseDeferredKeyDyn::TargetLabel(target),
                     id,
                 ))),
                 OutputType::File,
@@ -578,7 +577,6 @@ mod tests {
     use crate::actions::artifact::build_artifact::BuildArtifact;
     use crate::actions::artifact::source_artifact::SourceArtifact;
     use crate::actions::key::ActionKey;
-    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredId;
     use crate::deferred::types::DeferredKey;
@@ -596,7 +594,7 @@ mod tests {
             0,
         );
         let key = ActionKey::testing_new(DeferredKey::Base(
-            BaseDeferredKey::TargetLabel(target.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(target.dupe()),
             DeferredId::testing_new(0),
         ));
 
@@ -618,7 +616,7 @@ mod tests {
 
         // Binding again to a different key should fail
         let other_key = ActionKey::testing_new(DeferredKey::Base(
-            BaseDeferredKey::TargetLabel(target),
+            BaseDeferredKeyDyn::TargetLabel(target),
             DeferredId::testing_new(1),
         ));
 

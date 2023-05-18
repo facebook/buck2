@@ -43,6 +43,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -74,7 +75,6 @@ use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::AnyValue;
 use crate::deferred::types::TrivialDeferred;
 
@@ -297,7 +297,7 @@ impl RegisteredAction {
     }
 
     /// Gets the target label to the rule that created this action.
-    pub fn owner(&self) -> &BaseDeferredKey {
+    pub fn owner(&self) -> &BaseDeferredKeyDyn {
         self.key.deferred_key().owner()
     }
 

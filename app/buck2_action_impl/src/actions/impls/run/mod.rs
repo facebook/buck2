@@ -268,10 +268,7 @@ impl RunAction {
         // to RE as a blob or written to disk in local executor.
         // Path to this file is passed to user in environment variable which is selected by user.
         let extra_env = if let Some(metadata_param) = &self.inner.metadata_param {
-            let path = BuckOutPath::new(
-                ctx.target().owner().dupe().into_dyn(),
-                metadata_param.path.clone(),
-            );
+            let path = BuckOutPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
             let resolved_path = fs.buck_out_path_resolver().resolve_gen(&path);
             let extra = (metadata_param.env_var.to_owned(), resolved_path.to_string());
             let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;

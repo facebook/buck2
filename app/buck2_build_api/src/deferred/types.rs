@@ -19,6 +19,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -193,7 +194,7 @@ pub enum DeferredKey {
     /// Base means it's the first deferred registered that can be looked up via the ID based on
     /// analysis of the 'ConfiguredTargetLabel'.
     #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
-    Base(BaseDeferredKey, DeferredId),
+    Base(BaseDeferredKeyDyn, DeferredId),
     /// Points to a 'Deferred' that is generated from another 'Deferred'. The 'DeferredID' can only
     /// be looked up based on the results of executing the deferred at 'DeferredKey'
     #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
@@ -230,7 +231,7 @@ impl DeferredKey {
         ids.iter().rev().map(|x| x.as_usize().to_string()).join("_")
     }
 
-    pub fn owner(&self) -> &BaseDeferredKey {
+    pub fn owner(&self) -> &BaseDeferredKeyDyn {
         let mut x = self;
         loop {
             match x {
@@ -256,7 +257,7 @@ pub enum BaseKey {
 impl BaseKey {
     fn make_key(&self, id: DeferredId) -> DeferredKey {
         match self {
-            BaseKey::Base(base) => DeferredKey::Base(base.dupe(), id),
+            BaseKey::Base(base) => DeferredKey::Base(base.dupe().into_dyn(), id),
             BaseKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
         }
     }
@@ -981,6 +982,7 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
@@ -1197,7 +1199,7 @@ mod tests {
             trivial: false,
         };
 
-        let base = DeferredKey::Base(BaseDeferredKey::TargetLabel(target.dupe()), id);
+        let base = DeferredKey::Base(BaseDeferredKeyDyn::TargetLabel(target.dupe()), id);
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(base)));
 
         let deferred = FakeDeferred {

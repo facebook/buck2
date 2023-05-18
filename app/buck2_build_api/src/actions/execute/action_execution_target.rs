@@ -9,6 +9,7 @@
 
 use std::fmt::Write;
 
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
@@ -17,7 +18,6 @@ use derivative::Derivative;
 use dupe::Dupe;
 
 use crate::actions::RegisteredAction;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 /// Indicates why we are executing a given command.
 #[derive(Clone, Dupe, Derivative)]
@@ -31,7 +31,7 @@ impl<'a> ActionExecutionTarget<'a> {
         Self { action }
     }
 
-    pub fn owner(&self) -> &'a BaseDeferredKey {
+    pub fn owner(&self) -> &'a BaseDeferredKeyDyn {
         self.action.owner()
     }
 
@@ -45,7 +45,7 @@ impl<'a> ActionExecutionTarget<'a> {
 
     pub fn custom_tmpdir(&self) -> BuckOutScratchPath {
         BuckOutScratchPath::new(
-            self.action.owner().dupe().into_dyn(),
+            self.action.owner().dupe(),
             self.action.category(),
             self.action.identifier(),
         )

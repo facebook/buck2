@@ -51,8 +51,7 @@ impl BaseDeferredKey {
         }
     }
 
-    #[allow(dead_code)] // TODO(nga): used in the following diff D45926684.
-    pub(crate) fn from_dyn(key_dyn: BaseDeferredKeyDyn) -> BaseDeferredKey {
+    pub fn from_dyn(key_dyn: BaseDeferredKeyDyn) -> BaseDeferredKey {
         match key_dyn {
             BaseDeferredKeyDyn::TargetLabel(label) => BaseDeferredKey::TargetLabel(label),
             BaseDeferredKeyDyn::AnonTarget(target) => {

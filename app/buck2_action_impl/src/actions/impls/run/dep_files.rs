@@ -104,7 +104,7 @@ impl DepFilesKey {
 
     pub fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
         Self {
-            owner: target.owner().dupe(),
+            owner: BaseDeferredKey::from_dyn(target.owner().dupe()),
             category: target.category().clone(),
             identifier: target.identifier().map(|t| t.to_owned()),
         }

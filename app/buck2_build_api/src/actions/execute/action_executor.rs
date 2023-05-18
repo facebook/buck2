@@ -564,6 +564,7 @@ mod tests {
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_common::http::ClientForTest;
     use buck2_common::io::fs::FsIoProvider;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
@@ -623,7 +624,6 @@ mod tests {
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
-    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredDataExt;
     use crate::deferred::types::testing::DeferredIdExt;
     use crate::deferred::types::DeferredData;
@@ -800,7 +800,7 @@ mod tests {
 
         let action = RegisteredAction::new(
             ActionKey::new(DeferredData::testing_new(DeferredKey::Base(
-                BaseDeferredKey::TargetLabel(label.dupe()),
+                BaseDeferredKeyDyn::TargetLabel(label.dupe()),
                 DeferredId::testing_new(0),
             ))),
             Box::new(TestingAction {

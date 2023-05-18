@@ -10,11 +10,11 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 
 use crate::actions::RegisteredAction;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::DeferredData;
 use crate::deferred::types::DeferredKey;
 
@@ -51,7 +51,7 @@ impl ActionKey {
         &self.0
     }
 
-    pub fn owner(&self) -> &BaseDeferredKey {
+    pub fn owner(&self) -> &BaseDeferredKeyDyn {
         self.deferred_key().owner()
     }
 }

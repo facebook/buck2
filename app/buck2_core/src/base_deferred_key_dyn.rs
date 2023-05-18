@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
+use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
 
@@ -163,6 +164,13 @@ impl BaseDeferredKeyDyn {
             Cow::Owned(target_name.replace('=', EQ_SIGN_SUBST))
         } else {
             Cow::Borrowed(target_name)
+        }
+    }
+
+    pub fn to_proto(&self) -> BaseDeferredKeyProto {
+        match self {
+            BaseDeferredKeyDyn::TargetLabel(t) => BaseDeferredKeyProto::TargetLabel(t.as_proto()),
+            BaseDeferredKeyDyn::AnonTarget(d) | BaseDeferredKeyDyn::BxlLabel(d) => d.to_proto(),
         }
     }
 }

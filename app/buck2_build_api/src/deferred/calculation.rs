@@ -138,7 +138,8 @@ async fn lookup_deferred(
 ) -> anyhow::Result<PartialLookup> {
     Ok(match key {
         DeferredKey::Base(target, id) => {
-            let holder = lookup_deferred_inner(target, dice).await?;
+            let holder =
+                lookup_deferred_inner(&BaseDeferredKey::from_dyn(target.dupe()), dice).await?;
             PartialLookup { holder, id: *id }
         }
         DeferredKey::Deferred(key, id) => {
