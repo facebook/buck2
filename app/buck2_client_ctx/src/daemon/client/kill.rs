@@ -84,6 +84,15 @@ mod os_specific {
 
     use super::KillBehavior;
 
+    fn process_exists(pid: nix::unistd::Pid) -> anyhow::Result<bool> {
+        match nix::sys::signal::kill(pid, None) {
+            Ok(_) => Ok(true),
+            Err(nix::errno::Errno::ESRCH) => Ok(false),
+            Err(e) => Err(e)
+                .with_context(|| format!("unexpected error checking if process {} exists", pid)),
+        }
+    }
+
     pub(super) async fn kill_impl(
         pid: i64,
         behavior: KillBehavior,
@@ -96,26 +105,16 @@ mod os_specific {
         enum WaitFor {
             Exited,
             WaitTimedOut,
-            Err(anyhow::Error),
         }
-        async fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> WaitFor {
+        async fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> anyhow::Result<WaitFor> {
             let start = Instant::now();
             while Instant::now() - start < timeout {
-                match nix::sys::signal::kill(pid, None) {
-                    Ok(_) => {}
-                    Err(nix::errno::Errno::ESRCH) => {
-                        return WaitFor::Exited;
-                    }
-                    Err(e) => {
-                        return WaitFor::Err(anyhow::anyhow!(
-                            "unexpected system error waiting for daemon to terminate (`{}`)",
-                            e
-                        ));
-                    }
+                if !process_exists(pid)? {
+                    return Ok(WaitFor::Exited);
                 }
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
-            WaitFor::WaitTimedOut
+            Ok(WaitFor::WaitTimedOut)
         }
 
         match behavior {
@@ -127,9 +126,8 @@ mod os_specific {
             KillBehavior::WaitForExit => {}
         };
 
-        match wait_for(daemon_pid, timeout).await {
+        match wait_for(daemon_pid, timeout).await? {
             WaitFor::Exited => Ok(()),
-            WaitFor::Err(e) => Err(e),
             WaitFor::WaitTimedOut => {
                 match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
                     Ok(()) => {
@@ -140,17 +138,8 @@ mod os_specific {
                 };
 
                 loop {
-                    match nix::sys::signal::kill(daemon_pid, None) {
-                        Ok(_) => {}
-                        Err(nix::errno::Errno::ESRCH) => {
-                            return Ok(());
-                        }
-                        Err(e) => {
-                            return Err(anyhow::anyhow!(
-                                "unexpected system error waiting for daemon to terminate (`{}`)",
-                                e
-                            ));
-                        }
+                    if !process_exists(daemon_pid)? {
+                        return Ok(());
                     }
                     tokio::time::sleep(Duration::from_millis(100)).await;
                 }
