@@ -61,7 +61,7 @@ impl DiceKeyErased {
         Self::Key(Arc::new(k))
     }
 
-    #[allow(unused)]
+    #[allow(unused)] // counterpart of projection to `key`
     pub(crate) fn proj<K: ProjectionKey>(base: DiceKey, k: K) -> Self {
         Self::Projection(ProjectionWithBase {
             base,
