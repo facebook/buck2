@@ -312,7 +312,16 @@ impl KillProcess for DefaultKillProcess {
             }
         };
         tracing::info!("Killing process {}", pid);
-        kill_process_impl(pid)
+        #[cfg(unix)]
+        {
+            if true {
+                // On unix we want killpg, so we don't use the default impl.
+                // We use `if true` here to do less conditional compilation
+                // or conditional dependencies.
+                return kill_process_impl(pid);
+            }
+        }
+        buck2_wrapper_common::kill::kill(pid)
     }
 }
 
@@ -326,26 +335,6 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 
     signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
         .with_context(|| format!("Failed to kill process {}", pid))
-}
-
-#[cfg(windows)]
-fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
-    use winapi::um::handleapi::CloseHandle;
-    use winapi::um::processthreadsapi::OpenProcess;
-    use winapi::um::processthreadsapi::TerminateProcess;
-    use winapi::um::winnt::PROCESS_TERMINATE;
-
-    let proc_handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
-    // If proc_handle is null, process died already.
-    if proc_handle.is_null() {
-        return Ok(());
-    }
-    let terminate_res = unsafe { TerminateProcess(proc_handle, 1) };
-    unsafe { CloseHandle(proc_handle) };
-    match terminate_res {
-        0 => Err(anyhow::anyhow!("Failed to kill process {}", pid)),
-        _ => Ok(()),
-    }
 }
 
 pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {
