@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -79,6 +80,12 @@ impl BxlKey {
 
     pub fn into_base_deferred_key_dyn_impl(self) -> Arc<dyn BaseDeferredKeyDynImpl> {
         self.0
+    }
+
+    pub(crate) fn from_base_deferred_key_dyn_impl(
+        key: Arc<dyn BaseDeferredKeyDynImpl>,
+    ) -> Option<Self> {
+        key.into_any().downcast().ok().map(BxlKey)
     }
 
     pub fn global_target_platform(&self) -> &Option<TargetLabel> {
@@ -174,6 +181,10 @@ impl BaseDeferredKeyDynImpl for BxlKeyData {
 
     fn to_proto(&self) -> BaseDeferredKeyProto {
         BaseDeferredKeyProto::BxlKey(self.as_proto())
+    }
+
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
     }
 }
 

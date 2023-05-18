@@ -277,7 +277,7 @@ impl StarlarkArtifactHelpers {
             Some(BaseDeferredKeyDyn::TargetLabel(target)) => Ok(Some(Label::new(
                 ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
             ))),
-            Some(BaseDeferredKeyDyn::Dyn(_)) => Ok(None),
+            Some(BaseDeferredKeyDyn::AnonTarget(_) | BaseDeferredKeyDyn::BxlLabel(_)) => Ok(None),
         }
     }
 

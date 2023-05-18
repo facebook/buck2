@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hash;
@@ -164,5 +165,9 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
 
     fn to_proto(&self) -> BaseDeferredKeyProto {
         BaseDeferredKeyProto::AnonTarget(self.as_proto())
+    }
+
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
     }
 }

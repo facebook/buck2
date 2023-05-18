@@ -44,9 +44,22 @@ impl BaseDeferredKey {
     pub fn into_dyn(self) -> BaseDeferredKeyDyn {
         match self {
             BaseDeferredKey::TargetLabel(label) => BaseDeferredKeyDyn::TargetLabel(label),
-            BaseDeferredKey::AnonTarget(target) => BaseDeferredKeyDyn::Dyn(target),
+            BaseDeferredKey::AnonTarget(target) => BaseDeferredKeyDyn::AnonTarget(target),
             BaseDeferredKey::BxlLabel(label) => {
-                BaseDeferredKeyDyn::Dyn(label.into_base_deferred_key_dyn_impl())
+                BaseDeferredKeyDyn::BxlLabel(label.into_base_deferred_key_dyn_impl())
+            }
+        }
+    }
+
+    #[allow(dead_code)] // TODO(nga): used in the following diff D45926684.
+    pub(crate) fn from_dyn(key_dyn: BaseDeferredKeyDyn) -> BaseDeferredKey {
+        match key_dyn {
+            BaseDeferredKeyDyn::TargetLabel(label) => BaseDeferredKey::TargetLabel(label),
+            BaseDeferredKeyDyn::AnonTarget(target) => {
+                BaseDeferredKey::AnonTarget(target.into_any().downcast().unwrap())
+            }
+            BaseDeferredKeyDyn::BxlLabel(label) => {
+                BaseDeferredKey::BxlLabel(BxlKey::from_base_deferred_key_dyn_impl(label).unwrap())
             }
         }
     }

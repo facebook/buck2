@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -26,7 +27,9 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
-pub trait BaseDeferredKeyDynImpl: Debug + Display + Allocative + Send + Sync + 'static {
+pub trait BaseDeferredKeyDynImpl:
+    Debug + Display + Any + Allocative + Send + Sync + 'static
+{
     fn eq_token(&self) -> PartialEqAny;
     fn hash(&self) -> u64;
     fn make_hashed_path(
@@ -37,12 +40,14 @@ pub trait BaseDeferredKeyDynImpl: Debug + Display + Allocative + Send + Sync + '
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf;
     fn to_proto(&self) -> BaseDeferredKeyProto;
+    fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
 pub enum BaseDeferredKeyDyn {
     TargetLabel(ConfiguredTargetLabel),
-    Dyn(Arc<dyn BaseDeferredKeyDynImpl>),
+    AnonTarget(Arc<dyn BaseDeferredKeyDynImpl>),
+    BxlLabel(Arc<dyn BaseDeferredKeyDynImpl>),
 }
 
 impl PartialEq for BaseDeferredKeyDyn {
@@ -50,10 +55,14 @@ impl PartialEq for BaseDeferredKeyDyn {
         match (self, other) {
             (BaseDeferredKeyDyn::TargetLabel(a), BaseDeferredKeyDyn::TargetLabel(b)) => a == b,
             (BaseDeferredKeyDyn::TargetLabel(_), _) => false,
-            (BaseDeferredKeyDyn::Dyn(a), BaseDeferredKeyDyn::Dyn(b)) => {
+            (BaseDeferredKeyDyn::AnonTarget(a), BaseDeferredKeyDyn::AnonTarget(b)) => {
                 a.eq_token() == b.eq_token()
             }
-            (BaseDeferredKeyDyn::Dyn(_), _) => false,
+            (BaseDeferredKeyDyn::AnonTarget(_), _) => false,
+            (BaseDeferredKeyDyn::BxlLabel(a), BaseDeferredKeyDyn::BxlLabel(b)) => {
+                a.eq_token() == b.eq_token()
+            }
+            (BaseDeferredKeyDyn::BxlLabel(_), _) => false,
         }
     }
 }
@@ -64,7 +73,9 @@ impl Hash for BaseDeferredKeyDyn {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             BaseDeferredKeyDyn::TargetLabel(a) => a.hash(state),
-            BaseDeferredKeyDyn::Dyn(a) => a.hash().hash(state),
+            BaseDeferredKeyDyn::AnonTarget(d) | BaseDeferredKeyDyn::BxlLabel(d) => {
+                d.hash().hash(state)
+            }
         }
     }
 }
@@ -128,7 +139,9 @@ impl BaseDeferredKeyDyn {
 
                 ProjectRelativePathBuf::unchecked_new(parts.concat())
             }
-            BaseDeferredKeyDyn::Dyn(d) => d.make_hashed_path(base, prefix, action_key, path),
+            BaseDeferredKeyDyn::AnonTarget(d) | BaseDeferredKeyDyn::BxlLabel(d) => {
+                d.make_hashed_path(base, prefix, action_key, path)
+            }
         }
     }
 

@@ -290,7 +290,7 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
                 BaseDeferredKeyDyn::TargetLabel(t) => Some(Label::new(
                     ConfiguredProvidersLabel::new(t, ProvidersName::Default),
                 )),
-                BaseDeferredKeyDyn::Dyn(_) => None,
+                BaseDeferredKeyDyn::AnonTarget(_) | BaseDeferredKeyDyn::BxlLabel(_) => None,
             }),
         }
     }
