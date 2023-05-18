@@ -21,6 +21,7 @@ rust_binary(
     compatible_with = [
         "ovr_config//os:linux",
         "ovr_config//os:macos",
+        "ovr_config//os:windows"
     ],
     contacts = ["oncall+cpplangex@xmail.facebook.com"],
     crate_root = "src/main.rs",
