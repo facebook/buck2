@@ -78,7 +78,7 @@ def cxx_link(
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
+    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and not linker_info.generate_linker_maps
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps:
