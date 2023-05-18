@@ -52,6 +52,7 @@ use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::string::hash_string_value;
+use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -499,11 +500,7 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
 
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, V> {
     fn starlark_type_repr() -> String {
-        format!(
-            "{{{}: {}}}",
-            K::starlark_type_repr(),
-            V::starlark_type_repr()
-        )
+        DictType::<K, V>::starlark_type_repr()
     }
 }
 

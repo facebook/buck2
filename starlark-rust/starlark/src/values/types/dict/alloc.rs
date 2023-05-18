@@ -22,6 +22,7 @@ use starlark_map::small_map::SmallMap;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::dict::Dict;
 use crate::values::layout::value::ValueLike;
+use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -57,18 +58,14 @@ impl AllocDict<iter::Empty<(FrozenValue, FrozenValue)>> {
     pub const EMPTY: AllocDict<iter::Empty<(FrozenValue, FrozenValue)>> = AllocDict(iter::empty());
 }
 
-impl<'v, D, K, V> StarlarkTypeRepr for AllocDict<D>
+impl<D, K, V> StarlarkTypeRepr for AllocDict<D>
 where
     D: IntoIterator<Item = (K, V)>,
-    K: AllocValue<'v>,
-    V: AllocValue<'v>,
+    K: StarlarkTypeRepr,
+    V: StarlarkTypeRepr,
 {
     fn starlark_type_repr() -> String {
-        format!(
-            "{{{}: {}}}",
-            K::starlark_type_repr(),
-            V::starlark_type_repr()
-        )
+        DictType::<K, V>::starlark_type_repr()
     }
 }
 
