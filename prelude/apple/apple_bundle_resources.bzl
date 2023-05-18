@@ -182,6 +182,12 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo.type) -> [None, AppleBundle
     elif bundle_extension == ".appex":
         destination = AppleBundleDestination("plugins")
         codesign_on_copy = False
+    elif bundle_extension == ".qlgenerator":
+        destination = AppleBundleDestination("quicklook")
+        codesign_on_copy = False
+    elif bundle_extension == ".xpc":
+        destination = AppleBundleDestination("xpcservices")
+        codesign_on_copy = False
     else:
         fail("Extension `{}` is not yet supported.".format(bundle_extension))
     return AppleBundlePart(
