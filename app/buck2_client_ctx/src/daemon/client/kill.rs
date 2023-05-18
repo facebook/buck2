@@ -64,16 +64,19 @@ pub async fn kill(
         Err(_) => KillBehavior::WaitForExit,
     };
     // Then we do a wait_for on the pid, and if that times out, we kill it harder
-    os_specific::kill_impl(
-        pid,
-        kill_behavior,
-        time_to_kill.saturating_sub(time_req_sent.elapsed()),
-    )
-    .await
+    tokio::task::spawn_blocking(move || {
+        os_specific::kill_impl(
+            pid,
+            kill_behavior,
+            time_to_kill.saturating_sub(time_req_sent.elapsed()),
+        )
+    })
+    .await?
 }
 
 #[cfg(unix)]
 mod os_specific {
+    use std::thread;
     use std::time::Duration;
     use std::time::Instant;
 
@@ -93,7 +96,7 @@ mod os_specific {
         }
     }
 
-    pub(super) async fn kill_impl(
+    pub(super) fn kill_impl(
         pid: i64,
         behavior: KillBehavior,
         timeout: Duration,
@@ -106,13 +109,13 @@ mod os_specific {
             Exited,
             WaitTimedOut,
         }
-        async fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> anyhow::Result<WaitFor> {
+        fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> anyhow::Result<WaitFor> {
             let start = Instant::now();
             while Instant::now() - start < timeout {
                 if !process_exists(pid)? {
                     return Ok(WaitFor::Exited);
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                thread::sleep(Duration::from_millis(100));
             }
             Ok(WaitFor::WaitTimedOut)
         }
@@ -126,7 +129,7 @@ mod os_specific {
             KillBehavior::WaitForExit => {}
         };
 
-        match wait_for(daemon_pid, timeout).await? {
+        match wait_for(daemon_pid, timeout)? {
             WaitFor::Exited => Ok(()),
             WaitFor::WaitTimedOut => {
                 match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
@@ -141,7 +144,7 @@ mod os_specific {
                     if !process_exists(daemon_pid)? {
                         return Ok(());
                     }
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    thread::sleep(Duration::from_millis(100));
                 }
             }
         }
@@ -185,7 +188,7 @@ mod os_specific {
         }
     }
 
-    pub(super) async fn kill_impl(
+    pub(super) fn kill_impl(
         pid: i64,
         behavior: KillBehavior,
         timeout: Duration,
