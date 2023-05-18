@@ -31,28 +31,14 @@ use crate::impls::value::MaybeValidDiceValue;
 use crate::HashSet;
 
 /// Evaluates Keys
-#[allow(unused)]
 #[derive(Clone, Dupe, Allocative)]
 pub(crate) struct AsyncEvaluator {
-    pub(crate) per_live_version_ctx: SharedLiveTransactionCtx,
-    pub(crate) user_data: Arc<UserComputationData>,
-    pub(crate) dice: Arc<DiceModern>,
+    pub(super) per_live_version_ctx: SharedLiveTransactionCtx,
+    pub(super) user_data: Arc<UserComputationData>,
+    pub(super) dice: Arc<DiceModern>,
 }
 
-#[allow(unused)]
 impl AsyncEvaluator {
-    pub(crate) fn new(
-        per_live_version_ctx: SharedLiveTransactionCtx,
-        user_data: Arc<UserComputationData>,
-        dice: Arc<DiceModern>,
-    ) -> Self {
-        Self {
-            per_live_version_ctx,
-            user_data,
-            dice,
-        }
-    }
-
     pub(crate) fn storage_type(&self, key: DiceKey) -> StorageType {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
@@ -168,7 +154,6 @@ impl SyncEvaluator {
     }
 }
 
-#[allow(unused)] // TODO(bobyf)
 pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
     pub(crate) deps: HashSet<DiceKey>,

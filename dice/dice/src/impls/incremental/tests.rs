@@ -150,7 +150,11 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
         )),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     assert!(
         engine
@@ -176,7 +180,11 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
         )),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     assert!(
         !engine
@@ -202,7 +210,11 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceKey { index: 200 },
         Err(DiceError::cycle(std::sync::Arc::new(K), indexset![])),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     assert!(
         engine
@@ -278,7 +290,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
             Arc::new(CellHistory::verified(VersionNumber::new(0))),
         )),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
@@ -315,7 +331,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
             Arc::new(CellHistory::verified(v)),
         )),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
@@ -356,7 +376,11 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
             Arc::new(CellHistory::testing_new(&[v, new_v], &[])),
         )),
     );
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
@@ -442,7 +466,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let v = rx.await.unwrap();
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
@@ -466,7 +494,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let v = rx.await.unwrap();
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
-    let eval = AsyncEvaluator::new(ctx.dupe(), user_data.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
@@ -517,7 +549,11 @@ async fn spawn_with_no_previously_cancelled_task() {
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
     let extra = std::sync::Arc::new(UserComputationData::new());
-    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: shared_ctx.dupe(),
+        user_data: extra.dupe(),
+        dice: dice.dupe(),
+    };
     let cycles = UserCycleDetectorData::new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
     let previously_cancelled_task = None;
@@ -549,7 +585,11 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
-    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: shared_ctx.dupe(),
+        user_data: extra.dupe(),
+        dice: dice.dupe(),
+    };
     let cycles = UserCycleDetectorData::new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
@@ -620,7 +660,11 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
-    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: shared_ctx.dupe(),
+        user_data: extra.dupe(),
+        dice: dice.dupe(),
+    };
     let cycles = UserCycleDetectorData::new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
@@ -696,7 +740,11 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
-    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let eval = AsyncEvaluator {
+        per_live_version_ctx: shared_ctx.dupe(),
+        user_data: extra.dupe(),
+        dice: dice.dupe(),
+    };
     let cycles = UserCycleDetectorData::new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
