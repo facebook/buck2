@@ -521,6 +521,7 @@ impl EvaluationData {
 pub(crate) mod testing {
     use dashmap::mapref::entry::Entry;
 
+    use crate::impls::core::versions::VersionEpoch;
     use crate::impls::ctx::SharedLiveTransactionCtx;
     use crate::impls::key::DiceKey;
     use crate::impls::key::ParentKey;
@@ -548,6 +549,10 @@ pub(crate) mod testing {
                     v.insert(task);
                 }
             }
+        }
+
+        pub(crate) fn testing_get_epoch(&self) -> VersionEpoch {
+            self.version_epoch
         }
     }
 }

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -86,11 +87,16 @@ impl CoreState {
     pub(super) fn update_computed(
         &mut self,
         key: VersionedGraphKey,
+        epoch: VersionEpoch,
         storage: StorageType,
         value: DiceValidValue,
         deps: Arc<Vec<DiceKey>>,
     ) -> DiceResult<DiceComputedValue> {
-        Ok(self.graph.update(key, value, deps, storage).0)
+        if self.version_tracker.is_relevant(key.v, epoch) {
+            Ok(self.graph.update(key, value, deps, storage).0)
+        } else {
+            Err(DiceError::cancelled())
+        }
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {

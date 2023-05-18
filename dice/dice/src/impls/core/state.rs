@@ -19,6 +19,7 @@ use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::processor::StateProcessor;
+use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::key::DiceKey;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -59,6 +60,7 @@ pub(crate) enum StateRequest {
     /// Report that a value has been computed
     UpdateComputed {
         key: VersionedGraphKey,
+        epoch: VersionEpoch,
         /// The storage selection for the key,
         storage: StorageType,
         /// The newly computed value

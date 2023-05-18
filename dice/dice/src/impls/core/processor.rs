@@ -68,6 +68,7 @@ impl StateProcessor {
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
             StateRequest::UpdateComputed {
                 key,
+                epoch,
                 storage,
                 value,
                 deps,
@@ -75,7 +76,7 @@ impl StateProcessor {
                 ..
             } => {
                 // ignore error if the requester dropped it.
-                drop(resp.send(self.state.update_computed(key, storage, value, deps)));
+                drop(resp.send(self.state.update_computed(key, epoch, storage, value, deps)));
             }
             StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
             StateRequest::Metrics { resp } => {

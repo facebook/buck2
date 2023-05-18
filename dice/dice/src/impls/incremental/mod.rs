@@ -66,6 +66,7 @@ mod tests;
 #[derive(Allocative)]
 pub(crate) struct IncrementalEngine {
     state: CoreStateHandle,
+    version_epoch: VersionEpoch,
 }
 
 impl Debug for IncrementalEngine {
@@ -76,8 +77,11 @@ impl Debug for IncrementalEngine {
 
 #[allow(unused)] // TODO(bobyf) temporary
 impl IncrementalEngine {
-    fn new(state: CoreStateHandle) -> Self {
-        Self { state }
+    fn new(state: CoreStateHandle, version_epoch: VersionEpoch) -> Self {
+        Self {
+            state,
+            version_epoch,
+        }
     }
 
     pub(crate) fn spawn_for_key(
@@ -110,7 +114,8 @@ impl IncrementalEngine {
                     }
                 }
 
-                let engine = IncrementalEngine::new(eval_dupe.dice.state_handle.dupe());
+                let engine =
+                    IncrementalEngine::new(eval_dupe.dice.state_handle.dupe(), version_epoch);
 
                 engine
                     .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, handle)
@@ -150,6 +155,7 @@ impl IncrementalEngine {
                             let (tx, _rx) = tokio::sync::oneshot::channel();
                             state.request(StateRequest::UpdateComputed {
                                 key: VersionedGraphKey::new(v, k),
+                                epoch: version_epoch,
                                 storage: res.storage,
                                 value,
                                 deps: Arc::new(res.deps.into_iter().collect()),
@@ -257,6 +263,7 @@ impl IncrementalEngine {
                         let (tx, rx) = tokio::sync::oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
+                            epoch: self.version_epoch,
                             storage: eval.storage_type(k),
                             value: mismatch.entry,
                             deps,
@@ -325,6 +332,7 @@ impl IncrementalEngine {
                         let (tx, rx) = tokio::sync::oneshot::channel();
                         self.state.request(StateRequest::UpdateComputed {
                             key: VersionedGraphKey::new(v, k),
+                            epoch: self.version_epoch,
                             storage: res.storage,
                             value,
                             deps: Arc::new(res.deps.into_iter().collect()),

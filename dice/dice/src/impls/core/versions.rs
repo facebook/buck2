@@ -102,7 +102,6 @@ impl VersionTracker {
 
     /// check if the given version and epoch are "relevant", that is the current active version's
     /// epoch matches the given epoch
-    #[allow(unused)] // D45925966
     pub(crate) fn is_relevant(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
         self.active_versions
             .get(&v)

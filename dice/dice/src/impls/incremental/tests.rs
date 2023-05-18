@@ -22,6 +22,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
@@ -32,6 +33,7 @@ use sorted_vector_map::sorted_vector_set;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceError;
+use crate::api::error::DiceErrorImpl;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
@@ -50,6 +52,7 @@ use crate::impls::incremental::IncrementalEngine;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -112,10 +115,29 @@ impl Hash for IsRan {
     fn hash<H: Hasher>(&self, _state: &mut H) {}
 }
 
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+struct Finish;
+
+#[async_trait]
+impl Key for Finish {
+    type Value = ();
+
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        true
+    }
+}
+
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let dice = DiceModern::new(DiceData::new());
-    let engine = IncrementalEngine::new(dice.state_handle.dupe());
+    let engine = IncrementalEngine::new(dice.state_handle.dupe(), VersionEpoch::testing_new(0));
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
@@ -215,10 +237,19 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let is_ran = Arc::new(AtomicBool::new(false));
     let key = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    dice.state_handle.request(StateRequest::CtxAtVersion {
+        version: VersionNumber::new(0),
+        guard: ActiveTransactionGuard::new(VersionNumber::new(0), dice.state_handle.dupe()),
+        resp: tx,
+    });
+    let (ctx, guard) = rx.await.unwrap();
+
     // set the initial state
     let (tx, _rx) = tokio::sync::oneshot::channel();
     dice.state_handle.request(StateRequest::UpdateComputed {
         key: VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 100 }),
+        epoch: ctx.testing_get_epoch(),
         storage: StorageType::LastN(1),
         value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
         deps: Arc::new(vec![]),
@@ -227,6 +258,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let (tx, _rx) = tokio::sync::oneshot::channel();
     dice.state_handle.request(StateRequest::UpdateComputed {
         key: VersionedGraphKey::new(VersionNumber::new(0), key.dupe()),
+        epoch: ctx.testing_get_epoch(),
         storage: StorageType::LastN(1),
         value: DiceValidValue::testing_new(DiceKeyValue::<IsRan>::new(())),
         deps: Arc::new(vec![DiceKey { index: 100 }]),
@@ -239,6 +271,8 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         resp: tx,
     });
     let v = rx.await.unwrap();
+    drop(guard);
+    drop(ctx);
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
@@ -252,7 +286,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
-        VersionEpoch::testing_new(0),
+        ctx.testing_get_epoch(),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -289,7 +323,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
-        VersionEpoch::testing_new(0),
+        ctx.testing_get_epoch(),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -330,7 +364,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
-        VersionEpoch::testing_new(0),
+        ctx.testing_get_epoch(),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -440,7 +474,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
-        VersionEpoch::testing_new(0),
+        ctx.testing_get_epoch(),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
@@ -657,4 +691,39 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     );
 
     assert!(!is_ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn mismatch_epoch_results_in_cancelled_result() {
+    let dice = DiceModern::new(DiceData::new());
+
+    let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+
+    let extra = std::sync::Arc::new(UserComputationData::new());
+    let eval = AsyncEvaluator::new(shared_ctx.dupe(), extra.dupe(), dice.dupe());
+    let cycles = UserCycleDetectorData::new();
+    let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
+
+    // trigger dice to delete and update the epoch
+    drop(guard);
+
+    let k = dice.key_index.index_key(Finish);
+    let task = IncrementalEngine::spawn_for_key(
+        k,
+        shared_ctx.testing_get_epoch(),
+        eval.dupe(),
+        cycles,
+        events_dispatcher.dupe(),
+        None,
+    );
+    // wait for it to finish then trigger cancel
+    let err = assert_matches!(
+        task.depended_on_by(ParentKey::None)
+            .not_cancelled()
+            .unwrap()
+            .await,
+        Err(e) => e
+    );
+
+    assert_matches!(&*err.0, DiceErrorImpl::Cancelled)
 }
