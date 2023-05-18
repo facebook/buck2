@@ -38,7 +38,6 @@ use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 
 /// An asynchronous chunk of work that will be executed when requested.
 /// The 'Deferred' can have "inputs" which are values that will be guaranteed to be ready to use
@@ -243,7 +242,7 @@ impl DeferredKey {
 /// 'DeferredKey::Base' type.
 #[derive(Allocative)]
 pub enum BaseKey {
-    Base(BaseDeferredKey),
+    Base(BaseDeferredKeyDyn),
     // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
     // Maybe not?
     #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
@@ -253,7 +252,7 @@ pub enum BaseKey {
 impl BaseKey {
     fn make_key(&self, id: DeferredId) -> DeferredKey {
         match self {
-            BaseKey::Base(base) => DeferredKey::Base(base.dupe().into_dyn(), id),
+            BaseKey::Base(base) => DeferredKey::Base(base.dupe(), id),
             BaseKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
         }
     }
@@ -1107,7 +1106,7 @@ mod tests {
     #[test]
     fn register_deferred() -> anyhow::Result<()> {
         let target = dummy_base();
-        let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe()));
+        let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe().into_dyn()));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1148,7 +1147,7 @@ mod tests {
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe()));
+        let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe().into_dyn()));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1276,7 +1275,7 @@ mod tests {
 
     #[test]
     fn reserving_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
@@ -1324,7 +1323,7 @@ mod tests {
 
     #[test]
     fn reserving_deferred_unbound() {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
@@ -1338,7 +1337,7 @@ mod tests {
 
     #[test]
     fn trivial_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));

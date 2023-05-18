@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::directory;
 use buck2_core::directory::Directory;
@@ -38,7 +39,6 @@ use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::ReservedTrivialDeferredData;
@@ -46,7 +46,7 @@ use crate::deferred::types::ReservedTrivialDeferredData;
 /// The actions registry for a particular analysis of a rule implementation
 #[derive(Allocative)]
 pub struct ActionsRegistry {
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
     pending: Vec<(
@@ -58,7 +58,7 @@ pub struct ActionsRegistry {
 }
 
 impl ActionsRegistry {
-    pub fn new(owner: BaseDeferredKey, execution_platform: ExecutionPlatformResolution) -> Self {
+    pub fn new(owner: BaseDeferredKeyDyn, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
             action_key: None,
@@ -157,11 +157,8 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path = BuckOutPath::with_action_key(
-            self.owner.dupe().into_dyn(),
-            path,
-            self.action_key.dupe(),
-        );
+        let out_path =
+            BuckOutPath::with_action_key(self.owner.dupe(), path, self.action_key.dupe());
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

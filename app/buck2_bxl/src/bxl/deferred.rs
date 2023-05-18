@@ -81,8 +81,9 @@ mod tests {
             None,
         );
 
-        let mut deferred =
-            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(bxl.dupe())));
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(
+            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+        ));
 
         let executed0 = Arc::new(AtomicBool::new(false));
         let executed1 = Arc::new(AtomicBool::new(false));

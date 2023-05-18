@@ -350,7 +350,7 @@ impl AnonTargetKey {
                     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
                     let registry = AnalysisRegistry::new_from_owner(
-                        BaseDeferredKey::AnonTarget(self.0.dupe()),
+                        BaseDeferredKey::AnonTarget(self.0.dupe()).into_dyn(),
                         exec_resolution,
                     );
 

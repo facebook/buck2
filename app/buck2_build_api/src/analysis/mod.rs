@@ -58,6 +58,7 @@ pub(crate) mod promise_artifacts;
 pub mod registry;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -66,7 +67,6 @@ use dupe::Dupe;
 use starlark::values::structs::AllocStruct;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
@@ -321,7 +321,7 @@ async fn run_analysis_with_env_underlying(
     }
 
     let registry = AnalysisRegistry::new_from_owner(
-        BaseDeferredKey::TargetLabel(node.label().dupe()),
+        BaseDeferredKeyDyn::TargetLabel(node.label().dupe()),
         analysis_env.execution_platform.dupe(),
     );
     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));

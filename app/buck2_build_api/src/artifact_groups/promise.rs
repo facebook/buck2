@@ -13,13 +13,13 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
 use thiserror::Error;
 
 use crate::actions::artifact::artifact_type::Artifact;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
 
 #[derive(Debug, Error)]
@@ -63,11 +63,11 @@ pub struct PromiseArtifact {
 
 #[derive(Clone, Debug, Dupe, Allocative, Hash, Eq, PartialEq)]
 pub struct PromiseArtifactId {
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     id: usize,
 }
 impl PromiseArtifactId {
-    pub(crate) fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
+    pub(crate) fn new(owner: BaseDeferredKeyDyn, id: usize) -> PromiseArtifactId {
         Self { owner, id }
     }
 }

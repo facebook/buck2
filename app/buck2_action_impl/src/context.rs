@@ -989,9 +989,9 @@ pub(crate) fn init_register_context_actions() {
 #[cfg(test)]
 mod tests {
     use buck2_build_api::analysis::registry::AnalysisRegistry;
-    use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
     use buck2_build_api::interpreter::rule_defs::register_rule_defs;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::provider::label::ConfiguredProvidersLabel;
     use buck2_core::provider::label::ProvidersName;
@@ -1045,7 +1045,7 @@ mod tests {
         let label = TargetLabel::testing_parse("root//foo/bar:some_name")
             .configure(ConfigurationData::testing_new());
         let registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::TargetLabel(label.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
         let attributes = eval.heap().alloc(AllocStruct([("name", "some_name")]));

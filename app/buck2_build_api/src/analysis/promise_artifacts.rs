@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
@@ -21,7 +22,6 @@ use starlark::values::ValueTyped;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::promise::PromiseArtifactResolveError;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 
 /// The PromiseArtifactRegistry stores promises registered with ctx.actions.promise_artifact() and their
@@ -31,10 +31,10 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 pub struct PromiseArtifactRegistry<'v> {
     promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
     artifacts: Vec<(Option<FileSpan>, PromiseArtifact)>,
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
 }
 impl<'v> PromiseArtifactRegistry<'v> {
-    pub(crate) fn new(owner: BaseDeferredKey) -> Self {
+    pub(crate) fn new(owner: BaseDeferredKeyDyn) -> Self {
         Self {
             owner,
             promises: Vec::new(),

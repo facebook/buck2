@@ -181,7 +181,7 @@ pub(crate) fn validate_action_instantiation<'v>(
         return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
     } else {
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::BxlLabel(this.current_bxl.dupe()),
+            BaseDeferredKey::BxlLabel(this.current_bxl.dupe()).into_dyn(),
             execution_platform,
         );
 

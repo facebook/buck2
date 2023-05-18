@@ -15,12 +15,12 @@ use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::actions::ActionErrors;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::deferred::types::testing::DeferredIdExt;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredId;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -37,20 +37,20 @@ use crate::actions::testings::SimpleUnregisteredAction;
 
 #[test]
 fn declaring_artifacts() -> anyhow::Result<()> {
-    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
     let mut actions = ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
     let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-    let buckout1 = BuckOutPath::new(base.dupe().into_dyn(), out1.clone());
+    let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
     let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File, None)?;
     declared1
         .get_path()
         .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
     let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
-    let buckout2 = BuckOutPath::new(base.into_dyn(), out2.clone());
+    let buckout2 = BuckOutPath::new(base, out2.clone());
     let declared2 = actions.declare_artifact(None, out2, OutputType::File, None)?;
     declared2
         .get_path()
@@ -76,7 +76,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
         ConfigurationData::testing_new(),
     );
     let mut actions = ActionsRegistry::new(
-        BaseDeferredKey::TargetLabel(target.dupe()),
+        BaseDeferredKeyDyn::TargetLabel(target.dupe()),
         ExecutionPlatformResolution::unspecified(),
     );
 
@@ -136,7 +136,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
 
 #[test]
 fn register_actions() -> anyhow::Result<()> {
-    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
@@ -179,7 +179,7 @@ fn register_actions() -> anyhow::Result<()> {
 
 #[test]
 fn finalizing_actions() -> anyhow::Result<()> {
-    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
@@ -268,7 +268,7 @@ fn duplicate_category_identifier() {
 fn category_identifier_test(
     action_names: &[(&'static str, Option<&'static str>)],
 ) -> anyhow::Result<()> {
-    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));

@@ -378,6 +378,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::target::label::TargetLabel;
@@ -394,7 +395,6 @@ mod tests {
 
     use crate::analysis::calculation::AnalysisKey;
     use crate::analysis::AnalysisResult;
-    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::calculation::DeferredCalculation;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
@@ -443,8 +443,9 @@ mod tests {
             "#
         ));
 
-        let mut deferred =
-            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
+            target.dupe(),
+        )));
 
         let executed0 = Arc::new(AtomicBool::new(false));
         let executed1 = Arc::new(AtomicBool::new(false));
@@ -537,8 +538,9 @@ mod tests {
             "#
         ));
 
-        let mut deferred =
-            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
+            target.dupe(),
+        )));
 
         let executed = Arc::new(AtomicBool::new(false));
         let data = deferred.defer(DeferringDeferred(8, IndexSet::new(), executed.dupe()));

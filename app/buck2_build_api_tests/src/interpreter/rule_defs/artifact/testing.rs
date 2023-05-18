@@ -14,7 +14,6 @@ use buck2_build_api::actions::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_build_api::deferred::types::testing::DeferredIdExt;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredId;
@@ -25,6 +24,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_common::executor_config::PathSeparatorKind;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::category::Category;
@@ -112,7 +112,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label),
+            BaseDeferredKeyDyn::TargetLabel(target_label),
             ExecutionPlatformResolution::unspecified(),
         );
         let artifact = registry.declare_artifact(
@@ -134,11 +134,11 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, target)?;
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
             target_label.dupe(),
         )));
         let mut registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label),
+            BaseDeferredKeyDyn::TargetLabel(target_label),
             ExecutionPlatformResolution::unspecified(),
         );
         let artifact = registry.declare_artifact(
@@ -196,14 +196,14 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
         let mut actions_registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
+            BaseDeferredKeyDyn::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
             target_label.dupe(),
         )));
 

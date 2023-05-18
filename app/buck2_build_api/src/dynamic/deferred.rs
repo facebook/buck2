@@ -219,11 +219,11 @@ impl Deferred for DynamicLambda {
             // The AnalysisRegistry wants ownership of a registry.
             // To overcome the difference, we create a fake registry, swap it with the one in deferred,
             // and swap back after AnalysisRegistry completes.
-            let fake_registry = DeferredRegistry::new(BaseKey::Base(self.owner.dupe()));
+            let fake_registry = DeferredRegistry::new(BaseKey::Base(self.owner.dupe().into_dyn()));
 
             let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
             let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-                self.owner.dupe(),
+                self.owner.dupe().into_dyn(),
                 execution_platform,
                 deferred,
             );

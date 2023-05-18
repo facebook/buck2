@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::execute::request::OutputType;
@@ -45,7 +46,6 @@ use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredId;
 use crate::deferred::types::DeferredRegistry;
@@ -79,7 +79,7 @@ enum DeclaredArtifactError {
 
 impl<'v> AnalysisRegistry<'v> {
     pub fn new_from_owner(
-        owner: BaseDeferredKey,
+        owner: BaseDeferredKeyDyn,
         execution_platform: ExecutionPlatformResolution,
     ) -> Self {
         Self::new_from_owner_and_deferred(
@@ -90,7 +90,7 @@ impl<'v> AnalysisRegistry<'v> {
     }
 
     pub(crate) fn new_from_owner_and_deferred(
-        owner: BaseDeferredKey,
+        owner: BaseDeferredKeyDyn,
         execution_platform: ExecutionPlatformResolution,
         deferred: DeferredRegistry,
     ) -> Self {

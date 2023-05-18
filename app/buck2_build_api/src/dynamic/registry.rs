@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -26,12 +27,12 @@ use crate::dynamic::deferred::DynamicLambdaOutput;
 
 #[derive(Allocative)]
 pub(crate) struct DynamicRegistry {
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     pending: Vec<(ReservedDeferredData<DynamicLambdaOutput>, DynamicLambda)>,
 }
 
 impl DynamicRegistry {
-    pub fn new(owner: BaseDeferredKey) -> Self {
+    pub fn new(owner: BaseDeferredKeyDyn) -> Self {
         Self {
             owner,
             pending: Vec::new(),
@@ -58,7 +59,12 @@ impl DynamicRegistry {
                 Ok(bound)
             })
             .collect::<anyhow::Result<_>>()?;
-        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, inputs, outputs);
+        let lambda = DynamicLambda::new(
+            BaseDeferredKey::from_dyn(self.owner.dupe()),
+            dynamic,
+            inputs,
+            outputs,
+        );
         let lambda_id = reserved.data().deferred_key().id();
         self.pending.push((reserved, lambda));
         Ok(lambda_id)
