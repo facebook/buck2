@@ -15,7 +15,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_query::query::environment::LabeledNode;
-use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::NodeLookup;
@@ -73,8 +72,6 @@ impl std::hash::Hash for ConfiguredGraphNodeRef {
         self.label().hash(state)
     }
 }
-
-impl NodeLabel for ConfiguredGraphNodeRef {}
 
 impl LabeledNode for ConfiguredGraphNodeRef {
     type NodeRef = ConfiguredGraphNodeRef;

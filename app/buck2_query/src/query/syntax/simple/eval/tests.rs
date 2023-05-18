@@ -24,7 +24,6 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::query::compatibility::MaybeCompatible;
-use crate::query::environment::NodeLabel;
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::error::QueryError;
@@ -36,7 +35,6 @@ use crate::query::traversal::AsyncTraversalDelegate;
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Display)]
 struct TargetRef(String);
-impl NodeLabel for TargetRef {}
 
 #[derive(Debug, Display, Serialize)]
 struct TargetAttr(String);

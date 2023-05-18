@@ -11,11 +11,6 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 
 use crate::query::environment::ConfiguredOrUnconfiguredTargetLabel;
-use crate::query::environment::NodeLabel;
-
-// We implement some query traits for types in buck2_core so they can be used in query environments.
-impl NodeLabel for ConfiguredTargetLabel {}
-impl NodeLabel for TargetLabel {}
 
 impl ConfiguredOrUnconfiguredTargetLabel for TargetLabel {
     fn unconfigured_label(&self) -> &TargetLabel {

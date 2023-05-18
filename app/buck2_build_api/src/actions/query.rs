@@ -24,7 +24,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::TargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_query::query::environment::LabeledNode;
-use buck2_query::query::environment::NodeLabel;
 use buck2_query::query::environment::QueryTarget;
 use buck2_util::late_binding::LateBinding;
 use derivative::Derivative;
@@ -41,8 +40,6 @@ use crate::actions::key::ActionKey;
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;
-
-impl NodeLabel for ActionKey {}
 
 #[derive(Debug, derive_more::Display, RefCast, Serialize)]
 #[repr(transparent)]

@@ -28,8 +28,6 @@ use crate::query::traversal::AsyncNodeLookup;
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display, From)]
 struct TestTargetId(u64);
 
-impl NodeLabel for TestTargetId {}
-
 #[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Display)]
 struct TestTargetAttr;
 

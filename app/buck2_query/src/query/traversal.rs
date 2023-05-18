@@ -337,7 +337,6 @@ mod tests {
     use serde::Serializer;
 
     use super::*;
-    use crate::query::environment::NodeLabel;
     use crate::query::environment::QueryTarget;
     use crate::query::syntax::simple::eval::set::TargetSet;
 
@@ -352,8 +351,6 @@ mod tests {
 
     #[derive(Debug, Display, Serialize)]
     struct Attr(String);
-
-    impl NodeLabel for Ref {}
 
     impl LabeledNode for Node {
         type NodeRef = Ref;
