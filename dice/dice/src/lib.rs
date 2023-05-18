@@ -274,7 +274,6 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {
     Legacy(Arc<DiceLegacy>),
-    #[allow(unused)]
     Modern(Arc<DiceModern>),
 }
 
@@ -366,7 +365,6 @@ impl DiceDataBuilderImpl {
         Self::Legacy(DiceLegacyDataBuilder::new())
     }
 
-    #[allow(unused)] // TODO(bobyf)
     pub(crate) fn new_modern() -> Self {
         Self::Modern(DiceModernDataBuilder::new())
     }

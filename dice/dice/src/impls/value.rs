@@ -79,7 +79,7 @@ impl MaybeValidDiceValue {
     }
 
     /// Dynamic version of `Key::equality`.
-    #[allow(unused)]
+    #[cfg(test)]
     pub(crate) fn equality(&self, other: &DiceValidValue) -> bool {
         self.value.equality(&*other.0)
     }

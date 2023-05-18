@@ -406,16 +406,6 @@ pub(crate) struct ProjectionWithBaseRef<'a> {
 }
 
 impl<'a> ProjectionWithBaseRef<'a> {
-    #[allow(unused)]
-    pub(crate) fn base(&self) -> DiceKey {
-        self.base
-    }
-
-    #[allow(unused)]
-    pub(crate) fn proj(&self) -> &'a dyn DiceProjectionDyn {
-        self.proj
-    }
-
     fn to_owned(&self) -> ProjectionWithBase {
         ProjectionWithBase {
             base: self.base,
