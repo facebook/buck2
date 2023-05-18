@@ -159,7 +159,6 @@ impl DiceTask {
             .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
     }
 
-    #[allow(unused)] // temporary for D45634595
     pub(crate) fn cancel(&self) -> Option<TerminationObserver> {
         let lock = self.internal.dependants.lock();
         self.cancellations.cancel(&lock);

@@ -360,7 +360,7 @@ impl CancellationHandle {
         }
     }
 
-    pub(crate) fn termination_observer(&self) -> TerminationObserver {
+    pub fn termination_observer(&self) -> TerminationObserver {
         TerminationObserver {
             receiver: self.observer.clone(),
             state: self.shared_state.dupe(),

@@ -389,35 +389,40 @@ impl SharedLiveTransactionCtx {
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
         match self.cache.get(key) {
-            Entry::Occupied(mut occupied) => match occupied.get().depended_on_by(parent_key) {
-                MaybeCancelled::Ok(promise) => promise,
-                MaybeCancelled::Cancelled(termination) => {
-                    let eval = eval.dupe();
-                    let events =
-                        DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
+            Some(Entry::Occupied(mut occupied)) => {
+                match occupied.get().depended_on_by(parent_key) {
+                    MaybeCancelled::Ok(promise) => promise,
+                    MaybeCancelled::Cancelled(termination) => {
+                        let eval = eval.dupe();
+                        let events = DiceEventDispatcher::new(
+                            eval.user_data.tracker.dupe(),
+                            eval.dice.dupe(),
+                        );
 
-                    take_mut::take(occupied.get_mut(), |previous| {
-                        IncrementalEngine::spawn_for_key(
-                            key,
-                            self.version_epoch,
-                            eval,
-                            cycles,
-                            events,
-                            Some(PreviouslyCancelledTask {
-                                previous,
-                                termination,
-                            }),
-                        )
-                    });
+                        take_mut::take(occupied.get_mut(), |previous| {
+                            IncrementalEngine::spawn_for_key(
+                                key,
+                                self.version_epoch,
+                                eval,
+                                cycles,
+                                events,
+                                Some(PreviouslyCancelledTask {
+                                    previous,
+                                    termination,
+                                }),
+                            )
+                        });
 
-                    occupied
-                        .get()
-                        .depended_on_by(parent_key)
-                        .not_cancelled()
-                        .expect("just created")
+                        occupied
+                            .get()
+                            .depended_on_by(parent_key)
+                            .not_cancelled()
+                            .expect("just created")
+                    }
                 }
-            },
-            Entry::Vacant(vacant) => {
+                .left_future()
+            }
+            Some(Entry::Vacant(vacant)) => {
                 let eval = eval.dupe();
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
@@ -438,8 +443,13 @@ impl SharedLiveTransactionCtx {
 
                 vacant.insert(task);
 
-                fut
+                fut.left_future()
             }
+            None => async {
+                tokio::task::yield_now().await;
+                Err(DiceError::cancelled())
+            }
+            .right_future(),
         }
     }
 
@@ -453,7 +463,7 @@ impl SharedLiveTransactionCtx {
         events: DiceEventDispatcher,
     ) -> DiceResult<DiceComputedValue> {
         let promise = match self.cache.get(key) {
-            Entry::Occupied(mut occupied) => {
+            Some(Entry::Occupied(mut occupied)) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
                     MaybeCancelled::Cancelled(termination) => {
@@ -473,7 +483,7 @@ impl SharedLiveTransactionCtx {
                     }
                 }
             }
-            Entry::Vacant(vacant) => {
+            Some(Entry::Vacant(vacant)) => {
                 let task = unsafe {
                     // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                     sync_dice_task()
@@ -483,6 +493,18 @@ impl SharedLiveTransactionCtx {
                     .insert(task)
                     .value()
                     .depended_on_by(parent_key)
+                    .not_cancelled()
+                    .expect("just created")
+            }
+            None => {
+                // for projection keys, these are cheap and synchronous computes that should never
+                // be cancelled
+                let task = unsafe {
+                    // SAFETY: task completed below by `IncrementalEngine::project_for_key`
+                    sync_dice_task()
+                };
+
+                task.depended_on_by(parent_key)
                     .not_cancelled()
                     .expect("just created")
             }
@@ -541,7 +563,7 @@ pub(crate) mod testing {
                 .expect("just created")
                 .get_or_complete(|| v);
 
-            match self.cache.get(k) {
+            match self.cache.get(k).expect("cancelled") {
                 Entry::Occupied(o) => {
                     o.replace_entry(task);
                 }

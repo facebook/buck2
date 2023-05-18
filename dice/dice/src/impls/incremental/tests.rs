@@ -450,7 +450,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let task = IncrementalEngine::spawn_for_key(
         key.dupe(),
-        VersionEpoch::testing_new(0),
+        ctx.testing_get_epoch(),
         eval.dupe(),
         UserCycleDetectorData::new(),
         events.dupe(),
