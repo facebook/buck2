@@ -102,14 +102,16 @@ def _strip_scale_from_asset_name(name: str.type) -> str.type:
     return name
 
 def get_canonical_src_name(src: str.type) -> str.type:
-    basename, extension = paths.split_extension(src)
+    dirname = paths.dirname(src)
+    basename = paths.basename(src)
+    filename, extension = paths.split_extension(basename)
     if extension[1:] not in ASSET_EXTENSIONS:
         return src
 
-    basename = _strip_platform_from_asset_name(basename)
-    basename = _strip_scale_from_asset_name(basename)
+    filename = _strip_platform_from_asset_name(filename)
+    filename = _strip_scale_from_asset_name(filename)
 
-    return basename + extension
+    return paths.join(dirname, filename + extension)
 
 def get_flavors(ctx: "context") -> [str.type]:
     flavors = [ctx.attrs._platform]
