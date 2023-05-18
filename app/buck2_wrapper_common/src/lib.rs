@@ -70,21 +70,32 @@ pub fn killall(write: impl Fn(String)) -> bool {
             kill::kill(pid)
         }
 
-        let result = if kill(process).is_ok() {
-            // TODO(nga): this says "killed", but it doesn't wait for the process to exit.
+        let result = kill(process);
+
+        if result.is_err() {
+            ok = false;
+        }
+
+        let status = if result.is_ok() {
             "Killed"
         } else {
-            ok = false;
             "Failed to kill"
         };
 
-        write(format!(
+        let mut message = format!(
             "{} {} ({}). {}",
-            result,
+            status,
             process.name(),
             process.pid(),
-            process.cmd().join(" ")
-        ));
+            process.cmd().join(" "),
+        );
+        if let Err(error) = result {
+            for line in format!("{:?}", error).lines() {
+                message.push_str("\n  ");
+                message.push_str(line);
+            }
+        }
+        write(message);
     }
 
     ok
