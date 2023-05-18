@@ -324,3 +324,15 @@ impl Cancellations {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for Cancellations {}
 unsafe impl Sync for Cancellations {}
+
+#[allow(unused)] // temporary
+pub(crate) mod introspection {
+    use crate::impls::task::dice::DiceTask;
+    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+
+    impl DiceTask {
+        pub(crate) fn introspect_state(&self) -> DiceTaskStateForDebugging {
+            self.internal.state.introspect_state()
+        }
+    }
+}
