@@ -391,8 +391,14 @@ impl SharedLiveTransactionCtx {
         match self.cache.get(key) {
             Some(Entry::Occupied(mut occupied)) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => promise,
+                    MaybeCancelled::Ok(promise) => {
+                        debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
+
+                        promise
+                    },
                     MaybeCancelled::Cancelled(termination) => {
+                        debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
+
                         let eval = eval.dupe();
                         let events = DiceEventDispatcher::new(
                             eval.user_data.tracker.dupe(),
@@ -423,6 +429,8 @@ impl SharedLiveTransactionCtx {
                 .left_future()
             }
             Some(Entry::Vacant(vacant)) => {
+                debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
+
                 let eval = eval.dupe();
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
@@ -445,11 +453,16 @@ impl SharedLiveTransactionCtx {
 
                 fut.left_future()
             }
-            None => async {
-                tokio::task::yield_now().await;
-                Err(DiceError::cancelled())
-            }
-            .right_future(),
+            None => {
+                let v = self.version;
+                let v_epoch = self.version_epoch;
+                async move {
+                    debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
+                    tokio::task::yield_now().await;
+                    Err(DiceError::cancelled())
+                }
+                    .right_future()
+            },
         }
     }
 

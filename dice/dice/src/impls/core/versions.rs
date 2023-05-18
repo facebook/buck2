@@ -85,15 +85,22 @@ impl VersionTracker {
     }
 
     pub(crate) fn at(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
-        let mut entry = self
-            .active_versions
-            .entry(v)
-            .or_insert_with(|| ActiveVersionData {
+        let mut entry = self.active_versions.entry(v).or_insert_with(|| {
+            let version_epoch = self.epoch_tracker.next();
+
+            debug!(
+                msg = "Creating new shared state",
+                v = %v,
+                v_epoch = %version_epoch
+            );
+
+            ActiveVersionData {
                 // TODO properly create the PerLiveTransactionCtx
                 per_transaction_data: SharedCache::new(),
                 ref_count: 0,
-                version_epoch: self.epoch_tracker.next(),
-            });
+                version_epoch,
+            }
+        });
 
         entry.ref_count += 1;
 
@@ -121,12 +128,14 @@ impl VersionTracker {
         };
 
         if ref_count == 0 {
-            Some(
-                self.active_versions
-                    .remove(&v)
-                    .expect("existed above")
-                    .per_transaction_data,
-            )
+            let removed = self.active_versions.remove(&v).expect("existed above");
+
+            debug!(
+                msg = "shared state removed",
+                v = %v,
+                v_epoch = %removed.version_epoch
+            );
+            Some(removed.per_transaction_data)
         } else {
             None
         }

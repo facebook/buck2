@@ -102,8 +102,12 @@ impl CoreState {
         deps: Arc<Vec<DiceKey>>,
     ) -> DiceResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
+            debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
+
             Ok(self.graph.update(key, value, deps, storage).0)
         } else {
+            debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
+
             Err(DiceError::cancelled())
         }
     }

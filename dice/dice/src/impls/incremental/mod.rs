@@ -25,6 +25,7 @@ use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellation::future::TerminationStatus;
 use tokio::sync::oneshot;
+use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::api::error::DiceError;
@@ -95,6 +96,7 @@ impl IncrementalEngine {
         spawn_dice_task(&*eval.user_data.spawner, &eval.user_data, move |handle| {
             async move {
                 if let Some(previous) = previously_cancelled_task {
+                    debug!(msg = "waiting for previously cancelled task");
                     match previous.termination.await {
                         TerminationStatus::Finished => {
                             // old task actually finished, so just use that result
@@ -104,6 +106,8 @@ impl IncrementalEngine {
                                     .get_finished_value()
                                     .expect("A finished task must have been completed"),
                             );
+
+                            debug!(msg = "previously cancelled task actually finished");
 
                             return Box::new(()) as Box<dyn Any + Send + 'static>;
                         }
@@ -122,10 +126,16 @@ impl IncrementalEngine {
 
                 Box::new(()) as Box<dyn Any + Send + 'static>
             }
+            .instrument(debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch))
             .boxed()
         })
     }
 
+    #[instrument(
+        level = "debug",
+        skip(state, promise, eval, transaction_ctx, event_dispatcher),
+        fields(k = ?k, version = %transaction_ctx.get_version()),
+    )]
     pub(crate) fn project_for_key(
         state: CoreStateHandle,
         promise: DicePromise,
@@ -201,7 +211,9 @@ impl IncrementalEngine {
 
         match state_result {
             VersionedGraphResult::Match(entry) => {
-                debug!( k = ?k ,msg = "found existing entry with matching version in cache. reusing result.",);
+                debug!(
+                    msg = "found existing entry with matching version in cache. reusing result.",
+                );
                 task_handle.finished(Ok(entry))
             }
             VersionedGraphResult::Compute => {
@@ -249,6 +261,10 @@ impl IncrementalEngine {
                             eval.user_data.cycle_detector.as_deref(),
                         );
 
+                        debug!(
+                            msg = "reusing previous value because deps didn't change. Updating caches"
+                        );
+
                         report_key_activation(
                             &eval.dice.key_index,
                             eval.user_data.activation_tracker.as_deref(),
@@ -268,6 +284,8 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
+                        debug!(msg = "Update caches complete");
+
                         task_handle.finished(rx.await.unwrap())
                     }
                 }
@@ -275,11 +293,6 @@ impl IncrementalEngine {
         }
     }
 
-    #[instrument(
-        level = "debug",
-        skip(self, eval, task_handle, event_dispatcher, cycles),
-        fields(k = ?k, version = %eval.per_live_version_ctx.get_version()),
-    )]
     async fn compute(
         &self,
         k: DiceKey,
