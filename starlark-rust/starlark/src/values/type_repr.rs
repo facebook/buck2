@@ -82,6 +82,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Vec<T> {
         format!("[{}]", T::starlark_type_repr())
     }
 }
+
 impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Either<TLeft, TRight> {
     fn starlark_type_repr() -> String {
         format!(
