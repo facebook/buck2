@@ -88,11 +88,11 @@ impl DeferredCalculation for DiceComputations {
                 .as_trivial()
                 .context("Invalid deferred")?
                 .dupe();
-            return data.resolve(DeferredValueAnyReady::TrivialDeferred(deferred));
+            return DeferredValueAnyReady::TrivialDeferred(deferred).resolve(data);
         }
 
         let deferred = resolve_deferred(self, data.deferred_key()).await?;
-        Ok(data.resolve(deferred)?)
+        deferred.resolve(data)
     }
 }
 

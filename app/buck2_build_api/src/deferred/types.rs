@@ -181,10 +181,6 @@ impl<T: Send + Sync + 'static> DeferredData<T> {
     pub fn deferred_key(&self) -> &DeferredKey {
         &self.key
     }
-
-    pub fn resolve(&self, val: DeferredValueAnyReady) -> anyhow::Result<DeferredValueReady<T>> {
-        val.downcast_into()
-    }
 }
 
 /// A key to lookup a 'Deferred' of any result type
@@ -734,6 +730,13 @@ impl DeferredValueAnyReady {
             _type: PhantomData,
         })
     }
+
+    pub fn resolve<T: Send + 'static>(
+        self,
+        _data: &DeferredData<T>,
+    ) -> anyhow::Result<DeferredValueReady<T>> {
+        self.downcast_into()
+    }
 }
 
 /// This is a `Any` that has been checked to contain a T and can therefore provide &T infallibly
@@ -1118,22 +1121,21 @@ mod tests {
         let mut ctx = DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_data.key.dupe())));
 
         assert_eq!(
-            *deferred_data.resolve(
-                result
-                    .get(deferred_data.key.id().as_usize())
-                    .unwrap()
-                    .execute(&mut ResolveDeferredCtx::new(
-                        deferred_data.key.dupe(),
-                        Default::default(),
-                        Default::default(),
-                        Default::default(),
-                        &mut ctx,
-                        dummy_project_filesystem(),
-                        DigestConfig::testing_default(),
-                    ))
-                    .unwrap()
-                    .assert_ready()
-            )?,
+            *result
+                .get(deferred_data.key.id().as_usize())
+                .unwrap()
+                .execute(&mut ResolveDeferredCtx::new(
+                    deferred_data.key.dupe(),
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    &mut ctx,
+                    dummy_project_filesystem(),
+                    DigestConfig::testing_default(),
+                ))
+                .unwrap()
+                .assert_ready()
+                .resolve(&deferred_data)?,
             2
         );
 
@@ -1299,22 +1301,21 @@ mod tests {
 
         let key = deferred_data.key.dupe();
         assert_eq!(
-            *deferred_data.resolve(
-                result
-                    .get(deferred_data.key.id().as_usize())
-                    .unwrap()
-                    .execute(&mut ResolveDeferredCtx::new(
-                        key,
-                        Default::default(),
-                        Default::default(),
-                        Default::default(),
-                        &mut registry,
-                        dummy_project_filesystem(),
-                        DigestConfig::testing_default(),
-                    ))
-                    .unwrap()
-                    .assert_ready()
-            )?,
+            *result
+                .get(deferred_data.key.id().as_usize())
+                .unwrap()
+                .execute(&mut ResolveDeferredCtx::new(
+                    key,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    &mut registry,
+                    dummy_project_filesystem(),
+                    DigestConfig::testing_default(),
+                ))
+                .unwrap()
+                .assert_ready()
+                .resolve(&deferred_data)?,
             2
         );
 
@@ -1359,24 +1360,26 @@ mod tests {
         let result = DeferredTable::new(registry.take_result()?);
 
         assert_eq!(
-            *deferred_data0.resolve(DeferredValueAnyReady::TrivialDeferred(
+            *DeferredValueAnyReady::TrivialDeferred(
                 result
                     .lookup_deferred(deferred_data0.deferred_key().id())?
                     .as_trivial()
                     .unwrap()
                     .dupe()
-            ))?,
+            )
+            .resolve(&deferred_data0)?,
             deferred0
         );
 
         assert_eq!(
-            *deferred_data1.resolve(DeferredValueAnyReady::TrivialDeferred(
+            *DeferredValueAnyReady::TrivialDeferred(
                 result
                     .lookup_deferred(deferred_data1.deferred_key().id())?
                     .as_trivial()
                     .unwrap()
                     .dupe()
-            ))?,
+            )
+            .resolve(&deferred_data1)?,
             deferred1
         );
 
