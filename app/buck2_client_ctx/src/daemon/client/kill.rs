@@ -29,11 +29,6 @@ const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
 const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
-enum KillBehavior {
-    WaitForExit,
-    TerminateFirst,
-}
-
 pub async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: &DaemonProcessInfo,
@@ -50,50 +45,66 @@ pub async fn kill(
     let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
     let time_req_sent = Instant::now();
     // First we send a Kill request
-    let kill_behavior = match tokio::time::timeout(KILL_REQUEST_TIMEOUT, request_fut).await {
+    match tokio::time::timeout(KILL_REQUEST_TIMEOUT, request_fut).await {
         Ok(inner_result) => {
             match inner_result {
-                Ok(_) => KillBehavior::WaitForExit,
+                Ok(_) => loop {
+                    if !process_exists(pid)? {
+                        return Ok(());
+                    }
+                    if time_req_sent.elapsed() > GRACEFUL_SHUTDOWN_TIMEOUT {
+                        crate::eprintln!("Timed out waiting for graceful shutdown")?;
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                },
                 Err(e) => {
                     // The kill request can fail if the server is in a bad state and we cannot
                     // authenticate to it.
                     crate::eprintln!("Error requesting graceful shutdown: {}", e)?;
-                    // Try an OS-level terminate next.
-                    KillBehavior::TerminateFirst
                 }
             }
         }
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
             crate::eprintln!("Timed out requesting graceful shutdown")?;
-            KillBehavior::TerminateFirst
         }
     };
-    // Then we do a wait_for on the pid, and if that times out, we kill it harder
-    tokio::task::spawn_blocking(move || {
-        os_specific::kill_impl(
-            pid,
-            kill_behavior,
-            time_to_kill.saturating_sub(time_req_sent.elapsed()),
-        )
-    })
-    .await?
+    kill_impl(pid)?;
+    while time_req_sent.elapsed() < time_to_kill {
+        if !process_exists(pid)? {
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Err(anyhow::anyhow!(
+        "Daemon did not terminate after forceful termination"
+    ))
+}
+
+fn process_exists(pid: i64) -> anyhow::Result<bool> {
+    os_specific::process_exists(pid)
+}
+
+fn kill_impl(pid: i64) -> anyhow::Result<()> {
+    os_specific::kill_impl(pid)
 }
 
 #[cfg(unix)]
 mod os_specific {
-    use std::thread;
+
     use std::time::Duration;
-    use std::time::Instant;
 
     use anyhow::Context as _;
     use nix::sys::signal::Signal;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
 
-    use super::KillBehavior;
-
-    fn process_exists(pid: nix::unistd::Pid) -> anyhow::Result<bool> {
+    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+        let pid = nix::unistd::Pid::from_raw(
+            pid.try_into()
+                .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
+        );
         match nix::sys::signal::kill(pid, None) {
             Ok(_) => Ok(true),
             Err(nix::errno::Errno::ESRCH) => Ok(false),
@@ -102,67 +113,16 @@ mod os_specific {
         }
     }
 
-    pub(super) fn kill_impl(
-        pid: i64,
-        behavior: KillBehavior,
-        timeout: Duration,
-    ) -> anyhow::Result<()> {
+    pub(super) fn kill_impl(pid: i64) -> anyhow::Result<()> {
         let daemon_pid = nix::unistd::Pid::from_raw(
             pid.try_into()
                 .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
         );
-        enum WaitFor {
-            Exited,
-            WaitTimedOut,
-        }
-        fn wait_for(pid: nix::unistd::Pid, timeout: Duration) -> anyhow::Result<WaitFor> {
-            let start = Instant::now();
-            while start.elapsed() < timeout {
-                if !process_exists(pid)? {
-                    return Ok(WaitFor::Exited);
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Ok(WaitFor::WaitTimedOut)
-        }
 
-        match behavior {
-            KillBehavior::TerminateFirst => {
-                crate::eprintln!("Sending SIGTERM.")?;
-                // We send SIGKILL below even if this fails.
-                let _ignored = nix::sys::signal::kill(daemon_pid, Signal::SIGTERM);
-            }
-            KillBehavior::WaitForExit => {}
-        };
-
-        match wait_for(daemon_pid, timeout)? {
-            WaitFor::Exited => Ok(()),
-            WaitFor::WaitTimedOut => {
-                match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
-                    Ok(()) => {
-                        crate::eprintln!("Graceful shutdown timed out. Sending SIGKILL.")?;
-                    }
-                    Err(nix::errno::Errno::ESRCH) => return Ok(()),
-                    Err(e) => return Err(e).context("Failed to kill daemon"),
-                };
-
-                let start = Instant::now();
-                loop {
-                    if !process_exists(daemon_pid)? {
-                        return Ok(());
-                    }
-                    if start.elapsed() > timeout {
-                        // Wait may not terminate for various reasons for example:
-                        // - Another process with the same pid was started
-                        // - Debugger is attached to the process
-                        return Err(anyhow::anyhow!(
-                            "Daemon {} did not exit after SIGKILL within timeout",
-                            daemon_pid
-                        ));
-                    }
-                    thread::sleep(Duration::from_millis(100));
-                }
-            }
+        match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
+            Ok(()) => Ok(()),
+            Err(nix::errno::Errno::ESRCH) => Ok(()),
+            Err(e) => Err(e).context("Failed to kill daemon"),
         }
     }
 
@@ -174,6 +134,7 @@ mod os_specific {
 
 #[cfg(windows)]
 mod os_specific {
+    use std::io;
     use std::time::Duration;
 
     use anyhow::Context as _;
@@ -182,55 +143,43 @@ mod os_specific {
     use sysinfo::Process;
     use sysinfo::ProcessExt;
     use winapi::shared::minwindef::FILETIME;
-    use winapi::shared::winerror::WAIT_TIMEOUT;
     use winapi::um::processthreadsapi::GetProcessTimes;
     use winapi::um::processthreadsapi::OpenProcess;
     use winapi::um::processthreadsapi::TerminateProcess;
-    use winapi::um::synchapi::WaitForSingleObject;
-    use winapi::um::winbase::WAIT_OBJECT_0;
     use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
     use winapi::um::winnt::PROCESS_TERMINATE;
-    use winapi::um::winnt::SYNCHRONIZE;
 
-    use super::KillBehavior;
-
-    pub(super) fn kill_impl(
-        pid: i64,
-        behavior: KillBehavior,
-        timeout: Duration,
-    ) -> anyhow::Result<()> {
+    fn open_process(desired_access: u32, pid: i64) -> anyhow::Result<Option<WinapiHandle>> {
         let daemon_pid: u32 = pid
             .try_into()
             .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
-        let proc_handle = unsafe { OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, 0, daemon_pid) };
-        // If proc_handle is null, process died already.
+        let proc_handle = unsafe { OpenProcess(desired_access, 0, daemon_pid) };
         if proc_handle.is_null() {
-            return Ok(());
+            // If proc_handle is null, process died already, or other error like access denied.
+            // TODO(nga): handle error properly.
+            return Ok(None);
         }
-        let proc_handle = unsafe { WinapiHandle::new(proc_handle) };
-        let wait_result = match behavior {
-            KillBehavior::WaitForExit => unsafe {
-                WaitForSingleObject(proc_handle.handle(), timeout.as_millis().try_into()?)
-            },
-            KillBehavior::TerminateFirst => {
-                // Don't wait for the process to die first if we were asked to just terminate it,
-                // fall through directly to TerminateProcess instead.
-                WAIT_TIMEOUT
-            }
+        Ok(Some(unsafe { WinapiHandle::new(proc_handle) }))
+    }
+
+    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+        Ok(open_process(PROCESS_QUERY_INFORMATION, pid)?.is_some())
+    }
+
+    pub(super) fn kill_impl(pid: i64) -> anyhow::Result<()> {
+        let daemon_pid: u32 = pid
+            .try_into()
+            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
+        let proc_handle = match open_process(PROCESS_TERMINATE, pid)? {
+            Some(proc_handle) => proc_handle,
+            None => return Ok(()),
         };
-        match wait_result {
-            WAIT_OBJECT_0 => Ok(()), // process exited successfully
-            WAIT_TIMEOUT => {
-                // If process isn't signalled, terminate it forcefully.
-                match unsafe { TerminateProcess(proc_handle.handle(), 1) } {
-                    0 => Err(anyhow::anyhow!("Failed to kill daemon ({})", daemon_pid)),
-                    _ => Ok(()),
-                }
+        unsafe {
+            if TerminateProcess(proc_handle.handle(), 1) == 0 {
+                return Err(io::Error::last_os_error())
+                    .with_context(|| format!("Failed to kill daemon ({})", daemon_pid));
             }
-            error_code => Err(anyhow::anyhow!(
-                "Waiting for daemon process failed. Error code: {:#x}",
-                error_code
-            )),
+            Ok(())
         }
     }
 
@@ -305,4 +254,55 @@ fn get_callers_for_kill() -> Vec<String> {
     }
 
     process_tree.into_iter().rev().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+    use std::time::Instant;
+
+    use buck2_util::process::background_command;
+
+    use crate::daemon::client::kill::kill_impl;
+    use crate::daemon::client::kill::process_exists;
+
+    #[test]
+    fn test_process_exists_kill() {
+        let mut command = if !cfg!(windows) {
+            let mut command = background_command("sh");
+            command.args(["-c", "sleep 10000"]);
+            command
+        } else {
+            let mut command = background_command("powershell");
+            command.args(["-c", "Start-Sleep -Seconds 10000"]);
+            command
+        };
+        let mut child = command.spawn().unwrap();
+        let pid = child.id().try_into().unwrap();
+        for _ in 0..5 {
+            assert!(process_exists(pid).unwrap());
+        }
+
+        kill_impl(pid).unwrap();
+
+        child.wait().unwrap();
+        // Drop child to ensure the Windows handle is closed.
+        drop(child);
+
+        if !cfg!(windows) {
+            assert!(!process_exists(pid).unwrap());
+        } else {
+            let start = Instant::now();
+            loop {
+                if !process_exists(pid).unwrap() {
+                    break;
+                }
+                assert!(
+                    start.elapsed() < Duration::from_secs(20),
+                    "Timed out waiting for process to die"
+                );
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
 }
