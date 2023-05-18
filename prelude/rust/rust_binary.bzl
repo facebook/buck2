@@ -64,6 +64,7 @@ def _rust_binary_common(
     simple_crate = attr_simple_crate_for_filenames(ctx)
 
     styles = {}
+    dwp_target = None
     style_param = {}  # style -> param
 
     specified_link_style = LinkStyle(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STYLE
@@ -150,6 +151,8 @@ def _rust_binary_common(
             runtime_files.extend(resources_hidden)
 
         styles[link_style] = (link.outputs[Emit("link")], args, extra_targets, runtime_files)
+        if link_style == specified_link_style and link.dwp_outputs:
+            dwp_target = link.dwp_outputs[Emit("link")]
 
     expand = rust_compile(
         ctx = ctx,
@@ -183,6 +186,13 @@ def _rust_binary_common(
                 # sub_targets = { k: [DefaultInfo(default_output = v)] for k, v in sub_extra }
             ),
             RunInfo(args = sub_args),
+        ]
+
+    if dwp_target:
+        sub_targets["dwp"] = [
+            DefaultInfo(
+                default_output = dwp_target,
+            ),
         ]
 
     providers = [

@@ -16,6 +16,8 @@ load(
     "make_link_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
+load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:linker.bzl",
     "get_default_shared_library_name",
@@ -73,6 +75,7 @@ RustcOutput = record(
     outputs = field({Emit.type: "artifact"}),
     diag = field({str.type: "artifact"}),
     pdb = field(["artifact", None]),
+    dwp_outputs = field({Emit.type: "artifact"}),
 )
 
 def compile_context(ctx: "context") -> CompileContext.type:
@@ -390,6 +393,7 @@ def rust_compile(
         )
 
     pdb_artifact = None
+    dwp_inputs = []
     if crate_type_linked(params.crate_type) and not common_args.is_check:
         subdir = common_args.subdir
         tempfile = common_args.tempfile
@@ -413,6 +417,8 @@ def rust_compile(
             link_args,
             allow_args = True,
         )
+
+        dwp_inputs = link_args
         rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
         rustc_cmd.hidden(hidden)
 
@@ -486,7 +492,24 @@ def rust_compile(
     else:
         filtered_outputs = outputs
 
-    return RustcOutput(outputs = filtered_outputs, diag = diag, pdb = pdb_artifact)
+    filtered_dwp_outputs = {}
+    if (is_binary and
+        dwp_available(ctx) and
+        get_cxx_toolchain_info(ctx).split_debug_mode != SplitDebugMode("none")):
+        for (emit, output) in outputs.items():
+            filtered_dwp_outputs[emit] = dwp(
+                ctx,
+                output,
+                identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, str(emit)),
+                category_suffix = "rust",
+                # TODO(T110378142): Ideally, referenced objects are a list of
+                # artifacts, but currently we don't track them properly.  So, we
+                # just pass in the full link line and extract all inputs from that,
+                # which is a bit of an overspecification.
+                referenced_objects = dwp_inputs,
+            )
+
+    return RustcOutput(outputs = filtered_outputs, diag = diag, pdb = pdb_artifact, dwp_outputs = filtered_dwp_outputs)
 
 # --extern <crate>=<path> for direct dependencies
 # -Ldependency=<dir> for transitive dependencies
