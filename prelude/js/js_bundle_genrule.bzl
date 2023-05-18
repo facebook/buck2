@@ -116,6 +116,7 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
             sub_targets["{}-misc".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.misc)]
             sub_targets["{}-source_map".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.source_map)]
             sub_targets["{}-dependencies".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
+            sub_targets["{}-res".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.res)]
 
     js_bundle_info = ctx.attrs.js_bundle[JsBundleInfo]
     bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
@@ -124,6 +125,7 @@ def js_bundle_genrule_impl(ctx: "context") -> ["provider"]:
     sub_targets["dependencies"] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
     sub_targets["misc"] = [DefaultInfo(default_output = js_bundle_out.misc)]
     sub_targets["source_map"] = [DefaultInfo(default_output = js_bundle_out.source_map)]
+    sub_targets["res"] = [DefaultInfo(default_output = js_bundle_out.res)]
     default_info_out = DefaultInfo(
         default_output = js_bundle_out.built_js,
         sub_targets = sub_targets,

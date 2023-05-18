@@ -192,6 +192,7 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
             misc_providers = [DefaultInfo(default_output = js_bundle_info.misc)]
             source_map_providers = [DefaultInfo(default_output = js_bundle_info.source_map)]
             dependencies_providers = [DefaultInfo(default_output = js_bundle_info.dependencies_file)]
+            res_providers = [DefaultInfo(default_output = js_bundle_info.res)]
 
             sub_targets[simple_name] = built_js_providers + extra_providers
             sub_targets["{}-misc".format(simple_name)] = misc_providers
@@ -207,11 +208,13 @@ def js_bundle_impl(ctx: "context") -> ["provider"]:
                     sub_targets["misc"] = misc_providers
                     sub_targets["source_map"] = source_map_providers
                     sub_targets["dependencies"] = dependencies_providers
+                    sub_targets["res"] = res_providers
                 else:
                     sub_targets[ram_bundle_name] = built_js_providers + extra_providers
                     sub_targets["{}-misc".format(ram_bundle_name)] = misc_providers
                     sub_targets["{}-source_map".format(ram_bundle_name)] = source_map_providers
                     sub_targets["{}-dependencies".format(ram_bundle_name)] = dependencies_providers
+                    sub_targets["{}-res".format(ram_bundle_name)] = res_providers
 
     expect(len(default_outputs) == 1, "Should get exactly one default output!")
     expect(extra_unnamed_output_providers != None, "Should set extra unnamed output providers once!")
