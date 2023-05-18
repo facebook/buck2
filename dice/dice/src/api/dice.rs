@@ -271,8 +271,8 @@ impl Dice {
     }
 
     /// true when there are no active tasks nor transactions alive
-    pub fn is_idle(&self) -> bool {
-        self.implementation.is_idle()
+    pub async fn is_idle(&self) -> bool {
+        self.implementation.is_idle().await
     }
 }
 

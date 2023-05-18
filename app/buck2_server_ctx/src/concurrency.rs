@@ -520,7 +520,7 @@ impl ConcurrencyHandler {
                 DiceStatus::Available { active } => {
                     tracing::debug!("ActiveDice is available");
 
-                    let dice_was_idle = self.dice.is_idle();
+                    let dice_was_idle = self.dice.is_idle().await;
 
                     // we rerun the updates in case that files on disk have changed between commands.
                     // this might cause some churn, but concurrent commands don't happen much and

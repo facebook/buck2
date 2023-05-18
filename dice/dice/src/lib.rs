@@ -348,10 +348,10 @@ impl DiceImplementation {
         }
     }
 
-    pub fn is_idle(&self) -> bool {
+    pub async fn is_idle(&self) -> bool {
         match self {
             DiceImplementation::Legacy(dice) => dice.is_idle(),
-            DiceImplementation::Modern(dice) => dice.is_idle(),
+            DiceImplementation::Modern(dice) => dice.is_idle().await,
         }
     }
 }

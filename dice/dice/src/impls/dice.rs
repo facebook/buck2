@@ -114,7 +114,8 @@ impl DiceModern {
         futures::future::ready(())
     }
 
-    pub fn is_idle(&self) -> bool {
+    /// true when there are no tasks pending cancellation
+    pub async fn is_idle(&self) -> bool {
         // TODO(bobyf) actually implement this.
         // However, in the mean time, this is sufficient to let us experiment with this dice in production
         true
