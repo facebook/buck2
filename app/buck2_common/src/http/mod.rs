@@ -140,14 +140,27 @@ impl SetHttpClient for UserComputationData {
 /// Load the system root certificates into rustls cert store.
 fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     let mut roots = rustls::RootCertStore::empty();
-    let native_certs = rustls_native_certs::load_native_certs()
-        .context("Error loading system root certificates")?;
-    for cert in native_certs {
-        let cert = rustls::Certificate(cert.0);
-        if let Err(e) = roots.add(&cert) {
-            anyhow::bail!("Error loading system certificate in to cert store: {:?}", e);
-        }
-    }
+    let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
+        .context("Error loading system root certificates")?
+        .into_iter()
+        .map(|cert| cert.0)
+        .collect();
+
+    // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
+    // it's better to only add parseable certs when loading system certs because
+    // there are typically many system certs and not all of them can be valid. This
+    // is pertinent for e.g. macOS which may have a lot of old certificates that may
+    // not parse correctly.
+    let (valid, invalid) = roots.add_parsable_certificates(native_certs.as_slice());
+
+    // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
+    // able to make any connections via https.
+    anyhow::ensure!(
+        valid > 0,
+        "Error loading system certs: unable to find any valid system certs"
+    );
+    tracing::debug!("Loaded {} valid system root certs", valid);
+    tracing::debug!("Loaded {} invalid system root certs", invalid);
     Ok(roots)
 }
 
