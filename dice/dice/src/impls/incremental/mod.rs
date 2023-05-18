@@ -235,7 +235,6 @@ impl IncrementalEngine {
                         &mismatch.verified_versions,
                         mismatch.deps_to_validate,
                         &cycles,
-                        &events_dispatcher,
                     )
                     .await
                 };
@@ -359,7 +358,7 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, eval, events, cycles),
+        skip(self, eval, cycles),
         fields(version = %eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
@@ -369,7 +368,6 @@ impl IncrementalEngine {
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
         cycles: &UserCycleDetectorData,
-        events: &DiceEventDispatcher,
     ) -> DidDepsChange {
         if deps.is_empty() {
             return DidDepsChange::NoDeps;

@@ -140,7 +140,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let engine = IncrementalEngine::new(dice.state_handle.dupe(), VersionEpoch::testing_new(0));
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
-    let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
     let cycles = UserCycleDetectorData::new();
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
@@ -164,7 +163,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
-                &events,
             )
             .await
             .is_changed()
@@ -191,7 +189,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
-                &events,
             )
             .await
             .is_changed()
@@ -218,7 +215,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 )]),
                 Arc::new(vec![DiceKey { index: 200 }]),
                 &cycles,
-                &events,
             )
             .await
             .is_changed()
