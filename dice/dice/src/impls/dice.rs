@@ -109,16 +109,27 @@ impl DiceModern {
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
-        // TODO(bobyf) actually implement this.
-        // However, in the mean time, this is sufficient to let us experiment with this dice in production
-        futures::future::ready(())
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.state_handle
+            .request(StateRequest::GetTasksPendingCancellation { resp: tx });
+
+        async move {
+            let tasks = rx.await.unwrap();
+            futures::future::join_all(tasks).await;
+        }
     }
 
     /// true when there are no tasks pending cancellation
     pub async fn is_idle(&self) -> bool {
-        // TODO(bobyf) actually implement this.
-        // However, in the mean time, this is sufficient to let us experiment with this dice in production
-        true
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        self.state_handle
+            .request(StateRequest::GetTasksPendingCancellation { resp: tx });
+
+        let tasks = rx.await.unwrap();
+
+        tasks.iter().all(|task| task.is_terminated())
     }
 }
 

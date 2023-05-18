@@ -72,7 +72,6 @@ pub(crate) enum StateRequest {
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceResult<DiceComputedValue>>,
     },
-    #[allow(unused)] // TODO(temporary)
     /// Get all the tasks pending cancellation
     GetTasksPendingCancellation {
         #[derivative(Debug = "ignore")]
