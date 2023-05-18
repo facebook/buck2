@@ -75,7 +75,6 @@ impl Debug for IncrementalEngine {
     }
 }
 
-#[allow(unused)] // TODO(bobyf) temporary
 impl IncrementalEngine {
     fn new(state: CoreStateHandle, version_epoch: VersionEpoch) -> Self {
         Self {
@@ -414,7 +413,6 @@ impl IncrementalEngine {
     }
 }
 
-#[allow(unused)] // TODO(bobyf) temporary
 enum DidDepsChange {
     Changed,
     /// These deps did not change
@@ -438,51 +436,6 @@ fn report_key_activation(
 
 #[cfg(test)]
 pub(crate) mod testing {
-
-    // #[async_trait]
-    // pub(crate) trait IncrementalEngineExt<K>
-    //     where
-    //         K: StorageProperties + 'static,
-    // {
-    //     fn get_cached(
-    //         self: &Arc<Self>,
-    //         k: K::Key,
-    //         version: VersionNumber,
-    //         m_version: MinorVersion,
-    //     ) -> GraphNode<K>;
-    //
-    //     fn get_maybe_cached(
-    //         self: &Arc<Self>,
-    //         k: K::Key,
-    //         version: VersionNumber,
-    //         m_version: MinorVersion,
-    //     ) -> VersionedGraphResult<K>;
-    // }
-    //
-    // #[async_trait]
-    // impl<K> IncrementalEngineExt<K> for IncrementalEngine<K>
-    //     where
-    //         K: IncrementalComputeProperties,
-    // {
-    //     fn get_cached(
-    //         self: &Arc<Self>,
-    //         k: K::Key,
-    //         version: VersionNumber,
-    //         m_version: MinorVersion,
-    //     ) -> GraphNode<K> {
-    //         self.get_maybe_cached(k, version, m_version).assert_match()
-    //     }
-    //
-    //     fn get_maybe_cached(
-    //         self: &Arc<Self>,
-    //         k: K::Key,
-    //         version: VersionNumber,
-    //         m_version: MinorVersion,
-    //     ) -> VersionedGraphResult<K> {
-    //         self.versioned_cache
-    //             .get(VersionedGraphKeyRef::new(version, &k), m_version)
-    //     }
-    // }
 
     use crate::impls::incremental::DidDepsChange;
 

@@ -69,7 +69,6 @@ impl DiceKeyErased {
         })
     }
 
-    #[allow(unused)] // TODO(bobyf) temporary
     pub(crate) fn key_type_name(&self) -> &'static str {
         match self {
             DiceKeyErased::Key(k) => k.key_type_name(),
@@ -146,7 +145,6 @@ impl<'a> DiceKeyErasedRef<'a> {
         Self::Key(k)
     }
 
-    #[allow(unused)] // TODO(bobyf)
     pub(crate) fn proj<K: ProjectionKey>(base: DiceKey, k: &'a K) -> Self {
         Self::Projection(ProjectionWithBaseRef { base, proj: k })
     }
@@ -158,7 +156,7 @@ impl<'a> DiceKeyErasedRef<'a> {
         }
     }
 
-    #[allow(unused)] // TODO(bobyf) temporary
+    #[allow(unused)] // generally useful function that is the counterpart on `DiceKeyErased` 
     pub(crate) fn key_type_name(&self) -> &'static str {
         match self {
             DiceKeyErasedRef::Key(k) => k.key_type_name(),
@@ -443,7 +441,6 @@ impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
 
 impl<'a> Eq for ProjectionWithBaseRef<'a> {}
 
-#[allow(unused)] // TODO(bobyf) temporary
 mod introspection {
     use std::fmt::Display;
     use std::fmt::Formatter;

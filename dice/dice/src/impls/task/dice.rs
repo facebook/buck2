@@ -287,7 +287,6 @@ impl Cancellations {
         Self { internal: None }
     }
 
-    #[allow(unused)] // TODO(bobyf)
     pub(super) fn cancel(&self, _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>) {
         if let Some(internal) = self.internal.as_ref() {
             take_mut::take(

@@ -343,7 +343,6 @@ where {
             .copied()
     }
 
-    #[allow(unused)] // TODO(bobyf) temporary
     pub(crate) fn first_dirty_after(&self, v: VersionNumber) -> Option<VersionNumber> {
         self.dirtied
             .range((Bound::Excluded(v), Bound::Unbounded))
@@ -351,7 +350,6 @@ where {
             .map(|(v, _)| *v)
     }
 
-    #[allow(unused)] // TODO(bobyf) temporary
     pub(crate) fn first_verified_after(&self, v: VersionNumber) -> Option<VersionNumber> {
         self.verified
             .range((Bound::Excluded(v), Bound::Unbounded))
