@@ -17,14 +17,13 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use std::ptr;
 
     use anyhow::Context;
+    use buck2_wrapper_common::winapi_handle::WinapiHandle;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;
-    use winapi::um::handleapi::CloseHandle;
     use winapi::um::processthreadsapi::GetCurrentProcess;
     use winapi::um::processthreadsapi::OpenProcessToken;
     use winapi::um::securitybaseapi::GetTokenInformation;
     use winapi::um::winnt::TokenElevation;
-    use winapi::um::winnt::HANDLE;
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
 
@@ -32,16 +31,6 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     enum CheckUserAllowedError {
         #[error("OpenProcessToken returned null token handle (unreachable)")]
         NullTokenHandle,
-    }
-
-    struct Handle(HANDLE);
-    impl Drop for Handle {
-        fn drop(&mut self) {
-            let exit = unsafe { CloseHandle(self.0) };
-            if exit == 0 {
-                panic!("Failed closing process token handle")
-            }
-        }
     }
 
     let mut handle = ptr::null_mut();
@@ -53,14 +42,14 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
         return Err(CheckUserAllowedError::NullTokenHandle.into());
     }
 
-    let handle = Handle(handle);
+    let handle = unsafe { WinapiHandle::new(handle) };
     let size = mem::size_of::<TOKEN_ELEVATION>();
     let elevation: MaybeUninit<TOKEN_ELEVATION> = MaybeUninit::zeroed();
     let mut ret_size = 0;
 
     let success_get = unsafe {
         GetTokenInformation(
-            handle.0,
+            handle.handle(),
             TokenElevation,
             elevation.as_ptr() as *mut c_void,
             size as DWORD,
