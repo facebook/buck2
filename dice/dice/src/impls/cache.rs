@@ -82,6 +82,24 @@ impl SharedCache {
     }
 }
 
+#[allow(unused)] // temporary
+pub(crate) mod introspection {
+    use crate::impls::cache::SharedCache;
+    use crate::impls::key::DiceKey;
+    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+
+    impl SharedCache {
+        pub(crate) fn iter_tasks(
+            &self,
+        ) -> impl Iterator<Item = (DiceKey, DiceTaskStateForDebugging)> + '_ {
+            self.data
+                .storage
+                .iter()
+                .map(|entry| (*entry.key(), entry.value().introspect_state()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::Any;
