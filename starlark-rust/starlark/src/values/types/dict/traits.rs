@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeMap;
 use std::hash::Hash;
 
 use crate::collections::SmallMap;
@@ -29,6 +30,8 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+
+// SmallMap
 
 impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -85,6 +88,68 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
         let it = dict.iter();
         let mut r = SmallMap::with_capacity(it.len());
         for (k, v) in it {
+            r.insert(K::unpack_value(k)?, V::unpack_value(v)?);
+        }
+        Some(r)
+    }
+}
+
+// BTreeMap
+
+impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for BTreeMap<K, V> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        AllocDict(self).alloc_value(heap)
+    }
+}
+
+impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for BTreeMap<K, V> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        AllocDict(self).alloc_frozen_value(heap)
+    }
+}
+
+impl<'a, 'v, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocValue<'v>
+    for &'a BTreeMap<K, V>
+where
+    &'a K: AllocValue<'v>,
+    &'a V: AllocValue<'v>,
+{
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        AllocDict(self).alloc_value(heap)
+    }
+}
+
+impl<'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue for &'a BTreeMap<K, V>
+where
+    &'a K: AllocFrozenValue,
+    &'a V: AllocFrozenValue,
+{
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        AllocDict(self).alloc_frozen_value(heap)
+    }
+}
+
+impl<'a, K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for &'a BTreeMap<K, V> {
+    fn starlark_type_repr() -> String {
+        DictType::<K, V>::starlark_type_repr()
+    }
+}
+
+impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, V> {
+    fn starlark_type_repr() -> String {
+        DictType::<K, V>::starlark_type_repr()
+    }
+}
+
+impl<'v, K: UnpackValue<'v> + Ord, V: UnpackValue<'v>> UnpackValue<'v> for BTreeMap<K, V> {
+    fn expected() -> String {
+        format!("dict mapping {} to {}", K::expected(), V::expected())
+    }
+
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        let dict = DictRef::from_value(value)?;
+        let mut r = BTreeMap::new();
+        for (k, v) in dict.iter() {
             r.insert(K::unpack_value(k)?, V::unpack_value(v)?);
         }
         Some(r)
