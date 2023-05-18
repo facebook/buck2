@@ -9,13 +9,13 @@
 
 //! Cross-platform process killing.
 
-pub fn process_exists(pid: i64) -> anyhow::Result<bool> {
+pub fn process_exists(pid: u32) -> anyhow::Result<bool> {
     os_specific::process_exists(pid)
 }
 
 /// Send `KILL` or call `TerminateProcess` on the given process.
 /// Return `Ok(())` if call is successful or process does not exist.
-pub fn kill(pid: i64) -> anyhow::Result<()> {
+pub fn kill(pid: u32) -> anyhow::Result<()> {
     os_specific::kill(pid)
 }
 
@@ -24,7 +24,7 @@ mod os_specific {
     use anyhow::Context;
     use nix::sys::signal::Signal;
 
-    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+    pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
         let pid = nix::unistd::Pid::from_raw(
             pid.try_into()
                 .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
@@ -37,7 +37,7 @@ mod os_specific {
         }
     }
 
-    pub(super) fn kill(pid: i64) -> anyhow::Result<()> {
+    pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
         let daemon_pid = nix::unistd::Pid::from_raw(
             pid.try_into()
                 .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
@@ -63,11 +63,8 @@ mod os_specific {
 
     use crate::winapi_handle::WinapiHandle;
 
-    fn open_process(desired_access: u32, pid: i64) -> anyhow::Result<Option<WinapiHandle>> {
-        let daemon_pid: u32 = pid
-            .try_into()
-            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
-        let proc_handle = unsafe { OpenProcess(desired_access, 0, daemon_pid) };
+    fn open_process(desired_access: u32, pid: u32) -> anyhow::Result<Option<WinapiHandle>> {
+        let proc_handle = unsafe { OpenProcess(desired_access, 0, pid) };
         if proc_handle.is_null() {
             // If proc_handle is null, process died already, or other error like access denied.
             // TODO(nga): handle error properly.
@@ -76,14 +73,11 @@ mod os_specific {
         Ok(Some(unsafe { WinapiHandle::new(proc_handle) }))
     }
 
-    pub(crate) fn process_exists(pid: i64) -> anyhow::Result<bool> {
+    pub(crate) fn process_exists(pid: u32) -> anyhow::Result<bool> {
         Ok(open_process(PROCESS_QUERY_INFORMATION, pid)?.is_some())
     }
 
-    pub(super) fn kill(pid: i64) -> anyhow::Result<()> {
-        let daemon_pid: u32 = pid
-            .try_into()
-            .with_context(|| format!("Integer overflow converting pid {} to u32", pid))?;
+    pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
         let proc_handle = match open_process(PROCESS_TERMINATE, pid)? {
             Some(proc_handle) => proc_handle,
             None => return Ok(()),
@@ -91,7 +85,7 @@ mod os_specific {
         unsafe {
             if TerminateProcess(proc_handle.handle(), 1) == 0 {
                 return Err(io::Error::last_os_error())
-                    .with_context(|| format!("Failed to kill daemon ({})", daemon_pid));
+                    .with_context(|| format!("Failed to kill daemon ({})", pid));
             }
             Ok(())
         }

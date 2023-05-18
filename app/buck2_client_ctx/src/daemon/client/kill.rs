@@ -10,6 +10,7 @@
 use std::time::Duration;
 use std::time::Instant;
 
+use anyhow::Context;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_wrapper_common::kill;
@@ -36,6 +37,9 @@ pub async fn kill(
     reason: &str,
 ) -> anyhow::Result<()> {
     let pid = info.pid;
+    let pid: u32 = pid
+        .try_into()
+        .with_context(|| format!("Integer overflow converting pid {}", pid))?;
     let callers = get_callers_for_kill();
 
     let request_fut = client.kill(Request::new(KillRequest {
