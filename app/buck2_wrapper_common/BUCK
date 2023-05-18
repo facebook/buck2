@@ -6,6 +6,24 @@ oncall("buck2")
 rust_library(
     name = "buck2_wrapper_common",
     srcs = glob(["src/**/*.rs"]),
+    os_deps = [
+        (
+            "linux",
+            [
+            ],
+        ),
+        (
+            "macos",
+            [
+            ],
+        ),
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
+    ],
     test_deps = [
         "fbsource//third-party/rust:serde_json",
     ],

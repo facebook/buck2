@@ -21,6 +21,7 @@ use sysinfo::System;
 use sysinfo::SystemExt;
 
 pub mod invocation_id;
+pub mod winapi_handle;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";

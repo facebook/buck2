@@ -18,5 +18,8 @@ sysinfo = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }
+
 [dev-dependencies]
 serde_json = { workspace = true }

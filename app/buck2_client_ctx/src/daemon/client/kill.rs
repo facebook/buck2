@@ -173,32 +173,22 @@ mod os_specific {
     use std::time::Duration;
 
     use anyhow::Context as _;
+    use buck2_wrapper_common::winapi_handle::WinapiHandle;
     use sysinfo::PidExt;
     use sysinfo::Process;
     use sysinfo::ProcessExt;
     use winapi::shared::minwindef::FILETIME;
     use winapi::shared::winerror::WAIT_TIMEOUT;
-    use winapi::um::handleapi::CloseHandle;
     use winapi::um::processthreadsapi::GetProcessTimes;
     use winapi::um::processthreadsapi::OpenProcess;
     use winapi::um::processthreadsapi::TerminateProcess;
     use winapi::um::synchapi::WaitForSingleObject;
     use winapi::um::winbase::WAIT_OBJECT_0;
-    use winapi::um::winnt::HANDLE;
     use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
     use winapi::um::winnt::PROCESS_TERMINATE;
     use winapi::um::winnt::SYNCHRONIZE;
 
     use super::KillBehavior;
-
-    struct HandleWrapper {
-        handle: HANDLE,
-    }
-    impl Drop for HandleWrapper {
-        fn drop(&mut self) {
-            unsafe { CloseHandle(self.handle) };
-        }
-    }
 
     pub(super) fn kill_impl(
         pid: i64,
@@ -213,12 +203,10 @@ mod os_specific {
         if proc_handle.is_null() {
             return Ok(());
         }
-        let proc_handle = HandleWrapper {
-            handle: proc_handle,
-        };
+        let proc_handle = unsafe { WinapiHandle::new(proc_handle) };
         let wait_result = match behavior {
             KillBehavior::WaitForExit => unsafe {
-                WaitForSingleObject(proc_handle.handle, timeout.as_millis().try_into()?)
+                WaitForSingleObject(proc_handle.handle(), timeout.as_millis().try_into()?)
             },
             KillBehavior::TerminateFirst => {
                 // Don't wait for the process to die first if we were asked to just terminate it,
@@ -230,7 +218,7 @@ mod os_specific {
             WAIT_OBJECT_0 => Ok(()), // process exited successfully
             WAIT_TIMEOUT => {
                 // If process isn't signalled, terminate it forcefully.
-                match unsafe { TerminateProcess(proc_handle.handle, 1) } {
+                match unsafe { TerminateProcess(proc_handle.handle(), 1) } {
                     0 => Err(anyhow::anyhow!("Failed to kill daemon ({})", daemon_pid)),
                     _ => Ok(()),
                 }
@@ -249,9 +237,7 @@ mod os_specific {
         if proc_handle.is_null() {
             return None;
         }
-        let proc_handle = HandleWrapper {
-            handle: proc_handle,
-        };
+        let proc_handle = unsafe { WinapiHandle::new(proc_handle) };
         let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
@@ -259,7 +245,7 @@ mod os_specific {
 
         let result = unsafe {
             GetProcessTimes(
-                proc_handle.handle,
+                proc_handle.handle(),
                 &mut creation_time,
                 &mut exit_time,
                 &mut kernel_time,
