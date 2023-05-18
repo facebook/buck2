@@ -31,16 +31,16 @@ pub struct VersionedGraphIntrospectable {
 }
 
 impl VersionedGraphIntrospectable {
-    fn keys<'a>(&'a self) -> impl Iterator<Item = &AnyKey> + 'a {
-        self.nodes.keys()
+    pub(crate) fn keys<'a>(&'a self) -> impl Iterator<Item = AnyKey> + 'a {
+        self.nodes.keys().cloned()
     }
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (&AnyKey, &Vec<AnyKey>)> + 'a {
-        self.edges.iter()
+    pub(crate) fn edges<'a>(&'a self) -> impl Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a {
+        self.edges.iter().map(|(k, v)| (k.clone(), v.clone()))
     }
-    fn nodes<'a>(&'a self) -> impl Iterator<Item = &SerializedGraphNodesForKey> + 'a {
-        self.nodes.values()
+    pub(crate) fn nodes<'a>(&'a self) -> impl Iterator<Item = SerializedGraphNodesForKey> + 'a {
+        self.nodes.values().cloned()
     }
-    fn len_for_introspection(&self) -> usize {
+    pub(crate) fn len_for_introspection(&self) -> usize {
         self.nodes.len()
     }
 }

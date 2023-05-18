@@ -188,7 +188,7 @@ pub struct SerializedGraphNode {
     pub rdeps: Option<BTreeMap<VersionNumber, Vec<NodeID>>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SerializedGraphNodesForKey {
     pub id: KeyID,
     pub key: String,
