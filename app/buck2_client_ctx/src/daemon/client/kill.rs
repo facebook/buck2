@@ -25,6 +25,8 @@ use tonic::Request;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
+/// Kill request does not wait for the process to exit.
+const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
 const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 enum KillBehavior {
@@ -48,7 +50,7 @@ pub async fn kill(
     let time_to_kill = GRACEFUL_SHUTDOWN_TIMEOUT + FORCE_SHUTDOWN_TIMEOUT;
     let time_req_sent = Instant::now();
     // First we send a Kill request
-    let kill_behavior = match tokio::time::timeout(time_to_kill, request_fut).await {
+    let kill_behavior = match tokio::time::timeout(KILL_REQUEST_TIMEOUT, request_fut).await {
         Ok(inner_result) => {
             match inner_result {
                 Ok(_) => KillBehavior::WaitForExit,
