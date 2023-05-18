@@ -78,7 +78,7 @@ def cxx_link(
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and not linker_info.generate_linker_maps
+    should_generate_dwp = allow_bolt_optimization_and_dwp_generation and dwp_available(ctx) and cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps:
@@ -107,11 +107,13 @@ def cxx_link(
         return (exe, linker_map_data, LinkExecutionPreferenceInfo(preference = link_execution_preference))
 
     if linker_info.generate_linker_maps:
-        links += [linker_map_args(ctx, linker_map.as_output())]
+        links_with_linker_map = links + [linker_map_args(ctx, linker_map.as_output())]
+    else:
+        links_with_linker_map = links
 
     (link_args, hidden, dwo_dir, pdb_artifact) = make_link_args(
         ctx,
-        links,
+        links_with_linker_map,
         suffix = identifier,
         output_short_path = output.short_path,
         is_shared = result_type.value == "shared_library",
