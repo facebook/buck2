@@ -30,6 +30,11 @@ impl WinapiHandle {
 
 impl Drop for WinapiHandle {
     fn drop(&mut self) {
-        unsafe { CloseHandle(self.handle) };
+        unsafe {
+            if !self.handle.is_null() {
+                let res = CloseHandle(self.handle);
+                assert!(res != 0, "CloseHandle failed");
+            }
+        };
     }
 }
