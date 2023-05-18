@@ -71,7 +71,7 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
                                   "--minimum-deployment-target",
                                   get_bundle_min_target_version(ctx),
                                   "--compile",
-                                  catalog_output,
+                                  '"$TMPDIR"',
                                   "--output-partial-info-plist",
                                   plist_output,
                               ] +
@@ -99,10 +99,11 @@ def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalo
     wrapper_script, _ = ctx.actions.write(
         "actool_wrapper.sh",
         [
-            cmd_args(catalog_output, format = "mkdir -p {}"),
+            cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args(actool_command, delimiter = " "),
+            cmd_args(catalog_output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
         ],
         allow_args = True,
     )
-    command = cmd_args(["/bin/sh", wrapper_script]).hidden([actool_command])
+    command = cmd_args(["/bin/sh", wrapper_script]).hidden([actool_command, catalog_output])
     return command
