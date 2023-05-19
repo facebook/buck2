@@ -27,7 +27,7 @@ use more_futures::cancellation::CancellationContext;
 use crate::bxl::eval::eval;
 
 #[derive(Debug)]
-struct BxlCalculationImpl;
+pub(crate) struct BxlCalculationImpl;
 
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
