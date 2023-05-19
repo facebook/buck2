@@ -41,6 +41,7 @@ use starlark::values::ValueTyped;
 
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
+use crate::analysis::anon_promises::AnonPromises;
 use crate::analysis::anon_targets::AnonTargetsRegistry;
 use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
 use crate::artifact_groups::promise::PromiseArtifact;
@@ -277,7 +278,7 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.register_many(promise, rules)
     }
 
-    pub fn take_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+    pub(crate) fn take_promises(&mut self) -> Option<AnonPromises<'v>> {
         self.anon_targets.take_promises()
     }
 

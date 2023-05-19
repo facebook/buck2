@@ -59,8 +59,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use either::Either;
-use futures::future;
 use futures::stream::FuturesUnordered;
 use futures::Future;
 use futures::FutureExt;
@@ -69,7 +67,6 @@ use more_futures::cancellation::CancellationContext;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
-use starlark::values::list::AllocList;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -77,6 +74,7 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use super::anon_target_node::AnonTarget;
+use crate::analysis::anon_promises::AnonPromises;
 use crate::analysis::anon_target_attr::AnonTargetAttr;
 use crate::analysis::anon_target_attr::AnonTargetAttrTraversal;
 use crate::analysis::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
@@ -98,12 +96,7 @@ use crate::nodes::calculation::find_execution_platform_by_configuration;
 pub struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
-    // The actual data
-    entries: Vec<(
-        ValueTyped<'v, StarlarkPromise<'v>>,
-        // Either a single entry, or a list that becomes a list of providers
-        Either<AnonTargetKey, Vec<AnonTargetKey>>,
-    )>,
+    promises: AnonPromises<'v>,
 }
 
 #[derive(Debug, Error)]
@@ -127,10 +120,10 @@ pub enum AnonTargetsError {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
-struct AnonTargetKey(Arc<AnonTarget>);
+pub(crate) struct AnonTargetKey(Arc<AnonTarget>);
 
 impl AnonTargetKey {
-    fn new<'v>(
+    pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: DictOf<'v, &'v str, Value<'v>>,
@@ -242,7 +235,7 @@ impl AnonTargetKey {
         AnonTargetAttr::from_coerced_attr(x, ty, &AnonAttrCtx::new())
     }
 
-    async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
+    pub(crate) async fn resolve(&self, dice: &DiceComputations) -> anyhow::Result<AnalysisResult> {
         #[async_trait]
         impl Key for AnonTargetKey {
             type Value = SharedResult<AnalysisResult>;
@@ -502,7 +495,7 @@ impl<'v> AnonTargetsRegistry<'v> {
     pub(crate) fn new(execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             execution_platform,
-            entries: Vec::new(),
+            promises: AnonPromises::default(),
         }
     }
 
@@ -512,14 +505,10 @@ impl<'v> AnonTargetsRegistry<'v> {
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: DictOf<'v, &'v str, Value<'v>>,
     ) -> anyhow::Result<()> {
-        self.entries.push((
+        self.promises.push_one(
             promise,
-            Either::Left(AnonTargetKey::new(
-                &self.execution_platform,
-                rule,
-                attributes,
-            )?),
-        ));
+            AnonTargetKey::new(&self.execution_platform, rule, attributes)?,
+        );
         Ok(())
     }
 
@@ -534,74 +523,17 @@ impl<'v> AnonTargetsRegistry<'v> {
         let keys = rules.into_try_map(|(rule, attributes)| {
             AnonTargetKey::new(&self.execution_platform, rule, attributes)
         })?;
-        self.entries.push((promise, Either::Right(keys)));
+        self.promises.push_list(promise, keys);
         Ok(())
     }
 
-    pub(crate) fn take_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
-        if self.entries.is_empty() {
-            None
-        } else {
-            // We swap it out, so we can still collect new promises
-            let mut new = AnonTargetsRegistry::new(self.execution_platform.dupe());
-            mem::swap(&mut new, self);
-            Some(new)
-        }
-    }
-
-    pub(crate) async fn run_promises(
-        self,
-        dice: &DiceComputations,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<()> {
-        // Resolve all the targets in parallel
-        // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
-        let mut shape = Vec::new();
-        let mut targets = Vec::new();
-        for (promise, xs) in self.entries {
-            match xs {
-                Either::Left(x) => {
-                    shape.push((promise, Either::Left(shape.len())));
-                    targets.push(x);
-                }
-                Either::Right(xs) => {
-                    shape.push((promise, Either::Right(shape.len()..shape.len() + xs.len())));
-                    targets.extend(xs);
-                }
-            }
-        }
-
-        let values =
-            future::try_join_all(targets.iter().map(|target| target.resolve(dice))).await?;
-        // But must bind the promises sequentially
-        for (promise, xs) in shape {
-            match xs {
-                Either::Left(i) => {
-                    let val = values[i]
-                        .provider_collection
-                        .value()
-                        .owned_value(eval.frozen_heap());
-                    promise.resolve(val, eval)?
-                }
-                Either::Right(is) => {
-                    let xs: Vec<_> = is
-                        .map(|i| {
-                            values[i]
-                                .provider_collection
-                                .value()
-                                .owned_value(eval.frozen_heap())
-                        })
-                        .collect();
-                    let list = eval.heap().alloc(AllocList(xs));
-                    promise.resolve(list, eval)?
-                }
-            }
-        }
-        Ok(())
+    pub(crate) fn take_promises(&mut self) -> Option<AnonPromises<'v>> {
+        // We swap it out, so we can still collect new promises
+        Some(mem::take(&mut self.promises)).filter(|p| !p.is_empty())
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
-        if self.entries.is_empty() {
+        if self.promises.is_empty() {
             Ok(())
         } else {
             Err(AnonTargetsError::AssertNoPromisesFailed.into())

@@ -47,6 +47,7 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
 // TODO(@wendyy) move into `buck2_node`
+pub(crate) mod anon_promises;
 pub mod anon_target_attr;
 #[allow(unused)] // TODO(@wendyy) temporary
 // TODO(@wendyy) move out of buck2_build_api and into `buck2_interpreter_for_build`
