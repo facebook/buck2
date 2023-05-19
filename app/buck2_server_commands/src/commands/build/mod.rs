@@ -21,6 +21,7 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::calculation::Calculation;
+use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -40,6 +41,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::TargetLabel;
+use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -236,6 +238,7 @@ async fn build(
         build_providers,
         &materialization_context,
         build_opts.fail_fast,
+        MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
     )
     .await?
     {
@@ -315,6 +318,7 @@ async fn build_targets(
     build_providers: Arc<BuildProviders>,
     materialization_context: &MaterializationContext,
     fail_fast: bool,
+    missing_target_behavior: MissingTargetBehavior,
 ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
@@ -327,6 +331,7 @@ async fn build_targets(
                 global_target_platform,
                 build_providers,
                 materialization_context,
+                missing_target_behavior,
             )
             .left_stream()
         }
@@ -395,6 +400,7 @@ fn build_targets_with_global_target_platform<'a>(
     global_target_platform: Option<TargetLabel>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
+    missing_target_behavior: MissingTargetBehavior,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     spec.specs
         .into_iter()
@@ -410,6 +416,7 @@ fn build_targets_with_global_target_platform<'a>(
                     res,
                     build_providers,
                     materialization_context,
+                    missing_target_behavior,
                 ))
             }
         })
@@ -457,6 +464,7 @@ fn build_targets_for_spec<'a>(
     res: Arc<EvaluationResult>,
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
+    missing_target_behavior: MissingTargetBehavior,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     async move {
         let skippable = match spec {
@@ -466,7 +474,15 @@ fn build_targets_for_spec<'a>(
 
         let (targets, missing) = res.apply_spec(spec);
         if let Some(missing) = missing {
-            return Err(missing.into_error());
+            match missing_target_behavior {
+                MissingTargetBehavior::Fail => {
+                    return Err(missing.into_error());
+                }
+                MissingTargetBehavior::Warn => {
+                    // TODO: This should be reported in the build report eventually.
+                    console_message(missing.missing_targets_warning());
+                }
+            }
         }
 
         let todo_targets: Vec<TargetBuildSpec> = targets

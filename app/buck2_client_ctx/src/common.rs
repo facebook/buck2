@@ -392,6 +392,10 @@ pub struct CommonBuildOptions {
     /// If Buck hits an error, continue doing as much work as possible before exiting.
     #[clap(long, group = "fail-when")]
     keep_going: bool,
+
+    /// If target is missing, then skip building instead of throwing error.
+    #[clap(long)]
+    skip_missing_targets: bool,
 }
 
 impl CommonBuildOptions {
@@ -434,6 +438,7 @@ impl CommonBuildOptions {
             skip_cache_write: self.no_remote_cache && !self.write_to_cache_anyway,
             fail_fast: self.fail_fast,
             keep_going: self.keep_going,
+            skip_missing_targets: self.skip_missing_targets,
         }
     }
 }
