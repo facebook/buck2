@@ -17,6 +17,7 @@ _VERSION_PLACEHOLDER = "(VERSION)"
 _TARGET_TRIPLE_MAP = {
     "iphoneos": "apple-ios{}".format(_VERSION_PLACEHOLDER),
     "iphonesimulator": "apple-ios{}-simulator".format(_VERSION_PLACEHOLDER),
+    "maccatalyst": "apple-ios{}-macabi".format(_VERSION_PLACEHOLDER),
     "macosx": "apple-macosx{}".format(_VERSION_PLACEHOLDER),
     "watchos": "apple-watchos{}".format(_VERSION_PLACEHOLDER),
     "watchsimulator": "apple-watchos{}-simulator".format(_VERSION_PLACEHOLDER),

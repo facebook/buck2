@@ -14,6 +14,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
     "iphoneos": "-mios-version-min",
     "iphonesimulator": "-mios-simulator-version-min",
+    "maccatalyst": "-mios-version-min",  # Catalyst uses iOS min version flags
     "macosx": "-mmacosx-version-min",
     "watchos": "-mwatchos-version-min",
     "watchsimulator": "-mwatchsimulator-version-min",
