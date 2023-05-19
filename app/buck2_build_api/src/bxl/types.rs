@@ -20,6 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
@@ -177,6 +178,10 @@ impl BaseDeferredKeyDynImpl for BxlKeyData {
         ];
 
         ProjectRelativePathBuf::unchecked_new(parts.concat())
+    }
+
+    fn configured_label(&self) -> Option<ConfiguredTargetLabel> {
+        None
     }
 
     fn to_proto(&self) -> BaseDeferredKeyProto {

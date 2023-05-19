@@ -40,6 +40,8 @@ pub trait BaseDeferredKeyDynImpl:
         action_key: Option<&str>,
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf;
+    /// Fake label for anon targets, `None` for BXL.
+    fn configured_label(&self) -> Option<ConfiguredTargetLabel>;
     fn to_proto(&self) -> BaseDeferredKeyProto;
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }

@@ -18,6 +18,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
@@ -39,7 +40,6 @@ use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::bxl;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredCtx;
@@ -74,7 +74,7 @@ impl DynamicAction {
 #[derive(Clone, Debug, Allocative)]
 pub(crate) struct DynamicLambda {
     /// the owner that defined this lambda
-    owner: BaseDeferredKey,
+    owner: BaseDeferredKeyDyn,
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
     /// Things I am allowed to use as inputs, but don't wait for
@@ -87,21 +87,21 @@ pub(crate) struct DynamicLambda {
 
 impl DynamicLambda {
     pub(crate) fn new(
-        owner: BaseDeferredKey,
+        owner: BaseDeferredKeyDyn,
         dynamic: IndexSet<Artifact>,
         inputs: IndexSet<Artifact>,
         outputs: Vec<BuildArtifact>,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
         match &owner {
-            BaseDeferredKey::TargetLabel(target) => {
+            BaseDeferredKeyDyn::TargetLabel(target) => {
                 depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
             }
-            BaseDeferredKey::BxlLabel(_) => {
+            BaseDeferredKeyDyn::BxlLabel(_) => {
                 // do nothing. This is for grabbing the execution platform, which for bxl, we
                 // hard code to a local execution.
             }
-            BaseDeferredKey::AnonTarget(_) => {
+            BaseDeferredKeyDyn::AnonTarget(_) => {
                 // This will return an error later, so doesn't need to have the dependency
             }
         }
@@ -202,15 +202,15 @@ impl Deferred for DynamicLambda {
 
             let execution_platform = {
                 match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => {
+                    BaseDeferredKeyDyn::TargetLabel(target) => {
                         let configured_target = deferred_ctx.get_configured_target(target).unwrap();
 
                         configured_target.execution_platform_resolution().dupe()
                     }
-                    BaseDeferredKey::BxlLabel(_) => {
+                    BaseDeferredKeyDyn::BxlLabel(_) => {
                         (*bxl::execution_platform::EXECUTION_PLATFORM).dupe()
                     }
-                    BaseDeferredKey::AnonTarget(_) => {
+                    BaseDeferredKeyDyn::AnonTarget(_) => {
                         return Err(DynamicLambdaError::AnonTargetIncompatible.into());
                     }
                 }
@@ -220,11 +220,11 @@ impl Deferred for DynamicLambda {
             // The AnalysisRegistry wants ownership of a registry.
             // To overcome the difference, we create a fake registry, swap it with the one in deferred,
             // and swap back after AnalysisRegistry completes.
-            let fake_registry = DeferredRegistry::new(BaseKey::Base(self.owner.dupe().into_dyn()));
+            let fake_registry = DeferredRegistry::new(BaseKey::Base(self.owner.dupe()));
 
             let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
             let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-                self.owner.dupe().into_dyn(),
+                self.owner.dupe(),
                 execution_platform,
                 deferred,
             );
@@ -268,15 +268,17 @@ impl Deferred for DynamicLambda {
                 heap,
                 attributes,
                 match &self.owner {
-                    BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(Label::new(
+                    BaseDeferredKeyDyn::TargetLabel(target) => Some(heap.alloc_typed(Label::new(
                         ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
                     ))),
-                    BaseDeferredKey::BxlLabel(_) => None,
-                    BaseDeferredKey::AnonTarget(target) => {
-                        Some(heap.alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                            target.configured_label(),
-                            ProvidersName::Default,
-                        ))))
+                    BaseDeferredKeyDyn::BxlLabel(target)
+                    | BaseDeferredKeyDyn::AnonTarget(target) => {
+                        target.configured_label().map(|configured_target_label| {
+                            heap.alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                                configured_target_label,
+                                ProvidersName::Default,
+                            )))
+                        })
                     }
                 },
                 registry,

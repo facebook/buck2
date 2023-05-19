@@ -163,6 +163,10 @@ impl BaseDeferredKeyDynImpl for AnonTarget {
         ProjectRelativePathBuf::unchecked_new(parts.concat())
     }
 
+    fn configured_label(&self) -> Option<ConfiguredTargetLabel> {
+        Some(self.configured_label())
+    }
+
     fn to_proto(&self) -> BaseDeferredKeyProto {
         BaseDeferredKeyProto::AnonTarget(self.as_proto())
     }
