@@ -99,10 +99,6 @@ impl BxlKey {
     pub fn global_target_platform(&self) -> &Option<TargetLabel> {
         &self.0.global_target_platform
     }
-
-    pub(crate) fn as_proto(&self) -> buck2_data::BxlFunctionKey {
-        self.0.as_proto()
-    }
 }
 
 #[derive(
