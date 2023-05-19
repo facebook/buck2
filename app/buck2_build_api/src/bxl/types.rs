@@ -90,7 +90,7 @@ impl BxlKey {
         key.into_any().downcast().ok().map(BxlKey)
     }
 
-    pub(crate) fn from_base_deferred_key_dyn_impl_err(
+    pub fn from_base_deferred_key_dyn_impl_err(
         key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<Self> {
         Self::from_base_deferred_key_dyn_impl(key).context("Not BxlKey (internal error)")

@@ -17,6 +17,7 @@ use buck2_build_api::bxl::types::BxlKey;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use dice::DiceComputations;
 use dice::Key;
@@ -27,23 +28,30 @@ use more_futures::cancellation::CancellationContext;
 use crate::bxl::eval::eval;
 
 #[derive(Debug)]
-pub(crate) struct BxlCalculationImpl;
+struct BxlCalculationImpl;
 
 #[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
     async fn eval_bxl(
         &self,
         ctx: &DiceComputations,
-        bxl: BxlKey,
+        bxl: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<BxlComputeResult> {
-        ctx.compute(&internal::BxlComputeKey(bxl))
-            .await?
-            .unshared_error()
+        eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?).await
     }
 }
 
 pub(crate) fn init_bxl_calculation_impl() {
     BXL_CALCULATION_IMPL.init(&BxlCalculationImpl);
+}
+
+pub(crate) async fn eval_bxl(
+    ctx: &DiceComputations,
+    bxl: BxlKey,
+) -> anyhow::Result<BxlComputeResult> {
+    ctx.compute(&internal::BxlComputeKey(bxl))
+        .await?
+        .unshared_error()
 }
 
 #[async_trait]

@@ -15,20 +15,20 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_util::late_binding::LateBinding;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dupe::Dupe;
 
 use crate::bxl::result::BxlResult;
-use crate::bxl::types::BxlKey;
 
 #[async_trait]
 pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
     async fn eval_bxl(
         &self,
         ctx: &DiceComputations,
-        bxl: BxlKey,
+        bxl: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<BxlComputeResult>;
 }
 

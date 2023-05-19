@@ -19,7 +19,6 @@ use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConvertMaterializationContext;
 use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
-use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::bxl::types::BxlKey;
@@ -59,7 +58,7 @@ use futures::FutureExt;
 use itertools::Itertools;
 use starlark::errors::Diagnostic;
 
-use crate::bxl::calculation::BxlCalculationImpl;
+use crate::bxl::calculation::eval_bxl;
 use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::BxlResolvedCliArgs;
@@ -154,7 +153,7 @@ async fn bxl(
     let BxlComputeResult {
         bxl_result,
         materializations,
-    } = match BxlCalculationImpl.eval_bxl(ctx, bxl_key.clone()).await {
+    } = match eval_bxl(ctx, bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
             if !request.print_stacktrace {
