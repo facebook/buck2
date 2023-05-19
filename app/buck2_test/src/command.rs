@@ -123,6 +123,7 @@ impl TestOutcome {
 struct ExecutorReport {
     exit_code: Option<i32>,
     statuses: TestStatuses,
+    info_messages: Vec<String>,
 }
 
 impl ExecutorReport {
@@ -372,6 +373,7 @@ async fn test(
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
+        executor_info_messages: test_outcome.executor_report.info_messages,
     })
 }
 

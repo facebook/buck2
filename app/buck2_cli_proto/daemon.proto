@@ -498,6 +498,9 @@ message TestResponse {
   TestStatuses test_statuses = 3;
   string executor_stdout = 4;
   string executor_stderr = 5;
+  // these are messages that the test executor wants to show the user at the
+  // end of the run
+  repeated string executor_info_messages = 6;
 }
 
 message InstallResponse {}
