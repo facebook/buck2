@@ -80,6 +80,24 @@ impl<'v> AnalysisActions<'v> {
             x.as_mut().expect("state to be present during execution")
         })
     }
+
+    pub(crate) async fn run_promises(
+        &self,
+        dice: &DiceComputations,
+        eval: &mut Evaluator<'v, '_>,
+    ) -> anyhow::Result<()> {
+        // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
+        // We keep going until there are no promises left.
+        loop {
+            let promises = self.state().take_promises();
+            if let Some(promises) = promises {
+                promises.run_promises(dice, eval).await?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
@@ -123,7 +141,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 )]
 pub struct AnalysisContext<'v> {
     attrs: Value<'v>, // A struct
-    actions: ValueTyped<'v, AnalysisActions<'v>>,
+    pub(crate) actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, Label>>,
 }
@@ -162,24 +180,6 @@ impl<'v> AnalysisContext<'v> {
             }),
             label,
         }
-    }
-
-    pub(crate) async fn run_promises(
-        &self,
-        dice: &DiceComputations,
-        eval: &mut Evaluator<'v, '_>,
-    ) -> anyhow::Result<()> {
-        // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
-        // We keep going until there are no promises left.
-        loop {
-            let promises = self.actions.state().take_promises();
-            if let Some(promises) = promises {
-                promises.run_promises(dice, eval).await?;
-            } else {
-                break;
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {

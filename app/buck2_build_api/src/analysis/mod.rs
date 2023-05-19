@@ -363,7 +363,7 @@ async fn run_analysis_with_env_underlying(
             .evaluation_complete(&mut eval)
             .context("Profiler finalization failed")?;
 
-        ctx.run_promises(dice, &mut eval).await?;
+        ctx.actions.run_promises(dice, &mut eval).await?;
 
         // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
         let res_typed = ProviderCollection::try_from_value(list_res)?;

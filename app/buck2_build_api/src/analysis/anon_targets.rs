@@ -365,7 +365,7 @@ impl AnonTargetKey {
                     ));
 
                     let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                    ctx.run_promises(dice, &mut eval).await?;
+                    ctx.actions.run_promises(dice, &mut eval).await?;
                     let res_typed = ProviderCollection::try_from_value(list_res)?;
                     let res = env.heap().alloc(res_typed);
                     env.set("", res);
