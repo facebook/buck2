@@ -77,11 +77,13 @@ load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "ARGSFILES_SUBTARGET",
+    "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
     "cxx_attr_link_style",
     "cxx_attr_linker_flags",
     "cxx_attr_resources",
     "cxx_is_gnu",
+    "cxx_objects_sub_target",
 )
 load(
     ":cxx_link_utility.bzl",
@@ -173,6 +175,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
     sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.source_commands.argsfiles_info]
+    sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_commands.src_compile_cmds)
