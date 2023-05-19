@@ -28,7 +28,7 @@ enum ResolutionError {
     MissingRequiredProvider(String, ConfiguredProvidersLabel, Vec<String>),
 }
 
-pub(crate) trait DepAttrTypeExt {
+pub trait DepAttrTypeExt {
     fn check_providers(
         required_providers: &ProviderIdSet,
         providers: &FrozenProviderCollection,

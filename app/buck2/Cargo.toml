@@ -39,6 +39,7 @@ starlark = { workspace = true }
 allocative = { workspace = true }
 
 buck2_action_impl = { workspace = true }
+buck2_anon_target = { workspace = true }
 buck2_audit = { workspace = true }
 buck2_audit_server = { workspace = true }
 buck2_bxl = { workspace = true }

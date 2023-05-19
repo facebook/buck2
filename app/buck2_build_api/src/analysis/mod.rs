@@ -47,14 +47,9 @@ use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info:
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
 // TODO(@wendyy) move into `buck2_node`
-pub(crate) mod anon_promises;
-pub(crate) mod anon_promises_dyn;
-pub mod anon_target_attr;
+pub mod anon_promises_dyn;
 #[allow(unused)] // TODO(@wendyy) temporary
 // TODO(@wendyy) move out of buck2_build_api and into `buck2_interpreter_for_build`
-pub mod anon_target_attr_coerce;
-pub mod anon_target_node;
-pub(crate) mod anon_targets;
 pub mod anon_targets_registry;
 pub mod calculation;
 pub(crate) mod promise_artifacts;
@@ -86,7 +81,7 @@ pub enum AnalysisError {
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
-    provider_collection: FrozenProviderCollectionValue,
+    pub provider_collection: FrozenProviderCollectionValue,
     deferred: DeferredTable,
     profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
 }
@@ -326,7 +321,7 @@ async fn run_analysis_with_env_underlying(
     let registry = AnalysisRegistry::new_from_owner(
         BaseDeferredKey::TargetLabel(node.label().dupe()),
         analysis_env.execution_platform.dupe(),
-    );
+    )?;
     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
     let mut profiler_opt = profile_mode

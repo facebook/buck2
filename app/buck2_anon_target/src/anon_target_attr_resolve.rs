@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_build_api::attrs::resolve::attr_type::dep::DepAttrTypeExt;
+use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -20,9 +22,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::analysis::anon_target_attr::AnonTargetAttr;
-use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
-use crate::attrs::resolve::ctx::AttrResolutionContext;
+use crate::anon_target_attr::AnonTargetAttr;
 
 pub trait AnonTargetAttrExt {
     fn resolve<'v>(

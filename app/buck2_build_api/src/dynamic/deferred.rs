@@ -227,7 +227,7 @@ impl Deferred for DynamicLambda {
                 self.owner.dupe(),
                 execution_platform,
                 deferred,
-            );
+            )?;
             registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
 
             let mut artifacts = SmallMap::with_capacity(self.inputs.len());

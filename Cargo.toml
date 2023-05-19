@@ -10,6 +10,7 @@ members = [
     "app/buck2",
     "app/buck2_action_impl",
     "app/buck2_action_impl_tests",
+    "app/buck2_anon_target",
     "app/buck2_audit",
     "app/buck2_audit_server",
     "app/buck2_bxl",
@@ -291,6 +292,7 @@ starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
 starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
+buck2_anon_target = { path = "app/buck2_anon_target" }
 buck2_bxl = { path = "app/buck2_bxl" }
 buck2_build_info = { path = "app/buck2_build_info" }
 buck2_client_ctx = { path = "app/buck2_client_ctx" }

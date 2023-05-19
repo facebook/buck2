@@ -249,7 +249,7 @@ pub async fn get_dep_analysis<'v>(
     .await
 }
 
-pub(crate) async fn get_rule_impl(
+pub async fn get_rule_impl(
     ctx: &DiceComputations,
     func: &StarlarkRuleType,
 ) -> anyhow::Result<impl RuleImplFunction> {

@@ -183,7 +183,7 @@ pub(crate) fn validate_action_instantiation<'v>(
         let analysis_registry = AnalysisRegistry::new_from_owner(
             BaseDeferredKey::BxlLabel(this.current_bxl.dupe().into_base_deferred_key_dyn_impl()),
             execution_platform,
-        );
+        )?;
 
         *registry = Some(analysis_registry);
     }

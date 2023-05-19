@@ -9,7 +9,7 @@
 
 pub mod arg;
 pub(crate) mod configuration_dep;
-pub(crate) mod dep;
+pub mod dep;
 pub(crate) mod query;
 pub(crate) mod source;
 pub(crate) mod split_transition_dep;

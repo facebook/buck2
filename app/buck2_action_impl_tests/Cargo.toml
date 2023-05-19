@@ -14,6 +14,7 @@ dupe = { workspace = true }
 starlark = { workspace = true }
 
 buck2_action_impl = { workspace = true }
+buck2_anon_target = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_core = { workspace = true }
 buck2_execute = { workspace = true }

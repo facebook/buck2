@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
 use either::Either;
@@ -18,8 +19,7 @@ use starlark::values::list::AllocList;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
 
-use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
-use crate::analysis::anon_targets::AnonTargetKey;
+use crate::anon_targets::AnonTargetKey;
 
 #[derive(Default, Debug, Trace, Allocative)]
 pub(crate) struct AnonPromises<'v> {

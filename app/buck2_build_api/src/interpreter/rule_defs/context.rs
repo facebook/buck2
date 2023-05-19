@@ -141,7 +141,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
 )]
 pub struct AnalysisContext<'v> {
     attrs: Value<'v>, // A struct
-    pub(crate) actions: ValueTyped<'v, AnalysisActions<'v>>,
+    pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, Label>>,
 }
@@ -187,7 +187,7 @@ impl<'v> AnalysisContext<'v> {
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
-    pub(crate) fn take_state(&self) -> AnalysisRegistry<'v> {
+    pub fn take_state(&self) -> AnalysisRegistry<'v> {
         self.actions
             .state
             .borrow_mut()

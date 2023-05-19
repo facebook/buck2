@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::iter;
 
+use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -36,8 +37,7 @@ use starlark::values::string::STRING_TYPE;
 use starlark::values::tuple::TupleRef;
 use starlark::values::Value;
 
-use crate::analysis::anon_target_attr::AnonTargetAttr;
-use crate::interpreter::rule_defs::provider::dependency::Dependency;
+use crate::anon_target_attr::AnonTargetAttr;
 
 pub trait AnonTargetAttrTypeCoerce {
     fn coerce_item(

@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -42,8 +43,8 @@ use starlark::values::ValueTyped;
 use crate::actions::registry::ActionsRegistry;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
-use crate::analysis::anon_targets::AnonTargetsRegistry;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
+use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use crate::analysis::promise_artifacts::PromiseArtifactRegistry;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
@@ -82,7 +83,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn new_from_owner(
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
-    ) -> Self {
+    ) -> anyhow::Result<AnalysisRegistry<'v>> {
         Self::new_from_owner_and_deferred(
             owner.dupe(),
             execution_platform,
@@ -94,16 +95,16 @@ impl<'v> AnalysisRegistry<'v> {
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
         deferred: DeferredRegistry,
-    ) -> Self {
-        AnalysisRegistry {
+    ) -> anyhow::Result<Self> {
+        Ok(AnalysisRegistry {
             deferred,
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
             dynamic: DynamicRegistry::new(owner.dupe()),
-            anon_targets: Box::new(AnonTargetsRegistry::new(execution_platform)),
+            anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
             artifact_promises: PromiseArtifactRegistry::new(owner),
-        }
+        })
     }
 
     pub(crate) fn set_action_key(&mut self, action_key: Arc<str>) {

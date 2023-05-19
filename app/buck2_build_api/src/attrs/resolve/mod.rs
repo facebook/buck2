@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod anon_target_attr;
 pub(crate) mod attr_literal;
 pub mod attr_type;
 pub(crate) mod coerced_attr;

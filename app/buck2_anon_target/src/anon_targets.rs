@@ -15,8 +15,25 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
+use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
+use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
+use buck2_build_api::analysis::calculation::get_rule_impl;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::RuleAnalysisAttrResolutionContext;
+use buck2_build_api::analysis::RuleImplFunction;
+use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
+use buck2_build_api::deferred::types::DeferredTable;
+use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
+use buck2_build_api::keep_going;
+use buck2_build_api::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_common::result::SharedResult;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -73,26 +90,12 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
-use super::anon_target_node::AnonTarget;
-use crate::analysis::anon_promises::AnonPromises;
-use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
-use crate::analysis::anon_target_attr::AnonTargetAttr;
-use crate::analysis::anon_target_attr::AnonTargetAttrTraversal;
-use crate::analysis::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
-use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
-use crate::analysis::calculation::get_rule_impl;
-use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::analysis::registry::AnalysisRegistry;
-use crate::analysis::AnalysisResult;
-use crate::analysis::RuleAnalysisAttrResolutionContext;
-use crate::analysis::RuleImplFunction;
-use crate::attrs::resolve::anon_target_attr::AnonTargetAttrExt;
-use crate::deferred::types::DeferredTable;
-use crate::interpreter::rule_defs::context::AnalysisContext;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::keep_going;
-use crate::nodes::calculation::find_execution_platform_by_configuration;
+use crate::anon_promises::AnonPromises;
+use crate::anon_target_attr::AnonTargetAttr;
+use crate::anon_target_attr::AnonTargetAttrTraversal;
+use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
+use crate::anon_target_attr_resolve::AnonTargetAttrExt;
+use crate::anon_target_node::AnonTarget;
 
 #[derive(Debug, Trace, Allocative)]
 pub struct AnonTargetsRegistry<'v> {
@@ -125,6 +128,15 @@ pub enum AnonTargetsError {
 pub(crate) struct AnonTargetKey(Arc<AnonTarget>);
 
 impl AnonTargetKey {
+    fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> anyhow::Result<Self> {
+        Ok(AnonTargetKey(
+            key.into_any()
+                .downcast()
+                .ok()
+                .context("Expecting AnonTarget (internal error)")?,
+        ))
+    }
+
     pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -343,7 +355,7 @@ impl AnonTargetKey {
                     let registry = AnalysisRegistry::new_from_owner(
                         BaseDeferredKey::AnonTarget(self.0.dupe()),
                         exec_resolution,
-                    );
+                    )?;
 
                     let ctx = env.heap().alloc_typed(AnalysisContext::new(
                         eval.heap(),
@@ -486,20 +498,18 @@ impl AttrConfigurationContext for AnonAttrCtx {
     }
 }
 
-pub(crate) async fn eval_anon_target(
-    dice: &DiceComputations,
-    target: Arc<AnonTarget>,
-) -> anyhow::Result<AnalysisResult> {
-    AnonTargetKey(target).resolve(dice).await
+pub(crate) fn init_eval_anon_target() {
+    EVAL_ANON_TARGET
+        .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
 }
 
-impl<'v> AnonTargetsRegistry<'v> {
-    pub(crate) fn new(execution_platform: ExecutionPlatformResolution) -> Self {
-        Self {
+pub(crate) fn init_anon_target_registry_new() {
+    ANON_TARGET_REGISTRY_NEW.init(|_phantom, execution_platform| {
+        Box::new(AnonTargetsRegistry {
             execution_platform,
             promises: AnonPromises::default(),
-        }
-    }
+        })
+    });
 }
 
 impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {

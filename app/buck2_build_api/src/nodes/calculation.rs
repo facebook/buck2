@@ -127,7 +127,7 @@ enum ToolchainDepError {
     ToolchainTransitionDep(TargetLabel),
 }
 
-pub(crate) async fn find_execution_platform_by_configuration(
+pub async fn find_execution_platform_by_configuration(
     ctx: &DiceComputations,
     exec_cfg: &ConfigurationData,
     cfg: &ConfigurationData,

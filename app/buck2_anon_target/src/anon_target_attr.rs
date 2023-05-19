@@ -177,7 +177,7 @@ impl AnonTargetAttr {
         }
     }
 
-    pub fn unpack_list(&self) -> Option<&[AnonTargetAttr]> {
+    pub fn _unpack_list(&self) -> Option<&[AnonTargetAttr]> {
         match self {
             AnonTargetAttr::List(list) => Some(list),
             _ => None,

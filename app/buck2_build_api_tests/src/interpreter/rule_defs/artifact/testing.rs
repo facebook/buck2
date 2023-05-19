@@ -197,7 +197,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let mut analysis_registry = AnalysisRegistry::new_from_owner(
             BaseDeferredKey::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
-        );
+        )?;
         let mut actions_registry = ActionsRegistry::new(
             BaseDeferredKey::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),

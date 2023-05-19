@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -24,8 +25,10 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_events::dispatch::create_span;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -40,7 +43,6 @@ use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 
 use crate::actions::artifact::materializer::ArtifactMaterializer;
-use crate::analysis::anon_targets::eval_anon_target;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -97,6 +99,13 @@ impl DeferredCalculation for DiceComputations {
     }
 }
 
+pub static EVAL_ANON_TARGET: LateBinding<
+    for<'c> fn(
+        &'c DiceComputations,
+        Arc<dyn BaseDeferredKeyDyn>,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<AnalysisResult>> + Send + 'c>>,
+> = LateBinding::new("EVAL_ANON_TARGET");
+
 async fn lookup_deferred_inner(
     key: &BaseDeferredKey,
     dice: &DiceComputations,
@@ -118,17 +127,9 @@ async fn lookup_deferred_inner(
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }
-        BaseDeferredKey::AnonTarget(target) => {
-            let target = target
-                .dupe()
-                .into_any()
-                .downcast()
-                .ok()
-                .context("Not an anon target (internal error)")?;
-            Ok(DeferredHolder::Analysis(
-                eval_anon_target(dice, target).await?,
-            ))
-        }
+        BaseDeferredKey::AnonTarget(target) => Ok(DeferredHolder::Analysis(
+            (EVAL_ANON_TARGET.get()?)(dice, target.dupe()).await?,
+        )),
     }
 }
 

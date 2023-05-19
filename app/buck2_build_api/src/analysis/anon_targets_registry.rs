@@ -8,10 +8,13 @@
  */
 
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_node::configuration::execution::ExecutionPlatformResolution;
+use buck2_util::late_binding::LateBinding;
 use starlark::values::dict::DictOf;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -19,7 +22,14 @@ use starlark::values::ValueTyped;
 
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 
-pub(crate) trait AnonTargetsRegistryDyn<'v>: Debug + Allocative + Trace<'v> + 'v {
+pub static ANON_TARGET_REGISTRY_NEW: LateBinding<
+    for<'v> fn(
+        PhantomData<Value<'v>>,
+        ExecutionPlatformResolution,
+    ) -> Box<dyn AnonTargetsRegistryDyn<'v> + 'v>,
+> = LateBinding::new("ANON_TARGET_REGISTRY_NEW");
+
+pub trait AnonTargetsRegistryDyn<'v>: Debug + Allocative + Trace<'v> + 'v {
     fn register_one(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,

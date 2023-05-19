@@ -63,7 +63,6 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_query = { workspace = true }
-buck2_query_parser = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }

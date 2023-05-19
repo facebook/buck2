@@ -66,7 +66,7 @@ fn run_ctx_test(
     let registry = AnalysisRegistry::new_from_owner(
         BaseDeferredKey::TargetLabel(label.dupe()),
         ExecutionPlatformResolution::unspecified(),
-    );
+    )?;
     let attributes = eval.heap().alloc(AllocStruct([("name", "some_name")]));
 
     let ctx = eval.heap().alloc(AnalysisContext::new(

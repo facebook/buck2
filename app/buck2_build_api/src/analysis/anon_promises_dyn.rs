@@ -12,7 +12,7 @@ use dice::DiceComputations;
 use starlark::eval::Evaluator;
 
 #[async_trait(?Send)]
-pub(crate) trait AnonPromisesDyn<'v>: 'v {
+pub trait AnonPromisesDyn<'v>: 'v {
     async fn run_promises(
         self: Box<Self>,
         dice: &DiceComputations,

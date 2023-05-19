@@ -29,7 +29,7 @@ use buck2_data::ToProtoMessage;
 use buck2_node::rule_type::StarlarkRuleType;
 use gazebo::cmp::PartialEqAny;
 
-use crate::analysis::anon_target_attr::AnonTargetAttr;
+use crate::anon_target_attr::AnonTargetAttr;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {
