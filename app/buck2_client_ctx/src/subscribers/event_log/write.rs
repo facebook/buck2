@@ -379,7 +379,7 @@ async fn start_persist_subprocess(
     #[cfg(unix)]
     {
         // Ensure that if we get CTRL-C, the persist-event-logs process does not get it.
-        command.process_group(0);
+        command.process_group(0); // @oss-disable: for some reason the tokio_unstable flag is broken in OSS?
     }
     let manifold_name = &format!("{}{}", trace_id, path.extension());
     command
