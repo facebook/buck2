@@ -23,6 +23,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_events::dispatch::create_span;
 use buck2_execute::digest_config::HasDigestConfig;
 use derive_more::Display;
@@ -46,7 +47,7 @@ use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BxlCalculation;
 use crate::bxl::result::BxlResult;
-use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::bxl::types::BxlKey;
 use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredLookup;
@@ -97,11 +98,11 @@ impl DeferredCalculation for DiceComputations {
 }
 
 async fn lookup_deferred_inner(
-    key: &BaseDeferredKey,
+    key: &BaseDeferredKeyDyn,
     dice: &DiceComputations,
 ) -> anyhow::Result<DeferredHolder> {
     match key {
-        BaseDeferredKey::TargetLabel(target) => {
+        BaseDeferredKeyDyn::TargetLabel(target) => {
             let analysis = dice
                 .get_analysis_result(target)
                 .await?
@@ -109,14 +110,25 @@ async fn lookup_deferred_inner(
 
             Ok(DeferredHolder::Analysis(analysis))
         }
-        BaseDeferredKey::BxlLabel(bxl) => {
-            let bxl_result = dice.eval_bxl(bxl.dupe()).await?.bxl_result;
+        BaseDeferredKeyDyn::BxlLabel(bxl) => {
+            let bxl_result = dice
+                .eval_bxl(BxlKey::from_base_deferred_key_dyn_impl_err(bxl.dupe())?)
+                .await?
+                .bxl_result;
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }
-        BaseDeferredKey::AnonTarget(target) => Ok(DeferredHolder::Analysis(
-            eval_anon_target(dice, target).await?,
-        )),
+        BaseDeferredKeyDyn::AnonTarget(target) => {
+            let target = target
+                .dupe()
+                .into_any()
+                .downcast()
+                .ok()
+                .context("Not an anon target (internal error)")?;
+            Ok(DeferredHolder::Analysis(
+                eval_anon_target(dice, target).await?,
+            ))
+        }
     }
 }
 
@@ -138,8 +150,7 @@ async fn lookup_deferred(
 ) -> anyhow::Result<PartialLookup> {
     Ok(match key {
         DeferredKey::Base(target, id) => {
-            let holder =
-                lookup_deferred_inner(&BaseDeferredKey::from_dyn(target.dupe()), dice).await?;
+            let holder = lookup_deferred_inner(target, dice).await?;
             PartialLookup { holder, id: *id }
         }
         DeferredKey::Deferred(key, id) => {

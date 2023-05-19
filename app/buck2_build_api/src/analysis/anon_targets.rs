@@ -65,7 +65,6 @@ use futures::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
-use ref_cast::RefCast;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
@@ -127,10 +126,7 @@ pub enum AnonTargetsError {
     MissingAttribute(String),
 }
 
-#[repr(transparent)]
-#[derive(
-    Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative, RefCast
-)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
 struct AnonTargetKey(Arc<AnonTarget>);
 
 impl AnonTargetKey {
@@ -497,9 +493,9 @@ impl AttrConfigurationContext for AnonAttrCtx {
 
 pub(crate) async fn eval_anon_target(
     dice: &DiceComputations,
-    target: &Arc<AnonTarget>,
+    target: Arc<AnonTarget>,
 ) -> anyhow::Result<AnalysisResult> {
-    AnonTargetKey::ref_cast(target).resolve(dice).await
+    AnonTargetKey(target).resolve(dice).await
 }
 
 impl<'v> AnonTargetsRegistry<'v> {
