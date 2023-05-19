@@ -103,6 +103,7 @@ load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "ARGSFILES_SUBTARGET",
+    "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
     "cxx_attr_exported_linker_flags",
@@ -114,6 +115,7 @@ load(
     "cxx_inherited_link_info",
     "cxx_is_gnu",
     "cxx_mk_shlib_intf",
+    "cxx_objects_sub_target",
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
 )
@@ -330,7 +332,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             )]
 
     if impl_params.generate_sub_targets.objects:
-        sub_targets["objects"] = compiled_srcs.objects_sub_target
+        sub_targets[OBJECTS_SUBTARGET] = compiled_srcs.objects_sub_target
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -779,16 +781,7 @@ def cxx_compile_srcs(
         objects += impl_params.extra_link_input
         stripped_objects += impl_params.extra_link_input
 
-    # Create the subtargets here
-    objects_sub_targets = {}
-    for obj in all_outs:
-        sub_targets = {}
-        if obj.clang_trace:
-            sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
-        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
-            obj.object,
-            sub_targets = sub_targets,
-        )]
+    objects_sub_target = cxx_objects_sub_target(all_outs)
 
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
@@ -802,7 +795,7 @@ def cxx_compile_srcs(
         pic_clang_traces = pic_clang_traces,
         stripped_objects = stripped_objects,
         stripped_pic_objects = stripped_pic_objects,
-        objects_sub_target = [DefaultInfo(sub_targets = objects_sub_targets)],
+        objects_sub_target = objects_sub_target,
     )
 
 def _form_library_outputs(

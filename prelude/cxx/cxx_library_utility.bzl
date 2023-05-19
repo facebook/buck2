@@ -19,6 +19,10 @@ load(
     "flatten",
     "from_named_set",
 )
+load(
+    ":compile.bzl",
+    "CxxCompileOutput",  # @unused Used as a type
+)
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":headers.bzl",
@@ -31,6 +35,7 @@ load(
 load(":platform.bzl", "cxx_by_platform")
 
 ARGSFILES_SUBTARGET = "argsfiles"
+OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
 def cxx_attr_deps(ctx: "context") -> ["dependency"]:
@@ -166,3 +171,15 @@ def cxx_platform_supported(ctx: "context") -> bool.type:
         ctx.attrs.supported_platforms_regex,
         get_cxx_platform_info(ctx).name,
     )
+
+def cxx_objects_sub_target(outs: [CxxCompileOutput.type]) -> ["provider"]:
+    objects_sub_targets = {}
+    for obj in outs:
+        sub_targets = {}
+        if obj.clang_trace:
+            sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
+        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
+            obj.object,
+            sub_targets = sub_targets,
+        )]
+    return [DefaultInfo(sub_targets = objects_sub_targets)]
