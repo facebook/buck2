@@ -110,11 +110,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                         label,
                     })))
                 }
-                _ => {
-                    return Err(
-                        AnonTargetCoercionError::InvalidDep(value.get_type().to_owned()).into(),
-                    );
-                }
+                _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
             },
             _ => {
                 return Err(AnonTargetCoercionError::AttrTypeNotSupported(
@@ -136,8 +132,6 @@ pub(crate) enum AnonTargetCoercionError {
     OneOfMany(Vec<anyhow::Error>),
     #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
     InvalidEnumVariant(String, Vec<String>),
-    #[error("Invalid `attr.dep` value, expected `dependency`, got `{0}`")]
-    InvalidDep(String),
     #[error("Cannot coerce value of type `{0}` to any: `{1}`")]
     CannotCoerceToAny(&'static str, String),
     #[error("Attr value of type `{0}` not supported")]
