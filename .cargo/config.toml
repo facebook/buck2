@@ -2,7 +2,10 @@
 # `cargo_internal_build` is set for cargo builds inside Meta.
 # The flag enables features not available in opensource version,
 # in particular, dependencies on libraries not available in open source.
-# @oss-disable: rustflags = ["--cfg", "cargo_internal_build"]
+rustflags = [
+# @oss-disable: "--cfg", "cargo_internal_build",
+"--cfg", "tokio_unstable",
+]
 
 # @oss-disable: [source.crates-io]
 # @oss-disable: replace-with = "vendored-sources"
