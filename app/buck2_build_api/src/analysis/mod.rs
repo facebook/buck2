@@ -55,6 +55,7 @@ pub mod anon_target_attr;
 pub mod anon_target_attr_coerce;
 pub mod anon_target_node;
 pub(crate) mod anon_targets;
+pub mod anon_targets_registry;
 pub mod calculation;
 pub(crate) mod promise_artifacts;
 pub mod registry;

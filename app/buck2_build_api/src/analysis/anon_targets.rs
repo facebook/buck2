@@ -79,6 +79,7 @@ use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_target_attr::AnonTargetAttr;
 use crate::analysis::anon_target_attr::AnonTargetAttrTraversal;
 use crate::analysis::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
+use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::calculation::get_rule_impl;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::registry::AnalysisRegistry;
@@ -499,8 +500,10 @@ impl<'v> AnonTargetsRegistry<'v> {
             promises: AnonPromises::default(),
         }
     }
+}
 
-    pub(crate) fn register_one(
+impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
+    fn register_one(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -513,7 +516,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn register_many(
+    fn register_many(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rules: Vec<(
@@ -528,14 +531,14 @@ impl<'v> AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
+    fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
         // We swap it out, so we can still collect new promises
         Some(mem::take(&mut self.promises))
             .filter(|p| !p.is_empty())
             .map(|p| Box::new(p) as Box<dyn AnonPromisesDyn>)
     }
 
-    pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {
+    fn assert_no_promises(&self) -> anyhow::Result<()> {
         if self.promises.is_empty() {
             Ok(())
         } else {
