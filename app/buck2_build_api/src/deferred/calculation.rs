@@ -47,7 +47,7 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
-use crate::bxl::calculation::BxlCalculation;
+use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::bxl::types::BxlKey;
 use crate::deferred::types::BaseKey;
@@ -120,8 +120,10 @@ async fn lookup_deferred_inner(
             Ok(DeferredHolder::Analysis(analysis))
         }
         BaseDeferredKey::BxlLabel(bxl) => {
-            let bxl_result = dice
-                .eval_bxl(BxlKey::from_base_deferred_key_dyn_impl_err(bxl.dupe())?)
+            let bxl = BxlKey::from_base_deferred_key_dyn_impl_err(bxl.dupe())?;
+            let bxl_result = BXL_CALCULATION_IMPL
+                .get()?
+                .eval_bxl(dice, bxl)
                 .await?
                 .bxl_result;
 

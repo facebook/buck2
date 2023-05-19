@@ -44,15 +44,3 @@ pub struct BxlComputeResult {
 /// This field is initialized at program start, so this crate can call BXL calculation.
 pub static BXL_CALCULATION_IMPL: LateBinding<&'static dyn BxlCalculationDyn> =
     LateBinding::new("BXL_CALCULATION_IMPL");
-
-#[async_trait]
-pub trait BxlCalculation {
-    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<BxlComputeResult>;
-}
-
-#[async_trait]
-impl BxlCalculation for DiceComputations {
-    async fn eval_bxl<'a>(&self, bxl: BxlKey) -> anyhow::Result<BxlComputeResult> {
-        BXL_CALCULATION_IMPL.get()?.eval_bxl(self, bxl).await
-    }
-}
