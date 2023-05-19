@@ -13,7 +13,7 @@ use std::io::Write;
 use anyhow::Context;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
 use buck2_core::category::Category;
 use buck2_core::directory::Directory;
 use buck2_core::directory::DirectoryIterator;
@@ -39,7 +39,7 @@ async fn audit_dep_files(
     identifier: Option<String>,
     stdout: &mut (dyn Write + Send),
 ) -> anyhow::Result<()> {
-    let key = DepFilesKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
+    let key = DepFilesKey::new(BaseDeferredKeyDyn::TargetLabel(label), category, identifier);
 
     let state = get_dep_files(&key).context("Failed to find dep files")?;
 
