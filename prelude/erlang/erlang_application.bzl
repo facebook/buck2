@@ -289,6 +289,8 @@ def _app_info_content(
         data["mod"] = ctx.attrs.mod
     if ctx.attrs.env:
         data["env"] = ctx.attrs.env.items()
+    if ctx.attrs.metadata:
+        data["metadata"] = ctx.attrs.metadata
     app_info_content = to_term_args(data)
     return ctx.actions.write(
         paths.join(erlang_build.utils.build_dir(toolchain), "app_info.term"),
