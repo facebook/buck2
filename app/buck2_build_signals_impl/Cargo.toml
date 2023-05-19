@@ -25,3 +25,4 @@ buck2_node = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+static_assertions = { workspace = true }

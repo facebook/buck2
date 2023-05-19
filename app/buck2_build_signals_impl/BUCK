@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:smallvec",
+        "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "//buck2/allocative/allocative:allocative",

@@ -52,6 +52,7 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 use itertools::Itertools;
 use smallvec::SmallVec;
+use static_assertions::assert_eq_size;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -81,6 +82,20 @@ enum NodeKey {
     // This one is not a DICE key.
     Materialization(BuildArtifact),
 }
+
+// Explain the sizeof this struct (and avoid regressing it since we store it in the longest path
+// graph implementation).
+
+assert_eq_size!(BuildKey, [usize; 4]);
+assert_eq_size!(AnalysisKey, [usize; 2]);
+assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 5]);
+assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
+assert_eq_size!(DeferredCompute, [usize; 4]);
+assert_eq_size!(DeferredResolve, [usize; 4]);
+assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
+assert_eq_size!(InterpreterResultsKey, [usize; 1]);
+assert_eq_size!(BuildArtifact, [usize; 6]);
+assert_eq_size!(NodeKey, [usize; 8]);
 
 impl NodeKey {
     fn from_any(key: &dyn Any) -> Option<Self> {
@@ -530,6 +545,8 @@ struct NodeData {
     duration: NodeDuration,
     span_ids: SmallVec<[SpanId; 1]>,
 }
+
+assert_eq_size!(NodeData, [usize; 8]);
 
 fn start_listener(
     events: EventDispatcher,
