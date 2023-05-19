@@ -97,7 +97,7 @@ pub async fn visit_artifact_path_without_associated_deduped<'v>(
                     .await
                     .context("Failed to compute deferred for transitive set projection key")?;
 
-                let set = set.as_transitive_set()?;
+                let set = set.as_transitive_set();
 
                 todo.extend(set.get_projection_sub_inputs(t.projection)?);
             }

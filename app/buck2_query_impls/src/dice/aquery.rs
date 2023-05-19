@@ -158,7 +158,7 @@ fn compute_tset_node(
             .context("Failed to compute deferred")?;
 
         let sub_inputs = set
-            .as_transitive_set()?
+            .as_transitive_set()
             .get_projection_sub_inputs(key.projection)?;
 
         let inputs = convert_inputs(&ctx, node_cache, sub_inputs.iter()).await?;

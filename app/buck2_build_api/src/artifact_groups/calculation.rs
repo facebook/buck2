@@ -392,7 +392,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
         let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
 
         let sub_inputs = set
-            .as_transitive_set()?
+            .as_transitive_set()
             .get_projection_sub_inputs(self.0.projection)?;
 
         let (values, children) = {

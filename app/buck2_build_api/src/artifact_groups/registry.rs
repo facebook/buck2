@@ -12,7 +12,6 @@ use anyhow::Context as _;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
@@ -65,15 +64,17 @@ impl ArtifactGroupRegistry {
                 .get(id)?
                 .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
 
-            if set.value().downcast_ref::<FrozenTransitiveSet>().is_some() {
-                registry.bind_trivial(key, DeferredTransitiveSetData(set));
-                continue;
+            match set.downcast::<FrozenTransitiveSet>() {
+                Ok(set) => {
+                    registry.bind_trivial(key, DeferredTransitiveSetData(set));
+                }
+                Err(set) => {
+                    return Err(anyhow::anyhow!(
+                        "ArtifactGroupRegistry::ensure_bound found a value that was not a FrozenTransitiveSet: {:?}",
+                        set
+                    ));
+                }
             }
-
-            return Err(anyhow::anyhow!(
-                "ArtifactGroupRegistry::ensure_bound found a value that was not a FrozenTransitiveSet: {:?}",
-                set
-            ));
         }
 
         Ok(())
