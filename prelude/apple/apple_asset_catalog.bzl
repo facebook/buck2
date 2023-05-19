@@ -61,13 +61,18 @@ def _get_target(ctx: "context") -> str.type:
 
 def _get_actool_command(ctx: "context", info: AppleAssetCatalogSpec.type, catalog_output: "output_artifact", plist_output: "output_artifact", compilation_options: AppleAssetCatalogsCompilationOptions.type) -> "cmd_args":
     external_name = get_apple_sdk_name(ctx)
-    target_device = get_apple_sdk_metadata_for_sdk_name(external_name).target_device_flags
+    sdk_metadata = get_apple_sdk_metadata_for_sdk_name(external_name)
+    target_device = sdk_metadata.target_device_flags
+
+    actool_platform = sdk_metadata.actool_platform_override
+    if not actool_platform:
+        actool_platform = external_name
 
     actool = ctx.attrs._apple_toolchain[AppleToolchainInfo].actool
     actool_command = cmd_args([
                                   actool,
                                   "--platform",
-                                  external_name,
+                                  actool_platform,
                                   "--minimum-deployment-target",
                                   get_bundle_min_target_version(ctx),
                                   "--compile",

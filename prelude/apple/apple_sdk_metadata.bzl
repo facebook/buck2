@@ -11,6 +11,7 @@ AppleSdkMetadata = record(
     is_ad_hoc_code_sign_sufficient = field(bool.type),
     info_plist_supported_platforms_values = field([str.type]),
     min_version_plist_info_key = field(str.type),
+    actool_platform_override = field([str.type, None], None),
 )
 
 IPhoneOSSdkMetadata = AppleSdkMetadata(
@@ -71,10 +72,12 @@ MacOSXSdkMetadata = AppleSdkMetadata(
 
 MacOSXCatalystSdkMetadata = AppleSdkMetadata(
     name = "maccatalyst",
+    # TODO(T112097815): Support for macOS idiom
     target_device_flags = ["--target-device", "ipad"],
     is_ad_hoc_code_sign_sufficient = True,
     info_plist_supported_platforms_values = ["MacOSX"],
     min_version_plist_info_key = "LSMinimumSystemVersion",
+    actool_platform_override = "macosx",
 )
 
 _SDK_MAP = {
