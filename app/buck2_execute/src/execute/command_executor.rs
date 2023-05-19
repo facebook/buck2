@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,7 +28,6 @@ use crate::digest_config::DigestConfig;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
-use crate::execute::manager::CommandExecutionManagerExt;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
@@ -107,11 +105,11 @@ impl CommandExecutor {
         &self,
         action: &dyn CommandExecutionTarget,
         request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
         manager: CommandExecutionManager,
         digest_config: DigestConfig,
         cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
-        let (manager, prepared_action) = self.prepare(manager, request, digest_config).await?;
         self.0
             .inner
             .exec_cmd(
@@ -133,13 +131,12 @@ impl CommandExecutor {
             .is_local_execution_possible(executor_preference)
     }
 
-    async fn prepare(
+    pub async fn prepare_action(
         &self,
-        manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, PreparedAction)> {
-        let action = match executor_stage_async(buck2_data::PrepareAction {}, async {
+    ) -> anyhow::Result<PreparedAction> {
+        executor_stage_async(buck2_data::PrepareAction {}, async {
             let input_digest = request.paths().input_directory().fingerprint();
 
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
@@ -169,12 +166,6 @@ impl CommandExecutor {
             anyhow::Ok(action)
         })
         .await
-        {
-            Ok(v) => v,
-            Err(e) => return ControlFlow::Break(manager.error("prepare", e)),
-        };
-
-        ControlFlow::Continue((manager, action))
     }
 }
 

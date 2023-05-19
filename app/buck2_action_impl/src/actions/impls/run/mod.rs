@@ -489,7 +489,9 @@ impl IncrementalActionExecutable for RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_custom_tmpdir(ctx.target().custom_tmpdir());
 
-        let (outputs, meta) = ctx.exec_cmd(&req).await?;
+        let prepared_action = ctx.prepare_action(&req).await?;
+        let manager = ctx.command_execution_manager();
+        let (outputs, meta) = ctx.exec_cmd(manager, &req, &prepared_action).await?;
 
         let outputs = ActionOutputs::new(outputs);
 

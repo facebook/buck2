@@ -150,7 +150,9 @@ impl PristineActionExecutable for SimpleAction {
             sorted_vector_map![],
         );
 
-        let (outputs, meta) = ctx.exec_cmd(&req).await?;
+        let prepared_action = ctx.prepare_action(&req).await?;
+        let manager = ctx.command_execution_manager();
+        let (outputs, meta) = ctx.exec_cmd(manager, &req, &prepared_action).await?;
 
         let outputs = ActionOutputs::new(outputs);
 

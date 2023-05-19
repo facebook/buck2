@@ -55,6 +55,8 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
@@ -189,11 +191,20 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn events(&self) -> &EventDispatcher;
 
+    fn command_execution_manager(&self) -> CommandExecutionManager;
+
+    async fn prepare_action(
+        &mut self,
+        request: &CommandExecutionRequest,
+    ) -> anyhow::Result<PreparedAction>;
+
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?
     async fn exec_cmd(
         &mut self,
+        manager: CommandExecutionManager,
         request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,

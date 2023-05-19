@@ -39,6 +39,7 @@ use buck2_execute::execute::dice_data::GetReClient;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -319,6 +320,14 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &self.executor.events
     }
 
+    fn command_execution_manager(&self) -> CommandExecutionManager {
+        CommandExecutionManager::new(
+            Box::new(MutexClaimManager::new()),
+            self.executor.events.dupe(),
+            NoopLivelinessObserver::create(),
+        )
+    }
+
     fn artifact_values(&self, artifact: &ArtifactGroup) -> &ArtifactGroupValues {
         self.inputs.get(artifact).unwrap_or_else(|| panic!("Internal error: action {:?} tried to grab the artifact {:?} even though it was not an input.", self.action.owner(), artifact))
     }
@@ -343,19 +352,26 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.cancellations
     }
 
-    async fn exec_cmd(
+    async fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
+    ) -> anyhow::Result<PreparedAction> {
+        self.executor
+            .command_executor
+            .prepare_action(request, self.digest_config())
+            .await
+    }
+
+    async fn exec_cmd(
+        &mut self,
+        manager: CommandExecutionManager,
+        request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
     ) -> anyhow::Result<(
         IndexMap<BuckOutPath, ArtifactValue>,
         ActionExecutionMetadata,
     )> {
         let action = self.target();
-        let manager = CommandExecutionManager::new(
-            Box::new(MutexClaimManager::new()),
-            self.executor.events.dupe(),
-            NoopLivelinessObserver::create(),
-        );
         let CommandExecutionResult {
             outputs,
             report,
@@ -368,6 +384,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .exec_cmd(
                 &action as _,
                 request,
+                prepared_action,
                 manager,
                 self.digest_config(),
                 self.cancellations,
@@ -748,7 +765,9 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let res = ctx.exec_cmd(&req).await;
+                let prepared_action = ctx.prepare_action(&req).await?;
+                let manager = ctx.command_execution_manager();
+                let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
 
                 // Must write out the things we promised to do
                 for x in &self.outputs {

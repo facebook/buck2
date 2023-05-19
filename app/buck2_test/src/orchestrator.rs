@@ -502,9 +502,14 @@ impl<'b> BuckTestOrchestrator<'b> {
             action_key_suffix,
         };
 
+        let prepared_action = executor
+            .prepare_action(&request, self.digest_config)
+            .await?;
+        // For test execution, we currently do not do any cache queries
         let command = executor.exec_cmd(
             &test_target as _,
             &request,
+            &prepared_action,
             manager,
             self.digest_config,
             self.cancellations,
@@ -921,10 +926,13 @@ impl<'b> BuckTestOrchestrator<'b> {
         let local_resource_target = LocalResourceTarget {
             target: &context.target,
         };
-
+        let prepared_action = executor
+            .prepare_action(&context.execution_request, digest_config)
+            .await?;
         let command = executor.exec_cmd(
             &local_resource_target as _,
             &context.execution_request,
+            &prepared_action,
             manager,
             digest_config,
             cancellations,
