@@ -94,6 +94,10 @@ pub trait TestOrchestrator: Send + Sync {
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
     ) -> anyhow::Result<PrepareForLocalExecutionResult>;
+
+    /// attach a message containing information that the executor wants to be surfaced
+    /// to the user
+    async fn attach_info_message(&self, message: String) -> anyhow::Result<()>;
 }
 
 // TODO need to figure out what this is. we can go without it for now

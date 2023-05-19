@@ -87,7 +87,7 @@ use crate::executor_launcher::ExecutorLauncher;
 use crate::executor_launcher::OutOfProcessTestExecutor;
 use crate::local_resource_registry::LocalResourceRegistry;
 use crate::orchestrator::BuckTestOrchestrator;
-use crate::orchestrator::TestResultOrExitCode;
+use crate::orchestrator::ExecutorMessage;
 use crate::session::TestSession;
 use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
@@ -127,13 +127,16 @@ struct ExecutorReport {
 }
 
 impl ExecutorReport {
-    fn ingest(&mut self, status: &TestResultOrExitCode) {
+    fn ingest(&mut self, status: &ExecutorMessage) {
         match status {
-            TestResultOrExitCode::TestResult(res) => {
+            ExecutorMessage::TestResult(res) => {
                 self.statuses.ingest(res);
             }
-            TestResultOrExitCode::ExitCode(exit_code) => {
+            ExecutorMessage::ExitCode(exit_code) => {
                 self.exit_code = Some(*exit_code);
+            }
+            ExecutorMessage::InfoMessage(message) => {
+                self.info_messages.push(message.clone());
             }
         }
     }

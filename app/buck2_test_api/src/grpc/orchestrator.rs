@@ -27,6 +27,7 @@ use buck2_grpc::to_tonic;
 use buck2_grpc::ServerHandle;
 use buck2_test_proto::test_orchestrator_client;
 use buck2_test_proto::test_orchestrator_server;
+use buck2_test_proto::AttachInfoMessageRequest;
 use buck2_test_proto::Empty;
 use buck2_test_proto::EndOfTestResultsRequest;
 use buck2_test_proto::ExecuteResponse2;
@@ -260,6 +261,14 @@ impl TestOrchestrator for TestOrchestratorClient {
 
         Ok(result)
     }
+
+    async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
+        self.test_orchestrator_client
+            .clone()
+            .attach_info_message(AttachInfoMessageRequest { message })
+            .await?;
+        Ok(())
+    }
 }
 
 pub struct Service<T> {
@@ -431,6 +440,23 @@ where
             Ok(PrepareForLocalExecutionResponse {
                 result: Some(result),
             })
+        })
+        .await
+    }
+
+    async fn attach_info_message(
+        &self,
+        request: tonic::Request<AttachInfoMessageRequest>,
+    ) -> Result<tonic::Response<Empty>, tonic::Status> {
+        to_tonic(async move {
+            let AttachInfoMessageRequest { message } = request.into_inner();
+
+            self.inner
+                .attach_info_message(message)
+                .await
+                .context("Failed to attach info messages")?;
+
+            Ok(Empty {})
         })
         .await
     }

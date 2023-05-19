@@ -130,15 +130,16 @@ use crate::translations;
 const MAX_SUFFIX_LEN: usize = 1024;
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum TestResultOrExitCode {
+pub enum ExecutorMessage {
     TestResult(TestResult),
     ExitCode(i32),
+    InfoMessage(String),
 }
 
 pub struct BuckTestOrchestrator<'a> {
     dice: DiceTransaction,
     session: Arc<TestSession>,
-    results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
+    results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
@@ -151,7 +152,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         dice: DiceTransaction,
         session: Arc<TestSession>,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
+        results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         cancellations: &'a CancellationContext,
         local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
@@ -173,7 +174,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         dice: DiceTransaction,
         session: Arc<TestSession>,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        results_channel: UnboundedSender<anyhow::Result<TestResultOrExitCode>>,
+        results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         events: EventDispatcher,
         digest_config: DigestConfig,
         cancellations: &'a CancellationContext,
@@ -327,7 +328,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         )?);
         self.events.instant_event(event);
         self.results_channel
-            .unbounded_send(Ok(TestResultOrExitCode::TestResult(r)))
+            .unbounded_send(Ok(ExecutorMessage::TestResult(r)))
             .map_err(|_| anyhow::Error::msg("Test result was received after end-of-tests"))?;
         Ok(())
     }
@@ -363,7 +364,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
     async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
         self.results_channel
-            .unbounded_send(Ok(TestResultOrExitCode::ExitCode(exit_code)))
+            .unbounded_send(Ok(ExecutorMessage::ExitCode(exit_code)))
             .map_err(|_| anyhow::Error::msg("end_of_tests was received twice"))?;
         self.results_channel.close_channel();
         Ok(())
@@ -439,6 +440,13 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             &fs,
             execution_request,
         ))
+    }
+
+    async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
+        self.results_channel
+            .unbounded_send(Ok(ExecutorMessage::InfoMessage(message)))
+            .map_err(|_| anyhow::Error::msg("Message received after end-of-tests"))?;
+        Ok(())
     }
 }
 
@@ -1308,7 +1316,7 @@ mod tests {
 
     async fn make() -> anyhow::Result<(
         BuckTestOrchestrator<'static>,
-        UnboundedReceiver<anyhow::Result<TestResultOrExitCode>>,
+        UnboundedReceiver<anyhow::Result<ExecutorMessage>>,
     )> {
         let fs = ProjectRootTemp::new().unwrap();
 
@@ -1385,7 +1393,7 @@ mod tests {
         assert_eq!(
             results,
             vec![
-                TestResultOrExitCode::TestResult(TestResult {
+                ExecutorMessage::TestResult(TestResult {
                     target,
 
                     status: TestStatus::PASS,
@@ -1394,7 +1402,7 @@ mod tests {
                     duration: Some(Duration::from_micros(1)),
                     details: "1".to_owned(),
                 }),
-                TestResultOrExitCode::TestResult(TestResult {
+                ExecutorMessage::TestResult(TestResult {
                     target,
 
                     status: TestStatus::FAIL,
@@ -1403,7 +1411,32 @@ mod tests {
                     duration: Some(Duration::from_micros(2)),
                     details: "2".to_owned(),
                 }),
-                TestResultOrExitCode::ExitCode(0),
+                ExecutorMessage::ExitCode(0),
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn orchestrator_attach_info_messages() -> anyhow::Result<()> {
+        let (orchestrator, channel) = make().await?;
+
+        let jobs = async {
+            orchestrator.attach_info_message("yolo".to_owned()).await?;
+
+            orchestrator.end_of_test_results(0).await?;
+
+            anyhow::Ok(())
+        };
+
+        let ((), results) = future::try_join(jobs, channel.try_collect::<Vec<_>>()).await?;
+
+        assert_eq!(
+            results,
+            vec![
+                ExecutorMessage::InfoMessage("yolo".to_owned(),),
+                ExecutorMessage::ExitCode(0),
             ]
         );
 

@@ -272,6 +272,10 @@ message PrepareForLocalExecutionResponse {
   PrepareForLocalExecutionResult result = 1;
 }
 
+message AttachInfoMessageRequest {
+  string message = 1;
+}
+
 service TestOrchestrator {
   rpc EndOfTestResults(EndOfTestResultsRequest) returns (Empty);
   rpc ReportTestResult(ReportTestResultRequest) returns (Empty);
@@ -280,6 +284,7 @@ service TestOrchestrator {
   rpc Execute2(ExecuteRequest2) returns (ExecuteResponse2);
   rpc PrepareForLocalExecution(PrepareForLocalExecutionRequest)
       returns (PrepareForLocalExecutionResponse);
+  rpc AttachInfoMessage(AttachInfoMessageRequest) returns (Empty);
 }
 
 service TestExecutor {
