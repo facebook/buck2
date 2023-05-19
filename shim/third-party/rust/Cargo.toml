@@ -178,7 +178,7 @@ test-case = "1.2.0"
 textwrap = { version = "0.11", features = ["term_size"] }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
-tokio = { version = "1.5", features = ["full"] }
+tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
 tokio-rustls = { package = "tokio-rustls", version = "0.23.0", features = ["dangerous_configuration"] }
 tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
 tokio-util = { version = "0.6", features = ["full"] }
