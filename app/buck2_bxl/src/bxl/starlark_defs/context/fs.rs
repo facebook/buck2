@@ -14,6 +14,7 @@ use buck2_core::cells::instance::CellInstance;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -107,6 +108,20 @@ impl<'v> UnpackValue<'v> for &'v BxlFilesystem<'v> {
     }
 }
 
+impl<'v> BxlFilesystem<'v> {
+    /// Returns the absolute path for a FileExpr.
+    fn resolve(&self, expr: FileExpr<'v>) -> anyhow::Result<AbsNormPathBuf> {
+        let project_rel_path = self.project_relative_path(expr)?;
+        Ok(self.project_fs.resolve(&project_rel_path))
+    }
+
+    /// Returns the project relative path for a cellpath.
+    fn project_relative_path(&self, expr: FileExpr<'v>) -> anyhow::Result<ProjectRelativePathBuf> {
+        let cell_path = expr.get(self.dice, self.cell)?;
+        self.artifact_fs.resolve_cell_path(cell_path.as_ref())
+    }
+}
+
 /// Provides some basic tracked filesystem access for bxl functions so that they can meaningfully
 /// detect simple properties of artifacts, and source directories.
 #[starlark_module]
@@ -171,7 +186,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
     fn is_dir<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
-        Ok(std::path::Path::is_dir(resolve(this, expr)?.as_ref()))
+        Ok(std::path::Path::is_dir(this.resolve(expr)?.as_ref()))
     }
 
     /// Returns whether the provided path is a file. Returns false is the file does not exist.
@@ -183,13 +198,6 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
     fn is_file<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
-        Ok(std::path::Path::is_file(resolve(this, expr)?.as_ref()))
+        Ok(std::path::Path::is_file(this.resolve(expr)?.as_ref()))
     }
-}
-
-/// Returns the absolute path for a FileExpr.
-fn resolve<'v>(bxl_fs: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<AbsNormPathBuf> {
-    let cell_path = expr.get(bxl_fs.dice, bxl_fs.cell)?;
-    let project_rel_path = bxl_fs.artifact_fs.resolve_cell_path(cell_path.as_ref())?;
-    Ok(bxl_fs.project_fs.resolve(&project_rel_path))
 }
