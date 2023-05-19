@@ -86,6 +86,7 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "serialize_debugging_options": attrs.bool(default = True),
         "stripped": attrs.bool(default = False),
+        "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_shlib_interfaces": attrs.bool(default = True),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
