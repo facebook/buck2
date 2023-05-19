@@ -11,6 +11,7 @@ load(
     "LinkExecutionPreference",
     "LinkExecutionPreferenceDeterminatorInfo",
     "LinkExecutionPreferenceInfo",  # @unused Used as a type
+    "get_action_execution_attributes",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(
@@ -85,9 +86,11 @@ def _impl(ctx: "context") -> ["provider"]:
         exclude_regular_expressions = exclude_regular_expressions,
     )
 
-    def scrub_binary(inner_ctx, executable: "artifact", adhoc_codesign_tool: ["RunInfo", None]) -> "artifact":
+    def scrub_binary(inner_ctx, executable: "artifact", executable_link_execution_preference: LinkExecutionPreference.type, adhoc_codesign_tool: ["RunInfo", None]) -> "artifact":
         inner_cmd = cmd_args(cmd)
         output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
+
+        action_execution_properties = get_action_execution_attributes(executable_link_execution_preference)
 
         # If we're provided a codesign tool, provider it to the scrubber binary so that it may sign
         # the binary after scrubbing.
@@ -95,7 +98,15 @@ def _impl(ctx: "context") -> ["provider"]:
             inner_cmd.add(["--adhoc-codesign-tool", adhoc_codesign_tool])
         inner_cmd.add(["--input", executable])
         inner_cmd.add(["--output", output.as_output()])
-        inner_ctx.actions.run(inner_cmd, category = "scrub_binary", identifier = executable.short_path)
+        inner_ctx.actions.run(
+            inner_cmd,
+            category = "scrub_binary",
+            identifier = executable.short_path,
+            prefer_local = action_execution_properties.prefer_local,
+            prefer_remote = action_execution_properties.prefer_remote,
+            local_only = action_execution_properties.local_only,
+            force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+        )
         return output
 
     def filter_debug_info(debug_info: "transitive_set_iterator") -> ["artifact"]:

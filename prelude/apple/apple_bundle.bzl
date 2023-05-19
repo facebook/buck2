@@ -15,6 +15,11 @@ load(
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
 )
+load(
+    "@prelude//linking:execution_preference.bzl",
+    "LinkExecutionPreference",
+    "LinkExecutionPreferenceInfo",
+)
 load("@prelude//utils:utils.bzl", "expect", "flatten", "is_any")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
@@ -83,7 +88,10 @@ def _maybe_scrub_binary(ctx, binary_dep: "dependency") -> AppleBundleBinaryOutpu
     else:
         adhoc_codesign_tool = None
 
-    binary = selective_debugging_info.scrub_binary(ctx, binary, adhoc_codesign_tool)
+    binary_execution_preference_info = binary_dep.get(LinkExecutionPreferenceInfo)
+    preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
+
+    binary = selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool)
 
     if not debuggable_info:
         return AppleBundleBinaryOutput(binary = binary)
