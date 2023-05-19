@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+pub mod action_cache;
 pub mod caching;
 pub mod hybrid;
 pub mod local;

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::ops::ControlFlow;
+
 use async_trait::async_trait;
 use more_futures::cancellation::CancellationContext;
 use remote_execution as RE;
@@ -52,4 +54,35 @@ pub trait PreparedCommandExecutor: Send + Sync {
     /// Checks if there is any possibility for a command with a given executor preference to
     /// be executed locally.
     fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool;
+}
+
+#[async_trait]
+pub trait PreparedCommandOptionalExecutor: Send + Sync {
+    /// Take a command and evaluate whether it needs to be actually executed (locally or remotely) or can be skipped.
+    /// In the skip case, this should handle all the things that would happen in an actual execution (materialization, output declaration, etc.).
+    ///
+    /// Given a command, evaluate whether the execution can be skipped. (for example because it is already cached)
+    /// If it can be skipped, return a CommandExecutionResult that can be used as if the action was just executed.
+    /// Otherwise, return a CommandExecutionManager that can be used to execute the action.
+    async fn maybe_execute(
+        &self,
+        command: &PreparedCommand<'_, '_>,
+        manager: CommandExecutionManager,
+        cancellations: &CancellationContext,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
+}
+
+// When we don't want to check a command can be skipped, just use the NoOpCommandExecutor that always returns the continue case.
+pub struct NoOpCommandExecutor {}
+
+#[async_trait]
+impl PreparedCommandOptionalExecutor for NoOpCommandExecutor {
+    async fn maybe_execute(
+        &self,
+        _command: &PreparedCommand<'_, '_>,
+        manager: CommandExecutionManager,
+        _cancellations: &CancellationContext,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        ControlFlow::Continue(manager)
+    }
 }
