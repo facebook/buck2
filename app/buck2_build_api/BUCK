@@ -7,7 +7,6 @@ rust_library(
     name = "buck2_build_api",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:indoc",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
     ],
     deps = [

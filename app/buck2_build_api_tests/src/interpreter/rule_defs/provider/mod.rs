@@ -9,4 +9,5 @@
 
 mod builtin;
 mod collection;
+pub(crate) mod testing;
 mod tests;

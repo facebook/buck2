@@ -70,7 +70,5 @@ buck2_util = { workspace = true }
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }
 
-indoc = { workspace = true }
-
 [features]
 # @oss-disable: default = ["gazebo_lint"]

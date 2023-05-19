@@ -8,11 +8,13 @@
  */
 
 #![cfg(test)]
+#![feature(provide_any)]
 
 mod actions;
 mod analysis;
 mod artifact_groups;
 mod attrs;
+mod deferred;
 mod interpreter;
 mod nodes;
 
