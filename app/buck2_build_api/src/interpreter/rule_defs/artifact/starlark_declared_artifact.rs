@@ -15,7 +15,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -287,10 +287,11 @@ fn artifact_methods(builder: &mut MethodsBuilder) {
         match this.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
-                BaseDeferredKeyDyn::TargetLabel(t) => Some(Label::new(
-                    ConfiguredProvidersLabel::new(t, ProvidersName::Default),
-                )),
-                BaseDeferredKeyDyn::AnonTarget(_) | BaseDeferredKeyDyn::BxlLabel(_) => None,
+                BaseDeferredKey::TargetLabel(t) => Some(Label::new(ConfiguredProvidersLabel::new(
+                    t,
+                    ProvidersName::Default,
+                ))),
+                BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_) => None,
             }),
         }
     }

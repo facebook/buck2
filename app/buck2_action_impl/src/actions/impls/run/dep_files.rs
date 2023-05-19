@@ -28,7 +28,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::directory::DirectorySelector;
 use buck2_core::directory::FingerprintedDirectory;
@@ -88,13 +88,13 @@ pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
     "identifier.as_deref().unwrap_or(\"<no identifier>\")"
 )]
 pub struct DepFilesKey {
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     category: Category,
     identifier: Option<String>,
 }
 
 impl DepFilesKey {
-    pub fn new(owner: BaseDeferredKeyDyn, category: Category, identifier: Option<String>) -> Self {
+    pub fn new(owner: BaseDeferredKey, category: Category, identifier: Option<String>) -> Self {
         Self {
             owner,
             category,

@@ -16,7 +16,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::result::SharedResult;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -346,7 +346,7 @@ impl AnonTargetKey {
                     let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
                     let registry = AnalysisRegistry::new_from_owner(
-                        BaseDeferredKeyDyn::AnonTarget(self.0.dupe()),
+                        BaseDeferredKey::AnonTarget(self.0.dupe()),
                         exec_resolution,
                     );
 

@@ -45,7 +45,7 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::executor_config::CommandExecutorConfig;
 use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -296,7 +296,7 @@ impl RegisteredAction {
     }
 
     /// Gets the target label to the rule that created this action.
-    pub fn owner(&self) -> &BaseDeferredKeyDyn {
+    pub fn owner(&self) -> &BaseDeferredKey {
         self.key.deferred_key().owner()
     }
 

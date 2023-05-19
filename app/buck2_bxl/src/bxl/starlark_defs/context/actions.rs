@@ -19,7 +19,7 @@ use buck2_build_api::configuration::calculation::ConfigurationCalculation;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::nodes::calculation::ExecutionPlatformConstraints;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::name::CellName;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::data::ConfigurationData;
@@ -181,7 +181,7 @@ pub(crate) fn validate_action_instantiation<'v>(
         return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
     } else {
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKeyDyn::BxlLabel(this.current_bxl.dupe().into_base_deferred_key_dyn_impl()),
+            BaseDeferredKey::BxlLabel(this.current_bxl.dupe().into_base_deferred_key_dyn_impl()),
             execution_platform,
         );
 

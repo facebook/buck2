@@ -13,7 +13,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
@@ -27,12 +27,12 @@ use crate::dynamic::deferred::DynamicLambdaOutput;
 
 #[derive(Allocative)]
 pub(crate) struct DynamicRegistry {
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     pending: Vec<(ReservedDeferredData<DynamicLambdaOutput>, DynamicLambda)>,
 }
 
 impl DynamicRegistry {
-    pub fn new(owner: BaseDeferredKeyDyn) -> Self {
+    pub fn new(owner: BaseDeferredKey) -> Self {
         Self {
             owner,
             pending: Vec::new(),

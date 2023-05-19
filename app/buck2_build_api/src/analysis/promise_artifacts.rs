@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
@@ -31,10 +31,10 @@ use crate::interpreter::rule_defs::artifact::ValueAsArtifactLike;
 pub struct PromiseArtifactRegistry<'v> {
     promises: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
     artifacts: Vec<(Option<FileSpan>, PromiseArtifact)>,
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
 }
 impl<'v> PromiseArtifactRegistry<'v> {
-    pub(crate) fn new(owner: BaseDeferredKeyDyn) -> Self {
+    pub(crate) fn new(owner: BaseDeferredKey) -> Self {
         Self {
             owner,
             promises: Vec::new(),

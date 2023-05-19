@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::legacy_configs::LegacyBuckConfig;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::directory::DirectoryEntry;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
@@ -528,7 +528,7 @@ pub struct HttpDownloadInfo {
     pub checksum: Checksum,
 
     /// Target that declared the action.
-    pub owner: BaseDeferredKeyDyn,
+    pub owner: BaseDeferredKey,
 }
 
 #[derive(Debug, Error)]

@@ -23,7 +23,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_events::dispatch::create_span;
 use buck2_execute::digest_config::HasDigestConfig;
 use derive_more::Display;
@@ -98,11 +98,11 @@ impl DeferredCalculation for DiceComputations {
 }
 
 async fn lookup_deferred_inner(
-    key: &BaseDeferredKeyDyn,
+    key: &BaseDeferredKey,
     dice: &DiceComputations,
 ) -> anyhow::Result<DeferredHolder> {
     match key {
-        BaseDeferredKeyDyn::TargetLabel(target) => {
+        BaseDeferredKey::TargetLabel(target) => {
             let analysis = dice
                 .get_analysis_result(target)
                 .await?
@@ -110,7 +110,7 @@ async fn lookup_deferred_inner(
 
             Ok(DeferredHolder::Analysis(analysis))
         }
-        BaseDeferredKeyDyn::BxlLabel(bxl) => {
+        BaseDeferredKey::BxlLabel(bxl) => {
             let bxl_result = dice
                 .eval_bxl(BxlKey::from_base_deferred_key_dyn_impl_err(bxl.dupe())?)
                 .await?
@@ -118,7 +118,7 @@ async fn lookup_deferred_inner(
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }
-        BaseDeferredKeyDyn::AnonTarget(target) => {
+        BaseDeferredKey::AnonTarget(target) => {
             let target = target
                 .dupe()
                 .into_any()
@@ -389,7 +389,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::target::label::TargetLabel;
@@ -454,9 +454,8 @@ mod tests {
             "#
         ));
 
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
-            target.dupe(),
-        )));
+        let mut deferred =
+            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
 
         let executed0 = Arc::new(AtomicBool::new(false));
         let executed1 = Arc::new(AtomicBool::new(false));
@@ -549,9 +548,8 @@ mod tests {
             "#
         ));
 
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::TargetLabel(
-            target.dupe(),
-        )));
+        let mut deferred =
+            DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
 
         let executed = Arc::new(AtomicBool::new(false));
         let data = deferred.defer(DeferringDeferred(8, IndexSet::new(), executed.dupe()));

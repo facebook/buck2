@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -111,7 +111,7 @@ impl Artifact {
     }
 
     /// The callsite that declared this artifact, any.
-    pub fn owner(&self) -> Option<&BaseDeferredKeyDyn> {
+    pub fn owner(&self) -> Option<&BaseDeferredKey> {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => None,
             BaseArtifactKind::Build(b) => Some(b.get_path().owner()),
@@ -346,7 +346,7 @@ impl DeclaredArtifact {
         self.artifact.borrow().is_bound()
     }
 
-    pub fn owner(&self) -> Option<BaseDeferredKeyDyn> {
+    pub fn owner(&self) -> Option<BaseDeferredKey> {
         match &*self.artifact.borrow() {
             DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
             DeclaredArtifactKind::Unbound(_) => None,
@@ -465,7 +465,7 @@ impl UnboundArtifact {
 }
 
 pub mod testing {
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::label::ConfiguredTargetLabel;
@@ -526,9 +526,9 @@ pub mod testing {
             id: DeferredId,
         ) -> BuildArtifact {
             BuildArtifact::new(
-                BuckOutPath::new(BaseDeferredKeyDyn::TargetLabel(target.dupe()), path),
+                BuckOutPath::new(BaseDeferredKey::TargetLabel(target.dupe()), path),
                 ActionKey::unchecked_new(DeferredKey::Base(
-                    BaseDeferredKeyDyn::TargetLabel(target),
+                    BaseDeferredKey::TargetLabel(target),
                     id,
                 )),
                 OutputType::File,
@@ -544,7 +544,7 @@ mod tests {
     use std::hash::Hasher;
 
     use assert_matches::assert_matches;
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -583,14 +583,14 @@ mod tests {
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
             BuckOutPath::new(
-                BaseDeferredKeyDyn::TargetLabel(target.dupe()),
+                BaseDeferredKey::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),
             OutputType::File,
             0,
         );
         let key = ActionKey::unchecked_new(DeferredKey::Base(
-            BaseDeferredKeyDyn::TargetLabel(target.dupe()),
+            BaseDeferredKey::TargetLabel(target.dupe()),
             DeferredId::testing_new(0),
         ));
 
@@ -612,7 +612,7 @@ mod tests {
 
         // Binding again to a different key should fail
         let other_key = ActionKey::unchecked_new(DeferredKey::Base(
-            BaseDeferredKeyDyn::TargetLabel(target),
+            BaseDeferredKey::TargetLabel(target),
             DeferredId::testing_new(1),
         ));
 

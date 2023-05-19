@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDynImpl;
+use buck2_core::base_deferred_key::BaseDeferredKeyDynImpl;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;

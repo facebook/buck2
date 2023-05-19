@@ -23,7 +23,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredKey;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -161,7 +161,7 @@ pub enum DeferredInput {
 /// 'DeferredKey::Base' type.
 #[derive(Allocative)]
 pub enum BaseKey {
-    Base(BaseDeferredKeyDyn),
+    Base(BaseDeferredKey),
     // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
     // Maybe not?
     #[cfg_attr(feature = "gazebo_lint", allow(gazebo_lint_arc_on_dupe))]
@@ -864,7 +864,7 @@ mod tests {
     use buck2_artifact::deferred::data::DeferredData;
     use buck2_artifact::deferred::id::DeferredId;
     use buck2_artifact::deferred::key::DeferredKey;
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::project::ProjectRoot;
@@ -963,8 +963,8 @@ mod tests {
         )
     }
 
-    fn dummy_base() -> BaseDeferredKeyDyn {
-        BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    fn dummy_base() -> BaseDeferredKey {
+        BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ))
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[test]
     fn mapping_async_data() -> anyhow::Result<()> {
-        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
@@ -1079,7 +1079,7 @@ mod tests {
             trivial: false,
         };
 
-        let base = DeferredKey::Base(BaseDeferredKeyDyn::TargetLabel(target.dupe()), id);
+        let base = DeferredKey::Base(BaseDeferredKey::TargetLabel(target.dupe()), id);
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(base)));
 
         let deferred = FakeDeferred {
@@ -1154,7 +1154,7 @@ mod tests {
 
     #[test]
     fn reserving_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
@@ -1203,7 +1203,7 @@ mod tests {
 
     #[test]
     fn reserving_deferred_unbound() {
-        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
@@ -1217,7 +1217,7 @@ mod tests {
 
     #[test]
     fn trivial_deferred() -> anyhow::Result<()> {
-        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));

@@ -9,7 +9,7 @@
 
 use std::fmt::Write;
 
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
@@ -31,7 +31,7 @@ impl<'a> ActionExecutionTarget<'a> {
         Self { action }
     }
 
-    pub fn owner(&self) -> &'a BaseDeferredKeyDyn {
+    pub fn owner(&self) -> &'a BaseDeferredKey {
         self.action.owner()
     }
 

@@ -18,7 +18,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_events::dispatch::get_dispatcher;
@@ -74,7 +74,7 @@ impl DynamicAction {
 #[derive(Clone, Debug, Allocative)]
 pub(crate) struct DynamicLambda {
     /// the owner that defined this lambda
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     /// Things required by the lambda (wrapped in DeferredInput)
     dynamic: IndexSet<DeferredInput>,
     /// Things I am allowed to use as inputs, but don't wait for
@@ -87,21 +87,21 @@ pub(crate) struct DynamicLambda {
 
 impl DynamicLambda {
     pub(crate) fn new(
-        owner: BaseDeferredKeyDyn,
+        owner: BaseDeferredKey,
         dynamic: IndexSet<Artifact>,
         inputs: IndexSet<Artifact>,
         outputs: Vec<BuildArtifact>,
     ) -> Self {
         let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
         match &owner {
-            BaseDeferredKeyDyn::TargetLabel(target) => {
+            BaseDeferredKey::TargetLabel(target) => {
                 depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
             }
-            BaseDeferredKeyDyn::BxlLabel(_) => {
+            BaseDeferredKey::BxlLabel(_) => {
                 // do nothing. This is for grabbing the execution platform, which for bxl, we
                 // hard code to a local execution.
             }
-            BaseDeferredKeyDyn::AnonTarget(_) => {
+            BaseDeferredKey::AnonTarget(_) => {
                 // This will return an error later, so doesn't need to have the dependency
             }
         }
@@ -202,15 +202,15 @@ impl Deferred for DynamicLambda {
 
             let execution_platform = {
                 match &self.owner {
-                    BaseDeferredKeyDyn::TargetLabel(target) => {
+                    BaseDeferredKey::TargetLabel(target) => {
                         let configured_target = deferred_ctx.get_configured_target(target).unwrap();
 
                         configured_target.execution_platform_resolution().dupe()
                     }
-                    BaseDeferredKeyDyn::BxlLabel(_) => {
+                    BaseDeferredKey::BxlLabel(_) => {
                         (*bxl::execution_platform::EXECUTION_PLATFORM).dupe()
                     }
-                    BaseDeferredKeyDyn::AnonTarget(_) => {
+                    BaseDeferredKey::AnonTarget(_) => {
                         return Err(DynamicLambdaError::AnonTargetIncompatible.into());
                     }
                 }
@@ -268,11 +268,10 @@ impl Deferred for DynamicLambda {
                 heap,
                 attributes,
                 match &self.owner {
-                    BaseDeferredKeyDyn::TargetLabel(target) => Some(heap.alloc_typed(Label::new(
+                    BaseDeferredKey::TargetLabel(target) => Some(heap.alloc_typed(Label::new(
                         ConfiguredProvidersLabel::new(target.dupe(), ProvidersName::Default),
                     ))),
-                    BaseDeferredKeyDyn::BxlLabel(target)
-                    | BaseDeferredKeyDyn::AnonTarget(target) => {
+                    BaseDeferredKey::BxlLabel(target) | BaseDeferredKey::AnonTarget(target) => {
                         target.configured_label().map(|configured_target_label| {
                             heap.alloc_typed(Label::new(ConfiguredProvidersLabel::new(
                                 configured_target_label,

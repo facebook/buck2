@@ -17,7 +17,7 @@ mod starlark_promise_artifact;
 
 use std::fmt::Debug;
 
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 
 pub use self::starlark_artifact::StarlarkArtifact;
 pub(crate) use self::starlark_artifact_like::StarlarkArtifactLike;
@@ -43,7 +43,7 @@ pub(crate) enum ArtifactError {
     )]
     BoundArtifactAsOutput {
         artifact_repr: String,
-        existing_owner: BaseDeferredKeyDyn,
+        existing_owner: BaseDeferredKey,
     },
     #[error(
         "attempted to use promise artifact {artifact_repr} as the output of an action, but \

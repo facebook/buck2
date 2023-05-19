@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -32,7 +32,7 @@ pub enum DeferredKey {
     /// Base means it's the first deferred registered that can be looked up via the ID based on
     /// analysis of the 'ConfiguredTargetLabel'.
     #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
-    Base(BaseDeferredKeyDyn, DeferredId),
+    Base(BaseDeferredKey, DeferredId),
     /// Points to a 'Deferred' that is generated from another 'Deferred'. The 'DeferredID' can only
     /// be looked up based on the results of executing the deferred at 'DeferredKey'
     #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
@@ -69,7 +69,7 @@ impl DeferredKey {
         ids.iter().rev().map(|x| x.as_usize().to_string()).join("_")
     }
 
-    pub fn owner(&self) -> &BaseDeferredKeyDyn {
+    pub fn owner(&self) -> &BaseDeferredKey {
         let mut x = self;
         loop {
             match x {

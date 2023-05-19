@@ -31,7 +31,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -81,7 +81,7 @@ mod tests {
             None,
         );
 
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::BxlLabel(
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(
             bxl.dupe().into_base_deferred_key_dyn_impl(),
         )));
 
@@ -102,15 +102,11 @@ mod tests {
                 anyhow::Ok(BxlComputeResult {
                     bxl_result: Arc::new(BxlResult::BuildsArtifacts {
                         output_loc: BuckOutPath::new(
-                            BaseDeferredKeyDyn::BxlLabel(
-                                bxl.dupe().into_base_deferred_key_dyn_impl(),
-                            ),
+                            BaseDeferredKey::BxlLabel(bxl.dupe().into_base_deferred_key_dyn_impl()),
                             ForwardRelativePathBuf::unchecked_new("test".to_owned()),
                         ),
                         error_loc: BuckOutPath::new(
-                            BaseDeferredKeyDyn::BxlLabel(
-                                bxl.dupe().into_base_deferred_key_dyn_impl(),
-                            ),
+                            BaseDeferredKey::BxlLabel(bxl.dupe().into_base_deferred_key_dyn_impl()),
                             ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
                         ),
                         built: vec![],

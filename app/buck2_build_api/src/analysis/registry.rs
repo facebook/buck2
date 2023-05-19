@@ -16,7 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::execute::request::OutputType;
@@ -78,7 +78,7 @@ enum DeclaredArtifactError {
 
 impl<'v> AnalysisRegistry<'v> {
     pub fn new_from_owner(
-        owner: BaseDeferredKeyDyn,
+        owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
     ) -> Self {
         Self::new_from_owner_and_deferred(
@@ -89,7 +89,7 @@ impl<'v> AnalysisRegistry<'v> {
     }
 
     pub(crate) fn new_from_owner_and_deferred(
-        owner: BaseDeferredKeyDyn,
+        owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
         deferred: DeferredRegistry,
     ) -> Self {

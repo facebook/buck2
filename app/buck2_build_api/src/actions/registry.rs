@@ -16,7 +16,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::directory;
 use buck2_core::directory::Directory;
@@ -47,7 +47,7 @@ use crate::deferred::types::ReservedTrivialDeferredData;
 /// The actions registry for a particular analysis of a rule implementation
 #[derive(Allocative)]
 pub struct ActionsRegistry {
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
     pending: Vec<(
@@ -59,7 +59,7 @@ pub struct ActionsRegistry {
 }
 
 impl ActionsRegistry {
-    pub fn new(owner: BaseDeferredKeyDyn, execution_platform: ExecutionPlatformResolution) -> Self {
+    pub fn new(owner: BaseDeferredKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
             action_key: None,

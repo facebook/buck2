@@ -16,7 +16,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
-use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::Category;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -27,7 +27,7 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 #[display(fmt = "({})/{}", owner, "path.as_str()")]
 struct BuckOutPathData {
     /// The owner responsible for creating this path.
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
     action_key: Option<Arc<str>>,
     /// The path relative to that target.
@@ -48,12 +48,12 @@ struct BuckOutPathData {
 pub struct BuckOutPath(Arc<BuckOutPathData>);
 
 impl BuckOutPath {
-    pub fn new(owner: BaseDeferredKeyDyn, path: ForwardRelativePathBuf) -> Self {
+    pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
         Self::with_action_key(owner, path, None)
     }
 
     pub fn with_action_key(
-        owner: BaseDeferredKeyDyn,
+        owner: BaseDeferredKey,
         path: ForwardRelativePathBuf,
         action_key: Option<Arc<str>>,
     ) -> Self {
@@ -64,7 +64,7 @@ impl BuckOutPath {
         }))
     }
 
-    pub fn owner(&self) -> &BaseDeferredKeyDyn {
+    pub fn owner(&self) -> &BaseDeferredKey {
         &self.0.owner
     }
 
@@ -81,7 +81,7 @@ impl BuckOutPath {
 #[display(fmt = "tmp/({})/{}", owner, "path.as_str()")]
 pub struct BuckOutScratchPath {
     /// The deferred responsible for creating this path.
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
 }
@@ -90,7 +90,7 @@ impl BuckOutScratchPath {
     /// Returning an Err from this function is considered an internal error - we try
     /// really hard to normalise anything the user supplies.
     pub fn new(
-        owner: BaseDeferredKeyDyn,
+        owner: BaseDeferredKey,
         category: &Category,
         identifier: Option<&str>,
     ) -> anyhow::Result<Self> {
@@ -220,7 +220,7 @@ impl BuckOutPathResolver {
     fn prefixed_path_for_owner(
         &self,
         prefix: &ForwardRelativePath,
-        owner: &BaseDeferredKeyDyn,
+        owner: &BaseDeferredKey,
         action_key: Option<&str>,
         path: &ForwardRelativePath,
     ) -> ProjectRelativePathBuf {
@@ -250,7 +250,7 @@ mod tests {
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use crate::base_deferred_key::BaseDeferredKey;
     use crate::buck_path::path::BuckPath;
     use crate::buck_path::resolver::BuckPathResolver;
     use crate::category::Category;
@@ -326,7 +326,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKeyDyn::TargetLabel(cfg_target),
+            BaseDeferredKey::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
         ));
 
@@ -354,7 +354,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
 
         let resolved = path_resolver.resolve_gen(&BuckOutPath::new(
-            BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
+            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
         ));
 
@@ -367,7 +367,7 @@ mod tests {
         );
 
         let path = BuckOutPath::with_action_key(
-            BaseDeferredKeyDyn::TargetLabel(cfg_target),
+            BaseDeferredKey::TargetLabel(cfg_target),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             Some(Arc::from("xxx")),
         );
@@ -398,7 +398,7 @@ mod tests {
 
         // We expect these all to be valid paths, avoiding weird things we throw in
         BuckOutScratchPath::new(
-            BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
+            BaseDeferredKey::TargetLabel(cfg_target.dupe()),
             &category,
             None,
         )
@@ -406,7 +406,7 @@ mod tests {
 
         let mk = move |s| {
             BuckOutScratchPath::new(
-                BaseDeferredKeyDyn::TargetLabel(cfg_target.dupe()),
+                BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                 &category,
                 Some(s),
             )

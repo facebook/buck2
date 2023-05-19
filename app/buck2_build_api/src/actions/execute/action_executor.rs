@@ -572,7 +572,7 @@ mod tests {
     use buck2_common::executor_config::PathSeparatorKind;
     use buck2_common::http::ClientForTest;
     use buck2_common::io::fs::FsIoProvider;
-    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
     use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
@@ -799,7 +799,7 @@ mod tests {
 
         let action = RegisteredAction::new(
             ActionKey::new(DeferredData::unchecked_new(DeferredKey::Base(
-                BaseDeferredKeyDyn::TargetLabel(label.dupe()),
+                BaseDeferredKey::TargetLabel(label.dupe()),
                 DeferredId::testing_new(0),
             ))),
             Box::new(TestingAction {

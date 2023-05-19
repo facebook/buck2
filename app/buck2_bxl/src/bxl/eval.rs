@@ -23,7 +23,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::CellResolver;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -119,7 +119,7 @@ pub async fn eval(
                     // is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping
                     // the output file cache up to date.
                     let output_stream = BuckOutPath::new(
-                        BaseDeferredKeyDyn::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
+                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
                         ForwardRelativePathBuf::unchecked_new(
                             "__bxl_internal__/outputstream_cache".to_owned(),
                         ),
@@ -131,7 +131,7 @@ pub async fn eval(
                     let file = RefCell::new(Box::new(project_fs.create_file(&file_path, false)?));
 
                     let error_stream = BuckOutPath::new(
-                        BaseDeferredKeyDyn::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
+                        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl()),
                         ForwardRelativePathBuf::unchecked_new(
                             "__bxl_internal__/errorstream_cache".to_owned(),
                         ),

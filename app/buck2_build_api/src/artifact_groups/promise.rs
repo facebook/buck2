@@ -14,7 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark::codemap::FileSpan;
@@ -63,11 +63,11 @@ pub struct PromiseArtifact {
 
 #[derive(Clone, Debug, Dupe, Allocative, Hash, Eq, PartialEq)]
 pub struct PromiseArtifactId {
-    owner: BaseDeferredKeyDyn,
+    owner: BaseDeferredKey,
     id: usize,
 }
 impl PromiseArtifactId {
-    pub(crate) fn new(owner: BaseDeferredKeyDyn, id: usize) -> PromiseArtifactId {
+    pub(crate) fn new(owner: BaseDeferredKey, id: usize) -> PromiseArtifactId {
         Self { owner, id }
     }
 }

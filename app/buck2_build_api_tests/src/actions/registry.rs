@@ -20,7 +20,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -37,7 +37,7 @@ use crate::actions::testings::SimpleUnregisteredAction;
 
 #[test]
 fn declaring_artifacts() -> anyhow::Result<()> {
-    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
@@ -76,7 +76,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
         ConfigurationData::testing_new(),
     );
     let mut actions = ActionsRegistry::new(
-        BaseDeferredKeyDyn::TargetLabel(target.dupe()),
+        BaseDeferredKey::TargetLabel(target.dupe()),
         ExecutionPlatformResolution::unspecified(),
     );
 
@@ -136,7 +136,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
 
 #[test]
 fn register_actions() -> anyhow::Result<()> {
-    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
@@ -179,7 +179,7 @@ fn register_actions() -> anyhow::Result<()> {
 
 #[test]
 fn finalizing_actions() -> anyhow::Result<()> {
-    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
@@ -268,7 +268,7 @@ fn duplicate_category_identifier() {
 fn category_identifier_test(
     action_names: &[(&'static str, Option<&'static str>)],
 ) -> anyhow::Result<()> {
-    let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
