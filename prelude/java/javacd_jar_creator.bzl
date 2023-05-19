@@ -29,6 +29,7 @@ load(
     "generate_abi_jars",
     "get_abi_generation_mode",
     "get_compiling_deps_tset",
+    "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
 )
@@ -181,9 +182,6 @@ def create_jar_artifact_javacd(
             abi_dir: ["artifact", None],
             target_type: TargetType.type,
             path_to_class_hashes: ["artifact", None],
-            debug_port: [int.type, None],
-            debug_target: ["label", None],
-            extra_jvm_args: [str.type],
             is_creating_subtarget: bool.type = False,
             source_only_abi_compiling_deps: ["JavaClasspathEntry"] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
@@ -192,33 +190,23 @@ def create_jar_artifact_javacd(
 
         # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
         expect(type(java_toolchain.javac) == "dependency", "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
-        cmd = cmd_args()
-        cmd.add(
-            java_toolchain.java[RunInfo],
+        exe = prepare_cd_exe(
+            qualified_name,
+            java = java_toolchain.java[RunInfo],
+            compiler = java_toolchain.javac[DefaultInfo].default_outputs[0],
+            debug_port = java_toolchain.javacd_debug_port,
+            debug_target = java_toolchain.javacd_debug_target,
+            extra_jvm_args = java_toolchain.javacd_jvm_args,
         )
-
-        if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
-            cmd.add(
-                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port),
-            )
-
-        if len(extra_jvm_args) > 0:
-            cmd.add(extra_jvm_args)
-
-        cmd.add(
-            "-XX:-MaxFDLimit",
-            "-jar",
-            java_toolchain.javac[DefaultInfo].default_outputs[0],
-        )
-
-        cmd.add(
+        args = cmd_args()
+        args.add(
             "--action-id",
             qualified_name,
             "--command-file",
             proto_with_inputs,
         )
         if target_type == TargetType("library") and should_create_class_abi:
-            cmd.add(
+            args.add(
                 "--full-library",
                 output_paths.jar.as_output(),
                 "--class-abi-output",
@@ -228,14 +216,14 @@ def create_jar_artifact_javacd(
             )
 
         if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
-            cmd.add(
+            args.add(
                 "--javacd-abi-output",
                 output_paths.jar.as_output(),
                 "--abi-output-dir",
                 abi_dir.as_output(),
             )
 
-        cmd = add_output_paths_to_cmd_args(cmd, output_paths, path_to_class_hashes)
+        args = add_output_paths_to_cmd_args(args, output_paths, path_to_class_hashes)
 
         # TODO(cjhopman): make sure this works both locally and remote.
         event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
@@ -252,10 +240,10 @@ def create_jar_artifact_javacd(
                 elif compiling_deps_tset:
                     abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
             used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
-            cmd = setup_dep_files(
+            args = setup_dep_files(
                 actions,
                 actions_identifier,
-                cmd,
+                args,
                 classpath_jars_tag,
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
@@ -265,7 +253,7 @@ def create_jar_artifact_javacd(
             dep_files["classpath_jars"] = classpath_jars_tag
 
         actions.run(
-            cmd,
+            cmd_args(exe, args),
             env = {
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
@@ -287,9 +275,6 @@ def create_jar_artifact_javacd(
         class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
         path_to_class_hashes_out,
-        java_toolchain.javacd_debug_port,
-        java_toolchain.javacd_debug_target,
-        java_toolchain.javacd_jvm_args,
         is_creating_subtarget,
     )
     final_jar = prepare_final_jar(actions, actions_identifier, output, output_paths, additional_compiled_srcs, java_toolchain.jar_builder)
@@ -309,9 +294,6 @@ def create_jar_artifact_javacd(
             class_abi_output_dir = class_abi_output_dir,
             encode_abi_command = encode_abi_command,
             define_action = define_javacd_action,
-            debug_port = java_toolchain.javacd_debug_port,
-            debug_target = java_toolchain.javacd_debug_target,
-            extra_jvm_args = java_toolchain.javacd_jvm_args,
         )
 
         result = make_compile_outputs(

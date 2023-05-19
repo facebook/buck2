@@ -374,6 +374,20 @@ def setup_dep_files(
 
     return new_cmd
 
+def prepare_cd_exe(
+        qualified_name: str.type,
+        java: RunInfo.type,
+        compiler: "artifact",
+        debug_port: [int.type, None],
+        debug_target: ["label", None],
+        extra_jvm_args: [str.type]) -> cmd_args.type:
+    debug_args = []
+    if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
+        debug_args = ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address={}".format(debug_port)]
+    jvm_args = extra_jvm_args + ["-XX:-MaxFDLimit"]
+
+    return cmd_args([java, debug_args, jvm_args, "-jar", compiler])
+
 # If there's additional compiled srcs, we need to merge them in and if the
 # caller specified an output artifact we need to make sure the jar is in that
 # location.
@@ -422,10 +436,7 @@ def generate_abi_jars(
         class_abi_jar: ["artifact", None],
         class_abi_output_dir: ["artifact", None],
         encode_abi_command: "function",
-        define_action: "function",
-        debug_port: [int.type, None],
-        debug_target: ["label", None],
-        extra_jvm_args: [str.type]) -> tuple.type:
+        define_action: "function") -> tuple.type:
     class_abi = None
     source_abi = None
     source_only_abi = None
@@ -454,9 +465,6 @@ def generate_abi_jars(
                 source_abi_dir,
                 source_abi_target_type,
                 path_to_class_hashes = None,
-                debug_port = debug_port,
-                debug_target = debug_target,
-                extra_jvm_args = extra_jvm_args,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -483,9 +491,6 @@ def generate_abi_jars(
                 source_only_abi_dir,
                 source_only_abi_target_type,
                 path_to_class_hashes = None,
-                debug_port = debug_port,
-                debug_target = debug_target,
-                extra_jvm_args = extra_jvm_args,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar
