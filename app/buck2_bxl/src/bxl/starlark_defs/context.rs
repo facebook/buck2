@@ -598,7 +598,7 @@ fn register_context(builder: &mut MethodsBuilder) {
 
         let res: anyhow::Result<_> = this
             .async_ctx
-            .via_dice(|ctx| async { analysis::analysis(ctx, providers, skip_incompatible).await });
+            .via_dice(|ctx| analysis::analysis(ctx, providers, skip_incompatible));
 
         Ok(match res? {
             Either::Left(single) => eval.heap().alloc(single),

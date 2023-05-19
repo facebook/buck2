@@ -235,11 +235,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
 
         let dep_analysis: anyhow::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>, _> = ctx
             .async_ctx
-            .via_dice(|dice_ctx| async move { get_dep_analysis(configured_node, dice_ctx).await });
+            .via_dice(|dice_ctx| get_dep_analysis(configured_node, dice_ctx));
 
         let query_results = ctx
             .async_ctx
-            .via_dice(|dice_ctx| async move { resolve_queries(dice_ctx, configured_node).await })?;
+            .via_dice(|dice_ctx| resolve_queries(dice_ctx, configured_node))?;
 
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: eval.module(),
