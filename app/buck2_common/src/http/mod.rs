@@ -142,9 +142,7 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     let mut roots = rustls::RootCertStore::empty();
     let native_certs: Vec<_> = rustls_native_certs::load_native_certs()
         .context("Error loading system root certificates")?
-        .into_iter()
-        .map(|cert| cert.0)
-        .collect();
+        .into_map(|cert| cert.0);
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
     // it's better to only add parseable certs when loading system certs because
