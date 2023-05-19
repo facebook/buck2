@@ -30,7 +30,6 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-tokio-stream = { workspace = true }
 glob = { workspace = true }
 indexmap = { workspace = true }
 either = { workspace = true }
@@ -68,7 +67,6 @@ buck2_query_parser = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_util = { workspace = true }
-buck2_critical_path = { workspace = true }
 
 [dev-dependencies]
 buck2_wrapper_common = { workspace = true }

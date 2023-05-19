@@ -80,7 +80,7 @@ enum AnalysisCalculationError {
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{}", "_0")]
-pub(crate) struct AnalysisKey(pub ConfiguredTargetLabel);
+pub struct AnalysisKey(pub ConfiguredTargetLabel);
 
 #[async_trait]
 pub trait RuleAnalysisCalculation {

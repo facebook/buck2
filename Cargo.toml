@@ -63,6 +63,7 @@ members = [
     "app/buck2_build_api_tests",
     "app/buck2_subscription_proto",
     "app/buck2_critical_path",
+    "app/buck2_build_signals_impl",
     "dice/dice",
     "dice/dice_examples",
     "dice/dice_tests",
@@ -341,6 +342,7 @@ buck2_re_configuration = { path = "app/buck2_re_configuration" }
 buck2_subscription_proto = { path = "app/buck2_subscription_proto" }
 buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 buck2_critical_path = { path = "app/buck2_critical_path" }
+buck2_build_signals_impl = { path = "app/buck2_build_signals_impl" }
 
 [profile.release]
 incremental = true

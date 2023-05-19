@@ -1,0 +1,31 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_build_signals_impl",
+    srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:smallvec",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-stream",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_artifact:buck2_artifact",
+        "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_critical_path:buck2_critical_path",
+        "//buck2/app/buck2_data:buck2_data",
+        "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
+        "//buck2/app/buck2_node:buck2_node",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/gazebo/gazebo:gazebo",
+    ],
+)

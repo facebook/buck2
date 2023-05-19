@@ -287,7 +287,7 @@ impl ActionCalculation {
 
 #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, RefCast)]
 #[repr(transparent)]
-pub(crate) struct BuildKey(pub(crate) ActionKey);
+pub struct BuildKey(pub ActionKey);
 
 #[async_trait]
 impl Key for BuildKey {

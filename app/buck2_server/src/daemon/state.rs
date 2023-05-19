@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_build_api::build_listener::CriticalPathBackendName;
+use buck2_build_signals_impl::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
