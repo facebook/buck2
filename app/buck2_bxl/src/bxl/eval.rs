@@ -14,7 +14,6 @@ use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::types::DeferredTable;
@@ -56,12 +55,13 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
+use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::cli_args::CliArgValueExt;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::FrozenBxlFunction;
 
-pub async fn eval(
+pub(crate) async fn eval(
     ctx: &DiceComputations,
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileModeOrInstrumentation,

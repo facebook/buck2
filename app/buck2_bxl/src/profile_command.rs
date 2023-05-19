@@ -11,7 +11,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::bxl::types::BxlKey;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::ProfileRequest;
@@ -33,6 +32,7 @@ use futures::FutureExt;
 
 use crate::bxl::eval::eval;
 use crate::bxl::eval::BxlResolvedCliArgs;
+use crate::bxl::key::BxlKey;
 use crate::command::get_bxl_cli_args;
 use crate::command::parse_bxl_label_from_cli;
 

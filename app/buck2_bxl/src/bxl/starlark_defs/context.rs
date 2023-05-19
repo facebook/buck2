@@ -20,7 +20,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::execution_platform::EXECUTION_PLATFORM;
-use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::build_request::Materializations;
@@ -75,6 +74,7 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
+use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;

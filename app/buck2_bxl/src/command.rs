@@ -21,7 +21,6 @@ use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::bxl::types::BxlKey;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
@@ -63,6 +62,7 @@ use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::BxlResolvedCliArgs;
 use crate::bxl::eval::CliResolutionCtx;
+use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
 pub async fn bxl_command(

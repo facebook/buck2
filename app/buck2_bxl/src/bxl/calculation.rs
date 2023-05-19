@@ -13,7 +13,6 @@ use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
-use buck2_build_api::bxl::types::BxlKey;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
@@ -26,6 +25,7 @@ use futures::future::FutureExt;
 use more_futures::cancellation::CancellationContext;
 
 use crate::bxl::eval::eval;
+use crate::bxl::key::BxlKey;
 
 #[derive(Debug)]
 struct BxlCalculationImpl;
@@ -89,15 +89,16 @@ impl Key for internal::BxlComputeKey {
 
 mod internal {
     use allocative::Allocative;
-    use buck2_build_api::bxl::types::BxlKey;
     use derive_more::Display;
     use dupe::Dupe;
 
+    use crate::bxl::key::BxlKey;
+
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    pub struct BxlComputeKey(pub BxlKey);
+    pub(crate) struct BxlComputeKey(pub BxlKey);
 }
 
 #[cfg(test)]
-pub mod testing {
-    pub use crate::bxl::calculation::internal::BxlComputeKey;
+pub(crate) mod testing {
+    pub(crate) use crate::bxl::calculation::internal::BxlComputeKey;
 }

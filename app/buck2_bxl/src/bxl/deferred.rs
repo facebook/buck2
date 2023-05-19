@@ -19,7 +19,6 @@ mod tests {
     use buck2_build_api::bxl::calculation::BxlComputeResult;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
-    use buck2_build_api::bxl::types::BxlKey;
     use buck2_build_api::deferred::calculation::DeferredCalculation;
     use buck2_build_api::deferred::types::BaseKey;
     use buck2_build_api::deferred::types::Deferred;
@@ -46,6 +45,7 @@ mod tests {
     use indexmap::IndexSet;
 
     use crate::bxl::calculation::testing::BxlComputeKey;
+    use crate::bxl::key::BxlKey;
 
     #[derive(Allocative)]
     struct FakeDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
