@@ -53,14 +53,10 @@
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "make_link_args",
-)
-load(
-    "@prelude//cxx:cxx_toolchain_types.bzl",
-    "CxxPlatformInfo",
-    "CxxToolchainInfo",
 )
 load(
     "@prelude//cxx:preprocessor.bzl",
@@ -137,7 +133,7 @@ def _compile_result_to_tuple(r):
 # ---
 
 def _by_platform(ctx: "context", xs: [(str.type, ["_a"])]) -> ["_a"]:
-    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
+    platform = get_cxx_platform_info(ctx).name
     return flatten(by_platform([platform], xs))
 
 def _attr_deps(ctx: "context") -> ["dependency"]:
@@ -199,13 +195,13 @@ def _mk_env(ctx: "context") -> {str.type: "cmd_args"}:
 
 # Pass '-cc cc.sh' to ocamlopt to use 'cc.sh' as the C compiler.
 def _mk_cc(ctx: "context", cc_args: [""], cc_sh_filename: "") -> "cmd_args":
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
     compiler = cxx_toolchain.c_compiler_info.compiler
     return _mk_script(ctx, cc_sh_filename, [compiler] + cc_args, {})
 
 # Pass '-cc ld.sh' to ocamlopt to use 'ld.sh' as the C linker.
 def _mk_ld(ctx: "context", link_args: [""], ld_sh_filename: "") -> "cmd_args":
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker = cxx_toolchain.linker_info.linker
     linker_flags = cxx_toolchain.linker_info.linker_flags
     return _mk_script(ctx, ld_sh_filename, [linker, linker_flags] + link_args, {})
@@ -817,7 +813,8 @@ def ocaml_object_impl(ctx: "context") -> ["provider"]:
     local_only = link_cxx_binary_locally(ctx)
     ctx.actions.run(cmd, category = "ocaml_complete_obj_link", local_only = local_only)
 
-    linker_type = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info.type
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    linker_type = cxx_toolchain.linker_info.type
     link_infos = {}
     for link_style in LinkStyle:
         link_infos[link_style] = LinkInfos(default = LinkInfo(
