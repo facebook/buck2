@@ -549,7 +549,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         }
     }
 
-    pub async fn run_promises(
+    pub(crate) async fn run_promises(
         self,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,

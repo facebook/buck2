@@ -81,7 +81,7 @@ impl<'v> AnalysisActions<'v> {
         })
     }
 
-    pub(crate) async fn run_promises(
+    pub async fn run_promises(
         &self,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,

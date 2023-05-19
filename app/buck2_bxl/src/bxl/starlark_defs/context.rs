@@ -713,17 +713,8 @@ fn register_context(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.async_ctx.via_dice(|dice| async move {
-            loop {
-                let promises = action_factory.state().take_promises();
-                if let Some(promises) = promises {
-                    promises.run_promises(dice, eval).await?;
-                } else {
-                    break;
-                }
-            }
-            Ok(())
-        })?;
+        this.async_ctx
+            .via_dice(|dice| action_factory.run_promises(dice, eval))?;
 
         Ok(promise.get())
     }
