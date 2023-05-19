@@ -31,7 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_build_api::interpreter::rule_defs::context::REGISTER_CONTEXT_ACTIONS;
+use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
@@ -209,7 +209,7 @@ const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
 /// Actions take inputs and produce outputs, mostly using the `artifact` type.
 /// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
 #[starlark_module]
-fn register_context_actions(builder: &mut MethodsBuilder) {
+fn analysis_actions_methods(builder: &mut MethodsBuilder) {
     /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way of binding an artifact is
     /// with `ctx.actions.run`.
     ///
@@ -982,6 +982,6 @@ fn register_context_actions(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) fn init_register_context_actions() {
-    REGISTER_CONTEXT_ACTIONS.init(register_context_actions);
+pub(crate) fn init_analysis_action_methods() {
+    ANALYSIS_ACTIONS_METHODS.init(analysis_actions_methods);
 }

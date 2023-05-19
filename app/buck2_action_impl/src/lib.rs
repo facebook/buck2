@@ -20,6 +20,6 @@ pub fn init_late_bindings() {
     ONCE.call_once(|| {
         actions::impls::run::audit_dep_files::init_audit_dep_files();
         actions::impls::run::dep_files::init_flush_dep_files();
-        context::init_register_context_actions();
+        context::init_analysis_action_methods();
     });
 }
