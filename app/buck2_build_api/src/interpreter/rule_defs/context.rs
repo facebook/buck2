@@ -172,7 +172,7 @@ impl<'v> AnalysisContext<'v> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
-            let promises = self.actions.state().get_promises();
+            let promises = self.actions.state().take_promises();
             if let Some(promises) = promises {
                 promises.run_promises(dice, eval).await?;
             } else {

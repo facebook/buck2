@@ -277,8 +277,8 @@ impl<'v> AnalysisRegistry<'v> {
         self.anon_targets.register_many(promise, rules)
     }
 
-    pub fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
-        self.anon_targets.get_promises()
+    pub fn take_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+        self.anon_targets.take_promises()
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {

@@ -538,7 +538,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+    pub(crate) fn take_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
         if self.entries.is_empty() {
             None
         } else {

@@ -715,7 +715,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Option<Value<'v>>> {
         this.async_ctx.via_dice(|dice| async move {
             loop {
-                let promises = action_factory.state().get_promises();
+                let promises = action_factory.state().take_promises();
                 if let Some(promises) = promises {
                     promises.run_promises(dice, eval).await?;
                 } else {
