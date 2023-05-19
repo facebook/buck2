@@ -132,32 +132,35 @@ impl DocsCacheManager {
         fs: &ProjectRoot,
         dice_ctx: &DiceTransaction,
     ) -> anyhow::Result<DocsCache> {
+        fn flatten(docs: Vec<Doc>) -> Vec<Doc> {
+            docs.into_iter()
+                .flat_map(|x| match x.item {
+                    DocItem::Module(module) => module
+                        .members
+                        .into_iter()
+                        .map(|(name, v)| Doc {
+                            id: Identifier {
+                                name,
+                                location: x.id.location.clone(),
+                            },
+                            item: v.to_doc_item(),
+                            custom_attrs: x.custom_attrs.clone(),
+                        })
+                        .collect(),
+                    DocItem::Object(_) => vec![],
+                    _ => {
+                        vec![x]
+                    }
+                })
+                .collect::<Vec<_>>()
+        }
+
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
         let global_interpreter_state = dice_ctx.get_global_interpreter_state().await?;
-        let mut builtin_docs = get_builtin_docs(global_interpreter_state)?;
+        let mut builtin_docs = flatten(get_builtin_docs(global_interpreter_state)?);
         let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
-        let prelude_docs = get_prelude_docs(dice_ctx, &builtin_names).await?;
+        let prelude_docs = flatten(get_prelude_docs(dice_ctx, &builtin_names).await?);
         builtin_docs.extend(prelude_docs);
-        let builtin_docs = builtin_docs
-            .into_iter()
-            .flat_map(|x| match x.item {
-                DocItem::Module(module) => module
-                    .members
-                    .into_iter()
-                    .map(|(name, v)| Doc {
-                        id: Identifier {
-                            name,
-                            location: x.id.location.clone(),
-                        },
-                        item: v.to_doc_item(),
-                        custom_attrs: x.custom_attrs.clone(),
-                    })
-                    .collect(),
-                DocItem::Object(_) => vec![],
-                _ => vec![x],
-            })
-            .collect::<Vec<_>>();
-
         DocsCache::new(&builtin_docs, dice_ctx, fs, &cell_resolver).await
     }
 }
