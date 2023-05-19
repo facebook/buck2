@@ -29,6 +29,7 @@ pub mod attrs;
 pub mod audit_dep_files;
 pub mod audit_output;
 pub mod build;
+pub mod build_listener;
 pub mod bxl;
 pub mod calculation;
 pub mod configuration;

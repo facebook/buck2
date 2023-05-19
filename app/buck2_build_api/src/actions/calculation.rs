@@ -41,12 +41,12 @@ use ref_cast::RefCast;
 use smallvec::SmallVec;
 use tracing::debug;
 
-use crate::actions::build_listener::NodeDuration;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
+use crate::build_listener::NodeDuration;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 

@@ -24,7 +24,7 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::actions::build_listener;
+use buck2_build_api::build_listener;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;

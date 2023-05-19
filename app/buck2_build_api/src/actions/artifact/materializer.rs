@@ -21,9 +21,9 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::actions::build_listener::FinalMaterializationSignal;
-use crate::actions::build_listener::HasBuildSignals;
-use crate::actions::build_listener::NodeDuration;
+use crate::build_listener::FinalMaterializationSignal;
+use crate::build_listener::HasBuildSignals;
+use crate::build_listener::NodeDuration;
 use crate::calculation::Calculation;
 
 #[async_trait]
