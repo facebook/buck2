@@ -48,6 +48,38 @@ impl InjectedKey for Foo {
     }
 }
 
+#[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
+#[derivative(PartialEq, Eq, Hash)]
+#[display(fmt = "{:?}", self)]
+#[allocative(skip)]
+struct KeyThatRuns {
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    barrier1: Arc<tokio::sync::Semaphore>,
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    barrier2: Arc<tokio::sync::Semaphore>,
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    is_ran: Arc<AtomicBool>,
+}
+
+#[async_trait]
+impl Key for KeyThatRuns {
+    type Value = ();
+
+    async fn compute(
+        &self,
+        _ctx: &DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        self.barrier1.add_permits(1);
+        let _s = self.barrier2.acquire().await.unwrap();
+        self.is_ran.store(true, Ordering::SeqCst);
+    }
+
+    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+        true
+    }
+}
+
 #[tokio::test]
 async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     let dice = DiceModern::builder().build(DetectCycles::Disabled);
@@ -525,40 +557,8 @@ async fn dropping_request_future_cancels_execution() {
 /// 4. ensure the task is still finishes and runs by checking the `is-ran` atomic
 #[tokio::test]
 async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
-    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
-    #[derivative(PartialEq, Eq, Hash)]
-    #[display(fmt = "{:?}", self)]
-    #[allocative(skip)]
-    struct KeyThatRuns {
-        #[derivative(Hash = "ignore", PartialEq = "ignore")]
-        barrier1: Arc<tokio::sync::Barrier>,
-        #[derivative(Hash = "ignore", PartialEq = "ignore")]
-        barrier2: Arc<tokio::sync::Barrier>,
-        #[derivative(Hash = "ignore", PartialEq = "ignore")]
-        is_ran: Arc<AtomicBool>,
-    }
-
-    #[async_trait]
-    impl Key for KeyThatRuns {
-        type Value = ();
-
-        async fn compute(
-            &self,
-            _ctx: &DiceComputations,
-            _cancellations: &CancellationContext,
-        ) -> Self::Value {
-            self.barrier1.wait().await;
-            self.barrier2.wait().await;
-            self.is_ran.store(true, Ordering::SeqCst);
-        }
-
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
-        }
-    }
-
-    let barrier1 = Arc::new(tokio::sync::Barrier::new(2));
-    let barrier2 = Arc::new(tokio::sync::Barrier::new(2));
+    let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
     let is_ran = Arc::new(AtomicBool::new(false));
 
     let key = KeyThatRuns {
@@ -574,11 +574,11 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
     let req2 = ctx.compute(&key);
 
     // ensure that the key starts computing
-    barrier1.wait().await;
+    let _b = barrier1.acquire().await;
 
     drop(req1);
 
-    barrier2.wait().await;
+    barrier2.add_permits(1);
 
     // req2 still succeed
     req2.await.unwrap();
@@ -656,4 +656,46 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
     };
     let ctx = dice.updater_with_data(user_data).commit().await;
     Ok(ctx.compute(&AccessCycleGuardKey).await?)
+}
+
+#[tokio::test]
+async fn test_dice_usable_after_cancellations() {
+    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+
+    let ctx = dice.updater().commit().await;
+
+    let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
+    let is_ran = Arc::new(AtomicBool::new(false));
+
+    let key = KeyThatRuns {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        is_ran: is_ran.dupe(),
+    };
+
+    let req1 = ctx.compute(&key);
+
+    // ensure that the key starts computing
+    let _b = barrier1.acquire().await;
+
+    // cancel and await for cancellation
+    drop(req1);
+    drop(ctx);
+
+    dice.wait_for_idle().await;
+
+    assert!(!is_ran.load(Ordering::Acquire));
+
+    let ctx = dice.updater().commit().await;
+
+    // req2 still succeed. Note that due to dice caching, even if we make a new key, the same
+    // instance would be used, so just use the same one.
+    let req2 = ctx.compute(&key);
+
+    barrier2.add_permits(1);
+
+    req2.await.unwrap();
+
+    assert!(is_ran.load(Ordering::SeqCst));
 }
