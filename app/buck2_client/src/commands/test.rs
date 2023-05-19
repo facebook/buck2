@@ -254,6 +254,11 @@ impl StreamingCommand for TestCommand {
             console.print_warning("NO TESTS RAN")?;
         }
 
+        let info_messages = response.executor_info_messages;
+        for message in info_messages {
+            console.print_stderr(message.as_str())?;
+        }
+
         match self.test_executor_stderr {
             Some(OutputDestinationArg::Path(path)) => {
                 forward_output_to_path(&response.executor_stderr, &path, &ctx.working_dir)?;
