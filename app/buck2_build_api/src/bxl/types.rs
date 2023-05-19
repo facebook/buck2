@@ -104,17 +104,11 @@ impl BxlKey {
 #[derive(
     Clone, Display, Debug, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{} ({})", "spec", "print_like_args(bxl_args)")]
+#[display(fmt = "{}", "spec")]
 struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
     global_target_platform: Option<TargetLabel>,
-}
-
-fn print_like_args(args: &Arc<OrderedMap<String, CliArgValue>>) -> String {
-    args.iter()
-        .map(|(arg, argv)| format!("--{}={}", arg, argv))
-        .join(" ")
 }
 
 impl BxlKeyData {
