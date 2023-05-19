@@ -45,7 +45,6 @@ use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::build_listener::HasBuildSignals;
-use crate::build_listener::TopLevelTargetSignal;
 use crate::calculation::Calculation;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -266,13 +265,13 @@ pub async fn build_configured_label(
     };
 
     if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
-        signals.signal(TopLevelTargetSignal {
-            label: providers_label.target().dupe(),
-            artifacts: outputs
+        signals.top_level_target(
+            providers_label.target().dupe(),
+            outputs
                 .iter()
                 .map(|(output, _type)| output.dupe())
                 .collect(),
-        });
+        );
     }
 
     if !skippable && outputs.is_empty() {

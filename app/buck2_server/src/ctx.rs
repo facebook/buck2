@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
-use buck2_build_api::build_listener::BuildSignalSender;
+use buck2_build_api::build_listener::BuildSignalsInstaller;
 use buck2_build_api::build_listener::SetBuildSignals;
 use buck2_build_api::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_build_api::context::SetBuildContextData;
@@ -197,7 +197,7 @@ pub struct ServerCommandContext<'a> {
     _re_connection_handle: ReConnectionHandle,
 
     /// A sender for build signals. This field is exposed to the rest of the command via DICE.
-    build_signals: BuildSignalSender,
+    build_signals: BuildSignalsInstaller,
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
@@ -236,7 +236,7 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        build_signals: BuildSignalSender,
+        build_signals: BuildSignalsInstaller,
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         buck_out_dir: ProjectRelativePathBuf,
@@ -500,7 +500,7 @@ struct DiceCommandDataProvider {
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,
     re_connection: Arc<ReConnectionHandle>,
-    build_signals: BuildSignalSender,
+    build_signals: BuildSignalsInstaller,
     forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
@@ -582,7 +582,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
             data,
             tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
             cycle_detector,
-            activation_tracker: Some(Arc::new(self.build_signals.dupe()) as _),
+            activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
         };
 
@@ -608,7 +608,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_http_client(self.http_client.dupe());
         data.set_materializer(self.materializer.dupe());
-        data.set_build_signals(self.build_signals.dupe());
+        data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);
         data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
         data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));

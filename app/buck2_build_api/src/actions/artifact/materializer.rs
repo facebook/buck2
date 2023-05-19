@@ -21,7 +21,6 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::build_listener::FinalMaterializationSignal;
 use crate::build_listener::HasBuildSignals;
 use crate::build_listener::NodeDuration;
 use crate::calculation::Calculation;
@@ -76,14 +75,14 @@ impl ArtifactMaterializer for DiceComputations {
             if let Some(signals) = self.per_transaction_data().get_build_signals() {
                 let duration = now.elapsed();
 
-                signals.signal(FinalMaterializationSignal {
-                    artifact: artifact.dupe(),
-                    duration: NodeDuration {
+                signals.final_materialization(
+                    artifact.dupe(),
+                    NodeDuration {
                         user: duration,
                         total: duration,
                     },
-                    span_id: current_span(),
-                });
+                    current_span(),
+                );
             }
 
             (

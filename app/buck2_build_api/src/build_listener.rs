@@ -66,6 +66,27 @@ use crate::deferred::calculation::DeferredCompute;
 use crate::deferred::calculation::DeferredResolve;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
+/// Everything we need to setup build signals when starting a command.
+#[derive(Clone, Dupe)]
+pub struct BuildSignalsInstaller {
+    pub build_signals: Arc<dyn BuildSignals>,
+    pub activation_tracker: Arc<dyn ActivationTracker>,
+}
+
+/// Send notifications to the build signals backend.
+pub trait BuildSignals: Send + Sync + 'static {
+    fn top_level_target(&self, label: ConfiguredTargetLabel, artifacts: Vec<ArtifactGroup>);
+
+    fn final_materialization(
+        &self,
+        artifact: BuildArtifact,
+        duration: NodeDuration,
+        span_id: Option<SpanId>,
+    );
+
+    fn build_finished(&self);
+}
+
 /// A node in our critical path graph.
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, From)]
 enum NodeKey {
@@ -197,14 +218,35 @@ pub struct Evaluation {
     load_result: Option<Arc<EvaluationResult>>,
 }
 
-#[derive(Clone, Dupe)]
 pub struct BuildSignalSender {
-    sender: Arc<UnboundedSender<BuildSignal>>,
+    sender: UnboundedSender<BuildSignal>,
 }
 
-impl BuildSignalSender {
-    pub fn signal(&self, signal: impl Into<BuildSignal>) {
-        let _ignore_error = self.sender.send(signal.into());
+impl BuildSignals for BuildSignalSender {
+    fn top_level_target(&self, label: ConfiguredTargetLabel, artifacts: Vec<ArtifactGroup>) {
+        let _ignored = self
+            .sender
+            .send(TopLevelTargetSignal { label, artifacts }.into());
+    }
+
+    fn final_materialization(
+        &self,
+        artifact: BuildArtifact,
+        duration: NodeDuration,
+        span_id: Option<SpanId>,
+    ) {
+        let _ignored = self.sender.send(
+            FinalMaterializationSignal {
+                artifact,
+                duration,
+                span_id,
+            }
+            .into(),
+        );
+    }
+
+    fn build_finished(&self) {
+        let _ignored = self.sender.send(BuildSignal::BuildFinished);
     }
 }
 
@@ -278,7 +320,7 @@ impl ActivationTracker for BuildSignalSender {
             }
         }
 
-        self.signal(signal);
+        let _ignored = self.sender.send(signal.into());
     }
 }
 
@@ -868,40 +910,48 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 }
 
 pub trait SetBuildSignals {
-    fn set_build_signals(&mut self, sender: BuildSignalSender);
+    fn set_build_signals(&mut self, sender: Arc<dyn BuildSignals>);
 }
 
 impl SetBuildSignals for UserComputationData {
-    fn set_build_signals(&mut self, sender: BuildSignalSender) {
-        self.data.set(sender.dupe());
+    fn set_build_signals(&mut self, sender: Arc<dyn BuildSignals>) {
+        self.data.set(sender);
     }
 }
 
 pub trait HasBuildSignals {
-    fn get_build_signals(&self) -> Option<&BuildSignalSender>;
+    fn get_build_signals(&self) -> Option<&dyn BuildSignals>;
 }
 
 impl HasBuildSignals for UserComputationData {
-    fn get_build_signals(&self) -> Option<&BuildSignalSender> {
-        self.data.get::<BuildSignalSender>().ok()
+    fn get_build_signals(&self) -> Option<&dyn BuildSignals> {
+        self.data
+            .get::<Arc<dyn BuildSignals>>()
+            .ok()
+            .map(|build_signals| build_signals.as_ref())
     }
 }
 
 fn start_listener(
     events: EventDispatcher,
     backend: impl BuildListenerBackend + Send + 'static,
-) -> (BuildSignalSender, JoinHandle<anyhow::Result<()>>) {
+) -> (BuildSignalsInstaller, JoinHandle<anyhow::Result<()>>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    let sender = BuildSignalSender {
-        sender: Arc::new(sender),
-    };
+    let sender = BuildSignalSender { sender };
 
     let listener = BuildSignalReceiver::new(receiver, backend);
     let receiver_task_handle = tokio::spawn(with_dispatcher_async(events.dupe(), async move {
         listener.run_and_log().await
     }));
 
-    (sender, receiver_task_handle)
+    let sender = Arc::new(sender);
+
+    let installer = BuildSignalsInstaller {
+        build_signals: sender.dupe() as _,
+        activation_tracker: sender as _,
+    };
+
+    (installer, receiver_task_handle)
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
@@ -945,17 +995,17 @@ pub async fn scope<F, R, Fut>(
     func: F,
 ) -> anyhow::Result<R>
 where
-    F: FnOnce(BuildSignalSender) -> Fut,
+    F: FnOnce(BuildSignalsInstaller) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    let (sender, handle) = match backend {
+    let (installer, handle) = match backend {
         CriticalPathBackendName::LongestPathGraph => {
             start_listener(events, LongestPathGraphBackend::new())
         }
         CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
     };
-    let result = func(sender.dupe()).await;
-    sender.signal(BuildSignal::BuildFinished);
+    let result = func(installer.dupe()).await;
+    installer.build_signals.build_finished();
     let res = handle
         .await
         .context("Error joining critical path task")?
