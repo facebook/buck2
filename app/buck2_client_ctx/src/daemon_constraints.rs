@@ -12,7 +12,6 @@ use buck2_core::env_helper::EnvHelper;
 use crate::version::BuckVersion;
 
 pub fn gen_daemon_constraints(
-    extra: Option<buck2_cli_proto::ExtraDaemonConstraints>,
     daemon_buster: Option<u64>,
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
     Ok(buck2_cli_proto::DaemonConstraints {
@@ -20,7 +19,7 @@ pub fn gen_daemon_constraints(
         user_version: user_version()?,
         daemon_id: buck2_events::daemon_id::DAEMON_UUID.to_string(),
         daemon_buster,
-        extra,
+        extra: None,
     })
 }
 

@@ -416,7 +416,7 @@ impl DaemonCommand {
 
             drop(span_guard);
 
-            let daemon_constraints = gen_daemon_constraints(None, server_init_ctx.daemon_buster)?;
+            let daemon_constraints = gen_daemon_constraints(server_init_ctx.daemon_buster)?;
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -658,7 +658,7 @@ mod tests {
                 daemon_buster: None,
             },
             process_info.clone(),
-            gen_daemon_constraints(None, None).unwrap(),
+            gen_daemon_constraints(None).unwrap(),
             listener,
             &BuckdServerDependenciesImpl,
         ));
