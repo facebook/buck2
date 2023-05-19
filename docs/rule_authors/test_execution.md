@@ -71,9 +71,10 @@ The following list shows what is available in `ExternalRunnerTestInfo`, with whi
 
 For compatibility with Remote Execution (RE), there are two fields that rules should set in their `ExternalRunnerTestInfo` if they should be run on RE:
 
-* `use_project_relative_paths` - if `true` (the default is `false`), Buck2 will produce relative paths. If not, it'll produce absolute paths.
-* `run_from_project_root` - if `true`, tests will run from the project root (their `cwd` will be the project root, which is the same as all
-  other build commands).  If `false`, it'll be the cell root.
+* `use_project_relative_paths` - if `true` (the default is <FbInternalOnly>`false`</FbInternalOnly> <OssOnly>`true`</OssOnly>),
+  Buck2 will produce relative paths. If not, it'll produce absolute paths.
+* `run_from_project_root` - if `true` (the default is <FbInternalOnly>`false`</FbInternalOnly> <OssOnly>`true`</OssOnly>),
+  tests will run from the project root (their `cwd` will be the project root, which is the same as all build commands).  If `false`, it'll be the cell root.
 
 Note that passing `--unstable-allow-all-tests-on-re` to `buck2 test` will override those fields and set them to `true`, since they are a pre-requisite to run on RE. In contrast, passing `--unstable-allow-compatible-tests-on-re` will only allow tests that already set both those fields to `true` to execute on RE.
 
@@ -161,6 +162,12 @@ ExternalRunnerTestInfo(
 
 ## Working Directory
 
+<OssOnly>
+Tests can be run from the cell root by setting `run_from_project_root = False`.
+</OssOnly>
+
+<FbInternalOnly>
 As noted above, tests run from the cell root unless `run_from_project_root` is set.
+</FbInternalOnly>
 
 To produce paths relative to the cell root for use by tests, use `relative_to(ctx.label.cell_root)` on `cmd_args`.

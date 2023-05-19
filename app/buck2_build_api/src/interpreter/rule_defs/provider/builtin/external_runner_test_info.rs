@@ -130,14 +130,14 @@ impl FrozenExternalRunnerTestInfo {
         NoneOr::<bool>::unpack_value(self.use_project_relative_paths.to_value())
             .unwrap()
             .into_option()
-            .unwrap_or_default()
+            .unwrap_or_else(buck2_core::is_open_source)
     }
 
     pub fn run_from_project_root(&self) -> bool {
         NoneOr::<bool>::unpack_value(self.run_from_project_root.to_value())
             .unwrap()
             .into_option()
-            .unwrap_or_default()
+            .unwrap_or_else(buck2_core::is_open_source)
     }
 
     pub fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
