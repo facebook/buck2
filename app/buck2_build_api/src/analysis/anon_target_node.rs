@@ -15,7 +15,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKeyDynImpl;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -113,7 +113,7 @@ impl AnonTarget {
     }
 }
 
-impl BaseDeferredKeyDynImpl for AnonTarget {
+impl BaseDeferredKeyDyn for AnonTarget {
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }

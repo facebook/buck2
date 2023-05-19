@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::base_deferred_key::BaseDeferredKeyDynImpl;
+use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -80,18 +80,18 @@ impl BxlKey {
         &self.0.bxl_args
     }
 
-    pub fn into_base_deferred_key_dyn_impl(self) -> Arc<dyn BaseDeferredKeyDynImpl> {
+    pub fn into_base_deferred_key_dyn_impl(self) -> Arc<dyn BaseDeferredKeyDyn> {
         self.0
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl(
-        key: Arc<dyn BaseDeferredKeyDynImpl>,
+        key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> Option<Self> {
         key.into_any().downcast().ok().map(BxlKey)
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
-        key: Arc<dyn BaseDeferredKeyDynImpl>,
+        key: Arc<dyn BaseDeferredKeyDyn>,
     ) -> anyhow::Result<Self> {
         Self::from_base_deferred_key_dyn_impl(key).context("Not BxlKey (internal error)")
     }
@@ -125,7 +125,7 @@ impl BxlKeyData {
     }
 }
 
-impl BaseDeferredKeyDynImpl for BxlKeyData {
+impl BaseDeferredKeyDyn for BxlKeyData {
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }

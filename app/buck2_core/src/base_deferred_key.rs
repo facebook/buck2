@@ -28,9 +28,7 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::target::label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
-pub trait BaseDeferredKeyDynImpl:
-    Debug + Display + Any + Allocative + Send + Sync + 'static
-{
+pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn hash(&self) -> u64;
     fn make_hashed_path(
@@ -49,8 +47,8 @@ pub trait BaseDeferredKeyDynImpl:
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
 pub enum BaseDeferredKey {
     TargetLabel(ConfiguredTargetLabel),
-    AnonTarget(Arc<dyn BaseDeferredKeyDynImpl>),
-    BxlLabel(Arc<dyn BaseDeferredKeyDynImpl>),
+    AnonTarget(Arc<dyn BaseDeferredKeyDyn>),
+    BxlLabel(Arc<dyn BaseDeferredKeyDyn>),
 }
 
 impl PartialEq for BaseDeferredKey {
