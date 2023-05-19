@@ -876,7 +876,6 @@ mod tests {
 
     use super::AnyValue;
     use super::TrivialDeferred;
-    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::types::testing::DeferredValueAnyExt;
     use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
@@ -964,8 +963,8 @@ mod tests {
         )
     }
 
-    fn dummy_base() -> BaseDeferredKey {
-        BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+    fn dummy_base() -> BaseDeferredKeyDyn {
+        BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ))
@@ -983,7 +982,7 @@ mod tests {
     #[test]
     fn register_deferred() -> anyhow::Result<()> {
         let target = dummy_base();
-        let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe().into_dyn()));
+        let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe()));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1022,11 +1021,11 @@ mod tests {
 
     #[test]
     fn mapping_async_data() -> anyhow::Result<()> {
-        let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+        let base = BaseDeferredKeyDyn::TargetLabel(ConfiguredTargetLabel::testing_parse(
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe().into_dyn()));
+        let mut registry = DeferredRegistry::new(BaseKey::Base(base.dupe()));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
