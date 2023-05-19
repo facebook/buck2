@@ -215,7 +215,8 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Outputs results to the console via stdout as a json.
+    /// Outputs results to the console via stdout as pretty-printed json. Pretty
+    /// printing can be turned off by the `pretty` keyword-only parameter.
     /// These outputs are considered to be the results of a bxl script, which will be displayed to
     /// stdout by buck2 even when the script is cached.
     ///
@@ -229,7 +230,11 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
     ///     outputs.update({"foo": bar})
     ///     ctx.output.print_json("test")
     /// ```
-    fn print_json<'v>(this: &'v OutputStream<'v>, value: Value<'v>) -> anyhow::Result<NoneType> {
+    fn print_json<'v>(
+        this: &'v OutputStream<'v>,
+        value: Value<'v>,
+        #[starlark(require=named, default=true)] pretty: bool,
+    ) -> anyhow::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v> {
             value: Value<'v>,
@@ -305,7 +310,12 @@ fn register_output_stream(builder: &mut MethodsBuilder) {
             }
         }
 
-        serde_json::to_writer_pretty(
+        let writer = if pretty {
+            serde_json::to_writer_pretty
+        } else {
+            serde_json::to_writer
+        };
+        writer(
             this.sink.borrow_mut().deref_mut(),
             &SerializeValue {
                 value,
