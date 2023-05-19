@@ -17,7 +17,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::collections::ordered_map::OrderedMap;
@@ -50,6 +49,7 @@ use thiserror::Error;
 
 use crate::bxl::starlark_defs::cli_args::ArgAccessor;
 use crate::bxl::starlark_defs::cli_args::CliArgError;
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
@@ -243,7 +243,7 @@ impl FrozenBxlFunction {
 
     /// Parses the cli args as defined by this bxl function. Automatically changes the CLI args
     /// to snakecase when accessed from the bxl context.
-    pub async fn parse_clap<'a>(
+    pub(crate) async fn parse_clap<'a>(
         &self,
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'a>,

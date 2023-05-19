@@ -16,7 +16,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::bxl::types::CliArgValue;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -28,6 +27,8 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use gazebo::cmp::PartialEqAny;
+
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[derive(
     Clone,

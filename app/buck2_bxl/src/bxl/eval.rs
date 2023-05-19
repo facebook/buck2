@@ -14,7 +14,6 @@ use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::bxl::types::CliArgValue;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::dice::cells::HasCellResolver;
@@ -56,7 +55,7 @@ use starlark::values::ValueTyped;
 use thiserror::Error;
 
 use crate::bxl::key::BxlKey;
-use crate::bxl::starlark_defs::cli_args::CliArgValueExt;
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::FrozenBxlFunction;
@@ -304,12 +303,12 @@ pub struct CliResolutionCtx<'a> {
     pub dice: &'a DiceComputations,
 }
 
-pub enum BxlResolvedCliArgs {
+pub(crate) enum BxlResolvedCliArgs {
     Resolved(OrderedMap<String, CliArgValue>),
     Help,
 }
 
-pub async fn resolve_cli_args<'a>(
+pub(crate) async fn resolve_cli_args<'a>(
     spec: &BxlFunctionLabel,
     cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: &Vec<String>,
