@@ -44,7 +44,7 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::build_listener::HasBuildSignals;
+use crate::build_signals::HasBuildSignals;
 use crate::calculation::Calculation;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;

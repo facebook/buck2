@@ -46,7 +46,7 @@ use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
-use crate::build_listener::NodeDuration;
+use crate::build_signals::NodeDuration;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
