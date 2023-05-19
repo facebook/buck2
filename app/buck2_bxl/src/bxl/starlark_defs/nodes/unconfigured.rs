@@ -29,6 +29,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkTargetNodeCoercedAttributes;
 
@@ -117,5 +118,18 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkTargetLabel> {
         Ok(this.0.label().dupe().into())
+    }
+
+    /// Gets the buildfile path from the unconfigured target node.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_label(ctx):
+    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     ctx.output.print(target_node.buildfile_path)
+    /// ```
+    #[starlark(attribute)]
+    fn buildfile_path(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkFileNode> {
+        Ok(StarlarkFileNode(this.0.buildfile_path().path()))
     }
 }
