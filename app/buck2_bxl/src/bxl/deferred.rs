@@ -20,7 +20,6 @@ mod tests {
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::bxl::types::BxlKey;
-    use buck2_build_api::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_build_api::deferred::calculation::DeferredCalculation;
     use buck2_build_api::deferred::types::BaseKey;
     use buck2_build_api::deferred::types::Deferred;
@@ -32,6 +31,7 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
+    use buck2_core::base_deferred_key_dyn::BaseDeferredKeyDyn;
     use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -81,9 +81,9 @@ mod tests {
             None,
         );
 
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(
-            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
-        ));
+        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKeyDyn::BxlLabel(
+            bxl.dupe().into_base_deferred_key_dyn_impl(),
+        )));
 
         let executed0 = Arc::new(AtomicBool::new(false));
         let executed1 = Arc::new(AtomicBool::new(false));
@@ -102,11 +102,15 @@ mod tests {
                 anyhow::Ok(BxlComputeResult {
                     bxl_result: Arc::new(BxlResult::BuildsArtifacts {
                         output_loc: BuckOutPath::new(
-                            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+                            BaseDeferredKeyDyn::BxlLabel(
+                                bxl.dupe().into_base_deferred_key_dyn_impl(),
+                            ),
                             ForwardRelativePathBuf::unchecked_new("test".to_owned()),
                         ),
                         error_loc: BuckOutPath::new(
-                            BaseDeferredKey::BxlLabel(bxl.dupe()).into_dyn(),
+                            BaseDeferredKeyDyn::BxlLabel(
+                                bxl.dupe().into_base_deferred_key_dyn_impl(),
+                            ),
                             ForwardRelativePathBuf::unchecked_new("error_test".to_owned()),
                         ),
                         built: vec![],
