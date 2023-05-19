@@ -75,6 +75,7 @@ use thiserror::Error;
 
 use super::anon_target_node::AnonTarget;
 use crate::analysis::anon_promises::AnonPromises;
+use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_target_attr::AnonTargetAttr;
 use crate::analysis::anon_target_attr::AnonTargetAttrTraversal;
 use crate::analysis::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
@@ -527,9 +528,11 @@ impl<'v> AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    pub(crate) fn take_promises(&mut self) -> Option<AnonPromises<'v>> {
+    pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
         // We swap it out, so we can still collect new promises
-        Some(mem::take(&mut self.promises)).filter(|p| !p.is_empty())
+        Some(mem::take(&mut self.promises))
+            .filter(|p| !p.is_empty())
+            .map(|p| Box::new(p) as Box<dyn AnonPromisesDyn>)
     }
 
     pub(crate) fn assert_no_promises(&self) -> anyhow::Result<()> {

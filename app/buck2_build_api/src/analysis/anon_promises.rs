@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
 use either::Either;
@@ -17,6 +18,7 @@ use starlark::values::list::AllocList;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
 
+use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_targets::AnonTargetKey;
 
 #[derive(Default, Debug, Trace, Allocative)]
@@ -49,9 +51,12 @@ impl<'v> AnonPromises<'v> {
     ) {
         self.entries.push((promise, Either::Right(many)));
     }
+}
 
-    pub(crate) async fn run_promises(
-        self,
+#[async_trait(?Send)]
+impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
+    async fn run_promises(
+        self: Box<Self>,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<()> {
