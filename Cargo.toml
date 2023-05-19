@@ -9,6 +9,7 @@ members = [
     # @oss-disable: "attic/uniplate_derive",
     "app/buck2",
     "app/buck2_action_impl",
+    "app/buck2_action_impl_tests",
     "app/buck2_audit",
     "app/buck2_audit_server",
     "app/buck2_bxl",

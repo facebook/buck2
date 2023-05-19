@@ -23,11 +23,3 @@ pub fn init_late_bindings() {
         context::init_register_context_actions();
     });
 }
-
-#[test]
-fn init_late_bindings_for_test() {
-    #[ctor::ctor]
-    fn init() {
-        init_late_bindings();
-    }
-}

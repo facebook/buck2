@@ -1,0 +1,23 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
+
+oncall("buck2")
+
+rust_library(
+    name = "buck2_action_impl_tests",
+    srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:ctor",
+        "fbsource//third-party/rust:indoc",
+        "fbsource//third-party/rust:maplit",
+        "//buck2/app/buck2_action_impl:buck2_action_impl",
+        "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_execute:buck2_execute",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
+        "//buck2/app/buck2_node:buck2_node",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)
