@@ -18,6 +18,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
+use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;
@@ -113,7 +114,7 @@ impl UserProviderCallableImpl {
 pub struct UserProviderCallable {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
-    id: RefCell<Option<Arc<ProviderId>>>,
+    id: unsync::OnceCell<Arc<ProviderId>>,
     /// The path where this `ProviderCallable` is created and assigned
     path: CellPath,
     /// The docstring for this provider
@@ -159,7 +160,7 @@ impl UserProviderCallable {
             field_docs.len()
         );
         Self {
-            id: RefCell::new(None),
+            id: unsync::OnceCell::new(),
             path,
             docs,
             field_docs,
@@ -181,8 +182,7 @@ impl UserProviderCallable {
 
 impl ProviderCallableLike for UserProviderCallable {
     fn id(&self) -> Option<&Arc<ProviderId>> {
-        // Safe because once we set id, we never change it
-        unsafe { self.id.try_borrow_unguarded().unwrap().as_ref() }
+        self.id.get()
     }
 }
 
@@ -220,22 +220,21 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 
     fn export_as(&self, variable_name: &str, eval: &mut Evaluator<'v, '_>) {
         // First export wins
-        let mut id = self.id.borrow_mut();
-        if id.is_none() {
+        self.id.get_or_init(|| {
             let new_id = Arc::new(ProviderId {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
-            *id = Some(new_id.dupe());
             *self.callable.borrow_mut() = UserProviderCallableImpl::Bound(
                 create_callable_function_signature(&new_id.name, &self.fields),
                 eval.frozen_heap()
                     .alloc_any_display_from_debug(UserProviderCallableData {
-                        provider_id: new_id,
+                        provider_id: new_id.dupe(),
                         fields: self.fields.clone(),
                     }),
             );
-        }
+            new_id
+        });
     }
 
     fn get_methods() -> Option<&'static Methods> {
@@ -366,7 +365,7 @@ fn provider_callable_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn r#type<'v>(this: Value<'v>, heap: &Heap) -> anyhow::Result<Value<'v>> {
         if let Some(x) = this.downcast_ref::<UserProviderCallable>() {
-            match &*x.id.borrow() {
+            match x.id.get() {
                 None => Err(ProviderCallableError::ProviderNotAssigned(x.fields.clone()).into()),
                 Some(id) => Ok(heap.alloc(id.name.as_str())),
             }
