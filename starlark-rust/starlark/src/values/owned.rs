@@ -178,7 +178,7 @@ impl OwnedFrozenValue {
 }
 
 /// Same as [`OwnedFrozenValue`] but it is known to contain `T`.
-#[derive(Debug, Clone_, Dupe_)]
+#[derive(Debug, Clone_, Dupe_, Allocative)]
 pub struct OwnedFrozenValueTyped<T: StarlarkValue<'static>> {
     owner: FrozenHeapRef,
     value: FrozenValueTyped<'static, T>,

@@ -43,6 +43,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
@@ -52,9 +53,18 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
+use starlark::coerce::Coerce;
+use starlark::starlark_complex_value;
+use starlark::starlark_type;
 use starlark::values::dict::DictRef;
-use starlark::values::tuple::TupleRef;
+use starlark::values::Freeze;
+use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::ValueLike;
 use thiserror::Error;
 
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
@@ -154,43 +164,66 @@ impl UnregisteredAction for UnregisteredRunAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        let starlark_cli = starlark_data.expect("module data to be present");
-        let run_action = RunAction::new(*self, starlark_cli, outputs)?;
+        let starlark_values = starlark_data.expect("module data to be present");
+        let run_action = RunAction::new(*self, starlark_values, outputs)?;
         Ok(Box::new(run_action))
     }
+}
+
+#[derive(
+    Debug,
+    Display,
+    Trace,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    Freeze,
+    Coerce
+)]
+#[display(fmt = "run_action_values")]
+#[repr(C)]
+pub struct StarlarkRunActionValuesGen<V> {
+    pub args: V,
+    pub env: V,
+}
+
+impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
+where
+    Self: ProvidesStaticType,
+{
+    starlark_type!("run_action_values");
+}
+
+starlark_complex_value!(pub StarlarkRunActionValues);
+
+struct UnpackedRunActionValues<'v> {
+    args: &'v dyn CommandLineArgLike,
+    env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
 }
 
 #[derive(Debug, Allocative)]
 pub(crate) struct RunAction {
     inner: UnregisteredRunAction,
-    starlark_cli: OwnedFrozenValue, // StarlarkCommandLine
+    starlark_values: OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     outputs: BoxSliceSet<BuildArtifact>,
 }
 
 impl RunAction {
     fn unpack(
-        args: &OwnedFrozenValue,
-    ) -> Option<(
-        &dyn CommandLineArgLike,
-        Vec<(&str, &dyn CommandLineArgLike)>,
-    )> {
-        // We expect (CmdArgs, Option<Dict<String, CmdArgs>>) in the Starlark value
-        let (cli, env) = match TupleRef::from_value(args.value())?.content() {
-            [cli, env] => (*cli, *env),
-            _ => return None,
-        };
-        let cli = cli.as_command_line()?;
-        let env = if env.is_none() {
+        values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
+    ) -> Option<UnpackedRunActionValues> {
+        let args = values.args.to_value().as_command_line()?;
+        let env = if values.env.is_none() {
             Vec::new()
         } else {
-            let d = DictRef::from_value(env)?;
+            let d = DictRef::from_value(values.env.to_value())?;
             let mut res = Vec::with_capacity(d.len());
             for (k, v) in d.iter() {
                 res.push((k.unpack_str()?, v.as_command_line()?));
             }
             res
         };
-        Some((cli, env))
+        Some(UnpackedRunActionValues { args, env })
     }
 
     /// Get the command line expansion for this RunAction.
@@ -202,11 +235,14 @@ impl RunAction {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
 
-        let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
-        cli.add_to_command_line(&mut cli_rendered, &mut ctx)?;
-        cli.visit_artifacts(artifact_visitor)?;
+        let values = Self::unpack(&self.starlark_values).unwrap();
+        values
+            .args
+            .add_to_command_line(&mut cli_rendered, &mut ctx)?;
+        values.args.visit_artifacts(artifact_visitor)?;
 
-        let cli_env: anyhow::Result<SortedVectorMap<_, _>> = env
+        let cli_env: anyhow::Result<SortedVectorMap<_, _>> = values
+            .env
             .into_iter()
             .map(|(k, v)| {
                 let mut env = Vec::<String>::new(); // TODO (torozco): Use a String.
@@ -226,21 +262,24 @@ impl RunAction {
 
     pub(crate) fn new(
         inner: UnregisteredRunAction,
-        starlark_cli: OwnedFrozenValue,
+        starlark_values: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
-        if Self::unpack(&starlark_cli).is_none() {
-            Err(anyhow::anyhow!(
-                RunActionValidationError::ContentsNotCommandLineValue(
-                    starlark_cli.value().to_repr()
-                )
-            ))
-        } else {
-            Ok(RunAction {
+        let starlark_values = starlark_values.downcast().and_then(|values| {
+            Self::unpack(&values).ok_or(values.to_owned_frozen_value())?;
+            Ok(values)
+        });
+        match starlark_values {
+            Ok(starlark_values) => Ok(RunAction {
                 inner,
-                starlark_cli,
+                starlark_values,
                 outputs: BoxSliceSet::from(outputs),
-            })
+            }),
+            Err(starlark_values) => Err(anyhow::anyhow!(
+                RunActionValidationError::ContentsNotCommandLineValue(
+                    starlark_values.value().to_repr()
+                )
+            )),
         }
     }
 
@@ -356,10 +395,10 @@ impl Action for RunAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
-        let (cli, env) = Self::unpack(&self.starlark_cli).unwrap();
+        let values = Self::unpack(&self.starlark_values).unwrap();
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        cli.visit_artifacts(&mut artifact_visitor)?;
-        for (_, v) in env.iter() {
+        values.args.visit_artifacts(&mut artifact_visitor)?;
+        for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
         }
         Ok(Cow::Owned(artifact_visitor.inputs.into_iter().collect()))
@@ -388,8 +427,10 @@ impl Action for RunAction {
     fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
-        let (cli, _env) = Self::unpack(&self.starlark_cli).unwrap();
-        cli.add_to_command_line(&mut cli_rendered, &mut ctx)
+        let values = Self::unpack(&self.starlark_values).unwrap();
+        values
+            .args
+            .add_to_command_line(&mut cli_rendered, &mut ctx)
             .unwrap();
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
         indexmap! {

@@ -76,6 +76,7 @@ use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::new_executor_preference;
 use crate::actions::impls::run::MetadataParameter;
+use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
 use crate::actions::impls::symlinked_dir::UnregisteredSymlinkedDirAction;
 use crate::actions::impls::write::UnregisteredWriteAction;
@@ -735,7 +736,11 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         if artifacts.outputs.is_empty() {
             return Err(RunActionError::NoOutputsSpecified.into());
         }
-        let starlark = eval.heap().alloc((starlark_cli, starlark_env));
+        let heap = eval.heap();
+        let starlark_values = heap.alloc(StarlarkRunActionValues {
+            args: heap.alloc(starlark_cli),
+            env: starlark_env,
+        });
 
         let action = UnregisteredRunAction {
             category,
@@ -753,7 +758,7 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
             artifacts.inputs,
             artifacts.outputs,
             action,
-            Some(starlark),
+            Some(starlark_values),
         )?;
         Ok(NoneType)
     }

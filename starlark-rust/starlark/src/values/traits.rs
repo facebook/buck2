@@ -86,7 +86,7 @@ use crate::values::ValueError;
 /// {
 ///     starlark_type!("one");
 ///
-///     // To implement methods which are work for both `One` and `FrozenOne`,
+///     // To implement methods which work for both `One` and `FrozenOne`,
 ///     // use the `ValueLike` trait.
 /// }
 ///
