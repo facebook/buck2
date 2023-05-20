@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: SebRollen/toml-action@v1.0.1
+      - uses: SebRollen/toml-action@v1.0.2
         id: read_rust_toolchain
         with:
           file: 'rust-toolchain'
