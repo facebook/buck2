@@ -134,6 +134,7 @@ impl PristineActionExecutable for SimpleAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let req = CommandExecutionRequest::new(
+            vec![],
             self.cmd.clone(),
             CommandExecutionPaths::new(
                 Vec::new(),

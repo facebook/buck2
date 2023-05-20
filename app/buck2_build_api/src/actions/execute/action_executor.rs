@@ -738,6 +738,7 @@ mod tests {
                 self.ran.store(true, Ordering::SeqCst);
 
                 let req = CommandExecutionRequest::new(
+                    vec![],
                     vec!["foo".to_owned(), "bar".to_owned(), "cmd".to_owned()],
                     CommandExecutionPaths::new(
                         self.inputs

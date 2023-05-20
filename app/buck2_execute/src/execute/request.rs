@@ -30,6 +30,7 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 use thiserror::Error;
 
@@ -230,6 +231,9 @@ impl CommandExecutionPaths {
 
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
+    /// Optional arguments including executable prepended to `args` to get full command line.
+    /// This is used by workers to separate worker arguments from executable arguments.
+    exe: Vec<String>,
     args: Vec<String>,
     paths: CommandExecutionPaths,
     env: SortedVectorMap<String, String>,
@@ -260,11 +264,13 @@ pub struct CommandExecutionRequest {
 
 impl CommandExecutionRequest {
     pub fn new(
+        exe: Vec<String>,
         args: Vec<String>,
         paths: CommandExecutionPaths,
         env: SortedVectorMap<String, String>,
     ) -> Self {
         Self {
+            exe,
             args,
             paths,
             env,
@@ -337,8 +343,16 @@ impl CommandExecutionRequest {
         self.outputs_cleanup
     }
 
-    pub fn args(&self) -> &[String] {
-        &self.args
+    pub fn all_args(&self) -> impl Iterator<Item = &String> {
+        self.exe.iter().chain(self.args.iter())
+    }
+
+    pub fn all_args_vec(&self) -> Vec<String> {
+        self.all_args().cloned().collect()
+    }
+
+    pub fn all_args_str(&self) -> String {
+        self.all_args().join(" ")
     }
 
     pub fn inputs(&self) -> &[CommandExecutionInput] {

@@ -12,7 +12,8 @@ use sorted_vector_map::SortedVectorMap;
 
 /// A command line's expansion, suitable to actually run it.
 pub struct ExpandedCommandLine {
-    pub cli: Vec<String>,
+    pub exe: Vec<String>,
+    pub args: Vec<String>,
     pub env: SortedVectorMap<String, String>,
 }
 
@@ -30,8 +31,15 @@ impl ExpandedCommandLine {
     pub fn fingerprint(&self) -> ExpandedCommandLineDigest {
         let mut digest = blake3::Hasher::new();
 
-        digest.update(self.cli.len().to_le_bytes().as_slice());
-        for e in self.cli.iter() {
+        digest.update(self.exe.len().to_le_bytes().as_slice());
+        for e in self.exe.iter() {
+            let bytes = e.as_bytes();
+            digest.update(bytes.len().to_le_bytes().as_slice());
+            digest.update(bytes);
+        }
+
+        digest.update(self.args.len().to_le_bytes().as_slice());
+        for e in self.args.iter() {
             let bytes = e.as_bytes();
             digest.update(bytes.len().to_le_bytes().as_slice());
             digest.update(bytes);
@@ -62,39 +70,52 @@ mod test {
     #[test]
     fn test_cli() {
         let cmd1 = ExpandedCommandLine {
-            cli: vec!["foo".to_owned(), "bar".to_owned()],
+            exe: Default::default(),
+            args: vec!["foo".to_owned(), "bar".to_owned()],
             env: Default::default(),
         };
 
         let cmd2 = ExpandedCommandLine {
-            cli: vec!["foob".to_owned(), "ar".to_owned()],
+            exe: Default::default(),
+            args: vec!["foob".to_owned(), "ar".to_owned()],
             env: Default::default(),
         };
 
         let cmd3 = ExpandedCommandLine {
-            cli: vec!["foobar".to_owned()],
+            exe: Default::default(),
+            args: vec!["foobar".to_owned()],
+            env: Default::default(),
+        };
+
+        let cmd4 = ExpandedCommandLine {
+            exe: vec!["foo".to_owned()],
+            args: vec!["bar".to_owned()],
             env: Default::default(),
         };
 
         assert_ne!(cmd1.fingerprint(), cmd2.fingerprint());
         assert_ne!(cmd1.fingerprint(), cmd3.fingerprint());
         assert_ne!(cmd2.fingerprint(), cmd3.fingerprint());
+        assert_ne!(cmd3.fingerprint(), cmd4.fingerprint());
     }
 
     #[test]
     fn test_env() {
         let cmd1 = ExpandedCommandLine {
-            cli: Default::default(),
+            exe: Default::default(),
+            args: Default::default(),
             env: sorted_vector_map! { "FOO".to_owned() => "BAR".to_owned() },
         };
 
         let cmd2 = ExpandedCommandLine {
-            cli: Default::default(),
+            exe: Default::default(),
+            args: Default::default(),
             env: sorted_vector_map! { "FOO2".to_owned()=> "BAR".to_owned() },
         };
 
         let cmd3 = ExpandedCommandLine {
-            cli: Default::default(),
+            exe: Default::default(),
+            args: Default::default(),
             env: sorted_vector_map! { "FOO".to_owned()=> "BAR2".to_owned() },
         };
 
@@ -110,7 +131,8 @@ mod test {
         }
 
         let mut cmd = ExpandedCommandLine {
-            cli: vec!["cmd".to_owned()],
+            exe: Default::default(),
+            args: vec!["cmd".to_owned()],
             env: env(),
         };
 

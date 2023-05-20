@@ -205,7 +205,7 @@ impl LocalExecutor {
         digest_config: DigestConfig,
         local_resource_holders: &[LocalResourceHolder],
     ) -> CommandExecutionResult {
-        let args = request.args();
+        let args = &request.all_args_vec();
         if args.is_empty() {
             return manager.error("no_args", LocalExecutionError::NoArgs);
         }

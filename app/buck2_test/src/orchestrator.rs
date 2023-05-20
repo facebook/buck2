@@ -110,7 +110,6 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use indexmap::indexset;
 use indexmap::IndexMap;
@@ -813,6 +812,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
             .collect();
         let mut request = CommandExecutionRequest::new(
+            vec![],
             cmd,
             CommandExecutionPaths::new(inputs, outputs, fs, self.digest_config)?,
             env,
@@ -900,7 +900,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .collect();
         let paths = CommandExecutionPaths::new(inputs, indexset![], fs, self.digest_config)?;
         let mut execution_request =
-            CommandExecutionRequest::new(context.cmd, paths, Default::default());
+            CommandExecutionRequest::new(vec![], context.cmd, paths, Default::default());
         execution_request = execution_request.with_timeout(timeout);
         Ok(PreparedLocalResourceSetupContext {
             target: context.target,
@@ -1178,7 +1178,7 @@ fn create_prepare_for_local_execution_result(
         .working_directory()
         .unwrap_or_else(|| ProjectRelativePath::empty());
     let cwd = fs.fs().resolve(relative_cwd);
-    let cmd = request.args().map(String::from);
+    let cmd = request.all_args_vec();
 
     let mut env = LossyEnvironment::new();
     apply_local_execution_environment(

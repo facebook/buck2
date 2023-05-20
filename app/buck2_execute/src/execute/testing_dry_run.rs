@@ -66,7 +66,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
 
         let manager = manager.claim().await;
 
-        let args = request.args().to_owned();
+        let args = request.all_args_vec();
         let outputs = request.outputs().map(|o| o.cloned()).collect();
         let env = request.env().to_owned();
 

@@ -87,7 +87,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
                 // we were able to go to the action cache, so can skip uploading and running
                 info!(
                     "Action result is cached, skipping execution of:\n```\n$ {}\n```\n for action `{}`",
-                    request.args().join(" "),
+                    request.all_args_str(),
                     action_digest,
                 );
                 response

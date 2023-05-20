@@ -183,6 +183,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 #[display(fmt = "run_action_values")]
 #[repr(C)]
 pub struct StarlarkRunActionValuesGen<V> {
+    pub exe: V,
     pub args: V,
     pub env: V,
 }
@@ -197,6 +198,7 @@ where
 starlark_complex_value!(pub StarlarkRunActionValues);
 
 struct UnpackedRunActionValues<'v> {
+    exe: &'v dyn CommandLineArgLike,
     args: &'v dyn CommandLineArgLike,
     env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
 }
@@ -212,6 +214,7 @@ impl RunAction {
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> Option<UnpackedRunActionValues> {
+        let exe = values.exe.to_value().as_command_line()?;
         let args = values.args.to_value().as_command_line()?;
         let env = if values.env.is_none() {
             Vec::new()
@@ -223,7 +226,7 @@ impl RunAction {
             }
             res
         };
-        Some(UnpackedRunActionValues { args, env })
+        Some(UnpackedRunActionValues { exe, args, env })
     }
 
     /// Get the command line expansion for this RunAction.
@@ -232,13 +235,19 @@ impl RunAction {
         fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<ExpandedCommandLine> {
-        let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
-
         let values = Self::unpack(&self.starlark_values).unwrap();
+
+        let mut exe_rendered = Vec::<String>::new();
+        values
+            .exe
+            .add_to_command_line(&mut exe_rendered, &mut ctx)?;
+        values.exe.visit_artifacts(artifact_visitor)?;
+
+        let mut args_rendered = Vec::<String>::new();
         values
             .args
-            .add_to_command_line(&mut cli_rendered, &mut ctx)?;
+            .add_to_command_line(&mut args_rendered, &mut ctx)?;
         values.args.visit_artifacts(artifact_visitor)?;
 
         let cli_env: anyhow::Result<SortedVectorMap<_, _>> = values
@@ -255,7 +264,8 @@ impl RunAction {
             .collect();
 
         Ok(ExpandedCommandLine {
-            cli: cli_rendered,
+            exe: exe_rendered,
+            args: args_rendered,
             env: cli_env?,
         })
     }
@@ -351,7 +361,7 @@ struct PreparedRunAction {
 impl PreparedRunAction {
     fn into_command_execution_request(self) -> CommandExecutionRequest {
         let Self {
-            expanded: ExpandedCommandLine { cli, mut env },
+            expanded: ExpandedCommandLine { exe, args, mut env },
             extra_env,
             paths,
         } = self;
@@ -360,7 +370,7 @@ impl PreparedRunAction {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(cli, paths, env)
+        CommandExecutionRequest::new(exe, args, paths, env)
     }
 }
 
@@ -398,6 +408,7 @@ impl Action for RunAction {
         let values = Self::unpack(&self.starlark_values).unwrap();
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;
+        values.exe.visit_artifacts(&mut artifact_visitor)?;
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
         }
@@ -428,6 +439,10 @@ impl Action for RunAction {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values).unwrap();
+        values
+            .exe
+            .add_to_command_line(&mut cli_rendered, &mut ctx)
+            .unwrap();
         values
             .args
             .add_to_command_line(&mut cli_rendered, &mut ctx)

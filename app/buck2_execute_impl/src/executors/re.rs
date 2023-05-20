@@ -131,7 +131,7 @@ impl ReExecutor {
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
-            request.args().join(" "),
+            request.all_args_str(),
             action_digest,
         );
 

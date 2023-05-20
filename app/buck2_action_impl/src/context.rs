@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
@@ -591,6 +592,7 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
+        #[starlark(require = named)] exe: Option<ValueOf<'v, &'v RunInfo<'v>>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -645,8 +647,16 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
 
         let mut artifact_visitor = RunCommandArtifactVisitor::new();
 
-        let starlark_cli = StarlarkCommandLine::try_from_value(arguments)?;
-        starlark_cli.visit_artifacts(&mut artifact_visitor)?;
+        let starlark_args = StarlarkCommandLine::try_from_value(arguments)?;
+        starlark_args.visit_artifacts(&mut artifact_visitor)?;
+
+        let starlark_exe = if let Some(exe) = exe {
+            let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
+            starlark_exe.visit_artifacts(&mut artifact_visitor)?;
+            starlark_exe
+        } else {
+            StarlarkCommandLine::default()
+        };
 
         let weight = match (weight, weight_percentage) {
             (None, None) => WeightClass::Permits(1),
@@ -738,7 +748,8 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         }
         let heap = eval.heap();
         let starlark_values = heap.alloc(StarlarkRunActionValues {
-            args: heap.alloc(starlark_cli),
+            exe: heap.alloc(starlark_exe),
+            args: heap.alloc(starlark_args),
             env: starlark_env,
         });
 

@@ -146,7 +146,7 @@ impl CommandExecutor {
                 }
             });
             let action = re_create_action(
-                request.args().to_vec(),
+                request.all_args_vec(),
                 request.paths().output_paths(),
                 request.working_directory().map(|p| p.as_str().to_owned()),
                 request.env(),
