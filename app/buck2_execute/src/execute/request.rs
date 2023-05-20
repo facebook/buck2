@@ -229,6 +229,10 @@ impl CommandExecutionPaths {
     }
 }
 
+pub struct WorkerSpec {
+    pub exe: Vec<String>,
+}
+
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
     /// Optional arguments including executable prepended to `args` to get full command line.
@@ -260,6 +264,8 @@ pub struct CommandExecutionRequest {
     /// Whether to disable capturing performance counters for this execution.
     disable_miniperf: bool,
     required_local_resources: SortedSet<LocalResourceState>,
+    /// Persistent worker to use for execution
+    worker: Option<WorkerSpec>,
 }
 
 impl CommandExecutionRequest {
@@ -286,6 +292,7 @@ impl CommandExecutionRequest {
             force_full_hybrid_if_capable: false,
             disable_miniperf: false,
             required_local_resources: SortedSet::new(),
+            worker: None,
         }
     }
 
@@ -353,6 +360,19 @@ impl CommandExecutionRequest {
 
     pub fn all_args_str(&self) -> String {
         self.all_args().join(" ")
+    }
+
+    pub fn args(&self) -> &[String] {
+        &self.args
+    }
+
+    pub fn worker(&self) -> &Option<WorkerSpec> {
+        &self.worker
+    }
+
+    pub fn with_worker(mut self, worker: Option<WorkerSpec>) -> Self {
+        self.worker = worker;
+        self
     }
 
     pub fn inputs(&self) -> &[CommandExecutionInput] {

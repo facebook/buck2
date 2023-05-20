@@ -33,6 +33,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
@@ -45,6 +46,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use either::Either;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use indexmap::indexset;
@@ -592,7 +594,9 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] no_outputs_cleanup: bool,
         #[starlark(require = named, default = false)] allow_cache_upload: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
-        #[starlark(require = named)] exe: Option<ValueOf<'v, &'v RunInfo<'v>>>,
+        #[starlark(require = named)] exe: Option<
+            Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
+        >,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<NoneType> {
         struct RunCommandArtifactVisitor {
@@ -650,12 +654,21 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         let starlark_args = StarlarkCommandLine::try_from_value(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
-        let starlark_exe = if let Some(exe) = exe {
-            let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
-            starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-            starlark_exe
-        } else {
-            StarlarkCommandLine::default()
+        let (starlark_exe, starlark_worker) = match exe {
+            Some(Either::Left(worker_run)) => {
+                let worker = worker_run.typed.worker();
+                let worker_exe = worker_run.typed.exe();
+                worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
+                let starlark_exe = StarlarkCommandLine::try_from_value(worker_exe.to_value())?;
+                starlark_exe.visit_artifacts(&mut artifact_visitor)?;
+                (starlark_exe, NoneOr::Other(worker.value))
+            }
+            Some(Either::Right(exe)) => {
+                let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
+                starlark_exe.visit_artifacts(&mut artifact_visitor)?;
+                (starlark_exe, NoneOr::None)
+            }
+            None => (StarlarkCommandLine::default(), NoneOr::None),
         };
 
         let weight = match (weight, weight_percentage) {
@@ -751,6 +764,7 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
             exe: heap.alloc(starlark_exe),
             args: heap.alloc(starlark_args),
             env: starlark_env,
+            worker: heap.alloc(starlark_worker),
         });
 
         let action = UnregisteredRunAction {

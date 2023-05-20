@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
 use buck2_core::directory::FingerprintedDirectory;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -43,6 +44,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::WorkerSpec;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -57,6 +59,7 @@ use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
 use starlark::starlark_type;
 use starlark::values::dict::DictRef;
+use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
@@ -64,6 +67,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
@@ -186,6 +190,7 @@ pub struct StarlarkRunActionValuesGen<V> {
     pub exe: V,
     pub args: V,
     pub env: V,
+    pub worker: V,
 }
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
@@ -201,6 +206,7 @@ struct UnpackedRunActionValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     args: &'v dyn CommandLineArgLike,
     env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
+    worker: Option<&'v dyn CommandLineArgLike>,
 }
 
 #[derive(Debug, Allocative)]
@@ -226,15 +232,29 @@ impl RunAction {
             }
             res
         };
-        Some(UnpackedRunActionValues { exe, args, env })
+        let worker: NoneOr<&WorkerInfo> = NoneOr::unpack_value(values.worker.to_value())?;
+
+        let worker = if let Some(worker) = worker.into_option() {
+            let worker_exe = worker.exe_command_line();
+            Some(worker_exe)
+        } else {
+            None
+        };
+
+        Some(UnpackedRunActionValues {
+            exe,
+            args,
+            env,
+            worker,
+        })
     }
 
     /// Get the command line expansion for this RunAction.
-    fn expand_command_line(
+    fn expand_command_line_and_worker(
         &self,
         fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
-    ) -> anyhow::Result<ExpandedCommandLine> {
+    ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values).unwrap();
 
@@ -243,6 +263,17 @@ impl RunAction {
             .exe
             .add_to_command_line(&mut exe_rendered, &mut ctx)?;
         values.exe.visit_artifacts(artifact_visitor)?;
+
+        let worker = if let Some(worker_exe) = values.worker {
+            let mut worker_rendered = Vec::<String>::new();
+            worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
+            worker_exe.visit_artifacts(artifact_visitor)?;
+            Some(WorkerSpec {
+                exe: worker_rendered,
+            })
+        } else {
+            None
+        };
 
         let mut args_rendered = Vec::<String>::new();
         values
@@ -263,11 +294,14 @@ impl RunAction {
             })
             .collect();
 
-        Ok(ExpandedCommandLine {
-            exe: exe_rendered,
-            args: args_rendered,
-            env: cli_env?,
-        })
+        Ok((
+            ExpandedCommandLine {
+                exe: exe_rendered,
+                args: args_rendered,
+                env: cli_env?,
+            },
+            worker,
+        ))
     }
 
     pub(crate) fn new(
@@ -300,7 +334,8 @@ impl RunAction {
     ) -> anyhow::Result<PreparedRunAction> {
         let fs = ctx.fs();
 
-        let expanded = self.expand_command_line(&ctx.executor_fs(), visitor)?;
+        let (expanded, worker) =
+            self.expand_command_line_and_worker(&ctx.executor_fs(), visitor)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
         // those things in a HashMap is just not very useful.
@@ -348,6 +383,7 @@ impl RunAction {
             expanded,
             extra_env,
             paths,
+            worker,
         })
     }
 }
@@ -356,6 +392,7 @@ struct PreparedRunAction {
     expanded: ExpandedCommandLine,
     extra_env: Option<(String, String)>,
     paths: CommandExecutionPaths,
+    worker: Option<WorkerSpec>,
 }
 
 impl PreparedRunAction {
@@ -364,13 +401,14 @@ impl PreparedRunAction {
             expanded: ExpandedCommandLine { exe, args, mut env },
             extra_env,
             paths,
+            worker,
         } = self;
 
         for (k, v) in extra_env.into_iter() {
             env.insert(k, v);
         }
 
-        CommandExecutionRequest::new(exe, args, paths, env)
+        CommandExecutionRequest::new(exe, args, paths, env).with_worker(worker)
     }
 }
 
@@ -409,6 +447,9 @@ impl Action for RunAction {
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;
         values.exe.visit_artifacts(&mut artifact_visitor)?;
+        if let Some(worker) = values.worker {
+            worker.visit_artifacts(&mut artifact_visitor)?;
+        }
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
         }
