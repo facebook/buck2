@@ -21,7 +21,7 @@
 
     rust-version = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
     my-rust-bin = rust-version.override {
-      extensions = [ "rust-analyzer" ];
+      extensions = [ "rust-analyzer" "rust-src" ];
     };
 
     in {
