@@ -396,6 +396,12 @@ pub struct CommonBuildOptions {
     /// If target is missing, then skip building instead of throwing error.
     #[clap(long)]
     skip_missing_targets: bool,
+
+    /// If target is incompatible with the specified configuration, skip building instead of throwing error.
+    /// This does not apply to targets specified with glob patterns `/...` or `:`
+    /// which are skipped unconditionally.
+    #[clap(long)]
+    skip_incompatible_targets: bool,
 }
 
 impl CommonBuildOptions {
@@ -439,6 +445,7 @@ impl CommonBuildOptions {
             fail_fast: self.fail_fast,
             keep_going: self.keep_going,
             skip_missing_targets: self.skip_missing_targets,
+            skip_incompatible_targets: self.skip_incompatible_targets,
         }
     }
 }

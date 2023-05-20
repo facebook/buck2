@@ -239,6 +239,7 @@ async fn build(
         &materialization_context,
         build_opts.fail_fast,
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+        build_opts.skip_incompatible_targets,
     )
     .await?
     {
@@ -319,6 +320,7 @@ async fn build_targets(
     materialization_context: &MaterializationContext,
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
+    skip_incompatible_targets: bool,
 ) -> anyhow::Result<BTreeMap<ConfiguredProvidersLabel, BuildTargetResult>> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_target_platform) => {
@@ -332,6 +334,7 @@ async fn build_targets(
                 build_providers,
                 materialization_context,
                 missing_target_behavior,
+                skip_incompatible_targets,
             )
             .left_stream()
         }
@@ -401,6 +404,7 @@ fn build_targets_with_global_target_platform<'a>(
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
+    skip_incompatible_targets: bool,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     spec.specs
         .into_iter()
@@ -417,6 +421,7 @@ fn build_targets_with_global_target_platform<'a>(
                     build_providers,
                     materialization_context,
                     missing_target_behavior,
+                    skip_incompatible_targets,
                 ))
             }
         })
@@ -465,10 +470,11 @@ fn build_targets_for_spec<'a>(
     build_providers: Arc<BuildProviders>,
     materialization_context: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
+    skip_incompatible_targets: bool,
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + Unpin + 'a {
     async move {
         let skippable = match spec {
-            PackageSpec::Targets(..) => false,
+            PackageSpec::Targets(..) => skip_incompatible_targets,
             PackageSpec::All => true,
         };
 

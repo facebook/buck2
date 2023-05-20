@@ -330,7 +330,11 @@ message CommonBuildOptions {
   // Useful options for CI to handle potentially non-existent or incompatible
   // targets that might be scheduled for builds during e.g. base revision
   // retries.
+  // These flags are currently only implemented for the build command but may
+  // show up in the help for other commands as well.
   bool skip_missing_targets = 16;
+  bool skip_incompatible_targets = 17;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
