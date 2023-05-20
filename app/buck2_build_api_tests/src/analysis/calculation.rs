@@ -170,6 +170,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             InterpreterHostArchitecture::X86_64,
             None,
             false,
+            false,
             |_| {},
             |_| {},
             register_rule_defs,

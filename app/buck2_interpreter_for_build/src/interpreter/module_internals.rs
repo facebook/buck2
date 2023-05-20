@@ -19,10 +19,12 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::target::name::TargetNameRef;
+use buck2_events::dispatch::console_message;
 use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
+use buck2_node::nodes::targets_map::TargetsMapRecordError;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use dupe::Dupe;
@@ -81,6 +83,7 @@ pub struct ModuleInternals {
     package_implicits: Option<PackageImplicits>,
     default_visibility_to_public: bool,
     record_target_call_stacks: bool,
+    skip_targets_with_duplicate_names: bool,
     /// The files owned by this directory. Is `None` for .bzl files.
     package_listing: PackageListing,
     pub(crate) super_package: SuperPackage,
@@ -121,6 +124,7 @@ impl ModuleInternals {
         package_implicits: Option<PackageImplicits>,
         default_visibility_to_public: bool,
         record_target_call_stacks: bool,
+        skip_targets_with_duplicate_names: bool,
         package_listing: PackageListing,
         super_package: SuperPackage,
     ) -> Self {
@@ -132,6 +136,7 @@ impl ModuleInternals {
             package_implicits,
             default_visibility_to_public,
             record_target_call_stacks,
+            skip_targets_with_duplicate_names,
             package_listing,
             super_package,
         }
@@ -142,7 +147,17 @@ impl ModuleInternals {
     }
 
     pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
-        self.recording_targets().recorder.record(target_node)
+        match self.recording_targets().recorder.record(target_node) {
+            Ok(()) => Ok(()),
+            Err(e @ TargetsMapRecordError::RegisteredTargetTwice { .. }) => {
+                if self.skip_targets_with_duplicate_names {
+                    console_message(e.to_string());
+                    Ok(())
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
     }
 
     pub(crate) fn set_oncall(&self, name: &str) -> anyhow::Result<()> {
@@ -234,7 +249,7 @@ impl TargetsRecorder {
         }
     }
 
-    fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
+    fn record(&mut self, target_node: TargetNode) -> Result<(), TargetsMapRecordError> {
         self.targets.record(target_node)
     }
 

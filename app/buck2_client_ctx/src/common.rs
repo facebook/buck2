@@ -202,6 +202,12 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long = "stack")]
     pub target_call_stacks: bool,
 
+    /// If there are targets with duplicate names in `BUCK` file,
+    /// skip all the duplicates but the first one.
+    /// This is a hack for TD. Do not use this option.
+    #[clap(long)]
+    pub(crate) skip_targets_with_duplicate_names: bool,
+
     #[clap(long)]
     pub reuse_current_config: bool,
 
@@ -311,6 +317,7 @@ impl CommonBuildConfigurationOptions {
             oncall: None,
             disable_starlark_types: false,
             target_call_stacks: false,
+            skip_targets_with_duplicate_names: false,
             reuse_current_config: false,
             exit_when_different_state: false,
         };

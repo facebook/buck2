@@ -78,6 +78,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             InterpreterHostArchitecture::X86_64,
             None,
             false,
+            false,
             register_read_package_value,
             register_package_natives,
             register_rule_defs,

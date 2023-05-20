@@ -204,6 +204,7 @@ impl Tester {
                     InterpreterHostArchitecture::X86_64,
                     None,
                     false,
+                    false,
                     |_| {},
                     |_| {},
                     |_| {},

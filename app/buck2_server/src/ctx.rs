@@ -206,6 +206,7 @@ pub struct ServerCommandContext<'a> {
     debugger_handle: Option<BuckStarlarkDebuggerHandle>,
 
     record_target_call_stacks: bool,
+    skip_targets_with_duplicate_names: bool,
     disable_starlark_types: bool,
 
     pub buck_out_dir: ProjectRelativePathBuf,
@@ -327,6 +328,7 @@ impl<'a> ServerCommandContext<'a> {
             build_options: build_options.cloned(),
             cell_configs_loader,
             record_target_call_stacks: client_context.target_call_stacks,
+            skip_targets_with_duplicate_names: client_context.skip_targets_with_duplicate_names,
             disable_starlark_types: client_context.disable_starlark_types,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
@@ -434,6 +436,7 @@ impl<'a> ServerCommandContext<'a> {
                 .starlark_profiler_instrumentation_override
                 .dupe(),
             disable_starlark_types: self.disable_starlark_types,
+            skip_targets_with_duplicate_names: self.skip_targets_with_duplicate_names,
             record_target_call_stacks: self.record_target_call_stacks,
         })
     }
@@ -642,6 +645,7 @@ struct DiceCommandUpdater {
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
     record_target_call_stacks: bool,
+    skip_targets_with_duplicate_names: bool,
 }
 
 #[async_trait]
@@ -662,6 +666,7 @@ impl DiceUpdater for DiceCommandUpdater {
             self.interpreter_architecture,
             self.interpreter_xcode_version.clone(),
             self.record_target_call_stacks,
+            self.skip_targets_with_duplicate_names,
             configure_build_file_globals,
             configure_package_file_globals,
             configure_extension_file_globals,

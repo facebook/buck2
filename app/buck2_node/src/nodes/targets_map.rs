@@ -22,7 +22,7 @@ use dupe::Dupe;
 use crate::nodes::unconfigured::TargetNode;
 
 #[derive(Debug, thiserror::Error)]
-enum TargetsError {
+pub enum TargetsMapRecordError {
     #[error(
         "Attempted to register target {0} twice, {}",
         Self::format_call_stack_for_registered_target_twice(_1)
@@ -30,7 +30,7 @@ enum TargetsError {
     RegisteredTargetTwice(TargetLabel, Option<String>),
 }
 
-impl TargetsError {
+impl TargetsMapRecordError {
     fn format_call_stack_for_registered_target_twice(call_stack: &Option<String>) -> String {
         // With current macro setup, duplicate target errors occur often
         // when suffixed targets are used. When we finally fix this suffixed target setup,
@@ -117,16 +117,15 @@ impl TargetsMap {
     }
 
     #[inline]
-    pub fn record(&mut self, target_node: TargetNode) -> anyhow::Result<()> {
+    pub fn record(&mut self, target_node: TargetNode) -> Result<(), TargetsMapRecordError> {
         match self.map.try_insert(NameIndexed(target_node)) {
             Err(ordered_set::OccupiedError {
                 value: NameIndexed(target_node),
                 occupied,
-            }) => Err(TargetsError::RegisteredTargetTwice(
+            }) => Err(TargetsMapRecordError::RegisteredTargetTwice(
                 target_node.label().dupe(),
                 occupied.0.call_stack(),
-            )
-            .into()),
+            )),
             Ok(()) => Ok(()),
         }
     }
