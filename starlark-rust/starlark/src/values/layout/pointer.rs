@@ -54,6 +54,11 @@ impl Debug for RawPointer {
 impl RawPointer {
     #[inline]
     pub(crate) unsafe fn new_unchecked(ptr: usize) -> RawPointer {
+        assert_eq!(
+            mem::size_of::<u64>(),
+            mem::size_of_val(&ptr),
+            "32 bit starlark is not supported yet"
+        );
         debug_assert!(ptr != 0);
         RawPointer(NonZeroUsize::new_unchecked(ptr))
     }
@@ -131,13 +136,6 @@ const TAG_UNFROZEN: usize = 0b001;
 unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueOrForward {
     cast::usize_to_ptr(x & !TAG_BITS)
 }
-
-#[allow(clippy::unused_unit)]
-const _: () = if mem::size_of::<usize>() > mem::size_of::<i32>() {
-    ()
-} else {
-    panic!("starlark-rust requires 64 bit usize")
-};
 
 #[inline]
 fn tag_int(x: i32) -> usize {
