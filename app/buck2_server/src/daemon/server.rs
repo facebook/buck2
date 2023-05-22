@@ -68,6 +68,8 @@ use futures::TryFutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::drop::DropTogether;
 use more_futures::spawn::spawn_cancellable;
+use rand::RngCore;
+use rand::SeedableRng;
 use tokio::sync::oneshot;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
@@ -834,7 +836,15 @@ impl DaemonApi for BuckdServer {
                 _ => {}
             }
 
-            Ok(PingResponse {})
+            let mut payload = vec![
+                0;
+                req.response_payload_size
+                    .try_into()
+                    .context("requested payload too large")?
+            ];
+            rand::rngs::SmallRng::seed_from_u64(10).fill_bytes(&mut payload);
+
+            Ok(PingResponse { payload })
         })
         .await
     }

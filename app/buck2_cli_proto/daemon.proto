@@ -81,9 +81,13 @@ message StatusResponse {
 
 message PingRequest {
   google.protobuf.Duration delay = 1;
+  bytes payload = 2;
+  uint64 response_payload_size = 3;
 }
 
-message PingResponse {}
+message PingResponse {
+  bytes payload = 2;
+}
 
 message ClientContext {
   string working_dir = 1;

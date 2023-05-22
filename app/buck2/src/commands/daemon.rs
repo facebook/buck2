@@ -592,6 +592,7 @@ mod tests {
     use std::time::Duration;
 
     use allocative::Allocative;
+    use anyhow::Context;
     use buck2_cli_proto::DaemonProcessInfo;
     use buck2_cli_proto::KillRequest;
     use buck2_cli_proto::PingRequest;
@@ -607,6 +608,8 @@ mod tests {
     use buck2_server::daemon::server::BuckdServerDelegate;
     use buck2_server::daemon::server::BuckdServerInitPreferences;
     use dupe::Dupe;
+    use rand::RngCore;
+    use rand::SeedableRng;
 
     use crate::commands::daemon::BuckdServerDependenciesImpl;
 
@@ -683,6 +686,31 @@ mod tests {
         assert!(err.contains("invalid auth token"), "Error is: {}", err);
 
         client.ping(PingRequest::default()).await.unwrap();
+
+        // TODO(nga): fails with larger req_size.
+        for req_size in [0, 1 << 10, 1 << 20] {
+            let mut payload = vec![0; req_size];
+            rand::rngs::SmallRng::seed_from_u64(20).fill_bytes(&mut payload);
+            client
+                .ping(PingRequest {
+                    payload,
+                    ..PingRequest::default()
+                })
+                .await
+                .context(format!("req_size={}", req_size))
+                .unwrap();
+        }
+
+        for resp_size in [0, 1 << 10, 1 << 20] {
+            client
+                .ping(PingRequest {
+                    response_payload_size: resp_size,
+                    ..PingRequest::default()
+                })
+                .await
+                .context(format!("resp_size={}", resp_size))
+                .unwrap();
+        }
 
         client.kill(KillRequest::default()).await.unwrap();
 
