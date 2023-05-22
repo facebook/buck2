@@ -44,6 +44,8 @@ impl<'v> AllocValue<'v> for serde_json::Number {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         if let Some(x) = self.as_u64() {
             heap.alloc(x)
+        } else if let Some(x) = self.as_i64() {
+            heap.alloc(x)
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
         } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
@@ -57,6 +59,8 @@ impl<'v> AllocValue<'v> for serde_json::Number {
 impl AllocFrozenValue for serde_json::Number {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if let Some(x) = self.as_u64() {
+            heap.alloc(x)
+        } else if let Some(x) = self.as_i64() {
             heap.alloc(x)
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
