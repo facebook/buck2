@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -226,8 +227,13 @@ impl DaemonState {
 
         fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
 
-        let cwd_buck_out = root_config
-            .parse::<RolloutPercentage>("buck2", "cwd_buck_out")?
+        let cwd_buck_out = init_ctx
+            .daemon_startup_config
+            .cwd_buck_out
+            .as_deref()
+            .map(RolloutPercentage::from_str)
+            .transpose()
+            .context("Invalid cwd_buck_out")?
             .unwrap_or_else(RolloutPercentage::never)
             .roll();
 
@@ -248,15 +254,28 @@ impl DaemonState {
                 }
             });
 
-        let digest_algorithms = root_config
-            .parse_list("buck2", "digest_algorithms")?
+        let digest_algorithms = init_ctx
+            .daemon_startup_config
+            .digest_algorithms
+            .as_ref()
+            .map(|algos| {
+                algos
+                    .split(',')
+                    .map(DigestAlgorithmKind::from_str)
+                    .collect::<Result<_, _>>()
+            })
+            .transpose()
+            .context("Invalid digest_algorithms")?
             .unwrap_or_else(|| vec![default_digest_algorithm])
             .into_try_map(convert_algorithm_kind)?;
 
-        let preferred_source_algorithm = root_config
-            .parse("buck2", "source_digest_algorithm")?
-            .map(convert_algorithm_kind)
-            .transpose()?;
+        let preferred_source_algorithm = init_ctx
+            .daemon_startup_config
+            .source_digest_algorithm
+            .as_deref()
+            .map(|a| convert_algorithm_kind(a.parse()?))
+            .transpose()
+            .context("Invalid source_digest_algorithm")?;
 
         let digest_config = DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
             .context("Error initializing DigestConfig")?;
