@@ -274,6 +274,14 @@ fn gen_auth_token() -> String {
         .collect()
 }
 
+fn terminate_on_panic() {
+    let orig_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        orig_hook(panic_info);
+        process::exit(1);
+    }));
+}
+
 impl DaemonCommand {
     fn run(
         self,
@@ -361,7 +369,7 @@ impl DaemonCommand {
 
         listener_created();
 
-        gazebo::terminate_on_panic();
+        terminate_on_panic();
 
         maybe_schedule_termination()?;
 
