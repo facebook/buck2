@@ -668,6 +668,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_post_gets_redirected() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        // Redirect /foo -> /bar
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/foo"),
+                request::body("Hello, world!"),
+            ])
+            .times(1)
+            .respond_with(
+                responders::status_code(307).append_header(http::header::LOCATION, "/bar"),
+            ),
+        );
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/bar"),
+                request::body("Hello, world!"),
+                request::headers(not(contains(key(hyper::header::ORIGIN.as_str())))),
+                request::headers(not(contains(key(hyper::header::AUTHORIZATION.as_str())))),
+                request::headers(not(contains(key(hyper::header::WWW_AUTHENTICATE.as_str())))),
+                request::headers(not(contains(key(hyper::header::COOKIE.as_str())))),
+                request::headers(not(contains(key(
+                    hyper::header::PROXY_AUTHORIZATION.as_str()
+                )))),
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
+        let bytes = Bytes::from_static(b"Hello, world!");
+        let resp = client
+            .post(
+                &test_server.url_str("/foo"),
+                bytes,
+                vec![("key".to_owned(), "value".to_owned())],
+            )
+            .await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_too_many_redirects_fails() -> anyhow::Result<()> {
         let test_server = httptest::Server::run();
         // Chain of three redirects /foo -> /bar -> /baz -> /boo.

@@ -193,7 +193,6 @@ impl RedirectEngine {
         }
 
         match self.response.status() {
-            // TODO(skarlage): For POST, need to clear out body here.
             StatusCode::MOVED_PERMANENTLY | StatusCode::FOUND | StatusCode::SEE_OTHER => {
                 for sensitive_header in &[
                     hyper::header::TRANSFER_ENCODING,
