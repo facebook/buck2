@@ -19,7 +19,7 @@ use std::thread;
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::args::expand_argfiles_with_context;
-use buck2_client::args::ArgExpansionContext;
+use buck2_client::args::ImmediateConfigContext;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
@@ -208,9 +208,9 @@ impl Opt {
 }
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
-    let mut argfile_context = ArgExpansionContext::new(process.working_dir);
+    let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
     let mut expanded_args =
-        expand_argfiles_with_context(process.args.to_vec(), &mut argfile_context)
+        expand_argfiles_with_context(process.args.to_vec(), &mut immediate_config)
             .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
@@ -236,7 +236,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         }
     }
 
-    let argfiles_trace = argfile_context.trace();
+    let argfiles_trace = immediate_config.trace();
     opt.exec(process, &matches, argfiles_trace)
 }
 

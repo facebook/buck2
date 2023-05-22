@@ -49,24 +49,24 @@ enum ArgExpansionError {
 }
 
 /// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
-struct ArgCellPathResolver<'a> {
+struct ImmediateConfig<'a> {
     // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
     // us to have a shared reference to the underlying `anyhow::Error` which
     // we cannot use to correct chain the errors. Using `OnceCell` means
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
-    data: OnceCell<ArgCellPathResolverData>,
+    data: OnceCell<ImmediateConfigData>,
     cwd: &'a WorkingDir,
 }
 
 /// Defines the data which is lazy computed to avoid doing I/O
 /// unless necessary (e.g., encountering a cell-relative path).
-struct ArgCellPathResolverData {
+struct ImmediateConfigData {
     cell_resolver: CellResolver,
     project_filesystem: ProjectRoot,
 }
 
-impl<'a> ArgCellPathResolver<'a> {
+impl<'a> ImmediateConfig<'a> {
     pub fn new(cwd: &'a WorkingDir) -> Self {
         Self {
             data: OnceCell::new(),
@@ -104,18 +104,18 @@ impl<'a> ArgCellPathResolver<'a> {
         )
     }
 
-    fn config(&self) -> anyhow::Result<&ArgCellPathResolverData> {
+    fn config(&self) -> anyhow::Result<&ImmediateConfigData> {
         self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd.path())?;
 
-                // See comment in `ArgCellPathResolver` about why we use `OnceCell` rather than `Lazy`
+                // See comment in `ImmediateConfig` about why we use `OnceCell` rather than `Lazy`
                 let project_filesystem = roots.project_root;
                 let cell_resolver =
                     BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?
                         .cell_resolver;
 
-                anyhow::Ok(ArgCellPathResolverData {
+                anyhow::Ok(ImmediateConfigData {
                     cell_resolver,
                     project_filesystem,
                 })
@@ -124,15 +124,15 @@ impl<'a> ArgCellPathResolver<'a> {
     }
 }
 
-pub struct ArgExpansionContext<'a> {
-    arg_resolver: ArgCellPathResolver<'a>,
+pub struct ImmediateConfigContext<'a> {
+    arg_resolver: ImmediateConfig<'a>,
     trace: Vec<AbsNormPathBuf>,
 }
 
-impl<'a> ArgExpansionContext<'a> {
+impl<'a> ImmediateConfigContext<'a> {
     pub fn new(cwd: &'a WorkingDir) -> Self {
         Self {
-            arg_resolver: ArgCellPathResolver::new(cwd),
+            arg_resolver: ImmediateConfig::new(cwd),
             trace: Vec::new(),
         }
     }
@@ -195,7 +195,7 @@ enum ArgFile {
 //       Buck v1 for reference.
 pub fn expand_argfiles_with_context(
     args: Vec<String>,
-    context: &mut ArgExpansionContext,
+    context: &mut ImmediateConfigContext,
 ) -> anyhow::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
@@ -238,7 +238,7 @@ pub fn expand_argfiles_with_context(
 // it into a list of arguments.
 fn resolve_and_expand_argfile(
     path: &str,
-    context: &mut ArgExpansionContext,
+    context: &mut ImmediateConfigContext,
 ) -> anyhow::Result<Vec<String>> {
     let flagfile = resolve_flagfile(path, context)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
@@ -310,7 +310,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
 }
 
 // Resolves a path argument to an absolute path, so that it can be read.
-fn resolve_flagfile(path: &str, context: &mut ArgExpansionContext) -> anyhow::Result<ArgFile> {
+fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
     }
