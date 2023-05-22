@@ -29,3 +29,20 @@ impl Allocative for CompactString {
         visitor.exit();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use compact_str::CompactString;
+
+    use crate::golden::golden_test;
+
+    #[test]
+    fn test_inline() {
+        golden_test!(&CompactString::from("abc"));
+    }
+
+    #[test]
+    fn test_heap() {
+        golden_test!(&CompactString::from("abc".repeat(100)));
+    }
+}

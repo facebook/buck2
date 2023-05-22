@@ -40,3 +40,30 @@ impl<T: Allocative> Allocative for RawTable<T> {
         visitor.exit();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
+    use hashbrown::raw::RawTable;
+
+    use crate::golden::golden_test;
+
+    fn hash<H: Hash>(value: &H) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn test_raw_table() {
+        let mut table = RawTable::with_capacity(100);
+        for i in 0..100 {
+            table.insert(hash(&i.to_string()), i.to_string(), hash);
+        }
+
+        golden_test!(&table);
+    }
+}

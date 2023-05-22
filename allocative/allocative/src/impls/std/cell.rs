@@ -22,3 +22,22 @@ impl<T: Allocative> Allocative for RefCell<T> {
         visitor.exit();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use crate::golden::golden_test;
+
+    #[test]
+    fn test_default() {
+        golden_test!(&RefCell::new("abc".to_owned()))
+    }
+
+    #[test]
+    fn test_borrowed() {
+        let cell = RefCell::new("abc".to_owned());
+        let _lock = cell.borrow_mut();
+        golden_test!(&cell)
+    }
+}

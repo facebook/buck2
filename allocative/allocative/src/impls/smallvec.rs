@@ -39,3 +39,11 @@ where
         visitor.exit();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test() {
+        // No test here because sizes depend on whether "union" feature is enabled.
+    }
+}

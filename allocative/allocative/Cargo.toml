@@ -33,3 +33,6 @@ triomphe = { version = "0.1.8", optional = true }
 sorted_vector_map.optional = true
 sorted_vector_map.version = "0.1"
 # @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
+
+[dev-dependencies]
+inferno = { version = "0.11.11", default-features = false }

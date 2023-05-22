@@ -48,6 +48,7 @@
 mod allocative_trait;
 mod flamegraph;
 mod global_root;
+pub(crate) mod golden;
 mod impls;
 mod key;
 mod rc_str;
