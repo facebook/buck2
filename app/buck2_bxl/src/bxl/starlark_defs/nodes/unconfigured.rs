@@ -132,4 +132,18 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn buildfile_path(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkFileNode> {
         Ok(StarlarkFileNode(this.0.buildfile_path().path()))
     }
+
+    /// Gets the fully qualified name of the rule for this unconfigured target node as a
+    /// string. This includes the import path as well.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_rule_type(ctx):
+    ///     target_node = ctx.uquery().owner('path/to/file')[0]
+    ///     ctx.output.print(target_node.rule_type)
+    /// ```
+    #[starlark(attribute)]
+    fn rule_type(this: &StarlarkTargetNode) -> anyhow::Result<String> {
+        Ok(this.0.rule_type().to_string())
+    }
 }
