@@ -17,9 +17,9 @@
 
 use std::str::FromStr;
 
+use either::Either;
 use num_bigint::BigInt;
 use starlark_derive::starlark_module;
-use thiserror::Error;
 
 use crate as starlark;
 use crate::collections::SmallMap;
@@ -27,31 +27,54 @@ use crate::environment::GlobalsBuilder;
 use crate::slice_vec_ext::VecExt;
 use crate::values::dict::Dict;
 use crate::values::list::AllocList;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 
-#[derive(Debug, Error)]
-enum JsonError {
-    #[error("Number can't be represented, perhaps a float value that is too precise, got `{0}")]
-    UnrepresentableNumber(String),
+impl StarlarkTypeRepr for serde_json::Number {
+    fn starlark_type_repr() -> String {
+        Either::<i32, f64>::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for serde_json::Number {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        if let Some(x) = self.as_u64() {
+            heap.alloc(x)
+        } else if let Some(x) = self.as_f64() {
+            heap.alloc(x)
+        } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
+            StarlarkBigInt::alloc_bigint(x, heap)
+        } else {
+            panic!("Unrepresentable number: {:?}", self)
+        }
+    }
+}
+
+impl AllocFrozenValue for serde_json::Number {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        if let Some(x) = self.as_u64() {
+            heap.alloc(x)
+        } else if let Some(x) = self.as_f64() {
+            heap.alloc(x)
+        } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
+            StarlarkBigInt::alloc_bigint_frozen(x, heap)
+        } else {
+            panic!("Unrepresentable number: {:?}", self)
+        }
+    }
 }
 
 fn serde_to_starlark<'v>(x: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
     match x {
         serde_json::Value::Null => Ok(Value::new_none()),
         serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
-        serde_json::Value::Number(x) => {
-            if let Some(x) = x.as_u64() {
-                Ok(heap.alloc(x))
-            } else if let Some(x) = x.as_f64() {
-                Ok(heap.alloc(x))
-            } else if let Ok(x) = BigInt::from_str(&x.to_string()) {
-                Ok(StarlarkBigInt::alloc_bigint(x, heap))
-            } else {
-                Err(JsonError::UnrepresentableNumber(x.to_string()).into())
-            }
-        }
+        serde_json::Value::Number(x) => Ok(heap.alloc(x)),
         serde_json::Value::String(x) => Ok(heap.alloc(x)),
         serde_json::Value::Array(x) => {
             Ok(heap.alloc(AllocList(x.into_try_map(|v| serde_to_starlark(v, heap))?)))
