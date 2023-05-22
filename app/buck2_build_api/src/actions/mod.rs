@@ -193,7 +193,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn command_execution_manager(&self) -> CommandExecutionManager;
 
-    async fn prepare_action(
+    fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<PreparedAction>;

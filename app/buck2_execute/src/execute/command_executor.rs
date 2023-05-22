@@ -26,7 +26,7 @@ use crate::artifact::fs::ExecutorFs;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::execute::blobs::ActionBlobs;
-use crate::execute::executor_stage_async;
+use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
@@ -131,12 +131,12 @@ impl CommandExecutor {
             .is_local_execution_possible(executor_preference)
     }
 
-    pub async fn prepare_action(
+    pub fn prepare_action(
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
     ) -> anyhow::Result<PreparedAction> {
-        executor_stage_async(buck2_data::PrepareAction {}, async {
+        executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
 
             let action_metadata_blobs = request.inputs().iter().filter_map(|x| match x {
@@ -165,7 +165,6 @@ impl CommandExecutor {
 
             anyhow::Ok(action)
         })
-        .await
     }
 }
 

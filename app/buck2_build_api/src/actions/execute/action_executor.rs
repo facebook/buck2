@@ -352,14 +352,13 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.cancellations
     }
 
-    async fn prepare_action(
+    fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<PreparedAction> {
         self.executor
             .command_executor
             .prepare_action(request, self.digest_config())
-            .await
     }
 
     async fn exec_cmd(
@@ -766,7 +765,7 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let prepared_action = ctx.prepare_action(&req).await?;
+                let prepared_action = ctx.prepare_action(&req)?;
                 let manager = ctx.command_execution_manager();
                 let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
 
