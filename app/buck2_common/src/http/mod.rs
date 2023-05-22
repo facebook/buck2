@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::is_open_source;
+use bytes::Bytes;
 use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
@@ -253,7 +254,7 @@ pub trait HttpClient: Allocative + Send + Sync {
         let req = Request::builder()
             .uri(uri)
             .method(Method::HEAD)
-            .body(Body::empty())
+            .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await.map(|resp| resp.map(|_| ()))
     }
@@ -263,13 +264,13 @@ pub trait HttpClient: Allocative + Send + Sync {
         let req = Request::builder()
             .uri(uri)
             .method(Method::GET)
-            .body(Body::empty())
+            .body(Bytes::new())
             .map_err(HttpError::BuildRequest)?;
         self.request(req).await
     }
 
     /// Send a generic request.
-    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError>;
+    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError>;
 }
 
 /// Trait wrapper around a hyper::Client because hyper::Client is parameterized by
@@ -277,15 +278,15 @@ pub trait HttpClient: Allocative + Send + Sync {
 /// ProxyConnector<HttpsConnector<..>>, etc); thus wrap the client so we can switch
 /// out the concrete type without exposing implementation details to callers.
 trait RequestClient: Send + Sync {
-    fn request(&self, request: Request<Body>) -> ResponseFuture;
+    fn request(&self, request: Request<Bytes>) -> ResponseFuture;
 }
 
 impl<C> RequestClient for hyper::Client<C>
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
-    fn request(&self, request: Request<Body>) -> ResponseFuture {
-        self.request(request)
+    fn request(&self, request: Request<Bytes>) -> ResponseFuture {
+        self.request(request.map(Body::from))
     }
 }
 
@@ -321,7 +322,10 @@ impl SecureHttpClient {
         }
     }
 
-    async fn send_request_impl(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn send_request_impl(
+        &self,
+        request: Request<Bytes>,
+    ) -> Result<Response<Body>, HttpError> {
         self.inner
             .request(request)
             .await
@@ -331,7 +335,7 @@ impl SecureHttpClient {
 
 #[async_trait::async_trait]
 impl HttpClient for SecureHttpClient {
-    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         let pending_request = PendingRequest::from_request(&request);
         let uri = request.uri().to_string();
         tracing::debug!("http: request: {:?}", request);
@@ -398,7 +402,7 @@ impl SecureProxiedClient {
 
 #[async_trait::async_trait]
 impl HttpClient for SecureProxiedClient {
-    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         self.inner.request(request).await
     }
 }
@@ -409,7 +413,7 @@ pub struct ClientForTest {}
 
 #[async_trait::async_trait]
 impl HttpClient for ClientForTest {
-    async fn request(&self, _request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn request(&self, _request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         Err(HttpError::Test)
     }
 }

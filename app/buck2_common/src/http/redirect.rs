@@ -10,6 +10,7 @@
 use std::future::Future;
 
 use anyhow::Context;
+use bytes::Bytes;
 use http::HeaderMap;
 use http::Method;
 use http::Uri;
@@ -56,27 +57,28 @@ pub(super) struct PendingRequest {
     method: Method,
     uri: Uri,
     headers: HeaderMap,
+    body: Bytes,
 }
 
 impl PendingRequest {
-    pub(super) fn from_request(request: &Request<Body>) -> Self {
+    pub(super) fn from_request(request: &Request<Bytes>) -> Self {
         Self {
             method: request.method().clone(),
             uri: request.uri().clone(),
             headers: request.headers().clone(),
+            body: request.body().clone(),
         }
     }
 
-    pub(super) fn to_request(&self) -> anyhow::Result<Request<Body>> {
+    pub(super) fn to_request(&self) -> anyhow::Result<Request<Bytes>> {
         let mut builder = Request::builder()
             .method(self.method.clone())
             .uri(self.uri.clone());
         *builder
             .headers_mut()
             .expect("Request builder should not error here") = self.headers.clone();
-        // TODO(skarlage): Need to support passing actual body for POST.
         builder
-            .body(Body::empty())
+            .body(self.body.clone())
             .context("building redirected request")
     }
 }
@@ -115,7 +117,7 @@ impl RedirectEngine {
     ) -> Result<Response<Body>, HttpError>
     where
         F: Future<Output = Result<Response<Body>, HttpError>>,
-        S: Fn(Request<Body>) -> F,
+        S: Fn(Request<Bytes>) -> F,
     {
         let initial_uri = self.pending_request.uri.clone();
         loop {
@@ -163,7 +165,7 @@ impl RedirectEngine {
     }
 
     /// Updates the request in place to send to the redirect location.
-    fn update_and_create_request(&mut self) -> anyhow::Result<Option<Request<Body>>> {
+    fn update_and_create_request(&mut self) -> anyhow::Result<Option<Request<Bytes>>> {
         let redirect_location =
             if let Some(location) = self.extract_redirect_location_from_response() {
                 location

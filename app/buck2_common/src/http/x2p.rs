@@ -11,6 +11,7 @@ use std::path::Path;
 
 use allocative::Allocative;
 use anyhow::Context;
+use bytes::Bytes;
 use http::uri::Scheme;
 use http::Uri;
 use hyper::Body;
@@ -51,14 +52,14 @@ impl X2PAgentUnixSocketClient {
         })
     }
 
-    async fn request_impl(&self, mut request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn request_impl(&self, mut request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         Self::change_scheme_to_http(&mut request);
         self.inner.request(request).await
     }
 
     /// The unix socket proxy server only speaks plain HTTP, so we need to mutate
     /// requests prior to sending them off.
-    fn change_scheme_to_http(request: &mut Request<Body>) {
+    fn change_scheme_to_http(request: &mut Request<Bytes>) {
         let uri = request.uri().clone();
         let mut parts = uri.into_parts();
         parts.scheme = Some(Scheme::HTTP);
@@ -68,7 +69,7 @@ impl X2PAgentUnixSocketClient {
 
 #[async_trait::async_trait]
 impl HttpClient for X2PAgentUnixSocketClient {
-    async fn request(&self, request: Request<Body>) -> Result<Response<Body>, HttpError> {
+    async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         self.request_impl(request).await
     }
 }
@@ -120,7 +121,7 @@ mod tests {
                     );
                     println!("Proxying request: {:?}", req);
                     client
-                        .request(req)
+                        .request(req.map(Body::from))
                         .await
                         .context("Failed sending requeest to destination")
                 }))
@@ -147,7 +148,7 @@ mod tests {
         let mut request = Request::builder()
             .method(Method::GET)
             .uri("https://some.site/foo")
-            .body(Body::empty())?;
+            .body(Bytes::new())?;
         X2PAgentUnixSocketClient::change_scheme_to_http(&mut request);
 
         assert_eq!(
@@ -166,7 +167,7 @@ mod tests {
         let mut request = Request::builder()
             .method(Method::GET)
             .uri(uri.clone())
-            .body(Body::empty())?;
+            .body(Bytes::new())?;
         X2PAgentUnixSocketClient::change_scheme_to_http(&mut request);
 
         assert_eq!(&uri, request.uri());

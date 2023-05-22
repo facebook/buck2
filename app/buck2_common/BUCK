@@ -45,6 +45,7 @@ rust_library(
         "fbsource//third-party/blake3:blake3-rust",
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:compact_str",
         "fbsource//third-party/rust:dashmap",
