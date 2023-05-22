@@ -276,7 +276,7 @@ fn gen_auth_token() -> String {
 
 impl DaemonCommand {
     fn run(
-        &self,
+        self,
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
@@ -295,7 +295,7 @@ impl DaemonCommand {
                 .reject_materializer_state
                 .map(|s| s.into()),
             daemon_buster: before_subcommand_options.daemon_buster,
-            daemon_startup_config: self.daemon_startup_config.clone(),
+            daemon_startup_config: self.daemon_startup_config,
         };
 
         let span = tracing::info_span!("daemon_listener");
@@ -320,7 +320,7 @@ impl DaemonCommand {
             // * but stdout/stderr may be not yet created, so tailer fails to open them
             let (listener, endpoint) = init_listener()?;
 
-            self.daemonize(stdout, stderr)?;
+            Self::daemonize(stdout, stderr)?;
 
             fs_util::write(&pid_path, format!("{}", process::id()))?;
 
@@ -343,7 +343,7 @@ impl DaemonCommand {
             fs_util::write(&pid_path, format!("{}", process::id()))?;
 
             if !in_process {
-                self.redirect_output(stdout, stderr)?;
+                Self::redirect_output(stdout, stderr)?;
             }
 
             let (listener, endpoint) = init_listener()?;
@@ -524,7 +524,7 @@ impl DaemonCommand {
     }
 
     pub(crate) fn exec(
-        &self,
+        self,
         init: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
@@ -559,7 +559,7 @@ impl DaemonCommand {
     }
 
     #[cfg(unix)]
-    fn redirect_output(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn redirect_output(stdout: File, stderr: File) -> anyhow::Result<()> {
         use std::os::unix::io::AsRawFd;
 
         nix::unistd::dup2(stdout.as_raw_fd(), nix::libc::STDOUT_FILENO)?;
@@ -568,7 +568,7 @@ impl DaemonCommand {
     }
 
     #[cfg(windows)]
-    fn redirect_output(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn redirect_output(stdout: File, stderr: File) -> anyhow::Result<()> {
         use std::os::windows::io::AsRawHandle;
 
         unsafe {
@@ -590,7 +590,7 @@ impl DaemonCommand {
     }
 
     #[cfg(unix)]
-    fn daemonize(&self, stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn daemonize(stdout: File, stderr: File) -> anyhow::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
         let daemonize = crate::commands::daemonize::Daemonize::new()
@@ -602,7 +602,7 @@ impl DaemonCommand {
 
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
-    fn daemonize(&self, _stdout: File, _stderr: File) -> anyhow::Result<()> {
+    fn daemonize(_stdout: File, _stderr: File) -> anyhow::Result<()> {
         Err(anyhow::anyhow!("Cannot daemonize on Windows"))
     }
 }

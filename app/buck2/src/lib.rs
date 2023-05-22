@@ -298,7 +298,7 @@ impl CommandKind {
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
-        if let CommandKind::Daemon(cmd) = &self {
+        if let CommandKind::Daemon(cmd) = self {
             return cmd
                 .exec(
                     process.init,
