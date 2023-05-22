@@ -67,18 +67,15 @@ impl BuckConfigBasedCells {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    pub fn parse_immediate_cell_mapping(project_fs: &ProjectRoot) -> anyhow::Result<CellResolver> {
-        Self::parse_immediate_cell_mapping_with_file_ops(
-            project_fs,
-            &mut DefaultConfigParserFileOps {},
-        )
+    pub fn parse_immediate_config(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
+        Self::parse_immediate_config_with_file_ops(project_fs, &mut DefaultConfigParserFileOps {})
     }
 
-    /// Private function with semantics of `parse_immediate_cell_mapping` but usable for testing.
-    pub(crate) fn parse_immediate_cell_mapping_with_file_ops(
+    /// Private function with semantics of `parse_immediate_config` but usable for testing.
+    pub(crate) fn parse_immediate_config_with_file_ops(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<CellResolver> {
+    ) -> anyhow::Result<ImmediateConfig> {
         let opts = BuckConfigParseOptions {
             follow_includes: false,
         };
@@ -89,7 +86,9 @@ impl BuckConfigBasedCells {
             ProjectRelativePath::empty(),
             opts,
         )?;
-        Ok(cells.cell_resolver)
+        Ok(ImmediateConfig {
+            cell_resolver: cells.cell_resolver,
+        })
     }
 
     pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
@@ -402,6 +401,11 @@ impl BuckConfigBasedCells {
             Ok(None)
         }
     }
+}
+
+/// Limited view of the root config. This does not follow includes.
+pub struct ImmediateConfig {
+    pub cell_resolver: CellResolver,
 }
 
 #[cfg(test)]

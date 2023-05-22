@@ -102,7 +102,8 @@ impl<'a> ArgCellPathResolver<'a> {
                 // See comment in `ArgCellPathResolver` about why we use `OnceCell` rather than `Lazy`
                 let project_filesystem = roots.project_root;
                 let cell_resolver =
-                    BuckConfigBasedCells::parse_immediate_cell_mapping(&project_filesystem)?;
+                    BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?
+                        .cell_resolver;
 
                 anyhow::Ok(ArgCellPathResolverData {
                     cell_resolver,

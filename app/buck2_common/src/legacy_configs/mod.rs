@@ -1044,11 +1044,11 @@ impl LegacyBuckConfig {
                 // _after_ initial parsing of root. But this requires quite a bit more work to
                 // access the unresolved parts and making further assumptions. The saving would
                 // be < 1ms, so we take this approach here. It can easily be changed later.
-                let cell_resolver =
-                    BuckConfigBasedCells::parse_immediate_cell_mapping_with_file_ops(
-                        cell_resolution_state.project_filesystem,
-                        file_ops,
-                    )?;
+                let cell_resolver = BuckConfigBasedCells::parse_immediate_config_with_file_ops(
+                    cell_resolution_state.project_filesystem,
+                    file_ops,
+                )?
+                .cell_resolver;
                 let resolved_path = cell_resolver.resolve_cell_relative_path(
                     cell_alias,
                     cell_relative_path,
