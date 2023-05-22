@@ -94,8 +94,18 @@ impl<'a> ArgCellPathResolver<'a> {
         cell_alias: &str,
         cell_relative_path: &str,
     ) -> anyhow::Result<AbsNormPathBuf> {
-        let resolver_data = self
-            .data
+        let resolver_data = self.config()?;
+
+        resolver_data.cell_resolver.resolve_cell_relative_path(
+            cell_alias,
+            cell_relative_path,
+            &resolver_data.project_filesystem,
+            self.cwd.path(),
+        )
+    }
+
+    fn config(&self) -> anyhow::Result<&ArgCellPathResolverData> {
+        self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd.path())?;
 
@@ -110,14 +120,7 @@ impl<'a> ArgCellPathResolver<'a> {
                     project_filesystem,
                 })
             })
-            .context("Error creating cell resolver")?;
-
-        resolver_data.cell_resolver.resolve_cell_relative_path(
-            cell_alias,
-            cell_relative_path,
-            &resolver_data.project_filesystem,
-            self.cwd.path(),
-        )
+            .context("Error creating cell resolver")
     }
 }
 
