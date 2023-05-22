@@ -262,7 +262,9 @@ pub async fn new_daemon_api_client(
         BuckAddAuthTokenInterceptor {
             auth_token: AsciiMetadataValue::try_from(auth_token)?,
         },
-    ))
+    )
+    .max_encoding_message_size(usize::MAX)
+    .max_decoding_message_size(usize::MAX))
 }
 
 fn buckd_startup_timeout() -> anyhow::Result<Duration> {

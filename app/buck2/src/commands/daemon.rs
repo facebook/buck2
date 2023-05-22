@@ -687,8 +687,7 @@ mod tests {
 
         client.ping(PingRequest::default()).await.unwrap();
 
-        // TODO(nga): fails with larger req_size.
-        for req_size in [0, 1 << 10, 1 << 20] {
+        for req_size in [0, 1 << 10, 1 << 20, 10 << 20, 100 << 20] {
             let mut payload = vec![0; req_size];
             rand::rngs::SmallRng::seed_from_u64(20).fill_bytes(&mut payload);
             client
@@ -701,7 +700,7 @@ mod tests {
                 .unwrap();
         }
 
-        for resp_size in [0, 1 << 10, 1 << 20] {
+        for resp_size in [0, 1 << 10, 1 << 20, 10 << 20, 100 << 20] {
             client
                 .ping(PingRequest {
                     response_payload_size: resp_size,

@@ -353,7 +353,11 @@ impl BuckdServer {
         let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver)?;
         let server = Server::builder()
             .layer(interceptor(BuckCheckAuthTokenInterceptor { auth_token }))
-            .add_service(DaemonApiServer::new(api_server))
+            .add_service(
+                DaemonApiServer::new(api_server)
+                    .max_encoding_message_size(usize::MAX)
+                    .max_decoding_message_size(usize::MAX),
+            )
             .serve_with_incoming_shutdown(listener, shutdown);
 
         server.await?;

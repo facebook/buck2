@@ -35,7 +35,9 @@ impl TestExecutorClient {
         let channel = make_channel(io, "executor").await?;
 
         Ok(Self {
-            client: test_executor_client::TestExecutorClient::new(channel),
+            client: test_executor_client::TestExecutorClient::new(channel)
+                .max_encoding_message_size(usize::MAX)
+                .max_decoding_message_size(usize::MAX),
         })
     }
 }
@@ -112,7 +114,9 @@ where
     E: TestExecutor + Send + Sync + 'static,
 {
     let router = tonic::transport::Server::builder().add_service(
-        test_executor_server::TestExecutorServer::new(Service { inner: executor }),
+        test_executor_server::TestExecutorServer::new(Service { inner: executor })
+            .max_encoding_message_size(usize::MAX)
+            .max_decoding_message_size(usize::MAX),
     );
 
     spawn_oneshot(io, router)

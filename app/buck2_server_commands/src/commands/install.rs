@@ -574,7 +574,9 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
             .await
             .context("Failed to connect to the installer using TCP")?;
 
-            Ok(InstallerClient::new(channel))
+            Ok(InstallerClient::new(channel)
+                .max_encoding_message_size(usize::MAX)
+                .max_decoding_message_size(usize::MAX))
         }
         .map(|res| (res, buck2_data::ConnectToInstallerEnd {})),
     )

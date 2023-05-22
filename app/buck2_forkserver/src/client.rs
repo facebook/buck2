@@ -42,7 +42,9 @@ struct ForkserverClientInner {
 impl ForkserverClient {
     #[allow(unused)] // Unused on Windows
     pub(crate) fn new(child: Child, channel: Channel) -> Self {
-        let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel);
+        let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
+            .max_encoding_message_size(usize::MAX)
+            .max_decoding_message_size(usize::MAX);
         Self {
             inner: Arc::new(ForkserverClientInner { _child: child, rpc }),
         }
