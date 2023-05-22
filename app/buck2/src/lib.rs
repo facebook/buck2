@@ -52,7 +52,6 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::result::ToSharedResultExt;
 use buck2_core::env_helper::EnvHelper;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
@@ -190,8 +189,8 @@ impl Opt {
     pub(crate) fn exec(
         self,
         process: ProcessContext<'_>,
+        immediate_config: &ImmediateConfigContext,
         matches: &clap::ArgMatches,
-        argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -200,9 +199,9 @@ impl Opt {
 
         self.cmd.exec(
             process,
+            immediate_config,
             subcommand_matches,
             self.common_opts,
-            argfiles_trace,
         )
     }
 }
@@ -236,8 +235,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         }
     }
 
-    let argfiles_trace = immediate_config.trace();
-    opt.exec(process, &matches, argfiles_trace)
+    opt.exec(process, &immediate_config, &matches)
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -292,9 +290,9 @@ impl CommandKind {
     pub(crate) fn exec(
         self,
         process: ProcessContext<'_>,
+        immediate_config: &ImmediateConfigContext,
         matches: &clap::ArgMatches,
         common_opts: BeforeSubcommandOptions,
-        argfiles_trace: Vec<AbsNormPathBuf>,
     ) -> ExitResult {
         let init_ctx = common_opts.to_server_init_context();
         let roots = find_invocation_roots(process.working_dir.path());
@@ -369,6 +367,7 @@ impl CommandKind {
 
         let command_ctx = ClientCommandContext {
             init: process.init,
+            immediate_config,
             paths,
             verbosity: common_opts.verbosity,
             start_in_process_daemon,
@@ -376,7 +375,6 @@ impl CommandKind {
             working_dir: process.working_dir.clone(),
             sanitized_argv: Vec::new(),
             trace_id: process.trace_id.dupe(),
-            argfiles_trace,
             async_cleanup: async_cleanup.ctx().dupe(),
             stdin: process.stdin,
             restarter: process.restarter,

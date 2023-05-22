@@ -16,7 +16,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::result::SharedResult;
 use buck2_core::error::BUCK2_HARD_ERROR_ENV_VAR;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -28,12 +27,14 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
+use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::tokio_runtime_setup::client_tokio_runtime;
 
 pub struct ClientCommandContext<'a> {
     pub init: fbinit::FacebookInit,
+    pub immediate_config: &'a ImmediateConfigContext<'a>,
     pub paths: SharedResult<InvocationPaths>,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,
@@ -44,7 +45,6 @@ pub struct ClientCommandContext<'a> {
     pub command_name: String,
     pub sanitized_argv: Vec<String>,
     pub trace_id: TraceId,
-    pub argfiles_trace: Vec<AbsNormPathBuf>,
     pub async_cleanup: AsyncCleanupContext,
     pub stdin: &'a mut Stdin,
     pub restarter: &'a mut Restarter,
@@ -116,7 +116,8 @@ impl<'a> ClientCommandContext<'a> {
             sanitized_argv,
             exit_when_different_state: config_opts.exit_when_different_state,
             argfiles: self
-                .argfiles_trace
+                .immediate_config
+                .trace()
                 .iter()
                 .map(|path| path.to_string())
                 .collect(),

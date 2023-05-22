@@ -15,7 +15,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
-use once_cell::unsync::OnceCell;
+use once_cell::sync::OnceCell;
 
 /// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
 pub struct ImmediateConfig<'a> {
@@ -110,8 +110,8 @@ impl<'a> ImmediateConfigContext<'a> {
         self.trace.push(path.to_buf());
     }
 
-    pub fn trace(self) -> Vec<AbsNormPathBuf> {
-        self.trace
+    pub fn trace(&self) -> &[AbsNormPathBuf] {
+        &self.trace
     }
 
     pub fn config(&self) -> &ImmediateConfig {
