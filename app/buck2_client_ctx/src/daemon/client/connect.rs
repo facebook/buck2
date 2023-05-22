@@ -50,22 +50,6 @@ use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-pub enum ConstraintCheckResult {
-    Match,
-    Mismatch {
-        expected: DaemonConstraintsRequest,
-        actual: buck2_cli_proto::DaemonConstraints,
-    },
-}
-
-impl ConstraintCheckResult {
-    fn is_match(&self) -> bool {
-        matches!(self, Self::Match)
-    }
-}
-
 /// The client side matcher for DaemonConstraints.
 #[derive(Clone, Debug)]
 pub struct DaemonConstraintsRequest {
@@ -145,6 +129,10 @@ impl DaemonConstraintsRequest {
 
         true
     }
+
+    pub fn is_trace_io_requested(&self) -> bool {
+        matches!(self.desired_trace_io_state, DesiredTraceIoState::Enabled)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Dupe)]
@@ -158,62 +146,6 @@ pub enum DesiredTraceIoState {
 pub enum BuckdConnectConstraints {
     ExistingOnly,
     Constraints(DaemonConstraintsRequest),
-}
-
-impl BuckdConnectConstraints {
-    pub fn existing_only(&self) -> bool {
-        matches!(self, Self::ExistingOnly)
-    }
-
-    pub fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> ConstraintCheckResult {
-        match self {
-            Self::ExistingOnly => ConstraintCheckResult::Match,
-            Self::Constraints(expected) => {
-                let satisfied = expected.satisfied(daemon);
-
-                tracing::debug!(
-                    "Matching constraints: {:?} {:?} -> satisfied = {}",
-                    self,
-                    daemon,
-                    satisfied
-                );
-
-                if satisfied {
-                    ConstraintCheckResult::Match
-                } else {
-                    ConstraintCheckResult::Mismatch {
-                        expected: expected.clone(),
-                        actual: daemon.clone(),
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn is_trace_io_requested(&self) -> bool {
-        if let Self::Constraints(constraints) = self {
-            matches!(
-                constraints.desired_trace_io_state,
-                DesiredTraceIoState::Enabled
-            )
-        } else {
-            false
-        }
-    }
-
-    pub fn reject_materializer_state(&self) -> Option<&str> {
-        match self {
-            Self::Constraints(c) => c.reject_materializer_state.as_deref(),
-            Self::ExistingOnly => None,
-        }
-    }
-
-    pub fn daemon_startup_config(&self) -> Option<&DaemonStartupConfig> {
-        match self {
-            Self::Constraints(c) => Some(&c.daemon_startup_config),
-            Self::ExistingOnly => None,
-        }
-    }
 }
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
@@ -270,14 +202,14 @@ fn buckd_startup_timeout() -> anyhow::Result<Duration> {
 struct BuckdLifecycle<'a> {
     paths: &'a InvocationPaths,
     lock: BuckdLifecycleLock,
-    constraints: &'a BuckdConnectConstraints,
+    constraints: &'a DaemonConstraintsRequest,
 }
 
 impl<'a> BuckdLifecycle<'a> {
     async fn lock_with_timeout(
         paths: &'a InvocationPaths,
         deadline: StartupDeadline,
-        constraints: &'a BuckdConnectConstraints,
+        constraints: &'a DaemonConstraintsRequest,
     ) -> anyhow::Result<BuckdLifecycle<'a>> {
         Ok(BuckdLifecycle::<'a> {
             paths,
@@ -297,13 +229,10 @@ impl<'a> BuckdLifecycle<'a> {
             args.push("--enable-trace-io");
         }
 
-        if let Some(r) = self.constraints.reject_materializer_state() {
+        if let Some(r) = &self.constraints.reject_materializer_state {
             args.push("--reject-materializer-state");
             args.push(r);
         }
-
-        // This unwrap is fixed later in this stack (it cannot be hit).
-        let daemon_startup_config = self.constraints.daemon_startup_config().unwrap();
 
         let daemon_env_vars = if env::var_os("RUST_BACKTRACE").is_some()
             || env::var_os("RUST_LIB_BACKTRACE").is_some()
@@ -329,10 +258,18 @@ impl<'a> BuckdLifecycle<'a> {
         if cfg!(unix) {
             // On Unix we spawn a process which forks and exits,
             // and here we wait for that spawned process to terminate.
-            self.start_server_unix(args, daemon_env_vars, daemon_startup_config)
-                .await
+            self.start_server_unix(
+                args,
+                daemon_env_vars,
+                &self.constraints.daemon_startup_config,
+            )
+            .await
         } else {
-            self.start_server_windows(args, daemon_env_vars, daemon_startup_config)
+            self.start_server_windows(
+                args,
+                daemon_env_vars,
+                &self.constraints.daemon_startup_config,
+            )
         }
     }
 
@@ -610,15 +547,17 @@ async fn establish_connection_inner(
     constraints: BuckdConnectConstraints,
     deadline: StartupDeadline,
 ) -> anyhow::Result<BootstrapBuckdClient> {
-    if let Some(client) = deadline
+    let connect_before_restart = deadline
         .half()?
         .run("connecting to existing buck daemon", {
             try_connect_existing_before_daemon_restart(paths, &constraints)
         })
-        .await?
-    {
-        return Ok(client);
-    }
+        .await?;
+
+    let constraints = match connect_before_restart {
+        ConnectBeforeRestart::Accepted(client) => return Ok(client),
+        ConnectBeforeRestart::Rejected(constraints) => constraints,
+    };
 
     // At this point, we've either failed to connect to buckd or buckd had the wrong constraints.
     // Get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
@@ -632,7 +571,7 @@ async fn establish_connection_inner(
     // starting the server, so we try to connect again while holding the lock.
     if let Ok(channel) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
         let mut client = channel.upgrade().await?;
-        if constraints.satisfied(&client.constraints).is_match() {
+        if constraints.satisfied(&client.constraints) {
             return Ok(client);
         }
         deadline
@@ -665,12 +604,20 @@ async fn establish_connection_inner(
 
     let client = channel.upgrade().await?;
 
-    match constraints.satisfied(&client.constraints) {
-        ConstraintCheckResult::Match => Ok(client),
-        ConstraintCheckResult::Mismatch { expected, actual } => {
-            Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart { expected, actual }.into())
+    if !constraints.satisfied(&client.constraints) {
+        return Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart {
+            expected: constraints.clone(),
+            actual: client.constraints,
         }
+        .into());
     }
+
+    Ok(client)
+}
+
+enum ConnectBeforeRestart<'a> {
+    Accepted(BootstrapBuckdClient),
+    Rejected(&'a DaemonConstraintsRequest),
 }
 
 /// Connect to buckd before attempt to restart the server.
@@ -680,27 +627,36 @@ async fn establish_connection_inner(
 /// * `Ok(Some(client))` if we connected to an existing buckd
 /// * `Ok(None)` if we failed to connect and should restart buckd
 /// * `Err` if we failed to connect and should abandon startup
-async fn try_connect_existing_before_daemon_restart(
-    paths: &InvocationPaths,
-    constraints: &BuckdConnectConstraints,
-) -> anyhow::Result<Option<BootstrapBuckdClient>> {
+async fn try_connect_existing_before_daemon_restart<'a>(
+    paths: &'_ InvocationPaths,
+    constraints: &'a BuckdConnectConstraints,
+) -> anyhow::Result<ConnectBeforeRestart<'a>> {
     match try_connect_existing_impl(&paths.daemon_dir()?).await {
         Ok(channel) => {
             let client = channel.upgrade().await?;
 
-            if constraints.satisfied(&client.constraints).is_match() {
-                return Ok(Some(client));
+            let constraints = match constraints {
+                BuckdConnectConstraints::ExistingOnly => {
+                    return Ok(ConnectBeforeRestart::Accepted(client));
+                }
+                BuckdConnectConstraints::Constraints(constraints) => constraints,
+            };
+
+            if constraints.satisfied(&client.constraints) {
+                return Ok(ConnectBeforeRestart::Accepted(client));
             }
-            // fallthrough to the more complicated startup case.
+
+            Ok(ConnectBeforeRestart::Rejected(constraints))
         }
-        Err(e) if constraints.existing_only() => {
-            return Err(e.context("No existing connection and not asked to start one"));
-        }
-        Err(_) => {
-            // fallthrough to the startup case
-        }
+        Err(e) => match constraints {
+            BuckdConnectConstraints::ExistingOnly => {
+                Err(e.context("No existing connection and not asked to start one"))
+            }
+            BuckdConnectConstraints::Constraints(constraints) => {
+                Ok(ConnectBeforeRestart::Rejected(constraints))
+            }
+        },
     }
-    Ok(None)
 }
 
 async fn try_connect_existing(
@@ -817,43 +773,36 @@ mod tests {
         }
     }
 
-    fn request(desired_trace_io_state: DesiredTraceIoState) -> BuckdConnectConstraints {
-        BuckdConnectConstraints::Constraints(DaemonConstraintsRequest {
+    fn request(desired_trace_io_state: DesiredTraceIoState) -> DaemonConstraintsRequest {
+        DaemonConstraintsRequest {
             version: "version".to_owned(),
             user_version: Some("test".to_owned()),
             desired_trace_io_state,
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_startup_config: DaemonStartupConfig::testing_empty(),
-        })
-    }
-
-    #[test]
-    fn test_constraints_equal_for_existing_only() {
-        let req = BuckdConnectConstraints::ExistingOnly;
-        let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).is_match());
+        }
     }
 
     #[test]
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).is_match());
+        assert!(req.satisfied(&daemon));
     }
 
     #[test]
     fn test_constraints_equal_for_trace_io_existing() {
         let req = request(DesiredTraceIoState::Existing);
         let daemon = constraints(true);
-        assert!(req.satisfied(&daemon).is_match());
+        assert!(req.satisfied(&daemon));
     }
 
     #[test]
     fn test_constraints_unequal_for_trace_io() {
         let req = request(DesiredTraceIoState::Disabled);
         let daemon = constraints(true);
-        assert!(!req.satisfied(&daemon).is_match());
+        assert!(!req.satisfied(&daemon));
     }
 
     #[test]
