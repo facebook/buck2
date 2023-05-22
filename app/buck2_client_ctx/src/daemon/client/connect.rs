@@ -22,6 +22,7 @@ use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
 use buck2_util::process::async_background_command;
@@ -45,6 +46,7 @@ use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 use crate::daemon_constraints;
 use crate::events_ctx::EventsCtx;
+use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -74,10 +76,12 @@ pub struct DaemonConstraintsRequest {
     desired_trace_io_state: DesiredTraceIoState,
     pub reject_daemon: Option<String>,
     pub reject_materializer_state: Option<String>,
+    pub daemon_startup_config: DaemonStartupConfig,
 }
 
 impl DaemonConstraintsRequest {
     pub fn new(
+        immediate_config: &ImmediateConfigContext<'_>,
         paths: &InvocationPaths,
         desired_trace_io_state: DesiredTraceIoState,
     ) -> anyhow::Result<Self> {
@@ -91,6 +95,7 @@ impl DaemonConstraintsRequest {
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_buster,
+            daemon_startup_config: immediate_config.daemon_startup_config()?.clone(),
         })
     }
 
@@ -104,6 +109,18 @@ impl DaemonConstraintsRequest {
         }
 
         if self.daemon_buster != daemon.daemon_buster {
+            return false;
+        }
+
+        let server_daemon_startup_config = daemon.daemon_startup_config.as_ref().and_then(|c| {
+            let server = DaemonStartupConfig::deserialize(c);
+            if let Err(e) = server.as_ref() {
+                tracing::warn!("Daemon returned invalid DaemonStartupConfig: {:#}", e);
+            }
+            server.ok()
+        });
+
+        if Some(&self.daemon_startup_config) != server_daemon_startup_config.as_ref() {
             return false;
         }
 
@@ -222,6 +239,13 @@ impl BuckdConnectConstraints {
             Self::ExistingOnly => None,
         }
     }
+
+    pub fn daemon_startup_config(&self) -> Option<&DaemonStartupConfig> {
+        match self {
+            Self::Constraints(c) => Some(&c.daemon_startup_config),
+            Self::ExistingOnly => None,
+        }
+    }
 }
 
 static BUCKD_STARTUP_TIMEOUT: EnvHelper<u64> = EnvHelper::new("BUCKD_STARTUP_TIMEOUT");
@@ -317,6 +341,9 @@ impl<'a> BuckdLifecycle<'a> {
             args.push(&tmp);
         }
 
+        // This unwrap is fixed later in this stack (it cannot be hit).
+        let daemon_startup_config = self.constraints.daemon_startup_config().unwrap();
+
         let daemon_env_vars = if env::var_os("RUST_BACKTRACE").is_some()
             || env::var_os("RUST_LIB_BACKTRACE").is_some()
         {
@@ -341,9 +368,10 @@ impl<'a> BuckdLifecycle<'a> {
         if cfg!(unix) {
             // On Unix we spawn a process which forks and exits,
             // and here we wait for that spawned process to terminate.
-            self.start_server_unix(args, daemon_env_vars).await
+            self.start_server_unix(args, daemon_env_vars, daemon_startup_config)
+                .await
         } else {
-            self.start_server_windows(args, daemon_env_vars)
+            self.start_server_windows(args, daemon_env_vars, daemon_startup_config)
         }
     }
 
@@ -351,12 +379,15 @@ impl<'a> BuckdLifecycle<'a> {
         &self,
         mut args: Vec<&str>,
         daemon_env_vars: &[(&str, &str)],
+        daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
+        let daemon_startup_config = daemon_startup_config.serialize();
         args.extend(["daemon", "--dont-daemonize"]);
         spawn_background_process_on_windows(
             self.paths.project_root().root(),
             &env::current_exe()?,
-            args,
+            args.into_iter()
+                .chain(std::iter::once(daemon_startup_config.as_str())),
             daemon_env_vars,
         )
     }
@@ -365,6 +396,7 @@ impl<'a> BuckdLifecycle<'a> {
         &self,
         args: Vec<&str>,
         daemon_env_vars: &[(&str, &str)],
+        daemon_startup_config: &DaemonStartupConfig,
     ) -> anyhow::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
@@ -380,6 +412,7 @@ impl<'a> BuckdLifecycle<'a> {
             .args(args);
 
         cmd.arg("daemon");
+        cmd.arg(daemon_startup_config.serialize());
 
         static DAEMON_LOG_TO_FILE: EnvHelper<u8> = EnvHelper::<u8>::new("BUCK_DAEMON_LOG_TO_FILE");
         if DAEMON_LOG_TO_FILE.get_copied()? == Some(1) {
@@ -771,6 +804,7 @@ async fn get_constraints(
 }
 
 #[derive(Debug, Error)]
+#[allow(clippy::large_enum_variant)]
 enum BuckdConnectError {
     #[error(
         "buck daemon startup failed with exit code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
@@ -817,6 +851,9 @@ mod tests {
                 trace_io_enabled,
                 materializer_state_identity: None,
             }),
+            daemon_startup_config: Some(
+                serde_json::to_string(&DaemonStartupConfig::testing_empty()).unwrap(),
+            ),
         }
     }
 
@@ -828,6 +865,7 @@ mod tests {
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_buster: None,
+            daemon_startup_config: DaemonStartupConfig::testing_empty(),
         })
     }
 
@@ -877,6 +915,7 @@ mod tests {
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_buster: None,
+            daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
 
         let daemon = buck2_cli_proto::DaemonConstraints {
@@ -885,6 +924,9 @@ mod tests {
             daemon_id: "ddd".to_owned(),
             extra: None,
             daemon_buster: None,
+            daemon_startup_config: Some(
+                serde_json::to_string(&DaemonStartupConfig::testing_empty()).unwrap(),
+            ),
         };
 
         assert!(req.satisfied(&daemon));
@@ -903,6 +945,7 @@ mod tests {
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_buster: None,
+            daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
 
         let daemon = buck2_cli_proto::DaemonConstraints {
@@ -914,6 +957,9 @@ mod tests {
                 materializer_state_identity: Some("mmm".to_owned()),
             }),
             daemon_buster: None,
+            daemon_startup_config: Some(
+                serde_json::to_string(&DaemonStartupConfig::testing_empty()).unwrap(),
+            ),
         };
 
         assert!(req.satisfied(&daemon));
@@ -932,6 +978,7 @@ mod tests {
             reject_daemon: None,
             reject_materializer_state: None,
             daemon_buster: None,
+            daemon_startup_config: DaemonStartupConfig::testing_empty(),
         };
 
         let daemon = buck2_cli_proto::DaemonConstraints {
@@ -943,6 +990,9 @@ mod tests {
                 materializer_state_identity: Some("mmm".to_owned()),
             }),
             daemon_buster: None,
+            daemon_startup_config: Some(
+                serde_json::to_string(&DaemonStartupConfig::testing_empty()).unwrap(),
+            ),
         };
 
         assert!(req.satisfied(&daemon));

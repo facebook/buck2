@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -26,6 +27,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use gazebo::prelude::*;
 use once_cell::unsync::OnceCell;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
@@ -86,8 +89,15 @@ impl BuckConfigBasedCells {
             ProjectRelativePath::empty(),
             opts,
         )?;
+
+        let root_config = cells
+            .configs_by_name
+            .get(cells.cell_resolver.root_cell())
+            .context("No config for root cell")?;
+
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
+            daemon_startup_config: DaemonStartupConfig::new(root_config),
         })
     }
 
@@ -406,6 +416,36 @@ impl BuckConfigBasedCells {
 /// Limited view of the root config. This does not follow includes.
 pub struct ImmediateConfig {
     pub cell_resolver: CellResolver,
+    pub daemon_startup_config: DaemonStartupConfig,
+}
+
+/// Configurations that are used at startup by the daemon. Those are actually read by the client,
+/// and passed on to the daemon.
+///
+/// Backwards compatibility on Serialize / Deserialize is not required: if the client cannot read
+/// the DaemonStartupConfig provided by the daemon when it tries to connect, it will reject that
+/// daemon and restart (and in fact it will probably not get that far since a version check is done
+/// before parsing DaemonStartupConfig).
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonStartupConfig {}
+
+impl DaemonStartupConfig {
+    fn new(_config: &LegacyBuckConfig) -> Self {
+        Self {}
+    }
+
+    pub fn serialize(&self) -> String {
+        // This only contains String, so it'll successfully serialize to JSON.
+        serde_json::to_string(&self).unwrap()
+    }
+
+    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
+        serde_json::from_str::<Self>(s).context("Error deserializing DaemonStartupConfig")
+    }
+
+    pub fn testing_empty() -> Self {
+        Self {}
+    }
 }
 
 #[cfg(test)]

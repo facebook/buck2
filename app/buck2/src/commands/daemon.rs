@@ -31,6 +31,7 @@ use buck2_client_ctx::version::BuckVersion;
 use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_common::memory;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::fs_util;
@@ -67,6 +68,7 @@ use tokio::runtime::Builder;
 
 use crate::commands::daemon_lower_priority::daemon_lower_priority;
 use crate::commands::schedule_termination::maybe_schedule_termination;
+use crate::DaemonBeforeSubcommandOptions;
 
 #[derive(Debug, Error)]
 enum DaemonError {
@@ -92,15 +94,20 @@ pub(crate) struct DaemonCommand {
     /// with lower priority.
     #[clap(long)]
     skip_macos_qos: bool,
+    /// Early configs that the daemon needs at startup. Those are read by the client then passed to
+    /// the daemon. The client will restart the daemon if they mismatch.
+    #[clap(parse(try_from_str = DaemonStartupConfig::deserialize))]
+    daemon_startup_config: DaemonStartupConfig,
 }
 
 impl DaemonCommand {
     /// Command instance for `--no-buckd`.
-    pub(crate) fn new_in_process() -> DaemonCommand {
+    pub(crate) fn new_in_process(daemon_startup_config: DaemonStartupConfig) -> DaemonCommand {
         DaemonCommand {
             checker_interval_seconds: 60,
             dont_daemonize: true,
             skip_macos_qos: true,
+            daemon_startup_config,
         }
     }
 }
@@ -273,12 +280,23 @@ impl DaemonCommand {
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        server_init_ctx: BuckdServerInitPreferences,
+        before_subcommand_options: DaemonBeforeSubcommandOptions,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
+
+        let server_init_ctx = BuckdServerInitPreferences {
+            detect_cycles: before_subcommand_options.detect_cycles,
+            which_dice: before_subcommand_options.which_dice,
+            enable_trace_io: before_subcommand_options.enable_trace_io,
+            reject_materializer_state: before_subcommand_options
+                .reject_materializer_state
+                .map(|s| s.into()),
+            daemon_buster: before_subcommand_options.daemon_buster,
+            daemon_startup_config: self.daemon_startup_config.clone(),
+        };
 
         let span = tracing::info_span!("daemon_listener");
         let span_guard = span.enter();
@@ -416,7 +434,10 @@ impl DaemonCommand {
 
             drop(span_guard);
 
-            let daemon_constraints = gen_daemon_constraints(server_init_ctx.daemon_buster)?;
+            let daemon_constraints = gen_daemon_constraints(
+                server_init_ctx.daemon_buster,
+                &server_init_ctx.daemon_startup_config,
+            )?;
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -507,7 +528,7 @@ impl DaemonCommand {
         init: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        server_init_ctx: BuckdServerInitPreferences,
+        before_subcommand_options: DaemonBeforeSubcommandOptions,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> anyhow::Result<()> {
@@ -530,7 +551,7 @@ impl DaemonCommand {
             init,
             log_reload_handle,
             paths,
-            server_init_ctx,
+            before_subcommand_options,
             in_process,
             listener_created,
         )?;
@@ -600,6 +621,7 @@ mod tests {
     use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
     use buck2_common::invocation_paths::InvocationPaths;
     use buck2_common::invocation_roots::InvocationRoots;
+    use buck2_common::legacy_configs::cells::DaemonStartupConfig;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::logging::LogConfigurationReloadHandle;
@@ -659,9 +681,10 @@ mod tests {
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_buster: None,
+                daemon_startup_config: DaemonStartupConfig::testing_empty(),
             },
             process_info.clone(),
-            gen_daemon_constraints(None).unwrap(),
+            gen_daemon_constraints(None, &DaemonStartupConfig::testing_empty()).unwrap(),
             listener,
             &BuckdServerDependenciesImpl,
         ));

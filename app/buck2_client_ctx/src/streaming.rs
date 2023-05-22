@@ -165,7 +165,11 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 let constraints = if T::existing_only() {
                     BuckdConnectConstraints::ExistingOnly
                 } else {
-                    let mut req = DaemonConstraintsRequest::new(ctx.paths()?, T::trace_io(&self))?;
+                    let mut req = DaemonConstraintsRequest::new(
+                        ctx.immediate_config,
+                        ctx.paths()?,
+                        T::trace_io(&self),
+                    )?;
                     ctx.restarter.apply_to_constraints(&mut req);
                     BuckdConnectConstraints::Constraints(req)
                 };

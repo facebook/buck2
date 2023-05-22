@@ -7,18 +7,21 @@
  * of this source tree.
  */
 
+use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::env_helper::EnvHelper;
 
 use crate::version::BuckVersion;
 
 pub fn gen_daemon_constraints(
     daemon_buster: Option<u64>,
+    daemon_startup_config: &DaemonStartupConfig,
 ) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
     Ok(buck2_cli_proto::DaemonConstraints {
         version: version(),
         user_version: user_version()?,
         daemon_id: buck2_events::daemon_id::DAEMON_UUID.to_string(),
         daemon_buster,
+        daemon_startup_config: Some(daemon_startup_config.serialize()),
         extra: None,
     })
 }

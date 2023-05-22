@@ -10,6 +10,7 @@
 use anyhow::Context as _;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::cells::DaemonStartupConfig;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -32,6 +33,7 @@ pub struct ImmediateConfig<'a> {
 /// unless necessary (e.g., encountering a cell-relative path).
 pub struct ImmediateConfigData {
     cell_resolver: CellResolver,
+    daemon_startup_config: DaemonStartupConfig,
     project_filesystem: ProjectRoot,
 }
 
@@ -80,12 +82,11 @@ impl<'a> ImmediateConfig<'a> {
 
                 // See comment in `ImmediateConfig` about why we use `OnceCell` rather than `Lazy`
                 let project_filesystem = roots.project_root;
-                let cell_resolver =
-                    BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?
-                        .cell_resolver;
+                let cfg = BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?;
 
                 anyhow::Ok(ImmediateConfigData {
-                    cell_resolver,
+                    cell_resolver: cfg.cell_resolver,
+                    daemon_startup_config: cfg.daemon_startup_config,
                     project_filesystem,
                 })
             })
@@ -116,5 +117,9 @@ impl<'a> ImmediateConfigContext<'a> {
 
     pub fn config(&self) -> &ImmediateConfig {
         &self.config
+    }
+
+    pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
+        Ok(&self.config().config()?.daemon_startup_config)
     }
 }

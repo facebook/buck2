@@ -46,6 +46,9 @@ message DaemonConstraints {
   // can be used to force the daemon to pick up a buckconfig change, or for
   // other remediation task that require a daemon restart to take effect.
   optional uint64 daemon_buster = 6;
+
+  // Buckconfigs read by the client then passed to the daemon.
+  optional string daemon_startup_config = 7;
 }
 
 // This represents additional daemon constraints that we can emit only if the

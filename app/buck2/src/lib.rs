@@ -55,7 +55,6 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_starlark::StarlarkCommand;
 use clap::AppSettings;
 use clap::Parser;
@@ -98,25 +97,9 @@ struct BeforeSubcommandOptions {
     )]
     isolation_dir: FileNameBuf,
 
-    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hidden(true))]
-    detect_cycles: Option<DetectCycles>,
-
-    #[clap(env("WHICH_DICE_UNSTABLE"), long, hidden(true))]
-    which_dice: Option<WhichDice>,
-
-    #[clap(env("ENABLE_TRACE_IO"), long, hidden(true))]
-    enable_trace_io: bool,
-
-    /// If passed a given materializer identity, if the materializer state DB matches that
-    /// identity, the daemon will not use it and will instead create a new empty materializer
-    /// state.
-    #[clap(long, hidden(true))]
-    reject_materializer_state: Option<String>,
-
-    /// Set by the client, then echoed in the daemon constraints. Used by the client to reject
-    /// daemons even if their binary version matches.
-    #[clap(long, hidden(true))]
-    daemon_buster: Option<u64>,
+    // TODO: Those should be on the daemon subcommand.
+    #[clap(flatten)]
+    daemon: DaemonBeforeSubcommandOptions,
 
     /// How verbose buck should be while logging.
     /// Values:
@@ -150,16 +133,27 @@ struct BeforeSubcommandOptions {
     help_wrapper: bool,
 }
 
-impl BeforeSubcommandOptions {
-    pub fn to_server_init_context(&self) -> BuckdServerInitPreferences {
-        BuckdServerInitPreferences {
-            detect_cycles: self.detect_cycles,
-            which_dice: self.which_dice,
-            enable_trace_io: self.enable_trace_io,
-            reject_materializer_state: self.reject_materializer_state.clone().map(|s| s.into()),
-            daemon_buster: self.daemon_buster,
-        }
-    }
+#[derive(Clone, Debug, clap::Parser)]
+struct DaemonBeforeSubcommandOptions {
+    #[clap(env("DICE_DETECT_CYCLES_UNSTABLE"), long, hidden(true))]
+    detect_cycles: Option<DetectCycles>,
+
+    #[clap(env("WHICH_DICE_UNSTABLE"), long, hidden(true))]
+    which_dice: Option<WhichDice>,
+
+    #[clap(env("ENABLE_TRACE_IO"), long, hidden(true))]
+    enable_trace_io: bool,
+
+    /// If passed a given materializer identity, if the materializer state DB matches that
+    /// identity, the daemon will not use it and will instead create a new empty materializer
+    /// state.
+    #[clap(long, hidden(true))]
+    reject_materializer_state: Option<String>,
+
+    /// Set by the client, then echoed in the daemon constraints. Used by the client to reject
+    /// daemons even if their binary version matches.
+    #[clap(long, hidden(true))]
+    daemon_buster: Option<u64>,
 }
 
 #[rustfmt::skip] // Formatting in internal and in OSS versions disagree after oss markers applied.
@@ -294,12 +288,11 @@ impl CommandKind {
         matches: &clap::ArgMatches,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
-        let init_ctx = common_opts.to_server_init_context();
         let roots = find_invocation_roots(process.working_dir.path());
         let paths = roots
             .map(|r| InvocationPaths {
                 roots: r,
-                isolation: common_opts.isolation_dir,
+                isolation: common_opts.isolation_dir.clone(),
             })
             .shared_error();
 
@@ -311,7 +304,7 @@ impl CommandKind {
                     process.init,
                     process.log_reload_handle.dupe(),
                     paths?,
-                    init_ctx,
+                    common_opts.daemon,
                     false,
                     || {},
                 )
@@ -322,6 +315,7 @@ impl CommandKind {
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
+                let daemon_startup_config = immediate_config.daemon_startup_config()?.clone();
                 let paths = paths.clone()?;
                 // Create a function which spawns an in-process daemon.
                 Some(Box::new(move || {
@@ -329,11 +323,11 @@ impl CommandKind {
                     // Spawn a thread which runs the daemon.
                     thread::spawn(move || {
                         let tx_clone = tx.clone();
-                        let result = DaemonCommand::new_in_process().exec(
+                        let result = DaemonCommand::new_in_process(daemon_startup_config).exec(
                             process.init,
                             <dyn LogConfigurationReloadHandle>::noop(),
                             paths,
-                            init_ctx,
+                            common_opts.daemon,
                             true,
                             move || drop(tx_clone.send(Ok(()))),
                         );
