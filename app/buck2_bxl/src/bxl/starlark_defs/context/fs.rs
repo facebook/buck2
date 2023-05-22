@@ -28,6 +28,7 @@ use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -199,5 +200,20 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// ```
     fn is_file<'v>(this: &BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
         Ok(std::path::Path::is_file(this.resolve(expr)?.as_ref()))
+    }
+
+    /// Returns the relative path to the project root, given the file expression.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def project_rel_path(ctx):
+    ///     ctx.output.print(ctx.fs.project_rel_path("bin"))
+    /// ```
+    fn project_rel_path<'v>(
+        this: &BxlFilesystem<'v>,
+        expr: FileExpr<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str(this.project_relative_path(expr)?.as_str()))
     }
 }
