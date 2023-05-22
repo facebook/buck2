@@ -24,9 +24,7 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
-use crate::slice_vec_ext::VecExt;
-use crate::values::dict::Dict;
-use crate::values::list::AllocList;
+use crate::values::dict::AllocDict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::AllocFrozenValue;
@@ -70,23 +68,55 @@ impl AllocFrozenValue for serde_json::Number {
     }
 }
 
-fn serde_to_starlark<'v>(x: serde_json::Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-    match x {
-        serde_json::Value::Null => Ok(Value::new_none()),
-        serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
-        serde_json::Value::Number(x) => Ok(heap.alloc(x)),
-        serde_json::Value::String(x) => Ok(heap.alloc(x)),
-        serde_json::Value::Array(x) => {
-            Ok(heap.alloc(AllocList(x.into_try_map(|v| serde_to_starlark(v, heap))?)))
+impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for serde_json::Map<K, V> {
+    fn starlark_type_repr() -> String {
+        AllocDict::<SmallMap<K, V>>::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        // For some reason `IntoIter` is implemented only for `String, Value` parameters,
+        // so this implementation is limited.
+        heap.alloc(AllocDict(self))
+    }
+}
+
+impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc(AllocDict(self))
+    }
+}
+
+impl StarlarkTypeRepr for serde_json::Value {
+    fn starlark_type_repr() -> String {
+        // Any.
+        Value::starlark_type_repr()
+    }
+}
+
+impl<'v> AllocValue<'v> for serde_json::Value {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match self {
+            serde_json::Value::Null => Value::new_none(),
+            serde_json::Value::Bool(x) => Value::new_bool(x),
+            serde_json::Value::Number(x) => heap.alloc(x),
+            serde_json::Value::String(x) => heap.alloc(x),
+            serde_json::Value::Array(x) => heap.alloc(x),
+            serde_json::Value::Object(x) => heap.alloc(x),
         }
-        serde_json::Value::Object(x) => {
-            let mut mp = SmallMap::with_capacity(x.len());
-            for (k, v) in x {
-                let k = heap.alloc_str(&k).get_hashed_value();
-                let v = serde_to_starlark(v, heap)?;
-                mp.insert_hashed(k, v);
-            }
-            Ok(heap.alloc(Dict::new(mp)))
+    }
+}
+
+impl AllocFrozenValue for serde_json::Value {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match self {
+            serde_json::Value::Null => FrozenValue::new_none(),
+            serde_json::Value::Bool(x) => FrozenValue::new_bool(x),
+            serde_json::Value::Number(x) => heap.alloc(x),
+            serde_json::Value::String(x) => heap.alloc(x),
+            serde_json::Value::Array(x) => heap.alloc(x),
+            serde_json::Value::Object(x) => heap.alloc(x),
         }
     }
 }
@@ -102,7 +132,7 @@ pub(crate) fn json(globals: &mut GlobalsBuilder) {
             #[starlark(require = pos)] x: &str,
             heap: &'v Heap,
         ) -> anyhow::Result<Value<'v>> {
-            serde_to_starlark(serde_json::from_str(x)?, heap)
+            Ok(heap.alloc(serde_json::from_str::<serde_json::Value>(x)?))
         }
     }
 
