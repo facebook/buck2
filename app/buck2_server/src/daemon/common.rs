@@ -29,11 +29,13 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
+use buck2_execute::execute::prepared::NoOpCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionHandle;
+use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::caching::CachingExecutor;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
@@ -142,6 +144,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             return Ok(CommandExecutorResponse {
                 executor: Arc::new(local_executor_new(&LocalExecutorOptions::default())),
                 platform: Default::default(),
+                cache_checker: Arc::new(NoOpCommandExecutor {}),
             });
         }
 
@@ -176,6 +179,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Some(CommandExecutorResponse {
                         executor: Arc::new(local_executor_new(local)),
                         platform: Default::default(),
+                        cache_checker: Arc::new(NoOpCommandExecutor {}),
                     })
                 }
             }
@@ -221,21 +225,30 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     .get_copied()?
                     .unwrap_or(self.skip_cache_read);
 
-                let executor = if disable_caching || !remote_cache_enabled {
-                    inner_executor
+                let (executor, cache_checker) = if disable_caching || !remote_cache_enabled {
+                    (inner_executor, Arc::new(NoOpCommandExecutor {}) as _)
                 } else {
-                    inner_executor.map(|inner_executor| {
-                        Arc::new(CachingExecutor {
-                            inner: inner_executor,
+                    (
+                        inner_executor.map(|inner_executor| {
+                            Arc::new(CachingExecutor {
+                                inner: inner_executor,
+                                artifact_fs: artifact_fs.clone(),
+                                materializer: self.materializer.dupe(),
+                                re_client: self.re_connection.get_client(),
+                                re_use_case: *re_use_case,
+                                upload_all_actions: self.upload_all_actions,
+                                knobs: self.executor_global_knobs.dupe(),
+                                cache_upload_behavior: *cache_upload_behavior,
+                            }) as _
+                        }),
+                        Arc::new(ActionCacheChecker {
                             artifact_fs: artifact_fs.clone(),
                             materializer: self.materializer.dupe(),
                             re_client: self.re_connection.get_client(),
                             re_use_case: *re_use_case,
                             upload_all_actions: self.upload_all_actions,
-                            knobs: self.executor_global_knobs.dupe(),
-                            cache_upload_behavior: *cache_upload_behavior,
-                        }) as _
-                    })
+                        }) as _,
+                    )
                 };
 
                 let platform = RE::Platform {
@@ -248,7 +261,11 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         .collect(),
                 };
 
-                executor.map(|executor| CommandExecutorResponse { executor, platform })
+                executor.map(|executor| CommandExecutorResponse {
+                    executor,
+                    platform,
+                    cache_checker,
+                })
             }
         };
 

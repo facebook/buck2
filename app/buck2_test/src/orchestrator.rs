@@ -74,6 +74,7 @@ use buck2_execute::execute::dice_data::CommandExecutorResponse;
 use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
+use buck2_execute::execute::prepared::NoOpCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -619,11 +620,16 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .context("Error accessing executor config")?,
         };
 
-        let CommandExecutorResponse { executor, platform } =
-            self.dice.get_command_executor(fs, executor_config)?;
+        let CommandExecutorResponse {
+            executor,
+            platform,
+            cache_checker: _,
+        } = self.dice.get_command_executor(fs, executor_config)?;
         let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
+            // Caching is not enabled for tests yet. Use the NoOp
+            Arc::new(NoOpCommandExecutor {}),
             fs.clone(),
             executor_config.options,
             platform,
@@ -640,11 +646,15 @@ impl<'b> BuckTestOrchestrator<'b> {
                 output_paths_behavior: Default::default(),
             },
         };
-        let CommandExecutorResponse { executor, platform } =
-            self.dice.get_command_executor(fs, &executor_config)?;
+        let CommandExecutorResponse {
+            executor,
+            platform,
+            cache_checker: _,
+        } = self.dice.get_command_executor(fs, &executor_config)?;
         let run_action_knobs = self.dice.per_transaction_data().get_run_action_knobs();
         let executor = CommandExecutor::new(
             executor,
+            Arc::new(NoOpCommandExecutor {}),
             fs.clone(),
             executor_config.options,
             platform,

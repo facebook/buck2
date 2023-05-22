@@ -31,6 +31,7 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
+use crate::execute::prepared::PreparedCommandOptionalExecutor;
 use crate::execute::request::CommandExecutionInput;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
@@ -65,6 +66,7 @@ pub struct CommandExecutor(Arc<CommandExecutorData>);
 
 struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
+    _cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
@@ -74,6 +76,7 @@ struct CommandExecutorData {
 impl CommandExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
+        _cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
@@ -81,6 +84,7 @@ impl CommandExecutor {
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
+            _cache_checker,
             artifact_fs,
             options,
             re_platform,

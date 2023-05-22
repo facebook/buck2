@@ -19,12 +19,14 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
 
+use super::prepared::PreparedCommandOptionalExecutor;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 pub struct CommandExecutorResponse {
     pub executor: Arc<dyn PreparedCommandExecutor>,
     pub platform: RE::Platform,
+    pub cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
 }
 
 pub trait SetCommandExecutor {

@@ -221,8 +221,11 @@ impl HasActionExecutor for DiceComputations {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
-        let CommandExecutorResponse { executor, platform } =
-            self.get_command_executor(&artifact_fs, executor_config)?;
+        let CommandExecutorResponse {
+            executor,
+            platform,
+            cache_checker,
+        } = self.get_command_executor(&artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher().dupe();
@@ -234,6 +237,7 @@ impl HasActionExecutor for DiceComputations {
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
                 executor,
+                cache_checker,
                 artifact_fs,
                 executor_config.options,
                 platform,
@@ -616,6 +620,7 @@ mod tests {
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_execute::execute::command_executor::ActionExecutionTimingData;
     use buck2_execute::execute::command_executor::CommandExecutor;
+    use buck2_execute::execute::prepared::NoOpCommandExecutor;
     use buck2_execute::execute::request::CommandExecutionInput;
     use buck2_execute::execute::request::CommandExecutionOutput;
     use buck2_execute::execute::request::CommandExecutionPaths;
@@ -668,6 +673,7 @@ mod tests {
         let executor = BuckActionExecutor::new(
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
+                Arc::new(NoOpCommandExecutor {}),
                 artifact_fs,
                 CommandGenerationOptions {
                     path_separator: PathSeparatorKind::Unix,
