@@ -294,7 +294,6 @@ impl DaemonCommand {
             reject_materializer_state: before_subcommand_options
                 .reject_materializer_state
                 .map(|s| s.into()),
-            daemon_buster: before_subcommand_options.daemon_buster,
             daemon_startup_config: self.daemon_startup_config,
         };
 
@@ -434,10 +433,8 @@ impl DaemonCommand {
 
             drop(span_guard);
 
-            let daemon_constraints = gen_daemon_constraints(
-                server_init_ctx.daemon_buster,
-                &server_init_ctx.daemon_startup_config,
-            )?;
+            let daemon_constraints =
+                gen_daemon_constraints(&server_init_ctx.daemon_startup_config)?;
 
             let buckd_server = BuckdServer::run(
                 fb,
@@ -680,11 +677,10 @@ mod tests {
                 which_dice: None,
                 enable_trace_io: false,
                 reject_materializer_state: None,
-                daemon_buster: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
             },
             process_info.clone(),
-            gen_daemon_constraints(None, &DaemonStartupConfig::testing_empty()).unwrap(),
+            gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
             listener,
             &BuckdServerDependenciesImpl,
         ));

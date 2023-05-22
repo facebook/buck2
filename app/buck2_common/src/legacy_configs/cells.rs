@@ -422,16 +422,23 @@ pub struct ImmediateConfig {
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
+/// The fields here are the raw String we get from the buckconfig, the daemon will do
+/// deserialization once it receives them.
+///
 /// Backwards compatibility on Serialize / Deserialize is not required: if the client cannot read
 /// the DaemonStartupConfig provided by the daemon when it tries to connect, it will reject that
 /// daemon and restart (and in fact it will probably not get that far since a version check is done
 /// before parsing DaemonStartupConfig).
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DaemonStartupConfig {}
+pub struct DaemonStartupConfig {
+    pub daemon_buster: Option<String>,
+}
 
 impl DaemonStartupConfig {
-    fn new(_config: &LegacyBuckConfig) -> Self {
-        Self {}
+    fn new(config: &LegacyBuckConfig) -> Self {
+        Self {
+            daemon_buster: config.get("buck2", "daemon_buster").map(ToOwned::to_owned),
+        }
     }
 
     pub fn serialize(&self) -> String {
@@ -444,7 +451,9 @@ impl DaemonStartupConfig {
     }
 
     pub fn testing_empty() -> Self {
-        Self {}
+        Self {
+            daemon_buster: None,
+        }
     }
 }
 

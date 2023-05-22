@@ -149,11 +149,6 @@ struct DaemonBeforeSubcommandOptions {
     /// state.
     #[clap(long, hidden(true))]
     reject_materializer_state: Option<String>,
-
-    /// Set by the client, then echoed in the daemon constraints. Used by the client to reject
-    /// daemons even if their binary version matches.
-    #[clap(long, hidden(true))]
-    daemon_buster: Option<u64>,
 }
 
 #[rustfmt::skip] // Formatting in internal and in OSS versions disagree after oss markers applied.

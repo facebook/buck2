@@ -141,7 +141,6 @@ pub struct BuckdServerInitPreferences {
     pub which_dice: Option<WhichDice>,
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<MaterializerStateIdentity>,
-    pub daemon_buster: Option<u64>,
     pub daemon_startup_config: DaemonStartupConfig,
 }
 
