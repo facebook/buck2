@@ -26,6 +26,7 @@ pub mod file_tailer;
 pub mod final_console;
 pub mod find_certs;
 pub mod ide_support;
+pub mod immediate_config;
 pub mod manifold;
 pub mod output_destination_arg;
 pub mod path_arg;

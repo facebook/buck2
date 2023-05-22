@@ -15,16 +15,10 @@ use std::process::Command;
 use std::str;
 
 use anyhow::Context as _;
-use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::cells::CellResolver;
+use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::working_dir::WorkingDir;
 use buck2_util::process::background_command;
-use once_cell::unsync::OnceCell;
 use termwiz::istty::IsTty;
 use thiserror::Error;
 
@@ -48,126 +42,28 @@ enum ArgExpansionError {
     StdinReadError { source: anyhow::Error },
 }
 
-/// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
-struct ImmediateConfig<'a> {
-    // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
-    // us to have a shared reference to the underlying `anyhow::Error` which
-    // we cannot use to correct chain the errors. Using `OnceCell` means
-    // we don't get the result by a shared reference but instead as local
-    // value which can be returned.
-    data: OnceCell<ImmediateConfigData>,
-    cwd: &'a WorkingDir,
-}
-
-/// Defines the data which is lazy computed to avoid doing I/O
-/// unless necessary (e.g., encountering a cell-relative path).
-struct ImmediateConfigData {
-    cell_resolver: CellResolver,
-    project_filesystem: ProjectRoot,
-}
-
-impl<'a> ImmediateConfig<'a> {
-    pub fn new(cwd: &'a WorkingDir) -> Self {
-        Self {
-            data: OnceCell::new(),
-            cwd,
-        }
-    }
-
-    /// Resolves an argument which can possibly be a cell-relative path.
-    /// If the argument is not a cell-relative path, it returns `None`.
-    /// Otherwise, it tries to resolve the cell and returns a `Result`.
-    pub fn resolve_cell_path_arg(&self, path: &str) -> Option<anyhow::Result<AbsNormPathBuf>> {
-        path.split_once("//")
-            .map(|(cell_alias, cell_relative_path)| {
-                self.resolve_cell_path(cell_alias, cell_relative_path)
-            })
-    }
-
-    /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have
-    /// been split into two components: `cell_alias` and `cell_path`. For example, if the cell path
-    /// is `cell//path/to/file`, then:
-    ///   - `cell_alias` would be `cell`
-    ///   - `cell_relative_path` would be `path/to/file`
-    fn resolve_cell_path(
-        &self,
-        cell_alias: &str,
-        cell_relative_path: &str,
-    ) -> anyhow::Result<AbsNormPathBuf> {
-        let resolver_data = self.config()?;
-
-        resolver_data.cell_resolver.resolve_cell_relative_path(
-            cell_alias,
-            cell_relative_path,
-            &resolver_data.project_filesystem,
-            self.cwd.path(),
-        )
-    }
-
-    fn config(&self) -> anyhow::Result<&ImmediateConfigData> {
-        self.data
-            .get_or_try_init(|| {
-                let roots = find_invocation_roots(self.cwd.path())?;
-
-                // See comment in `ImmediateConfig` about why we use `OnceCell` rather than `Lazy`
-                let project_filesystem = roots.project_root;
-                let cell_resolver =
-                    BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?
-                        .cell_resolver;
-
-                anyhow::Ok(ImmediateConfigData {
-                    cell_resolver,
-                    project_filesystem,
-                })
-            })
-            .context("Error creating cell resolver")
-    }
-}
-
-pub struct ImmediateConfigContext<'a> {
-    arg_resolver: ImmediateConfig<'a>,
-    trace: Vec<AbsNormPathBuf>,
-}
-
-impl<'a> ImmediateConfigContext<'a> {
-    pub fn new(cwd: &'a WorkingDir) -> Self {
-        Self {
-            arg_resolver: ImmediateConfig::new(cwd),
-            trace: Vec::new(),
-        }
-    }
-
-    /// Log that a relative flag file was not found in CWD, but was found, and used, from the cell root
-    ///
-    /// This prints directly to stderr (sometimes in color). This should be safe, because flagfile
-    /// expansion runs *very* early in the CLI process lifetime.
-    pub fn log_relative_path_from_cell_root(&self, requested_path: &str) -> anyhow::Result<()> {
-        let (prefix, reset) = if io::stderr().is_tty() {
-            ("\x1b[33m", "\x1b[0m")
-        } else {
-            ("WARNING: ", "")
-        };
-        buck2_client_ctx::eprintln!(
-            "{}`@{}` was specified, but not found. Using file at `//{}`.",
-            prefix,
-            requested_path,
-            requested_path
-        )?;
-        buck2_client_ctx::eprintln!(
-            "This behavior is being deprecated. Please use `@//{}` instead{}",
-            requested_path,
-            reset
-        )?;
-        Ok(())
-    }
-
-    pub fn push_trace(&mut self, path: &AbsNormPath) {
-        self.trace.push(path.to_buf());
-    }
-
-    pub fn trace(self) -> Vec<AbsNormPathBuf> {
-        self.trace
-    }
+/// Log that a relative flag file was not found in CWD, but was found, and used, from the cell root
+///
+/// This prints directly to stderr (sometimes in color). This should be safe, because flagfile
+/// expansion runs *very* early in the CLI process lifetime.
+pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<()> {
+    let (prefix, reset) = if io::stderr().is_tty() {
+        ("\x1b[33m", "\x1b[0m")
+    } else {
+        ("WARNING: ", "")
+    };
+    buck2_client_ctx::eprintln!(
+        "{}`@{}` was specified, but not found. Using file at `//{}`.",
+        prefix,
+        requested_path,
+        requested_path
+    )?;
+    buck2_client_ctx::eprintln!(
+        "This behavior is being deprecated. Please use `@//{}` instead{}",
+        requested_path,
+        reset
+    )?;
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -320,38 +216,38 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
         None => (path, None),
     };
 
-    let resolved_path =
-        if let Some(cell_resolved_path) = context.arg_resolver.resolve_cell_path_arg(path_part) {
-            cell_resolved_path.context("Error resolving cell path")?
-        } else {
-            let p = Path::new(path_part);
-            if !p.is_absolute() {
-                match fs_util::canonicalize(p) {
-                    Ok(abs_path) => Ok(abs_path),
-                    Err(original_error) => {
-                        let cell_relative_path =
-                            context.arg_resolver.resolve_cell_path("", path_part)?;
-                        // If the relative path does not exist relative to the cwd,
-                        // attempt to make it relative to the cell root. If *that*
-                        // doesn't exist, just report the original error back, and
-                        // don't tip users off that they can use relative-to-cell paths.
-                        // We want to deprecate that.
-                        match fs_util::canonicalize(cell_relative_path) {
-                            Ok(abs_path) => {
-                                context.log_relative_path_from_cell_root(path_part)?;
-                                Ok(abs_path)
-                            }
-                            Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
-                                source: original_error,
-                                path: p.to_string_lossy().into_owned(),
-                            }),
+    let resolved_path = if let Some(cell_resolved_path) =
+        context.config().resolve_cell_path_arg(path_part)
+    {
+        cell_resolved_path.context("Error resolving cell path")?
+    } else {
+        let p = Path::new(path_part);
+        if !p.is_absolute() {
+            match fs_util::canonicalize(p) {
+                Ok(abs_path) => Ok(abs_path),
+                Err(original_error) => {
+                    let cell_relative_path = context.config().resolve_cell_path("", path_part)?;
+                    // If the relative path does not exist relative to the cwd,
+                    // attempt to make it relative to the cell root. If *that*
+                    // doesn't exist, just report the original error back, and
+                    // don't tip users off that they can use relative-to-cell paths.
+                    // We want to deprecate that.
+                    match fs_util::canonicalize(cell_relative_path) {
+                        Ok(abs_path) => {
+                            log_relative_path_from_cell_root(path_part)?;
+                            Ok(abs_path)
                         }
+                        Err(_) => Err(ArgExpansionError::MissingFlagFileOnDisk {
+                            source: original_error,
+                            path: p.to_string_lossy().into_owned(),
+                        }),
                     }
-                }?
-            } else {
-                AbsNormPathBuf::try_from(p.to_owned())?
-            }
-        };
+                }
+            }?
+        } else {
+            AbsNormPathBuf::try_from(p.to_owned())?
+        }
+    };
 
     context.push_trace(&resolved_path);
     if path_part.ends_with(".py") {
