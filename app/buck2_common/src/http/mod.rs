@@ -269,6 +269,34 @@ pub trait HttpClient: Allocative + Send + Sync {
         self.request(req).await
     }
 
+    async fn post(
+        &self,
+        uri: &str,
+        body: Bytes,
+        headers: Vec<(String, String)>,
+    ) -> Result<Response<Body>, HttpError> {
+        let mut req = Request::builder().uri(uri).method(Method::POST);
+        for (name, value) in headers {
+            req = req.header(name, value);
+        }
+        let req = req.body(body).map_err(HttpError::BuildRequest)?;
+        self.request(req).await
+    }
+
+    async fn put(
+        &self,
+        uri: &str,
+        body: Bytes,
+        headers: Vec<(String, String)>,
+    ) -> Result<Response<Body>, HttpError> {
+        let mut req = Request::builder().uri(uri).method(Method::PUT);
+        for (name, value) in headers {
+            req = req.header(name, value);
+        }
+        let req = req.body(body).map_err(HttpError::BuildRequest)?;
+        self.request(req).await
+    }
+
     /// Send a generic request.
     async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError>;
 }
@@ -503,6 +531,56 @@ mod tests {
 
         let client = SecureHttpClient::new(tls_config_with_system_roots()?, 10);
         let resp = client.get(&test_server.url_str("/foo")).await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_simple_put_success() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("PUT", "/foo"),
+                request::body("Hello, world!")
+            ])
+            .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 1);
+        let bytes = Bytes::from_static(b"Hello, world!");
+        let resp = client
+            .put(
+                &test_server.url_str("/foo"),
+                bytes,
+                vec![("key".to_owned(), "value".to_owned())],
+            )
+            .await?;
+        assert_eq!(200, resp.status().as_u16());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_simple_post_success() -> anyhow::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/foo"),
+                request::body("Hello, world!")
+            ])
+            .respond_with(responders::status_code(200)),
+        );
+
+        let client = SecureHttpClient::new(tls_config_with_system_roots()?, 1);
+        let bytes = Bytes::from_static(b"Hello, world!");
+        let resp = client
+            .post(
+                &test_server.url_str("/foo"),
+                bytes,
+                vec![("key".to_owned(), "value".to_owned())],
+            )
+            .await?;
         assert_eq!(200, resp.status().as_u16());
 
         Ok(())
