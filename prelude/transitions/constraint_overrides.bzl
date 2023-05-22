@@ -18,7 +18,7 @@ _CONSTRAINTS = [
     "ovr_config//third-party/cudnn/constraints:8.5.0",
     "ovr_config//third-party/cudnn/constraints:8.8.0",
     "ovr_config//third-party/TensorRT/constraints:8.2.3.0",
-    "ovr_config//third-party/TensorRT/constraints:8.5.1.7",
+    "ovr_config//third-party/TensorRT/constraints:8.6.1.6",
     "ovr_config//third-party/jemalloc/constraints:master",
     "ovr_config//third-party/jemalloc/constraints:master-tp2",
     "ovr_config//third-party/pypi/transformers/constraints:3.4.0",
