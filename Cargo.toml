@@ -152,11 +152,10 @@ http = "0.2"
 httparse = "1.7.1"
 httptest = "0.15"
 humantime = "2.0.1"
-hyper = { version = "0.14.7", features = ["client", "http1", "http2"] }
-hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "0a5aa97a3cd00ca5be1d21559dcf8ef29dc63e08", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28.
-hyper-rustls = { version = "0.23.0", features = ["http2"] }
+hyper = { version = "0.14.26", features = ["client", "http1", "http2"] }
+hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "205e9fee42d469444d654d9fa207897f4a77d5b6", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28 + changes to upgrade rustls to 0.21.
+hyper-rustls = { version = "0.24.0", features = ["http2"] }
 hyper-unix-connector = "0.2"
-ipnetwork = "0.15"
 indent_write = "2.2.0"
 indenter = "0.3.3"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
@@ -164,6 +163,7 @@ indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
 internment = { version = "0.7", features = ["arc"] }
 inventory = "0.1.9"
+ipnetwork = "0.15"
 is_proc_translated = "0.1.1"
 itertools = "0.10.3"
 jemallocator = { version = "0.5.0", features = ["profiling"] }
@@ -212,7 +212,7 @@ ref-cast = "1.0.0"
 regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
-rustls = "0.20.4"
+rustls = "0.21.0"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustyline = "11.0"
@@ -245,12 +245,12 @@ textwrap = { version = "0.11", features = ["term_size"] }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
-tokio-rustls = { package = "tokio-rustls", version = "0.23.0", features = ["dangerous_configuration"] }
-tokio-stream = { version = "0.1.4", features = ["fs", "io-util", "net", "sync", "time"] }
+tokio-rustls = { package = "tokio-rustls", version = "0.24.0", features = ["dangerous_configuration"] }
+tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5.8"
-tonic = { version = "0.8.3", features = ["tls", "tls-webpki-roots"] }
-tonic-build = { version = "0.8.4", features = ["prost", "cleanup-markdown"] }
+tonic = { version = "0.9.2", features = ["tls", "tls-webpki-roots"] }
+tonic-build = { version = "0.9.2", features = ["prost", "cleanup-markdown"] }
 tower = "0.4"
 tower-layer = "0.3.1"
 tower-service = "0.3.2"
@@ -373,9 +373,6 @@ incremental = true
 incremental = true
 
 [patch.crates-io]
-# For https://github.com/hyperium/tonic/pull/1252
-tonic = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.3" }
-tonic-build = { git = "https://github.com/krallin/tonic.git", rev = "c67fc25b636b48b90c83dfc8dd1f89c00b84846d", version = "0.8.4" }
 # For https://github.com/jimblandy/perf-event/pull/29
 perf-event = { git = "https://github.com/krallin/perf-event.git", rev = "86224a9bc025d5d19f719542f27c8c629a08b167", version = "0.4" }
 perf-event-open-sys = { git = "https://github.com/krallin/perf-event.git", rev = "86224a9bc025d5d19f719542f27c8c629a08b167", version = "4.0" }
