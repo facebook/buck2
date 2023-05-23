@@ -192,7 +192,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = link_group_info.implicit_graphs
+        link_group_deps = [link_group_info.graph]
     else:
         link_groups = []
         link_group_mappings = {}
@@ -229,7 +229,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     link_group_libs = {}
     auto_link_groups = {}
     labels_to_links_map = {}
-    disabled_link_groups = []
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
@@ -275,7 +274,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
                 if linked_link_group.library != None:
                     link_group_libs[name] = linked_link_group.library
             own_binary_link_flags += linked_link_groups.symbol_ldflags
-            disabled_link_groups = linked_link_groups.disabled_link_groups
 
         else:
             # NOTE(agallagher): We don't use version scripts and linker scripts
@@ -310,7 +308,6 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             is_executable_link = True,
             prefer_stripped = impl_params.prefer_stripped_objects,
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
-            disabled_link_groups = disabled_link_groups,
         )
 
         if is_cxx_test and link_group != None:

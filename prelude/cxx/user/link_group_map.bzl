@@ -7,12 +7,12 @@
 
 load(
     "@prelude//cxx:groups.bzl",
-    "compute_mappings",
     "parse_groups_definitions",
 )
 load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupInfo",
+    "build_link_group_info",
 )
 load(
     "@prelude//linking:link_groups.bzl",
@@ -26,7 +26,6 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
     "create_linkable_graph",
-    "get_linkable_graph_node_map_func",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -87,8 +86,6 @@ def link_group_map_attr():
     )
 
 def _impl(ctx: "context") -> ["provider"]:
-    link_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
-
     # Extract graphs from the roots via the raw attrs, as `parse_groups_definitions`
     # parses them as labels.
     linkable_graph = create_linkable_graph(
@@ -99,20 +96,10 @@ def _impl(ctx: "context") -> ["provider"]:
             for mapping in entry[1]
         ],
     )
-    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
-    mappings = compute_mappings(groups = link_groups, graph_map = linkable_graph_node_map)
+    link_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
     return [
         DefaultInfo(),
-        LinkGroupInfo(
-            groups = link_groups,
-            groups_hash = hash(str(link_groups)),
-            mappings = mappings,
-            # The consumer of this info may not have deps that cover that labels
-            # referenced in our roots, so propagate graphs for them.
-            # NOTE(agallagher): We do this to maintain existing behavior here
-            # but it's not clear if it's actually desirable behavior.
-            implicit_graphs = [linkable_graph],
-        ),
+        build_link_group_info(linkable_graph, link_groups),
     ]
 
 registration_spec = RuleRegistrationSpec(
