@@ -216,4 +216,22 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         Ok(heap.alloc_str(this.project_relative_path(expr)?.as_str()))
     }
+
+    /// Returns the absolute path, given the file expression. Use at your own risk, as the current working directory
+    /// may have been changed when this function is called. In addition, passing the absolute path into actions that
+    /// are run remotely will most likely result in failures since the absolute path most likely differs locally vs remotely.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_abs_path_unsafe(ctx):
+    ///     ctx.output.print(ctx.fs.abs_path_unsafe("bin"))
+    /// ```
+    fn abs_path_unsafe<'v>(
+        this: &BxlFilesystem<'v>,
+        expr: FileExpr<'v>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        let abs_norm_path = this.resolve(expr)?;
+        Ok(heap.alloc_str(abs_norm_path.as_abs_path().to_str()?))
+    }
 }
