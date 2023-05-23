@@ -353,13 +353,18 @@ call_if_exists(Mod, Fun, Args, Default) ->
             end
     end.
 
-call_if_exists_with_fallback(Mod, Fun, Args, Default) ->
+call_if_exists_with_fallback(Mod, Fun, Args, ReturnDefault) ->
     [_ | FallbackArgs] = Args,
-    call_if_exists(Mod, Fun, Args, {'$lazy', fun() -> call_if_exists(Mod, Fun, FallbackArgs, Default) end}).
+    call_if_exists(Mod, Fun, Args, {'$lazy', fun() -> call_if_exists(Mod, Fun, FallbackArgs, ReturnDefault) end}).
 
-call_if_exists_with_fallback_store_state({Mod, Id}, Fun, Args, Default) ->
+call_if_exists_with_fallback_store_state({Mod, Id}, Fun, Args, ReturnDefault) ->
     {ok, State} = get_state(Id),
-    CallReturn = call_if_exists_with_fallback(Mod, Fun, Args ++ [State], {Default, State}),
+    Default =
+        case Fun of
+            _ when Fun =:= on_tc_fail orelse Fun =:= on_tc_skip -> State;
+            _ -> {ReturnDefault, State}
+        end,
+    CallReturn = call_if_exists_with_fallback(Mod, Fun, Args ++ [State], Default),
     {NewReturn, NewState} =
         case Fun of
             _ when Fun =:= on_tc_fail orelse Fun =:= on_tc_skip -> {ok, CallReturn};
