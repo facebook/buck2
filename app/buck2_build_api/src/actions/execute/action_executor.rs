@@ -8,6 +8,7 @@
  */
 
 use std::fmt::Debug;
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -40,6 +41,7 @@ use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
+use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
@@ -302,6 +304,54 @@ struct BuckActionExecutionContext<'a> {
     cancellations: &'a CancellationContext,
 }
 
+impl BuckActionExecutionContext<'_> {
+    fn unpack_command_execution_result(
+        &mut self,
+        request: &CommandExecutionRequest,
+        result: CommandExecutionResult,
+    ) -> anyhow::Result<(
+        IndexMap<BuckOutPath, ArtifactValue>,
+        ActionExecutionMetadata,
+    )> {
+        let CommandExecutionResult {
+            outputs,
+            report,
+            rejected_execution,
+            did_cache_upload,
+            eligible_for_full_hybrid,
+        } = result;
+        // TODO (@torozco): The execution kind should be made to come via the command reports too.
+        let res = match &report.status {
+            CommandExecutionStatus::Success { execution_kind } => {
+                let result = (
+                    outputs
+                        .into_iter()
+                        .filter_map(|(output, value)| {
+                            Some((output.into_build_artifact()?.0, value))
+                        })
+                        .collect(),
+                    ActionExecutionMetadata {
+                        execution_kind: ActionExecutionKind::Command {
+                            kind: execution_kind.clone(),
+                            prefers_local: request.executor_preference().prefers_local(),
+                            requires_local: request.executor_preference().requires_local(),
+                            allows_cache_upload: request.allow_cache_upload(),
+                            did_cache_upload,
+                            eligible_for_full_hybrid,
+                        },
+                        timing: report.timing.into(),
+                    },
+                );
+                Ok(result)
+            }
+            _ => Err(CommandExecutionErrorMarker.into()),
+        };
+        self.command_reports.extend(rejected_execution.into_iter());
+        self.command_reports.push(report);
+        res
+    }
+}
+
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
@@ -365,6 +415,44 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .prepare_action(request, self.digest_config())
     }
 
+    async fn action_cache(
+        &mut self,
+        manager: CommandExecutionManager,
+        request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
+    ) -> ControlFlow<
+        anyhow::Result<(
+            IndexMap<BuckOutPath, ArtifactValue>,
+            ActionExecutionMetadata,
+        )>,
+        CommandExecutionManager,
+    > {
+        let action = self.target();
+        let cache_result = self
+            .executor
+            .command_executor
+            .action_cache(
+                manager,
+                &PreparedCommand {
+                    target: &action as _,
+                    request,
+                    prepared_action,
+                    digest_config: self.digest_config(),
+                },
+                self.cancellations,
+            )
+            .await;
+        match cache_result {
+            ControlFlow::Continue(manager) => ControlFlow::Continue(manager),
+            ControlFlow::Break(result) => {
+                match self.unpack_command_execution_result(request, result) {
+                    Err(e) => ControlFlow::Break(Err(e)),
+                    Ok(res) => ControlFlow::Break(Ok(res)),
+                }
+            }
+        }
+    }
+
     async fn exec_cmd(
         &mut self,
         manager: CommandExecutionManager,
@@ -375,52 +463,22 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         ActionExecutionMetadata,
     )> {
         let action = self.target();
-        let CommandExecutionResult {
-            outputs,
-            report,
-            rejected_execution,
-            did_cache_upload,
-            eligible_for_full_hybrid,
-        } = self
+        let result = self
             .executor
             .command_executor
             .exec_cmd(
-                &action as _,
-                request,
-                prepared_action,
                 manager,
-                self.digest_config(),
+                &PreparedCommand {
+                    target: &action as _,
+                    request,
+                    prepared_action,
+                    digest_config: self.digest_config(),
+                },
                 self.cancellations,
             )
             .await;
 
-        // TODO (@torozco): The execution kind should be made to come via the command reports too.
-        let res = match &report.status {
-            CommandExecutionStatus::Success { execution_kind } => Ok((
-                outputs
-                    .into_iter()
-                    .filter_map(|(output, value)| Some((output.into_build_artifact()?.0, value)))
-                    .collect(),
-                ActionExecutionMetadata {
-                    execution_kind: ActionExecutionKind::Command {
-                        kind: execution_kind.clone(),
-                        prefers_local: request.executor_preference().prefers_local(),
-                        requires_local: request.executor_preference().requires_local(),
-                        allows_cache_upload: request.allow_cache_upload(),
-                        did_cache_upload,
-                        eligible_for_full_hybrid,
-                    },
-                    timing: report.timing.into(),
-                },
-            )),
-
-            _ => Err(CommandExecutionErrorMarker.into()),
-        };
-
-        self.command_reports.extend(rejected_execution.into_iter());
-        self.command_reports.push(report);
-
-        res
+        self.unpack_command_execution_result(request, result)
     }
 
     async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {

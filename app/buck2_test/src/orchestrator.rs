@@ -75,6 +75,7 @@ use buck2_execute::execute::dice_data::HasCommandExecutor;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::NoOpCommandExecutor;
+use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -503,15 +504,15 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
 
         // For test execution, we currently do not do any cache queries
+
         let prepared_action = executor.prepare_action(&request, self.digest_config)?;
-        let command = executor.exec_cmd(
-            &test_target as _,
-            &request,
-            &prepared_action,
-            manager,
-            self.digest_config,
-            self.cancellations,
-        );
+        let prepared_command = PreparedCommand {
+            target: &test_target as _,
+            request: &request,
+            prepared_action: &prepared_action,
+            digest_config: self.digest_config,
+        };
+        let command = executor.exec_cmd(manager, &prepared_command, self.cancellations);
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
@@ -935,15 +936,13 @@ impl<'b> BuckTestOrchestrator<'b> {
             target: &context.target,
         };
         let prepared_action = executor.prepare_action(&context.execution_request, digest_config)?;
-
-        let command = executor.exec_cmd(
-            &local_resource_target as _,
-            &context.execution_request,
-            &prepared_action,
-            manager,
+        let prepared_command = PreparedCommand {
+            target: &local_resource_target as _,
+            request: &context.execution_request,
+            prepared_action: &prepared_action,
             digest_config,
-            cancellations,
-        );
+        };
+        let command = executor.exec_cmd(manager, &prepared_command, cancellations);
 
         let start = SetupLocalResourcesStart {};
         let end = SetupLocalResourcesEnd {};

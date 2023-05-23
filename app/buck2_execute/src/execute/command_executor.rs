@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -38,7 +39,6 @@ use crate::execute::request::ExecutorPreference;
 use crate::execute::request::OutputType;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
-use crate::execute::target::CommandExecutionTarget;
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
 pub struct ActionExecutionTimingData {
@@ -66,7 +66,7 @@ pub struct CommandExecutor(Arc<CommandExecutorData>);
 
 struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
-    _cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+    cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
@@ -76,7 +76,7 @@ struct CommandExecutorData {
 impl CommandExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
-        _cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+        cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
@@ -84,7 +84,7 @@ impl CommandExecutor {
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
-            _cache_checker,
+            cache_checker,
             artifact_fs,
             options,
             re_platform,
@@ -100,6 +100,19 @@ impl CommandExecutor {
         ExecutorFs::new(&self.0.artifact_fs, self.0.options.path_separator)
     }
 
+    /// Check if the action can be served by the action cache.
+    pub async fn action_cache(
+        &self,
+        manager: CommandExecutionManager,
+        prepared_command: &PreparedCommand<'_, '_>,
+        cancellations: &CancellationContext,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        self.0
+            .cache_checker
+            .maybe_execute(prepared_command, manager, cancellations)
+            .await
+    }
+
     /// Execute a command.
     ///
     /// This intentionally does not return a Result since we want to capture information about the
@@ -107,25 +120,13 @@ impl CommandExecutor {
     /// to a result with CommandExecutionManager::error.
     pub async fn exec_cmd(
         &self,
-        action: &dyn CommandExecutionTarget,
-        request: &CommandExecutionRequest,
-        prepared_action: &PreparedAction,
         manager: CommandExecutionManager,
-        digest_config: DigestConfig,
+        prepared_command: &PreparedCommand<'_, '_>,
         cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         self.0
             .inner
-            .exec_cmd(
-                &PreparedCommand {
-                    target: action,
-                    request,
-                    prepared_action,
-                    digest_config,
-                },
-                manager,
-                cancellations,
-            )
+            .exec_cmd(prepared_command, manager, cancellations)
             .await
     }
 

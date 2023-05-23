@@ -35,6 +35,7 @@ pub mod registry;
 use std::any::Demand;
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -197,6 +198,19 @@ pub trait ActionExecutionCtx: Send + Sync {
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<PreparedAction>;
+
+    async fn action_cache(
+        &mut self,
+        manager: CommandExecutionManager,
+        request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
+    ) -> ControlFlow<
+        anyhow::Result<(
+            IndexMap<BuckOutPath, ArtifactValue>,
+            ActionExecutionMetadata,
+        )>,
+        CommandExecutionManager,
+    >;
 
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?
