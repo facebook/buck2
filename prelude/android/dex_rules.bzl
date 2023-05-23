@@ -160,8 +160,26 @@ def get_multi_dex(
             multi_dex_cmd.add("--secondary-dex-output-dir", uncompressed_secondary_dex_output_dir.as_output())
             secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
+                primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns)
+                if ctx.attrs.minimize_primary_dex_size:
+                    primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
+                        ctx,
+                        jars,
+                        primary_dex_patterns_file,
+                        proguard_configuration_output_file,
+                        proguard_mapping_output_file,
+                        android_toolchain,
+                    )
+
+                    primary_dex_jar_to_dex_file = ctx.actions.write("primary_dex_jars_to_dex_file_for_root_module.txt", primary_dex_jars)
+                    multi_dex_cmd.add("--primary-dex-files-to-dex-list", primary_dex_jar_to_dex_file)
+                    multi_dex_cmd.hidden(primary_dex_jars)
+                    multi_dex_cmd.add("--minimize-primary-dex")
+                else:
+                    jars_to_dex = jars
+                    multi_dex_cmd.add("--primary-dex-patterns-path", primary_dex_patterns_file)
+
                 multi_dex_cmd.add("--primary-dex", outputs[primary_dex_file].as_output())
-                multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
                 multi_dex_cmd.add("--primary-dex-class-names", outputs[primary_dex_class_names].as_output())
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
             else:
@@ -170,15 +188,16 @@ def get_multi_dex(
                 secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
                 secondary_dex_compression_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
+                jars_to_dex = jars
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
             secondary_dex_compression_cmd.add("--module", module)
             secondary_dex_compression_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
 
-            jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars)
+            jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars_to_dex)
             multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
-            multi_dex_cmd.hidden(jars)
+            multi_dex_cmd.hidden(jars_to_dex)
 
             multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
             if not is_optimized:
@@ -187,9 +206,6 @@ def get_multi_dex(
             if proguard_configuration_output_file:
                 multi_dex_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
                 multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
-
-            if ctx.attrs.minimize_primary_dex_size:
-                multi_dex_cmd.add("--minimize-primary-dex")
 
             ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
@@ -209,6 +225,40 @@ def get_multi_dex(
         proguard_text_files_path = None,
         primary_dex_class_names = primary_dex_class_names,
     )
+
+def _get_primary_dex_and_secondary_dex_jars(
+        ctx: "context",
+        jars: ["artifact"],
+        primary_dex_patterns_file: "artifact",
+        proguard_configuration_output_file: ["artifact", None],
+        proguard_mapping_output_file: ["artifact", None],
+        android_toolchain: "AndroidToolchainInfo") -> (["artifact"], ["artifact"]):
+    primary_dex_jars = []
+    secondary_dex_jars = []
+    for jar in jars:
+        jar_splitter_cmd = cmd_args(android_toolchain.jar_splitter_command[RunInfo])
+        primary_dex_jar = ctx.actions.declare_output("root_module_primary_dex_jars/{}".format(jar.short_path))
+        secondary_dex_jar = ctx.actions.declare_output("root_module_secondary_dex_jars/{}".format(jar.short_path))
+        jar_splitter_cmd.add([
+            "--input-jar",
+            jar,
+            "--primary-dex-patterns",
+            primary_dex_patterns_file,
+            "--primary-dex-classes-jar",
+            primary_dex_jar.as_output(),
+            "--secondary-dex-classes-jar",
+            secondary_dex_jar.as_output(),
+        ])
+        if proguard_configuration_output_file:
+            jar_splitter_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
+            jar_splitter_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
+
+        ctx.actions.run(jar_splitter_cmd, category = "jar_splitter", identifier = jar.short_path)
+
+        primary_dex_jars.append(primary_dex_jar)
+        secondary_dex_jars.append(secondary_dex_jar)
+
+    return primary_dex_jars, secondary_dex_jars
 
 def merge_to_single_dex(
         ctx: "context",
