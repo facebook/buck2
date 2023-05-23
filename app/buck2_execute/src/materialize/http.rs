@@ -156,13 +156,7 @@ pub async fn http_download(
     }
 
     Ok(http_retry(|| async {
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(path.to_string())
-            .with_context(|| format!("open({})", abs_path))
-            .map_err(HttpDownloadError::IoError)?;
+        let file = fs_util::create_file(&abs_path).map_err(HttpDownloadError::IoError)?;
 
         let stream = client
             .get(url)
