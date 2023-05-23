@@ -165,6 +165,7 @@ def get_multi_dex(
                     primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
                         ctx,
                         jars,
+                        java_library_jars_to_owners,
                         primary_dex_patterns_file,
                         proguard_configuration_output_file,
                         proguard_mapping_output_file,
@@ -229,6 +230,7 @@ def get_multi_dex(
 def _get_primary_dex_and_secondary_dex_jars(
         ctx: "context",
         jars: ["artifact"],
+        java_library_jars_to_owners: {"artifact": "target_label"},
         primary_dex_patterns_file: "artifact",
         proguard_configuration_output_file: ["artifact", None],
         proguard_mapping_output_file: ["artifact", None],
@@ -237,8 +239,10 @@ def _get_primary_dex_and_secondary_dex_jars(
     secondary_dex_jars = []
     for jar in jars:
         jar_splitter_cmd = cmd_args(android_toolchain.jar_splitter_command[RunInfo])
-        primary_dex_jar = ctx.actions.declare_output("root_module_primary_dex_jars/{}".format(jar.short_path))
-        secondary_dex_jar = ctx.actions.declare_output("root_module_secondary_dex_jars/{}".format(jar.short_path))
+        owner = java_library_jars_to_owners[jar]
+        identifier = "{}/{}/{}".format(owner.package, owner.name, jar.short_path)
+        primary_dex_jar = ctx.actions.declare_output("root_module_primary_dex_jars/{}".format(identifier))
+        secondary_dex_jar = ctx.actions.declare_output("root_module_secondary_dex_jars/{}".format(identifier))
         jar_splitter_cmd.add([
             "--input-jar",
             jar,
@@ -253,7 +257,7 @@ def _get_primary_dex_and_secondary_dex_jars(
             jar_splitter_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
             jar_splitter_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
 
-        ctx.actions.run(jar_splitter_cmd, category = "jar_splitter", identifier = jar.short_path)
+        ctx.actions.run(jar_splitter_cmd, category = "jar_splitter", identifier = identifier)
 
         primary_dex_jars.append(primary_dex_jar)
         secondary_dex_jars.append(secondary_dex_jar)
