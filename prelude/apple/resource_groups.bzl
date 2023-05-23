@@ -21,6 +21,13 @@ ResourceGroupInfo = provider(fields = [
     "groups",  # [Group.type]
     "groups_hash",  # str.type
     "mappings",  # {"label": str.type}
+    # Additional deps needed to cover labels referenced by the groups above.
+    # This is useful in cases where the consumer of this provider won't already
+    # have deps covering these.
+    # NOTE(agallagher): We do this to maintain existing behavior w/ the
+    # standalone `resource_group_map()` rule, but it's not clear if it's
+    # actually desirable behavior.
+    "implicit_deps",  # ["dependency"]
 ])
 
 ResourceGraphNode = record(

@@ -20,6 +20,7 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
+    "map_val",
     "value_or",
 )
 
@@ -46,16 +47,10 @@ MATCH_ALL_LABEL = "MATCH_ALL"
 # against the final binary
 NO_MATCH_LABEL = "NO_MATCH"
 
-GroupRoot = record(
-    label = "label",
-    # Data provided by the group (e.g. linkable graph and shared libs).
-    node = "_a",
-)
-
 # Representation of a parsed group mapping
 GroupMapping = record(
     # The root to apply this mapping to.
-    root = field([GroupRoot.type, None], None),
+    root = field(["label", None], None),
     # The type of traversal to use.
     traversal = field(Traversal.type, Traversal("tree")),
     # Optional filter type to apply to the traversal. If present,
@@ -112,7 +107,11 @@ def create_group(
         attrs = value_or(attrs, group.attrs),
     )
 
-def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d: d) -> [Group.type]:
+def parse_groups_definitions(
+        map: list.type,
+        # Function to parse a root label from the input type, allowing different
+        # callers to have different top-level types for the `root`s.
+        parse_root: "function" = lambda d: d) -> [Group.type]:
     groups = []
     for map_entry in map:
         name = map_entry[0]
@@ -133,14 +132,8 @@ def parse_groups_definitions(map: list.type, dep_to_node: "function" = lambda d:
         for entry in mappings:
             traversal = _parse_traversal_from_mapping(entry[1])
             filter_type, label_regex, build_target_pattern = _parse_filter_from_mapping(entry[2])
-            root = None
-            if entry[0] != None:
-                root = GroupRoot(
-                    label = entry[0].label,
-                    node = dep_to_node(entry[0]),
-                )
             mapping = GroupMapping(
-                root = root,
+                root = map_val(parse_root, entry[0]),
                 traversal = traversal,
                 filter_type = filter_type,
                 label_regex = label_regex,
@@ -196,6 +189,9 @@ def compute_mappings(groups: [Group.type], graph_map: {"label": "_b"}) -> {"labe
         for mapping in group.mappings:
             targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
             for target in targets_in_mapping:
+                # If the target doesn't exist in our graph, skip the mapping.
+                if target not in graph_map:
+                    continue
                 _update_target_to_group_mapping(graph_map, target_to_group_map, node_traversed_targets, group.name, mapping, target)
 
     return target_to_group_map
@@ -207,7 +203,7 @@ def _find_targets_in_mapping(
     if mapping.filter_type == None:
         if mapping.root == None:
             fail("no filter or explicit root given: {}", mapping)
-        return [mapping.root.label]
+        return [mapping.root]
 
     # Else find all dependencies that match the filter.
     matching_targets = {}
@@ -239,7 +235,7 @@ def _find_targets_in_mapping(
         for node in graph_map:
             find_matching_targets(node)
     else:
-        breadth_first_traversal_by(graph_map, [mapping.root.label], find_matching_targets)
+        breadth_first_traversal_by(graph_map, [mapping.root], find_matching_targets)
 
     return matching_targets.keys()
 

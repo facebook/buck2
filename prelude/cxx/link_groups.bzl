@@ -36,10 +36,6 @@ load(
     "get_linkable_graph_node_map_func",
 )
 load(
-    "@prelude//linking:linkables.bzl",
-    "linkable",
-)
-load(
     "@prelude//utils:graph_utils.bzl",
     "breadth_first_traversal_by",
 )
@@ -97,6 +93,13 @@ LinkGroupInfo = provider(fields = [
     "groups",  # [Group.type]
     "groups_hash",  # str.type
     "mappings",  # {"label": str.type}
+    # Additional graphs needed to cover labels referenced by the groups above.
+    # This is useful in cases where the consumer of this provider won't already
+    # have deps covering these.
+    # NOTE(agallagher): We do this to maintain existing behavior w/ the
+    # standalone `link_group_map()` rule, but it's not clear if it's actually
+    # desirable behavior.
+    "implicit_graphs",  # [LinkableGraph.type]
 ])
 
 LinkGroupLinkInfo = record(
@@ -131,9 +134,6 @@ _LinkedLinkGroups = record(
     disabled_link_groups = field([str.type]),
 )
 
-def parse_link_group_definitions(mappings: list.type) -> [Group.type]:
-    return parse_groups_definitions(mappings, linkable)
-
 def get_link_group(ctx: "context") -> [str.type, None]:
     return ctx.attrs.link_group
 
@@ -146,6 +146,7 @@ def build_link_group_info(
         groups = link_groups,
         groups_hash = hash(str(link_groups)),
         mappings = mappings,
+        implicit_graphs = [],
     )
 
 def get_link_group_info(
@@ -166,7 +167,7 @@ def get_link_group_info(
 
     # Otherwise build one from our graph.
     expect(executable_deps != None)
-    link_groups = parse_link_group_definitions(link_group_map)
+    link_groups = parse_groups_definitions(link_group_map)
     linkable_graph = create_linkable_graph(
         ctx,
         children = executable_deps,
@@ -175,7 +176,7 @@ def get_link_group_info(
 
 def get_link_group_preferred_linkage(link_groups: [Group.type]) -> {"label": Linkage.type}:
     return {
-        mapping.root.label: mapping.preferred_linkage
+        mapping.root: mapping.preferred_linkage
         for group in link_groups
         for mapping in group.mappings
         if mapping.root != None and mapping.preferred_linkage != None
@@ -450,6 +451,7 @@ def make_link_group_info(groups: [Group.type], mappings: {"label": str.type}) ->
         groups = groups,
         groups_hash = hash(str(groups)),
         mappings = mappings,
+        implicit_graphs = [],
     )
 
 def find_relevant_roots(
@@ -537,7 +539,7 @@ def _create_link_group(
             if mapping.root == None:
                 has_empty_root = True
             else:
-                roots.append(mapping.root.label)
+                roots.append(mapping.root)
 
         # If this link group has an empty mapping, we need to search everything
         # -- even the additional roots -- to find potential nodes in the link

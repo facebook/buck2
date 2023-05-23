@@ -350,7 +350,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if link_group_info:
         link_groups = link_group_info.groups
         link_group_mappings = link_group_info.mappings
-        link_group_deps = [mapping.root.node.linkable_graph for group in link_group_info.groups for mapping in group.mappings]
+        link_group_deps = link_group_info.implicit_graphs
         link_group_libs = gather_link_group_libs(
             deps = non_exported_deps + exported_deps,
         )
