@@ -895,6 +895,8 @@ impl DaemonApi for BuckdServer {
                 uptime: Some(uptime.try_into()?),
                 snapshot,
                 daemon_constraints: Some(daemon_constraints),
+                project_root: daemon_state.paths.project_root().to_string(),
+                isolation_dir: daemon_state.paths.isolation.to_string(),
                 ..Default::default()
             };
             Ok(base)

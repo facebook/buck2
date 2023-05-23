@@ -71,6 +71,8 @@ message StatusResponse {
   reserved 6;
   buck.data.Snapshot snapshot = 7;
   DaemonConstraints daemon_constraints = 8;
+  string project_root = 9;
+  string isolation_dir = 10;
 }
 
 message PingRequest {
