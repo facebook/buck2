@@ -25,14 +25,3 @@ pub mod variants;
 
 #[cfg(test)]
 mod test;
-
-/// Causes Rust to exit the process when any panic occurs.
-/// An alternative is to compile your binary _and all dependencies_
-/// with `-Cpanic=abort`, which will provide similar behavior and smaller libraries.
-pub fn terminate_on_panic() {
-    let orig_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |panic_info| {
-        orig_hook(panic_info);
-        std::process::exit(1);
-    }));
-}
