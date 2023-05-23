@@ -44,6 +44,8 @@ pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
     Ok(&Lazy::force(&DIR).as_ref()?)
 }
 
+const BUCKD_DIR_PREFIX: &FileName = FileName::unchecked_new("buckd");
+
 #[derive(Clone, Allocative)]
 pub struct InvocationPaths {
     pub roots: InvocationRoots,
@@ -107,12 +109,10 @@ impl InvocationPaths {
         // output directories between different buckd instances.
         let home_buck_dir = home_buck_dir()?;
 
-        let prefix = "buckd";
-
         let mut ret = AbsNormPathBuf::with_capacity(
             home_buck_dir.as_os_str().len()
                 + 1
-                + prefix.len()
+                + BUCKD_DIR_PREFIX.as_str().len()
                 + 1
                 + root_relative.as_str().len()
                 + 1
@@ -120,11 +120,15 @@ impl InvocationPaths {
             home_buck_dir,
         );
 
-        ret.push(ForwardRelativePath::new(prefix)?);
+        ret.push(ForwardRelativePath::new(BUCKD_DIR_PREFIX)?);
         ret.push(root_relative.as_ref());
         ret.push(&self.isolation);
 
         Ok(DaemonDir { path: ret })
+    }
+
+    pub fn common_buckd_dir() -> anyhow::Result<AbsNormPathBuf> {
+        Ok(home_buck_dir()?.join(BUCKD_DIR_PREFIX))
     }
 
     pub fn cell_root(&self) -> &AbsNormPath {
