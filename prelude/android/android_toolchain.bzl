@@ -47,6 +47,7 @@ AndroidToolchainInfo = provider(fields = [
     "proguard_max_heap_size",
     "r_dot_java_weight_factor",
     "replace_application_id_placeholders",
+    "secondary_dex_compression_command",
     "secondary_dex_weight_limit",
     "set_application_id_to_specified_package",
     "should_run_sanity_check_for_placeholders",

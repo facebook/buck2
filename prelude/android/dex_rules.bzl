@@ -154,21 +154,27 @@ def get_multi_dex(
         secondary_dex_dir_srcs = {}
         for module, jars in module_to_jars.items():
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
+            secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
 
+            uncompressed_secondary_dex_output_dir = ctx.actions.declare_output("uncompressed_secondary_dex_output_dir_for_module_{}".format(module), dir = True)
+            multi_dex_cmd.add("--secondary-dex-output-dir", uncompressed_secondary_dex_output_dir.as_output())
+            secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
                 multi_dex_cmd.add("--primary-dex", outputs[primary_dex_file].as_output())
                 multi_dex_cmd.add("--primary-dex-patterns-path", ctx.actions.write("primary_dex_patterns", primary_dex_patterns))
                 multi_dex_cmd.add("--primary-dex-class-names", outputs[primary_dex_class_names].as_output())
-                multi_dex_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
+                secondary_dex_compression_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
             else:
                 secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module), dir = True)
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
                 secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
-                multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
-                multi_dex_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
+                secondary_dex_compression_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
+                secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
+            secondary_dex_compression_cmd.add("--module", module)
+            secondary_dex_compression_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
 
             jar_to_dex_file = ctx.actions.write("jars_to_dex_file_for_module_{}.txt".format(module), jars)
             multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
@@ -182,12 +188,15 @@ def get_multi_dex(
                 multi_dex_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
                 multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
 
-            multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
-            multi_dex_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
             if ctx.attrs.minimize_primary_dex_size:
                 multi_dex_cmd.add("--minimize-primary-dex")
 
             ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+
+            secondary_dex_compression_cmd.add("--compression", _get_dex_compression(ctx))
+            secondary_dex_compression_cmd.add("--xz-compression-level", str(ctx.attrs.xz_compression_level))
+
+            ctx.actions.run(secondary_dex_compression_cmd, category = "secondary_dex_compression", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
 
         ctx.actions.symlinked_dir(outputs[secondary_dex_dir], secondary_dex_dir_srcs)
 
@@ -451,7 +460,7 @@ def merge_to_split_dex(
                 secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module), dir = True)
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
 
-                multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
+                multi_dex_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
                 multi_dex_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
                 multi_dex_cmd.add("--raw-secondary-dexes-dir", raw_secondary_dexes_dir)
                 multi_dex_cmd.add("--compression", _get_dex_compression(ctx))
