@@ -394,7 +394,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
             LinkInfo(
                 pre_flags = own_binary_link_flags,
                 linkables = [ObjectsLinkable(
-                    objects = [out.object for out in cxx_outs],
+                    objects = [out.object for out in cxx_outs] + impl_params.extra_link_input,
                     linker_type = linker_info.type,
                     link_whole = True,
                 )],

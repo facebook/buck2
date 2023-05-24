@@ -72,6 +72,8 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage, default = "any"),
         "stripped": attrs.bool(default = False),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        # FIXME: prelude// should be standalone (not refer to fbsource//)
+        "_apple_tools": attrs.exec_dep(default = "fbsource//xplat/buck2/platform/apple:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_omnibus_environment": omnibus_environment_attr(),

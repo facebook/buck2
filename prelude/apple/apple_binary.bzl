@@ -5,13 +5,26 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
+load(
+    "@prelude//apple/swift:swift_compilation.bzl",
+    "compile_swift",
+    "get_swift_anonymous_targets",
+    "uses_explicit_modules",
+)
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load("@prelude//cxx:debug.bzl", "project_external_debug_info")
+load(
+    "@prelude//cxx:headers.bzl",
+    "cxx_attr_headers",
+    "cxx_get_regular_cxx_headers_layout",
+    "prepare_headers",
+)
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
@@ -31,65 +44,84 @@ load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_binary_impl(ctx: "context") -> ["provider"]:
-    extra_linker_output_flags, extra_linker_output_providers = [], {} # @oss-enable
-    # @oss-disable: extra_linker_output_flags, extra_linker_output_providers = add_extra_linker_outputs(ctx) 
-    extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
+    def get_apple_binary_providers(deps_providers) -> ["provider"]:
+        # FIXME: Ideally we'd like to remove the support of "bridging header",
+        # cause it affects build time and in general considered a bad practise.
+        # But we need it for now to achieve compatibility with BUCK1.
+        objc_bridging_header_flags = _get_bridging_header_flags(ctx)
 
-    framework_search_path_pre = CPreprocessor(
-        args = [get_framework_search_path_flags(ctx)],
-    )
-    constructor_params = CxxRuleConstructorParams(
-        rule_type = "apple_binary",
-        headers_layout = get_apple_cxx_headers_layout(ctx),
-        extra_link_flags = extra_link_flags,
-        srcs = get_srcs_with_flags(ctx),
-        extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre],
-        strip_executable = ctx.attrs.stripped,
-        strip_args_factory = apple_strip_args,
-        cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
-        link_group_info = get_link_group_info(ctx),
-        prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
-        # Some apple rules rely on `static` libs *not* following dependents.
-        link_groups_force_static_follows_dependents = False,
-    )
-    cxx_output = cxx_executable(ctx, constructor_params)
+        cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
 
-    external_debug_info = project_external_debug_info(
-        actions = ctx.actions,
-        label = ctx.label,
-        infos = [cxx_output.external_debug_info],
-    )
-    dsym_artifact = get_apple_dsym(
-        ctx = ctx,
-        executable = cxx_output.binary,
-        external_debug_info = external_debug_info,
-        action_identifier = cxx_output.binary.short_path,
-    )
-    cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
-    cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
-    cxx_output.sub_targets.update(extra_linker_output_providers)
+        swift_compile = compile_swift(ctx, swift_srcs, deps_providers, [], None, objc_bridging_header_flags)
+        swift_object_files = [swift_compile.object_file] if swift_compile else []
 
-    min_version = get_min_deployment_version_for_node(ctx)
-    min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
+        swift_preprocessor = [swift_compile.pre] if swift_compile else []
 
-    resource_graph = create_resource_graph(
-        ctx = ctx,
-        labels = ctx.attrs.labels,
-        deps = cxx_attr_deps(ctx),
-        exported_deps = cxx_attr_exported_deps(ctx),
-    )
-    bundle_infos = get_bundle_infos_from_graph(resource_graph)
-    if cxx_output.linker_map_data:
-        bundle_infos.append(AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]))
+        extra_linker_output_flags, extra_linker_output_providers = [], {} # @oss-enable
+        # @oss-disable: extra_linker_output_flags, extra_linker_output_providers = add_extra_linker_outputs(ctx) 
+        extra_link_flags = get_min_deployment_version_target_linker_flags(ctx) + _entitlements_link_flags(ctx) + extra_linker_output_flags
 
-    return [
-        DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
-        RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
-        AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
-        AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
-        cxx_output.xcode_data,
-        merge_bundle_linker_maps_info(bundle_infos),
-    ] + [resource_graph] + min_version_providers
+        framework_search_path_pre = CPreprocessor(
+            args = [get_framework_search_path_flags(ctx)],
+        )
+        constructor_params = CxxRuleConstructorParams(
+            rule_type = "apple_binary",
+            headers_layout = get_apple_cxx_headers_layout(ctx),
+            extra_link_flags = extra_link_flags,
+            srcs = cxx_srcs,
+            extra_link_input = swift_object_files,
+            extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
+            strip_executable = ctx.attrs.stripped,
+            strip_args_factory = apple_strip_args,
+            cxx_populate_xcode_attributes_func = apple_populate_xcode_attributes,
+            link_group_info = get_link_group_info(ctx),
+            prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
+            # Some apple rules rely on `static` libs *not* following dependents.
+            link_groups_force_static_follows_dependents = False,
+        )
+        cxx_output = cxx_executable(ctx, constructor_params)
+
+        external_debug_info = project_external_debug_info(
+            actions = ctx.actions,
+            label = ctx.label,
+            infos = [cxx_output.external_debug_info],
+        )
+        dsym_artifact = get_apple_dsym(
+            ctx = ctx,
+            executable = cxx_output.binary,
+            external_debug_info = external_debug_info,
+            action_identifier = cxx_output.binary.short_path,
+        )
+        cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
+        cxx_output.sub_targets[DEBUGINFO_SUBTARGET] = [DefaultInfo(other_outputs = external_debug_info)]
+        cxx_output.sub_targets.update(extra_linker_output_providers)
+
+        min_version = get_min_deployment_version_for_node(ctx)
+        min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)] if min_version != None else []
+
+        resource_graph = create_resource_graph(
+            ctx = ctx,
+            labels = ctx.attrs.labels,
+            deps = cxx_attr_deps(ctx),
+            exported_deps = cxx_attr_exported_deps(ctx),
+        )
+        bundle_infos = get_bundle_infos_from_graph(resource_graph)
+        if cxx_output.linker_map_data:
+            bundle_infos.append(AppleBundleLinkerMapInfo(linker_maps = [cxx_output.linker_map_data.map]))
+
+        return [
+            DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
+            RunInfo(args = cmd_args(cxx_output.binary).hidden(cxx_output.runtime_files)),
+            AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
+            AppleDebuggableInfo(dsyms = [dsym_artifact], external_debug_info = cxx_output.external_debug_info),
+            cxx_output.xcode_data,
+            merge_bundle_linker_maps_info(bundle_infos),
+        ] + [resource_graph] + min_version_providers
+
+    if uses_explicit_modules(ctx):
+        return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
+    else:
+        return get_apple_binary_providers([])
 
 def _entitlements_link_flags(ctx: "context") -> [""]:
     return [
@@ -102,3 +134,37 @@ def _entitlements_link_flags(ctx: "context") -> [""]:
         "-Xlinker",
         ctx.attrs.entitlements_file,
     ] if ctx.attrs.entitlements_file else []
+
+def _filter_swift_srcs(ctx: "context") -> (["CxxSrcWithFlags"], ["CxxSrcWithFlags"]):
+    cxx_srcs = []
+    swift_srcs = []
+    for s in get_srcs_with_flags(ctx):
+        if s.file.extension == ".swift":
+            swift_srcs.append(s)
+        else:
+            cxx_srcs.append(s)
+    return cxx_srcs, swift_srcs
+
+def _get_bridging_header_flags(ctx: "context") -> ["_arglike"]:
+    if ctx.attrs.bridging_header:
+        objc_bridging_header_flags = [
+            # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.
+            "-disable-bridging-pch",
+            "-import-objc-header",
+            cmd_args(ctx.attrs.bridging_header),
+        ]
+
+        headers_layout = cxx_get_regular_cxx_headers_layout(ctx)
+        headers = cxx_attr_headers(ctx, headers_layout)
+        header_map = {paths.join(h.namespace, h.name): h.artifact for h in headers}
+
+        # We need to expose private headers to swift-compile action, in case something is imported to bridging header.
+        header_root = prepare_headers(ctx, header_map, "apple-binary-private-headers")
+        if header_root != None:
+            private_headers_args = [cmd_args("-I"), header_root.include_path]
+        else:
+            private_headers_args = []
+
+        return objc_bridging_header_flags + private_headers_args
+    else:
+        return []
