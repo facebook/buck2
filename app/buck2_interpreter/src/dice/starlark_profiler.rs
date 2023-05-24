@@ -56,11 +56,11 @@ impl StarlarkProfilerConfiguration {
             StarlarkProfilerConfiguration::Instrument(instrumentation) => {
                 Some(instrumentation.dupe())
             }
-            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {
-                Some(StarlarkProfilerInstrumentation::new(profile_mode.dupe()))
+            StarlarkProfilerConfiguration::ProfileLastLoading(_profile_mode)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_profile_mode)
+            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_profile_mode)
+            | StarlarkProfilerConfiguration::ProfileBxl(_profile_mode) => {
+                Some(StarlarkProfilerInstrumentation::new())
             }
         }
     }
@@ -113,11 +113,11 @@ impl StarlarkProfilerConfiguration {
             StarlarkProfilerConfiguration::Instrument(instrumentation) => {
                 StarlarkProfileModeOrInstrumentation::Instrument(instrumentation.dupe())
             }
-            StarlarkProfilerConfiguration::ProfileLastLoading(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(profile_mode)
-            | StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {
+            StarlarkProfilerConfiguration::ProfileLastLoading(_profile_mode)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_profile_mode)
+            | StarlarkProfilerConfiguration::ProfileBxl(_profile_mode) => {
                 StarlarkProfileModeOrInstrumentation::Instrument(
-                    StarlarkProfilerInstrumentation::new(profile_mode.dupe()),
+                    StarlarkProfilerInstrumentation::new(),
                 )
             }
             StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
@@ -190,9 +190,9 @@ impl Key for StarlarkProfilerConfigurationKey {
                 )
                 .await?;
 
-            if let Some(instr) = instr {
+            if let Some(_instr) = instr {
                 configuration = StarlarkProfilerConfiguration::Instrument(
-                    StarlarkProfilerInstrumentation::new(instr),
+                    StarlarkProfilerInstrumentation::new(),
                 );
             }
         }

@@ -37,17 +37,11 @@ enum StarlarkProfilerError {
 ///
 /// This struct defines instrumentation level for the module.
 #[derive(Debug, PartialEq, Eq, Clone, Dupe, Allocative)]
-pub struct StarlarkProfilerInstrumentation {
-    profile_mode: ProfileMode,
-}
+pub struct StarlarkProfilerInstrumentation {}
 
 impl StarlarkProfilerInstrumentation {
-    pub fn new(profile_mode: ProfileMode) -> Self {
-        Self { profile_mode }
-    }
-
-    pub fn into_profile_mode(self) -> ProfileMode {
-        self.profile_mode
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -146,9 +140,7 @@ impl StarlarkProfiler {
 
     /// Instrumentation level required by `bzl` files loaded by the profiled module.
     fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
-        Some(StarlarkProfilerInstrumentation {
-            profile_mode: self.profile_mode.dupe(),
-        })
+        Some(StarlarkProfilerInstrumentation {})
     }
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
@@ -218,8 +210,8 @@ impl StarlarkProfileModeOrInstrumentation {
         match self {
             StarlarkProfileModeOrInstrumentation::None => None,
             StarlarkProfileModeOrInstrumentation::Instrument(instrument) => Some(instrument.dupe()),
-            StarlarkProfileModeOrInstrumentation::Profile(profile) => {
-                Some(StarlarkProfilerInstrumentation::new(profile.dupe()))
+            StarlarkProfileModeOrInstrumentation::Profile(_profile) => {
+                Some(StarlarkProfilerInstrumentation::new())
             }
         }
     }
@@ -242,14 +234,7 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
     ) -> StarlarkProfilerOrInstrumentation<'p> {
         match (profiler.instrumentation(), instrumentation) {
             (None, None) => StarlarkProfilerOrInstrumentation::disabled(),
-            (Some(pi), Some(i)) => {
-                // Sanity check.
-                assert_eq!(
-                    pi.profile_mode, i.profile_mode,
-                    "profiler is incompatible with instrumentation"
-                );
-                StarlarkProfilerOrInstrumentation::for_profiler(profiler)
-            }
+            (Some(_), Some(_)) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
             (None, Some(i)) => StarlarkProfilerOrInstrumentation::instrumentation(i),
             (Some(_), None) => panic!("profiler, but no instrumentation"),
         }
