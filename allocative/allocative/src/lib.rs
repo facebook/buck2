@@ -60,6 +60,7 @@ pub use allocative_derive::root;
 pub use allocative_derive::Allocative;
 
 pub use crate::allocative_trait::Allocative;
+pub use crate::flamegraph::FlameGraph;
 pub use crate::flamegraph::FlameGraphBuilder;
 pub use crate::global_root::register_root;
 pub use crate::key::Key;

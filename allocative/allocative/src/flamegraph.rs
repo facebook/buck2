@@ -22,16 +22,84 @@ use crate::visitor::Visitor;
 use crate::visitor::VisitorImpl;
 use crate::Allocative;
 
+/// Node in flamegraph tree.
+#[derive(Debug, Default, Clone)]
+pub struct FlameGraph {
+    children: HashMap<Key, FlameGraph>,
+    /// Total size of all children, cached.
+    children_size: usize,
+    /// Node size excluding children.
+    node_size: usize,
+}
+
+impl FlameGraph {
+    pub fn total_size(&self) -> usize {
+        self.node_size + self.children_size
+    }
+
+    /// Add another flamegraph to this one.
+    pub fn add(&mut self, other: FlameGraph) {
+        self.node_size += other.node_size;
+        self.children_size += other.children_size;
+        for (key, child) in other.children {
+            self.add_child(key, child);
+        }
+    }
+
+    /// Add a child node to the flamegraph, merging if it already exists.
+    pub fn add_child(&mut self, key: Key, child: FlameGraph) {
+        match self.children.entry(key) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add(child);
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(child);
+            }
+        }
+    }
+
+    /// Add size to this node.
+    pub fn add_self(&mut self, size: usize) {
+        self.node_size += size;
+    }
+
+    #[allow(clippy::from_iter_instead_of_collect)]
+    fn write_flame_graph_impl(&self, stack: &[&str], w: &mut String) {
+        if self.node_size != 0 {
+            if !stack.is_empty() {
+                writeln!(w, "{} {}", stack.join(";"), self.node_size).unwrap();
+            } else {
+                // Don't care.
+            }
+        }
+        let mut stack = stack.to_vec();
+        let mut children = Vec::from_iter(self.children.iter());
+        children.sort_by_key(|(key, _)| *key);
+        for (key, child) in children {
+            stack.push(key);
+            child.write_flame_graph_impl(&stack, w);
+            stack.pop().unwrap();
+        }
+    }
+
+    /// Write flamegraph in format suitable for `flamegraph.pl` or `inferno`.
+    pub fn write(&self) -> String {
+        let mut r = String::new();
+        self.write_flame_graph_impl(&[], &mut r);
+        r
+    }
+}
+
 #[derive(Debug)]
 pub struct FlameGraphOutput {
-    flamegraph: String,
+    flamegraph: FlameGraph,
     warnings: String,
 }
 
 impl FlameGraphOutput {
     /// Flamegraph source, can be fed to `flamegraph.pl` or `inferno`.
-    pub fn flamegraph(&self) -> String {
-        self.flamegraph.clone()
+    pub fn flamegraph(&self) -> &FlameGraph {
+        &self.flamegraph
     }
 
     /// Warnings. Text file in unspecified format.
@@ -66,13 +134,14 @@ struct TreeRef<'a> {
 }
 
 impl<'a> TreeRef<'a> {
-    fn write_flame_graph(&self, stack: &[&str], w: &mut String, warnings: &mut String) {
+    fn write_flame_graph(&self, stack: &[&str], warnings: &mut String) -> FlameGraph {
+        let mut flame_graph = FlameGraph::default();
         let tree = &self.trees[self.tree_id];
         if tree.rem_size > 0 {
             if stack.is_empty() {
                 // don't care.
             } else {
-                writeln!(w, "{} {}", stack.join(";"), tree.rem_size).unwrap();
+                flame_graph.node_size = tree.rem_size as usize;
             }
         } else if tree.rem_size < 0 && !stack.is_empty() {
             writeln!(
@@ -93,16 +162,17 @@ impl<'a> TreeRef<'a> {
                 trees: self.trees,
                 tree_id: *child,
             };
-            child.write_flame_graph(&stack, w, warnings);
+            let child_framegraph = child.write_flame_graph(&stack, warnings);
+            flame_graph.add_child(key.clone(), child_framegraph);
             stack.pop().unwrap();
         }
+        flame_graph
     }
 
-    fn to_flame_graph(&self) -> (String, String) {
-        let mut s = String::new();
+    fn to_flame_graph(&self) -> (FlameGraph, String) {
         let mut warnings = String::new();
-        self.write_flame_graph(&[], &mut s, &mut warnings);
-        (s, warnings)
+        let flame_graph = self.write_flame_graph(&[], &mut warnings);
+        (flame_graph, warnings)
     }
 }
 
@@ -120,7 +190,7 @@ impl Tree {
         }
     }
 
-    fn to_flame_graph(&self) -> (String, String) {
+    fn to_flame_graph(&self) -> (FlameGraph, String) {
         self.as_ref().to_flame_graph()
     }
 }
@@ -314,7 +384,7 @@ impl FlameGraphBuilder {
 
     /// Finish building the flamegraph and return the flamegraph output.
     pub fn finish_and_write_flame_graph(self) -> String {
-        self.finish().flamegraph
+        self.finish().flamegraph.write()
     }
 
     fn update_sizes(tree_id: TreeId, trees: &mut Trees) {
@@ -438,7 +508,7 @@ mod tests {
         };
 
         assert_eq!(expected, tree);
-        assert_eq!("", tree.to_flame_graph().0);
+        assert_eq!("", tree.to_flame_graph().0.write());
     }
 
     #[test]
@@ -462,7 +532,7 @@ mod tests {
             tree_id: expected_root,
         };
         assert_eq!(expected, tree);
-        assert_eq!("a 10\n", tree.to_flame_graph().0);
+        assert_eq!("a 10\n", tree.to_flame_graph().0.write());
     }
 
     #[test]
@@ -486,7 +556,7 @@ mod tests {
                 Struct;p 6\n\
                 Struct;p;x 13\n\
             ",
-            tree.to_flame_graph().0,
+            tree.to_flame_graph().0.write(),
             "{:#?}",
             tree,
         );
@@ -523,7 +593,7 @@ mod tests {
             Struct;a 6\n\
             Struct;p 12\n\
         ",
-            tree.to_flame_graph().0,
+            tree.to_flame_graph().0.write(),
             "{:#?}",
             tree,
         );
@@ -538,7 +608,7 @@ mod tests {
         child_visitor.exit();
         visitor.exit();
         let output = fg.finish();
-        assert_eq!("a;b 13\n", output.flamegraph());
+        assert_eq!("a;b 13\n", output.flamegraph().write());
         assert_eq!(
             "Incorrect size declaration for node `a`, size of self: 10, size of inline children: 13\n",
             output.warnings()

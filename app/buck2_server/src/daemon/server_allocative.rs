@@ -34,11 +34,11 @@ pub(crate) async fn spawn_allocative(
         let fg = graph.finish();
         fs_util::create_dir_if_not_exists(&path)?;
         dispatcher.console_message(format!("Writing allocative to `{}`...", path.display()));
-        fs_util::write(path.join("flamegraph.src"), fg.flamegraph())?;
+        fs_util::write(path.join("flamegraph.src"), fg.flamegraph().write())?;
         let mut fg_svg = Vec::new();
         inferno::flamegraph::from_reader(
             &mut inferno::flamegraph::Options::default(),
-            fg.flamegraph().as_bytes(),
+            fg.flamegraph().write().as_bytes(),
             &mut fg_svg,
         )?;
         fs_util::write(path.join("flamegraph.svg"), &fg_svg)?;
