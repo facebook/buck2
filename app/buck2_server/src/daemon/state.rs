@@ -368,7 +368,10 @@ impl DaemonState {
         )
         .await?;
 
-        let http_client = http_client()?;
+        let allow_vpnless = root_config
+            .parse("buck2", "allow_vpnless")?
+            .unwrap_or(false);
+        let http_client = http_client(allow_vpnless)?;
 
         let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
 
