@@ -9,8 +9,6 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::result::SharedResult;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -36,8 +34,6 @@ pub enum StarlarkProfilerConfiguration {
     /// No profiling.
     #[default]
     None,
-    /// Instrument everything, but no profiling.
-    Instrument(StarlarkProfilerInstrumentation),
     /// Profile loading of one `BUCK`, everything else is instrumented.
     ProfileLastLoading(ProfileMode),
     /// Profile analysis of the last target, everything else is instrumented.
@@ -52,7 +48,6 @@ impl StarlarkProfilerConfiguration {
     pub fn profile_last_bxl(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::Instrument(_)
             | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
             | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_)
             | StarlarkProfilerConfiguration::ProfileLastLoading(_) => {
@@ -65,7 +60,6 @@ impl StarlarkProfilerConfiguration {
     pub fn profile_last_loading(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::Instrument(_)
             | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
             | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_)
             | StarlarkProfilerConfiguration::ProfileBxl(_) => {
@@ -78,7 +72,6 @@ impl StarlarkProfilerConfiguration {
     pub fn profile_last_analysis(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
-            | StarlarkProfilerConfiguration::Instrument(_)
             | StarlarkProfilerConfiguration::ProfileLastLoading(_)
             | StarlarkProfilerConfiguration::ProfileBxl(_) => {
                 Err(StarlarkProfilerError::ProfilerConfigurationNotLast.into())
@@ -94,9 +87,6 @@ impl StarlarkProfilerConfiguration {
     pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileModeOrInstrumentation {
         match self {
             StarlarkProfilerConfiguration::None => StarlarkProfileModeOrInstrumentation::None,
-            StarlarkProfilerConfiguration::Instrument(instrumentation) => {
-                StarlarkProfileModeOrInstrumentation::Instrument(instrumentation.dupe())
-            }
             StarlarkProfilerConfiguration::ProfileLastLoading(_profile_mode)
             | StarlarkProfilerConfiguration::ProfileLastAnalysis(_profile_mode)
             | StarlarkProfilerConfiguration::ProfileBxl(_profile_mode) => {
@@ -148,25 +138,7 @@ impl Key for StarlarkProfilerConfigurationKey {
         ctx: &DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let mut configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
-
-        if let StarlarkProfilerConfiguration::None = configuration {
-            let cell_resolver = ctx.get_cell_resolver().await?;
-            let instr = ctx
-                .parse_legacy_config_property::<ProfileMode>(
-                    cell_resolver.root_cell(),
-                    "buck2",
-                    "starlark_instrumentation_mode",
-                )
-                .await?;
-
-            if let Some(_instr) = instr {
-                configuration = StarlarkProfilerConfiguration::Instrument(
-                    StarlarkProfilerInstrumentation::new(),
-                );
-            }
-        }
-
+        let configuration = get_starlark_profiler_instrumentation_override(ctx).await?;
         Ok(configuration)
     }
 
