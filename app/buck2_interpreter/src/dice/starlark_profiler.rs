@@ -19,7 +19,6 @@ use more_futures::cancellation::CancellationContext;
 use starlark::eval::ProfileMode;
 
 use crate::starlark_profiler::StarlarkProfileModeOrInstrumentation;
-use crate::starlark_profiler::StarlarkProfilerInstrumentation;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkProfilerError {
@@ -86,13 +85,11 @@ impl StarlarkProfilerConfiguration {
     /// Profile mode for intermediate target analysis.
     pub fn profile_mode_for_intermediate_analysis(&self) -> StarlarkProfileModeOrInstrumentation {
         match self {
-            StarlarkProfilerConfiguration::None => StarlarkProfileModeOrInstrumentation::None,
-            StarlarkProfilerConfiguration::ProfileLastLoading(_profile_mode)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_profile_mode)
-            | StarlarkProfilerConfiguration::ProfileBxl(_profile_mode) => {
-                StarlarkProfileModeOrInstrumentation::Instrument(
-                    StarlarkProfilerInstrumentation::new(),
-                )
+            StarlarkProfilerConfiguration::None
+            | StarlarkProfilerConfiguration::ProfileLastLoading(_)
+            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_)
+            | StarlarkProfilerConfiguration::ProfileBxl(_) => {
+                StarlarkProfileModeOrInstrumentation::None
             }
             StarlarkProfilerConfiguration::ProfileAnalysisRecursively(profile_mode) => {
                 StarlarkProfileModeOrInstrumentation::Profile(profile_mode.dupe())

@@ -193,7 +193,6 @@ impl StarlarkProfiler {
 #[derive(Clone, Dupe, Eq, PartialEq, Allocative)]
 pub enum StarlarkProfileModeOrInstrumentation {
     None,
-    Instrument(StarlarkProfilerInstrumentation),
     Profile(ProfileMode),
 }
 
@@ -201,8 +200,7 @@ impl StarlarkProfileModeOrInstrumentation {
     pub fn profile_mode(&self) -> Option<&ProfileMode> {
         match self {
             StarlarkProfileModeOrInstrumentation::Profile(profile) => Some(profile),
-            StarlarkProfileModeOrInstrumentation::Instrument(_)
-            | StarlarkProfileModeOrInstrumentation::None => None,
+            StarlarkProfileModeOrInstrumentation::None => None,
         }
     }
 }
