@@ -42,7 +42,7 @@ def build_junit_test(
         extra_classpath_entries: ["artifact"] = []) -> ExternalRunnerTestInfo.type:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
 
-    cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attrs.vm_args
+    cmd = [ctx.attrs._java_toolchain[JavaToolchainInfo].java_for_tests] + extra_cmds + ctx.attrs.vm_args + ["-XX:-MaxFDLimit"]
     classpath = []
 
     if java_test_toolchain.use_java_custom_class_loader:
