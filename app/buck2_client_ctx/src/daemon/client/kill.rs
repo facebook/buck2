@@ -26,6 +26,12 @@ use tonic::Request;
 
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 
+#[derive(Debug, thiserror::Error)]
+enum KillError {
+    #[error("Daemon pid {} did not die after kill within {:.1}s", _0, _1.as_secs_f32())]
+    DidNotDie(u32, Duration),
+}
+
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.
 const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
@@ -76,15 +82,14 @@ pub async fn kill(
         }
     };
     kill::kill(pid)?;
+    let timestamp_after_kill = Instant::now();
     while time_req_sent.elapsed() < time_to_kill {
         if !kill::process_exists(pid)? {
             return Ok(());
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Err(anyhow::anyhow!(
-        "Daemon did not terminate after forceful termination"
-    ))
+    Err(KillError::DidNotDie(pid, timestamp_after_kill.elapsed()).into())
 }
 
 #[cfg(unix)]
