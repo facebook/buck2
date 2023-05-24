@@ -9,6 +9,7 @@
 # Put everything inside an __invoke_main() function.
 # This way anything we define won't pollute globals(), since runpy
 # will propagate our globals() as to the user's main module.
+# pyre-fixme[3]: Return type must be annotated.
 def __invoke_main():
     import os
     import runpy
@@ -26,9 +27,11 @@ def __invoke_main():
     if decorate_main_module:
         # Pass the original main module as environment variable for the process.
         # Allowing the decorating module to pick it up.
+        # pyre-fixme[6]: For 2nd argument expected `str` but got `Optional[str]`.
         os.environ["PAR_MAIN_ORIGINAL"] = module
         module = decorate_main_module
 
+    # pyre-fixme[6]: For 2nd argument expected `str` but got `Optional[str]`.
     sys.argv[0] = os.getenv("FB_LPAR_INVOKED_NAME")
     del sys.path[0]
 
@@ -61,9 +64,11 @@ def __invoke_main():
 
         del os
 
+        # pyre-fixme[16]: Module `runpy` has no attribute `_run_module_as_main`.
         pdb.runcall(runpy._run_module_as_main, module, False)
 
     else:
+        # pyre-fixme[16]: Module `runpy` has no attribute `_run_module_as_main`.
         runpy._run_module_as_main(module, False)
 
 

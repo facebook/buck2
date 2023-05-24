@@ -13,9 +13,16 @@ from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def __patch_spawn(var_names, saved_env):
     std_spawn = mp_util.spawnv_passfds
 
+    # pyre-fixme[53]: Captured variable `std_spawn` is not annotated.
+    # pyre-fixme[53]: Captured variable `saved_env` is not annotated.
+    # pyre-fixme[53]: Captured variable `var_names` is not annotated.
+    # pyre-fixme[3]: Return type must be annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
     def spawnv_passfds(path, args, passfds):
         try:
             for var in var_names:
@@ -32,6 +39,8 @@ def __patch_spawn(var_names, saved_env):
     mp_util.spawnv_passfds = spawnv_passfds
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def __clear_env(patch_spawn=True):
     saved_env = {}
     darwin_vars = ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
@@ -58,6 +67,7 @@ def __clear_env(patch_spawn=True):
         __patch_spawn(var_names, saved_env)
 
 
+# pyre-fixme[3]: Return type must be annotated.
 def __passthrough_exec_module():
     # Delegate this module execution to the next module in the path, if any,
     # effectively making this sitecustomize.py a passthrough module.
@@ -67,6 +77,7 @@ def __passthrough_exec_module():
     if spec:
         mod = module_from_spec(spec)
         sys.modules[__name__] = mod
+        # pyre-fixme[16]: Optional type has no attribute `exec_module`.
         spec.loader.exec_module(mod)
 
 
