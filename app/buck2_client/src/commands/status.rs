@@ -13,7 +13,6 @@ use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use chrono::NaiveDateTime;
-use clap::ArgMatches;
 use humantime::format_duration;
 
 #[derive(Debug, thiserror::Error)]
@@ -42,7 +41,11 @@ impl StatusCommand {
         format_duration(duration).to_string()
     }
 
-    pub fn exec(self, _matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
+    pub fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        ctx: ClientCommandContext<'_>,
+    ) -> anyhow::Result<()> {
         ctx.with_runtime(async move |ctx| {
             match ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())

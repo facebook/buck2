@@ -18,7 +18,6 @@ use buck2_client_ctx::manifold;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use clap::ArgMatches;
 use thiserror::Error;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -52,7 +51,11 @@ pub struct PersistEventLogsCommand {
 }
 
 impl PersistEventLogsCommand {
-    pub fn exec(self, _matches: &ArgMatches, mut ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(
+        self,
+        _matches: &clap::ArgMatches,
+        mut ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         buck2_core::facebook_only();
         let runtime = client_tokio_runtime()?;
         let mut stdin = io::BufReader::new(ctx.stdin());

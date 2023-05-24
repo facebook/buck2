@@ -15,7 +15,6 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use clap::ArgMatches;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start, query, and control the http server")]
@@ -28,7 +27,7 @@ impl StreamingCommand for ServerCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &ArgMatches,
+        _matches: &clap::ArgMatches,
         _ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let status = buckd.with_flushing().status(false).await?;

@@ -21,7 +21,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use clap::ArgMatches;
 use gazebo::prelude::SliceExt;
 
 /// Resolve target patterns to configured targets.
@@ -49,7 +48,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = Some(ctx.client_context(

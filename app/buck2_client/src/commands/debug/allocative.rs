@@ -18,7 +18,6 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
-use clap::ArgMatches;
 
 #[derive(Debug, clap::Parser)]
 pub struct AllocativeCommand {
@@ -45,7 +44,7 @@ impl StreamingCommand for AllocativeCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &ArgMatches,
+        _matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.empty_client_context()?;
