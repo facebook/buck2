@@ -205,22 +205,11 @@ impl StarlarkProfileModeOrInstrumentation {
             | StarlarkProfileModeOrInstrumentation::None => None,
         }
     }
-
-    pub fn instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
-        match self {
-            StarlarkProfileModeOrInstrumentation::None => None,
-            StarlarkProfileModeOrInstrumentation::Instrument(instrument) => Some(instrument.dupe()),
-            StarlarkProfileModeOrInstrumentation::Profile(_profile) => {
-                Some(StarlarkProfilerInstrumentation::new())
-            }
-        }
-    }
 }
 
 enum StarlarkProfilerOrInstrumentationImpl<'p> {
     None,
     Profiler(&'p mut StarlarkProfiler),
-    Instrumentation(StarlarkProfilerInstrumentation),
 }
 
 /// Modules can be evaluated with profiling or with instrumentation for profiling.
@@ -235,28 +224,13 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         match (profiler.instrumentation(), instrumentation) {
             (None, None) => StarlarkProfilerOrInstrumentation::disabled(),
             (Some(_), Some(_)) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
-            (None, Some(i)) => StarlarkProfilerOrInstrumentation::instrumentation(i),
+            (None, Some(_)) => StarlarkProfilerOrInstrumentation::disabled(),
             (Some(_), None) => panic!("profiler, but no instrumentation"),
         }
     }
 
     pub fn for_profiler(profiler: &'p mut StarlarkProfiler) -> Self {
         StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Profiler(profiler))
-    }
-
-    /// Instrumentation only.
-    pub fn instrumentation(instrumentation: StarlarkProfilerInstrumentation) -> Self {
-        StarlarkProfilerOrInstrumentation(StarlarkProfilerOrInstrumentationImpl::Instrumentation(
-            instrumentation,
-        ))
-    }
-
-    /// Instrumentation only.
-    pub fn maybe_instrumentation(instrumentation: Option<StarlarkProfilerInstrumentation>) -> Self {
-        match instrumentation {
-            None => StarlarkProfilerOrInstrumentation::disabled(),
-            Some(i) => StarlarkProfilerOrInstrumentation::instrumentation(i),
-        }
     }
 
     /// No profiling.
@@ -268,7 +242,6 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         match &mut self.0 {
             StarlarkProfilerOrInstrumentationImpl::None => Ok(()),
             StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => profiler.initialize(eval),
-            StarlarkProfilerOrInstrumentationImpl::Instrumentation(..) => Ok(()),
         }
     }
 

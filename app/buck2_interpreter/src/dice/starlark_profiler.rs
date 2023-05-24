@@ -49,22 +49,6 @@ pub enum StarlarkProfilerConfiguration {
 }
 
 impl StarlarkProfilerConfiguration {
-    /// Instrumentation for `.bzl` files.
-    pub fn bzl_instrumentation(&self) -> Option<StarlarkProfilerInstrumentation> {
-        match self {
-            StarlarkProfilerConfiguration::None => None,
-            StarlarkProfilerConfiguration::Instrument(instrumentation) => {
-                Some(instrumentation.dupe())
-            }
-            StarlarkProfilerConfiguration::ProfileLastLoading(_profile_mode)
-            | StarlarkProfilerConfiguration::ProfileLastAnalysis(_profile_mode)
-            | StarlarkProfilerConfiguration::ProfileAnalysisRecursively(_profile_mode)
-            | StarlarkProfilerConfiguration::ProfileBxl(_profile_mode) => {
-                Some(StarlarkProfilerInstrumentation::new())
-            }
-        }
-    }
-
     pub fn profile_last_bxl(&self) -> anyhow::Result<&ProfileMode> {
         match self {
             StarlarkProfilerConfiguration::None
@@ -153,20 +137,6 @@ struct StarlarkProfilerConfigurationKey;
     Allocative
 )]
 #[display(fmt = "{:?}", self)]
-pub struct StarlarkProfilerInstrumentationKey;
-
-#[derive(
-    Debug,
-    derive_more::Display,
-    Copy,
-    Clone,
-    Dupe,
-    Eq,
-    PartialEq,
-    Hash,
-    Allocative
-)]
-#[display(fmt = "{:?}", self)]
 pub struct StarlarkProfileModeForIntermediateAnalysisKey;
 
 #[async_trait]
@@ -198,27 +168,6 @@ impl Key for StarlarkProfilerConfigurationKey {
         }
 
         Ok(configuration)
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
-#[async_trait]
-impl Key for StarlarkProfilerInstrumentationKey {
-    type Value = SharedResult<Option<StarlarkProfilerInstrumentation>>;
-
-    async fn compute(
-        &self,
-        ctx: &DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> SharedResult<Option<StarlarkProfilerInstrumentation>> {
-        let configuration = get_starlark_profiler_configuration(ctx).await?;
-        Ok(configuration.bzl_instrumentation())
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -290,10 +239,6 @@ pub trait SetStarlarkProfilerInstrumentation {
 
 #[async_trait]
 pub trait GetStarlarkProfilerInstrumentation {
-    async fn get_starlark_profiler_instrumentation(
-        &self,
-    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>>;
-
     /// Profile mode for non-final targe analysis.
     async fn get_profile_mode_for_intermediate_analysis(
         &self,
@@ -330,12 +275,6 @@ async fn get_starlark_profiler_configuration(
 
 #[async_trait]
 impl GetStarlarkProfilerInstrumentation for DiceComputations {
-    async fn get_starlark_profiler_instrumentation(
-        &self,
-    ) -> anyhow::Result<Option<StarlarkProfilerInstrumentation>> {
-        Ok(self.compute(&StarlarkProfilerInstrumentationKey).await??)
-    }
-
     async fn get_profile_mode_for_intermediate_analysis(
         &self,
     ) -> anyhow::Result<StarlarkProfileModeOrInstrumentation> {

@@ -32,7 +32,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async;
-use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
@@ -41,7 +40,6 @@ use buck2_interpreter::path::OwnedStarlarkModulePath;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter::starlark_profiler::StarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use derive_more::Display;
@@ -165,8 +163,6 @@ impl<'c> DiceCalculationDelegate<'c> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let starlark_path = self.0.borrow();
-                let starlark_profiler_instrumentation =
-                    ctx.get_starlark_profiler_instrumentation().await?;
                 // We cannot just use the inner default delegate's eval_import
                 // because that wouldn't delegate back to us for inner eval_import calls.
                 Ok(ctx
@@ -175,7 +171,7 @@ impl<'c> DiceCalculationDelegate<'c> {
                         starlark_path.build_file_cell(),
                     )
                     .await?
-                    .eval_module_uncached(starlark_path, starlark_profiler_instrumentation)
+                    .eval_module_uncached(starlark_path)
                     .await?)
             }
 
@@ -261,7 +257,6 @@ impl<'c> DiceCalculationDelegate<'c> {
     pub async fn eval_module_uncached(
         &self,
         starlark_file: StarlarkModulePath<'_>,
-        starlark_profiler_instrumentation: Option<StarlarkProfilerInstrumentation>,
     ) -> anyhow::Result<LoadedModule> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();
@@ -270,9 +265,7 @@ impl<'c> DiceCalculationDelegate<'c> {
 
         with_starlark_eval_provider(
             self.ctx,
-            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                starlark_profiler_instrumentation,
-            ),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", &starlark_file),
             move |provider| {
                 let evaluation = self
@@ -349,16 +342,11 @@ impl<'c> DiceCalculationDelegate<'c> {
             None => return Ok(parent),
         };
 
-        let starlark_profiler_instrumentation =
-            self.ctx.get_starlark_profiler_instrumentation().await?;
-
         let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
         let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
         with_starlark_eval_provider(
             self.ctx,
-            &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                starlark_profiler_instrumentation,
-            ),
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
             format!("load:{}", path),
             move |provider| {
                 self.configs

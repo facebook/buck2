@@ -22,7 +22,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
-use buck2_interpreter::dice::starlark_profiler::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
@@ -58,7 +57,6 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         ctx: &DiceComputations,
         package: PackageLabel,
     ) -> anyhow::Result<Arc<EvaluationResult>> {
-        let starlark_profiler_instrumentation = ctx.get_starlark_profiler_instrumentation().await?;
         let interpreter = ctx
             .get_interpreter_calculator(
                 package.cell_name(),
@@ -69,9 +67,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
             interpreter
                 .eval_build_file(
                     package.dupe(),
-                    &mut StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                        starlark_profiler_instrumentation,
-                    ),
+                    &mut StarlarkProfilerOrInstrumentation::disabled(),
                 )
                 .await?,
         ))

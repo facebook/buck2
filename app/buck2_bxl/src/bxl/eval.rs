@@ -149,9 +149,7 @@ pub(crate) async fn eval(
                         .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
                     let mut profiler = match &mut profiler_opt {
-                        None => StarlarkProfilerOrInstrumentation::maybe_instrumentation(
-                            profile_mode_or_instrumentation.instrumentation(),
-                        ),
+                        None => StarlarkProfilerOrInstrumentation::disabled(),
                         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
                     };
 

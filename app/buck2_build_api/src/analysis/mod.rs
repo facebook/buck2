@@ -328,9 +328,7 @@ async fn run_analysis_with_env_underlying(
         .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true));
 
     let mut profiler = match &mut profiler_opt {
-        None => {
-            StarlarkProfilerOrInstrumentation::maybe_instrumentation(profile_mode.instrumentation())
-        }
+        None => StarlarkProfilerOrInstrumentation::disabled(),
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
