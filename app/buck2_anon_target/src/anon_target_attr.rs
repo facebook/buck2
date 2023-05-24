@@ -13,7 +13,6 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_node::attrs::attr_type::any_matches::AnyMatches;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
@@ -110,22 +109,6 @@ impl ToJsonWithContext for AnonTargetAttr {
             AnonTargetAttr::None => Ok(serde_json::Value::Null),
             AnonTargetAttr::OneOf(box l, _) => l.to_json(ctx),
             AnonTargetAttr::Dep(e) => Ok(to_value(e.to_string())?),
-        }
-    }
-}
-
-impl AnyMatches for AnonTargetAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
-        match self {
-            AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => filter(v),
-            AnonTargetAttr::List(vals) => vals.any_matches(filter),
-            AnonTargetAttr::Tuple(vals) => vals.any_matches(filter),
-            AnonTargetAttr::Dict(d) => d.any_matches(filter),
-            AnonTargetAttr::None => Ok(false),
-            AnonTargetAttr::Bool(b) => b.any_matches(filter),
-            AnonTargetAttr::Int(i) => filter(&i.to_string()),
-            AnonTargetAttr::OneOf(l, _) => l.any_matches(filter),
-            AnonTargetAttr::Dep(e) => filter(&e.to_string()),
         }
     }
 }
