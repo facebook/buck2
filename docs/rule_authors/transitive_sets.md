@@ -174,7 +174,7 @@ A few different traversal orders are supported with the `ordering` attribute:
 
 For example:
 
-```starlark src=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs
+```starlark src=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs
 set1 = ctx.actions.tset(MySet, value = "foo")
 set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
 set3 = ctx.actions.tset(MySet, value = "qux", children = [set1, set2])
@@ -208,7 +208,7 @@ flowchart TD
 
 This is verified by the test:
 
-```starlark src=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs title=fbcode/buck2/buck2_build_api/src/interpreter/rule_defs/transitive_set/tests.rs
+```starlark src=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs title=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs
 # Test all orderings which show up in the table.
 assert_eq(list(set3.traverse()), ["qux", "foo", "bar"])
 assert_eq(list(set3.traverse(ordering = "preorder")), ["qux", "foo", "bar"])
