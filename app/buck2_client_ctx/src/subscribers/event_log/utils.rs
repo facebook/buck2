@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -125,7 +126,7 @@ pub(crate) enum Compression {
     Zstd,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Invocation {
     pub command_line_args: Vec<String>,
     /// This is `String` not `AbsPathBuf` because event log is cross-platform
@@ -138,5 +139,37 @@ pub struct Invocation {
 impl Invocation {
     pub fn display_command_line(&self) -> String {
         shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
+    }
+
+    pub(crate) fn parse_json_line(json: &str) -> anyhow::Result<Invocation> {
+        serde_json::from_str::<Invocation>(json)
+            .with_context(|| format!("Invalid header: {}", json.trim_end()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use buck2_wrapper_common::invocation_id::TraceId;
+
+    use crate::subscribers::event_log::utils::Invocation;
+
+    #[test]
+    fn test_parse_json_line() {
+        // Make sure serialization format is backwards compatible.
+        let line = r#"{"command_line_args":["/some/path/buck2","test","@//mode/mac","app/..."],"working_dir":"/Users/nga/dir45","trace_id":"281d1c16-8930-40cd-8fc1-7d71355c20f5"}"#;
+        let line = Invocation::parse_json_line(line).unwrap();
+        let expected = Invocation {
+            command_line_args: vec![
+                "/some/path/buck2".to_owned(),
+                "test".to_owned(),
+                "@//mode/mac".to_owned(),
+                "app/...".to_owned(),
+            ],
+            working_dir: "/Users/nga/dir45".to_owned(),
+            trace_id: TraceId::from_str("281d1c16-8930-40cd-8fc1-7d71355c20f5").unwrap(),
+        };
+        assert_eq!(expected, line);
     }
 }

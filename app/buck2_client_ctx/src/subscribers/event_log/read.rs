@@ -173,8 +173,7 @@ impl EventLogPathBuf {
             .await
             .context("Error reading header line")?
             .context("No header line")?;
-        let invocation = serde_json::from_str::<Invocation>(&header)
-            .with_context(|| format!("Invalid header: {}", header.trim_end()))?;
+        let invocation = Invocation::parse_json_line(&header)?;
 
         let events = LinesStream::new(log_lines).map(|line| {
             let line = line.context("Error reading next line")?;
