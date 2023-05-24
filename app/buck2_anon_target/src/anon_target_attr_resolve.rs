@@ -9,6 +9,7 @@
 
 use buck2_build_api::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use dupe::Dupe;
@@ -88,6 +89,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
             AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
+            AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
         }
     }
 }

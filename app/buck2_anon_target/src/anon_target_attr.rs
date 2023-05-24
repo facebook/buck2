@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -57,6 +58,8 @@ pub enum AnonTargetAttr {
         u32,
     ),
     Dep(Box<DepAttr<ConfiguredProvidersLabel>>),
+    // Accepts any bound artifacts. Maps to `attr.source()`.
+    Artifact(Artifact),
 }
 
 impl AttrSerializeWithContext for AnonTargetAttr {
@@ -87,6 +90,7 @@ impl AttrDisplayWithContext for AnonTargetAttr {
             AnonTargetAttr::None => write!(f, "None"),
             AnonTargetAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
             AnonTargetAttr::Dep(e) => write!(f, "\"{}\"", e),
+            AnonTargetAttr::Artifact(e) => write!(f, "\"{}\"", e),
         }
     }
 }
@@ -109,6 +113,7 @@ impl ToJsonWithContext for AnonTargetAttr {
             AnonTargetAttr::None => Ok(serde_json::Value::Null),
             AnonTargetAttr::OneOf(box l, _) => l.to_json(ctx),
             AnonTargetAttr::Dep(e) => Ok(to_value(e.to_string())?),
+            AnonTargetAttr::Artifact(e) => Ok(to_value(e.to_string())?),
         }
     }
 }
@@ -157,6 +162,7 @@ impl AnonTargetAttr {
             AnonTargetAttr::None => Ok(()),
             AnonTargetAttr::OneOf(l, _) => l.traverse(pkg, traversal),
             AnonTargetAttr::Dep(dep) => traversal.dep(&dep.label),
+            AnonTargetAttr::Artifact(_) => Ok(()),
         }
     }
 

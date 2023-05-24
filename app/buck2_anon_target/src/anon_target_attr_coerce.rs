@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::iter;
 
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -111,6 +112,13 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     })))
                 }
                 _ => Err(AnonTargetCoercionError::type_error("dependency", value).into()),
+            },
+            AttrTypeInner::Source(_) => match value.as_artifact() {
+                Some(artifact_like) => {
+                    let artifact = artifact_like.get_bound_artifact()?;
+                    Ok(AnonTargetAttr::Artifact(artifact))
+                }
+                None => Err(AnonTargetCoercionError::type_error("artifact", value).into()),
             },
             _ => {
                 return Err(AnonTargetCoercionError::AttrTypeNotSupported(
