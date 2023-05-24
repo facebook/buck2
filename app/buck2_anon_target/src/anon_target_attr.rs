@@ -120,8 +120,8 @@ impl ToJsonWithContext for AnonTargetAttr {
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum AnonTargetFromCoercedAttrError {
-    #[error("Attr value of type `{0}` not supported")]
-    AttrTypeNotSupported(String),
+    #[error("Anon targets do not support default values for `{0}`")]
+    DefaultAttrTypeNotSupported(String),
 }
 
 pub trait AnonTargetAttrTraversal {
@@ -244,9 +244,10 @@ impl AnonTargetAttr {
                 }))
             }
             _ => {
-                return Err(
-                    AnonTargetFromCoercedAttrError::AttrTypeNotSupported(ty.to_string()).into(),
-                );
+                return Err(AnonTargetFromCoercedAttrError::DefaultAttrTypeNotSupported(
+                    ty.to_string(),
+                )
+                .into());
             }
         })
     }
