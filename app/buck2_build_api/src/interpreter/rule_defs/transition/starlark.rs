@@ -15,9 +15,8 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
 use buck2_interpreter::types::transition::TransitionValue;
-use buck2_interpreter_for_build::attrs::attrs_global::get_attr_coercion_context;
-use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -173,13 +172,12 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] split: bool,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Transition<'v>> {
-        let context = get_attr_coercion_context(eval)?;
         let implementation = r#impl;
 
         let refs = refs
             .collect_entries()
             .into_iter()
-            .map(|(n, r)| Ok((n, TargetLabelTrace(context.coerce_target(&r)?))))
+            .map(|(n, r)| Ok((n, TargetLabelTrace((COERCE_TARGET_LABEL.get()?)(eval, &r)?))))
             .collect::<anyhow::Result<_>>()?;
 
         let path: ImportPath = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?

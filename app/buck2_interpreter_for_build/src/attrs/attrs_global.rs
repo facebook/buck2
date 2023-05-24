@@ -12,10 +12,12 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::provider_id_set::ProviderIdSet;
@@ -114,7 +116,7 @@ impl AttributeExt for Attribute {
 /// Grab a new coercion context object based on the main build file that is being evaluated.
 /// This is used because we do not have access to a specific shared instance via ctx.extra
 /// when evaluating .bzl files
-pub fn get_attr_coercion_context<'v>(
+pub(crate) fn get_attr_coercion_context<'v>(
     eval: &Evaluator<'v, '_>,
 ) -> anyhow::Result<BuildAttrCoercionContext> {
     let build_context = BuildContext::from_context(eval)?;
@@ -122,6 +124,10 @@ pub fn get_attr_coercion_context<'v>(
         build_context.cell_info().cell_resolver().dupe(),
         build_context.cell_info().name().name(),
     ))
+}
+
+pub(crate) fn init_coerce_target_label() {
+    COERCE_TARGET_LABEL.init(|eval, value| get_attr_coercion_context(eval)?.coerce_target(value))
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -22,6 +22,7 @@ pub mod super_package;
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
+        attrs::attrs_global::init_coerce_target_label();
         interpreter::calculation::init_interpreter_calculation_impl();
         interpreter::calculation::init_target_graph_calculation_impl();
         interpreter::build_context::init_starlark_path_from_build_context();
