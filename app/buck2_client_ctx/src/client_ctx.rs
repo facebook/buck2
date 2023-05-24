@@ -43,7 +43,6 @@ pub struct ClientCommandContext<'a> {
     /// and ready to accept connections.
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
     pub command_name: String,
-    pub sanitized_argv: Vec<String>,
     pub trace_id: TraceId,
     pub async_cleanup: AsyncCleanupContext,
     pub stdin: &'a mut Stdin,

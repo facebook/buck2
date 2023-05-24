@@ -362,7 +362,6 @@ impl CommandKind {
             start_in_process_daemon,
             command_name: self.command_name(),
             working_dir: process.working_dir.clone(),
-            sanitized_argv: Vec::new(),
             trace_id: process.trace_id.dupe(),
             async_cleanup: async_cleanup.ctx().dupe(),
             stdin: process.stdin,
