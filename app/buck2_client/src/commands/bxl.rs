@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::BxlRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -72,8 +74,11 @@ impl StreamingCommand for BxlCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context =
-            ctx.client_context(&self.common_ops.config_opts, matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            &self.common_ops.config_opts,
+            matches,
+            self.sanitize_argv(env::args().collect()),
+        )?;
         let result = buckd
             .with_flushing()
             .bxl(

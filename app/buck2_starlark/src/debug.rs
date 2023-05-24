@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io::Write;
 
 use async_trait::async_trait;
@@ -70,8 +71,11 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context =
-            ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let client_context = ctx.client_context(
+            &self.config_opts,
+            matches,
+            self.sanitize_argv(env::args().collect()),
+        )?;
 
         let stream = ide_message_stream::<_, debugserver_types::Request>(ctx.stdin()).filter_map(
             |m| async move {

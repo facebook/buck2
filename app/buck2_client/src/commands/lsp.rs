@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::LspRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -45,8 +47,11 @@ impl StreamingCommand for LspCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context =
-            ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let client_context = ctx.client_context(
+            &self.config_opts,
+            matches,
+            self.sanitize_argv(env::args().collect()),
+        )?;
         let stream = ide_message_stream::<_, Message>(ctx.stdin()).filter_map(|m| async move {
             match m {
                 Ok(lsp_json) => Some(LspRequest { lsp_json }),

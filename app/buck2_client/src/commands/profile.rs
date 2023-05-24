@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::env;
 use std::time::Duration;
 
 use anyhow::Context as _;
@@ -184,7 +185,7 @@ impl StreamingCommand for ProfileSubcommand {
         let context = ctx.client_context(
             &self.profile_common_opts.common_opts.config_opts,
             matches,
-            self.sanitized_argv(),
+            self.sanitize_argv(env::args().collect()),
         )?;
 
         let destination_path = self.profile_common_opts.output.resolve(&ctx.working_dir);

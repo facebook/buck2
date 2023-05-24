@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::trace_io_request;
@@ -85,7 +87,11 @@ impl StreamingCommand for TraceIoCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let context = ctx.client_context(self.common_opts(), matches, self.sanitized_argv())?;
+        let context = ctx.client_context(
+            self.common_opts(),
+            matches,
+            self.sanitize_argv(env::args().collect()),
+        )?;
         match &self.trace_io_action {
             Subcommand::Status => {
                 let req = TraceIoRequest {

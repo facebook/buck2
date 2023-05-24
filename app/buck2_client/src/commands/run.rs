@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -96,7 +97,7 @@ impl StreamingCommand for RunCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitized_argv(),
+            self.sanitize_argv(env::args().collect()),
         )?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
@@ -203,9 +204,9 @@ impl StreamingCommand for RunCommand {
         &self.common_opts.config_opts
     }
 
-    fn sanitized_argv(&self) -> Vec<String> {
+    fn sanitize_argv(&self, argv: Vec<String>) -> Vec<String> {
         let to_redact: std::collections::HashSet<_> = self.extra_run_args.iter().collect();
-        std::env::args()
+        argv.into_iter()
             .filter(move |arg| !to_redact.contains(arg))
             .collect()
     }

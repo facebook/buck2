@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
@@ -248,7 +250,7 @@ impl StreamingCommand for TargetsCommand {
         let context = Some(ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitized_argv(),
+            self.sanitize_argv(env::args().collect()),
         )?);
 
         let target_hash_modified_paths = self

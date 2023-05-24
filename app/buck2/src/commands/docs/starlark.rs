@@ -9,6 +9,8 @@
 
 mod markdown;
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::UnstableDocsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -88,8 +90,11 @@ impl StreamingCommand for DocsStarlarkCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context =
-            ctx.client_context(&self.config_opts, matches, self.sanitized_argv())?;
+        let client_context = ctx.client_context(
+            &self.config_opts,
+            matches,
+            self.sanitize_argv(env::args().collect()),
+        )?;
 
         let response = buckd
             .with_flushing()

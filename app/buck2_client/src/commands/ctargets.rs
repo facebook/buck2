@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
@@ -53,7 +55,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
         let context = Some(ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitized_argv(),
+            self.sanitize_argv(env::args().collect()),
         )?);
         let ConfiguredTargetsResponse {
             serialized_targets_output,

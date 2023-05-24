@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::env;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -65,7 +66,7 @@ fn default_subscribers<T: StreamingCommand>(
     let use_streaming_upload = streaming_uploads()?;
     if let Some(event_log) = try_get_event_log_subscriber(
         cmd.event_log_opts(),
-        cmd.sanitized_argv(),
+        cmd.sanitize_argv(env::args().collect()),
         ctx,
         log_size_counter_bytes.clone(),
         use_streaming_upload,
@@ -82,7 +83,7 @@ fn default_subscribers<T: StreamingCommand>(
         ctx,
         cmd.event_log_opts(),
         T::COMMAND_NAME,
-        cmd.sanitized_argv(),
+        cmd.sanitize_argv(env::args().collect()),
         log_size_counter_bytes,
         use_streaming_upload,
     )? {
@@ -141,8 +142,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
         vec![]
     }
 
-    fn sanitized_argv(&self) -> Vec<String> {
-        std::env::args().collect()
+    fn sanitize_argv(&self, argv: Vec<String>) -> Vec<String> {
+        argv
     }
 
     /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.

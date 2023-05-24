@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::env;
+
 use async_trait::async_trait;
 use buck2_cli_proto::FileStatusRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -48,7 +50,7 @@ impl StreamingCommand for FileStatusCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitized_argv(),
+            self.sanitize_argv(env::args().collect()),
         )?;
         buckd
             .with_flushing()
