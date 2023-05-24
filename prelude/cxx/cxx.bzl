@@ -409,8 +409,6 @@ def prebuilt_cxx_library_impl(ctx: "context") -> ["provider"]:
                         # Generate a shared library interface if the rule supports it.
                         if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
                             shared_lib_for_linking = cxx_mk_shlib_intf(ctx, ctx.attrs.name, shared_lib.output)
-                        if ctx.attrs.import_lib != None:
-                            shared_lib_for_linking = ctx.attrs.import_lib
                         linkable = SharedLibLinkable(lib = shared_lib_for_linking)
 
                     # Provided means something external to the build will provide
