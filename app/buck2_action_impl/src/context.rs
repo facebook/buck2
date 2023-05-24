@@ -31,7 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS;
+use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ACTIONS;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_common::cas_digest::CasDigest;
@@ -41,7 +41,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
@@ -57,7 +56,6 @@ use sha1::Sha1;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::dict::DictOf;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
@@ -213,7 +211,7 @@ const TYPE_CMD_ARG_LIKE: &str = "\"_arglike\"";
 /// Actions take inputs and produce outputs, mostly using the `artifact` type.
 /// Most output filenames can either be artifacts created with `declare_output` or strings that are implicitly converted to output artifacts.
 #[starlark_module]
-fn analysis_actions_methods(builder: &mut MethodsBuilder) {
+fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
     /// Returns an unbound `artifact` which must be bound before analysis terminates. The usual way of binding an artifact is
     /// with `ctx.actions.run`.
     ///
@@ -967,23 +965,6 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         Ok(ArtifactTag::new())
     }
 
-    /// An anonymous target is defined by the hash of its attributes, rather than its name.
-    /// During analysis, rules can define and access the providers of anonymous targets before producing their own providers.
-    /// Two distinct rules might ask for the same anonymous target, sharing the work it performs.
-    ///
-    /// For more details see https://buck2.build/docs/rule_authors/anon_targets/
-    fn anon_target<'v>(
-        this: &AnalysisActions<'v>,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
-        attrs: DictOf<'v, &'v str, Value<'v>>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
-        let mut this = this.state();
-        this.register_anon_target(res, rule, attrs)?;
-        Ok(res)
-    }
-
     /// Converts a promise to an artifact. If the promise later resolves to a non-artifact, it is an error.
     ///
     /// For more details see https://buck2.build/docs/rule_authors/anon_targets/.
@@ -998,23 +979,8 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
         let res = StarlarkPromiseArtifact::new(declaration_location, artifact);
         Ok(res)
     }
-
-    /// Generate a series of anonymous targets
-    fn anon_targets<'v>(
-        this: &AnalysisActions<'v>,
-        rules: Vec<(
-            ValueTyped<'v, FrozenRuleCallable>,
-            DictOf<'v, &'v str, Value<'v>>,
-        )>,
-        heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
-        let mut this = this.state();
-        this.register_anon_targets(res, rules)?;
-        Ok(res)
-    }
 }
 
-pub(crate) fn init_analysis_action_methods() {
-    ANALYSIS_ACTIONS_METHODS.init(analysis_actions_methods);
+pub(crate) fn init_analysis_action_methods_actions() {
+    ANALYSIS_ACTIONS_METHODS_ACTIONS.init(analysis_actions_methods_actions);
 }

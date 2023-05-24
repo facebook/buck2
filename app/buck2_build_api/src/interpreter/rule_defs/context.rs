@@ -105,7 +105,10 @@ impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(ANALYSIS_ACTIONS_METHODS.get().unwrap())
+        RES.methods(|builder| {
+            (ANALYSIS_ACTIONS_METHODS_ACTIONS.get().unwrap())(builder);
+            (ANALYSIS_ACTIONS_METHODS_ANON_TARGET.get().unwrap())(builder);
+        })
     }
 }
 
@@ -262,5 +265,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     }
 }
 
-pub static ANALYSIS_ACTIONS_METHODS: LateBinding<fn(&mut MethodsBuilder)> =
-    LateBinding::new("ANALYSIS_ACTIONS_METHODS");
+pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)> =
+    LateBinding::new("ANALYSIS_ACTIONS_METHODS_ACTIONS");
+pub static ANALYSIS_ACTIONS_METHODS_ANON_TARGET: LateBinding<fn(&mut MethodsBuilder)> =
+    LateBinding::new("ANALYSIS_ACTIONS_METHODS_ANON_TARGET");
