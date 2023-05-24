@@ -665,6 +665,7 @@ fn register_context(builder: &mut MethodsBuilder) {
             &this.output_stream.project_fs,
             &this.output_stream.artifact_fs,
             this.cell_resolver.get(this.cell_name)?,
+            this,
         ))
     }
 
