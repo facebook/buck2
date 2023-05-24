@@ -206,12 +206,19 @@ impl StreamingCommand for RunCommand {
     }
 
     fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        let Argv { argv } = argv;
+        let Argv {
+            argv,
+            expanded_argv,
+        } = argv;
         let to_redact: std::collections::HashSet<_> = self.extra_run_args.iter().collect();
         SanitizedArgv {
             argv: argv
                 .into_iter()
-                .filter(move |arg| !to_redact.contains(arg))
+                .filter(|arg| !to_redact.contains(arg))
+                .collect(),
+            expanded_argv: expanded_argv
+                .into_iter()
+                .filter(|arg| !to_redact.contains(arg))
                 .collect(),
         }
     }

@@ -10,16 +10,24 @@
 #[derive(Clone)]
 pub struct Argv {
     pub argv: Vec<String>,
+    pub expanded_argv: Vec<String>,
 }
 
 #[derive(Clone)]
 pub struct SanitizedArgv {
     pub argv: Vec<String>,
+    pub expanded_argv: Vec<String>,
 }
 
 impl Argv {
     pub fn no_need_to_sanitize(self) -> SanitizedArgv {
-        let Argv { argv } = self;
-        SanitizedArgv { argv }
+        let Argv {
+            argv,
+            expanded_argv,
+        } = self;
+        SanitizedArgv {
+            argv,
+            expanded_argv,
+        }
     }
 }

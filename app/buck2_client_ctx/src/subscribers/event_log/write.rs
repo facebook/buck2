@@ -563,6 +563,7 @@ mod tests {
                 },
                 sanitized_argv: SanitizedArgv {
                     argv: vec!["buck2".to_owned()],
+                    expanded_argv: vec!["buck2".to_owned()],
                 },
                 async_cleanup_context: None,
                 command_name: "testtest".to_owned(),

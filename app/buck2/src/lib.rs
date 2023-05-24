@@ -213,7 +213,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     }
 
     let clap = Opt::clap();
-    let matches = clap.get_matches_from(expanded_args);
+    let matches = clap.get_matches_from(&expanded_args);
     let opt: Opt = Opt::from_clap(&matches);
 
     if opt.common_opts.help_wrapper {
@@ -231,6 +231,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
     let argv = Argv {
         argv: process.args.to_vec(),
+        expanded_argv: expanded_args,
     };
 
     opt.exec(process, &immediate_config, &matches, argv)
