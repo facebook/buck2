@@ -46,10 +46,6 @@ impl StarlarkProfilerInstrumentation {
         Self { profile_mode }
     }
 
-    pub fn enable(&self, eval: &mut Evaluator) -> anyhow::Result<()> {
-        eval.enable_profile_instrumentation(&self.profile_mode)
-    }
-
     pub fn into_profile_mode(self) -> ProfileMode {
         self.profile_mode
     }
@@ -287,9 +283,7 @@ impl<'p> StarlarkProfilerOrInstrumentation<'p> {
         match &mut self.0 {
             StarlarkProfilerOrInstrumentationImpl::None => Ok(()),
             StarlarkProfilerOrInstrumentationImpl::Profiler(profiler) => profiler.initialize(eval),
-            StarlarkProfilerOrInstrumentationImpl::Instrumentation(instrumentation) => {
-                instrumentation.enable(eval)
-            }
+            StarlarkProfilerOrInstrumentationImpl::Instrumentation(..) => Ok(()),
         }
     }
 
