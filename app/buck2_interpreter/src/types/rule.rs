@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-pub mod cell_root;
-pub mod configuration;
-pub mod label;
-pub mod label_relative_path;
-pub mod rule;
-pub mod target_label;
+use buck2_util::late_binding::LateBinding;
+use starlark::values::FrozenValue;
+
+/// `rule()` value `impl` field.
+pub static FROZEN_RULE_GET_IMPL: LateBinding<fn(FrozenValue) -> anyhow::Result<FrozenValue>> =
+    LateBinding::new("FROZEN_RULE_GET_IMPL");

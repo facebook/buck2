@@ -25,7 +25,6 @@ use buck2_interpreter::starlark_profiler::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
-use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use dice::DiceComputations;
 use futures::Future;
@@ -33,7 +32,6 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use thiserror::Error;
 
@@ -58,6 +56,7 @@ pub mod registry;
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::label::Label;
+use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -418,16 +417,11 @@ pub fn get_user_defined_rule_impl(
             let rule_impl = {
                 // Need to free up the starlark_ctx borrow before we return
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
+                let rule_callable = rule_callable
+                    .unpack_frozen()
+                    .context("Must be frozen (internal error)")?;
 
-                let frozen_callable = rule_callable
-                    .downcast_ref::<FrozenRuleCallable>()
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "A rule implementation should be a FrozenRuleCallable. It was a {}",
-                            rule_callable.get_type(),
-                        )
-                    });
-                frozen_callable.implementation()
+                (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
             eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
         }

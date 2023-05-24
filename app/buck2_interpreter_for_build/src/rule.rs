@@ -13,8 +13,10 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -207,6 +209,15 @@ pub struct FrozenRuleCallable {
     ignore_attrs_for_profiling: bool,
 }
 starlark_simple_value!(FrozenRuleCallable);
+
+pub(crate) fn init_frozen_rule_get_impl() {
+    FROZEN_RULE_GET_IMPL.init(|rule| {
+        let rule = rule
+            .downcast_frozen_ref::<FrozenRuleCallable>()
+            .context("Expecting FrozenRuleCallable")?;
+        Ok(rule.implementation)
+    })
+}
 
 impl FrozenRuleCallable {
     pub fn implementation(&self) -> FrozenValue {
