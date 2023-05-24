@@ -22,7 +22,6 @@ use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::execute::request::OutputType;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::configuration::execution::ExecutionPlatformResolution;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -31,7 +30,6 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictOf;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
@@ -68,7 +66,7 @@ pub struct AnalysisRegistry<'v> {
     artifact_groups: ArtifactGroupRegistry,
     #[derivative(Debug = "ignore")]
     dynamic: DynamicRegistry,
-    anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
+    pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     artifact_promises: PromiseArtifactRegistry<'v>,
     analysis_value_storage: AnalysisValueStorage<'v>,
 }
@@ -258,26 +256,6 @@ impl<'v> AnalysisRegistry<'v> {
             .register(dynamic, inputs, outputs, &mut self.deferred)?;
         self.analysis_value_storage.set_value(id, attributes_lambda);
         Ok(())
-    }
-
-    pub fn register_anon_target(
-        &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
-        attributes: DictOf<'v, &'v str, Value<'v>>,
-    ) -> anyhow::Result<()> {
-        self.anon_targets.register_one(promise, rule, attributes)
-    }
-
-    pub fn register_anon_targets(
-        &mut self,
-        promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        rules: Vec<(
-            ValueTyped<'v, FrozenRuleCallable>,
-            DictOf<'v, &'v str, Value<'v>>,
-        )>,
-    ) -> anyhow::Result<()> {
-        self.anon_targets.register_many(promise, rules)
     }
 
     pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {

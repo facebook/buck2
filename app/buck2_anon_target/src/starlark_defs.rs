@@ -18,6 +18,8 @@ use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 
+use crate::anon_targets::AnonTargetsRegistry;
+
 #[starlark_module]
 fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     /// An anonymous target is defined by the hash of its attributes, rather than its name.
@@ -33,7 +35,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
-        this.register_anon_target(res, rule, attrs)?;
+        AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?
+            .register_one(res, rule, attrs)?;
         Ok(res)
     }
 
@@ -48,7 +51,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         let res = heap.alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state();
-        this.register_anon_targets(res, rules)?;
+        AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?.register_many(res, rules)?;
         Ok(res)
     }
 }

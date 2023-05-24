@@ -81,6 +81,8 @@ use futures::Future;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
+use starlark::any::AnyLifetime;
+use starlark::any::ProvidesStaticType;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictOf;
@@ -97,7 +99,7 @@ use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetAttrExt;
 use crate::anon_target_node::AnonTarget;
 
-#[derive(Debug, Trace, Allocative)]
+#[derive(Debug, Trace, Allocative, ProvidesStaticType)]
 pub struct AnonTargetsRegistry<'v> {
     // We inherit the execution platform of our parent
     execution_platform: ExecutionPlatformResolution,
@@ -512,8 +514,25 @@ pub(crate) fn init_anon_target_registry_new() {
     });
 }
 
-impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
-    fn register_one(
+impl<'v> AnonTargetsRegistry<'v> {
+    pub(crate) fn downcast_mut(
+        registry: &mut dyn AnonTargetsRegistryDyn<'v>,
+    ) -> anyhow::Result<&'v mut AnonTargetsRegistry<'v>> {
+        let registry: &mut AnonTargetsRegistry = registry
+            .as_any_mut()
+            .downcast_mut::<AnonTargetsRegistry>()
+            .context("AnonTargetsRegistryDyn is not an AnonTargetsRegistry (internal error)")?;
+        unsafe {
+            // It is hard or impossible to express this safely with the borrow checker.
+            // Has something to do with 'v being invariant.
+            Ok(mem::transmute::<
+                &mut AnonTargetsRegistry,
+                &mut AnonTargetsRegistry,
+            >(registry))
+        }
+    }
+
+    pub(crate) fn register_one(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rule: ValueTyped<'v, FrozenRuleCallable>,
@@ -526,7 +545,7 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
         Ok(())
     }
 
-    fn register_many(
+    pub(crate) fn register_many(
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         rules: Vec<(
@@ -539,6 +558,12 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
         })?;
         self.promises.push_list(promise, keys);
         Ok(())
+    }
+}
+
+impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
+    fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v> {
+        self
     }
 
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
