@@ -23,7 +23,7 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_interpreter_for_build::interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;

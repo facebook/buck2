@@ -39,6 +39,7 @@ use buck2_interpreter::path::OwnedStarlarkPath;
 use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
+use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -52,7 +53,6 @@ use starlark::values::ValueLike;
 use starlark_map::small_map::SmallMap;
 use thiserror::Error;
 
-use super::print_handler::EventDispatcherPrintHandler;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
