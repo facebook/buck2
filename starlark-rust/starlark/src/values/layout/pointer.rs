@@ -30,6 +30,7 @@ use std::marker::PhantomData;
 use std::mem;
 use std::num::NonZeroUsize;
 
+use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
 use static_assertions::assert_eq_size;
@@ -40,7 +41,7 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
 
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
-#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
 pub(crate) struct RawPointer(pub(crate) NonZeroUsize);
 
 impl Debug for RawPointer {

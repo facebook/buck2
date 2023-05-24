@@ -44,6 +44,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use derive_more::Display;
 use dupe::Dupe;
@@ -68,6 +69,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
+use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
 use thiserror::Error;
 
@@ -217,6 +219,14 @@ pub(crate) struct RunAction {
 }
 
 impl RunAction {
+    fn unpack_worker_id(val: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>) -> WorkerId {
+        let worker = val.map_untyped(|f| f.worker);
+        // safe since the pointer is never dereferenced, it's only used as an id for running workers
+        let frozen_worker = unsafe { worker.unchecked_frozen_value() };
+        let identity: ValueIdentity<'static> = frozen_worker.to_value().identity();
+        WorkerId(identity)
+    }
+
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> Option<UnpackedRunActionValues> {
@@ -269,6 +279,7 @@ impl RunAction {
             worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
             worker_exe.visit_artifacts(artifact_visitor)?;
             Some(WorkerSpec {
+                id: Self::unpack_worker_id(&self.starlark_values),
                 exe: worker_rendered,
             })
         } else {

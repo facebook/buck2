@@ -255,6 +255,19 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
         }
     }
 
+    /// Operate on the [`FrozenValue`] stored inside.
+    /// Safe provided you don't store the argument [`FrozenValue`] after the closure has returned.
+    /// Using this function is discouraged when possible.
+    pub fn map_untyped(
+        &self,
+        f: impl FnOnce(FrozenValueTyped<T>) -> FrozenValue,
+    ) -> OwnedFrozenValue {
+        OwnedFrozenValue {
+            owner: self.owner.dupe(),
+            value: f(self.value),
+        }
+    }
+
     /// Same as [`map`](OwnedFrozenValue::map) above but with [`Result`]
     pub fn try_map<U: StarlarkValue<'static>, E>(
         &self,

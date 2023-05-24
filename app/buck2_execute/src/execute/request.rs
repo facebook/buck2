@@ -32,6 +32,7 @@ use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
+use starlark::values::ValueIdentity;
 use thiserror::Error;
 
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -229,7 +230,11 @@ impl CommandExecutionPaths {
     }
 }
 
+#[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
+pub struct WorkerId(pub ValueIdentity<'static>);
+
 pub struct WorkerSpec {
+    pub id: WorkerId,
     pub exe: Vec<String>,
 }
 

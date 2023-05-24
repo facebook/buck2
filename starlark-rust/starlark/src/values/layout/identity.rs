@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::marker::PhantomData;
 
+use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::values::layout::pointer::RawPointer;
@@ -24,7 +26,7 @@ use crate::values::Value;
 
 /// An opaque value representing the identity of a given Value. Two values have the same identity
 /// if and only if [`Value::ptr_eq`] would return [`true`] on them.
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Hash, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Dupe, Hash, Debug, Allocative)]
 pub struct ValueIdentity<'v> {
     identity: RawPointer,
     phantom: PhantomData<&'v ()>,
@@ -37,5 +39,11 @@ impl<'v> ValueIdentity<'v> {
             identity: value.ptr_value(),
             phantom: PhantomData,
         }
+    }
+}
+
+impl<'v> fmt::Display for ValueIdentity<'v> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.identity.0)
     }
 }
