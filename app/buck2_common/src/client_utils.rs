@@ -97,11 +97,11 @@ pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> anyhow::Result
         .with_context(|| format!("failed to connect to port {}", port))
 }
 
-pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: Fn() -> Fut>(
+pub async fn retrying<L, Fut: Future<Output = anyhow::Result<L>>, F: FnMut() -> Fut>(
     initial_delay: Duration,
     max_delay: Duration,
     timeout: Duration,
-    func: F,
+    mut func: F,
 ) -> anyhow::Result<L> {
     let deadline = Instant::now() + timeout;
     let mut wait = initial_delay;

@@ -79,6 +79,7 @@ use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::manager::ReConnectionObserver;
+use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
@@ -589,6 +590,8 @@ impl DiceDataProvider for DiceCommandDataProvider {
             ..Default::default()
         };
 
+        let worker_pool = Arc::new(WorkerPool::new());
+
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         data.set_re_client(self.re_connection.get_client());
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
@@ -607,6 +610,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
                 .get_io_provider()
                 .project_root()
                 .to_owned(),
+            worker_pool,
         )));
         data.set_blocking_executor(self.blocking_executor.dupe());
         data.set_http_client(self.http_client.dupe());

@@ -77,6 +77,8 @@ use more_futures::cancellation::CancellationContext;
 use thiserror::Error;
 use tracing::info;
 
+use crate::executors::worker::WorkerPool;
+
 #[derive(Debug, Error)]
 enum LocalExecutionError {
     #[error("Args list was empty")]
@@ -97,6 +99,8 @@ pub struct LocalExecutor {
     forkserver: Option<ForkserverClient>,
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
+    #[allow(unused)]
+    worker_pool: Option<Arc<WorkerPool>>,
 }
 
 impl LocalExecutor {
@@ -108,6 +112,7 @@ impl LocalExecutor {
         root: AbsNormPathBuf,
         forkserver: Option<ForkserverClient>,
         knobs: ExecutorGlobalKnobs,
+        worker_pool: Option<Arc<WorkerPool>>,
     ) -> Self {
         Self {
             artifact_fs,
@@ -117,6 +122,7 @@ impl LocalExecutor {
             root,
             forkserver,
             knobs,
+            worker_pool,
         }
     }
 
@@ -378,9 +384,23 @@ impl LocalExecutor {
                 let execution_start = Instant::now();
                 let start_time = SystemTime::now();
 
+                let worker = request.worker();
+                #[cfg(unix)]
+                let worker_pool = self.worker_pool.dupe();
+                #[cfg(not(unix))]
+                let worker_pool: Option<Arc<WorkerPool>> = None;
+
                 let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                let r = self
-                    .exec(
+                #[allow(unused)]
+                let r = if let (Some(worker), Some(worker_pool)) = (worker, worker_pool) {
+                    #[cfg(not(unix))]
+                    unreachable!("Workers should be disabled off unix");
+                    // TODO(ctolliday) spawn workers the same way test resources are acquired
+                    #[cfg(unix)]
+                    unix::exec_via_worker(worker_pool, worker, request.args(), env, &self.root)
+                        .await
+                } else {
+                    self.exec(
                         &args[0],
                         &args[1..],
                         env,
@@ -390,7 +410,8 @@ impl LocalExecutor {
                         liveliness_observer,
                         request.disable_miniperf(),
                     )
-                    .await;
+                    .await
+                };
 
                 let execution_time = execution_start.elapsed();
 
@@ -872,9 +893,11 @@ impl EnvironmentBuilder for Command {
 
 #[cfg(unix)]
 mod unix {
+    use std::ffi::OsString;
     use std::os::unix::ffi::OsStrExt;
 
     use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
+    use buck2_execute::execute::request::WorkerSpec;
 
     use super::*;
 
@@ -951,6 +974,23 @@ mod unix {
                 key: key.as_ref().as_bytes().to_vec(),
             })
         }
+    }
+
+    pub async fn exec_via_worker(
+        worker_pool: Arc<WorkerPool>,
+        worker: &WorkerSpec,
+        args: &[String],
+        env: impl IntoIterator<Item = (impl AsRef<OsStr> + Clone, impl AsRef<OsStr> + Clone)>,
+        root: &AbsNormPathBuf,
+    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+        let env: Vec<(OsString, OsString)> = env
+            .into_iter()
+            .map(|(k, v)| (k.as_ref().to_owned(), v.as_ref().to_owned()))
+            .collect();
+        let worker = worker_pool
+            .get_or_create_worker(worker, env.clone(), root)
+            .await?;
+        Ok(worker.exec_cmd(args, env).await)
     }
 }
 
@@ -1087,6 +1127,7 @@ mod tests {
             temp.path().root().to_buf(),
             None,
             ExecutorGlobalKnobs::default(),
+            None,
         );
 
         Ok((executor, temp.path().root().to_buf(), temp))

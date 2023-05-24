@@ -40,6 +40,7 @@ use buck2_execute_impl::executors::caching::CachingExecutor;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
+use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
 use dupe::Dupe;
@@ -76,6 +77,7 @@ pub struct CommandExecutorFactory {
     pub skip_cache_read: bool,
     pub skip_cache_write: bool,
     project_root: ProjectRoot,
+    worker_pool: Arc<WorkerPool>,
 }
 
 impl CommandExecutorFactory {
@@ -92,6 +94,7 @@ impl CommandExecutorFactory {
         skip_cache_read: bool,
         skip_cache_write: bool,
         project_root: ProjectRoot,
+        worker_pool: Arc<WorkerPool>,
     ) -> Self {
         Self {
             re_connection,
@@ -106,6 +109,7 @@ impl CommandExecutorFactory {
             skip_cache_read,
             skip_cache_write,
             project_root,
+            worker_pool,
         }
     }
 }
@@ -116,7 +120,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
     ) -> anyhow::Result<CommandExecutorResponse> {
-        let local_executor_new = |_options| {
+        let local_executor_new = |options: &LocalExecutorOptions| {
+            let worker_pool = if options.use_persistent_workers {
+                Some(self.worker_pool.dupe())
+            } else {
+                None
+            };
             LocalExecutor::new(
                 artifact_fs.clone(),
                 self.materializer.dupe(),
@@ -125,6 +134,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.project_root.root().to_owned(),
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
+                worker_pool,
             )
         };
 

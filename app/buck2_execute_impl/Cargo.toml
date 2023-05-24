@@ -22,6 +22,7 @@ rusqlite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tonic = { workspace = true }
 tracing = { workspace = true }
 zstd = { workspace = true }
 hostname = { workspace = true }
@@ -42,6 +43,7 @@ buck2_execute = { workspace = true }
 buck2_forkserver = { workspace = true }
 buck2_forkserver_proto = { workspace = true }
 buck2_util = { workspace = true }
+buck2_worker_proto = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
