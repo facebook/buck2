@@ -115,10 +115,7 @@ pub(crate) struct NamedEventLogWriter {
 
 pub(crate) enum LogWriterState {
     Unopened(AbsNormPathBuf, Option<AbsPathBuf>),
-    Opened {
-        needs_upload: bool,
-        writers: Vec<NamedEventLogWriter>,
-    },
+    Opened { writers: Vec<NamedEventLogWriter> },
     Closed,
 }
 
@@ -174,10 +171,7 @@ impl WriteEventLog {
         I: IntoIterator<Item = &'a T> + Clone + 'a,
     {
         match &mut self.state {
-            LogWriterState::Opened {
-                needs_upload: _,
-                writers,
-            } => {
+            LogWriterState::Opened { writers } => {
                 for writer in writers {
                     self.buf.clear();
 
@@ -255,25 +249,23 @@ impl WriteEventLog {
             path: logdir.as_abs_path().join(file_name),
             encoding,
         };
-        let (needs_upload, writer) = match self.use_streaming_upload {
-            true => (
-                false, // Upload is handled in subprocess
+        let writer = match self.use_streaming_upload {
+            true => {
                 start_persist_subprocess(
                     path,
                     event.trace_id()?.clone(),
                     self.log_size_counter_bytes.clone(),
                 )
-                .await?,
-            ),
-            false => (
-                true,
+                .await?
+            }
+            false => {
                 open_event_log_for_writing(
                     path,
                     event.trace_id()?,
                     self.log_size_counter_bytes.clone(),
                 )
-                .await?,
-            ),
+                .await?
+            }
         };
         let mut writers = vec![writer];
 
@@ -294,10 +286,7 @@ impl WriteEventLog {
             );
         }
 
-        self.state = LogWriterState::Opened {
-            needs_upload,
-            writers,
-        };
+        self.state = LogWriterState::Opened { writers };
         self.log_invocation(event.trace_id()?).await
     }
 
@@ -306,13 +295,11 @@ impl WriteEventLog {
     ) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
         // Shut down writers, flush all our files before exiting.
         let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
+        let use_streaming_upload = self.use_streaming_upload;
 
         async move {
-            let (needs_upload, mut writers) = match state {
-                LogWriterState::Opened {
-                    needs_upload,
-                    writers,
-                } => (needs_upload, writers),
+            let mut writers = match state {
+                LogWriterState::Opened { writers } => writers,
                 LogWriterState::Unopened(..) | LogWriterState::Closed => {
                     // Nothing to do in this case, though this should be unreachable
                     // since we just did a write_ln.
@@ -322,8 +309,8 @@ impl WriteEventLog {
             for writer in writers.iter_mut() {
                 writer.file.shutdown().await?;
             }
-            if !needs_upload {
-                // The subprocess will handle the uploading
+            if use_streaming_upload {
+                // The subprocess handles the uploading
                 return Ok(());
             }
             let log_file_to_upload = match writers.first() {
@@ -488,10 +475,7 @@ impl WriteEventLog {
 
     pub(crate) async fn flush_files(&mut self) -> anyhow::Result<()> {
         let writers = match &mut self.state {
-            LogWriterState::Opened {
-                needs_upload: _,
-                writers,
-            } => writers,
+            LogWriterState::Opened { writers } => writers,
             LogWriterState::Unopened(..) | LogWriterState::Closed => return Ok(()),
         };
 
@@ -575,7 +559,6 @@ mod tests {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
                 state: LogWriterState::Opened {
-                    needs_upload: false,
                     writers: vec![open_event_log_for_writing(log, TraceId::new(), None).await?],
                 },
                 sanitized_argv: SanitizedArgv {
