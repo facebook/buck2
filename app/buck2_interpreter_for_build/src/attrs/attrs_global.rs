@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::AttrType;
@@ -43,7 +44,6 @@ use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_context::BuildContext;
 use crate::provider::callable::ValueAsProviderCallableLike;
-use crate::transition::transition_id_from_value;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 

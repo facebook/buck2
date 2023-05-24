@@ -18,7 +18,6 @@ pub mod nodes;
 pub mod provider;
 pub mod rule;
 pub mod super_package;
-pub mod transition;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();

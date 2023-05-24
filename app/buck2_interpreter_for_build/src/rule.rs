@@ -17,6 +17,7 @@ use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
+use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -57,7 +58,6 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 use crate::nodes::unconfigured::TargetNodeExt;
-use crate::transition::transition_id_from_value;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
