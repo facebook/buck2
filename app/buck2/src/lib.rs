@@ -42,11 +42,14 @@ use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::streaming::BuckSubcommand;
+use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
@@ -180,6 +183,7 @@ impl Opt {
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
         matches: &clap::ArgMatches,
+        argv: Argv,
     ) -> ExitResult {
         let subcommand_matches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
@@ -190,6 +194,7 @@ impl Opt {
             process,
             immediate_config,
             subcommand_matches,
+            argv,
             self.common_opts,
         )
     }
@@ -224,7 +229,11 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         }
     }
 
-    opt.exec(process, &immediate_config, &matches)
+    let argv = Argv {
+        argv: process.args.to_vec(),
+    };
+
+    opt.exec(process, &immediate_config, &matches, argv)
 }
 
 #[derive(Debug, clap::Subcommand, VariantName)]
@@ -281,6 +290,7 @@ impl CommandKind {
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
         matches: &clap::ArgMatches,
+        argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
         let roots = find_invocation_roots(process.working_dir.path());
@@ -354,6 +364,8 @@ impl CommandKind {
                 None
             };
 
+        let sanitized_argv = self.sanitize_argv(argv);
+
         let command_ctx = ClientCommandContext {
             init: process.init,
             immediate_config,
@@ -367,6 +379,7 @@ impl CommandKind {
             stdin: process.stdin,
             restarter: process.restarter,
             restarted_trace_id: process.restarted_trace_id.dupe(),
+            sanitized_argv,
         };
 
         match self {
@@ -407,6 +420,41 @@ impl CommandKind {
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Subscribe(cmd) => cmd.exec(matches, command_ctx),
+        }
+    }
+
+    fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        match self {
+            CommandKind::Daemon(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Forkserver(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::InternalTestRunner(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Aquery(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Build(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Bxl(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Test(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Cquery(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Kill(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Killall(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Clean(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Root(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Query(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Server(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Status(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Targets(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Ctargets(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Audit(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Starlark(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Run(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Uquery(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Debug(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Docs(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Profile(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Rage(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Init(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Install(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Log(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Lsp(cmd) => cmd.sanitize_argv(argv),
+            CommandKind::Subscribe(cmd) => cmd.sanitize_argv(argv),
         }
     }
 }

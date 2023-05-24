@@ -12,6 +12,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::Context;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
@@ -116,6 +118,10 @@ impl CleanCommand {
             clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
         })?;
         ExitResult::success()
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }
 

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -36,5 +38,9 @@ impl KillallCommand {
         } else {
             ExitResult::failure()
         }
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

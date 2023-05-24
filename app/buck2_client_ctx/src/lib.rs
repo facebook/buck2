@@ -11,6 +11,7 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 
+pub mod argv;
 pub mod build_count;
 pub mod cleanup_ctx;
 pub mod client_cpu_tracker;

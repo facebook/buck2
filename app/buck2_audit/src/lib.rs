@@ -11,8 +11,6 @@
 #![feature(try_blocks)]
 #![feature(provide_any)]
 
-use std::env;
-
 use async_trait::async_trait;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -129,11 +127,8 @@ impl StreamingCommand for AuditCommand {
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         };
 
-        let context = ctx.client_context(
-            config_opts,
-            submatches,
-            self.sanitize_argv(env::args().collect()),
-        )?;
+        let context =
+            ctx.client_context(config_opts, submatches, ctx.sanitized_argv.argv.clone())?;
 
         buckd
             .with_flushing()

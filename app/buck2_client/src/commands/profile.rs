@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::env;
 use std::time::Duration;
 
 use anyhow::Context as _;
@@ -19,6 +18,8 @@ use buck2_cli_proto::BxlProfile;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -83,6 +84,10 @@ impl ProfileCommand {
             },
         }
         .exec(submatches, ctx)
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }
 
@@ -185,7 +190,7 @@ impl StreamingCommand for ProfileSubcommand {
         let context = ctx.client_context(
             &self.profile_common_opts.common_opts.config_opts,
             matches,
-            self.sanitize_argv(env::args().collect()),
+            ctx.sanitized_argv.argv.clone(),
         )?;
 
         let destination_path = self.profile_common_opts.output.resolve(&ctx.working_dir);

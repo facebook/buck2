@@ -8,6 +8,8 @@
  */
 
 use allocator_stats::AllocatorStatsCommand;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -131,5 +133,9 @@ impl DebugCommand {
             DebugCommand::TraceIo(cmd) => cmd.exec(matches, ctx),
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
         }
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

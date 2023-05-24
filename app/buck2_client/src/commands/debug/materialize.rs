@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::env;
-
 use async_trait::async_trait;
 use buck2_cli_proto::MaterializeRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -48,7 +46,7 @@ impl StreamingCommand for MaterializeCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitize_argv(env::args().collect()),
+            ctx.sanitized_argv.argv.clone(),
         )?;
         buckd
             .with_flushing()

@@ -10,11 +10,11 @@
 #![feature(async_closure)]
 #![feature(try_blocks)]
 
-use std::env;
-
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::GenericRequest;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonConsoleOptions;
@@ -107,11 +107,7 @@ impl StreamingCommand for StarlarkOpaqueCommand {
         let serialized = serde_json::to_string(&self)?;
 
         let config_opts = &self.as_subcommand().common_opts().config_opts;
-        let context = ctx.client_context(
-            config_opts,
-            matches,
-            self.sanitize_argv(env::args().collect()),
-        )?;
+        let context = ctx.client_context(config_opts, matches, ctx.sanitized_argv.argv.clone())?;
 
         buckd
             .with_flushing()
@@ -147,5 +143,9 @@ impl StarlarkCommand {
             StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),
             StarlarkCommand::DebugAttach(cmd) => cmd.exec(matches, ctx),
         }
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

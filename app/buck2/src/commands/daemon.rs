@@ -26,6 +26,8 @@ use buck2_bxl::profile_command::bxl_profile_command;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::DaemonProcessInfo;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::buckd_connection::ConnectionType;
@@ -109,6 +111,10 @@ impl DaemonCommand {
             skip_macos_qos: true,
             daemon_startup_config,
         }
+    }
+
+    pub(crate) fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }
 

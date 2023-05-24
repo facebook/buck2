@@ -9,6 +9,8 @@
 
 use std::str::FromStr;
 
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::invocation_roots::find_invocation_roots;
@@ -80,5 +82,9 @@ impl RootCommand {
 
         buck2_client_ctx::println!("{}", root.to_string_lossy())?;
         Ok(())
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

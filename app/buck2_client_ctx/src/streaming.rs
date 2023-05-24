@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::env;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -18,6 +17,8 @@ use futures::future;
 use futures::future::Either;
 use rand::Rng;
 
+use crate::argv::Argv;
+use crate::argv::SanitizedArgv;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonConsoleOptions;
@@ -66,7 +67,7 @@ fn default_subscribers<T: StreamingCommand>(
     let use_streaming_upload = streaming_uploads()?;
     if let Some(event_log) = try_get_event_log_subscriber(
         cmd.event_log_opts(),
-        cmd.sanitize_argv(env::args().collect()),
+        ctx.sanitized_argv.clone(),
         ctx,
         log_size_counter_bytes.clone(),
         use_streaming_upload,
@@ -83,7 +84,7 @@ fn default_subscribers<T: StreamingCommand>(
         ctx,
         cmd.event_log_opts(),
         T::COMMAND_NAME,
-        cmd.sanitize_argv(env::args().collect()),
+        ctx.sanitized_argv.argv.clone(),
         log_size_counter_bytes,
         use_streaming_upload,
     )? {
@@ -142,8 +143,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
         vec![]
     }
 
-    fn sanitize_argv(&self, argv: Vec<String>) -> Vec<String> {
-        argv
+    fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 
     /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.

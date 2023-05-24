@@ -16,6 +16,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_events::BuckEvent;
 
+use crate::argv::SanitizedArgv;
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::event_log::write::WriteEventLog;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -32,7 +33,7 @@ impl EventLog {
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
-        sanitized_argv: Vec<String>,
+        sanitized_argv: SanitizedArgv,
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,

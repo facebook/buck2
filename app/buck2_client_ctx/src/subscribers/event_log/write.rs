@@ -66,6 +66,8 @@ mod counting_reader {
 
 use counting_reader::CountingReader;
 
+use crate::argv::SanitizedArgv;
+
 impl<T> CountingReader<T> {
     fn new(inner: T, stats: Option<Arc<AtomicU64>>) -> Self {
         Self { inner, stats }
@@ -123,7 +125,7 @@ pub(crate) enum LogWriterState {
 pub(crate) struct WriteEventLog {
     state: LogWriterState,
     async_cleanup_context: Option<AsyncCleanupContext>,
-    sanitized_argv: Vec<String>,
+    sanitized_argv: SanitizedArgv,
     command_name: String,
     working_dir: WorkingDir,
     /// Allocation cache. Must be cleaned before use.
@@ -137,7 +139,7 @@ impl WriteEventLog {
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
-        sanitized_argv: Vec<String>,
+        sanitized_argv: SanitizedArgv,
         async_cleanup_context: AsyncCleanupContext,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
@@ -157,7 +159,7 @@ impl WriteEventLog {
 
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self, trace_id: TraceId) -> anyhow::Result<()> {
-        let command_line_args = self.sanitized_argv.clone();
+        let command_line_args = self.sanitized_argv.argv.clone();
         let invocation = Invocation {
             command_line_args,
             working_dir: self.working_dir.to_string(),
@@ -576,7 +578,9 @@ mod tests {
                     needs_upload: false,
                     writers: vec![open_event_log_for_writing(log, TraceId::new(), None).await?],
                 },
-                sanitized_argv: vec!["buck2".to_owned()],
+                sanitized_argv: SanitizedArgv {
+                    argv: vec!["buck2".to_owned()],
+                },
                 async_cleanup_context: None,
                 command_name: "testtest".to_owned(),
                 working_dir: WorkingDir::current_dir()?,

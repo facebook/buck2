@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -18,6 +17,8 @@ use buck2_cli_proto::build_request::build_providers;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BuildRequest;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -97,7 +98,7 @@ impl StreamingCommand for RunCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitize_argv(env::args().collect()),
+            ctx.sanitized_argv.argv.clone(),
         )?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
@@ -204,11 +205,15 @@ impl StreamingCommand for RunCommand {
         &self.common_opts.config_opts
     }
 
-    fn sanitize_argv(&self, argv: Vec<String>) -> Vec<String> {
+    fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        let Argv { argv } = argv;
         let to_redact: std::collections::HashSet<_> = self.extra_run_args.iter().collect();
-        argv.into_iter()
-            .filter(move |arg| !to_redact.contains(arg))
-            .collect()
+        SanitizedArgv {
+            argv: argv
+                .into_iter()
+                .filter(move |arg| !to_redact.contains(arg))
+                .collect(),
+        }
     }
 }
 

@@ -16,6 +16,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
+use crate::argv::SanitizedArgv;
 use crate::client_ctx::ClientCommandContext;
 use crate::common::CommonDaemonCommandOptions;
 use crate::common::ConsoleType;
@@ -106,7 +107,7 @@ pub fn get_console_with_root(
 /// Given the command arguments, conditionally create an event log.
 pub(crate) fn try_get_event_log_subscriber(
     event_log_opts: &CommonDaemonCommandOptions,
-    sanitized_argv: Vec<String>,
+    sanitized_argv: SanitizedArgv,
     ctx: &ClientCommandContext,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     use_streaming_upload: bool,

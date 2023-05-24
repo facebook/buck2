@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::env;
-
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CounterWithExamples;
@@ -173,7 +171,7 @@ impl StreamingCommand for TestCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitize_argv(env::args().collect()),
+            ctx.sanitized_argv.argv.clone(),
         )?;
         let response = buckd
             .with_flushing()

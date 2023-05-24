@@ -20,6 +20,8 @@ pub(crate) mod what_ran;
 mod what_up;
 mod what_uploaded;
 
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use dupe::Dupe;
@@ -71,5 +73,9 @@ impl LogCommand {
             Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
             Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
         }
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

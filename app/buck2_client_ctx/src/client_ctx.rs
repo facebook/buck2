@@ -21,6 +21,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
+use crate::argv::SanitizedArgv;
 use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::HostArchOverride;
@@ -43,6 +44,7 @@ pub struct ClientCommandContext<'a> {
     /// and ready to accept connections.
     pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
     pub command_name: String,
+    pub sanitized_argv: SanitizedArgv,
     pub trace_id: TraceId,
     pub async_cleanup: AsyncCleanupContext,
     pub stdin: &'a mut Stdin,

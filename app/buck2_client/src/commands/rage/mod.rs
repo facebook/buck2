@@ -21,6 +21,8 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use anyhow::Context;
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
@@ -385,6 +387,10 @@ impl RageCommand {
             },
         )
         .await
+    }
+
+    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }
 

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::argv::Argv;
+use buck2_client_ctx::argv::SanitizedArgv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use clap::Parser;
 use tokio::runtime::Runtime;
@@ -49,5 +51,9 @@ impl InternalTestRunnerCommand {
                 "Cannot use internal test runner. Config value must be provided for test.v2_test_executor."
             )
         }
+    }
+
+    pub(crate) fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
+        argv.no_need_to_sanitize()
     }
 }

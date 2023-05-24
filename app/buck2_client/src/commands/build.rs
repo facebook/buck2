@@ -9,7 +9,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::env;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -228,7 +227,7 @@ impl StreamingCommand for BuildCommand {
         let context = ctx.client_context(
             &self.common_opts.config_opts,
             matches,
-            self.sanitize_argv(env::args().collect()),
+            ctx.sanitized_argv.argv.clone(),
         )?;
 
         let result = buckd

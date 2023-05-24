@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::env;
-
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
@@ -72,11 +70,8 @@ impl StreamingCommand for SubscribeCommand {
         matches: &clap::ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
-        let client_context = ctx.client_context(
-            &self.config_opts,
-            matches,
-            self.sanitize_argv(env::args().collect()),
-        )?;
+        let client_context =
+            ctx.client_context(&self.config_opts, matches, ctx.sanitized_argv.argv.clone())?;
 
         let stream = FramedRead::new(ctx.stdin(), ProtobufSplitter)
             .and_then(|bytes| {
