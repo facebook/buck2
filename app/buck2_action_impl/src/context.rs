@@ -791,11 +791,13 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
     /// Downloads a URL to an output (filename as string or output artifact).
     /// The file at the URL must have the given sha1 or the command will fail.
     /// The optional parameter is_executable indicates whether the resulting file should be marked with executable permissions.
+    /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource can be downloaded off VPN; this has the same restrictions as `url` above.
     #[starlark(return_type = TYPE_ARTIFACT)]
     fn download_file<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos, type = TYPE_INPUT_ARTIFACT)] output: Value<'v>,
         #[starlark(require = pos)] url: &str,
+        #[starlark(require = named, default = NoneOr::None)] vpnless_url: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = false)] is_executable: bool,
@@ -822,6 +824,7 @@ fn analysis_actions_methods(builder: &mut MethodsBuilder) {
             UnregisteredDownloadFileAction::new(
                 checksum,
                 Arc::from(url),
+                vpnless_url.into_option().map(Arc::from),
                 is_executable,
                 is_deferrable,
             ),

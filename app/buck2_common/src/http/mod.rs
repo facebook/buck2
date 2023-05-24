@@ -314,6 +314,14 @@ pub trait HttpClient: Allocative + Send + Sync {
 
     /// Send a generic request.
     async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError>;
+
+    /// Whether this client supports vpnless operation. When set, will make requests
+    /// to the `vpnless_url` attribute in the `download_file` action rather than the
+    /// normal `url` attribute.
+    fn supports_vpnless(&self) -> bool {
+        // Most clients do not support vpnless.
+        false
+    }
 }
 
 /// Trait wrapper around a hyper::Client because hyper::Client is parameterized by

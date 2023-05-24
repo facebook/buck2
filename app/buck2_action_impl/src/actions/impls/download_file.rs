@@ -60,6 +60,7 @@ enum DownloadFileActionError {
 pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
     url: Arc<str>,
+    vpnless_url: Option<Arc<str>>,
     is_executable: bool,
     is_deferrable: bool,
 }
@@ -68,12 +69,14 @@ impl UnregisteredDownloadFileAction {
     pub(crate) fn new(
         checksum: Checksum,
         url: Arc<str>,
+        vpnless_url: Option<Arc<str>>,
         is_executable: bool,
         is_deferrable: bool,
     ) -> Self {
         Self {
             checksum,
             url,
+            vpnless_url,
             is_executable,
             is_deferrable,
         }
@@ -128,6 +131,17 @@ impl DownloadFileAction {
             .expect("a single artifact by construction")
     }
 
+    fn url(&self, client: &dyn HttpClient) -> anyhow::Result<&Arc<str>> {
+        if client.supports_vpnless() {
+            self.inner
+                .vpnless_url
+                .as_ref()
+                .context("Expected `vpnless_url` attribute for vpnless build")
+        } else {
+            Ok(&self.inner.url)
+        }
+    }
+
     /// Try to produce a FileMetadata without downloading the file.
     async fn declared_metadata(
         &self,
@@ -157,7 +171,8 @@ impl DownloadFileAction {
             None => return Ok(None),
         };
 
-        let head = http_head(client, &self.inner.url).await?;
+        let url = self.url(client)?;
+        let head = http_head(client, url).await?;
 
         let content_length = head
             .headers()
@@ -175,7 +190,7 @@ impl DownloadFileAction {
             .with_context(|| {
                 format!(
                     "Request to `{}` returned an invalid `{}` header",
-                    self.inner.url,
+                    url,
                     http::header::CONTENT_LENGTH
                 )
             })?;
@@ -260,9 +275,12 @@ impl IncrementalActionExecutable for DownloadFileAction {
             return self.execute_for_offline(ctx).await;
         }
 
+        let client = ctx.http_client();
+        let url = self.url(&*client)?;
+
         let (value, execution_kind) = {
             match self
-                .declared_metadata(&*ctx.http_client(), ctx.digest_config())
+                .declared_metadata(&*client, ctx.digest_config())
                 .await?
             {
                 Some(metadata) => {
@@ -274,7 +292,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
                         .declare_http(
                             rel_path,
                             HttpDownloadInfo {
-                                url: self.inner.url.dupe(),
+                                url: url.dupe(),
                                 checksum: self.inner.checksum.dupe(),
                                 metadata: metadata.dupe(),
                                 owner: ctx.target().owner().dupe(),
@@ -294,11 +312,11 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     // Slow path: download now.
                     let digest = http_download(
-                        &*ctx.http_client(),
+                        &*client,
                         project_fs,
                         ctx.digest_config(),
                         &rel_path,
-                        &self.inner.url,
+                        url,
                         &self.inner.checksum,
                         self.inner.is_executable,
                     )

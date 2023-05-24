@@ -72,6 +72,10 @@ impl HttpClient for X2PAgentUnixSocketClient {
     async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         self.request_impl(request).await
     }
+
+    fn supports_vpnless(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
