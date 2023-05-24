@@ -12,7 +12,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
-use buck2_interpreter_for_build::super_package::defs::register_package_natives;
+use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::build_defs::register_build_bzl_natives;
@@ -40,7 +40,7 @@ pub fn configure_package_file_globals(globals_builder: &mut GlobalsBuilder) {
     // TODO(cjhopman): This unconditionally adds the native symbols to the global
     // env, but that needs to be a cell-based config.
     register_build_bzl_natives(globals_builder);
-    register_package_natives(globals_builder);
+    (MORE_FUNCTIONS.get().unwrap().register_package_natives)(globals_builder);
 }
 
 pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
@@ -51,5 +51,5 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_rule_defs(globals_builder);
     register_transition_defs(globals_builder);
     register_command_executor_config(globals_builder);
-    register_package_natives(globals_builder);
+    (MORE_FUNCTIONS.get().unwrap().register_package_natives)(globals_builder);
 }

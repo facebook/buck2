@@ -8,11 +8,8 @@
  */
 
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
+use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
-use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
-use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
-use buck2_interpreter_for_build::super_package::package_value::register_read_package_value;
 use either::Either;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
@@ -162,8 +159,8 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
 pub(crate) fn register_build_bzl_natives(builder: &mut GlobalsBuilder) {
     register_provider(builder);
     register_transitive_set(builder);
-    register_module_natives(builder);
-    register_host_info(builder);
-    register_read_config(builder);
-    register_read_package_value(builder);
+    (MORE_FUNCTIONS.get().unwrap().register_module_natives)(builder);
+    (MORE_FUNCTIONS.get().unwrap().register_host_info)(builder);
+    (MORE_FUNCTIONS.get().unwrap().register_read_config)(builder);
+    (MORE_FUNCTIONS.get().unwrap().register_read_package_value)(builder);
 }
