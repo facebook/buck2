@@ -40,7 +40,6 @@ impl FlameGraph {
     /// Add another flamegraph to this one.
     pub fn add(&mut self, other: FlameGraph) {
         self.node_size += other.node_size;
-        self.children_size += other.children_size;
         for (key, child) in other.children {
             self.add_child(key, child);
         }
@@ -48,6 +47,7 @@ impl FlameGraph {
 
     /// Add a child node to the flamegraph, merging if it already exists.
     pub fn add_child(&mut self, key: Key, child: FlameGraph) {
+        self.children_size += child.total_size();
         match self.children.entry(key) {
             hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().add(child);
@@ -488,11 +488,11 @@ impl VisitorImpl for FlameGraphBuilder {
 
 #[cfg(test)]
 mod tests {
-
     use crate::flamegraph::FlameGraphBuilder;
     use crate::flamegraph::Tree;
     use crate::flamegraph::Trees;
     use crate::key::Key;
+    use crate::FlameGraph;
 
     #[test]
     fn test_empty() {
@@ -613,5 +613,19 @@ mod tests {
             "Incorrect size declaration for node `a`, size of self: 10, size of inline children: 13\n",
             output.warnings()
         );
+    }
+
+    #[test]
+    fn test_flamegraph_add() {
+        let mut a = FlameGraph::default();
+
+        let mut b_1 = FlameGraph::default();
+        b_1.add_self(10);
+
+        let mut b = FlameGraph::default();
+        b.add_child(Key::new("x"), b_1);
+
+        a.add(b);
+        assert_eq!(10, a.total_size());
     }
 }
