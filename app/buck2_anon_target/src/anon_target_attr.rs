@@ -174,6 +174,8 @@ impl AnonTargetAttr {
     }
 
     // We need this method for attr defaults in anon targets, which are automatically coerced as CoercedAttrs.
+    // Note that non-primitives, such as dep/source, will result in an error.
+
     // TODO(@wendyy) - find a way to coerce attr defaults used in anon targets directly to AnonTargetAttr
     pub fn from_coerced_attr(
         attr: &CoercedAttr,
@@ -234,14 +236,6 @@ impl AnonTargetAttr {
                 let item_ty = &t.xs[i as usize];
                 let configured = AnonTargetAttr::from_coerced_attr(l, item_ty, ctx)?;
                 AnonTargetAttr::OneOf(Box::new(configured), i)
-            }
-            CoercedAttrWithType::ConfiguredDep(dep) => AnonTargetAttr::Dep(Box::new(dep.clone())),
-            CoercedAttrWithType::Dep(dep, t) => {
-                let label = ctx.configure_target(dep);
-                AnonTargetAttr::Dep(Box::new(DepAttr {
-                    attr_type: t.clone(),
-                    label,
-                }))
             }
             _ => {
                 return Err(AnonTargetFromCoercedAttrError::DefaultAttrTypeNotSupported(
