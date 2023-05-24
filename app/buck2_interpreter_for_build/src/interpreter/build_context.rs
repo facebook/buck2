@@ -13,6 +13,7 @@ use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::extra::buckconfig::LegacyBuckConfigForStarlark;
 use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -197,6 +198,11 @@ impl<'a> BuildContext<'a> {
     pub fn starlark_path(&self) -> StarlarkPath {
         self.additional.starlark_path()
     }
+}
+
+pub(crate) fn init_starlark_path_from_build_context() {
+    STARLARK_PATH_FROM_BUILD_CONTEXT
+        .init(|eval| Ok(BuildContext::from_context(eval)?.starlark_path()))
 }
 
 /// Arbitrary object made available to the execution context. Converted to

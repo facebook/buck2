@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
 use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use buck2_interpreter_for_build::interpreter::natives::register_module_natives;
@@ -61,7 +61,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
-        let path = BuildContext::from_context(eval)?.starlark_path().path();
+        let path = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?.path();
 
         let (field_names, field_docs) = match fields {
             Either::Left(f) => {
@@ -100,7 +100,6 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
         reductions: Option<SmallMap<String, Value<'v>>>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
-        let build_context = BuildContext::from_context(eval)?;
         // TODO(cjhopman): Reductions could do similar signature checking.
         let projections: SmallMap<_, _> = args_projections
             .into_iter()
@@ -145,8 +144,9 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             };
         }
 
+        let starlark_path: StarlarkPath = (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?;
         Ok(TransitiveSetDefinition::new(
-            match build_context.starlark_path() {
+            match starlark_path {
                 StarlarkPath::LoadFile(import_path) => import_path.clone(),
                 _ => return Err(NativesError::TransitiveSetOnlyInBzl.into()),
             },

@@ -21,6 +21,7 @@
 #[macro_use]
 extern crate starlark;
 
+pub mod build_context;
 pub mod dice;
 pub mod extra;
 pub mod factory;

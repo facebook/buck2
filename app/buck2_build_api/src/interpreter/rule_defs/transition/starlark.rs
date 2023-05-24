@@ -14,8 +14,8 @@ use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter_for_build::attrs::attrs_global::get_attr_coercion_context;
-use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::transition::TransitionValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use derive_more::Display;
@@ -182,8 +182,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             .map(|(n, r)| Ok((n, TargetLabelTrace(context.coerce_target(&r)?))))
             .collect::<anyhow::Result<_>>()?;
 
-        let path = (*BuildContext::from_context(eval)?
-            .starlark_path()
+        let path: ImportPath = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
             .unpack_load_file()
             .ok_or(TransitionError::OnlyBzl)?)
         .clone();
