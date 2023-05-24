@@ -295,16 +295,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         Ok(())
     }
 
-    /// Enable instrumentation in module which is loaded by a module to be profiled.
-    ///
-    /// This function need to be called when evaluating a dependency of a module, if a module
-    /// does profiling in the given mode.
-    pub fn enable_profile_instrumentation(&mut self, _mode: &ProfileMode) -> anyhow::Result<()> {
-        // This function is no-op after separate machine code is compiled
-        // for profile/no profile modes, D45200180.
-        Ok(())
-    }
-
     /// Write a profile to a file.
     /// Only valid if corresponding profiler was enabled.
     pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> anyhow::Result<()> {
