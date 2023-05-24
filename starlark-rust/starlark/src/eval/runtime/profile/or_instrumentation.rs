@@ -23,7 +23,6 @@ use crate::eval::ProfileMode;
 pub(crate) enum ProfileOrInstrumentationMode {
     #[default]
     None,
-    Instrumentation(ProfileMode),
     Profile(ProfileMode),
     Collected,
 }

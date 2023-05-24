@@ -85,8 +85,6 @@ use crate::values::ValueLike;
 pub(crate) enum EvaluatorError {
     #[error("Profiling was not enabled")]
     ProfilingNotEnabled,
-    #[error("Cannot generate profile because only profiling instrumentation enabled")]
-    InstrumentationEnabled,
     #[error("Profile data already collected")]
     ProfileDataAlreadyCollected,
     #[error("Retained memory profiling can be only obtained from `FrozenModule`")]
@@ -301,32 +299,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     ///
     /// This function need to be called when evaluating a dependency of a module, if a module
     /// does profiling in the given mode.
-    pub fn enable_profile_instrumentation(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
-        if self.profile_or_instrumentation_mode != ProfileOrInstrumentationMode::None {
-            return Err(EvaluatorError::ProfileOrInstrumentationAlreadyEnabled.into());
-        }
-
-        self.profile_or_instrumentation_mode =
-            ProfileOrInstrumentationMode::Instrumentation(mode.dupe());
-
-        match mode {
-            ProfileMode::Bytecode | ProfileMode::BytecodePairs => {
-                self.eval_instrumentation
-                    .change(|v| v.bc_profile.enable_1());
-            }
-            ProfileMode::Statement | ProfileMode::Coverage => {
-                self.eval_instrumentation
-                    .change(|v| v.before_stmt.instrument = true);
-            }
-            ProfileMode::HeapSummaryAllocated
-            | ProfileMode::HeapSummaryRetained
-            | ProfileMode::HeapFlameAllocated
-            | ProfileMode::HeapFlameRetained
-            | ProfileMode::TimeFlame => {
-                self.heap_or_flame_profile = true;
-            }
-            ProfileMode::Typecheck => {}
-        }
+    pub fn enable_profile_instrumentation(&mut self, _mode: &ProfileMode) -> anyhow::Result<()> {
+        // This function is no-op after separate machine code is compiled
+        // for profile/no profile modes, D45200180.
         Ok(())
     }
 
@@ -342,9 +317,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         let mode = match &self.profile_or_instrumentation_mode {
             ProfileOrInstrumentationMode::None => {
                 return Err(EvaluatorError::ProfilingNotEnabled.into());
-            }
-            ProfileOrInstrumentationMode::Instrumentation(..) => {
-                return Err(EvaluatorError::InstrumentationEnabled.into());
             }
             ProfileOrInstrumentationMode::Collected => {
                 return Err(EvaluatorError::ProfileDataAlreadyCollected.into());
