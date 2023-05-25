@@ -246,23 +246,23 @@ impl FrozenModule {
 }
 
 impl FrozenModuleData {
-    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
+    fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
         self.names.symbols().map(|x| x.0)
     }
 
-    pub fn describe(&self) -> String {
+    fn describe(&self) -> String {
         self.items()
             .map(|(name, val)| val.to_value().describe(&name))
             .join("\n")
     }
 
-    pub(crate) fn items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
+    fn items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
         self.names
             .symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
     }
 
-    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
+    fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
         self.names
             .all_symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
@@ -283,7 +283,7 @@ impl FrozenModuleData {
         None
     }
 
-    pub(crate) fn documentation(&self) -> Option<DocString> {
+    fn documentation(&self) -> Option<DocString> {
         self.docstring
             .as_ref()
             .and_then(|d| DocString::from_docstring(DocStringKind::Starlark, d))
