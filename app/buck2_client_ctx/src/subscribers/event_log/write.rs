@@ -380,12 +380,16 @@ async fn start_persist_subprocess(
     if !should_upload_log()? {
         command.arg("--no-upload");
     };
-    let child = command.stdin(Stdio::piped()).spawn().with_context(|| {
-        format!(
-            "Failed to open event log subprocess for writing at `{}`",
-            path.path.display()
-        )
-    })?;
+    let child = command
+        .stderr(Stdio::null())
+        .stdin(Stdio::piped())
+        .spawn()
+        .with_context(|| {
+            format!(
+                "Failed to open event log subprocess for writing at `{}`",
+                path.path.display()
+            )
+        })?;
     let pipe = child.stdin.expect("stdin was piped");
     get_writer(path, pipe, trace_id, bytes_written)
 }
