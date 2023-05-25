@@ -28,6 +28,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::spanned::Spanned;
@@ -42,7 +43,6 @@ use tracing::info;
 
 use super::interner::AttrCoercionInterner;
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
-use crate::attrs::coerce::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use crate::attrs::coerce::str_hash::str_hash;
 
 #[derive(Debug, thiserror::Error)]

@@ -18,7 +18,6 @@ pub mod coerced_attr;
 pub mod ctx;
 pub mod error;
 mod interner;
-pub mod query_functions;
 pub(crate) mod str_hash;
 pub mod testing;
 

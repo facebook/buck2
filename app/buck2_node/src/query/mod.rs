@@ -8,4 +8,5 @@
  */
 
 pub mod configured;
+pub mod query_functions;
 pub mod unconfigured;
