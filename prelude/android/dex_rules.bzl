@@ -722,9 +722,12 @@ def _create_canary_class(
         module_to_canary_class_name_function: "function",
         dex_toolchain: DexToolchainInfo.type) -> DexInputWithSpecifiedClasses.type:
     prefix = module_to_canary_class_name_function(module)
-    canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(prefix, index), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(prefix, index), _CANARY_CLASS_INTERFACE_DEFINITION])
-    canary_class_jar = ctx.actions.declare_output("canary_classes/{}/canary_jar_{}.jar".format(prefix, index))
-    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_identifier = "{}_canary_class{}".format(prefix, index))
+    index_string = str(index)
+    if len(index_string) == 1:
+        index_string = "0" + index_string
+    canary_class_java_file = ctx.actions.write(_CANARY_FILE_NAME_TEMPLATE.format(prefix, index_string), [_CANARY_CLASS_PACKAGE_TEMPLATE.format(prefix, index_string), _CANARY_CLASS_INTERFACE_DEFINITION])
+    canary_class_jar = ctx.actions.declare_output("canary_classes/{}/canary_jar_{}.jar".format(prefix, index_string))
+    compile_to_jar(ctx, [canary_class_java_file], output = canary_class_jar, actions_identifier = "{}_canary_class{}".format(prefix, index_string))
 
     dex_library_info = get_dex_produced_from_java_library(ctx, dex_toolchain = dex_toolchain, jar_to_dex = canary_class_jar)
 
@@ -735,7 +738,10 @@ def _create_canary_class(
 
 def _get_fully_qualified_canary_class_name(module: str.type, module_to_canary_class_name_function: "function", index: int.type) -> str.type:
     prefix = module_to_canary_class_name_function(module)
-    return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index)
+    index_string = str(index)
+    if len(index_string) == 1:
+        index_string = "0" + index_string
+    return _CANARY_FULLY_QUALIFIED_CLASS_NAME_TEMPLATE.format(prefix, index_string)
 
 def _is_exopackage_enabled_for_secondary_dex(ctx: "context") -> bool.type:
     return "secondary_dex" in getattr(ctx.attrs, "exopackage_modes", [])
