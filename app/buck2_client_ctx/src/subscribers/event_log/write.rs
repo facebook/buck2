@@ -367,10 +367,11 @@ async fn start_persist_subprocess(
 ) -> anyhow::Result<NamedEventLogWriter> {
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
-    #[cfg(unix)]
+    // @oss-disable: #[cfg(unix)]
+    #[cfg(tokio_unstable)] // @oss-enable
     {
         // Ensure that if we get CTRL-C, the persist-event-logs process does not get it.
-        command.process_group(0); // @oss-disable: for some reason the tokio_unstable flag is broken in OSS?
+        command.process_group(0);
     }
     let manifold_name = &format!("{}{}", trace_id, path.extension());
     command
