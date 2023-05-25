@@ -157,8 +157,10 @@ impl WriteEventLog {
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self, trace_id: TraceId) -> anyhow::Result<()> {
         let command_line_args = self.sanitized_argv.argv.clone();
+        let expanded_command_line_args = self.sanitized_argv.expanded_argv.clone();
         let invocation = Invocation {
             command_line_args,
+            expanded_command_line_args,
             working_dir: self.working_dir.to_string(),
             trace_id,
         };
@@ -502,6 +504,7 @@ impl SerializeForLog for Invocation {
     fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         let invocation = buck2_data::Invocation {
             command_line_args: self.command_line_args.clone(),
+            expanded_command_line_args: self.expanded_command_line_args.clone(),
             working_dir: self.working_dir.clone(),
             trace_id: Some(self.trace_id.to_string()),
         };

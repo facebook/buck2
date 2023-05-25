@@ -198,6 +198,7 @@ impl EventLogPathBuf {
             .context("Invalid Invocation")?;
         let invocation = Invocation {
             command_line_args: invocation.command_line_args,
+            expanded_command_line_args: invocation.expanded_command_line_args,
             working_dir: invocation.working_dir,
             trace_id: invocation
                 .trace_id

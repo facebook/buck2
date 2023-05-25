@@ -129,6 +129,9 @@ pub(crate) enum Compression {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Invocation {
     pub command_line_args: Vec<String>,
+    /// Command line args with expanded `@` args.
+    #[serde(default)] // For backwards compatibility. Delete after 2023-08-01.
+    pub expanded_command_line_args: Vec<String>,
     /// This is `String` not `AbsPathBuf` because event log is cross-platform
     /// and `AbsPathBuf` is not.
     pub working_dir: String,
@@ -168,6 +171,7 @@ mod tests {
                 "app/...".to_owned(),
             ],
             working_dir: "/Users/nga/dir45".to_owned(),
+            expanded_command_line_args: Vec::new(),
             trace_id: TraceId::from_str("281d1c16-8930-40cd-8fc1-7d71355c20f5").unwrap(),
         };
         assert_eq!(expected, line);

@@ -1396,6 +1396,7 @@ message RemoteCommand {
 // Header in binary event log.
 message Invocation {
   repeated string command_line_args = 1;
+  repeated string expanded_command_line_args = 11;
   string working_dir = 2;
   optional string trace_id = 3;
 }
