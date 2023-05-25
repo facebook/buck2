@@ -19,7 +19,7 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
-use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
+use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
@@ -460,7 +460,7 @@ impl FrozenProviderCollectionValue {
 }
 
 pub mod tester {
-    use buck2_interpreter_for_build::provider::callable::ValueAsProviderCallableLike;
+    use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
     use dupe::Dupe;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;

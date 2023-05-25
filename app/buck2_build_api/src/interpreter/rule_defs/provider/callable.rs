@@ -16,7 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
-use buck2_interpreter_for_build::provider::callable::ProviderCallableLike;
+use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
