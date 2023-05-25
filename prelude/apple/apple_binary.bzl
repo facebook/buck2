@@ -43,7 +43,7 @@ load(":apple_utility.bzl", "get_apple_cxx_headers_layout")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
-def apple_binary_impl(ctx: "context") -> ["provider"]:
+def apple_binary_impl(ctx: "context") -> [["provider"], "promise"]:
     def get_apple_binary_providers(deps_providers) -> ["provider"]:
         # FIXME: Ideally we'd like to remove the support of "bridging header",
         # cause it affects build time and in general considered a bad practise.
