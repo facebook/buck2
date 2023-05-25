@@ -104,7 +104,7 @@ impl MutableNames {
         self.0.borrow_mut().remove(name);
     }
 
-    pub(crate) fn all_names(&self) -> Vec<(FrozenStringValue, ModuleSlotId)> {
+    pub(crate) fn all_names_and_slots(&self) -> Vec<(FrozenStringValue, ModuleSlotId)> {
         self.0
             .borrow()
             .iter()

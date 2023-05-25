@@ -48,7 +48,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         let original_module: SmallMap<FrozenStringValue, Option<Value<'v>>> = self
             .module_env
             .names()
-            .all_names()
+            .all_names_and_slots()
             .into_iter()
             .map(|(name, slot)| (name, self.module_env.slots().get_slot(slot)))
             .collect();
@@ -94,7 +94,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                         .set_slot_slow(LocalSlotIdCapturedOrNot(slot as u32), value)
                 }
             }
-            for (name, slot) in self.module_env.names().all_names() {
+            for (name, slot) in self.module_env.names().all_names_and_slots() {
                 match original_module.get(&name) {
                     None => self.module_env.names().hide_name(&name),
                     Some(Some(value)) => self.module_env.slots().set_slot(slot, *value),
