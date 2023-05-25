@@ -15,7 +15,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -46,11 +45,7 @@ pub struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
-    ) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
             event_log,
             speed,
@@ -59,9 +54,7 @@ impl ReplayCommand {
             override_args: _,
         } = self;
 
-        let runtime = client_tokio_runtime()?;
-
-        runtime.block_on(async {
+        ctx.with_runtime(async move |mut ctx| {
             let (replayer, invocation) =
                 Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
 

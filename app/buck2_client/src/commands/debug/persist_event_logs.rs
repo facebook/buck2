@@ -15,7 +15,6 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::find_certs;
 use buck2_client_ctx::manifold;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use thiserror::Error;
@@ -51,17 +50,13 @@ pub struct PersistEventLogsCommand {
 }
 
 impl PersistEventLogsCommand {
-    pub fn exec(
-        self,
-        _matches: &clap::ArgMatches,
-        mut ctx: ClientCommandContext<'_>,
-    ) -> ExitResult {
+    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
-        let runtime = client_tokio_runtime()?;
-        let mut stdin = io::BufReader::new(ctx.stdin());
-        runtime
-            .block_on(self.write_and_upload(&mut stdin))
-            .context("Error writing or uploading event log")?;
+        ctx.with_runtime(async move |mut ctx| {
+            let mut stdin = io::BufReader::new(ctx.stdin());
+            self.write_and_upload(&mut stdin).await
+        })
+        .context("Error writing or uploading event log")?;
         ExitResult::success()
     }
 

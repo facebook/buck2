@@ -10,7 +10,6 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::event_log::file_names::retrieve_all_logs;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -33,9 +32,7 @@ impl PathLogCommand {
             all,
         } = self;
 
-        let rt = client_tokio_runtime()?;
-
-        rt.block_on(async move {
+        ctx.with_runtime(async move |ctx| {
             let paths = if all {
                 retrieve_all_logs(&ctx)?
             } else {

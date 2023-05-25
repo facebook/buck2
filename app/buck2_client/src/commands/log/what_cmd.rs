@@ -9,7 +9,6 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -27,9 +26,7 @@ impl WhatCmdCommand {
     pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
         let WhatCmdCommand { event_log } = self;
 
-        let rt = client_tokio_runtime()?;
-
-        rt.block_on(async move {
+        ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
             let (invocation, _events) = log_path.unpack_stream().await?;
 

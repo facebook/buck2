@@ -21,7 +21,6 @@ use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
@@ -54,9 +53,7 @@ impl WhatUpCommand {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 
-        let rt = client_tokio_runtime()?;
-
-        rt.block_on(async move {
+        ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
 
             // Get events

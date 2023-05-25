@@ -10,7 +10,6 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::event_log::read::ReaderStats;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -33,9 +32,7 @@ impl LogPerfCommand {
             interval,
         } = self;
 
-        let rt = client_tokio_runtime()?;
-
-        rt.block_on(async move {
+        ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
 
             let mut total_alloc = 0;

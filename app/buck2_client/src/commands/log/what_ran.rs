@@ -14,7 +14,6 @@ use async_trait::async_trait;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_value::StreamValue;
-use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_data::re_platform::Property;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
@@ -95,9 +94,7 @@ impl WhatRanCommand {
             failed,
         } = self;
 
-        let rt = client_tokio_runtime()?;
-
-        rt.block_on(async move {
+        ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, events) = log_path.unpack_stream().await?;
