@@ -25,6 +25,7 @@ def _create_fat_jar(
         java_toolchain: JavaToolchainInfo.type,
         jars: "cmd_args",
         native_libs: {str.type: "SharedLibrary"},
+        do_not_create_inner_jar: bool.type,
         generate_wrapper: bool.type) -> ["artifact"]:
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}.{}".format(ctx.label.name, extension))
@@ -46,17 +47,24 @@ def _create_fat_jar(
             "Bootstrap java toolchain could not be used for java_binary() with native code.",
         )
         args += [
-            "--fat_jar_lib",
-            java_toolchain.fat_jar_main_class_lib,
             "--native_libs_file",
             ctx.actions.write("native_libs", [cmd_args([so_name, native_lib.lib.output], delimiter = " ") for so_name, native_lib in native_libs.items()]),
-            # fat jar's main class
-            "--fat_jar_main_class",
-            "com.facebook.buck.jvm.java.FatJarMain",
-            # native libraries directory name. Main class expects to find libraries packed inside this directory.
-            "--fat_jar_native_libs_directory_name",
-            "nativelibs",
         ]
+        if do_not_create_inner_jar:
+            args += [
+                "--do_not_create_inner_jar",
+            ]
+        else:
+            args += [
+                "--fat_jar_lib",
+                java_toolchain.fat_jar_main_class_lib,
+                # fat jar's main class
+                "--fat_jar_main_class",
+                "com.facebook.buck.jvm.java.FatJarMain",
+                # native libraries directory name. Main class expects to find libraries packed inside this directory.
+                "--fat_jar_native_libs_directory_name",
+                "nativelibs",
+            ]
 
         # TODO(T151045001) native deps are not compressed (for performance), but that can result in
         # really large binaries. Large outputs can cause issues on RE, so we run locally instead.
@@ -149,8 +157,9 @@ def java_binary_impl(ctx: "context") -> ["provider"]:
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     need_to_generate_wrapper = ctx.attrs.generate_wrapper == True
+    do_not_create_inner_jar = ctx.attrs.do_not_create_inner_jar == True
     packaging_jar_args = packaging_info.packaging_deps.project_as_args("full_jar_args")
-    outputs = _create_fat_jar(ctx, java_toolchain, cmd_args(packaging_jar_args), native_deps, need_to_generate_wrapper)
+    outputs = _create_fat_jar(ctx, java_toolchain, cmd_args(packaging_jar_args), native_deps, do_not_create_inner_jar, need_to_generate_wrapper)
 
     main_artifact = outputs[0]
     other_outputs = []
