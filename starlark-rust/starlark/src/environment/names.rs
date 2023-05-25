@@ -49,17 +49,17 @@ pub(crate) struct MutableNames(RefCell<SmallMap<FrozenStringValue, (ModuleSlotId
 pub(crate) struct FrozenNames(SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>);
 
 impl MutableNames {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(RefCell::new(SmallMap::new()))
     }
 
-    pub fn slot_count(&self) -> u32 {
+    pub(crate) fn slot_count(&self) -> u32 {
         self.0.borrow().len().try_into().unwrap()
     }
 
     /// Try and go back from a slot to a name.
     /// Inefficient - only use in error paths.
-    pub fn get_slot(&self, slot: ModuleSlotId) -> Option<FrozenStringValue> {
+    pub(crate) fn get_slot(&self, slot: ModuleSlotId) -> Option<FrozenStringValue> {
         for (s, (i, _vis)) in &*self.0.borrow() {
             if *i == slot {
                 return Some(*s);
@@ -96,11 +96,11 @@ impl MutableNames {
     }
 
     // Add an exported name, or if it's already there, return the existing name
-    pub fn add_name(&self, name: FrozenStringValue) -> ModuleSlotId {
+    pub(crate) fn add_name(&self, name: FrozenStringValue) -> ModuleSlotId {
         self.add_name_visibility(name, Visibility::Public)
     }
 
-    pub fn hide_name(&self, name: &str) {
+    pub(crate) fn hide_name(&self, name: &str) {
         self.0.borrow_mut().remove(name);
     }
 
@@ -120,7 +120,7 @@ impl MutableNames {
             .collect()
     }
 
-    pub fn freeze(self) -> FrozenNames {
+    pub(crate) fn freeze(self) -> FrozenNames {
         FrozenNames(self.0.into_inner())
     }
 }
@@ -138,7 +138,7 @@ impl FrozenNames {
     }
 
     /// Exported symbols.
-    pub fn symbols(&self) -> impl Iterator<Item = (FrozenStringValue, ModuleSlotId)> + '_ {
+    pub(crate) fn symbols(&self) -> impl Iterator<Item = (FrozenStringValue, ModuleSlotId)> + '_ {
         self.0.iter().filter_map(|(name, (slot, vis))| match vis {
             Visibility::Private => None,
             Visibility::Public => Some((*name, *slot)),
