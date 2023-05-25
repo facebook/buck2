@@ -18,31 +18,44 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
 use once_cell::sync::OnceCell;
 
-/// Argument resolver that can expand cell paths, e.g., `cell//path/to/file`
-pub struct ImmediateConfig<'a> {
-    // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
-    // us to have a shared reference to the underlying `anyhow::Error` which
-    // we cannot use to correct chain the errors. Using `OnceCell` means
-    // we don't get the result by a shared reference but instead as local
-    // value which can be returned.
-    data: OnceCell<ImmediateConfigData>,
-    cwd: &'a WorkingDir,
-}
-
-/// Defines the data which is lazy computed to avoid doing I/O
-/// unless necessary (e.g., encountering a cell-relative path).
-pub struct ImmediateConfigData {
+/// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
+/// processing any includes).
+struct ImmediateConfigContextData {
     cell_resolver: CellResolver,
     daemon_startup_config: DaemonStartupConfig,
     project_filesystem: ProjectRoot,
 }
 
-impl<'a> ImmediateConfig<'a> {
+pub struct ImmediateConfigContext<'a> {
+    // Deliberately use `OnceCell` rather than `Lazy` because `Lazy` forces
+    // us to have a shared reference to the underlying `anyhow::Error` which
+    // we cannot use to correct chain the errors. Using `OnceCell` means
+    // we don't get the result by a shared reference but instead as local
+    // value which can be returned.
+    data: OnceCell<ImmediateConfigContextData>,
+    cwd: &'a WorkingDir,
+    trace: Vec<AbsNormPathBuf>,
+}
+
+impl<'a> ImmediateConfigContext<'a> {
     pub fn new(cwd: &'a WorkingDir) -> Self {
         Self {
             data: OnceCell::new(),
             cwd,
+            trace: Vec::new(),
         }
+    }
+
+    pub fn push_trace(&mut self, path: &AbsNormPath) {
+        self.trace.push(path.to_buf());
+    }
+
+    pub fn trace(&self) -> &[AbsNormPathBuf] {
+        &self.trace
+    }
+
+    pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
+        Ok(&self.data()?.daemon_startup_config)
     }
 
     /// Resolves an argument which can possibly be a cell-relative path.
@@ -65,17 +78,17 @@ impl<'a> ImmediateConfig<'a> {
         cell_alias: &str,
         cell_relative_path: &str,
     ) -> anyhow::Result<AbsNormPathBuf> {
-        let resolver_data = self.config()?;
+        let data = self.data()?;
 
-        resolver_data.cell_resolver.resolve_cell_relative_path(
+        data.cell_resolver.resolve_cell_relative_path(
             cell_alias,
             cell_relative_path,
-            &resolver_data.project_filesystem,
+            &data.project_filesystem,
             self.cwd.path(),
         )
     }
 
-    fn config(&self) -> anyhow::Result<&ImmediateConfigData> {
+    fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
         self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd.path())?;
@@ -84,42 +97,12 @@ impl<'a> ImmediateConfig<'a> {
                 let project_filesystem = roots.project_root;
                 let cfg = BuckConfigBasedCells::parse_immediate_config(&project_filesystem)?;
 
-                anyhow::Ok(ImmediateConfigData {
+                anyhow::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
                     daemon_startup_config: cfg.daemon_startup_config,
                     project_filesystem,
                 })
             })
             .context("Error creating cell resolver")
-    }
-}
-
-pub struct ImmediateConfigContext<'a> {
-    config: ImmediateConfig<'a>,
-    trace: Vec<AbsNormPathBuf>,
-}
-
-impl<'a> ImmediateConfigContext<'a> {
-    pub fn new(cwd: &'a WorkingDir) -> Self {
-        Self {
-            config: ImmediateConfig::new(cwd),
-            trace: Vec::new(),
-        }
-    }
-
-    pub fn push_trace(&mut self, path: &AbsNormPath) {
-        self.trace.push(path.to_buf());
-    }
-
-    pub fn trace(&self) -> &[AbsNormPathBuf] {
-        &self.trace
-    }
-
-    pub fn config(&self) -> &ImmediateConfig {
-        &self.config
-    }
-
-    pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
-        Ok(&self.config().config()?.daemon_startup_config)
     }
 }

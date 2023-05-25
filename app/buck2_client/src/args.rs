@@ -216,9 +216,7 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
         None => (path, None),
     };
 
-    let resolved_path = if let Some(cell_resolved_path) =
-        context.config().resolve_cell_path_arg(path_part)
-    {
+    let resolved_path = if let Some(cell_resolved_path) = context.resolve_cell_path_arg(path_part) {
         cell_resolved_path.context("Error resolving cell path")?
     } else {
         let p = Path::new(path_part);
@@ -226,7 +224,7 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
             match fs_util::canonicalize(p) {
                 Ok(abs_path) => Ok(abs_path),
                 Err(original_error) => {
-                    let cell_relative_path = context.config().resolve_cell_path("", path_part)?;
+                    let cell_relative_path = context.resolve_cell_path("", path_part)?;
                     // If the relative path does not exist relative to the cwd,
                     // attempt to make it relative to the cell root. If *that*
                     // doesn't exist, just report the original error back, and
