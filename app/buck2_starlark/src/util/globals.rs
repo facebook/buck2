@@ -20,6 +20,7 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
+use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use dice::DiceTransaction;
@@ -60,7 +61,10 @@ impl<'a> CachedGlobals<'a> {
         let config = global_state.configuror();
 
         // Find the information from the globals
-        let globals = global_state.globals_for_file_type(path);
+        let globals = INTERPRETER_CALCULATION_IMPL
+            .get()?
+            .global_env_for_file_type(self.dice, path)
+            .await?;
         for x in globals.names() {
             res.insert(x.as_str().to_owned());
         }
