@@ -51,8 +51,8 @@ pub enum LogCommand {
     #[clap(alias = "last")]
     Path(path_log::PathLogCommand),
     Show(show_log::ShowLogCommand),
-    #[clap(alias = "whatcmd")]
-    WhatCmd(what_cmd::WhatCmdCommand),
+    #[clap(alias = "whatcmd", alias = "what-cmd")]
+    Cmd(what_cmd::WhatCmdCommand),
     #[clap(alias = "whatup")]
     WhatUp(what_up::WhatUpCommand),
     WhatMaterialized(what_materialized::WhatMaterializedCommand),
@@ -67,7 +67,7 @@ impl LogCommand {
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
             Self::Path(cmd) => cmd.exec(matches, ctx),
             Self::Show(cmd) => cmd.exec(matches, ctx),
-            Self::WhatCmd(cmd) => cmd.exec(matches, ctx),
+            Self::Cmd(cmd) => cmd.exec(matches, ctx),
             Self::WhatUp(cmd) => cmd.exec(matches, ctx),
             Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
             Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
