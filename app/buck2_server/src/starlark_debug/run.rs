@@ -11,6 +11,7 @@ use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use debugserver_types as dap;
 use tokio::select;
 use tokio::sync::mpsc;
@@ -19,7 +20,6 @@ use tracing::debug;
 
 use crate::starlark_debug::error::StarlarkDebuggerInternalError;
 use crate::starlark_debug::ServerConnection;
-use crate::streaming_request_handler::StreamingRequestHandler;
 
 /// Messages from the debugger server to its client (the cli `buck2 starlark debug-attach` which
 /// then forwards them along through its stdout).

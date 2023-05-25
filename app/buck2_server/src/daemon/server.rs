@@ -52,6 +52,7 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::WhichDice;
@@ -93,7 +94,6 @@ use crate::lsp::run_lsp_server_command;
 use crate::materialize::materialize_command;
 use crate::snapshot;
 use crate::starlark_debug::run::run_dap_server_command;
-use crate::streaming_request_handler::StreamingRequestHandler;
 use crate::subscription::run_subscription_server_command;
 use crate::trace_io::trace_io_command;
 

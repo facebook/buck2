@@ -44,6 +44,7 @@ use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -74,7 +75,6 @@ use tokio::sync::MutexGuard;
 
 use crate::builtin_docs::docs::get_builtin_docs;
 use crate::builtin_docs::docs::get_prelude_docs;
-use crate::streaming_request_handler::StreamingRequestHandler;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";

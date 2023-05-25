@@ -12,7 +12,9 @@ derive_more = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 parking_lot = { workspace = true }
+pin-project = { workspace = true }
 thiserror = { workspace = true }
+tonic = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 more_futures = { workspace = true }
