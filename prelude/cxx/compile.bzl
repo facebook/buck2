@@ -187,7 +187,7 @@ def create_compile_cmds(
         else:
             header_only = True
             for header in all_headers:
-                if header.artifact.extension in [".h", ".hpp"]:
+                if header.artifact.extension in [".h", ".hpp", ".cpp"]:
                     srcs_with_flags.append(CxxSrcWithFlags(file = header.artifact))
 
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
