@@ -33,7 +33,6 @@ use dice::Key;
 use dupe::Dupe;
 use futures::future;
 use futures::stream::FuturesOrdered;
-use futures::Future;
 use futures::FutureExt;
 use indexmap::IndexMap;
 use more_futures::cancellation::CancellationContext;
@@ -50,7 +49,12 @@ use crate::build_signals::NodeDuration;
 use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going;
 
-pub struct ActionCalculation;
+#[async_trait]
+pub trait ActionCalculation {
+    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>>;
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
+}
 
 async fn build_action_impl(
     ctx: &DiceComputations,
@@ -254,34 +258,27 @@ pub struct BuildKeyActivationData {
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
 /// we drop the `async_trait` common in other `*Calculation` types and avoid `async fn` (for
 /// build_action/build_artifact at least).
-impl ActionCalculation {
-    pub async fn get_action(
-        ctx: &DiceComputations,
-        action_key: &ActionKey,
-    ) -> anyhow::Result<Arc<RegisteredAction>> {
+#[async_trait]
+impl ActionCalculation for DiceComputations {
+    async fn get_action(&self, action_key: &ActionKey) -> anyhow::Result<Arc<RegisteredAction>> {
         // TODO add async/deferred stuff
-        ctx.compute_deferred_data(action_key.deferred_data())
+        self.compute_deferred_data(action_key.deferred_data())
             .await
             .map(|a| (*a).dupe())
             .with_context(|| format!("for action key `{}`", action_key))
     }
 
-    pub fn build_action<'a>(
-        ctx: &'a DiceComputations,
-        action_key: &'a ActionKey,
-    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
+    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-        ctx.compute(BuildKey::ref_cast(action_key))
+        self.compute(BuildKey::ref_cast(action_key))
             .map(|v| v?.unshared_error())
+            .await
     }
 
-    pub fn build_artifact<'a>(
-        ctx: &'a DiceComputations,
-        artifact: &'a BuildArtifact,
-    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
-        Self::build_action(ctx, artifact.key())
+    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
+        self.build_action(artifact.key()).await
     }
 }
 

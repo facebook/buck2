@@ -238,7 +238,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
 
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        ActionCalculation::get_action(&dice_computations, build_artifact.key()),
+        dice_computations.get_action(build_artifact.key()),
     )
     .await;
     assert_eq!(result?, registered_action);
@@ -274,7 +274,9 @@ async fn test_build_action() -> anyhow::Result<()> {
     )
     .await?;
 
-    let result = ActionCalculation::build_action(&dice_computations, registered_action.key()).await;
+    let result = dice_computations
+        .build_action(registered_action.key())
+        .await;
 
     assert!(result.is_ok());
 
@@ -320,7 +322,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
 
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        ActionCalculation::build_artifact(&dice_computations, &build_artifact),
+        dice_computations.build_artifact(&build_artifact),
     )
     .await;
 

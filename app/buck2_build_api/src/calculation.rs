@@ -10,8 +10,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_artifact::actions::key::ActionKey;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::dice::data::HasIoProvider;
@@ -33,8 +31,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use thiserror::Error;
 
-use crate::actions::calculation as action_calculation;
-use crate::actions::execute::action_executor::ActionOutputs;
 use crate::configuration::calculation::ConfigurationCalculation;
 use crate::context::HasBuildContextData;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
@@ -124,12 +120,6 @@ pub trait Calculation<'c> {
         &self,
         target: &T,
     ) -> anyhow::Result<T::Configured>;
-
-    /// Builds a specific 'Action' given the 'Action' itself
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs>;
-
-    /// Builds and materializes the given 'BuildArtifact'
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs>;
 }
 
 #[async_trait]
@@ -187,14 +177,6 @@ impl<'c> Calculation<'c> for DiceComputations {
         target: &T,
     ) -> anyhow::Result<T::Configured> {
         self.get_configured_target(target, None).await
-    }
-
-    async fn build_action(&self, action_key: &ActionKey) -> anyhow::Result<ActionOutputs> {
-        action_calculation::ActionCalculation::build_action(self, action_key).await
-    }
-
-    async fn build_artifact(&self, artifact: &BuildArtifact) -> anyhow::Result<ActionOutputs> {
-        action_calculation::ActionCalculation::build_artifact(self, artifact).await
     }
 }
 
