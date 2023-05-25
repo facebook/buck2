@@ -212,7 +212,7 @@ pub struct FileUploader<'a> {
 }
 impl<'a> FileUploader<'a> {
     pub async fn spawn(self) -> Result<(), UploadError> {
-        let child = self.spawn_child()?;
+        let child = self.spawn_child(Stdio::piped())?;
         let filepath = self.filepath.to_string_lossy().to_string();
         let exit_code_error = |code: i32, stderr: String| UploadError::FileUploadExitCode {
             path: filepath,
@@ -225,11 +225,11 @@ impl<'a> FileUploader<'a> {
     }
 
     pub async fn spawn_and_forget(self) -> Result<(), UploadError> {
-        self.spawn_child()?;
+        self.spawn_child(Stdio::null())?;
         Ok(())
     }
 
-    fn spawn_child(&self) -> Result<Child, UploadError> {
+    fn spawn_child(&self, stderr: Stdio) -> Result<Child, UploadError> {
         let file: Stdio = match std::fs::File::open(self.filepath) {
             Ok(file) => file,
             Err(err) => {
@@ -242,10 +242,7 @@ impl<'a> FileUploader<'a> {
         .into();
         let mut upload = self.upload.upload_command()?;
         upload.stdin(file);
-        let child = upload
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let child = upload.stdout(Stdio::null()).stderr(stderr).spawn()?;
         Ok(child)
     }
 }
