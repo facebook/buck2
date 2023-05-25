@@ -22,7 +22,6 @@ use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use dice::DiceTransaction;
 use dupe::Dupe;
 
@@ -55,11 +54,6 @@ impl<'a> CachedGlobals<'a> {
     ) -> anyhow::Result<HashSet<String>> {
         let mut res = HashSet::new();
 
-        // First lets get some interesting state
-        // We could cache this in GlobalCache, or compute it in `new`, but its all cached on DICE anyway, so keep it simple
-        let global_state = self.dice.get_global_interpreter_state().await?;
-        let config = global_state.configuror();
-
         // Find the information from the globals
         let globals = INTERPRETER_CALCULATION_IMPL
             .get()?
@@ -70,9 +64,13 @@ impl<'a> CachedGlobals<'a> {
         }
 
         // Next grab the prelude, unless we are in the prelude cell and not a build file
-        if let Some(prelude) = config.prelude_import() {
+        if let Some(prelude) = INTERPRETER_CALCULATION_IMPL
+            .get()?
+            .prelude_import(self.dice)
+            .await?
+        {
             if path == StarlarkFileType::Buck || prelude.cell() != cell {
-                let env = self.load_module(prelude).await?;
+                let env = self.load_module(&prelude).await?;
                 for x in env.env().names() {
                     res.insert(x.as_str().to_owned());
                 }

@@ -201,6 +201,15 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .globals_for_file_type(file_type)
             .dupe())
     }
+
+    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<ImportPath>> {
+        Ok(ctx
+            .get_global_interpreter_state()
+            .await?
+            .configuror
+            .prelude_import()
+            .cloned())
+    }
 }
 
 pub struct IntepreterResultsKeyActivationData {

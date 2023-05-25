@@ -48,6 +48,8 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         ctx: &DiceComputations,
         file_type: StarlarkFileType,
     ) -> anyhow::Result<Globals>;
+
+    async fn prelude_import(&self, ctx: &DiceComputations) -> anyhow::Result<Option<ImportPath>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =
