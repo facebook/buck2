@@ -15,7 +15,6 @@ use buck2_core::env_helper::EnvHelper;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Either;
-use rand::Rng;
 
 use crate::argv::Argv;
 use crate::argv::SanitizedArgv;
@@ -99,11 +98,7 @@ fn streaming_uploads() -> anyhow::Result<bool> {
         // TODO T149151673: support windows streaming upload
         return Ok(false);
     };
-    let mut rng = rand::thread_rng();
-    let random_number = rng.gen_range(0..100);
-    Ok(USE_STREAMING_UPLOADS
-        .get_copied()?
-        .unwrap_or(random_number < 50))
+    Ok(USE_STREAMING_UPLOADS.get_copied()?.unwrap_or(true))
 }
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
 /// This trait is most helpful when the command wants a superconsole, to stream events, etc.
