@@ -295,6 +295,11 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
                     self.termination_notifier.status = TerminationStatus::Finished;
                 }
             }
+        } else if self.execution.shared.lock().should_exit() {
+            // the future itself indicated that we should cancel
+            self.termination_notifier.status = TerminationStatus::Cancelled;
+
+            return Poll::Ready(None);
         }
 
         poll
@@ -475,6 +480,7 @@ impl ExecutionContext {
                     }
                 },
                 prevent_cancellation: 0,
+                should_exit: false,
             })),
         }
     }
@@ -545,12 +551,18 @@ struct ExecutionContextData {
 
     /// How many observers are preventing immediate cancellation.
     prevent_cancellation: usize,
+
+    should_exit: bool,
 }
 
 impl ExecutionContextData {
     /// Does this future not currently prevent its cancellation?
     fn can_exit(&self) -> bool {
         self.prevent_cancellation == 0
+    }
+
+    fn should_exit(&self) -> bool {
+        self.should_exit
     }
 
     fn enter_critical_section(&mut self) {

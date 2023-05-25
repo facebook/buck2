@@ -14,7 +14,6 @@ use gazebo::variants::VariantName;
 use more_futures::cancellation::future::TerminationObserver;
 use tokio::sync::oneshot::Sender;
 
-use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
@@ -30,6 +29,7 @@ use crate::impls::value::DiceValidValue;
 use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
+use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -70,7 +70,7 @@ pub(crate) enum StateRequest {
         deps: Arc<Vec<DiceKey>>,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<DiceResult<DiceComputedValue>>,
+        resp: Sender<CancellableResult<DiceComputedValue>>,
     },
     /// Get all the tasks pending cancellation
     GetTasksPendingCancellation {

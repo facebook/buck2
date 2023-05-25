@@ -278,7 +278,10 @@ impl IncrementalEngine {
 
                         debug!(msg = "Update caches complete");
 
-                        task_handle.finished(rx.await.unwrap())
+                        match rx.await.unwrap() {
+                            Ok(res) => task_handle.finished(Ok(res)),
+                            Err(_) => {}
+                        }
                     }
                 }
             }
@@ -341,7 +344,12 @@ impl IncrementalEngine {
                             resp: tx,
                         });
 
-                        task_handle.finished(rx.await.unwrap())
+                        match rx.await.unwrap() {
+                            Ok(res) => task_handle.finished(Ok(res)),
+                            Err(_) => {
+                                return;
+                            }
+                        }
                     }
                     Err(value) => {
                         task_handle.finished(Ok(DiceComputedValue::new(

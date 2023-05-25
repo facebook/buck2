@@ -9,8 +9,6 @@
 
 use more_futures::cancellation::future::TerminationObserver;
 
-use crate::api::error::DiceError;
-use crate::api::error::DiceResult;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::cache::SharedCache;
@@ -28,6 +26,8 @@ use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
+use crate::result::CancellableResult;
+use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 use crate::HashMap;
 
@@ -101,7 +101,7 @@ impl CoreState {
         storage: StorageType,
         value: DiceValidValue,
         deps: Arc<Vec<DiceKey>>,
-    ) -> DiceResult<DiceComputedValue> {
+    ) -> CancellableResult<DiceComputedValue> {
         if self.version_tracker.is_relevant(key.v, epoch) {
             debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
 
@@ -109,7 +109,7 @@ impl CoreState {
         } else {
             debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
 
-            Err(DiceError::cancelled())
+            Err(Cancelled)
         }
     }
 
