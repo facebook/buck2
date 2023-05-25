@@ -19,9 +19,8 @@ use buck2_core::cells::name::CellName;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::import_paths::HasImportPaths;
-use buck2_interpreter::path::StarlarkModulePath;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -45,11 +44,7 @@ impl<'a> CachedGlobals<'a> {
     }
 
     async fn load_module(&self, path: &ImportPath) -> anyhow::Result<LoadedModule> {
-        let calc = self
-            .dice
-            .get_interpreter_calculator(path.cell(), path.build_file_cell())
-            .await?;
-        calc.eval_module(StarlarkModulePath::LoadFile(path)).await
+        self.dice.get_loaded_module_from_import_path(path).await
     }
 
     async fn compute_names(
