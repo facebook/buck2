@@ -15,17 +15,21 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::package_listing::dice::HasPackageListingResolver;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::StarlarkModulePath;
+use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -136,6 +140,32 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .await?
             .eval_module(path)
             .await
+    }
+
+    async fn get_module_deps(
+        &self,
+        ctx: &DiceComputations,
+        package: PackageLabel,
+        build_file_cell: BuildFileCell,
+    ) -> anyhow::Result<ModuleDeps> {
+        let calc = ctx
+            .get_interpreter_calculator(package.cell_name(), build_file_cell)
+            .await?;
+
+        let build_file_name = ctx
+            .resolve_package_listing(package.dupe())
+            .await?
+            .buildfile()
+            .to_owned();
+
+        let (_module, module_deps) = calc
+            .prepare_eval(StarlarkPath::BuildFile(&BuildFilePath::new(
+                package.dupe(),
+                build_file_name,
+            )))
+            .await?;
+
+        Ok(module_deps)
     }
 }
 

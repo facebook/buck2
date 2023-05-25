@@ -13,19 +13,15 @@ use std::io::Write;
 use buck2_audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::package_listing::dice::HasPackageListingResolver;
-use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::StarlarkModulePath;
-use buck2_interpreter::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use dupe::Dupe;
 
 pub(crate) async fn server_execute(
     command: &StarlarkPackageDepsCommand,
@@ -45,21 +41,9 @@ pub(crate) async fn server_execute(
 
             let package = parse_package(&command.package, cell_alias_resolver)?;
 
-            let calc = dice_ctx
-                .get_interpreter_calculator(package.cell_name(), current_cell)
-                .await?;
-
-            let build_file_name = dice_ctx
-                .resolve_package_listing(package.dupe())
-                .await?
-                .buildfile()
-                .to_owned();
-
-            let (_module, module_deps) = calc
-                .prepare_eval(StarlarkPath::BuildFile(&BuildFilePath::new(
-                    package.dupe(),
-                    build_file_name,
-                )))
+            let module_deps = INTERPRETER_CALCULATION_IMPL
+                .get()?
+                .get_module_deps(&dice_ctx, package, current_cell)
                 .await?;
 
             let mut stdout = stdout.as_writer();

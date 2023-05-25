@@ -9,10 +9,13 @@
 
 use async_trait::async_trait;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
 use crate::file_loader::LoadedModule;
+use crate::file_loader::ModuleDeps;
 use crate::path::StarlarkModulePath;
 
 #[async_trait]
@@ -22,6 +25,13 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         ctx: &DiceComputations,
         path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule>;
+
+    async fn get_module_deps(
+        &self,
+        ctx: &DiceComputations,
+        package: PackageLabel,
+        build_file_cell: BuildFileCell,
+    ) -> anyhow::Result<ModuleDeps>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =
