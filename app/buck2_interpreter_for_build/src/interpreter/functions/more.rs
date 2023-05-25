@@ -11,6 +11,7 @@ use buck2_interpreter::functions::more::MoreFunctions;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 
 use crate::attrs::attrs_global::register_attrs;
+use crate::interpreter::build_defs::register_base_natives;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::read_config::register_read_config;
 use crate::interpreter::natives::register_module_natives;
@@ -27,5 +28,6 @@ pub(crate) fn init_more_functions() {
         register_read_config,
         register_module_natives,
         register_read_package_value,
+        register_base_natives,
     });
 }

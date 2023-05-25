@@ -113,7 +113,7 @@ pub fn native_module(builder: &mut GlobalsBuilder) {
 }
 
 /// Native functions included in all contexts (`BUCK`, `bzl`, `bxl`).
-pub fn register_base_natives(registry: &mut GlobalsBuilder) {
+pub(crate) fn register_base_natives(registry: &mut GlobalsBuilder) {
     native_module(registry);
     register_select(registry);
     register_sha256(registry);

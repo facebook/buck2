@@ -22,10 +22,8 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::bxl::CONFIGURE_BXL_FILE_GLOBALS;
+use buck2_interpreter::functions::more::MORE_FUNCTIONS;
 use buck2_interpreter::path::BxlFilePath;
-use buck2_interpreter_for_build::interpreter::build_defs::register_base_natives;
-use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
-use buck2_interpreter_for_build::interpreter::functions::read_config::register_read_config;
 use cli_args::CliArgs;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -122,14 +120,14 @@ fn register_bxl_defs(globals: &mut GlobalsBuilder) {
     register_artifact_function(globals);
     register_label_function(globals);
     register_target_function(globals);
-    register_read_config(globals);
-    register_host_info(globals);
+    (MORE_FUNCTIONS.get().unwrap().register_read_config)(globals);
+    (MORE_FUNCTIONS.get().unwrap().register_host_info)(globals);
     register_instant_function(globals);
     register_error_handling_function(globals);
 }
 
 pub fn configure_bxl_file_globals(globals_builder: &mut GlobalsBuilder) {
-    register_base_natives(globals_builder);
+    (MORE_FUNCTIONS.get().unwrap().register_base_natives)(globals_builder);
     register_cmd_args(globals_builder);
     register_bxl_defs(globals_builder);
     register_builtin_providers(globals_builder);

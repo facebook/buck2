@@ -19,6 +19,7 @@ pub struct MoreFunctions {
     pub register_read_config: fn(&mut GlobalsBuilder),
     pub register_module_natives: fn(&mut GlobalsBuilder),
     pub register_read_package_value: fn(&mut GlobalsBuilder),
+    pub register_base_natives: fn(&mut GlobalsBuilder),
 }
 
 pub static MORE_FUNCTIONS: LateBinding<MoreFunctions> = LateBinding::new("MORE_FUNCTIONS");
