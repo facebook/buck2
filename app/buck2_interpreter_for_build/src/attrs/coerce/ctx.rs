@@ -42,7 +42,7 @@ use tracing::info;
 
 use super::interner::AttrCoercionInterner;
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
-use crate::attrs::coerce::query_functions::QUERY_FUNCTIONS;
+use crate::attrs::coerce::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use crate::attrs::coerce::str_hash::str_hash;
 
 #[derive(Debug, thiserror::Error)]
@@ -265,7 +265,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         expr: &Spanned<Expr>,
         query: &str,
     ) -> anyhow::Result<()> {
-        QUERY_FUNCTIONS
+        CONFIGURED_GRAPH_QUERY_FUNCTIONS
             .get()?
             .visit_literals(visitor, expr)
             .map_err(|e| QueryError::convert_error(e, query))?;

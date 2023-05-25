@@ -36,7 +36,7 @@ use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_interpreter_for_build::attrs::coerce::query_functions::QUERY_FUNCTIONS;
+use buck2_interpreter_for_build::attrs::coerce::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
@@ -178,7 +178,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
 }
 
 pub(crate) fn init_query_functions() {
-    QUERY_FUNCTIONS.init(Arc::new(ConfiguredGraphQueryEnvironment::functions()));
+    CONFIGURED_GRAPH_QUERY_FUNCTIONS.init(Arc::new(ConfiguredGraphQueryEnvironment::functions()));
 }
 
 #[async_trait]

@@ -12,5 +12,5 @@ use std::sync::Arc;
 use buck2_query::query::syntax::simple::functions::QueryFunctionsVisitLiterals;
 use buck2_util::late_binding::LateBinding;
 
-pub static QUERY_FUNCTIONS: LateBinding<Arc<dyn QueryFunctionsVisitLiterals>> =
+pub static CONFIGURED_GRAPH_QUERY_FUNCTIONS: LateBinding<Arc<dyn QueryFunctionsVisitLiterals>> =
     LateBinding::new("QUERY_FUNCTIONS");
