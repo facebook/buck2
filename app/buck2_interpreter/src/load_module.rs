@@ -17,6 +17,7 @@ use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
+use crate::path::PackageFilePath;
 use crate::path::StarlarkModulePath;
 
 #[async_trait]
@@ -33,6 +34,13 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps>;
+
+    /// Return `None` if the PACKAGE file doesn't exist.
+    async fn get_package_file_deps(
+        &self,
+        ctx: &DiceComputations,
+        package: &PackageFilePath,
+    ) -> anyhow::Result<Option<Vec<ImportPath>>>;
 
     async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals>;
 }

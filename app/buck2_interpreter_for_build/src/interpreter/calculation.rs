@@ -20,6 +20,7 @@ use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
@@ -28,6 +29,7 @@ use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::path::PackageFilePath;
 use buck2_interpreter::path::StarlarkModulePath;
 use buck2_interpreter::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
@@ -168,6 +170,23 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .await?;
 
         Ok(module_deps)
+    }
+
+    async fn get_package_file_deps(
+        &self,
+        ctx: &DiceComputations,
+        package: &PackageFilePath,
+    ) -> anyhow::Result<Option<Vec<ImportPath>>> {
+        // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
+        // Therefore we re-parse the file, if it exists.
+        // Fortunately, there are only a small number (currently a few hundred)
+        let interpreter = ctx
+            .get_interpreter_calculator(package.cell(), package.build_file_cell())
+            .await?;
+        Ok(interpreter
+            .prepare_package_file_eval(package)
+            .await?
+            .map(|x| x.1.get_loaded_modules().imports().cloned().collect()))
     }
 
     async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals> {

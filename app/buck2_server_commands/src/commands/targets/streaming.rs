@@ -26,8 +26,8 @@ use buck2_core::pattern::PackageSpec;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::name::TargetName;
 use buck2_interpreter::load_module::InterpreterCalculation;
+use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::PackageFilePath;
-use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -317,14 +317,8 @@ async fn package_imports(
     dice: &DiceComputations,
     path: &PackageFilePath,
 ) -> anyhow::Result<Option<Vec<ImportPath>>> {
-    // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
-    // Therefore we re-parse the file, if it exists.
-    // Fortunately, there are only a small number (currently a few hundred)
-    let interpreter = dice
-        .get_interpreter_calculator(path.cell(), path.build_file_cell())
-        .await?;
-    Ok(interpreter
-        .prepare_package_file_eval(path)
-        .await?
-        .map(|x| x.1.get_loaded_modules().imports().cloned().collect()))
+    INTERPRETER_CALCULATION_IMPL
+        .get()?
+        .get_package_file_deps(dice, path)
+        .await
 }
