@@ -90,11 +90,18 @@ fn validate_buck_out_and_isolation_prefix<'v>(
     }
 }
 
+struct BuckOutPathData {
+    // Cell path of the target label that created the artifact.
+    cell_path: CellPath,
+    config_hash: String,
+    anon_hash: Option<String>,
+}
+
 fn get_cell_path<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     cell_resolver: &'v CellResolver,
     generated_prefix: &'v str,
-) -> anyhow::Result<(CellPath, String, Option<String>)> {
+) -> anyhow::Result<BuckOutPathData> {
     let is_anon = generated_prefix == "gen-anon";
     let is_test = generated_prefix == "test";
     // Get cell name and validate it exists
@@ -151,7 +158,13 @@ fn get_cell_path<'v>(
                                 None
                             };
 
-                            return Ok((cell_path, config_hash.to_string(), anon_hash));
+                            let buck_out_path_data = BuckOutPathData {
+                                cell_path,
+                                config_hash: config_hash.to_string(),
+                                anon_hash,
+                            };
+
+                            return Ok(buck_out_path_data);
                         }
                     }
                     None => (),
@@ -159,11 +172,12 @@ fn get_cell_path<'v>(
             }
 
             if is_test {
-                Ok((
-                    CellPath::new(cell_name, cell_relative_path.to_buf()),
-                    config_hash.to_string(),
-                    None,
-                ))
+                let buck_out_path_data = BuckOutPathData {
+                    cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
+                    config_hash: config_hash.to_string(),
+                    anon_hash: None,
+                };
+                Ok(buck_out_path_data)
             } else {
                 Err(anyhow::anyhow!("Invalid target name"))
             }
@@ -247,60 +261,65 @@ impl<'v> BuckOutPathParser<'v> {
             Some(part) => {
                 let result = match part.as_str() {
                     "tmp" => {
-                        let (path, config_hash, _) =
+                        let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "tmp")?;
-                        let target_label = get_target_label(&mut iter, path.clone())?;
+                        let target_label =
+                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
 
                         Ok(BuckOutPathType::TmpOutput {
-                            _path: path,
+                            _path: buck_out_path_data.cell_path,
                             _target_label: target_label,
-                            _config_hash: config_hash,
+                            _config_hash: buck_out_path_data.config_hash,
                         })
                     }
                     "test" => {
-                        let (path, config_hash, _) =
+                        let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "test")?;
 
                         Ok(BuckOutPathType::TestOutput {
-                            _path: path,
-                            _config_hash: config_hash,
+                            _path: buck_out_path_data.cell_path,
+                            _config_hash: buck_out_path_data.config_hash,
                         })
                     }
                     "gen" => {
-                        let (path, config_hash, _) =
+                        let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "gen")?;
-                        let target_label = get_target_label(&mut iter, path.clone())?;
+                        let target_label =
+                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let path_after_target_name =
                             ForwardRelativePathBuf::new(iter.clone().join("/"))?;
 
                         Ok(BuckOutPathType::RuleOutput {
-                            _path: path,
+                            _path: buck_out_path_data.cell_path,
                             target_label,
                             path_after_target_name,
-                            config_hash,
+                            config_hash: buck_out_path_data.config_hash,
                         })
                     }
                     "gen-anon" => {
-                        let (path, config_hash, anon_hash) =
+                        let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "gen-anon")?;
-                        let target_label = get_target_label(&mut iter, path.clone())?;
+                        let target_label =
+                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
 
                         Ok(BuckOutPathType::AnonOutput {
-                            _path: path,
+                            _path: buck_out_path_data.cell_path,
                             _target_label: target_label,
-                            _attr_hash: anon_hash
+                            _attr_hash: buck_out_path_data
+                                .anon_hash
                                 .expect("No hash found in anonymous artifact buck-out"),
-                            _config_hash: config_hash,
+                            _config_hash: buck_out_path_data.config_hash,
                         })
                     }
                     "gen-bxl" => {
-                        let (path, config_hash, _) =
+                        let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "gen-bxl")?;
-                        let bxl_function_label = get_bxl_function_label(&mut iter, path)?;
+                        let bxl_function_label =
+                            get_bxl_function_label(&mut iter, buck_out_path_data.cell_path)?;
 
                         Ok(BuckOutPathType::BxlOutput {
                             _bxl_function_label: bxl_function_label,
-                            _config_hash: config_hash,
+                            _config_hash: buck_out_path_data.config_hash,
                         })
                     }
                     _ => Err(anyhow::anyhow!(
