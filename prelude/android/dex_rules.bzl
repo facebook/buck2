@@ -66,9 +66,9 @@ SplitDexMergeConfig = record(
 )
 
 def _get_dex_compression(ctx: "context") -> str.type:
-    is_exopackage_enabled_for_secondary_dexes = "secondary_dex" in ctx.attrs.exopackage_modes
+    is_exopackage_enabled_for_secondary_dexes = _is_exopackage_enabled_for_secondary_dex(ctx)
     default_dex_compression = "jar" if is_exopackage_enabled_for_secondary_dexes else "raw"
-    dex_compression = ctx.attrs.dex_compression or default_dex_compression
+    dex_compression = getattr(ctx.attrs, "dex_compression", None) or default_dex_compression
     expect(
         dex_compression in ["raw", "jar", "xz", "xzs"],
         "Only 'raw', 'jar', 'xz' and 'xzs' dex compression are supported at this time!",
@@ -79,13 +79,11 @@ def _get_dex_compression(ctx: "context") -> str.type:
 def get_split_dex_merge_config(
         ctx: "context",
         android_toolchain: "AndroidToolchainInfo") -> "SplitDexMergeConfig":
+    secondary_dex_weight_limit = getattr(ctx.attrs, "secondary_dex_weight_limit", None) or android_toolchain.secondary_dex_weight_limit
     return SplitDexMergeConfig(
         dex_compression = _get_dex_compression(ctx),
         primary_dex_patterns = ctx.attrs.primary_dex_patterns,
-        secondary_dex_weight_limit_bytes = (
-            ctx.attrs.secondary_dex_weight_limit or
-            android_toolchain.secondary_dex_weight_limit
-        ),
+        secondary_dex_weight_limit_bytes = secondary_dex_weight_limit,
     )
 
 def get_single_primary_dex(

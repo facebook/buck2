@@ -580,6 +580,8 @@ android_instrumentation_apk = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "within_view": attrs.option(attrs.option(attrs.list(attrs.string())), default = None),
+            "use_split_dex": attrs.option(attrs.bool(), default = None),
+            "primary_dex_patterns": attrs.list(attrs.string(), default = []),
         }
     ),
 )

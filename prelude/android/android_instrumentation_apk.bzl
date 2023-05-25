@@ -11,12 +11,11 @@ load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidInstrumentationApkInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
-load("@prelude//android:dex_rules.bzl", "merge_to_single_dex")
+load("@prelude//android:dex_rules.bzl", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
 load("@prelude//utils:utils.bzl", "expect")
 
 def android_instrumentation_apk_impl(ctx: "context"):
-    # To begin with, let's just implement something that has a single DEX file and a manifest.
     _verify_params(ctx)
 
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
@@ -60,9 +59,18 @@ def android_instrumentation_apk_impl(ctx: "context"):
         for r_dot_java in resources_info.r_dot_javas
     ]
 
-    # For instrumentation test APKs we always pre-dex, and we also always merge to a single dex.
+    # For instrumentation test APKs we always pre-dex.
     pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
-    dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
+    if ctx.attrs.use_split_dex:
+        dex_merge_config = get_split_dex_merge_config(ctx, android_toolchain)
+        dex_files_info = merge_to_split_dex(
+            ctx,
+            android_toolchain,
+            pre_dexed_libs,
+            dex_merge_config,
+        )
+    else:
+        dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
 
     native_library_info = get_android_binary_native_library_info(
         ctx,
