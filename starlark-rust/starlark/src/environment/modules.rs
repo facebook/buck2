@@ -183,6 +183,7 @@ impl FrozenModule {
     }
 
     /// Iterate through all the names defined in this module.
+    /// Only includes symbols that are publicly exposed.
     pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
         self.module.names()
     }
