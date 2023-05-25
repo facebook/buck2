@@ -108,7 +108,7 @@ impl MutableNames {
         self.0
             .borrow()
             .iter()
-            .map(|(name, (slot, _vis))| (name.to_owned(), *slot))
+            .map(|(name, (slot, _vis))| (*name, *slot))
             .collect()
     }
 
