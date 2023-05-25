@@ -71,7 +71,6 @@ use starlark::syntax::AstModule;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
-use tonic::Status;
 
 use crate::builtin_docs::docs::get_builtin_docs;
 use crate::builtin_docs::docs::get_prelude_docs;
@@ -862,7 +861,7 @@ async fn recv_from_lsp(
 ///     - `Err` if a payload could not be decoded.
 fn handle_incoming_lsp_message(
     from_client: &crossbeam_channel::Sender<Message>,
-    message: Result<LspRequest, Status>,
+    message: anyhow::Result<LspRequest>,
 ) -> anyhow::Result<Option<LspResponse>> {
     if let Ok(m) = message {
         let message = serde_json::from_str(&m.lsp_json)?;

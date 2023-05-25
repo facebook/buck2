@@ -386,7 +386,7 @@ impl BuckdServer {
             ) -> BoxFuture<'a, anyhow::Result<Res>>
             + Send
             + 'static,
-        Req: TryFrom<StreamingRequest, Error = Status> + Send + Sync + 'static,
+        Req: TryFrom<StreamingRequest, Error = anyhow::Error> + Send + Sync + 'static,
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {

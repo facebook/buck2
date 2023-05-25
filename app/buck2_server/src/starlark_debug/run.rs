@@ -81,7 +81,8 @@ async fn run_dap_server(
         select! {
             request = req.next() => {
                 let request = match request {
-                    Some(v) => v.map_err(|e| anyhow::anyhow!("debugserver req error: {}", e))?,
+                    Some(Err(e)) => return Err(e),
+                    Some(Ok(v)) => v,
                     None => {
                         // client disconnected.
                         break buck2_cli_proto::DapResponse {};

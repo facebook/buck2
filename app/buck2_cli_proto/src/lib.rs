@@ -22,6 +22,8 @@ tonic::include_proto!("buck.daemon");
 enum BuckDaemonProtoError {
     #[error("daemon request was missing client context")]
     MissingClientContext,
+    #[error("wrong gRPC request message type, expecting {0} (internal error)")]
+    WrongRequestType(&'static str),
 }
 
 pub trait HasClientContext {
@@ -44,14 +46,12 @@ impl HasBuildOptions for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for LspRequest {
-    type Error = tonic::Status;
+    type Error = anyhow::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Lsp(req)) => Ok(req),
-            _ => Err(tonic::Status::invalid_argument(
-                "messages sent by client must be of type `LspRequest`",
-            )),
+            _ => Err(BuckDaemonProtoError::WrongRequestType("LspRequest").into()),
         }
     }
 }
@@ -65,14 +65,12 @@ impl From<LspRequest> for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for SubscriptionRequestWrapper {
-    type Error = tonic::Status;
+    type Error = anyhow::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Subscription(req)) => Ok(req),
-            _ => Err(tonic::Status::invalid_argument(
-                "messages sent by client must be of type `SubscriptionRequestWrapper`",
-            )),
+            _ => Err(BuckDaemonProtoError::WrongRequestType("SubscriptionRequestWrapper").into()),
         }
     }
 }
@@ -86,14 +84,12 @@ impl From<SubscriptionRequestWrapper> for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for DapRequest {
-    type Error = tonic::Status;
+    type Error = anyhow::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
             Some(streaming_request::Request::Dap(req)) => Ok(req),
-            _ => Err(tonic::Status::invalid_argument(
-                "messages sent by client must be of type `DapRequest`",
-            )),
+            _ => Err(BuckDaemonProtoError::WrongRequestType("DapRequest").into()),
         }
     }
 }
