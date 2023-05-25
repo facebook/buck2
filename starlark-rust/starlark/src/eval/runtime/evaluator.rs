@@ -474,7 +474,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             let name = match &eval.module_variables {
                 None => eval
                     .module_env
-                    .names()
+                    .mutable_names()
                     .get_slot(slot)
                     .map(|s| s.as_str().to_owned()),
                 Some(e) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),

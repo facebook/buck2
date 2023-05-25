@@ -85,7 +85,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         }
 
         let mut scope = Scope::enter_module(
-            self.module_env.names(),
+            self.module_env.mutable_names(),
             self.module_env.frozen_heap(),
             root_scope_id,
             scope_data,

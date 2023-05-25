@@ -326,7 +326,7 @@ impl Module {
         &self.frozen_heap
     }
 
-    pub(crate) fn names(&self) -> &MutableNames {
+    pub(crate) fn mutable_names(&self) -> &MutableNames {
         &self.names
     }
 

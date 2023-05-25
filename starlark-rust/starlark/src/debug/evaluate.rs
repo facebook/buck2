@@ -47,7 +47,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         // everything before, shove the local variables into the module, and then revert after
         let original_module: SmallMap<FrozenStringValue, Option<Value<'v>>> = self
             .module_env
-            .names()
+            .mutable_names()
             .all_names_and_slots()
             .into_iter()
             .map(|(name, slot)| (name, self.module_env.slots().get_slot(slot)))
@@ -94,9 +94,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                         .set_slot_slow(LocalSlotIdCapturedOrNot(slot as u32), value)
                 }
             }
-            for (name, slot) in self.module_env.names().all_names_and_slots() {
+            for (name, slot) in self.module_env.mutable_names().all_names_and_slots() {
                 match original_module.get(&name) {
-                    None => self.module_env.names().hide_name(&name),
+                    None => self.module_env.mutable_names().hide_name(&name),
                     Some(Some(value)) => self.module_env.slots().set_slot(slot, *value),
                     _ => {} // No way to unassign a previously assigned value yet
                 }
