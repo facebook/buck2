@@ -326,6 +326,28 @@ impl Module {
         &self.frozen_heap
     }
 
+    /// Iterate through all the names defined in this module.
+    /// Only includes symbols that are publicly exposed.
+    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
+        self.names
+            .all_names_and_visibilities()
+            .into_iter()
+            .filter_map(|(name, vis)| {
+                if vis == Visibility::Public {
+                    Some(name)
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Iterate through all the names defined in this module, including those that are private.
+    pub fn names_and_visibilities(
+        &self,
+    ) -> impl Iterator<Item = (FrozenStringValue, Visibility)> + '_ {
+        self.names.all_names_and_visibilities().into_iter()
+    }
+
     pub(crate) fn mutable_names(&self) -> &MutableNames {
         &self.names
     }
