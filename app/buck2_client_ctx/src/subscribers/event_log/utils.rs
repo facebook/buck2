@@ -144,6 +144,10 @@ impl Invocation {
         shlex::join(self.command_line_args.iter().map(|e| e.as_str()))
     }
 
+    pub fn display_expanded_command_line(&self) -> String {
+        shlex::join(self.expanded_command_line_args.iter().map(|e| e.as_str()))
+    }
+
     pub(crate) fn parse_json_line(json: &str) -> anyhow::Result<Invocation> {
         serde_json::from_str::<Invocation>(json)
             .with_context(|| format!("Invalid header: {}", json.trim_end()))

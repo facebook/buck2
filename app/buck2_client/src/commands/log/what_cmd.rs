@@ -20,18 +20,26 @@ use crate::commands::log::options::EventLogOptions;
 pub struct WhatCmdCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
+
+    /// Show @-expanded command line arguments instead of the original command line.
+    #[clap(long)]
+    expand: bool,
 }
 
 impl WhatCmdCommand {
     pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
-        let WhatCmdCommand { event_log } = self;
+        let WhatCmdCommand { event_log, expand } = self;
 
         ctx.with_runtime(async move |ctx| {
             let log_path = event_log.get(&ctx).await?;
             let (invocation, _events) = log_path.unpack_stream().await?;
 
             buck2_client_ctx::println!("# cd {}", invocation.working_dir)?;
-            buck2_client_ctx::println!("{}", invocation.display_command_line())?;
+            if expand {
+                buck2_client_ctx::println!("{}", invocation.display_expanded_command_line())?;
+            } else {
+                buck2_client_ctx::println!("{}", invocation.display_command_line())?;
+            }
 
             ExitResult::success()
         })
