@@ -20,8 +20,8 @@ use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::path::BxlFilePath;
-use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_defs::register_base_natives;
 use buck2_interpreter_for_build::interpreter::configuror::CONFIGURE_BXL_FILE_GLOBALS;
 use buck2_interpreter_for_build::interpreter::functions::host_info::register_host_info;
@@ -87,9 +87,7 @@ pub fn register_bxl_function(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let implementation = r#impl;
 
-        let build_context = BuildContext::from_context(eval)?;
-        let bxl_path = (*build_context
-            .starlark_path()
+        let bxl_path = (*(STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)?
             .unpack_bxl_file()
             .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
         .clone();
