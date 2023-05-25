@@ -13,6 +13,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
@@ -32,6 +33,8 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         package: PackageLabel,
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<ModuleDeps>;
+
+    async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =

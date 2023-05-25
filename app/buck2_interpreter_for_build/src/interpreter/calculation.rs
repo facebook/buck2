@@ -41,8 +41,10 @@ use dice::Key;
 use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use smallvec::SmallVec;
+use starlark::environment::Globals;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 
 // Key for 'InterpreterCalculation::get_interpreter_results'
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -166,6 +168,14 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .await?;
 
         Ok(module_deps)
+    }
+
+    async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals> {
+        Ok(ctx
+            .get_global_interpreter_state()
+            .await?
+            .build_file_global_env
+            .dupe())
     }
 }
 
