@@ -14,6 +14,7 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
+use std::sync::Arc;
 use std::thread;
 
 use anyhow::Context as _;
@@ -50,6 +51,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
@@ -317,7 +319,8 @@ impl CommandKind {
                 .into();
         }
 
-        let async_cleanup = AsyncCleanupContextGuard::new();
+        let runtime = Arc::new(client_tokio_runtime()?);
+        let async_cleanup = AsyncCleanupContextGuard::new(runtime.dupe());
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
@@ -381,6 +384,7 @@ impl CommandKind {
             restarter: process.restarter,
             restarted_trace_id: process.restarted_trace_id.dupe(),
             sanitized_argv,
+            runtime: runtime.dupe(),
         };
 
         match self {

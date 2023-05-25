@@ -15,13 +15,13 @@ use std::time::Instant;
 use dupe::Dupe;
 use futures::future;
 use futures::future::BoxFuture;
-
-use crate::tokio_runtime_setup::client_tokio_runtime;
+use tokio::runtime::Runtime;
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.
 #[derive(Clone, Dupe)]
 pub struct AsyncCleanupContext {
     jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
+    runtime: Arc<Runtime>,
 }
 
 impl AsyncCleanupContext {
@@ -51,9 +51,10 @@ impl AsyncCleanupContext {
 pub struct AsyncCleanupContextGuard(AsyncCleanupContext);
 
 impl AsyncCleanupContextGuard {
-    pub fn new() -> Self {
+    pub fn new(runtime: Arc<Runtime>) -> Self {
         Self(AsyncCleanupContext {
             jobs: Arc::new(Mutex::new(Vec::new())),
+            runtime,
         })
     }
 
@@ -64,9 +65,8 @@ impl AsyncCleanupContextGuard {
 
 impl Drop for AsyncCleanupContextGuard {
     fn drop(&mut self) {
-        let runtime = client_tokio_runtime().unwrap();
-        runtime.block_on(async move {
-            let future = self.0.join();
+        let future = self.0.join();
+        self.ctx().runtime.block_on(async move {
             if tokio::time::timeout(Duration::from_secs(30), future)
                 .await
                 .is_err()

@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
@@ -20,6 +21,7 @@ use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use tokio::runtime::Runtime;
 
 use crate::argv::SanitizedArgv;
 use crate::cleanup_ctx::AsyncCleanupContext;
@@ -31,7 +33,6 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
-use crate::tokio_runtime_setup::client_tokio_runtime;
 
 pub struct ClientCommandContext<'a> {
     pub init: fbinit::FacebookInit,
@@ -50,6 +51,7 @@ pub struct ClientCommandContext<'a> {
     pub stdin: &'a mut Stdin,
     pub restarter: &'a mut Restarter,
     pub restarted_trace_id: Option<TraceId>,
+    pub runtime: Arc<Runtime>,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -69,7 +71,7 @@ impl<'a> ClientCommandContext<'a> {
         Fut: Future + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
-        let runtime = client_tokio_runtime().unwrap();
+        let runtime = self.runtime.dupe();
         runtime.block_on(func(self))
     }
 
