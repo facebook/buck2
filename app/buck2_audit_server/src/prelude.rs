@@ -14,6 +14,7 @@ use buck2_audit::prelude::AuditPreludeCommand;
 use buck2_build_api::interpreter::context::prelude_path;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -42,7 +43,7 @@ impl AuditSubcommand for AuditPreludeCommand {
                     "{}",
                     INTERPRETER_CALCULATION_IMPL
                         .get()?
-                        .build_file_global_env(&ctx)
+                        .global_env_for_file_type(&ctx, StarlarkFileType::Buck)
                         .await?
                         .describe()
                 )?;

@@ -17,6 +17,7 @@ use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
+use crate::file_type::StarlarkFileType;
 use crate::path::PackageFilePath;
 use crate::path::StarlarkModulePath;
 
@@ -42,7 +43,11 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         package: &PackageFilePath,
     ) -> anyhow::Result<Option<Vec<ImportPath>>>;
 
-    async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals>;
+    async fn global_env_for_file_type(
+        &self,
+        ctx: &DiceComputations,
+        file_type: StarlarkFileType,
+    ) -> anyhow::Result<Globals>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =

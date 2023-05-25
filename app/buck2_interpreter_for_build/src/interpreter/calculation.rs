@@ -27,6 +27,7 @@ use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::path::PackageFilePath;
@@ -189,11 +190,15 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .map(|x| x.1.get_loaded_modules().imports().cloned().collect()))
     }
 
-    async fn build_file_global_env(&self, ctx: &DiceComputations) -> anyhow::Result<Globals> {
+    async fn global_env_for_file_type(
+        &self,
+        ctx: &DiceComputations,
+        file_type: StarlarkFileType,
+    ) -> anyhow::Result<Globals> {
         Ok(ctx
             .get_global_interpreter_state()
             .await?
-            .build_file_global_env
+            .globals_for_file_type(file_type)
             .dupe())
     }
 }
