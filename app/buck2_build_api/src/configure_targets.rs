@@ -13,6 +13,8 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::console_message;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::compatibility::IncompatiblePlatformReason;
@@ -24,9 +26,7 @@ use futures::future::FutureExt;
 use gazebo::prelude::SliceExt;
 use starlark_map::small_set::SmallSet;
 
-use crate::calculation::load_patterns;
 use crate::calculation::Calculation;
-use crate::calculation::MissingTargetBehavior;
 use crate::nodes::calculation::NodeCalculation;
 
 // Returns a tuple of compatible and incompatible targets.

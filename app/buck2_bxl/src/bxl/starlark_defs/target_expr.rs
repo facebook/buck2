@@ -9,9 +9,7 @@
 
 use std::borrow::Cow;
 
-use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_core::cells::cell_path::CellPathRef;
@@ -21,6 +19,8 @@ use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;

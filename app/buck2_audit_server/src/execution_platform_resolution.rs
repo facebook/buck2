@@ -11,9 +11,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_audit::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
-use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::ClientContext;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
@@ -22,6 +20,8 @@ use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
 use buck2_core::target::label::TargetLabel;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

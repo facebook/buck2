@@ -16,8 +16,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_build_api::calculation::load_patterns;
-use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_common::result::SharedResult;
 use buck2_core::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -27,6 +25,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::types::label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;

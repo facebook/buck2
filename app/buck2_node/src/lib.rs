@@ -17,6 +17,7 @@ pub mod attrs;
 pub mod call_stack;
 pub mod configuration;
 pub mod configured_universe;
+pub mod load_patterns;
 pub mod nodes;
 pub mod package;
 pub mod provider_id_set;

@@ -11,12 +11,12 @@ use std::fmt::Write;
 use std::iter;
 
 use async_trait::async_trait;
-use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::HasClientContext;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

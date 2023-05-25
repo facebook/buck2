@@ -11,9 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::calculation::load_patterns;
 use buck2_build_api::calculation::Calculation;
-use buck2_build_api::calculation::MissingTargetBehavior;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::dice::cells::HasCellResolver;
@@ -46,6 +44,8 @@ use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::load_module::InterpreterCalculation;
+use buck2_node::load_patterns::load_patterns;
+use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
