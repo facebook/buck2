@@ -75,8 +75,12 @@ impl TestOrchestratorClient {
         Ok(Self {
             test_orchestrator_client: test_orchestrator_client::TestOrchestratorClient::new(
                 channel.clone(),
-            ),
-            downward_api_client: downward_api_client::DownwardApiClient::new(channel),
+            )
+            .max_encoding_message_size(usize::MAX)
+            .max_decoding_message_size(usize::MAX),
+            downward_api_client: downward_api_client::DownwardApiClient::new(channel)
+                .max_encoding_message_size(usize::MAX)
+                .max_decoding_message_size(usize::MAX),
         })
     }
 }
@@ -547,14 +551,20 @@ where
 {
     let router = tonic::transport::Server::builder()
         .layer(EventDispatcherLayer::new(dispatcher))
-        .add_service(test_orchestrator_server::TestOrchestratorServer::new(
-            Service {
+        .add_service(
+            test_orchestrator_server::TestOrchestratorServer::new(Service {
                 inner: orchestrator,
-            },
-        ))
-        .add_service(downward_api_server::DownwardApiServer::new(Service {
-            inner: downward_api,
-        }));
+            })
+            .max_encoding_message_size(usize::MAX)
+            .max_decoding_message_size(usize::MAX),
+        )
+        .add_service(
+            downward_api_server::DownwardApiServer::new(Service {
+                inner: downward_api,
+            })
+            .max_encoding_message_size(usize::MAX)
+            .max_decoding_message_size(usize::MAX),
+        );
 
     spawn_oneshot(io, router)
 }
