@@ -31,6 +31,7 @@ def rust_library(
         rustc_flags = rustc_flags + [_CFG_BUCK_OSS_BUILD],
         deps = deps,
         visibility = visibility,
+        mapped_srcs = mapped_srcs,
         **kwargs
     )
 
