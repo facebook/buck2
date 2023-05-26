@@ -15,6 +15,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
+use std::process::Stdio;
 
 use anyhow::Context;
 use serde::Deserialize;
@@ -228,9 +229,10 @@ fn merge_unit_test_targets(
 
 // Choose sysroot and sysroot_src based on platform.
 // sysroot is expected to contain libexec helpers such as rust-analyzer-proc-macro-srv.
-// Non-linux platforms use fbsource/xplat/rust/toolchain/sysroot/library for
+// Non-linux platforms use fbsource/xplat/rust/toolchain/sysroot/VERSION for
 // sysroot_src since their sysroot bundled with rustc doesn't ship source. Once it
 // does, dispense with sysroot_src completely.
+#[instrument(level = "debug", ret)]
 fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), anyhow::Error> {
     if cfg!(target_os = "linux") {
         return Ok((
@@ -239,10 +241,10 @@ fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), a
         ));
     }
 
-    let sysroot_src = fbsource.join("xplat/rust/toolchain/sysroot/library/");
-    let fbsource_rustc = fbsource.join("xplat/rust/toolchain/current/rustc");
+    // Spawn both `rustc` and `buck audit config` in parallel without blocking.
 
-    let mut cmd = if cfg!(target_os = "macos") {
+    let fbsource_rustc = fbsource.join("xplat/rust/toolchain/current/rustc");
+    let mut sysroot_cmd = if cfg!(target_os = "macos") {
         // On Apple silicon, buck builds at Meta run under Rosetta.
         // So we force an x86-64 sysroot to avoid mixing architectures.
         let mut arch_cmd = Command::new("arch");
@@ -252,11 +254,48 @@ fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), a
     } else {
         Command::new(fbsource_rustc)
     };
+    sysroot_cmd.arg("--print=sysroot");
+    sysroot_cmd.stdin(Stdio::null());
+    sysroot_cmd.stdout(Stdio::piped());
+    sysroot_cmd.stderr(Stdio::piped());
+    let sysroot_child = sysroot_cmd.spawn()?;
 
-    cmd.arg("--print=sysroot");
+    // TEMPORARY! For push safety.
+    let old_sysroot_src = fbsource.join("xplat/rust/toolchain/sysroot/library/");
+    if old_sysroot_src.exists() {
+        let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
+            .context("error asking rustc for sysroot")?;
+        truncate_line_ending(&mut sysroot);
+        return Ok((Some(sysroot.into()), Some(old_sysroot_src)));
+    }
+    // ---
 
-    let mut sysroot = utf8_output(cmd.output(), &cmd).context("error asking rustc for sysroot")?;
+    let mut buck_config_cmd = Buck.command();
+    buck_config_cmd.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
+    buck_config_cmd.stdin(Stdio::null());
+    buck_config_cmd.stdout(Stdio::piped());
+    buck_config_cmd.stderr(Stdio::piped());
+    let buck_config_child = buck_config_cmd.spawn()?;
+
+    // Now block while we wait for both processes.
+
+    let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
+        .context("error asking rustc for sysroot")?;
     truncate_line_ending(&mut sysroot);
+
+    let sysroot_src = {
+        #[derive(Deserialize)]
+        struct BuckConfig {
+            #[serde(rename = "rust.sysroot_src_path")]
+            rust_sysroot_src_path: PathBuf,
+        }
+        let BuckConfig {
+            rust_sysroot_src_path,
+        } = deserialize_output(buck_config_child.wait_with_output(), &buck_config_cmd)?;
+        let mut p = fbsource.to_owned();
+        p.extend(&rust_sysroot_src_path);
+        p
+    };
 
     Ok((Some(sysroot.into()), Some(sysroot_src)))
 }
