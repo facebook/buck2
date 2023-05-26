@@ -10,11 +10,12 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Output;
 
-use anyhow::bail;
 use anyhow::Context;
 use serde::Deserialize;
 use tracing::debug;
@@ -242,24 +243,20 @@ fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), a
     let fbsource_rustc = fbsource.join("xplat/rust/toolchain/current/rustc");
 
     let mut cmd = if cfg!(target_os = "macos") {
-        // Even on M1, all Mac buck builds at meta currently target x86, so we always want the x86
-        // sysroot to avoid mixing architectures.
+        // On Apple silicon, buck builds at Meta run under Rosetta.
+        // So we force an x86-64 sysroot to avoid mixing architectures.
         let mut arch_cmd = Command::new("arch");
-        arch_cmd.args(["-x86_64", &fbsource_rustc.to_string_lossy()]);
+        arch_cmd.arg("-x86_64");
+        arch_cmd.arg(fbsource_rustc);
         arch_cmd
     } else {
         Command::new(fbsource_rustc)
     };
 
-    cmd.args(["--print", "sysroot"]);
+    cmd.arg("--print=sysroot");
 
-    let sysroot = String::from_utf8(
-        cmd.output()
-            .context("error asking rustc for sysroot")?
-            .stdout,
-    )?
-    .trim()
-    .to_owned();
+    let mut sysroot = utf8_output(cmd.output(), &cmd).context("error asking rustc for sysroot")?;
+    truncate_line_ending(&mut sysroot);
 
     Ok((Some(sysroot.into()), Some(sysroot_src)))
 }
@@ -277,21 +274,14 @@ impl Buck {
         let mut command = self.command();
         command.args(["root", "--kind=project"]);
 
-        let out = command.output()?;
-        if !out.status.success() {
-            bail!(
-                "failed to execute, logs: \nstdout:\n{}\nstderr\n{}",
-                String::from_utf8_lossy(&out.stdout),
-                String::from_utf8_lossy(&out.stderr)
-            )
-        }
+        let mut stdout = utf8_output(command.output(), &command)?;
+        truncate_line_ending(&mut stdout);
 
-        let raw = String::from_utf8(out.stdout)?;
         if enabled!(Level::TRACE) {
-            trace!(%raw, "Got root from buck");
+            trace!(%stdout, "Got root from buck");
         }
 
-        Ok(PathBuf::from(raw.trim()))
+        Ok(stdout.into())
     }
 
     /// Expands a Buck target expression.
@@ -307,7 +297,7 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        let raw = utf8_command(&mut command)?;
+        let raw = deserialize_output(command.output(), &command)?;
         if enabled!(Level::TRACE) {
             for target in &raw {
                 trace!(%target, "Expanded target from buck");
@@ -329,7 +319,7 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        let raw = utf8_command(&mut command)?;
+        let raw = deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
@@ -354,7 +344,7 @@ impl Buck {
         command.args(targets);
 
         info!("Querying buck for aliased proc macros");
-        let raw: BTreeMap<Target, MacroOutput> = utf8_command(&mut command)?;
+        let raw: BTreeMap<Target, MacroOutput> = deserialize_output(command.output(), &command)?;
 
         Ok(raw)
     }
@@ -380,7 +370,8 @@ impl Buck {
         command.args(targets);
 
         info!("Querying buck for aliased libraries");
-        let raw: BTreeMap<Target, AliasedTargetInfo> = utf8_command(&mut command)?;
+        let raw: BTreeMap<Target, AliasedTargetInfo> =
+            deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
@@ -397,35 +388,74 @@ impl Buck {
     ) -> Result<HashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         let mut command = self.command();
 
-        command.args(["uquery", "owner(%s)"]);
+        command.args(["uquery", "--json", "owner(%s)", "--"]);
         command.args(&files);
-        command.arg("--json");
 
         info!(?files, "Querying buck to determine owner");
-        let out = utf8_command(&mut command)?;
+        let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }
 }
 
-pub fn utf8_command<T>(command: &mut Command) -> Result<T, anyhow::Error>
+pub fn utf8_output(output: io::Result<Output>, command: &Command) -> Result<String, anyhow::Error> {
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) if status.success() => String::from_utf8(stdout)
+            .or_else(|err| {
+                let context = cmd_err(command, err.as_bytes(), &stderr);
+                Err(err).context(context)
+            })
+            .context("command returned non-utf8 output"),
+        Ok(output) => Err(cmd_err(command, &output.stdout, &output.stderr))
+            .with_context(|| format!("command ended with {}", output.status)),
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
+    }
+}
+
+pub fn deserialize_output<T>(
+    output: io::Result<Output>,
+    command: &Command,
+) -> Result<T, anyhow::Error>
 where
     T: for<'a> Deserialize<'a>,
 {
-    let out = command.output()?;
-    if !out.status.success() {
-        bail!(
-            "failed to execute, logs: \nstdout:\n{}\nstderr\n{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        )
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) if status.success() => {
+            tracing::debug!("parsing command output");
+            serde_json::from_slice(&stdout)
+                .with_context(|| cmd_err(command, &stdout, &stderr))
+                .context("failed to deserialize command output")
+        }
+        Ok(output) => Err(cmd_err(command, &output.stdout, &output.stderr))
+            .with_context(|| format!("command ended with {}", output.status)),
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
     }
+}
 
-    tracing::debug!("parsing bxl output");
-    serde_json::from_slice(&out.stdout).or_else(|e| {
-        bail!(
-            "failed to parse buck response: {e}, logs: \nstdout:\n{}\nstderr\n{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        )
-    })
+fn cmd_err(command: &Command, stdout: &[u8], stderr: &[u8]) -> anyhow::Error {
+    anyhow::anyhow!(
+        "command `{:?}`\nstdout:\n{}\nstderr:\n{}",
+        command,
+        String::from_utf8_lossy(stdout),
+        String::from_utf8_lossy(stderr),
+    )
+}
+
+/// Trim a trailing new line from `String`.
+/// Useful when trimming command output.
+pub fn truncate_line_ending(s: &mut String) {
+    if let Some(x) = s.strip_suffix("\r\n").or_else(|| s.strip_suffix('\n')) {
+        s.truncate(x.len());
+    }
 }
