@@ -14,7 +14,6 @@
 #![cfg_attr(feature = "gazebo_lint", allow(deprecated))] // :(
 #![cfg_attr(feature = "gazebo_lint", plugin(gazebo_lint))]
 
-use std::sync::Arc;
 use std::thread;
 
 use anyhow::Context as _;
@@ -319,8 +318,8 @@ impl CommandKind {
                 .into();
         }
 
-        let runtime = Arc::new(client_tokio_runtime()?);
-        let async_cleanup = AsyncCleanupContextGuard::new(runtime.dupe());
+        let runtime = client_tokio_runtime()?;
+        let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>> =
             if common_opts.no_buckd {
@@ -384,7 +383,7 @@ impl CommandKind {
             restarter: process.restarter,
             restarted_trace_id: process.restarted_trace_id.dupe(),
             sanitized_argv,
-            runtime: runtime.dupe(),
+            runtime: &runtime,
         };
 
         match self {

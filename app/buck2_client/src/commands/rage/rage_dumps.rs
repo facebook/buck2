@@ -53,7 +53,7 @@ impl DiceDump {
 
     async fn upload(
         &self,
-        mut buckd: BuckdClientConnector,
+        mut buckd: BuckdClientConnector<'_>,
         manifold_filename: &str,
     ) -> anyhow::Result<()> {
         buck2_client_ctx::eprintln!("Generating Buck2 DICE dump...")?;

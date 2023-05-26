@@ -77,17 +77,17 @@ pub trait PartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        ctx: PartialResultCtx<'_>,
+        ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
     ) -> anyhow::Result<()>;
 }
 
 /// Exposes restricted access to EventsCtx from PartialResultHandler instances.
-pub struct PartialResultCtx<'a> {
-    inner: &'a mut EventsCtx,
+pub struct PartialResultCtx<'a, 'b> {
+    inner: &'a mut EventsCtx<'b>,
 }
 
-impl<'a> PartialResultCtx<'a> {
+impl<'a, 'b> PartialResultCtx<'a, 'b> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> anyhow::Result<()> {
         self.inner
             .handle_subscribers(|subscriber| subscriber.handle_output(bytes))
@@ -97,8 +97,8 @@ impl<'a> PartialResultCtx<'a> {
 
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
-pub struct EventsCtx {
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+pub struct EventsCtx<'a> {
+    pub(crate) subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -115,8 +115,8 @@ pub struct FileTailers {
     stream: UnboundedReceiver<FileTailerEvent>,
 }
 
-impl EventsCtx {
-    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+impl<'a> EventsCtx<'a> {
+    pub fn new(subscribers: Vec<Box<dyn EventSubscriber + 'a>>) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
@@ -322,12 +322,12 @@ impl EventsCtx {
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
     /// Quits on the first error encountered.
-    async fn handle_subscribers<'a, Fut>(
-        &'a mut self,
-        f: impl FnMut(&'a mut Box<dyn EventSubscriber>) -> Fut,
+    async fn handle_subscribers<'b, Fut>(
+        &'b mut self,
+        f: impl FnMut(&'b mut Box<dyn EventSubscriber + 'a>) -> Fut,
     ) -> anyhow::Result<()>
     where
-        Fut: Future<Output = anyhow::Result<()>> + 'a,
+        Fut: Future<Output = anyhow::Result<()>> + 'b,
     {
         let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
         while let Some(res) = futures.next().await {
@@ -394,7 +394,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     }
 }
 
-impl EventsCtx {
+impl<'a> EventsCtx<'a> {
     async fn handle_tailer_stdout(&mut self, raw_output: &str) -> anyhow::Result<()> {
         self.handle_subscribers(|subscriber| subscriber.handle_output(raw_output.as_bytes()))
             .await

@@ -25,16 +25,16 @@ use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::should_upload_log;
 use crate::subscribers::subscriber::EventSubscriber;
 
-pub(crate) struct ReLog {
+pub(crate) struct ReLog<'a> {
     re_session_id: Option<String>,
     isolation_dir: FileNameBuf,
-    async_cleanup_context: AsyncCleanupContext,
+    async_cleanup_context: AsyncCleanupContext<'a>,
 }
 
-impl ReLog {
+impl<'a> ReLog<'a> {
     pub(crate) fn new(
         isolation_dir: FileNameBuf,
-        async_cleanup_context: AsyncCleanupContext,
+        async_cleanup_context: AsyncCleanupContext<'a>,
     ) -> Self {
         Self {
             re_session_id: None,
@@ -58,7 +58,7 @@ impl ReLog {
 }
 
 #[async_trait]
-impl EventSubscriber for ReLog {
+impl<'a> EventSubscriber for ReLog<'a> {
     async fn exit(&mut self) -> anyhow::Result<()> {
         self.log_upload().await
     }
@@ -80,7 +80,7 @@ impl EventSubscriber for ReLog {
     }
 }
 
-impl Drop for ReLog {
+impl<'a> Drop for ReLog<'a> {
     fn drop(&mut self) {
         let upload = self.log_upload();
         self.async_cleanup_context.register(

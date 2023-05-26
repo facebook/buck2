@@ -54,14 +54,14 @@ mod imp {
     use crate::subscribers::recorder::system_memory_stats;
     use crate::subscribers::subscriber::EventSubscriber;
 
-    pub struct InvocationRecorder {
+    pub struct InvocationRecorder<'a> {
         fb: FacebookInit,
         write_to_path: Option<AbsPathBuf>,
         command_name: &'static str,
         cli_args: Vec<String>,
         isolation_dir: String,
         start_time: Instant,
-        async_cleanup_context: AsyncCleanupContext,
+        async_cleanup_context: AsyncCleanupContext<'a>,
         build_count_manager: BuildCountManager,
         trace_id: TraceId,
         command_start: Option<buck2_data::CommandStart>,
@@ -128,10 +128,10 @@ mod imp {
         critical_path_backend: Option<String>,
     }
 
-    impl InvocationRecorder {
+    impl<'a> InvocationRecorder<'a> {
         pub fn new(
             fb: FacebookInit,
-            async_cleanup_context: AsyncCleanupContext,
+            async_cleanup_context: AsyncCleanupContext<'a>,
             write_to_path: Option<AbsPathBuf>,
             mut command_name: &'static str,
             sanitized_argv: Vec<String>,
@@ -910,7 +910,7 @@ mod imp {
         }
     }
 
-    impl Drop for InvocationRecorder {
+    impl<'a> Drop for InvocationRecorder<'a> {
         fn drop(&mut self) {
             if let Some(fut) = self.send_it() {
                 self.async_cleanup_context
@@ -920,7 +920,7 @@ mod imp {
     }
 
     #[async_trait]
-    impl EventSubscriber for InvocationRecorder {
+    impl<'a> EventSubscriber for InvocationRecorder<'a> {
         async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
             for event in events {
                 self.handle_event(event).await?;
@@ -951,7 +951,7 @@ mod imp {
         }
     }
 
-    impl ErrorObserver for InvocationRecorder {
+    impl<'a> ErrorObserver for InvocationRecorder<'a> {
         fn error_cause(&self) -> ErrorCause {
             if self.exit_when_different_state {
                 // User wants to immediately exit concurrent commands with different states
@@ -1005,14 +1005,14 @@ mod imp {
     }
 }
 
-pub fn try_get_invocation_recorder(
-    ctx: &ClientCommandContext,
+pub fn try_get_invocation_recorder<'a>(
+    ctx: &ClientCommandContext<'a>,
     opts: &CommonDaemonCommandOptions,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     use_streaming_upload: bool,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()

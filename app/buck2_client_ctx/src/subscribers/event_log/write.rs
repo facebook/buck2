@@ -119,9 +119,9 @@ pub(crate) enum LogWriterState {
     Closed,
 }
 
-pub(crate) struct WriteEventLog {
+pub(crate) struct WriteEventLog<'a> {
     state: LogWriterState,
-    async_cleanup_context: Option<AsyncCleanupContext>,
+    async_cleanup_context: Option<AsyncCleanupContext<'a>>,
     sanitized_argv: SanitizedArgv,
     command_name: String,
     working_dir: WorkingDir,
@@ -131,13 +131,13 @@ pub(crate) struct WriteEventLog {
     use_streaming_upload: bool,
 }
 
-impl WriteEventLog {
+impl<'a> WriteEventLog<'a> {
     pub(crate) fn new(
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
-        async_cleanup_context: AsyncCleanupContext,
+        async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         use_streaming_upload: bool,
@@ -167,10 +167,10 @@ impl WriteEventLog {
         self.write_ln(&[invocation]).await
     }
 
-    async fn write_ln<'a, T, I>(&'a mut self, events: I) -> anyhow::Result<()>
+    async fn write_ln<'b, T, I>(&'b mut self, events: I) -> anyhow::Result<()>
     where
-        T: SerializeForLog + 'a,
-        I: IntoIterator<Item = &'a T> + Clone + 'a,
+        T: SerializeForLog + 'b,
+        I: IntoIterator<Item = &'b T> + Clone + 'b,
     {
         match &mut self.state {
             LogWriterState::Opened { writers } => {
@@ -340,7 +340,7 @@ impl WriteEventLog {
     }
 }
 
-impl Drop for WriteEventLog {
+impl<'a> Drop for WriteEventLog<'a> {
     fn drop(&mut self) {
         let exit = self.exit();
         match self.async_cleanup_context.as_ref() {
@@ -439,7 +439,7 @@ fn get_writer(
     })
 }
 
-impl WriteEventLog {
+impl<'a> WriteEventLog<'a> {
     pub(crate) async fn write_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         let mut event_refs = Vec::new();
         let mut first = true;
@@ -563,7 +563,7 @@ mod tests {
     use super::*;
     use crate::stream_value::StreamValue;
 
-    impl WriteEventLog {
+    impl WriteEventLog<'static> {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
                 state: LogWriterState::Opened {

@@ -61,7 +61,7 @@ impl TraceIoCommand {
     async fn send_request(
         &self,
         req: TraceIoRequest,
-        buckd: &mut BuckdClientConnector,
+        buckd: &mut BuckdClientConnector<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> anyhow::Result<CommandOutcome<TraceIoResponse>> {
         buckd

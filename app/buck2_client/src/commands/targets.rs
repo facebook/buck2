@@ -341,7 +341,7 @@ impl StreamingCommand for TargetsCommand {
 
 async fn targets_show_outputs(
     stdin: &mut Stdin,
-    buckd: &mut BuckdClientConnector,
+    buckd: &mut BuckdClientConnector<'_>,
     target_request: TargetsRequest,
     root_path: Option<&AbsNormPath>,
     console_opts: &CommonConsoleOptions,
@@ -378,7 +378,7 @@ async fn targets_show_outputs(
 
 async fn targets(
     stdin: &mut Stdin,
-    buckd: &mut BuckdClientConnector,
+    buckd: &mut BuckdClientConnector<'_>,
     target_request: TargetsRequest,
     console_opts: &CommonConsoleOptions,
 ) -> ExitResult {

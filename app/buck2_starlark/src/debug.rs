@@ -222,7 +222,7 @@ impl PartialResultHandler for DapPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut _ctx: PartialResultCtx<'_>,
+        mut _ctx: PartialResultCtx<'_, '_>,
         partial_res: buck2_cli_proto::DapMessage,
     ) -> anyhow::Result<()> {
         send_message_to_dap_client(&partial_res.dap_json)

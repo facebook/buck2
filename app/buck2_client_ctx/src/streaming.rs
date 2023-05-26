@@ -39,10 +39,10 @@ use crate::subscribers::subscriber::EventSubscriber;
 
 static USE_STREAMING_UPLOADS: EnvHelper<bool> = EnvHelper::new("BUCK2_USE_STREAMING_UPLOADS");
 
-fn default_subscribers<T: StreamingCommand>(
+fn default_subscribers<'a, T: StreamingCommand>(
     cmd: &T,
-    ctx: &ClientCommandContext,
-) -> anyhow::Result<Vec<Box<dyn EventSubscriber>>> {
+    ctx: &ClientCommandContext<'a>,
+) -> anyhow::Result<Vec<Box<dyn EventSubscriber + 'a>>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
     let show_waiting_message = cmd.should_show_waiting_message();

@@ -184,7 +184,7 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_>,
+        mut ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
     ) -> anyhow::Result<()> {
         let response = partial_res

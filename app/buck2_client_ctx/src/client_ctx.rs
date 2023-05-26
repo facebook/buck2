@@ -8,7 +8,6 @@
  */
 
 use std::future::Future;
-use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
@@ -47,11 +46,11 @@ pub struct ClientCommandContext<'a> {
     pub command_name: String,
     pub sanitized_argv: SanitizedArgv,
     pub trace_id: TraceId,
-    pub async_cleanup: AsyncCleanupContext,
+    pub async_cleanup: AsyncCleanupContext<'a>,
     pub stdin: &'a mut Stdin,
     pub restarter: &'a mut Restarter,
     pub restarted_trace_id: Option<TraceId>,
-    pub runtime: Arc<Runtime>,
+    pub runtime: &'a Runtime,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -71,8 +70,7 @@ impl<'a> ClientCommandContext<'a> {
         Fut: Future + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
-        let runtime = self.runtime.dupe();
-        runtime.block_on(func(self))
+        self.runtime.block_on(func(self))
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {
@@ -81,8 +79,8 @@ impl<'a> ClientCommandContext<'a> {
 
     pub async fn connect_buckd(
         &self,
-        options: BuckdConnectOptions,
-    ) -> anyhow::Result<BuckdClientConnector> {
+        options: BuckdConnectOptions<'a>,
+    ) -> anyhow::Result<BuckdClientConnector<'a>> {
         BuckdConnectOptions { ..options }
             .connect(self.paths()?)
             .await
@@ -166,7 +164,7 @@ impl<'a> ClientCommandContext<'a> {
         })
     }
 
-    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
+    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext<'a> {
         &self.async_cleanup
     }
 }

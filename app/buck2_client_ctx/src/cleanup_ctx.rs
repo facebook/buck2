@@ -19,12 +19,12 @@ use tokio::runtime::Runtime;
 
 /// For cleanup we want to perform, but cant do in `drop` because it's async.
 #[derive(Clone, Dupe)]
-pub struct AsyncCleanupContext {
+pub struct AsyncCleanupContext<'a> {
     jobs: Arc<Mutex<Vec<BoxFuture<'static, ()>>>>,
-    runtime: Arc<Runtime>,
+    runtime: &'a Runtime,
 }
 
-impl AsyncCleanupContext {
+impl<'a> AsyncCleanupContext<'a> {
     pub fn register(&self, name: &'static str, fut: BoxFuture<'static, ()>) {
         const WARNING_TIMEOUT: Duration = Duration::from_millis(1000);
         self.jobs
@@ -48,22 +48,22 @@ impl AsyncCleanupContext {
     }
 }
 
-pub struct AsyncCleanupContextGuard(AsyncCleanupContext);
+pub struct AsyncCleanupContextGuard<'a>(AsyncCleanupContext<'a>);
 
-impl AsyncCleanupContextGuard {
-    pub fn new(runtime: Arc<Runtime>) -> Self {
+impl<'a> AsyncCleanupContextGuard<'a> {
+    pub fn new(runtime: &'a Runtime) -> Self {
         Self(AsyncCleanupContext {
             jobs: Arc::new(Mutex::new(Vec::new())),
             runtime,
         })
     }
 
-    pub fn ctx(&self) -> &AsyncCleanupContext {
+    pub fn ctx(&self) -> &AsyncCleanupContext<'a> {
         &self.0
     }
 }
 
-impl Drop for AsyncCleanupContextGuard {
+impl<'a> Drop for AsyncCleanupContextGuard<'a> {
     fn drop(&mut self) {
         let future = self.0.join();
         self.ctx().runtime.block_on(async move {

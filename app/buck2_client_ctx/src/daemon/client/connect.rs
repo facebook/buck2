@@ -470,10 +470,10 @@ impl BootstrapBuckdClient {
             )
     }
 
-    pub fn with_subscribers(
+    pub fn with_subscribers<'a>(
         self,
-        subscribers: Vec<Box<dyn EventSubscriber>>,
-    ) -> BuckdClientConnector {
+        subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+    ) -> BuckdClientConnector<'a> {
         BuckdClientConnector {
             client: BuckdClient {
                 info: self.info,
@@ -504,15 +504,15 @@ impl BootstrapBuckdClient {
 /// If the `existing_only` method is called, then any existing buck daemon (regardless of constraint) is accepted.
 ///
 /// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
-pub struct BuckdConnectOptions {
+pub struct BuckdConnectOptions<'a> {
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
     /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
-    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
+    pub(crate) subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
     pub constraints: BuckdConnectConstraints,
 }
 
-impl BuckdConnectOptions {
+impl<'a> BuckdConnectOptions<'a> {
     pub fn existing_only_no_console() -> Self {
         Self {
             constraints: BuckdConnectConstraints::ExistingOnly,
@@ -520,7 +520,10 @@ impl BuckdConnectOptions {
         }
     }
 
-    pub async fn connect(self, paths: &InvocationPaths) -> anyhow::Result<BuckdClientConnector> {
+    pub async fn connect(
+        self,
+        paths: &InvocationPaths,
+    ) -> anyhow::Result<BuckdClientConnector<'a>> {
         let client = BootstrapBuckdClient::connect(paths, self.constraints).await?;
         Ok(client.with_subscribers(self.subscribers))
     }

@@ -105,13 +105,13 @@ pub fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub(crate) fn try_get_event_log_subscriber(
+pub(crate) fn try_get_event_log_subscriber<'a>(
     event_log_opts: &CommonDaemonCommandOptions,
     sanitized_argv: SanitizedArgv,
-    ctx: &ClientCommandContext,
+    ctx: &ClientCommandContext<'a>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     use_streaming_upload: bool,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if event_log_opts.no_event_log {
         return Ok(None);
     }
@@ -132,9 +132,9 @@ pub(crate) fn try_get_event_log_subscriber(
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_re_log_subscriber(
-    ctx: &ClientCommandContext,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+pub(crate) fn try_get_re_log_subscriber<'a>(
+    ctx: &ClientCommandContext<'a>,
+) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
@@ -142,10 +142,10 @@ pub(crate) fn try_get_re_log_subscriber(
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_build_id_writer(
+pub(crate) fn try_get_build_id_writer<'a>(
     opts: &CommonDaemonCommandOptions,
-    ctx: &ClientCommandContext,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber>>> {
+    ctx: &ClientCommandContext<'a>,
+) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
         Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),

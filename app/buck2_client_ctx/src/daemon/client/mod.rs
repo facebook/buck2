@@ -54,12 +54,12 @@ enum LifecycleError {
 
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
-pub struct BuckdClientConnector {
-    client: BuckdClient,
+pub struct BuckdClientConnector<'a> {
+    client: BuckdClient<'a>,
 }
 
-impl BuckdClientConnector {
-    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_> {
+impl<'a> BuckdClientConnector<'a> {
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_, 'a> {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
@@ -147,14 +147,14 @@ impl Drop for BuckdLifecycleLock {
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
-pub struct BuckdClient {
+pub struct BuckdClient<'a> {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     constraints: buck2_cli_proto::DaemonConstraints,
     info: DaemonProcessInfo,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
-    pub(crate) events_ctx: EventsCtx,
+    pub(crate) events_ctx: EventsCtx<'a>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -197,7 +197,7 @@ fn grpc_to_stream(
     .right_stream()
 }
 
-impl BuckdClient {
+impl<'a> BuckdClient<'a> {
     fn open_tailers(&mut self) -> anyhow::Result<()> {
         let tailers = FileTailers::new(&self.daemon_dir)?;
         self.tailers = Some(tailers);
@@ -215,11 +215,11 @@ impl BuckdClient {
         console_interaction: Option<ConsoleInteractionStream<'i>>,
     ) -> anyhow::Result<CommandOutcome<Res>>
     where
-        Command: for<'a> FnOnce(
-            &'a mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
+        Command: for<'b> FnOnce(
+            &'b mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
             Request<T>,
         ) -> BoxFuture<
-            'a,
+            'b,
             Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>, Status>,
         >,
         Res: TryFrom<command_result::Result, Error = command_result::Result>,
@@ -274,11 +274,11 @@ impl BuckdClient {
     }
 }
 
-pub struct FlushingBuckdClient<'a> {
-    inner: &'a mut BuckdClient,
+pub struct FlushingBuckdClient<'a, 'b> {
+    inner: &'a mut BuckdClient<'b>,
 }
 
-impl<'a> FlushingBuckdClient<'a> {
+impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
     fn enter(&mut self) -> anyhow::Result<()> {
         self.inner.open_tailers()?;
         Ok(())
@@ -309,7 +309,7 @@ impl PartialResultHandler for NoPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        _ctx: PartialResultCtx<'_>,
+        _ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
     ) -> anyhow::Result<()> {
         match partial_res {}
@@ -325,7 +325,7 @@ impl PartialResultHandler for StdoutPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_>,
+        mut ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
     ) -> anyhow::Result<()> {
         ctx.stdout(&partial_res.data).await
@@ -447,7 +447,7 @@ macro_rules! wrap_method {
      };
  }
 
-impl<'a> FlushingBuckdClient<'a> {
+impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
     stream_method!(
         aquery,
         AqueryRequest,

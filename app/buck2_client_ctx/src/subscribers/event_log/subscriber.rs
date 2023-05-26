@@ -24,17 +24,17 @@ use crate::subscribers::subscriber::Tick;
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
-pub(crate) struct EventLog {
-    writer: WriteEventLog,
+pub(crate) struct EventLog<'a> {
+    writer: WriteEventLog<'a>,
 }
 
-impl EventLog {
+impl<'a> EventLog<'a> {
     pub(crate) fn new(
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
-        async_cleanup_context: AsyncCleanupContext,
+        async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         use_streaming_upload: bool,
@@ -55,7 +55,7 @@ impl EventLog {
 }
 
 #[async_trait]
-impl EventSubscriber for EventLog {
+impl<'a> EventSubscriber for EventLog<'a> {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
         self.writer.write_events(events).await
     }
