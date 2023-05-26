@@ -153,12 +153,6 @@ impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
             .send(Event::Edge(self.key.clone(), dep))
             .expect("cycle detector events receiver died while cycle detector still alive");
     }
-
-    pub fn finish(&self) {
-        self.events_sender
-            .send(Event::Finished(self.key.clone()))
-            .expect("cycle detector events receiver died while cycle detector still alive");
-    }
 }
 
 #[derive(Debug)]
