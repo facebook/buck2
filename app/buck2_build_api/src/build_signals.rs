@@ -7,17 +7,89 @@
  * of this source tree.
  */
 
+use std::future::Future;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use allocative::Allocative;
+use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
+use buck2_util::late_binding::LateBinding;
 use dice::ActivationTracker;
 use dice::UserComputationData;
 use dupe::Dupe;
+use tokio::task::JoinHandle;
 
 use crate::artifact_groups::ArtifactGroup;
+
+#[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
+pub enum CriticalPathBackendName {
+    #[display(fmt = "longest-path-graph")]
+    LongestPathGraph,
+    #[display(fmt = "default")]
+    Default,
+}
+
+impl FromStr for CriticalPathBackendName {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "longest-path-graph" {
+            return Ok(Self::LongestPathGraph);
+        }
+
+        if s == "default" {
+            return Ok(Self::Default);
+        }
+
+        Err(anyhow::anyhow!("Invalid backend name: `{}`", s))
+    }
+}
+
+pub static START_LISTENER_BY_BACKEND_NAME: LateBinding<
+    fn(
+        EventDispatcher,
+        CriticalPathBackendName,
+    ) -> (BuildSignalsInstaller, JoinHandle<anyhow::Result<()>>),
+> = LateBinding::new("START_LISTENER_BY_BACKEND_NAME");
+
+/// Creates a Build Listener signal pair and invokes the given asynchronous function with the send-end of the signal
+/// sender.
+///
+/// Build listeners in this module operate by creating a matched pair of signal senders and signal receivers. Senders
+/// are Dupe and allow for arbitrarily many writeres. Receivers are not Dupe and are expected to be driven by a single
+/// thread. This implies that, in order for the receiver to function correctly and dispatch to build listeners, it must
+/// be run in a background task that is periodically polled.
+///
+/// This function arranges for a background task to be spawned that drives the receiver, while invoking the called
+/// function with a live BuildSignalSender that can be used to send events to the listening receiver. Upon return of
+/// `scope`, the sender terminates the receiver by sending a `BuildFinished` signal and joins the receiver task.
+pub async fn scope<F, R, Fut>(
+    events: EventDispatcher,
+    backend: CriticalPathBackendName,
+    func: F,
+) -> anyhow::Result<R>
+where
+    F: FnOnce(BuildSignalsInstaller) -> Fut,
+    Fut: Future<Output = anyhow::Result<R>>,
+{
+    let (installer, handle) = (START_LISTENER_BY_BACKEND_NAME.get()?)(events, backend);
+    let result = func(installer.dupe()).await;
+    installer.build_signals.build_finished();
+    let res = handle
+        .await
+        .context("Error joining critical path task")?
+        .context("Error computing critical path");
+    if let Err(e) = res {
+        soft_error!("critical_path_computation_failed", e)?;
+    }
+    result
+}
 
 /// Everything we need to setup build signals when starting a command.
 #[derive(Clone, Dupe)]

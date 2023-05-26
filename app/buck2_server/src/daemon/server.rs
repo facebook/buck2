@@ -24,6 +24,7 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::build_signals;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::daemon_api_server::*;
@@ -474,7 +475,7 @@ impl BuckdServer {
                     let result: anyhow::Result<Res> = try {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
-                        buck2_build_signals_impl::scope(
+                        build_signals::scope(
                             base_context.events.dupe(),
                             data.critical_path_backend,
                             |build_sender| async {

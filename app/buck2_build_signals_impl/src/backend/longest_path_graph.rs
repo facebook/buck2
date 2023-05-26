@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_build_api::build_signals::NodeDuration;
 use buck2_core::soft_error;
 use buck2_critical_path::compute_critical_path_potentials;
@@ -23,7 +24,6 @@ use dupe::Dupe;
 use smallvec::SmallVec;
 
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::backend::CriticalPathBackendName;
 use crate::BuildInfo;
 use crate::NodeData;
 use crate::NodeKey;

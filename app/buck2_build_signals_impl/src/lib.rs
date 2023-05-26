@@ -10,13 +10,11 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
-use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context as _;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
@@ -29,12 +27,13 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::build_signals::BuildSignals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
+use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_build_api::build_signals::NodeDuration;
+use buck2_build_api::build_signals::START_LISTENER_BY_BACKEND_NAME;
 use buck2_build_api::deferred::calculation::DeferredCompute;
 use buck2_build_api::deferred::calculation::DeferredResolve;
 use buck2_build_api::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::instant_event;
@@ -60,7 +59,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
 use crate::backend::backend::BuildListenerBackend;
-pub use crate::backend::backend::CriticalPathBackendName;
 use crate::backend::default::DefaultBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 
@@ -570,47 +568,15 @@ fn start_listener(
     (installer, receiver_task_handle)
 }
 
-fn start_listener_by_backend_name(
-    events: EventDispatcher,
-    backend: CriticalPathBackendName,
-) -> (BuildSignalsInstaller, JoinHandle<anyhow::Result<()>>) {
-    match backend {
+fn init_start_listener_by_backend_nane() {
+    START_LISTENER_BY_BACKEND_NAME.init(|events, backend| match backend {
         CriticalPathBackendName::LongestPathGraph => {
             start_listener(events, LongestPathGraphBackend::new())
         }
         CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
-    }
+    })
 }
 
-/// Creates a Build Listener signal pair and invokes the given asynchronous function with the send-end of the signal
-/// sender.
-///
-/// Build listeners in this module operate by creating a matched pair of signal senders and signal receivers. Senders
-/// are Dupe and allow for arbitrarily many writeres. Receivers are not Dupe and are expected to be driven by a single
-/// thread. This implies that, in order for the receiver to function correctly and dispatch to build listeners, it must
-/// be run in a background task that is periodically polled.
-///
-/// This function arranges for a background task to be spawned that drives the receiver, while invoking the called
-/// function with a live BuildSignalSender that can be used to send events to the listening receiver. Upon return of
-/// `scope`, the sender terminates the receiver by sending a `BuildFinished` signal and joins the receiver task.
-pub async fn scope<F, R, Fut>(
-    events: EventDispatcher,
-    backend: CriticalPathBackendName,
-    func: F,
-) -> anyhow::Result<R>
-where
-    F: FnOnce(BuildSignalsInstaller) -> Fut,
-    Fut: Future<Output = anyhow::Result<R>>,
-{
-    let (installer, handle) = start_listener_by_backend_name(events, backend);
-    let result = func(installer.dupe()).await;
-    installer.build_signals.build_finished();
-    let res = handle
-        .await
-        .context("Error joining critical path task")?
-        .context("Error computing critical path");
-    if let Err(e) = res {
-        soft_error!("critical_path_computation_failed", e)?;
-    }
-    result
+pub fn init_late_bindings() {
+    init_start_listener_by_backend_nane();
 }

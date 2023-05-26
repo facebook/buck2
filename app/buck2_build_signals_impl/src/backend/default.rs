@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_build_api::build_signals::NodeDuration;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
@@ -24,7 +25,6 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::backend::CriticalPathBackendName;
 use crate::BuildInfo;
 use crate::NodeData;
 use crate::NodeKey;

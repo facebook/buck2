@@ -7,14 +7,12 @@
  * of this source tree.
  */
 
-use std::str::FromStr;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_build_api::build_signals::NodeDuration;
 use buck2_events::span::SpanId;
-use dupe::Dupe;
 use smallvec::SmallVec;
 
 use crate::BuildInfo;
@@ -39,28 +37,4 @@ pub(crate) trait BuildListenerBackend {
     fn finish(self) -> anyhow::Result<BuildInfo>;
 
     fn name() -> CriticalPathBackendName;
-}
-
-#[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
-pub enum CriticalPathBackendName {
-    #[display(fmt = "longest-path-graph")]
-    LongestPathGraph,
-    #[display(fmt = "default")]
-    Default,
-}
-
-impl FromStr for CriticalPathBackendName {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "longest-path-graph" {
-            return Ok(Self::LongestPathGraph);
-        }
-
-        if s == "default" {
-            return Ok(Self::Default);
-        }
-
-        Err(anyhow::anyhow!("Invalid backend name: `{}`", s))
-    }
 }
