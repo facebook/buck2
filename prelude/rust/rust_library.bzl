@@ -7,6 +7,10 @@
 
 load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
 load(
+    "@prelude//android:android_providers.bzl",
+    "merge_android_packageable_info",
+)
+load(
     "@prelude//cxx:linker.bzl",
     "PDB_SUB_TARGET",
     "get_default_shared_library_name",
@@ -158,6 +162,8 @@ def prebuilt_rust_library_impl(ctx: "context") -> ["provider"]:
 
     providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
 
+    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps))
+
     return providers
 
 def rust_library_impl(ctx: "context") -> ["provider"]:
@@ -278,11 +284,14 @@ def rust_library_impl(ctx: "context") -> ["provider"]:
         param_artifact = native_param_artifact,
     )
 
+    deps = [dep.dep for dep in resolve_deps(ctx)]
     providers.append(ResourceInfo(resources = gather_resources(
         label = ctx.label,
         resources = rust_attr_resources(ctx),
-        deps = [dep.dep for dep in resolve_deps(ctx)],
+        deps = deps,
     )))
+
+    providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps))
 
     return providers
 
