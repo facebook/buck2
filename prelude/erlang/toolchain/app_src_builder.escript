@@ -227,6 +227,9 @@ add_optional_fields(Props, [{K, V0} | Fields]) ->
     case V1 of
         undefined ->
             add_optional_fields([{K, V0} | Props], Fields);
+        % overwrite the value of empty list in .app.src, for example: {env, []}
+        [] ->
+            add_optional_fields([{K, V0} | Props], Fields);
         _ ->
             case V0 =:= V1 of
                 true -> add_optional_fields(Props, Fields);
