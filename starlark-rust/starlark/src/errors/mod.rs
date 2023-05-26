@@ -199,14 +199,6 @@ impl Diagnostic {
 
     /// Gets annotated snippets for a [`Diagnostic`].
     fn get_display_list<'a>(&'a self, annotation_label: &'a str, color: bool) -> DisplayList<'a> {
-        fn convert_span_to_range_relative_to_first_line(
-            diagnostic_span: Span,
-            start_column: usize,
-        ) -> (usize, usize) {
-            let span_length = diagnostic_span.len() as usize;
-            (start_column, start_column + span_length)
-        }
-
         fn convert_span_to_slice<'a>(span: &'a FileSpan) -> Slice<'a> {
             let region = span.resolve_span();
 
@@ -216,19 +208,25 @@ impl Diagnostic {
             let first_line_span = span.file.line_span(region.begin_line);
             let last_line_span = span.file.line_span(region.end_line);
             let source_span = span.span.merge(first_line_span).merge(last_line_span);
+            let source = span.file.source_span(source_span);
+
+            // We want to highlight the span, which needs to be relative to source, and in
+            // characters (whereas our spans are in terms of bytes)
+            let range_start_bytes = region.begin_column;
+            let range_len_bytes = span.span.len() as usize;
+            let range_start_chars = fast_string::len(&source[0..range_start_bytes]).0;
+            let range_len_chars =
+                fast_string::len(&source[range_start_bytes..range_start_bytes + range_len_bytes]).0;
 
             Slice {
-                source: span.file.source_span(source_span),
+                source,
                 line_start: 1 + region.begin_line,
                 origin: Some(span.file.filename()),
                 fold: false,
                 annotations: vec![SourceAnnotation {
                     label: "",
                     annotation_type: AnnotationType::Error,
-                    range: convert_span_to_range_relative_to_first_line(
-                        span.span,
-                        region.begin_column,
-                    ),
+                    range: (range_start_chars, range_start_chars + range_len_chars),
                 }],
             }
         }

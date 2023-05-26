@@ -1008,3 +1008,13 @@ animal("Joe")
     let animal = SmallMap::<String, Value>::unpack_value(res).unwrap();
     println!("animal = {:?}", animal);
 }
+
+#[test]
+fn test_fuzzer_59102() {
+    // let src = std::fs::read_to_string("/Users/ndmitchell/fbsource/fbcode/buck2/clusterfuzz-testcase-minimized-starlark-6484634888962048").unwrap();
+    let src = "\"\u{e0070}";
+    let res: Result<AstModule, anyhow::Error> =
+        AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
+    // The panic actually only happens when we format the result
+    format!("{:?}", res);
+}
