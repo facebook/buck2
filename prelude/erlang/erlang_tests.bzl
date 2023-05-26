@@ -335,6 +335,7 @@ def link_output(
     link_spec[beam.basename] = beam
     link_spec[data_dir.basename] = data_dir
     link_spec[property_dir.basename] = property_dir
+    link_spec[ctx.attrs.suite.basename] = ctx.attrs.suite
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
 def generate_file_map_target(suite: "string", dir_name: "string") -> "string":
