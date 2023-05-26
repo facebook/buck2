@@ -420,7 +420,7 @@ impl TypingContext<'_> {
                     }
                     ArgumentP::KwArgs(x) => {
                         let ty = self.expression_type(x);
-                        self.validate_type(&ty, &Ty::dict(Ty::Any, Ty::Any), x.span);
+                        self.validate_type(&ty, &Ty::dict(Ty::string(), Ty::Any), x.span);
                         Arg::Kwargs(ty)
                     }
                 });

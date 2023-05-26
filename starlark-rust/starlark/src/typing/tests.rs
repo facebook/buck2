@@ -135,3 +135,20 @@ fn test_false_negative() {
     assert!(approx.is_empty());
     assert!(errs.is_empty());
 }
+
+#[test]
+fn test_type_kwargs() {
+    let (errs, _, _, _) = typecheck(
+        r#"
+def foo(**kwargs):
+    pass
+foo(**{1: "x"})
+"#,
+        &HashMap::new(),
+    );
+    assert_eq!(errs.len(), 1);
+    assert_eq!(
+        format!("{:#}", errs[0]),
+        r#"Expected type `{"string": ""}` but got `{"int": "string"}`, at filename:4:7-15"#
+    );
+}

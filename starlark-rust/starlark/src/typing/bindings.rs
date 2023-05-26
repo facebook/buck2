@@ -214,7 +214,7 @@ impl<'a> Bindings<'a> {
                                 ParameterP::KwArgs(name, ty) => {
                                     let ty = Ty::from_expr_opt(ty, &mut bindings.approximations);
                                     let ty = if ty.is_any() {
-                                        Ty::dict(Ty::Any, Ty::Any)
+                                        Ty::dict(Ty::string(), Ty::Any)
                                     } else {
                                         ty
                                     };
