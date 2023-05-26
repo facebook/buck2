@@ -18,9 +18,9 @@ use buck2_core::is_open_source;
 use bytes::Bytes;
 use dice::UserComputationData;
 use dupe::Dupe;
+use futures::TryStreamExt;
 use gazebo::prelude::VecExt;
 use http::Method;
-use hyper::body;
 use hyper::client::connect::Connect;
 use hyper::client::ResponseFuture;
 use hyper::Body;
@@ -35,7 +35,9 @@ use rustls::ClientConfig;
 use rustls::PrivateKey;
 use rustls::RootCertStore;
 use thiserror::Error;
+use tokio::io::AsyncReadExt;
 use tokio_rustls::TlsConnector;
+use tokio_util::io::StreamReader;
 
 mod proxy;
 mod redirect;
@@ -401,21 +403,24 @@ impl HttpClient for SecureHttpClient {
 
         if !resp.status().is_success() {
             let status = resp.status();
-            // TODO(skarlage): This is unsafe; malicious URIs could cause callers
-            // to OOM by sending huge responses. We should limit this.
-            let text = body::to_bytes(resp)
-                .await
-                .context("Reading all bytes from response body")
-                .and_then(|bytes| {
-                    String::from_utf8(bytes.to_vec()).context("Converting response bytes to string")
-                })
-                .unwrap_or_else(|e| format!("Error decoding response: {:?}", e));
-
+            let text = read_truncated_error_response(resp).await;
             return Err(HttpError::Status { status, uri, text });
         }
 
         Ok(resp)
     }
+}
+
+async fn read_truncated_error_response(mut resp: Response<Body>) -> String {
+    let mut read = StreamReader::new(
+        resp.body_mut()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
+    );
+    let mut buf = [0; 1024];
+    read.read(&mut buf).await.map_or_else(
+        |e| format!("Error decoding response: {:?}", e),
+        |bytes| String::from_utf8_lossy(buf[..bytes].as_ref()).into_owned(),
+    )
 }
 
 #[derive(Allocative)]
