@@ -15,9 +15,10 @@ use tokio_stream::StreamExt;
 use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
-/// This command outputs materializations from the selected build. The output is a tab-separated
-/// list containing the path, the materialization method, the file count, and the total size (after
-/// decompression).
+/// Outputs materializations from selected invocation.
+///
+/// The output is a tab-separated list containing the path,
+/// the materialization method, the file count, and the total size (after decompression).
 #[derive(Debug, clap::Parser)]
 pub struct WhatMaterializedCommand {
     #[clap(flatten)]

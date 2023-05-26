@@ -13,8 +13,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use crate::commands::log::what_ran::WhatRanCommand;
 use crate::commands::log::what_ran::WhatRanCommandCommon;
 
-/// This command outputs every command that failed in the last invocation of Buck2. Other
-/// invocations can be targeted using the flags.
+/// Outputs every command that failed in the selected invocation.
 ///
 /// Look at the help for what-ran to understand the output format.
 #[derive(Debug, clap::Parser)]

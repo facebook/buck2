@@ -14,7 +14,7 @@ use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
 
-/// This command outputs the most recent log in JSON format
+/// Outputs the log in JSON format from selected invocation.
 #[derive(Debug, clap::Parser)]
 pub struct ShowLogCommand {
     #[clap(flatten)]

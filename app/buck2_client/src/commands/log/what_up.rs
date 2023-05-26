@@ -33,7 +33,7 @@ use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
 
-/// Show the spans that were open when the log ended
+/// Show the spans that were open when the log ended.
 #[derive(Debug, clap::Parser)]
 pub struct WhatUpCommand {
     #[clap(flatten)]

@@ -12,7 +12,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 
 use crate::commands::log::options::EventLogOptions;
 
-/// Show buck command line arguments from buck invocation.
+/// Show buck command line arguments from selected invocation.
 ///
 /// This command output is not machine readable.
 /// Robots, please use `buck2 log show`.

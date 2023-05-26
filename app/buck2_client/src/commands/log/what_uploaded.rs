@@ -19,7 +19,7 @@ use tokio_stream::StreamExt;
 use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
-/// This command outputs stats about uploads to RE from the selected invocation.
+/// Outputs stats about uploads to RE from the selected invocation.
 #[derive(Debug, clap::Parser)]
 pub struct WhatUploadedCommand {
     #[clap(flatten)]

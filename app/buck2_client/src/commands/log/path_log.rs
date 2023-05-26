@@ -13,7 +13,7 @@ use buck2_client_ctx::subscribers::event_log::file_names::retrieve_all_logs;
 
 use crate::commands::log::options::EventLogOptions;
 
-/// This command outputs the path to a recent log.
+/// Output the path to the selected log.
 #[derive(Debug, clap::Parser)]
 pub struct PathLogCommand {
     /// Find the log from the Nth most recent command (`--recent 0` is the most recent).

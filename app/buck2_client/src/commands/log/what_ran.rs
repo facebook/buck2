@@ -30,9 +30,7 @@ use indexmap::IndexMap;
 use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::LogCommandOutputFormat;
 
-/// This command outputs everything the last invocation of Buck2 ran. Other invocations can be
-/// targeted using the flags.
-///
+/// Output everything Buck2 ran from selected invocation.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:
 ///

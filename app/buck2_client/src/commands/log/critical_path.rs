@@ -19,7 +19,7 @@ use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
 
-/// Show the critical path for a build.
+/// Show the critical path for a selected build.
 ///
 /// This produces tab-delimited output listing every node on the critical path.
 ///
