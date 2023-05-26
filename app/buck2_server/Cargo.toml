@@ -5,7 +5,6 @@ name = "buck2_server"
 version = "0.1.0"
 
 [dependencies]
-debugserver-types = {workspace = true}
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
@@ -13,7 +12,6 @@ bincode = { workspace = true }
 chrono = { workspace = true }
 constant_time_eq = { workspace = true }
 crossbeam-channel = { workspace = true }
-derive_more = { workspace = true }
 flate2 = { workspace = true }
 futures = { workspace = true }
 inferno = { workspace = true }
@@ -68,6 +66,7 @@ buck2_cli_proto = { workspace = true }
 buck2_subscription_proto = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
+buck2_server_starlark_debug = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 host_sharing = { workspace = true }

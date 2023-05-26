@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(rustdoc::private_intra_doc_links)]
+
 //! Provides the (daemon-side) support for buck2's starlark debugging.
 //!
 //! Components of the debugger:
@@ -56,14 +58,14 @@ use derive_more::Display;
 use dupe::Dupe;
 use tokio::sync::mpsc;
 
-use crate::starlark_debug::error::StarlarkDebuggerError;
-use crate::starlark_debug::run::ToClientMessage;
-use crate::starlark_debug::server::BuckStarlarkDebuggerServer;
+use crate::error::StarlarkDebuggerError;
+use crate::run::ToClientMessage;
+use crate::server::BuckStarlarkDebuggerServer;
 
 mod controller;
 mod dap_api;
 mod error;
-pub(crate) mod run;
+pub mod run;
 mod server;
 
 /// A handle to the debugger server.

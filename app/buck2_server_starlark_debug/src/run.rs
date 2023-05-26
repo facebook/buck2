@@ -18,8 +18,8 @@ use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tracing::debug;
 
-use crate::starlark_debug::error::StarlarkDebuggerInternalError;
-use crate::starlark_debug::ServerConnection;
+use crate::error::StarlarkDebuggerInternalError;
+use crate::ServerConnection;
 
 /// Messages from the debugger server to its client (the cli `buck2 starlark debug-attach` which
 /// then forwards them along through its stdout).
@@ -41,7 +41,7 @@ impl ToClientMessage {
 }
 
 /// Wraps `run_dap_server` with a command start/end span.
-pub(crate) async fn run_dap_server_command(
+pub async fn run_dap_server_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,

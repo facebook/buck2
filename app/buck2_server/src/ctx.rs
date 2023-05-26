@@ -99,6 +99,8 @@ use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::stderr_output_guard::StderrOutputWriter;
+use buck2_server_starlark_debug::create_debugger_handle;
+use buck2_server_starlark_debug::BuckStarlarkDebuggerHandle;
 use buck2_util::truncate::truncate_container;
 use dice::DiceComputations;
 use dice::DiceData;
@@ -122,8 +124,6 @@ use crate::dice_tracker::BuckDiceTracker;
 use crate::file_watcher::FileWatcher;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
-use crate::starlark_debug::create_debugger_handle;
-use crate::starlark_debug::BuckStarlarkDebuggerHandle;
 
 #[derive(Debug, thiserror::Error)]
 enum DaemonCommunicationError {

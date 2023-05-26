@@ -44,18 +44,18 @@ use tokio::time::Instant;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::debug;
 
-use crate::starlark_debug::controller::BuckStarlarkDebugController;
-use crate::starlark_debug::dap_api::dap_event;
-use crate::starlark_debug::dap_api::dispatch;
-use crate::starlark_debug::dap_api::err_response;
-use crate::starlark_debug::dap_api::ContinueArguments;
-use crate::starlark_debug::dap_api::DebugServer;
-use crate::starlark_debug::error::StarlarkDebuggerError;
-use crate::starlark_debug::run::ToClientMessage;
-use crate::starlark_debug::BuckStarlarkDebuggerHandle;
-use crate::starlark_debug::HandleData;
-use crate::starlark_debug::HandleId;
-use crate::starlark_debug::HookId;
+use crate::controller::BuckStarlarkDebugController;
+use crate::dap_api::dap_event;
+use crate::dap_api::dispatch;
+use crate::dap_api::err_response;
+use crate::dap_api::ContinueArguments;
+use crate::dap_api::DebugServer;
+use crate::error::StarlarkDebuggerError;
+use crate::run::ToClientMessage;
+use crate::BuckStarlarkDebuggerHandle;
+use crate::HandleData;
+use crate::HandleId;
+use crate::HookId;
 
 /// The DAP capabilities that our debugserver supports.
 ///
