@@ -570,6 +570,18 @@ fn start_listener(
     (installer, receiver_task_handle)
 }
 
+fn start_listener_by_backend_name(
+    events: EventDispatcher,
+    backend: CriticalPathBackendName,
+) -> (BuildSignalsInstaller, JoinHandle<anyhow::Result<()>>) {
+    match backend {
+        CriticalPathBackendName::LongestPathGraph => {
+            start_listener(events, LongestPathGraphBackend::new())
+        }
+        CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
+    }
+}
+
 /// Creates a Build Listener signal pair and invokes the given asynchronous function with the send-end of the signal
 /// sender.
 ///
@@ -590,12 +602,7 @@ where
     F: FnOnce(BuildSignalsInstaller) -> Fut,
     Fut: Future<Output = anyhow::Result<R>>,
 {
-    let (installer, handle) = match backend {
-        CriticalPathBackendName::LongestPathGraph => {
-            start_listener(events, LongestPathGraphBackend::new())
-        }
-        CriticalPathBackendName::Default => start_listener(events, DefaultBackend::new()),
-    };
+    let (installer, handle) = start_listener_by_backend_name(events, backend);
     let result = func(installer.dupe()).await;
     installer.build_signals.build_finished();
     let res = handle
