@@ -373,7 +373,7 @@ impl IncrementalEngine {
     /// 'target_version'
     #[instrument(
         level = "debug",
-        skip(self, eval, cycles),
+        skip(self, eval, cycles, deps),
         fields(version = %eval.per_live_version_ctx.get_version(), verified_versions = %verified_versions)
     )]
     async fn compute_whether_dependencies_changed(
@@ -384,6 +384,8 @@ impl IncrementalEngine {
         deps: Arc<Vec<DiceKey>>,
         cycles: &UserCycleDetectorData,
     ) -> CancellableResult<DidDepsChange> {
+        trace!(deps = ?deps);
+
         if deps.is_empty() {
             return Ok(DidDepsChange::NoDeps);
         }
