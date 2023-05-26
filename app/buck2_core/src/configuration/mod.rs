@@ -22,6 +22,7 @@ pub mod bound_id;
 pub mod bound_label;
 pub(crate) mod builtin;
 pub mod cfg_diff;
+pub mod compatibility;
 pub mod config_setting;
 pub mod constraints;
 pub mod data;

@@ -13,13 +13,13 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query_derive::query_module;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
 use gazebo::variants::VariantName;
 
-use crate::query::compatibility::MaybeCompatible;
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;

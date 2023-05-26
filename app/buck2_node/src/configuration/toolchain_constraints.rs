@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_query::query::compatibility::IncompatiblePlatformReason;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 

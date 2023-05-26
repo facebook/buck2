@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::collections::ordered_set::OrderedSet;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
@@ -25,7 +26,6 @@ use futures::stream::FuturesUnordered;
 use futures::stream::TryStreamExt;
 use thiserror::Error;
 
-use crate::query::compatibility::MaybeCompatible;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;

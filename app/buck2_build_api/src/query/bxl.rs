@@ -12,11 +12,11 @@ use std::pin::Pin;
 
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;

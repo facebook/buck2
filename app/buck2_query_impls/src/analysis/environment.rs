@@ -33,6 +33,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -40,7 +41,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRefLookup;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
-use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::environment::LabeledNode;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;

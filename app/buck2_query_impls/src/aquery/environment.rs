@@ -12,7 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
-use buck2_query::query::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;

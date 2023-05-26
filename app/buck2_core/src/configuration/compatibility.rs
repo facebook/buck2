@@ -15,10 +15,11 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::target::label::ConfiguredTargetLabel;
-use buck2_core::target::label::TargetLabel;
 use dupe::Dupe;
 use thiserror::Error;
+
+use crate::target::label::ConfiguredTargetLabel;
+use crate::target::label::TargetLabel;
 
 #[derive(Debug, Error)]
 enum CompatibilityErrors {
@@ -145,10 +146,9 @@ impl Display for IncompatiblePlatformReason {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::target::label::TargetLabel;
-
-    use crate::query::compatibility::IncompatiblePlatformReason;
+    use crate::configuration::compatibility::IncompatiblePlatformReason;
+    use crate::configuration::data::ConfigurationData;
+    use crate::target::label::TargetLabel;
 
     #[test]
     fn test_skipping_message_for_multiple() {

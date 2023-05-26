@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::ParsedPattern;
@@ -17,8 +19,6 @@ use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::compatibility::IncompatiblePlatformReason;
-use buck2_query::query::compatibility::MaybeCompatible;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
