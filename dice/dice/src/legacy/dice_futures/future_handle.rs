@@ -15,17 +15,17 @@ use more_futures::spawn::CompletionObserver;
 use more_futures::spawn::WeakFutureError;
 use more_futures::spawn::WeakJoinHandle;
 
-use crate::api::error::DiceResult;
 use crate::legacy::dice_futures::dice_future::DiceFuture;
 use crate::legacy::dice_futures::dice_task::DiceTask;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+use crate::result::CancellableResult;
 use crate::GraphNode;
 
 #[derive(Allocative)]
 pub(crate) struct WeakDiceFutureHandle<S: StorageProperties> {
     #[allocative(skip)] // TODO(nga): value may be hiding in there.
-    handle: WeakJoinHandle<Result<DiceResult<GraphNode<S>>, WeakFutureError>>,
+    handle: WeakJoinHandle<Result<CancellableResult<GraphNode<S>>, WeakFutureError>>,
 }
 
 impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {
@@ -45,7 +45,7 @@ impl<S: StorageProperties> DiceTask for WeakDiceFutureHandle<S> {
 
 impl<S: StorageProperties> WeakDiceFutureHandle<S> {
     pub(crate) fn async_cancellable(
-        handle: WeakJoinHandle<Result<DiceResult<GraphNode<S>>, WeakFutureError>>,
+        handle: WeakJoinHandle<Result<CancellableResult<GraphNode<S>>, WeakFutureError>>,
     ) -> WeakDiceFutureHandle<S> {
         WeakDiceFutureHandle { handle }
     }
@@ -58,7 +58,7 @@ impl<S: StorageProperties> WeakDiceFutureHandle<S> {
 
     /// Turn this into a JoinHandle. The output is erased. This is used to observe this future
     /// exiting, but that's it.
-    pub fn into_completion_observer(self) -> CompletionObserver<DiceResult<GraphNode<S>>> {
+    pub fn into_completion_observer(self) -> CompletionObserver<CancellableResult<GraphNode<S>>> {
         self.handle.into_completion_observer()
     }
 }

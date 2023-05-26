@@ -211,7 +211,7 @@ impl DiceComputationsImplLegacy {
         match extra {
             Ok(extra) => cache
                 .eval_for_opaque(key, &self.transaction_ctx, extra)
-                .map(move |value| Ok(OpaqueValueImplLegacy::new(value?, self, cache)))
+                .map(move |value| Ok(OpaqueValueImplLegacy::new(value, self, cache)))
                 .left_future(),
             Err(e) => futures::future::ready(Err(e)).right_future(),
         }

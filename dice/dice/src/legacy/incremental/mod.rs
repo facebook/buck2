@@ -47,7 +47,6 @@ use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockWriteGuard;
 use tracing::Span;
 
-use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
 use crate::api::events::DiceEvent;
 use crate::api::key::Key;
@@ -77,6 +76,8 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::legacy::projection::ProjectionKeyAsKey;
 use crate::legacy::projection::ProjectionKeyProperties;
 use crate::legacy::EvaluationResult;
+use crate::result::CancellableResult;
+use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 use crate::HashMap;
@@ -310,7 +311,7 @@ where
             transaction_ctx.get_minor_version(),
         ) {
             debug!( k = %k ,msg = "found existing entry with matching version in cache. reusing result.",);
-            DiceFuture::Ready(Some(Ok(entry)))
+            DiceFuture::Ready(Some(entry))
         } else {
             let this = self.dupe();
 
@@ -364,7 +365,7 @@ where
         k: K::Key,
         transaction_ctx: &Arc<TransactionCtx>,
         extra: ComputationData,
-        cancelled_instance: Option<(Epoch, CompletionObserver<DiceResult<GraphNode<K>>>)>,
+        cancelled_instance: Option<(Epoch, CompletionObserver<CancellableResult<GraphNode<K>>>)>,
     ) -> (RunningEntry<K>, DiceFuture<K>) {
         debug!(
             "no matching entry in cache, and no tasks currently running. spawning a new task..."
@@ -433,7 +434,7 @@ where
             ) {
                 VersionedGraphResult::Match(entry) => {
                     debug!("found existing entry with matching version in cache. reusing result.");
-                    Ok(entry)
+                    CancellableResult::Ok(entry)
                 }
                 VersionedGraphResult::Mismatch(mismatch) => {
                     let mut extra = extra;
@@ -468,7 +469,7 @@ where
                         DidDepsChange::NoChange(unchanged_both_deps) => {
                             debug!("dependencies are unchanged, reusing entry");
                             extra.finished_computing_key::<K>(&ev.k, &unchanged_both_deps, true);
-                            Ok(ev.engine.reuse(
+                            CancellableResult::Ok(ev.engine.reuse(
                                 ev.k.clone(),
                                 &eval_ctx,
                                 mismatch.entry,
@@ -521,7 +522,7 @@ where
     }
 
     fn spawn_task(
-        future: impl Future<Output = DiceResult<GraphNode<K>>> + Send + 'static,
+        future: impl Future<Output = CancellableResult<GraphNode<K>>> + Send + 'static,
         preamble: impl Future<Output = ()> + Send + 'static,
         spawner_ctx: &UserComputationData,
         span: Span,
@@ -549,7 +550,7 @@ where
         transaction_ctx: Arc<TransactionCtx>,
         extra: ComputationData,
         cancellation: &CancellationContext,
-    ) -> DiceResult<GraphNode<K>> {
+    ) -> CancellableResult<GraphNode<K>> {
         let desc = K::key_type_name();
         extra
             .user_data
@@ -581,7 +582,7 @@ where
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
-                return Err(DiceError::cancelled());
+                return Err(Cancelled);
             }
         };
 
@@ -600,7 +601,7 @@ where
         // times about the same key, so we don't.
         debug!(msg = "cache updates completed");
 
-        Ok(entry)
+        CancellableResult::Ok(entry)
     }
 }
 
@@ -877,7 +878,7 @@ impl<P: ProjectionKey> IncrementalEngine<ProjectionKeyProperties<P>> {
                 extra
                     .subrequest::<StoragePropertiesForKey<P::DeriveFromKey>>(&k.derive_from_key)?,
             )
-            .await?;
+            .await;
 
         let derive_from_both_deps =
             BothDeps::only_one_dep(transaction_ctx.get_version(), value.dupe(), &cache);
@@ -1361,13 +1362,13 @@ mod tests {
 
         let t = *(engine
             .eval_entry_versioned(&2, &eval_ctx, ComputationData::testing_new())
-            .await?
+            .await
             .val());
         assert_eq!(t, 2);
 
         let t = *(engine
             .eval_entry_versioned(&3, &eval_ctx, ComputationData::testing_new())
-            .await?
+            .await
             .val());
         assert_eq!(t, 3);
 
@@ -1444,7 +1445,7 @@ mod tests {
                         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
                         anyhow::Ok(
                             *(e.eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
-                                .await?
+                                .await
                                 .val()),
                         )
                     })
@@ -1462,7 +1463,7 @@ mod tests {
                         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(0)));
                         anyhow::Ok(
                             *(e.eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
-                                .await?
+                                .await
                                 .val()),
                         )
                     })
@@ -1515,7 +1516,6 @@ mod tests {
                     *(engine
                         .eval_entry_versioned(&i, &ctx, ComputationData::testing_new())
                         .await
-                        .unwrap()
                         .val())
                 })
                 .collect::<Vec<_>>();
@@ -1857,7 +1857,7 @@ mod tests {
             let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
             let node = engine
                 .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-                .await?;
+                .await;
             engine
                 .versioned_cache
                 .get(
@@ -1917,7 +1917,7 @@ mod tests {
         let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(2)));
         let entry = engine
             .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-            .await?;
+            .await;
         assert_eq!(is_ran.load(Ordering::SeqCst), false);
         assert_eq!(*entry.val(), 10);
         assert_eq!(
@@ -1959,7 +1959,7 @@ mod tests {
             let eval_ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(3)));
             let node = engine
                 .eval_entry_versioned(&10, &eval_ctx, ComputationData::testing_new())
-                .await?;
+                .await;
             engine
                 .versioned_cache
                 .get(
@@ -2023,7 +2023,7 @@ mod tests {
         }));
         let node0 = engine0
             .eval_entry_versioned(&0, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
 
         let engine1 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
@@ -2039,7 +2039,7 @@ mod tests {
         }));
         let node1 = engine1
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
 
         let engine2 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
@@ -2055,7 +2055,7 @@ mod tests {
         }));
         let node2 = engine2
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
 
         let engine3 = IncrementalEngine::new(EvaluatorFn::new(|k, _| {
             async move {
@@ -2071,7 +2071,7 @@ mod tests {
         }));
         let _node3 = engine3
             .eval_entry_versioned(&3, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
         engine0.dirty(0, VersionNumber::new(2), false);
 
         engine0
@@ -2171,7 +2171,6 @@ mod tests {
                             *(engine
                                 .eval_entry_versioned(&i, &ctx, ComputationData::testing_new())
                                 .await
-                                .unwrap()
                                 .val())
                         }
                     })
@@ -2275,9 +2274,9 @@ mod tests {
                 transaction_ctx: &Arc<TransactionCtx>,
                 extra: &ComputationData,
             ) -> DiceResult<GraphNode<Self>> {
-                engine
+                Ok(engine
                     .eval_entry_versioned(key, transaction_ctx, extra.subrequest::<Self>(key)?)
-                    .await
+                    .await)
             }
         }
 
@@ -2362,8 +2361,7 @@ mod tests {
                 let node = self
                     .0
                     .eval_entry_versioned(&1, &transaction_ctx, sub_extra)
-                    .await
-                    .unwrap();
+                    .await;
                 EvaluationResult {
                     value: *node.val(),
                     both_deps: BothDeps {
@@ -2384,7 +2382,7 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await?
+                .await
                 .val(),
             &0
         );
@@ -2397,7 +2395,7 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await?
+                .await
                 .val(),
             &0
         );
@@ -2406,7 +2404,7 @@ mod tests {
         assert_eq!(
             engine1
                 .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-                .await?
+                .await
                 .val(),
             &1
         );
@@ -2448,7 +2446,6 @@ mod tests {
         let first_instance = engine
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
             .await
-            .unwrap()
             .val()
             .dupe();
 
@@ -2457,8 +2454,7 @@ mod tests {
         let ctx = Arc::new(TransactionCtx::testing_new(VersionNumber::new(1)));
         let second_node = engine
             .eval_entry_versioned(&1, &ctx, ComputationData::testing_new())
-            .await
-            .unwrap();
+            .await;
 
         // verify that we incremented the total instance counter
         assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -2540,7 +2536,6 @@ mod tests {
             engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new()),
         )
         .await
-        .unwrap()
         .unwrap();
     }
 
@@ -2606,7 +2601,6 @@ mod tests {
             engine.eval_entry_versioned(&1, &ctx, ComputationData::testing_new()),
         )
         .await
-        .unwrap()
         .unwrap();
 
         // Expect to get the output of the second call, since the first one was not allowed to

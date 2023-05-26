@@ -455,10 +455,10 @@ mod tests {
 
         let node1 = engine
             .eval_entry_versioned(&2, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
         let node2 = engine
             .eval_entry_versioned(&3, &ctx, ComputationData::testing_new())
-            .await?;
+            .await;
 
         deps_tracker.record(VersionNumber::new(1), engine.dupe(), node1);
         deps_tracker.record(VersionNumber::new(1), engine.dupe(), node2);

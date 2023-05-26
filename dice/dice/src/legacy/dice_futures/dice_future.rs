@@ -12,21 +12,24 @@ use std::pin::Pin;
 use std::task::Poll;
 
 use futures::future::BoxFuture;
+use futures::FutureExt;
 use more_futures::instrumented_shared::SharedEventsFuture;
 use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
 
-use crate::api::error::DiceResult;
 use crate::legacy::incremental::graph::storage_properties::StorageProperties;
+use crate::result::CancellableResult;
 use crate::GraphNode;
 
 type DiceJoinHandle<S> = StrongJoinHandle<
-    SharedEventsFuture<BoxFuture<'static, Result<DiceResult<GraphNode<S>>, WeakFutureError>>>,
+    SharedEventsFuture<
+        BoxFuture<'static, Result<CancellableResult<GraphNode<S>>, WeakFutureError>>,
+    >,
 >;
 
 pub(crate) enum DiceFuture<S: StorageProperties> {
     /// Earlier computed value.
-    Ready(Option<DiceResult<GraphNode<S>>>),
+    Ready(Option<GraphNode<S>>),
     /// Current computation spawned the task.
     AsyncCancellableSpawned(DiceJoinHandle<S>),
     /// Other computation for current key spawned the task.
@@ -37,13 +40,19 @@ impl<S> Future for DiceFuture<S>
 where
     S: StorageProperties,
 {
-    type Output = DiceResult<GraphNode<S>>;
+    type Output = GraphNode<S>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         match self.get_mut() {
             DiceFuture::Ready(value) => Poll::Ready(value.take().expect("polled after ready")),
             DiceFuture::AsyncCancellableSpawned(fut) | DiceFuture::AsyncCancellableJoining(fut) => {
-                Pin::new(fut).poll(cx)
+                Pin::new(&mut fut.map(|cancellable| match cancellable {
+                    Ok(res) => res,
+                    Err(_) => {
+                        unreachable!("Strong Join Handle was cancelled while still polled")
+                    }
+                }))
+                .poll(cx)
             }
         }
     }
