@@ -24,13 +24,14 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use slab::Slab;
 
-use crate::api::error::DiceResult;
 use crate::arc::Arc;
 use crate::impls::key::ParentKey;
 use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
+use crate::result::CancellableResult;
+use crate::result::Cancelled;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
@@ -75,7 +76,7 @@ pub(super) struct DiceTaskInternal {
     /// Shared future.
     pub(super) dependants: Mutex<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
-    maybe_value: UnsafeCell<Option<DiceResult<DiceComputedValue>>>,
+    maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
 }
 
 impl Allocative for DiceTaskInternal {
@@ -93,7 +94,7 @@ impl Allocative for DiceTaskInternal {
 
 pub(crate) enum MaybeCancelled {
     Ok(DicePromise),
-    Cancelled(TerminationObserver),
+    Cancelled(Option<TerminationObserver>),
 }
 
 impl MaybeCancelled {
@@ -110,18 +111,26 @@ impl DiceTask {
     /// completes
     pub(crate) fn depended_on_by(&self, k: ParentKey) -> MaybeCancelled {
         if let Some(result) = self.internal.read_value() {
-            MaybeCancelled::Ok(DicePromise::ready(result))
+            match result {
+                Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
+                Err(_err) => MaybeCancelled::Cancelled(None),
+            }
         } else {
             let mut wakers = self.internal.dependants.lock();
             if let Some(termination) = self.cancellations.is_cancelled(&wakers) {
-                return MaybeCancelled::Cancelled(termination);
+                return MaybeCancelled::Cancelled(Some(termination));
             }
             match wakers.deref_mut() {
-                None => MaybeCancelled::Ok(DicePromise::ready(
-                    self.internal
+                None => {
+                    match self
+                        .internal
                         .read_value()
-                        .expect("invalid state where deps are taken before state is ready"),
-                )),
+                        .expect("invalid state where deps are taken before state is ready")
+                    {
+                        Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
+                        Err(_err) => MaybeCancelled::Cancelled(None),
+                    }
+                }
                 Some(ref mut wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));
@@ -137,7 +146,7 @@ impl DiceTask {
         }
     }
 
-    pub(crate) fn get_finished_value(&self) -> Option<DiceResult<DiceComputedValue>> {
+    pub(crate) fn get_finished_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
         self.internal.read_value()
     }
 
@@ -188,8 +197,8 @@ impl DiceTaskInternal {
         })
     }
 
-    pub(super) fn read_value(&self) -> Option<DiceResult<DiceComputedValue>> {
-        if self.state.is_ready(Ordering::Acquire) {
+    pub(super) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
+        if self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire) {
             Some(
                 unsafe {
                     // SAFETY: main thread only writes this before setting state to `READY`
@@ -206,8 +215,8 @@ impl DiceTaskInternal {
 
     pub(super) fn set_value(
         &self,
-        value: DiceResult<DiceComputedValue>,
-    ) -> DiceResult<DiceComputedValue> {
+        value: DiceComputedValue,
+    ) -> CancellableResult<DiceComputedValue> {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {
@@ -221,7 +230,7 @@ impl DiceTaskInternal {
             // SAFETY: no tasks read the value unless state is converted to `READY`
             &mut *self.maybe_value.get()
         }
-        .replace(value.dupe())
+        .replace(Ok(value.dupe()))
         .is_some();
         assert!(
             !prev_exist,
@@ -231,7 +240,7 @@ impl DiceTaskInternal {
         self.state.report_ready();
         self.wake_dependents();
 
-        value
+        Ok(value)
     }
 
     pub(super) fn wake_dependents(&self) {
@@ -247,6 +256,24 @@ impl DiceTaskInternal {
     /// report the task as terminated. This should only be called once. No effect if called affect
     /// task is already ready
     pub(super) fn report_terminated(&self) {
+        match self.state.sync() {
+            TaskState::Continue => {}
+            TaskState::Finished => {
+                return;
+            }
+        };
+
+        let prev_exist = unsafe {
+            // SAFETY: no tasks read the value unless state is converted to `READY`
+            &mut *self.maybe_value.get()
+        }
+        .replace(Err(Cancelled))
+        .is_some();
+        assert!(
+            !prev_exist,
+            "invalid state where somehow value was already written"
+        );
+
         self.state.report_terminated();
         self.wake_dependents();
     }

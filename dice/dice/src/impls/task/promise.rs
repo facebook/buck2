@@ -12,20 +12,18 @@
 use std::future::Future;
 use std::mem;
 use std::pin::Pin;
-use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
 use futures::task::AtomicWaker;
 
-use crate::api::error::DiceResult;
 use crate::arc::Arc;
 use crate::impls::task::dice::Cancellations;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
-use crate::DiceError;
+use crate::result::CancellableResult;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -38,7 +36,7 @@ pub(crate) struct DicePromise(pub(super) DicePromiseInternal);
 
 pub(super) enum DicePromiseInternal {
     Ready {
-        result: DiceResult<DiceComputedValue>,
+        result: DiceComputedValue,
     },
     Pending {
         slab: usize,
@@ -50,7 +48,7 @@ pub(super) enum DicePromiseInternal {
 }
 
 impl DicePromise {
-    pub(super) fn ready(result: DiceResult<DiceComputedValue>) -> Self {
+    pub(super) fn ready(result: DiceComputedValue) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
@@ -72,10 +70,10 @@ impl DicePromise {
     /// is not used.
     pub(crate) fn get_or_complete(
         self,
-        f: impl FnOnce() -> DiceResult<DiceComputedValue>,
-    ) -> DiceResult<DiceComputedValue> {
+        f: impl FnOnce() -> DiceComputedValue,
+    ) -> CancellableResult<DiceComputedValue> {
         match &self.0 {
-            DicePromiseInternal::Ready { result } => result.dupe(),
+            DicePromiseInternal::Ready { result } => Ok(result.dupe()),
             DicePromiseInternal::Pending { task_internal, .. } => {
                 if let Some(res) = task_internal.read_value() {
                     res
@@ -115,13 +113,13 @@ impl Drop for DicePromise {
 }
 
 impl Future for DicePromise {
-    type Output = DiceResult<DiceComputedValue>;
+    type Output = CancellableResult<DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &mut self.0 {
             x @ DicePromiseInternal::Ready { .. } => {
                 match mem::replace(x, DicePromiseInternal::Done) {
-                    DicePromiseInternal::Ready { result } => Poll::Ready(result),
+                    DicePromiseInternal::Ready { result } => Poll::Ready(Ok(result)),
                     _ => unreachable!(),
                 }
             }
@@ -133,8 +131,6 @@ impl Future for DicePromise {
                 waker.register(cx.waker());
                 if let Some(res) = task_internal.read_value() {
                     Poll::Ready(res)
-                } else if task_internal.state.is_terminated(Ordering::Acquire) {
-                    Poll::Ready(Err(DiceError::cancelled()))
                 } else {
                     Poll::Pending
                 }

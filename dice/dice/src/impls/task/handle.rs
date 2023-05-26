@@ -14,7 +14,6 @@ use more_futures::cancellation::CancellationContext;
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
-use crate::DiceResult;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
@@ -41,7 +40,7 @@ impl<'a> DiceTaskHandle<'a> {
         self.internal.state.report_computing()
     }
 
-    pub(crate) fn finished(self, value: DiceResult<DiceComputedValue>) {
+    pub(crate) fn finished(self, value: DiceComputedValue) {
         let _ignore = self.internal.set_value(value);
     }
 

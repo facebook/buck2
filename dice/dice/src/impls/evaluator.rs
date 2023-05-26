@@ -14,7 +14,6 @@ use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 
 use crate::api::computations::DiceComputations;
-use crate::api::error::DiceResult;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -28,6 +27,7 @@ use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::result::CancellableResult;
 use crate::HashSet;
 
 /// Evaluates Keys
@@ -52,7 +52,7 @@ impl AsyncEvaluator {
         key: DiceKey,
         cycles: UserCycleDetectorData,
         cancellation: &CancellationContext,
-    ) -> DiceResult<KeyEvaluationResult> {
+    ) -> CancellableResult<KeyEvaluationResult> {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
@@ -72,7 +72,7 @@ impl AsyncEvaluator {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 
-                Ok(KeyEvaluationResult {
+                CancellableResult::Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, dep_validity),
                     deps,
                     storage: key_dyn.storage_type(),
@@ -97,7 +97,7 @@ impl AsyncEvaluator {
 
                 let value = proj.proj().compute(base.value(), &ctx);
 
-                Ok(KeyEvaluationResult {
+                CancellableResult::Ok(KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, base.value().validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
@@ -129,7 +129,7 @@ impl SyncEvaluator {
         }
     }
 
-    pub(crate) fn evaluate(&self, key: DiceKey) -> DiceResult<KeyEvaluationResult> {
+    pub(crate) fn evaluate(&self, key: DiceKey) -> KeyEvaluationResult {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
             DiceKeyErased::Key(_) => {
@@ -143,12 +143,12 @@ impl SyncEvaluator {
 
                 let value = proj.proj().compute(&self.base, &ctx);
 
-                Ok(KeyEvaluationResult {
+                KeyEvaluationResult {
                     value: MaybeValidDiceValue::new(value, self.base.validity()),
                     deps: [proj.base()].into_iter().collect(),
                     storage: proj.proj().storage_type(),
                     evaluation_data: EvaluationData::none(), // Projection keys can't set this.
-                })
+                }
             }
         }
     }

@@ -57,6 +57,8 @@ use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::result::CancellableResult;
+use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 use crate::DiceError;
 use crate::DiceTransactionUpdater;
@@ -203,10 +205,12 @@ impl PerComputeCtx {
                     .cycles
                     .subrequest(dice_key, &self.data.async_evaluator.dice.key_index),
             )
-            .map(move |dice_result| {
-                dice_result.map(move |dice_value| {
+            .map(move |cancellable_result| {
+                let cancellable = cancellable_result.map(move |dice_value| {
                     OpaqueValueModern::new(self, dice_key, dice_value.value().dupe())
-                })
+                });
+
+                cancellable.map_err(|e| DiceError::cancelled())
             })
     }
 
@@ -227,7 +231,8 @@ impl PerComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::proj_ref(base_key, key));
 
-        self.data
+        let r = self
+            .data
             .async_evaluator
             .per_live_version_ctx
             .compute_projection(
@@ -243,18 +248,22 @@ impl PerComputeCtx {
                     self.data.async_evaluator.user_data.tracker.dupe(),
                     self.data.async_evaluator.dice.dupe(),
                 ),
-            )
-            .map(|r| {
-                self.data
-                    .dep_trackers
-                    .lock()
-                    .record(dice_key, r.value().validity());
+            );
 
-                r.value()
-                    .downcast_maybe_transient::<K::Value>()
-                    .expect("Type mismatch when computing key")
-                    .dupe()
-            })
+        let r = match r {
+            Ok(r) => r,
+            Err(_cancelled) => return Err(DiceError::cancelled()),
+        };
+
+        self.data
+            .dep_trackers
+            .lock()
+            .record(dice_key, r.value().validity());
+
+        Ok(r.value()
+            .downcast_maybe_transient::<K::Value>()
+            .expect("Type mismatch when computing key")
+            .dupe())
     }
 
     /// temporarily here while we figure out why dice isn't paralleling computations so that we can
@@ -387,7 +396,7 @@ impl SharedLiveTransactionCtx {
         parent_key: ParentKey,
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = DiceResult<DiceComputedValue>> {
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         match self.cache.get(key) {
             Some(Entry::Occupied(mut occupied)) => {
                 match occupied.get().depended_on_by(parent_key) {
@@ -412,7 +421,7 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                Some(PreviouslyCancelledTask {
+                                termination.map(|termination| PreviouslyCancelledTask {
                                     previous,
                                     termination,
                                 }),
@@ -459,7 +468,8 @@ impl SharedLiveTransactionCtx {
                 async move {
                     debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
                     tokio::task::yield_now().await;
-                    Err(DiceError::cancelled())
+
+                    Err(Cancelled)
                 }
                     .right_future()
             },
@@ -474,7 +484,7 @@ impl SharedLiveTransactionCtx {
         state: CoreStateHandle,
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
-    ) -> DiceResult<DiceComputedValue> {
+    ) -> CancellableResult<DiceComputedValue> {
         let promise = match self.cache.get(key) {
             Some(Entry::Occupied(mut occupied)) => {
                 match occupied.get().depended_on_by(parent_key) {
@@ -562,10 +572,9 @@ pub(crate) mod testing {
     use crate::impls::key::ParentKey;
     use crate::impls::task::sync_dice_task;
     use crate::impls::value::DiceComputedValue;
-    use crate::DiceResult;
 
     impl SharedLiveTransactionCtx {
-        pub(crate) fn inject(&self, k: DiceKey, v: DiceResult<DiceComputedValue>) {
+        pub(crate) fn inject(&self, k: DiceKey, v: DiceComputedValue) {
             let task = unsafe {
                 // SAFETY: completed immediately below
                 sync_dice_task()

@@ -70,10 +70,10 @@ async fn simple_task() -> anyhow::Result<()> {
             // wait for the lock too
             let _lock = lock.lock().await;
 
-            handle.finished(Ok(DiceComputedValue::new(
+            handle.finished(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty()),
-            )));
+            ));
 
             Box::new(()) as Box<dyn Any + Send + 'static>
         }
@@ -157,10 +157,10 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
         async move {
             // wait for the lock too
-            handle.finished(Ok(DiceComputedValue::new(
+            handle.finished(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty()),
-            )));
+            ));
 
             Box::new(()) as Box<dyn Any + Send + 'static>
         }
@@ -243,10 +243,10 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| Ok(DiceComputedValue::new(
+            .get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
                 Arc::new(CellHistory::empty())
-            )))?
+            ))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
@@ -349,10 +349,10 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| Ok(DiceComputedValue::new(
+            .get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            )))?
+            ))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
@@ -386,12 +386,12 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
             async move {
                 let _g = lock.lock().await;
                 // wait for the lock too
-                handle.finished(Ok(DiceComputedValue::new(
+                handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     Arc::new(CellHistory::empty()),
-                )));
+                ));
 
                 Box::new(()) as Box<dyn Any + Send + 'static>
             }
@@ -408,10 +408,10 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| Ok(DiceComputedValue::new(
+            .get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            )))?
+            ))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
@@ -459,12 +459,12 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         |handle| {
             async move {
                 // wait for the lock too
-                handle.finished(Ok(DiceComputedValue::new(
+                handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     Arc::new(CellHistory::empty()),
-                )));
+                ));
 
                 sem.add_permits(1);
 
@@ -486,10 +486,10 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
-            .get_or_complete(|| Ok(DiceComputedValue::new(
+            .get_or_complete(|| DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(CellHistory::empty())
-            )))?
+            ))?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
@@ -580,7 +580,7 @@ async fn dropping_all_waiters_cancels_task() {
             panic!("should be cancelled")
         }
         MaybeCancelled::Cancelled(termination) => {
-            assert_eq!(termination.await, TerminationStatus::Cancelled);
+            assert_eq!(termination.unwrap().await, TerminationStatus::Cancelled);
         }
     }
 
@@ -605,7 +605,7 @@ async fn task_that_already_cancelled_returns_cancelled() {
             panic!("should be cancelled")
         }
         MaybeCancelled::Cancelled(termination) => {
-            assert_eq!(termination.await, TerminationStatus::Cancelled);
+            assert!(termination.is_none());
         }
     }
 }

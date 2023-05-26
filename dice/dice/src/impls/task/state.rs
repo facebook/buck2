@@ -201,6 +201,7 @@ impl DiceTaskState {
             },
             DiceTaskState::Sync => match target {
                 TargetState::Ready => Some(target.into_dice_task_state()),
+                TargetState::Terminated => Some(target.into_dice_task_state()),
                 _ => None,
             },
             DiceTaskState::Ready => None,

@@ -148,12 +148,12 @@ mod tests {
     async fn make_completed_task(val: usize) -> DiceTask {
         let task = spawn_dice_task(&TokioSpawner, &(), |handle| {
             async move {
-                handle.finished(Ok(DiceComputedValue::new(
+                handle.finished(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(val),
                     )),
                     Arc::new(CellHistory::empty()),
-                )));
+                ));
 
                 Box::new(()) as Box<dyn Any + Send>
             }

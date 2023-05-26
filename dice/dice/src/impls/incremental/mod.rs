@@ -29,7 +29,6 @@ use tokio::sync::oneshot;
 use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
-use crate::api::error::DiceResult;
 use crate::arc::Arc;
 use crate::impls::core::graph::history::CellHistory;
 use crate::impls::core::graph::types::VersionedGraphKey;
@@ -106,7 +105,7 @@ impl IncrementalEngine {
                                 previous
                                     .previous
                                     .get_finished_value()
-                                    .expect("A finished task must have been completed"),
+                                    .expect("A finished task must be present").expect("A finished task must have been completed"),
                             );
 
                             debug!(msg = "previously cancelled task actually finished");
@@ -156,7 +155,7 @@ impl IncrementalEngine {
         version_epoch: VersionEpoch,
         eval: SyncEvaluator,
         event_dispatcher: DiceEventDispatcher,
-    ) -> DiceResult<DiceComputedValue> {
+    ) -> CancellableResult<DiceComputedValue> {
         promise.get_or_complete(|| {
             event_dispatcher.started(k);
 
@@ -166,34 +165,31 @@ impl IncrementalEngine {
 
             debug!(msg = "projection finished. updating caches");
 
-            let res = match eval_result {
-                Ok(res) => {
-                    // send the update but don't wait for it
-                    match res.value.dupe().into_valid_value() {
-                        Ok(value) => {
-                            let (tx, _rx) = tokio::sync::oneshot::channel();
-                            state.request(StateRequest::UpdateComputed {
-                                key: VersionedGraphKey::new(v, k),
-                                epoch: version_epoch,
-                                storage: res.storage,
-                                value,
-                                deps: Arc::new(res.deps.into_iter().collect()),
-                                resp: tx,
-                            });
-                            // TODO(bobyf) consider if we want to block and wait for the cache
-                        }
-                        Err(_) => {}
+            let res = {
+                // send the update but don't wait for it
+                match eval_result.value.dupe().into_valid_value() {
+                    Ok(value) => {
+                        let (tx, _rx) = tokio::sync::oneshot::channel();
+                        state.request(StateRequest::UpdateComputed {
+                            key: VersionedGraphKey::new(v, k),
+                            epoch: version_epoch,
+                            storage: eval_result.storage,
+                            value,
+                            deps: Arc::new(eval_result.deps.into_iter().collect()),
+                            resp: tx,
+                        });
+                        // TODO(bobyf) consider if we want to block and wait for the cache
                     }
-
-                    Ok(res.value)
+                    Err(_) => {}
                 }
-                Err(e) => Err(e),
+
+                eval_result.value
             };
 
             debug!(msg = "update future completed");
             event_dispatcher.finished(k);
 
-            res.map(|val| DiceComputedValue::new(val, Arc::new(CellHistory::verified(v))))
+            DiceComputedValue::new(res, Arc::new(CellHistory::verified(v)))
         })
     }
 
@@ -204,10 +200,7 @@ impl IncrementalEngine {
         mut cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_handle: &DiceTaskHandle<'_>,
-    ) -> CancellableResult<(
-        DiceResult<DiceComputedValue>,
-        Option<DisableCancellationGuard>,
-    )> {
+    ) -> CancellableResult<(DiceComputedValue, Option<DisableCancellationGuard>)> {
         let v = eval.per_live_version_ctx.get_version();
         let (tx, rx) = oneshot::channel();
         self.state.request(StateRequest::LookupKey {
@@ -222,7 +215,7 @@ impl IncrementalEngine {
                 debug!(
                     msg = "found existing entry with matching version in cache. reusing result.",
                 );
-                Ok((Ok(entry), None))
+                Ok((entry, None))
             }
             VersionedGraphResult::Compute => {
                 cycles.start_computing_key(
@@ -256,7 +249,7 @@ impl IncrementalEngine {
                         mismatch.deps_to_validate,
                         &cycles,
                     )
-                    .await
+                    .await?
                 };
 
                 match deps_changed {
@@ -295,7 +288,7 @@ impl IncrementalEngine {
 
                         debug!(msg = "Update caches complete");
 
-                        rx.await.unwrap().map(|res| (Ok(res), None))
+                        rx.await.unwrap().map(|res| (res, None))
                     }
                 }
             }
@@ -309,7 +302,7 @@ impl IncrementalEngine {
         cycles: UserCycleDetectorData,
         event_dispatcher: &DiceEventDispatcher,
         task_handle: &DiceTaskHandle<'_>,
-    ) -> CancellableResult<(DiceResult<DiceComputedValue>, DisableCancellationGuard)> {
+    ) -> CancellableResult<(DiceComputedValue, DisableCancellationGuard)> {
         task_handle.computing();
 
         event_dispatcher.started(k);
@@ -324,7 +317,7 @@ impl IncrementalEngine {
 
         let eval_result = eval
             .evaluate(k, cycles, task_handle.cancellation_ctx())
-            .await;
+            .await?;
 
         let guard = match task_handle.cancellation_ctx().try_to_disable_cancellation() {
             Some(g) => g,
@@ -336,37 +329,34 @@ impl IncrementalEngine {
 
         debug!(msg = "evaluation finished. updating caches");
 
-        let res = match eval_result {
-            Ok(res) => {
-                report_key_activation(
-                    &eval.dice.key_index,
-                    eval.user_data.activation_tracker.as_deref(),
-                    k,
-                    res.deps.iter().copied(),
-                    res.evaluation_data.into_activation_data(),
-                );
+        let res = {
+            report_key_activation(
+                &eval.dice.key_index,
+                eval.user_data.activation_tracker.as_deref(),
+                k,
+                eval_result.deps.iter().copied(),
+                eval_result.evaluation_data.into_activation_data(),
+            );
 
-                match res.value.into_valid_value() {
-                    Ok(value) => {
-                        let (tx, rx) = tokio::sync::oneshot::channel();
-                        self.state.request(StateRequest::UpdateComputed {
-                            key: VersionedGraphKey::new(v, k),
-                            epoch: self.version_epoch,
-                            storage: res.storage,
-                            value,
-                            deps: Arc::new(res.deps.into_iter().collect()),
-                            resp: tx,
-                        });
-
-                        rx.await.unwrap().map(Ok)
-                    }
-                    Err(value) => Ok(Ok(DiceComputedValue::new(
+            match eval_result.value.into_valid_value() {
+                Ok(value) => {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    self.state.request(StateRequest::UpdateComputed {
+                        key: VersionedGraphKey::new(v, k),
+                        epoch: self.version_epoch,
+                        storage: eval_result.storage,
                         value,
-                        Arc::new(CellHistory::verified(v)),
-                    ))),
+                        deps: Arc::new(eval_result.deps.into_iter().collect()),
+                        resp: tx,
+                    });
+
+                    rx.await.unwrap()
                 }
+                Err(value) => CancellableResult::Ok(DiceComputedValue::new(
+                    value,
+                    Arc::new(CellHistory::verified(v)),
+                )),
             }
-            Err(e) => Ok(Err(e)),
         };
 
         debug!(msg = "update future completed");
@@ -388,9 +378,9 @@ impl IncrementalEngine {
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
         cycles: &UserCycleDetectorData,
-    ) -> DidDepsChange {
+    ) -> CancellableResult<DidDepsChange> {
         if deps.is_empty() {
-            return DidDepsChange::NoDeps;
+            return Ok(DidDepsChange::NoDeps);
         }
 
         let mut fs: FuturesUnordered<_> = deps
@@ -409,28 +399,25 @@ impl IncrementalEngine {
 
         let mut verified_versions = Cow::Borrowed(verified_versions);
 
-        while let Some(dep_res) = fs.next().await {
-            match dep_res {
+        while let Some(dep_result) = fs.next().await {
+            match dep_result {
                 Ok(dep_version_ranges) => {
                     verified_versions =
                         Cow::Owned(verified_versions.intersect(&dep_version_ranges));
                     if verified_versions.is_empty() {
                         debug!(msg = "deps changed");
-                        return DidDepsChange::Changed;
+                        return Ok(DidDepsChange::Changed);
                     }
                 }
-                Err(_dice_err) => {
-                    // we don't cache DiceErrors, so this must be because the dependency changed
-                    // If the cycle/DiceError is real, we'll hit and propagate it when we recompute
-                    // the parent key.
-                    return DidDepsChange::Changed;
+                Err(Cancelled) => {
+                    return Err(Cancelled);
                 }
             }
         }
 
         debug!(msg = "deps did not change");
 
-        DidDepsChange::NoChange(deps)
+        Ok(DidDepsChange::NoChange(deps))
     }
 }
 

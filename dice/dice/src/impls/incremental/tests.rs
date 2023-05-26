@@ -26,14 +26,11 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
-use indexmap::indexset;
 use more_futures::cancellation::CancellationContext;
 use sorted_vector_map::sorted_vector_set;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
-use crate::api::error::DiceError;
-use crate::api::error::DiceErrorImpl;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
@@ -145,10 +142,10 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
         DiceKey { index: 100 },
-        Ok(DiceComputedValue::new(
+        DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
-        )),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -168,17 +165,17 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
             )
-            .await
+            .await?
             .is_changed()
     );
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
     ctx.inject(
         DiceKey { index: 100 },
-        Ok(DiceComputedValue::new(
+        DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[VersionNumber::new(1)], &[])),
-        )),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -198,17 +195,20 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 100 }]),
                 &cycles,
             )
-            .await
+            .await?
             .is_changed()
     );
 
-    // Now we also check that when deps have cycles, we ignore it since its possible the cycle
-    // is no longer valid
-
+    // Now we also check that when deps have transients and such.
+    // for legacy, this would deal with cycles, but modern dice will detect cycles through post
+    // processing and rely on the user cycle detector for now (which returns errors via the result.
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(2)).await;
     ctx.inject(
         DiceKey { index: 200 },
-        Err(DiceError::cycle(std::sync::Arc::new(K), indexset![])),
+        DiceComputedValue::new(
+            MaybeValidDiceValue::transient(std::sync::Arc::new(DiceKeyValue::<K>::new(1))),
+            Arc::new(CellHistory::testing_new(&[VersionNumber::new(2)], &[])),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -228,7 +228,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
                 Arc::new(vec![DiceKey { index: 200 }]),
                 &cycles,
             )
-            .await
+            .await?
             .is_changed()
     );
 
@@ -285,10 +285,10 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
-        Ok(DiceComputedValue::new(
+        DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::verified(VersionNumber::new(0))),
-        )),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -326,10 +326,10 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
-        Ok(DiceComputedValue::new(
+        DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::verified(v)),
-        )),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -371,10 +371,10 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     ctx.inject(
         DiceKey { index: 100 },
-        Ok(DiceComputedValue::new(
+        DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(CellHistory::testing_new(&[v, new_v], &[])),
-        )),
+        ),
     );
     let eval = AsyncEvaluator {
         per_live_version_ctx: ctx.dupe(),
@@ -761,13 +761,11 @@ async fn mismatch_epoch_results_in_cancelled_result() {
         None,
     );
     // wait for it to finish then trigger cancel
-    let err = assert_matches!(
+    assert_matches!(
         task.depended_on_by(ParentKey::None)
             .not_cancelled()
             .unwrap()
             .await,
-        Err(e) => e
+        Err(_) => {}
     );
-
-    assert_matches!(&*err.0, DiceErrorImpl::Cancelled)
 }
