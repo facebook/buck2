@@ -11,7 +11,7 @@ While it runs, the Buck daemon process monitors the project's file system for ch
 
 ## Killing or disabling the Buck daemon
 
-The Buck daemon process is killed if `buck2 clean` or `buck2 kill`commands are run. Note that they won't kill the daemon associated with custom isolation dirs. To do that, run using the `--isolation-dir` option (`buck2 --isolation-dir <dir> <command>`)
+The Buck daemon process is killed if `buck2 clean` or `buck2 kill` commands are run. Note that they won't kill the daemon associated with custom isolation dirs. To do that, run using the `--isolation-dir` option (`buck2 --isolation-dir <dir> <command>`)
 
 <FbInternalOnly>
 
