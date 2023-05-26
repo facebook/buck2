@@ -100,17 +100,22 @@ impl IncrementalEngine {
                     debug!(msg = "waiting for previously cancelled task");
                     match previous.termination.await {
                         TerminationStatus::Finished => {
-                            // old task actually finished, so just use that result
-                            handle.finished(
-                                previous
-                                    .previous
-                                    .get_finished_value()
-                                    .expect("A finished task must be present").expect("A finished task must have been completed"),
-                            );
+                            // old task actually finished, so just use that result if it wasn't
+                            // cancelled
 
-                            debug!(msg = "previously cancelled task actually finished");
 
-                            return Box::new(()) as Box<dyn Any + Send + 'static>;
+                            match previous.previous.get_finished_value().expect("Terminated task must have finished value") {
+                                Ok(res) => {
+                                    debug!(msg = "previously cancelled task actually finished");
+
+                                    handle.finished(res);
+                                    return Box::new(()) as Box<dyn Any + Send + 'static>;
+                                }
+                                Err(_err) => {
+                                    // actually was cancelled, so just continue re-evaluating
+
+                                }
+                            }
                         }
                         _ => {
                             // continue re-evaluating
@@ -130,8 +135,8 @@ impl IncrementalEngine {
                         handle.finished(res)
                     }
                     Err(_) => {
-                        // TODO(bobyf): this looks like the bug where we can have a value be 
-                        // cancelled despite the task finishing
+                        // we drop the current handle, leaving the original `DiceTask` as terminated
+                        // state
                     }
                 }
 
