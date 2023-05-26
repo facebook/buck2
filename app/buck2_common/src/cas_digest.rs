@@ -70,7 +70,7 @@ impl RawDigest {
             Self::Sha1(..) => DigestAlgorithmKind::Sha1,
             Self::Sha256(..) => DigestAlgorithmKind::Sha256,
             Self::Blake3(..) => DigestAlgorithmKind::Blake3,
-            Self::Blake3Keyed(..) => DigestAlgorithmKind::Blake3,
+            Self::Blake3Keyed(..) => DigestAlgorithmKind::Blake3Keyed,
         }
     }
 
@@ -843,6 +843,14 @@ pub mod testing {
             Lazy::new(|| CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3], None).unwrap());
         CasDigestConfig { inner: &CONFIG }
     }
+
+    pub fn blake3_keyed() -> CasDigestConfig {
+        static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3Keyed { key: &[0; 32] }], None)
+                .unwrap()
+        });
+        CasDigestConfig { inner: &CONFIG }
+    }
 }
 
 #[cfg(test)]
@@ -961,6 +969,21 @@ mod tests {
             blake3.to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
         );
+
+        let blake3_keyed = CasDigest::<()>::parse_digest(
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3",
+            testing::blake3_keyed(),
+        )
+        .unwrap()
+        .0;
+        assert_eq!(
+            blake3_keyed.raw_digest().algorithm(),
+            DigestAlgorithmKind::Blake3Keyed
+        );
+        assert_eq!(
+            blake3_keyed.to_string(),
+            "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
+        );
     }
 
     #[test]
@@ -969,6 +992,7 @@ mod tests {
             DigestAlgorithmKind::Sha1,
             DigestAlgorithmKind::Sha256,
             DigestAlgorithmKind::Blake3,
+            DigestAlgorithmKind::Blake3Keyed,
         ] {
             assert_eq!(v, v.to_string().parse().unwrap());
         }
