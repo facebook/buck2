@@ -1,8 +1,10 @@
 # @lint-ignore-every BUCKFORMAT
 
+load("//test_utils.bzl", "assert_output")
+
 # buildifier: disable=no-effect
 ocaml_library(
-    name = "_mylib",
+    name = "mylib__",
     compiler_flags = [
         "-no-alias-deps",
         "-w", "-49",
@@ -11,12 +13,13 @@ ocaml_library(
         "mylib.mli",
         "mylib.ml",
     ],
-    visibility = [ "PUBLIC" ],
+    visibility = [ ':mylib' ],
 ) if not host_info().os.is_windows else None
 
 export_file(
     name= "mylib.mli",
-    src = "mylib.mli"
+    src = "mylib.mli",
+    visibility = [ ':mylib.cmxa' ],
 )
 
 # buildifier: disable=no-effect
@@ -35,14 +38,21 @@ ocaml_library(
         "mylib__A.ml",
         "mylib__B.ml",
     ],
-    deps = [ ":_mylib" ],
-    visibility = [ "PUBLIC" ],
+    deps = [ ":mylib__" ],
+    visibility = [ 'PUBLIC' ],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
 ocaml_binary(
-    name = "test-mylib",
+    name = "test-Mylib",
     srcs = [ "test_Mylib.ml" ] ,
     deps = [ ":mylib" ],
-    visibility = [ "PUBLIC" ],
+    visibility = [ 'PUBLIC' ],
+) if not host_info().os.is_windows else None
+
+# buildifier: disable=no-effect
+assert_output(
+    name = "test-Mylib-check",
+    command = "$(exe_target :test-Mylib)",
+    output = "Hello world!",
 ) if not host_info().os.is_windows else None
