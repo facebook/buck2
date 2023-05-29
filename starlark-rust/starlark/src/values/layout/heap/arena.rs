@@ -172,11 +172,11 @@ impl<A: ArenaAllocator> Arena<A> {
         &'v mut [MaybeUninit<T::ExtraElem>],
     ) {
         assert!(
-            mem::align_of::<T>() <= mem::align_of::<AValueHeader>(),
+            mem::align_of::<T>() <= AValueHeader::ALIGN,
             "Unexpected alignment in Starlark arena. Type {} has alignment {}, expected <= {}",
             std::any::type_name::<T>(),
             mem::align_of::<T>(),
-            mem::align_of::<AValueHeader>()
+            AValueHeader::ALIGN,
         );
 
         let size = T::memory_size_for_extra_len(extra_len).add_header();
