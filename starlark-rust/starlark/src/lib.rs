@@ -408,6 +408,7 @@ mod hint;
 mod stdlib;
 pub mod syntax;
 pub mod values;
+pub(crate) mod wasm;
 
 pub mod coerce;
 #[cfg(test)]

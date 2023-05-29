@@ -117,6 +117,7 @@ mod tests {
     use crate::assert;
     use crate::environment::GlobalsBuilder;
     use crate::syntax::Dialect;
+    use crate::wasm::is_wasm;
 
     #[starlark_module]
     fn debugger(builder: &mut GlobalsBuilder) {
@@ -131,6 +132,10 @@ mod tests {
 
     #[test]
     fn test_debug_evaluate() {
+        if is_wasm() {
+            return;
+        }
+
         let mut a = assert::Assert::new();
         a.globals_add(debugger);
         let check = r#"

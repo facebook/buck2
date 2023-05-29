@@ -42,6 +42,7 @@ mod t {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::OwnedFrozenValue;
+    use crate::wasm::is_wasm;
 
     #[derive(Debug)]
     struct Client {
@@ -157,6 +158,11 @@ mod t {
 
     #[test]
     fn test_breakpoint() -> anyhow::Result<()> {
+        if is_wasm() {
+            // `thread::scope` doesn't work in wasm.
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
@@ -184,6 +190,10 @@ print(x)
 
     #[test]
     fn test_breakpoint_with_failing_condition() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
@@ -204,6 +214,10 @@ print(x)
 
     #[test]
     fn test_breakpoint_with_passing_condition() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
@@ -230,6 +244,10 @@ print(x)
 
     #[test]
     fn test_step_over() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
@@ -273,6 +291,10 @@ print(x)
 
     #[test]
     fn test_step_into() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
@@ -333,6 +355,10 @@ print(x)
 
     #[test]
     fn test_step_out() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let controller = BreakpointController::new();
         let (adapter, eval_hook) = prepare_dap_adapter(controller.get_client());
         let file_contents = "
