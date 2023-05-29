@@ -23,11 +23,40 @@ use std::cell::RefCell;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::ptr::NonNull;
 use std::slice;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::hint::likely;
 use crate::hint::unlikely;
+
+/// Holds the allocation.
+struct Buffer {
+    ptr: NonNull<u8>,
+    layout: Layout,
+}
+
+impl Buffer {
+    fn alloc(layout: Layout) -> Buffer {
+        let ptr = unsafe { alloc(layout) as *mut u8 };
+        let ptr = NonNull::new(ptr).unwrap();
+        Buffer { ptr, layout }
+    }
+
+    fn ptr(&self) -> *mut u8 {
+        self.ptr.as_ptr()
+    }
+
+    fn end(&self) -> *mut u8 {
+        unsafe { self.ptr.as_ptr().add(self.layout.size()) }
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        unsafe { dealloc(self.ptr.as_ptr().cast(), self.layout) }
+    }
+}
 
 /// We'd love to use the real `alloca`, but don't want to blow through the stack space,
 /// so define our own wrapper.
@@ -39,15 +68,7 @@ pub(crate) struct Alloca {
     alloc: Cell<*mut usize>,
     end: Cell<*mut usize>,
     last_size_words: Cell<usize>,
-    buffers: RefCell<Vec<(*mut usize, Layout)>>,
-}
-
-impl Drop for Alloca {
-    fn drop(&mut self) {
-        for (ptr, layout) in self.buffers.borrow_mut().drain(0..) {
-            unsafe { dealloc(ptr as *mut u8, layout) }
-        }
-    }
+    buffers: RefCell<Vec<Buffer>>,
 }
 
 const INITIAL_SIZE: usize = 1000000; // ~ 1Mb
@@ -60,12 +81,12 @@ impl Alloca {
     pub fn with_capacity(size_bytes: usize) -> Self {
         let size_words = (size_bytes + (mem::size_of::<usize>() - 1)) / mem::size_of::<usize>();
         let layout = Layout::array::<usize>(size_words).unwrap();
-        let pointer = unsafe { alloc(layout) as *mut usize };
+        let buffer = Buffer::alloc(layout);
         Self {
-            alloc: Cell::new(pointer),
-            end: Cell::new(pointer.wrapping_add(size_words)),
+            alloc: Cell::new(buffer.ptr().cast()),
+            end: Cell::new(buffer.end().cast()),
             last_size_words: Cell::new(size_words),
-            buffers: RefCell::new(vec![(pointer, layout)]),
+            buffers: RefCell::new(vec![buffer]),
         }
     }
 
@@ -87,11 +108,13 @@ impl Alloca {
         assert!(want.align() % mem::size_of::<usize>() == 0);
         let size_words = self.last_size_words.get() * 2 + want.size() / mem::size_of::<usize>();
         let layout = Layout::array::<usize>(size_words).unwrap();
-        let pointer = unsafe { alloc(layout) as *mut usize };
-        self.buffers.borrow_mut().push((pointer, layout));
+        let buffer = Buffer::alloc(layout);
+        let pointer = buffer.ptr().cast();
+        let end = buffer.end().cast();
+        self.buffers.borrow_mut().push(buffer);
         self.alloc.set(pointer);
         self.last_size_words.set(size_words);
-        self.end.set(pointer.wrapping_add(size_words));
+        self.end.set(end);
     }
 
     /// Note that the `Drop` for the `T` will not be called. That's safe if there is no `Drop`,
