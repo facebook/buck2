@@ -50,6 +50,10 @@ impl Buffer {
     fn end(&self) -> *mut u8 {
         unsafe { self.ptr.as_ptr().add(self.layout.size()) }
     }
+
+    fn size_words(&self) -> usize {
+        self.layout.size() / mem::size_of::<usize>()
+    }
 }
 
 impl Drop for Buffer {
@@ -67,7 +71,6 @@ pub(crate) struct Alloca {
     // the performance difference is only 2%, so keep the flexibility of not needing to predeclare the type.
     alloc: Cell<*mut usize>,
     end: Cell<*mut usize>,
-    last_size_words: Cell<usize>,
     buffers: RefCell<Vec<Buffer>>,
 }
 
@@ -85,7 +88,6 @@ impl Alloca {
         Self {
             alloc: Cell::new(buffer.ptr().cast()),
             end: Cell::new(buffer.end().cast()),
-            last_size_words: Cell::new(size_words),
             buffers: RefCell::new(vec![buffer]),
         }
     }
@@ -94,7 +96,8 @@ impl Alloca {
         unsafe {
             debug_assert!(self.end.get().offset_from(self.alloc.get()) >= 0);
             debug_assert!(
-                self.end.get().offset_from(self.alloc.get()) as usize <= self.last_size_words.get()
+                self.end.get().offset_from(self.alloc.get()) as usize
+                    <= self.buffers.borrow().last().unwrap().size_words()
             );
         }
     }
@@ -106,14 +109,14 @@ impl Alloca {
             Layout::from_size_align(one.size().checked_mul(len).unwrap(), one.align()).unwrap();
         assert!(want.size() % mem::size_of::<usize>() == 0);
         assert!(want.align() % mem::size_of::<usize>() == 0);
-        let size_words = self.last_size_words.get() * 2 + want.size() / mem::size_of::<usize>();
+        let size_words = self.buffers.borrow().last().unwrap().size_words() * 2
+            + want.size() / mem::size_of::<usize>();
         let layout = Layout::array::<usize>(size_words).unwrap();
         let buffer = Buffer::alloc(layout);
         let pointer = buffer.ptr().cast();
         let end = buffer.end().cast();
         self.buffers.borrow_mut().push(buffer);
         self.alloc.set(pointer);
-        self.last_size_words.set(size_words);
         self.end.set(end);
     }
 
