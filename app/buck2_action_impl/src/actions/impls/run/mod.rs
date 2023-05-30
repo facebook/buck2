@@ -254,7 +254,7 @@ impl RunAction {
             }
             res
         };
-        let worker: NoneOr<&WorkerInfo> = NoneOr::unpack_value_err(values.worker.to_value())?;
+        let worker: NoneOr<&WorkerInfo> = values.worker()?.typed;
 
         let worker = if let Some(worker) = worker.into_option() {
             let worker_exe = worker.exe_command_line();
