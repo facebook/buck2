@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -171,7 +172,8 @@ impl UnregisteredAction for UnregisteredRunAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        let starlark_values = starlark_data.expect("module data to be present");
+        let starlark_values =
+            starlark_data.context("module data to be present (internal error)")?;
         let run_action = RunAction::new(*self, starlark_values, outputs)?;
         Ok(Box::new(run_action))
     }
