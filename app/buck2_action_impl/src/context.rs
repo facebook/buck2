@@ -33,6 +33,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ACTIONS;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
@@ -654,12 +655,12 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
 
         let (starlark_exe, starlark_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker = worker_run.typed.worker();
+                let worker: ValueOf<&WorkerInfo> = worker_run.typed.worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCommandLine::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, NoneOr::Other(worker.value))
+                (starlark_exe, NoneOr::Other(worker))
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCommandLine::try_from_value(*exe)?;
