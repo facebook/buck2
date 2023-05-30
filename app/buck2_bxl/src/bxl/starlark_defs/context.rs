@@ -660,13 +660,7 @@ fn register_context(builder: &mut MethodsBuilder) {
     /// Returns the [`BxlFilesystem`] for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
     fn fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
-        Ok(BxlFilesystem::new(
-            &this.async_ctx,
-            &this.output_stream.project_fs,
-            &this.output_stream.artifact_fs,
-            this.cell_resolver.get(this.cell_name)?,
-            this,
-        ))
+        Ok(BxlFilesystem::new(this))
     }
 
     /// Returns the [`StarlarkAuditCtx`] that holds all the audit functions.
