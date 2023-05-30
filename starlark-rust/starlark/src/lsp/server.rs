@@ -793,6 +793,7 @@ mod test {
     use crate::lsp::server::StarlarkFileContentsRequest;
     use crate::lsp::server::StarlarkFileContentsResponse;
     use crate::lsp::test::TestServer;
+    use crate::wasm::is_wasm;
 
     fn goto_definition_request(
         server: &mut TestServer,
@@ -873,6 +874,10 @@ mod test {
 
     #[test]
     fn sends_empty_goto_definition_on_nonexistent_file() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let mut server = TestServer::new()?;
         let req = goto_definition_request(&mut server, temp_file_uri("nonexistent"), 0, 0);
 
@@ -889,6 +894,10 @@ mod test {
 
     #[test]
     fn sends_empty_goto_definition_on_non_access_symbol() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let uri = temp_file_uri("file.star");
 
         let mut server = TestServer::new()?;
@@ -910,6 +919,10 @@ mod test {
 
     #[test]
     fn goes_to_definition() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let uri = temp_file_uri("file.star");
         let expected_location = expected_location_link(uri.clone(), 3, 6, 13, 1, 4, 11);
 
@@ -928,6 +941,10 @@ mod test {
 
     #[test]
     fn returns_old_definitions_if_current_file_does_not_parse() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let uri = temp_file_uri("file.star");
         let expected_location = expected_location_link(uri.clone(), 3, 6, 13, 1, 4, 11);
 
@@ -947,6 +964,10 @@ mod test {
 
     #[test]
     fn jumps_to_definition_from_opened_loaded_file() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -992,6 +1013,10 @@ mod test {
 
     #[test]
     fn jumps_to_definition_from_closed_loaded_file() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1034,6 +1059,10 @@ mod test {
 
     #[test]
     fn passes_cwd_for_relative_loads() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1075,6 +1104,10 @@ mod test {
 
     #[test]
     fn does_not_jump_to_definition_if_invalid_file() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
 
         let foo_contents = dedent(
@@ -1112,6 +1145,10 @@ mod test {
 
     #[test]
     fn does_not_jump_to_definition_if_symbol_not_found() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1153,6 +1190,10 @@ mod test {
 
     #[test]
     fn jumps_to_definition_in_load_statement() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1195,6 +1236,10 @@ mod test {
 
     #[test]
     fn does_not_jump_to_definition_in_load_statement_if_not_found() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1236,6 +1281,10 @@ mod test {
 
     #[test]
     fn jumps_to_file_in_load_statement() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
         let bar_load_string = Path::new(bar_uri.path())
@@ -1295,6 +1344,10 @@ mod test {
 
     #[test]
     fn jumps_to_definitions_in_strings() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
@@ -1455,6 +1508,10 @@ mod test {
 
     #[test]
     fn handles_paths_that_are_not_starlark() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
         let baz_uri = temp_file_uri("baz");
@@ -1568,6 +1625,10 @@ mod test {
 
     #[test]
     fn disables_goto_definition() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let server = TestServer::new_with_settings(Some(LspServerSettings {
             enable_goto_definition: false,
         }))?;
@@ -1598,6 +1659,10 @@ mod test {
 
     #[test]
     fn returns_starlark_file_contents() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let mut server = TestServer::new()?;
 
         let uri = LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)?;
@@ -1623,6 +1688,10 @@ mod test {
 
     #[test]
     fn goto_works_for_native_symbols() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let native_uri = Url::parse("starlark:/native/builtin.bzl")?;
 
@@ -1710,6 +1779,10 @@ mod test {
 
     #[test]
     fn jumps_to_original_member_definition() -> anyhow::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
 
