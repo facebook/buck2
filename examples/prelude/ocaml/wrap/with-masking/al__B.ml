@@ -7,4 +7,4 @@
  * of this source tree.
  *)
 
-let print_hello () = Printf.printf "Hello world!\n"
+let print_hello () = C.print_hello ()

@@ -7,4 +7,5 @@
  * of this source tree.
  *)
 
-let print_hello () = Printf.printf "Hello world!\n"
+val print_hello: unit -> unit
+module B: sig val print_hello: unit -> unit end

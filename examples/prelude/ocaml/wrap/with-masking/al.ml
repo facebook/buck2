@@ -7,4 +7,8 @@
  * of this source tree.
  *)
 
-let print_hello () = Printf.printf "Hello world!\n"
+let print_hello () = A.print_hello ()
+
+module B: module type of B = struct
+  include B
+ end
