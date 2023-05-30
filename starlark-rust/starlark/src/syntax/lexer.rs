@@ -46,6 +46,8 @@ pub(crate) enum LexemeError {
     UnfinishedStringLiteral,
     #[error("Parse error: invalid string escape sequence `{0}`")]
     InvalidEscapeSequence(String),
+    #[error("Parse error: missing string escape sequence, only saw `\\`")]
+    EmptyEscapeSequence,
     #[error("Parse error: cannot use reserved keyword `{0}`")]
     ReservedKeyword(String),
     #[error("Parse error: integer cannot have leading 0, got `{0}`")]
@@ -356,10 +358,13 @@ impl<'a> Lexer<'a> {
                     } else {
                         let pos = it.pos();
                         if Self::escape(&mut it, &mut res).is_err() {
+                            let bad = self.lexer.remainder()[pos..it.pos()].to_owned();
                             return self.err_span(
-                                LexemeError::InvalidEscapeSequence(
-                                    self.lexer.remainder()[pos..it.pos()].to_owned(),
-                                ),
+                                if bad.is_empty() {
+                                    LexemeError::EmptyEscapeSequence
+                                } else {
+                                    LexemeError::InvalidEscapeSequence(bad)
+                                },
                                 string_end + pos - 1,
                                 string_end + it.pos(),
                             );
