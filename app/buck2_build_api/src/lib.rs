@@ -43,9 +43,4 @@ pub mod keep_going;
 pub mod nodes;
 pub mod query;
 pub mod spawner;
-pub(crate) mod transition;
-
-pub fn init_late_bindings() {
-    interpreter::rule_defs::transition::calculation_apply_transition::init_transition_calculation();
-    interpreter::rule_defs::transition::starlark::init_register_transition();
-}
+pub mod transition;

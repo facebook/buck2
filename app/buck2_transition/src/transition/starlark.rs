@@ -8,6 +8,7 @@
  */
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -21,12 +22,14 @@ use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use hashbrown::HashSet;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_complex_values;
+use starlark::starlark_module;
+use starlark::starlark_type;
 use starlark::values::dict::DictOf;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -82,7 +85,7 @@ pub(crate) struct Transition<'v> {
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
 #[display(fmt = "transition")]
-pub struct FrozenTransition {
+pub(crate) struct FrozenTransition {
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
     pub(crate) refs: SmallMap<FrozenStringValue, TargetLabel>,

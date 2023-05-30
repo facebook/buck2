@@ -12,7 +12,6 @@ async-trait = { workspace = true }
 blake3 = { workspace = true }
 derive_more = { workspace = true }
 derivative = { workspace = true }
-hashbrown = { workspace = true }
 once_cell = { workspace = true }
 inventory = { workspace = true }
 futures = { workspace = true }

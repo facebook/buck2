@@ -16,11 +16,11 @@ use dice::DiceComputations;
 use starlark::values::OwnedFrozenValueTyped;
 use thiserror::Error;
 
-use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
+use crate::transition::starlark::FrozenTransition;
 
 /// Fetch transition object (function plus context) by id.
 #[async_trait]
-pub trait FetchTransition {
+pub(crate) trait FetchTransition {
     /// Fetch transition object by id.
     async fn fetch_transition(
         &self,

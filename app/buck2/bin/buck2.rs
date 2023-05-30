@@ -117,7 +117,7 @@ fn main(init: fbinit::FacebookInit) -> ! {
     buck2_anon_target::init_late_bindings();
     buck2_action_impl::init_late_bindings();
     buck2_audit_server::init_late_bindings();
-    buck2_build_api::init_late_bindings();
+    buck2_transition::init_late_bindings();
     buck2_build_signals_impl::init_late_bindings();
     buck2_bxl::init_late_bindings();
     buck2_query_impls::init_late_bindings();

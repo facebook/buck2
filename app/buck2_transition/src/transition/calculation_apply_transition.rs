@@ -12,6 +12,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::transition::TransitionCalculation;
+use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -44,14 +49,9 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use thiserror::Error;
 
-use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::attrs::resolve::coerced_attr::CoercedAttrResolveExt;
-use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
-use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
-use crate::transition::TransitionCalculation;
-use crate::transition::TRANSITION_CALCULATION;
+use crate::coerced_attr::CoercedAttrResolveExt;
+use crate::transition::calculation_fetch_transition::FetchTransition;
+use crate::transition::starlark::FrozenTransition;
 
 #[derive(Error, Debug)]
 enum ApplyTransitionError {

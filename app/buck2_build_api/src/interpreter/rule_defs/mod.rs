@@ -25,7 +25,6 @@ pub mod label_relative_path;
 pub mod provider;
 pub mod resolve_query_macro;
 pub mod resolved_macro;
-pub mod transition;
 pub mod transitive_set;
 
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
