@@ -396,7 +396,7 @@ pub(crate) struct LineCol {
     /// The line number within the file (0-indexed).
     pub line: usize,
 
-    /// The column within the line (0-indexed).
+    /// The column within the line (0-indexed in characters).
     pub column: usize,
 }
 
@@ -496,11 +496,11 @@ impl FileSpan {
 pub struct ResolvedSpan {
     /// 0-based line number of the beginning of the span.
     pub begin_line: usize,
-    /// 0-based column number of the beginning of the span.
+    /// 0-based character column number of the beginning of the span.
     pub begin_column: usize,
     /// 0-based line number of the end of the span.
     pub end_line: usize,
-    /// 0-based column number of the end of the span.
+    /// 0-based character column number of the end of the span.
     pub end_column: usize,
 }
 
