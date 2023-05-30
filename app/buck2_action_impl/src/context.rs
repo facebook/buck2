@@ -759,6 +759,7 @@ fn analysis_actions_methods_actions(builder: &mut MethodsBuilder) {
             return Err(RunActionError::NoOutputsSpecified.into());
         }
         let heap = eval.heap();
+
         let starlark_values = heap.alloc(StarlarkRunActionValues {
             exe: heap.alloc(starlark_exe),
             args: heap.alloc(starlark_args),

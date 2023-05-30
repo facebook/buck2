@@ -8,6 +8,8 @@
  */
 
 use std::fmt::Debug;
+use std::sync::atomic;
+use std::sync::atomic::AtomicU64;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -30,11 +32,18 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLine;
 #[internal_provider(worker_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[freeze(validator = validate_worker_info, bounds = "V: ValueLike<'freeze>")]
-#[repr(transparent)]
+#[repr(C)]
 pub struct WorkerInfoGen<V> {
     // Command to spawn a new worker
     #[provider(field_type = "StarlarkCommandLine")]
     pub exe: V,
+
+    pub id: u64,
+}
+
+fn next_id() -> u64 {
+    static LAST_ID: AtomicU64 = AtomicU64::new(0);
+    LAST_ID.fetch_add(1, atomic::Ordering::Relaxed) + 1
 }
 
 #[starlark_module]
@@ -47,7 +56,8 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
         let heap = eval.heap();
         let valid_exe = StarlarkCommandLine::try_from_value(exe)?;
         let exe = heap.alloc(valid_exe);
-        Ok(WorkerInfo { exe })
+        let id = next_id();
+        Ok(WorkerInfo { exe, id })
     }
 }
 

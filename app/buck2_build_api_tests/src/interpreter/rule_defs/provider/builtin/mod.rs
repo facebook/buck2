@@ -15,3 +15,4 @@ mod install_info;
 mod local_resource_info;
 mod run_info;
 mod tests;
+mod worker_info;

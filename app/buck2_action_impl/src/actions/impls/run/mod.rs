@@ -70,7 +70,6 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
@@ -218,7 +217,7 @@ struct UnpackedRunActionValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     args: &'v dyn CommandLineArgLike,
     env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
-    worker: Option<&'v dyn CommandLineArgLike>,
+    worker: Option<(&'v dyn CommandLineArgLike, WorkerId)>,
 }
 
 #[derive(Debug, Allocative)]
@@ -229,13 +228,6 @@ pub(crate) struct RunAction {
 }
 
 impl RunAction {
-    fn unpack_worker_id(
-        val: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
-    ) -> anyhow::Result<WorkerId> {
-        let identity: ValueIdentity<'static> = val.worker()?.value.identity();
-        Ok(WorkerId(identity))
-    }
-
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> anyhow::Result<UnpackedRunActionValues> {
@@ -258,7 +250,8 @@ impl RunAction {
 
         let worker = if let Some(worker) = worker.into_option() {
             let worker_exe = worker.exe_command_line();
-            Some(worker_exe)
+            let worker_id = WorkerId(worker.id);
+            Some((worker_exe, worker_id))
         } else {
             None
         };
@@ -286,12 +279,12 @@ impl RunAction {
             .add_to_command_line(&mut exe_rendered, &mut ctx)?;
         values.exe.visit_artifacts(artifact_visitor)?;
 
-        let worker = if let Some(worker_exe) = values.worker {
+        let worker = if let Some((worker_exe, worker_id)) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
             worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
             worker_exe.visit_artifacts(artifact_visitor)?;
             Some(WorkerSpec {
-                id: Self::unpack_worker_id(&self.starlark_values)?,
+                id: worker_id,
                 exe: worker_rendered,
             })
         } else {
@@ -471,8 +464,8 @@ impl Action for RunAction {
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;
         values.exe.visit_artifacts(&mut artifact_visitor)?;
-        if let Some(worker) = values.worker {
-            worker.visit_artifacts(&mut artifact_visitor)?;
+        if let Some((worker_exe, _)) = values.worker {
+            worker_exe.visit_artifacts(&mut artifact_visitor)?;
         }
         for (_, v) in values.env.iter() {
             v.visit_artifacts(&mut artifact_visitor)?;
