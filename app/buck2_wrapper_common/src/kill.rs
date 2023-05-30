@@ -56,6 +56,8 @@ mod os_specific {
     use std::io;
 
     use anyhow::Context;
+    use winapi::um::minwinbase::STILL_ACTIVE;
+    use winapi::um::processthreadsapi::GetExitCodeProcess;
     use winapi::um::processthreadsapi::OpenProcess;
     use winapi::um::processthreadsapi::TerminateProcess;
     use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
@@ -78,14 +80,26 @@ mod os_specific {
     }
 
     pub(super) fn kill(pid: u32) -> anyhow::Result<()> {
-        let proc_handle = match open_process(PROCESS_TERMINATE, pid)? {
+        let proc_handle = match open_process(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, pid)? {
             Some(proc_handle) => proc_handle,
             None => return Ok(()),
         };
         unsafe {
             if TerminateProcess(proc_handle.handle(), 1) == 0 {
-                return Err(io::Error::last_os_error())
-                    .with_context(|| format!("Failed to kill daemon ({})", pid));
+                // Stash the error before calling `process_exists` to avoid overwriting it.
+                let os_error = io::Error::last_os_error();
+
+                // From WinAPI doc:
+                // After a process has terminated, call to `TerminateProcess` with open handles
+                // to the process fails with `ERROR_ACCESS_DENIED` (5) error code.
+                let mut exit_code = 0;
+                if GetExitCodeProcess(proc_handle.handle(), &mut exit_code) != 0 {
+                    if exit_code != STILL_ACTIVE {
+                        return Ok(());
+                    }
+                }
+
+                return Err(os_error).with_context(|| format!("Failed to kill daemon ({})", pid));
             }
             Ok(())
         }
