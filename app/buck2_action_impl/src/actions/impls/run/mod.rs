@@ -71,6 +71,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use thiserror::Error;
 
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
@@ -188,11 +189,12 @@ impl UnregisteredAction for UnregisteredRunAction {
 )]
 #[display(fmt = "run_action_values")]
 #[repr(C)]
-pub struct StarlarkRunActionValuesGen<V> {
-    pub exe: V,
-    pub args: V,
-    pub env: V,
-    pub worker: V,
+pub(crate) struct StarlarkRunActionValuesGen<V> {
+    pub(crate) exe: V,
+    pub(crate) args: V,
+    pub(crate) env: V,
+    /// `WorkerInfo` or `None`.
+    pub(crate) worker: V,
 }
 
 impl<'v, V: ValueLike<'v> + 'v> StarlarkValue<'v> for StarlarkRunActionValuesGen<V>
@@ -202,7 +204,13 @@ where
     starlark_type!("run_action_values");
 }
 
-starlark_complex_value!(pub StarlarkRunActionValues);
+starlark_complex_value!(pub(crate) StarlarkRunActionValues);
+
+impl<'v, V: ValueLike<'v>> StarlarkRunActionValuesGen<V> {
+    pub(crate) fn worker(&self) -> anyhow::Result<ValueOf<'v, NoneOr<&'v WorkerInfo<'v>>>> {
+        ValueOf::unpack_value_err(self.worker.to_value())
+    }
+}
 
 struct UnpackedRunActionValues<'v> {
     exe: &'v dyn CommandLineArgLike,
@@ -219,12 +227,11 @@ pub(crate) struct RunAction {
 }
 
 impl RunAction {
-    fn unpack_worker_id(val: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>) -> WorkerId {
-        let worker = val.map_untyped(|f| f.worker);
-        // safe since the pointer is never dereferenced, it's only used as an id for running workers
-        let frozen_worker = unsafe { worker.unchecked_frozen_value() };
-        let identity: ValueIdentity<'static> = frozen_worker.to_value().identity();
-        WorkerId(identity)
+    fn unpack_worker_id(
+        val: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
+    ) -> anyhow::Result<WorkerId> {
+        let identity: ValueIdentity<'static> = val.worker()?.value.identity();
+        Ok(WorkerId(identity))
     }
 
     fn unpack(
@@ -279,7 +286,7 @@ impl RunAction {
             worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
             worker_exe.visit_artifacts(artifact_visitor)?;
             Some(WorkerSpec {
-                id: Self::unpack_worker_id(&self.starlark_values),
+                id: Self::unpack_worker_id(&self.starlark_values)?,
                 exe: worker_rendered,
             })
         } else {
