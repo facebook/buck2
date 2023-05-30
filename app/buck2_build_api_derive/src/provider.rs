@@ -118,8 +118,7 @@ impl ProviderCodegen {
 
     /// `id` field is object identity, which is ignored for equality or display purposes.
     fn is_id_field(&self, field: &syn::Field) -> bool {
-        field.ident.as_ref().unwrap().to_string() == "id"
-            && field.ty.to_token_stream().to_string() == "u64"
+        field.ident.as_ref().unwrap() == "id" && field.ty.to_token_stream().to_string() == "u64"
     }
 
     fn field_names(&self) -> syn::Result<Vec<&syn::Ident>> {
