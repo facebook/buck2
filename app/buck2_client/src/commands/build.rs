@@ -270,7 +270,11 @@ impl StreamingCommand for BuildCommand {
         let console = self.common_opts.console_opts.final_console();
 
         if success {
-            console.print_success("BUILD SUCCEEDED")?;
+            if self.patterns.is_empty() {
+                console.print_warning("NO BUILD TARGET PATTERNS SPECIFIED")?;
+            } else {
+                console.print_success("BUILD SUCCEEDED")?;
+            }
         } else {
             console.print_error("BUILD FAILED")?;
         }
