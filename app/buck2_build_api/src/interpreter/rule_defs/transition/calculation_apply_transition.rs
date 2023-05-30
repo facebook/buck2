@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
+use buck2_common::result::ToUnsharedResultExt;
 use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::collections::sorted_map::SortedMap;
 use buck2_core::configuration::cfg_diff::cfg_diff;
@@ -49,6 +50,8 @@ use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInf
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::transition::calculation_fetch_transition::FetchTransition;
 use crate::interpreter::rule_defs::transition::starlark::FrozenTransition;
+use crate::transition::TransitionCalculation;
+use crate::transition::TRANSITION_CALCULATION;
 
 #[derive(Error, Debug)]
 enum ApplyTransitionError {
@@ -195,14 +198,6 @@ pub(crate) trait ApplyTransition {
         &self,
         target: &TargetLabel,
     ) -> SharedResult<FrozenProviderCollectionValue>;
-
-    /// Apply transition function to configuration and cache the result.
-    async fn apply_transition(
-        &self,
-        target_node: &TargetNode,
-        conf: &ConfigurationData,
-        transition_id: &TransitionId,
-    ) -> SharedResult<Arc<TransitionApplied>>;
 }
 
 #[async_trait]
@@ -217,13 +212,23 @@ impl ApplyTransition for DiceComputations {
             .providers()
             .dupe())
     }
+}
 
+struct TransitionCalculationImpl;
+
+pub(crate) fn init_transition_calculation() {
+    TRANSITION_CALCULATION.init(&TransitionCalculationImpl);
+}
+
+#[async_trait]
+impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
+        ctx: &DiceComputations,
         target_node: &TargetNode,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
-    ) -> SharedResult<Arc<TransitionApplied>> {
+    ) -> anyhow::Result<Arc<TransitionApplied>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative)]
         #[display(fmt = "{} ({}){}", transition_id, cfg, "self.fmt_attrs()")]
         struct TransitionKey {
@@ -286,7 +291,7 @@ impl ApplyTransition for DiceComputations {
             }
         }
 
-        let transition = self.fetch_transition(transition_id).await?;
+        let transition = ctx.fetch_transition(transition_id).await?;
 
         #[allow(clippy::manual_map)]
         let attrs = if let Some(attrs) = &transition.attrs {
@@ -305,6 +310,6 @@ impl ApplyTransition for DiceComputations {
             attrs,
         };
 
-        self.compute(&key).await?
+        ctx.compute(&key).await?.unshared_error()
     }
 }

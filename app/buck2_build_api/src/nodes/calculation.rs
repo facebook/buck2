@@ -64,7 +64,7 @@ use thiserror::Error;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::ConfigurationCalculation;
-use crate::interpreter::rule_defs::transition::calculation_apply_transition::ApplyTransition;
+use crate::transition::TRANSITION_CALCULATION;
 
 #[derive(Debug, thiserror::Error)]
 enum NodeCalculationError {
@@ -590,7 +590,10 @@ async fn compute_configured_target_node_no_transition(
 
     let mut resolved_transitions = OrderedMap::new();
     for (_dep, tr) in target_node.transition_deps() {
-        let resolved_cfg = ctx.apply_transition(&target_node, target_cfg, tr).await?;
+        let resolved_cfg = TRANSITION_CALCULATION
+            .get()?
+            .apply_transition(ctx, &target_node, target_cfg, tr)
+            .await?;
         resolved_transitions.insert(tr.dupe(), resolved_cfg);
     }
 
@@ -804,8 +807,9 @@ async fn compute_configured_target_node(
             }
         }
 
-        let cfg = ctx
-            .apply_transition(&target_node, key.0.cfg(), transition_id)
+        let cfg = TRANSITION_CALCULATION
+            .get()?
+            .apply_transition(ctx, &target_node, key.0.cfg(), transition_id)
             .await?;
         let configured_target_label = key.0.unconfigured().configure(cfg.single()?.dupe());
 
