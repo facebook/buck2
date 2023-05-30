@@ -238,20 +238,23 @@ impl RunAction {
 
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
-    ) -> Option<UnpackedRunActionValues> {
-        let exe = values.exe.to_value().as_command_line()?;
-        let args = values.args.to_value().as_command_line()?;
+    ) -> anyhow::Result<UnpackedRunActionValues> {
+        let exe = values.exe.to_value().as_command_line_err()?;
+        let args = values.args.to_value().as_command_line_err()?;
         let env = if values.env.is_none() {
             Vec::new()
         } else {
-            let d = DictRef::from_value(values.env.to_value())?;
+            let d = DictRef::from_value(values.env.to_value()).context("expecting dict")?;
             let mut res = Vec::with_capacity(d.len());
             for (k, v) in d.iter() {
-                res.push((k.unpack_str()?, v.as_command_line()?));
+                res.push((
+                    k.unpack_str().context("expecting string")?,
+                    v.as_command_line_err()?,
+                ));
             }
             res
         };
-        let worker: NoneOr<&WorkerInfo> = NoneOr::unpack_value(values.worker.to_value())?;
+        let worker: NoneOr<&WorkerInfo> = NoneOr::unpack_value_err(values.worker.to_value())?;
 
         let worker = if let Some(worker) = worker.into_option() {
             let worker_exe = worker.exe_command_line();
@@ -260,7 +263,7 @@ impl RunAction {
             None
         };
 
-        Some(UnpackedRunActionValues {
+        Ok(UnpackedRunActionValues {
             exe,
             args,
             env,
@@ -275,7 +278,7 @@ impl RunAction {
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
         let mut ctx = DefaultCommandLineContext::new(fs);
-        let values = Self::unpack(&self.starlark_values).unwrap();
+        let values = Self::unpack(&self.starlark_values)?;
 
         let mut exe_rendered = Vec::<String>::new();
         values
@@ -339,12 +342,7 @@ impl RunAction {
             }
         };
 
-        if Self::unpack(&starlark_values).is_none() {
-            return Err(RunActionValidationError::ContentsNotCommandLineValue(
-                starlark_values.to_value().to_repr(),
-            )
-            .into());
-        }
+        Self::unpack(&starlark_values)?;
 
         Ok(RunAction {
             inner,
@@ -469,7 +467,7 @@ impl Action for RunAction {
     }
 
     fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
-        let values = Self::unpack(&self.starlark_values).unwrap();
+        let values = Self::unpack(&self.starlark_values)?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;
         values.exe.visit_artifacts(&mut artifact_visitor)?;
