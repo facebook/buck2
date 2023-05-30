@@ -84,6 +84,7 @@ impl Span {
     }
 
     /// The length in bytes of the text of the span
+    #[cfg(test)]
     pub fn len(self) -> u32 {
         self.end.0 - self.begin.0
     }

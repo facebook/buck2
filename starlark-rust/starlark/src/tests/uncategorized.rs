@@ -1018,3 +1018,13 @@ fn test_fuzzer_59102() {
     // The panic actually only happens when we format the result
     format!("{:?}", res);
 }
+
+#[test]
+fn test_fuzzer_59371() {
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59371
+    let src = "\"\u{2009}\\x";
+    let res: Result<AstModule, anyhow::Error> =
+        AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
+    // The panic actually only happens when we format the result
+    format!("{:?}", res);
+}

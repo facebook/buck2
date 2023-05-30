@@ -211,12 +211,10 @@ impl Diagnostic {
             let source = span.file.source_span(source_span);
 
             // We want to highlight the span, which needs to be relative to source, and in
-            // characters (whereas our spans are in terms of bytes)
-            let range_start_bytes = region.begin_column;
-            let range_len_bytes = span.span.len() as usize;
-            let range_start_chars = fast_string::len(&source[0..range_start_bytes]).0;
-            let range_len_chars =
-                fast_string::len(&source[range_start_bytes..range_start_bytes + range_len_bytes]).0;
+            // characters.
+            // Our spans are in terms of bytes, but our resolved spans in terms of characters.
+            let range_start_chars = region.begin_column;
+            let range_len_chars = fast_string::len(span.source_span()).0;
 
             Slice {
                 source,
