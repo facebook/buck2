@@ -8,6 +8,7 @@
  */
 
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
@@ -15,7 +16,6 @@ use starlark::values::list::ListRef;
 use starlark::values::Value;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 
 #[derive(thiserror::Error, Debug)]
 enum SourceLabelResolutionError {

@@ -9,6 +9,8 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::buck_path::path::BuckPath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::label::Label;
@@ -41,8 +43,6 @@ use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrExt;
 use crate::attrs::resolve::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 
 pub trait ConfiguredAttrExt {
     fn resolve<'v>(

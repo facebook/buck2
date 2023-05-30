@@ -8,6 +8,12 @@
  */
 
 use anyhow::Context;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
@@ -19,12 +25,6 @@ use starlark::values::Value;
 
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
-use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
-use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
-use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
-use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
-use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
 
 pub mod query;
 

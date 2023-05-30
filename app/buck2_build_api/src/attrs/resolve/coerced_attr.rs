@@ -16,8 +16,6 @@ use starlark::values::Heap;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::attrs::resolve::attr_literal::ResolveError;
-
 #[derive(Debug, thiserror::Error)]
 enum CoercedAttrResolveError {
     #[error("Attribute cannot be converted to Starlark value: `{0}`")]
@@ -74,10 +72,10 @@ impl CoercedAttrResolveExt for CoercedAttr {
                 //
                 // For configuration deps, this function should resolve attributes to providers,
                 // but it is not implemented yet.
-                Err(
-                    ResolveError::AttrCannotBeConvertedToValue(x.as_display_no_ctx().to_string())
-                        .into(),
+                Err(CoercedAttrResolveError::AttrCannotBeConvertedToValue(
+                    x.as_display_no_ctx().to_string(),
                 )
+                .into())
             }
         }
     }

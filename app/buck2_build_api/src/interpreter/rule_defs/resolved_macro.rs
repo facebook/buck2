@@ -138,7 +138,7 @@ impl ResolvedMacro {
 }
 
 #[derive(Debug, PartialEq, Allocative)]
-pub(crate) enum ResolvedStringWithMacrosPart {
+pub enum ResolvedStringWithMacrosPart {
     String(ArcStr),
     Macro(/* write_to_file */ bool, ResolvedMacro),
 }
@@ -175,7 +175,7 @@ impl Display for ResolvedStringWithMacros {
 }
 
 impl ResolvedStringWithMacros {
-    pub(crate) fn new(parts: Vec<ResolvedStringWithMacrosPart>) -> Self {
+    pub fn new(parts: Vec<ResolvedStringWithMacrosPart>) -> Self {
         Self { parts }
     }
 

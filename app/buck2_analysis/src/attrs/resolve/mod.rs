@@ -7,4 +7,7 @@
  * of this source tree.
  */
 
+pub mod attr_type;
+pub mod configured_attr;
+pub mod ctx;
 pub(crate) mod node_to_attrs_struct;

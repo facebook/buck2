@@ -9,6 +9,8 @@
 
 use std::sync::Arc;
 
+use buck2_build_api::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
+use buck2_build_api::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacroTargetAndOutputs;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
@@ -17,8 +19,6 @@ use dupe::Dupe;
 use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrBaseExt;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
-use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacroTargetAndOutputs;
 
 pub(crate) trait ConfiguredQueryMacroBaseExt {
     fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro>;

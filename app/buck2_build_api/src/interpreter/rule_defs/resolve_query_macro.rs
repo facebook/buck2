@@ -25,8 +25,8 @@ use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;
 
 #[derive(Debug, PartialEq, Allocative)]
 pub struct ResolvedQueryMacroTargetAndOutputs {
-    pub(crate) sep: Box<str>,
-    pub(crate) list: Box<
+    pub sep: Box<str>,
+    pub list: Box<
         [(
             ConfiguredTargetLabel,
             Box<[FrozenRef<'static, StarlarkArtifact>]>,

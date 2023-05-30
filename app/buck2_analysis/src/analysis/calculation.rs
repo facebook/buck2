@@ -20,7 +20,6 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_build_api::keep_going;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_common::result::SharedResult;
@@ -56,6 +55,7 @@ use starlark::eval::ProfileMode;
 use crate::analysis::env::get_user_defined_rule_impl;
 use crate::analysis::env::run_analysis;
 use crate::analysis::env::RuleImplFunction;
+use crate::attrs::resolve::ctx::AnalysisQueryResult;
 
 #[derive(Debug, thiserror::Error)]
 enum AnalysisCalculationError {

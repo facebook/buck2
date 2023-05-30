@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_build_api::attrs::resolve::attr_type::dep::DepAttrTypeExt;
-use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
+use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
+use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;

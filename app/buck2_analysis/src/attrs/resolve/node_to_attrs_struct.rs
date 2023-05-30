@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
-use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Value;
+
+use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 /// Prepare `ctx.attrs` for rule impl.
 pub(crate) fn node_to_attrs_struct<'v>(

@@ -23,7 +23,7 @@ pub mod command_executor_config;
 pub mod context;
 pub mod label_relative_path;
 pub mod provider;
-pub(crate) mod resolve_query_macro;
+pub mod resolve_query_macro;
 pub mod resolved_macro;
 pub mod transition;
 pub mod transitive_set;

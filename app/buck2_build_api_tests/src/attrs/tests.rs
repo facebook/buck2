@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;

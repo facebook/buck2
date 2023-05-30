@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
@@ -18,9 +21,6 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use crate::interpreter::rule_defs::provider::dependency::Dependency;
 
 #[derive(Error, Debug)]
 enum ResolutionError {
