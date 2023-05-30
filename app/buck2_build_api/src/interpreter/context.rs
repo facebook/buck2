@@ -13,13 +13,13 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_interpreter::functions::more::MORE_FUNCTIONS;
+use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::build_defs::register_build_bzl_natives;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::register_rule_defs;
-use crate::interpreter::rule_defs::transition::starlark::register_transition_defs;
 
 pub fn prelude_path(alias_resolver: &CellAliasResolver) -> anyhow::Result<ImportPath> {
     let prelude_cell = alias_resolver.resolve("prelude")?;
@@ -49,7 +49,7 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_build_bzl_natives(globals_builder);
     register_cmd_args(globals_builder);
     register_rule_defs(globals_builder);
-    register_transition_defs(globals_builder);
+    (REGISTER_TRANSITION.get().unwrap())(globals_builder);
     register_command_executor_config(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_package_natives)(globals_builder);
 }

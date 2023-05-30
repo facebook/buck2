@@ -16,6 +16,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL;
+use buck2_interpreter::functions::transition::REGISTER_TRANSITION;
 use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
 use dupe::Dupe;
@@ -217,6 +218,6 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
     }
 }
 
-pub fn register_transition_defs(globals: &mut GlobalsBuilder) {
-    register_transition_function(globals);
+pub(crate) fn init_register_transition() {
+    REGISTER_TRANSITION.init(register_transition_function);
 }

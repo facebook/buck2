@@ -43,3 +43,7 @@ pub mod keep_going;
 pub mod nodes;
 pub mod query;
 pub mod spawner;
+
+pub fn init_late_bindings() {
+    interpreter::rule_defs::transition::starlark::init_register_transition();
+}
