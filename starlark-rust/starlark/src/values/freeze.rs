@@ -87,6 +87,22 @@ impl Freeze for u32 {
     }
 }
 
+impl Freeze for i64 {
+    type Frozen = i64;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<i64> {
+        Ok(self)
+    }
+}
+
+impl Freeze for u64 {
+    type Frozen = u64;
+
+    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<u64> {
+        Ok(self)
+    }
+}
+
 impl Freeze for usize {
     type Frozen = usize;
 
