@@ -75,7 +75,6 @@ use crate::values::function::NativeFunction;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::int::PointerI32;
 use crate::values::iter::StarlarkIterator;
-use crate::values::layout::avalue::basic_ref;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::StarlarkStrAValue;
 use crate::values::layout::avalue::VALUE_EMPTY_TUPLE;
@@ -246,7 +245,7 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
+    pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(Pointer::new_unfrozen_usize_with_str_tag(x))
     }
 
@@ -303,7 +302,7 @@ impl<'v> Value<'v> {
     #[inline]
     unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
         debug_assert!(!self.0.is_unfrozen());
-        FrozenValue(self.0.cast_lifetime().to_frozen_pointer())
+        FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
     }
 
     /// Is this value `None`.
@@ -412,7 +411,7 @@ impl<'v> Value<'v> {
         unsafe {
             match self.0.unpack() {
                 Either::Left(x) => x.unpack_header_unchecked().unpack(),
-                Either::Right(x) => basic_ref(x),
+                Either::Right(x) => x.as_avalue_dyn(),
             }
         }
     }
@@ -853,11 +852,6 @@ impl FrozenValue {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }
 
-    #[inline]
-    pub(crate) fn new_ptr_value(x: usize) -> Self {
-        unsafe { Self(FrozenPointer::new(x)) }
-    }
-
     /// Create a new value representing `None` in Starlark.
     #[inline]
     pub fn new_none() -> Self {
@@ -913,11 +907,6 @@ impl FrozenValue {
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
         self.0.unpack_int()
-    }
-
-    #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
-        self.0.unpack_int_unchecked()
     }
 
     #[inline]

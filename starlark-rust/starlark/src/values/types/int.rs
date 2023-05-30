@@ -28,6 +28,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hasher;
+use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
@@ -48,6 +49,11 @@ use crate::starlark_type;
 use crate::values::basic::StarlarkValueBasic;
 use crate::values::error::ValueError;
 use crate::values::float::StarlarkFloat;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::Basic;
+use crate::values::layout::pointer::RawPointer;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::Num;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
@@ -111,15 +117,39 @@ impl Debug for PointerI32 {
 }
 
 impl PointerI32 {
+    const _ASSERTIONS: () = {
+        assert!(mem::align_of::<Self>() == 1);
+    };
+
+    #[inline]
     pub(crate) fn new(x: i32) -> &'static Self {
         // UB if the pointer isn't aligned, or it is zero
         // Alignment is 1, so that's not an issue.
         // And the pointer is not zero because it has `TAG_INT` bit set.
-        unsafe { cast::usize_to_ptr(FrozenValue::new_int(x).ptr_value().ptr_value()) }
+        unsafe { Self::from_raw_pointer_unchecked(FrozenValue::new_int(x).ptr_value()) }
     }
 
+    #[inline]
+    pub(crate) unsafe fn from_raw_pointer_unchecked(
+        raw_pointer: RawPointer,
+    ) -> &'static PointerI32 {
+        debug_assert!(raw_pointer.is_int());
+        cast::usize_to_ptr(raw_pointer.ptr_value())
+    }
+
+    #[inline]
     pub(crate) fn get(&self) -> i32 {
-        unsafe { FrozenValue::new_ptr_value(cast::ptr_to_usize(self)).unpack_int_unchecked() }
+        unsafe { RawPointer::new_unchecked(self as *const Self as usize).unpack_int_unchecked() }
+    }
+
+    #[inline]
+    pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
+        unsafe {
+            AValueDyn {
+                value: &*(self as *const Self as *const ()),
+                vtable: AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
+            }
+        }
     }
 
     /// This operation is expensive, use only if you have to.
@@ -448,5 +478,11 @@ mod tests {
     #[test]
     fn test_alignment_int_pointer() {
         assert_eq!(1, std::mem::align_of::<PointerI32>());
+    }
+
+    #[test]
+    fn test_as_avalue_dyn() {
+        // `get_type` calls `as_avalue_dyn` internally.
+        assert_eq!("int", Value::new_int(1).get_type());
     }
 }

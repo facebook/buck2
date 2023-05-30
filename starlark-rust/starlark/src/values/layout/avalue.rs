@@ -29,7 +29,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::cast;
 use crate::cast::transmute;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
@@ -47,7 +46,6 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::value_size::ValueSize;
-use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::none::NoneType;
@@ -217,14 +215,6 @@ pub(crate) fn any_array_avalue<T: Debug + 'static>(
     cap: usize,
 ) -> impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T> {
     AValueImpl(Direct, unsafe { AnyArray::new(cap) })
-}
-
-pub(crate) fn basic_ref<T: StarlarkValueBasic<'static>>(x: &'static T) -> AValueDyn<'static> {
-    let x: &AValueImpl<Basic, T> = unsafe { cast::ptr(x) };
-    AValueDyn {
-        value: unsafe { &*(x as *const _ as *const ()) },
-        vtable: AValueVTable::new::<AValueImpl<Basic, T>>(),
-    }
 }
 
 pub(crate) fn simple<T: StarlarkValue<'static> + Send + Sync>(

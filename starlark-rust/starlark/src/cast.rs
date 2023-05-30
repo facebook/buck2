@@ -27,12 +27,6 @@ pub(crate) unsafe fn usize_to_ptr<'a, T>(x: usize) -> &'a T {
     &*(x as *const T)
 }
 
-/// Undefined behaviour if the argument does not satisfy the alignment of type `To`.
-#[inline(always)]
-pub(crate) unsafe fn ptr<From, To>(x: &From) -> &To {
-    &*(x as *const From as *const To)
-}
-
 #[inline(always)]
 pub(crate) unsafe fn ptr_lifetime<'a, 'b, T: ?Sized>(x: &'a T) -> &'b T {
     &*(x as *const T)
