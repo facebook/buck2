@@ -1011,7 +1011,7 @@ animal("Joe")
 
 #[test]
 fn test_fuzzer_59102() {
-    // let src = std::fs::read_to_string("/Users/ndmitchell/fbsource/fbcode/buck2/clusterfuzz-testcase-minimized-starlark-6484634888962048").unwrap();
+    // From https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=59102
     let src = "\"\u{e0070}";
     let res: Result<AstModule, anyhow::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
