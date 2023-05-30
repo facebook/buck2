@@ -63,10 +63,10 @@ impl XcodeVersionInfo {
             Some(p) => p,
             None => return Ok(None),
         };
-        let plist_path = resolved_xcode_path
+        let plist_parent_path = resolved_xcode_path
             .parent()
-            .map(|base| base.as_path().join("version.plist"))
             .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
+        let plist_path = plist_parent_path.as_path().join("version.plist");
         Self::from_plist(&plist_path)
     }
 
