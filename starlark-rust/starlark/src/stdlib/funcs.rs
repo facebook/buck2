@@ -612,17 +612,14 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
         #[starlark(require = pos)] a: Option<Value<'v>>,
-        #[starlark(type = "[int.type, bool.type]")] base: Option<Value<'v>>,
+        base: Option<i32>,
     ) -> anyhow::Result<Value<'v>> {
         if a.is_none() {
             return Ok(Value::new_int(0));
         }
         let a = a.unwrap();
         if let Some(s) = a.unpack_str() {
-            let base = match base {
-                Some(base) => base.to_int()?,
-                None => 0,
-            };
+            let base = base.unwrap_or(0);
             if base == 1 || base < 0 || base > 36 {
                 return Err(anyhow::anyhow!(
                     "{} is not a valid base, int() base must be >= 2 and <= 36",
@@ -694,7 +691,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         } else if let Some(base) = base {
             Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
-                base.to_repr()
+                base
             ))
         } else if let Some(num) = a.unpack_num() {
             match num {
