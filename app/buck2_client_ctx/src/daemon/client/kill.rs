@@ -64,7 +64,10 @@ pub async fn kill(
                         return Ok(());
                     }
                     if time_req_sent.elapsed() > GRACEFUL_SHUTDOWN_TIMEOUT {
-                        crate::eprintln!("Timed out waiting for graceful shutdown")?;
+                        crate::eprintln!(
+                            "Timed out waiting for graceful shutdown of buck2 daemon pid {}",
+                            pid
+                        )?;
                         break;
                     }
                     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -72,13 +75,20 @@ pub async fn kill(
                 Err(e) => {
                     // The kill request can fail if the server is in a bad state and we cannot
                     // authenticate to it.
-                    crate::eprintln!("Error requesting graceful shutdown: {}", e)?;
+                    crate::eprintln!(
+                        "Error requesting graceful shutdown of buck2 daemon pid {}: {}",
+                        pid,
+                        e
+                    )?;
                 }
             }
         }
         Err(e) => {
             let _assert_type: tokio::time::error::Elapsed = e;
-            crate::eprintln!("Timed out requesting graceful shutdown")?;
+            crate::eprintln!(
+                "Timed out requesting graceful shutdown of buck2 daemon pid {}",
+                pid
+            )?;
         }
     };
     kill::kill(pid)?;
