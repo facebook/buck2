@@ -23,7 +23,7 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::attrs::resolve::attr_type::arg::ArgBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;

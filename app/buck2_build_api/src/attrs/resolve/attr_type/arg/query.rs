@@ -21,12 +21,12 @@ use dupe::Dupe;
 use starlark::values::FrozenRef;
 use static_assertions::assert_eq_size;
 
-use crate::attrs::resolve::attr_type::arg::ArgBuilder;
 use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrBaseExt;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;

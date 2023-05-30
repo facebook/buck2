@@ -34,11 +34,11 @@ use static_assertions::assert_eq_size;
 
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
 use crate::attrs::resolve::attr_type::arg::query::ResolvedQueryMacro;
-use crate::attrs::resolve::attr_type::arg::ArgBuilder;
-use crate::attrs::resolve::attr_type::arg::SpaceSeparatedCommandLineBuilder;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
+use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
