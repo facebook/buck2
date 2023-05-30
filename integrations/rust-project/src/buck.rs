@@ -260,16 +260,6 @@ fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), a
     sysroot_cmd.stderr(Stdio::piped());
     let sysroot_child = sysroot_cmd.spawn()?;
 
-    // TEMPORARY! For push safety.
-    let old_sysroot_src = fbsource.join("xplat/rust/toolchain/sysroot/library/");
-    if old_sysroot_src.exists() {
-        let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
-            .context("error asking rustc for sysroot")?;
-        truncate_line_ending(&mut sysroot);
-        return Ok((Some(sysroot.into()), Some(old_sysroot_src)));
-    }
-    // ---
-
     let mut buck_config_cmd = Buck.command();
     buck_config_cmd.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
     buck_config_cmd.stdin(Stdio::null());
