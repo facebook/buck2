@@ -12,3 +12,4 @@ pub mod attr_type;
 pub(crate) mod coerced_attr;
 pub mod configured_attr;
 pub mod ctx;
+pub mod node_to_attrs_struct;

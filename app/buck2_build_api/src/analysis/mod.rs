@@ -57,13 +57,11 @@ use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::label::Label;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::rule_type::StarlarkRuleType;
 use dupe::Dupe;
-use starlark::values::structs::AllocStruct;
 
-use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
+use crate::attrs::resolve::node_to_attrs_struct::node_to_attrs_struct;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
@@ -307,21 +305,12 @@ async fn run_analysis_with_env_underlying(
         query_results: analysis_env.query_results,
     };
 
-    let attrs_iter = node.attrs(AttrInspectOptions::All);
-    let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
-    for a in attrs_iter {
-        resolved_attrs.push((
-            a.name,
-            a.value
-                .resolve_single(node.label().pkg(), &resolution_ctx)?,
-        ));
-    }
+    let attributes = node_to_attrs_struct(node, &resolution_ctx)?;
 
     let registry = AnalysisRegistry::new_from_owner(
         BaseDeferredKey::TargetLabel(node.label().dupe()),
         analysis_env.execution_platform.dupe(),
     )?;
-    let attributes = env.heap().alloc(AllocStruct(resolved_attrs));
 
     let mut profiler_opt = profile_mode
         .profile_mode()
