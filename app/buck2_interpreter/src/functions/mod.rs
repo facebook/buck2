@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod dedupe;
 pub mod load_symbols;
 pub mod more;
 pub mod regex;

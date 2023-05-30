@@ -10,12 +10,13 @@
 use std::collections::HashSet;
 
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::list::AllocList;
 use starlark::values::Heap;
 use starlark::values::Value;
 
 #[starlark_module]
-pub fn register_dedupe(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality. In many cases you should use a transitive set instead.
     fn dedupe<'v>(
@@ -40,7 +41,7 @@ mod tests {
 
     use starlark::assert::Assert;
 
-    use crate::functions::dedupe::register_dedupe;
+    use crate::interpreter::functions::dedupe::register_dedupe;
 
     #[test]
     fn test_dedupe() {
