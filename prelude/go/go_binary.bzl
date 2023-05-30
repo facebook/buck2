@@ -32,6 +32,7 @@ def go_binary_impl(ctx: "context") -> ["provider"]:
         deps = ctx.attrs.deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,
+        link_mode = ctx.attrs.link_mode,
     )
 
     hidden = []
