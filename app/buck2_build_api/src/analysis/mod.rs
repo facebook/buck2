@@ -66,7 +66,7 @@ use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Error, Debug)]
-pub enum AnalysisError {
+enum AnalysisError {
     #[error(
         "Analysis context was missing a query result, this shouldn't be possible. Query was `{0}`"
     )]
