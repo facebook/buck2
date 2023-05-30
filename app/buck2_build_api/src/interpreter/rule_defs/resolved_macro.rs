@@ -14,14 +14,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
-use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
-use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use buck2_util::arc_str::ArcStr;
-use dupe::Dupe;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_type;
@@ -130,7 +126,7 @@ enum ResolvedMacroError {
 }
 
 impl ResolvedMacro {
-    fn resolved(
+    pub(crate) fn resolved(
         configured_macro: &ConfiguredMacro,
         ctx: &dyn AttrResolutionContext,
     ) -> anyhow::Result<ResolvedMacro> {
@@ -290,39 +286,6 @@ impl Display for ResolvedStringWithMacros {
 impl ResolvedStringWithMacros {
     pub(crate) fn new(parts: Vec<ResolvedStringWithMacrosPart>) -> Self {
         Self { parts }
-    }
-
-    pub(crate) fn resolved<'v>(
-        configured_macros: &ConfiguredStringWithMacros,
-        ctx: &dyn AttrResolutionContext<'v>,
-    ) -> anyhow::Result<Value<'v>> {
-        let resolved_parts = match configured_macros {
-            ConfiguredStringWithMacros::StringPart(s) => {
-                vec![ResolvedStringWithMacrosPart::String(s.dupe())]
-            }
-            ConfiguredStringWithMacros::ManyParts(ref parts) => {
-                let mut resolved_parts = Vec::with_capacity(parts.len());
-                for part in parts.iter() {
-                    match part {
-                        ConfiguredStringWithMacrosPart::String(s) => {
-                            resolved_parts.push(ResolvedStringWithMacrosPart::String(s.dupe()));
-                        }
-                        ConfiguredStringWithMacrosPart::Macro(write_to_file, m) => {
-                            resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
-                                *write_to_file,
-                                ResolvedMacro::resolved(m, ctx)
-                                    .with_context(|| format!("Error resolving `{}`.", part))?,
-                            ));
-                        }
-                    }
-                }
-                resolved_parts
-            }
-        };
-
-        Ok(ctx
-            .heap()
-            .alloc(ResolvedStringWithMacros::new(resolved_parts)))
     }
 
     /// Access the `&str` in this ResolvedStringWithMacros, *if* this ResolvedStringWithMacros is
