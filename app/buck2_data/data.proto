@@ -139,6 +139,19 @@ message UntrackedFile {
   string file_type = 2;
 }
 
+message StarlarkUserMetadataValue {
+  oneof value {
+    string string_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+  }
+}
+
+message StarlarkUserEvent {
+  string id = 1;
+  map<string, StarlarkUserMetadataValue> metadata = 2;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 9, 13, 22;
@@ -210,6 +223,9 @@ message InstantEvent {
     // Unexpected file found in buck-out/<isolation_dir>/gen during a
     // clean --stale run, not found in materializer state
     UntrackedFile untracked_file = 29;
+
+    // For user-defined instant events. Currently only used in BXL.
+    StarlarkUserEvent starlark_user_event = 30;
   }
 
   reserved 12; // Log
