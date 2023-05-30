@@ -145,10 +145,10 @@ impl PointerI32 {
     #[inline]
     pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
         unsafe {
-            AValueDyn {
-                value: &*(self as *const Self as *const ()),
-                vtable: AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
-            }
+            AValueDyn::new(
+                &*(self as *const Self as *const ()),
+                AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
+            )
         }
     }
 

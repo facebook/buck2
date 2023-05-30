@@ -237,12 +237,7 @@ impl AValueHeader {
                 "value is a forward pointer; value cannot be unpacked during GC or freeze"
             );
         }
-        unsafe {
-            AValueDyn {
-                value: &*self.payload_ptr(),
-                vtable: self.0,
-            }
-        }
+        unsafe { AValueDyn::new(&*self.payload_ptr(), self.0) }
     }
 
     /// After performing the overwrite any existing pointers to this value

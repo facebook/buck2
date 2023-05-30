@@ -218,8 +218,8 @@ impl AValueVTable {
 #[derive(Copy, Clone, Dupe)]
 #[repr(C)]
 pub(crate) struct AValueDyn<'v> {
-    pub(crate) value: &'v (),
-    pub(crate) vtable: &'static AValueVTable,
+    value: &'v (),
+    vtable: &'static AValueVTable,
 }
 
 impl<'v> Debug for AValueDyn<'v> {
@@ -229,6 +229,11 @@ impl<'v> Debug for AValueDyn<'v> {
 }
 
 impl<'v> AValueDyn<'v> {
+    #[inline]
+    pub(crate) unsafe fn new(value: &'v (), vtable: &'static AValueVTable) -> AValueDyn<'v> {
+        AValueDyn { value, vtable }
+    }
+
     #[inline]
     pub(crate) fn memory_size(self) -> ValueSize {
         (self.vtable.memory_size)(self.value as *const ())
