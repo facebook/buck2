@@ -16,7 +16,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
-use buck2_build_api::attrs::resolve::node_to_attrs_struct::node_to_attrs_struct;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -47,6 +46,8 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+
+use crate::attrs::resolve::node_to_attrs_struct::node_to_attrs_struct;
 
 #[derive(thiserror::Error, Debug)]
 enum AnalysisError {
