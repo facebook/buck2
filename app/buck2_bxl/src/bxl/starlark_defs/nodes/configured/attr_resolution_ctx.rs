@@ -10,12 +10,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use buck2_build_api::analysis::calculation::get_dep_analysis;
-use buck2_build_api::analysis::calculation::resolve_queries;
-use buck2_build_api::analysis::get_dep;
-use buck2_build_api::analysis::get_deps_from_analysis_results;
-use buck2_build_api::analysis::resolve_query;
-use buck2_build_api::analysis::resolve_unkeyed_placeholder;
+use buck2_analysis::analysis::calculation::get_dep_analysis;
+use buck2_analysis::analysis::calculation::resolve_queries;
+use buck2_analysis::analysis::env::get_dep;
+use buck2_analysis::analysis::env::get_deps_from_analysis_results;
+use buck2_analysis::analysis::env::resolve_query;
+use buck2_analysis::analysis::env::resolve_unkeyed_placeholder;
 use buck2_build_api::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_build_api::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;

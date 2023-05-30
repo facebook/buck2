@@ -14,13 +14,13 @@ use std::path::Path;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_analysis::analysis::calculation::get_dep_analysis;
+use buck2_analysis::analysis::calculation::resolve_queries;
+use buck2_analysis::analysis::env::get_deps_from_analysis_results;
+use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::analysis::calculation::get_dep_analysis;
-use buck2_build_api::analysis::calculation::resolve_queries;
-use buck2_build_api::analysis::get_deps_from_analysis_results;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::analysis::RuleAnalysisAttrResolutionContext;
 use buck2_build_api::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
 use buck2_common::dice::cells::HasCellResolver;

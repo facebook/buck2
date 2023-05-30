@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_build_api::analysis::calculation::AnalysisKey;
+use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::deferred::types::BaseKey;

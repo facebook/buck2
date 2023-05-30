@@ -113,6 +113,7 @@ fn print_retry() -> anyhow::Result<()> {
 // will start up their own tokio runtime.
 #[fbinit::main]
 fn main(init: fbinit::FacebookInit) -> ! {
+    buck2_analysis::init_late_bindings();
     buck2_anon_target::init_late_bindings();
     buck2_action_impl::init_late_bindings();
     buck2_audit_server::init_late_bindings();

@@ -15,12 +15,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_analysis::analysis::calculation::AnalysisKey;
+use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
 use buck2_build_api::actions::RegisteredAction;
-use buck2_build_api::analysis::calculation::AnalysisKey;
-use buck2_build_api::analysis::calculation::AnalysisKeyActivationData;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;

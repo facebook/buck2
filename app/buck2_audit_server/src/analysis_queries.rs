@@ -10,8 +10,8 @@
 use std::io::Write;
 
 use async_trait::async_trait;
+use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_audit::analysis_queries::AuditAnalysisQueriesCommand;
-use buck2_build_api::analysis::calculation::resolve_queries;
 use buck2_build_api::calculation::Calculation;
 use buck2_build_api::nodes::calculation::NodeCalculation;
 use buck2_cli_proto::ClientContext;

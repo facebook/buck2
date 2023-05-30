@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_build_api::analysis::calculation::profile_analysis;
-use buck2_build_api::analysis::calculation::profile_analysis_recursively;
+use buck2_analysis::analysis::calculation::profile_analysis;
+use buck2_analysis::analysis::calculation::profile_analysis_recursively;
 use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;

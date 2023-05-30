@@ -13,6 +13,7 @@ itertools = { workspace = true }
 smallvec = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_core = { workspace = true }

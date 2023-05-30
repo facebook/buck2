@@ -16,7 +16,7 @@ use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 /// Prepare `ctx.attrs` for rule impl.
-pub(crate) fn node_to_attrs_struct<'v>(
+pub fn node_to_attrs_struct<'v>(
     node: &ConfiguredTargetNode,
     ctx: &dyn AttrResolutionContext<'v>,
 ) -> anyhow::Result<Value<'v>> {

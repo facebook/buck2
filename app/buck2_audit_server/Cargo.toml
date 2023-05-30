@@ -21,6 +21,7 @@ dice = { workspace = true }
 gazebo = { workspace = true }
 dupe = { workspace = true }
 
+buck2_analysis = { workspace = true }
 buck2_audit = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_client_ctx = { workspace = true }

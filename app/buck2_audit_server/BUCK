@@ -18,6 +18,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
+        "//buck2/app/buck2_analysis:buck2_analysis",
         "//buck2/app/buck2_audit:buck2_audit",
         "//buck2/app/buck2_build_api:buck2_build_api",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
