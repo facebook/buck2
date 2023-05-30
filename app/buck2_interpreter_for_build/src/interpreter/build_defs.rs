@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::functions::dedupe::dedupe;
+use buck2_interpreter::functions::dedupe::register_dedupe;
 use buck2_interpreter::functions::sha256::register_sha256;
 use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::selector::register_select;
@@ -140,7 +140,7 @@ pub fn configure_base_globals(
     ];
     let mut global_env = GlobalsBuilder::extended_by(&starlark_extensions)
         .with(register_base_natives)
-        .with(dedupe);
+        .with(register_dedupe);
     global_env.struct_("__internal__", |x| {
         register_base_natives(x);
         // If `native.` symbols need to be added to the global env, they should be done

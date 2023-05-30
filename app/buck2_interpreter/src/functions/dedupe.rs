@@ -15,7 +15,7 @@ use starlark::values::Heap;
 use starlark::values::Value;
 
 #[starlark_module]
-pub fn dedupe(builder: &mut GlobalsBuilder) {
+pub fn register_dedupe(builder: &mut GlobalsBuilder) {
     /// Remove duplicates in a list. Uses identity of value (pointer),
     /// rather than by equality. In many cases you should use a transitive set instead.
     fn dedupe<'v>(
@@ -40,12 +40,12 @@ mod tests {
 
     use starlark::assert::Assert;
 
-    use crate::functions::dedupe::dedupe;
+    use crate::functions::dedupe::register_dedupe;
 
     #[test]
     fn test_dedupe() {
         let mut a = Assert::new();
-        a.globals_add(dedupe);
+        a.globals_add(register_dedupe);
         a.pass(
             r#"
 assert_eq(dedupe([1,2,3]), [1,2,3])
