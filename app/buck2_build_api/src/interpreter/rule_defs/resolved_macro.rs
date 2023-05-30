@@ -33,7 +33,6 @@ use starlark::values::Value;
 use static_assertions::assert_eq_size;
 
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
-use crate::attrs::resolve::attr_type::arg::query::ResolvedQueryMacro;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::StarlarkArtifactLike;
@@ -48,6 +47,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
 use crate::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 
 // TODO(cjhopman): Consider making DefaultOutputs implement CommandLineArgLike
 // itself, and then a resolved macro is just a CommandLineArgLike.
