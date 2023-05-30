@@ -329,22 +329,28 @@ impl RunAction {
         starlark_values: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
     ) -> anyhow::Result<Self> {
-        let starlark_values = starlark_values.downcast().and_then(|values| {
-            Self::unpack(&values).ok_or(values.to_owned_frozen_value())?;
-            Ok(values)
-        });
-        match starlark_values {
-            Ok(starlark_values) => Ok(RunAction {
-                inner,
-                starlark_values,
-                outputs: BoxSliceSet::from(outputs),
-            }),
-            Err(starlark_values) => Err(anyhow::anyhow!(
-                RunActionValidationError::ContentsNotCommandLineValue(
-                    starlark_values.value().to_repr()
+        let starlark_values = match starlark_values.downcast() {
+            Ok(starlark_values) => starlark_values,
+            Err(starlark_values) => {
+                return Err(RunActionValidationError::ContentsNotCommandLineValue(
+                    starlark_values.value().to_repr(),
                 )
-            )),
+                .into());
+            }
+        };
+
+        if Self::unpack(&starlark_values).is_none() {
+            return Err(RunActionValidationError::ContentsNotCommandLineValue(
+                starlark_values.to_value().to_repr(),
+            )
+            .into());
         }
+
+        Ok(RunAction {
+            inner,
+            starlark_values,
+            outputs: BoxSliceSet::from(outputs),
+        })
     }
 
     fn prepare(
