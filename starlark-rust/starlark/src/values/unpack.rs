@@ -25,6 +25,8 @@ use either::Either;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
+use crate::values::AllocValue;
+use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -121,6 +123,12 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
     fn unpack_value(value: Value<'v>) -> Option<Self> {
         let typed = T::unpack_value(value)?;
         Some(Self { value, typed })
+    }
+}
+
+impl<'v, T: UnpackValue<'v>> AllocValue<'v> for ValueOf<'v, T> {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        self.value
     }
 }
 
