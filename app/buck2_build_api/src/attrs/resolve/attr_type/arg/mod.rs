@@ -9,13 +9,12 @@
 
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use starlark::values::Value;
-use value::ResolvedStringWithMacros;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 pub mod query;
-pub mod value;
 
 pub struct SpaceSeparatedCommandLineBuilder<'v> {
     builder: &'v mut dyn ArgBuilder,

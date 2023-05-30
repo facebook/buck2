@@ -15,7 +15,6 @@ use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::attrs::resolve::attr_type::arg::value::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::StarlarkArtifact;
@@ -35,6 +34,7 @@ use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_A
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
+use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::executor_config::RemoteExecutorUseCase;
 use buck2_core::category::Category;
