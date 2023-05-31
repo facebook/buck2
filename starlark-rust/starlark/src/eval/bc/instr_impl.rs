@@ -1593,7 +1593,8 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     ) -> anyhow::Result<()> {
         let arguments = args.pop_from_stack(frame);
         let r = eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
-            fun.as_ref().invoke_with_args(&arguments, eval)
+            fun.as_ref()
+                .invoke_with_args(fun.to_value(), &arguments, eval)
         })?;
         frame.set_bc_slot(*target, r);
         Ok(())

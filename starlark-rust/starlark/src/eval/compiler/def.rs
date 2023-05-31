@@ -644,11 +644,11 @@ where
 
     fn invoke(
         &self,
-        _me: Value<'v>,
+        me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>> {
-        self.invoke_impl(&args.0, eval)
+        self.invoke_impl(me, &args.0, eval)
     }
 
     fn documentation(&self) -> Option<DocItem> {
@@ -714,6 +714,7 @@ where
     #[inline(always)]
     fn invoke_impl<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
+        me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>>
@@ -729,13 +730,14 @@ where
             |eval| {
                 let slots = eval.current_frame.locals();
                 self.parameters.collect_inline(args, slots, eval.heap())?;
-                self.invoke_raw(eval)
+                self.invoke_raw(me, eval)
             },
         )
     }
 
     pub(crate) fn invoke_with_args<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
+        me: Value<'v>,
         args: &A,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Value<'v>>
@@ -745,14 +747,14 @@ where
         // This is trivial function which delegates to `invoke_impl`.
         // `invoke_impl` is called from two places,
         // giving this function different name makes this function easier to see in profiler.
-        self.invoke_impl(args, eval)
+        self.invoke_impl(me, args, eval)
     }
 
     /// Invoke the function, assuming that:
     /// * the frame has been allocated and stored in `eval.current_frame`
     /// * the arguments have been collected into the frame
     #[inline(always)]
-    fn invoke_raw(&self, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
+    fn invoke_raw(&self, me: Value<'v>, eval: &mut Evaluator<'v, '_>) -> anyhow::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
         if !self.parameter_types.is_empty() {
@@ -778,7 +780,7 @@ where
         if Self::FROZEN {
             debug_assert!(self.module.load_relaxed().is_some());
         }
-        let res = eval.with_function_context(self.module.load_relaxed(), self.bc());
+        let res = eval.with_function_context(me, self.module.load_relaxed(), self.bc());
 
         res.map_err(|EvalException(e)| e)
     }

@@ -109,7 +109,7 @@ impl<'v> Compiler<'v, '_, '_> {
                     local_count,
                     bc.max_stack_size,
                     bc.max_loop_depth,
-                    |eval| eval.eval_bc(&bc),
+                    |eval| eval.eval_bc(Value::new_none(), &bc),
                 )
             }
         }

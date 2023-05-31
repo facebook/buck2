@@ -433,6 +433,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     #[inline(always)] // There is only one caller
     pub(crate) fn with_function_context(
         &mut self,
+        def: Value<'v>,
         module: Option<FrozenRef<'static, FrozenModuleData>>, // None == use module_env
         bc: &Bc,
     ) -> Result<Value<'v>, EvalException> {
@@ -440,7 +441,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         let old_module_variables = mem::replace(&mut self.module_variables, module);
 
         // Run the computation
-        let res = self.eval_bc(bc);
+        let res = self.eval_bc(def, bc);
 
         // Restore them all back
         self.module_variables = old_module_variables;
@@ -737,7 +738,11 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
     #[cold]
     #[inline(never)]
-    fn eval_bc_with_callbacks(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
+    fn eval_bc_with_callbacks(
+        &mut self,
+        _def: Value<'v>,
+        bc: &Bc,
+    ) -> Result<Value<'v>, EvalException> {
         bc.run(
             self,
             &mut EvalCallbacksEnabled {
@@ -750,9 +755,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     }
 
     #[inline(always)]
-    pub(crate) fn eval_bc(&mut self, bc: &Bc) -> Result<Value<'v>, EvalException> {
+    pub(crate) fn eval_bc(&mut self, def: Value<'v>, bc: &Bc) -> Result<Value<'v>, EvalException> {
         if self.eval_instrumentation.enabled {
-            self.eval_bc_with_callbacks(bc)
+            self.eval_bc_with_callbacks(def, bc)
         } else {
             bc.run(self, &mut EvalCallbacksDisabled)
         }
