@@ -75,7 +75,6 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
-use indexmap::IndexMap;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
 use serde::Serialize;
@@ -823,14 +822,12 @@ async fn build_artifacts(
     }
     let artifacts_to_build = get_artifacts_to_build(label_filtering, providers)?;
     // build the test target first
-    let _ignored = future::join_all(
+    future::try_join_all(
         artifacts_to_build
-            .into_iter()
-            .map(|input| async { ctx.ensure_artifact_group(&input).await.map(|v| (input, v)) }),
+            .iter()
+            .map(|input| ctx.ensure_artifact_group(input)),
     )
-    .await
-    .into_iter()
-    .collect::<Result<IndexMap<_, _>, _>>()?;
+    .await?;
     Ok(())
 }
 
