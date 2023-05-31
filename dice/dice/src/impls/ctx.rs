@@ -21,7 +21,7 @@ use futures::future::Either;
 use futures::FutureExt;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawn::spawn_cancellable;
-use more_futures::spawn::DropCancelAndTerminationObserver;
+use more_futures::spawn::DropCancelFuture;
 use more_futures::spawn::StrongJoinHandle;
 use more_futures::spawn::WeakFutureError;
 use parking_lot::Mutex;
@@ -272,10 +272,7 @@ impl PerComputeCtx {
     pub(crate) fn temporary_spawn<F, R>(
         &self,
         f: F,
-    ) -> Either<
-        StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>,
-        DropCancelAndTerminationObserver<R>,
-    >
+    ) -> Either<StrongJoinHandle<BoxFuture<'static, Result<R, WeakFutureError>>>, DropCancelFuture<R>>
     where
         F: for<'a> FnOnce(&'a DiceComputations, &'a CancellationContext) -> BoxFuture<'a, R>
             + Send

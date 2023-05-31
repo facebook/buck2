@@ -56,10 +56,8 @@ where
 
     let state = SharedState::new();
 
-    let (termination_notifier, termination_observer) = oneshot::channel();
-
-    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context, termination_notifier);
-    let handle = CancellationHandle::new(state, termination_observer);
+    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context);
+    let handle = CancellationHandle::new(state);
 
     (fut, handle)
 }
@@ -129,24 +127,6 @@ struct ExplicitlyCancellableFutureInner<T> {
     started: bool,
 
     future: Pin<Box<ExplicitlyCancellableTask<T>>>,
-
-    // NOTE: the termination notifier must come after `future` so that it's `Drop` is after the
-    // `future` gets dropped, so that we can guarantee that we only notify termination observers
-    // that the future is done after its been dropped.
-    termination_notifier: TerminationNotifier,
-}
-
-struct TerminationNotifier {
-    notify: Option<oneshot::Sender<TerminationStatus>>,
-    status: TerminationStatus,
-}
-
-impl Drop for TerminationNotifier {
-    fn drop(&mut self) {
-        if let Some(notify) = self.notify.take() {
-            let _ = notify.send(self.status.dupe());
-        }
-    }
 }
 
 #[pin_project(project = MaybeFutureProj)]
@@ -186,7 +166,6 @@ impl<T> ExplicitlyCancellableFuture<T> {
         future: Pin<Box<ExplicitlyCancellableTask<T>>>,
         shared: SharedState,
         execution: ExecutionContext,
-        termination_notifier: oneshot::Sender<TerminationStatus>,
     ) -> Self {
         ExplicitlyCancellableFuture {
             fut: MaybeFuture::Fut(ExplicitlyCancellableFutureInner {
@@ -194,10 +173,6 @@ impl<T> ExplicitlyCancellableFuture<T> {
                 execution,
                 started: false,
                 future,
-                termination_notifier: TerminationNotifier {
-                    notify: Some(termination_notifier),
-                    status: TerminationStatus::ExecutorShutdown,
-                },
             }),
         }
     }
@@ -282,22 +257,13 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
             match state {
                 State::Cancelled => {
                     if self.execution.shared.lock().can_exit() {
-                        // if we got canceled during our poll, make sure to still result in canceled
-                        self.termination_notifier.status = TerminationStatus::Cancelled;
-
                         return Poll::Ready(None);
-                    } else {
-                        // we blocked cancellation so this now finishes normally
-                        self.termination_notifier.status = TerminationStatus::Finished;
                     }
                 }
-                _ => {
-                    self.termination_notifier.status = TerminationStatus::Finished;
-                }
+                _ => {}
             }
         } else if self.execution.shared.lock().should_exit() {
             // the future itself indicated that we should cancel
-            self.termination_notifier.status = TerminationStatus::Cancelled;
 
             return Poll::Ready(None);
         }
@@ -308,22 +274,16 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
 
 pub struct CancellationHandle {
     shared_state: SharedState,
-    observer: Shared<oneshot::Receiver<TerminationStatus>>,
 }
 
 impl CancellationHandle {
-    fn new(shared_state: SharedState, observer: oneshot::Receiver<TerminationStatus>) -> Self {
-        let observer = observer.shared();
-
-        CancellationHandle {
-            shared_state,
-            observer,
-        }
+    fn new(shared_state: SharedState) -> Self {
+        CancellationHandle { shared_state }
     }
 
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
-    pub fn cancel(self) -> TerminationObserver {
+    pub fn cancel(self) {
         // Store to the boolean first before we write to state.
         // This is because on `poll`, the future will update the state first then check the boolean.
         // This ordering ensures that either the `poll` has read our cancellation, and hence will
@@ -358,68 +318,6 @@ impl CancellationHandle {
                 }
             }
         };
-
-        TerminationObserver {
-            receiver: self.observer,
-            state: self.shared_state,
-        }
-    }
-
-    pub fn termination_observer(&self) -> TerminationObserver {
-        TerminationObserver {
-            receiver: self.observer.clone(),
-            state: self.shared_state.dupe(),
-        }
-    }
-}
-
-/// Observes the termination of the cancellable future
-#[derive(Clone)]
-#[pin_project]
-pub struct TerminationObserver {
-    #[pin]
-    receiver: Shared<oneshot::Receiver<TerminationStatus>>,
-    state: SharedState,
-}
-
-#[derive(Clone, Dupe, PartialEq, Eq, Debug)]
-pub enum TerminationStatus {
-    Finished,
-    Cancelled,
-    ExecutorShutdown,
-}
-
-impl TerminationObserver {
-    pub fn is_terminated(&self) -> bool {
-        match &*self.state.inner.state.lock() {
-            State::Exited => true,
-            _ => false,
-        }
-    }
-}
-
-impl Future for TerminationObserver {
-    type Output = TerminationStatus;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        match this.receiver.poll(cx) {
-            Poll::Ready(res) => {
-                match res {
-                    Ok(res) => {
-                        // we got a specific response sent to us
-                        Poll::Ready(res)
-                    }
-                    Err(_) => {
-                        // the sending was dropped without ever notifying cancelled, which means the
-                        // executor was shutdown
-                        Poll::Ready(TerminationStatus::ExecutorShutdown)
-                    }
-                }
-            }
-            Poll::Pending => Poll::Pending,
-        }
     }
 }
 
@@ -655,7 +553,6 @@ mod tests {
 
     use assert_matches::assert_matches;
     use dupe::Dupe;
-    use futures::future::join;
     use futures::FutureExt;
     use parking_lot::Mutex;
     use pin_project::pin_project;
@@ -663,7 +560,6 @@ mod tests {
 
     use crate::cancellation::future::make_cancellable_future;
     use crate::cancellation::future::CancellationHandle;
-    use crate::cancellation::future::TerminationStatus;
 
     struct MaybePanicOnDrop {
         panic: bool,
@@ -692,15 +588,9 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
 
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
     }
 
     #[tokio::test]
@@ -709,17 +599,9 @@ mod tests {
 
         futures::pin_mut!(fut);
 
-        let cancel = handle.cancel();
-
-        futures::pin_mut!(cancel);
-        // if the future isn't polled yet, we are still pending
-        assert_matches!(futures::poll!(&mut cancel), Poll::Pending);
+        handle.cancel();
 
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
     }
 
     #[tokio::test]
@@ -729,13 +611,8 @@ mod tests {
         futures::pin_mut!(fut);
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
 
-        let cancel = handle.cancel();
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Finished)
-        );
+        handle.cancel();
+        // this is okay
     }
 
     #[tokio::test]
@@ -750,14 +627,12 @@ mod tests {
             Err(..)
         );
 
-        let cancel = handle.cancel();
+        handle.cancel();
 
         assert_matches!(
             tokio::time::timeout(Duration::from_millis(100), &mut task).await,
             Ok(Ok(None))
         );
-
-        assert_eq!(cancel.await, TerminationStatus::Cancelled);
     }
 
     #[tokio::test]
@@ -794,23 +669,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_termination_observer_notifier_even_when_not_cancelled() {
-        let (fut, handle) = make_cancellable_future(|_| futures::future::ready(()).boxed());
-
-        let observer = handle.termination_observer();
-        futures::pin_mut!(observer);
-        assert_matches!(futures::poll!(&mut observer), Poll::Pending);
-
-        futures::pin_mut!(fut);
-        assert_matches!(futures::poll!(fut), Poll::Ready(Some(())));
-
-        assert_matches!(
-            futures::poll!(&mut observer),
-            Poll::Ready(TerminationStatus::Finished)
-        );
-    }
-
-    #[tokio::test]
     async fn test_critical_section() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
@@ -828,19 +686,10 @@ mod tests {
 
         // Cancel, then poll again. Cancellation is checked, *then* the guard in the future
         // is dropped and then immediately check for cancellation and yield.
-        let cancel = handle.cancel();
-        futures::pin_mut!(cancel);
-        assert!(!cancel.is_terminated());
-        assert_matches!(futures::poll!(&mut cancel), Poll::Pending);
+        handle.cancel();
 
         // Poll again, this time we don't enter the future's poll because it is cancelled.
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -874,11 +723,10 @@ mod tests {
         // We reach the first yield.
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
-        let (res, term) = join(fut, cancel).await;
+        handle.cancel();
+        let res = fut.await;
 
         assert_eq!(res, None);
-        assert_eq!(term, TerminationStatus::Cancelled);
     }
 
     #[tokio::test]
@@ -940,12 +788,8 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         // Drop our guard. At this point we'll cancel, and notify the observer.
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-
-        futures::pin_mut!(cancel);
-        assert!(cancel.is_terminated());
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
     }
 
     #[tokio::test]
@@ -968,12 +812,8 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         // Drop our guard. We should resume and disarm the guard.
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -992,12 +832,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert!(cancel.is_terminated());
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
     }
 
     // This is a bit of an implementation detail.
@@ -1015,12 +851,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1046,12 +878,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1081,15 +909,8 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         // Drop our guard. We should resume and disarm the guard.
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1111,12 +932,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1141,12 +958,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(futures::poll!(&mut cancel), Poll::Ready(..));
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1162,15 +975,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Finished)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1185,15 +991,8 @@ mod tests {
         });
         futures::pin_mut!(fut);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1216,15 +1015,8 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1250,16 +1042,9 @@ mod tests {
 
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let cancel = handle.cancel();
+        handle.cancel();
 
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Finished)
-        );
-        assert!(cancel.is_terminated());
     }
 
     #[tokio::test]
@@ -1319,15 +1104,9 @@ mod tests {
         futures::pin_mut!(fut);
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
-        let termination = handle.cancel();
+        handle.cancel();
 
-        futures::pin_mut!(termination);
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-        assert_matches!(
-            futures::poll!(&mut termination),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(termination.is_terminated());
         assert!(is_dropped.load(Ordering::SeqCst));
     }
 
@@ -1348,14 +1127,7 @@ mod tests {
         futures::pin_mut!(fut);
 
         // cancel before any polls
-        let cancel = handle.cancel();
+        handle.cancel();
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-
-        futures::pin_mut!(cancel);
-        assert_matches!(
-            futures::poll!(&mut cancel),
-            Poll::Ready(TerminationStatus::Cancelled)
-        );
-        assert!(cancel.is_terminated());
     }
 }
