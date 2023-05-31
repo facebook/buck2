@@ -58,7 +58,10 @@ LinkableType = enum(
 
 # An archive.
 ArchiveLinkable = record(
+    # Artifact in the .a format from ar
     archive = field(Archive.type),
+    # If a bitcode bundle was created for this artifact it will be present here
+    bitcode_bundle = field(["artifact", None], None),
     linker_type = field(str.type),
     link_whole = field(bool.type, False),
     _type = field(LinkableType.type, LinkableType("archive")),
@@ -74,6 +77,8 @@ SharedLibLinkable = record(
 # A list of objects.
 ObjectsLinkable = record(
     objects = field([["artifact"], None], None),
+    # Any of the objects that are in bitcode format
+    bitcode_bundle = field(["artifact", None], None),
     linker_type = field(str.type),
     link_whole = field(bool.type, False),
     _type = field(LinkableType.type, LinkableType("objects")),
@@ -258,6 +263,8 @@ LinkInfos = record(
 # The output of a native link (e.g. a shared library or an executable).
 LinkedObject = record(
     output = field("artifact"),
+    # The combined bitcode from this linked object and any static libraries
+    bitcode_bundle = field(["artifact", None], None),
     # the generated linked output before running bolt, may be None if bolt is not used.
     prebolt_output = field(["artifact", None], None),
     # A linked object (binary/shared library) may have an associated dwp file with

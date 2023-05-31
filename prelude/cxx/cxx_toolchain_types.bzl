@@ -172,6 +172,9 @@ def _validate_linker_info(info: LinkerInfo.type):
     if info.supports_distributed_thinlto and not info.requires_objects:
         fail("distributed thinlto requires enabling `requires_objects`")
 
+def is_bitcode_format(format: CxxObjectFormat.type) -> bool.type:
+    return format in [CxxObjectFormat("bitcode"), CxxObjectFormat("embedded-bitcode")]
+
 def cxx_toolchain_infos(
         platform_name,
         c_compiler_info,

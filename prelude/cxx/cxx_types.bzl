@@ -57,6 +57,7 @@ CxxRuleSubTargetParams = record(
     link_style_outputs = field(bool.type, True),
     xcode_data = field(bool.type, True),
     objects = field(bool.type, True),
+    bitcode_bundle = field(bool.type, True),
 )
 
 # Parameters to control which providers to define when processing Cxx rules.

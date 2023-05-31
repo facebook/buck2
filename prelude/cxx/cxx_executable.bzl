@@ -131,6 +131,7 @@ load(
 
 CxxExecutableOutput = record(
     binary = "artifact",
+    bitcode_bundle = field(["artifact", None], None),
     dwp = field(["artifact", None]),
     # Files that will likely need to be included as .hidden() arguments
     # when executing the executable (ex. RunInfo())

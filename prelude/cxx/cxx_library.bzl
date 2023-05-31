@@ -87,6 +87,7 @@ load(
     "value_or",
 )
 load(":archive.bzl", "make_archive")
+load(":bitcode.bzl", "BitcodeBundle", "BitcodeBundleInfo", "BitcodeTSet", "make_bitcode_bundle")
 load(
     ":comp_db.bzl",
     "CxxCompilationDbInfo",
@@ -119,6 +120,7 @@ load(
     "cxx_platform_supported",
     "cxx_use_shlib_intfs",
 )
+load(":cxx_toolchain_types.bzl", "is_bitcode_format")
 load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
@@ -180,6 +182,7 @@ _CxxLibraryOutput = record(
     # Note: It's possible that this can contain some of the artifacts which are
     # also present in object_files.
     other = field(["artifact"], []),
+    bitcode_bundle = field([BitcodeBundle.type, None], None),
     # Additional debug info which is not included in the library output.
     external_debug_info = field(["transitive_set", None], None),
     # A shared shared library may have an associated dwp file with
@@ -214,6 +217,8 @@ _CxxCompiledSourcesOutput = record(
     compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
+    # Those outputs which are bitcode
+    bitcode_objects = field([["artifact"], None]),
     # json file with trace information about clang compilation
     clang_traces = field([["artifact"], None]),
     # Externally referenced debug info, which doesn't get linked with the
@@ -252,6 +257,8 @@ _CxxLibraryParameterizedOutput = record(
     cxx_compilationdb_info = field([CxxCompilationDbInfo.type, None], None),
     # LinkableRootInfo provider, same as above.
     linkable_root = field([LinkableRootInfo.type, None], None),
+    # A bundle of all bitcode files as a subtarget
+    bitcode_bundle = field([BitcodeBundle.type, None], None),
 )
 
 def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorParams") -> _CxxLibraryParameterizedOutput.type:
@@ -461,6 +468,9 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Create the default output for the library rule given it's link style and preferred linkage
     default_output = library_outputs.outputs[actual_link_style]
+
+    if default_output and default_output.bitcode_bundle:
+        sub_targets["bitcode"] = [DefaultInfo(default_output = default_output.bitcode_bundle.artifact)]
 
     # Define the xcode data sub target
     xcode_data_info = None
@@ -692,6 +702,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
     if impl_params.generate_providers.android_packageable_info:
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
 
+    bitcode_bundle = default_output.bitcode_bundle if default_output != None else None
+    if bitcode_bundle:
+        bc_provider = BitcodeBundleInfo(bitcode = bitcode_bundle, bitcode_bundle = ctx.actions.tset(BitcodeTSet, value = bitcode_bundle))
+        additional_providers.append(bc_provider)
+
     if impl_params.generate_providers.default:
         providers.append(DefaultInfo(
             default_output = default_output.default if default_output != None else None,
@@ -720,6 +735,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
         linkable_root = linkable_root,
+        bitcode_bundle = bitcode_bundle,
     )
 
 def get_default_cxx_library_product_name(ctx, impl_params) -> str.type:
@@ -762,6 +778,14 @@ def cxx_compile_srcs(
     pic_clang_traces = [out.clang_trace for out in pic_cxx_outs if out.clang_trace != None]
     stripped_pic_objects = _strip_objects(ctx, pic_objects)
 
+    bitcode_outs = [
+        out.object
+        for out in pic_cxx_outs
+        if is_bitcode_format(out.object_format)
+    ]
+    if len(bitcode_outs) == 0:
+        bitcode_outs = None
+
     all_outs = []
     all_outs.extend(pic_cxx_outs)
 
@@ -786,6 +810,7 @@ def cxx_compile_srcs(
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
         objects = objects,
+        bitcode_objects = bitcode_outs,
         objects_have_external_debug_info = objects_have_external_debug_info,
         external_debug_info = external_debug_info,
         clang_traces = clang_traces,
@@ -848,6 +873,7 @@ def _form_library_outputs(
                     pic = pic,
                     stripped = False,
                     extra_linkables = extra_static_linkables,
+                    bitcode_objects = compiled_srcs.bitcode_objects,
                 )
                 _, stripped = _static_library(
                     ctx,
@@ -856,6 +882,7 @@ def _form_library_outputs(
                     pic = pic,
                     stripped = True,
                     extra_linkables = extra_static_linkables,
+                    bitcode_objects = compiled_srcs.bitcode_objects,
                 )
             else:
                 # Header only libraries can have `extra_static_linkables`
@@ -1044,7 +1071,8 @@ def _static_library(
         stripped: bool.type,
         extra_linkables: [[FrameworksLinkable.type, SwiftmoduleLinkable.type, SwiftRuntimeLinkable.type]],
         objects_have_external_debug_info: bool.type = False,
-        external_debug_info: [ExternalDebugInfoTSet.type, None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
+        external_debug_info: [ExternalDebugInfoTSet.type, None] = None,
+        bitcode_objects: [["artifact"], None] = None) -> (_CxxLibraryOutput.type, LinkInfo.type):
     if len(objects) == 0:
         fail("empty objects")
 
@@ -1061,15 +1089,23 @@ def _static_library(
     name = _archive_name(base_name, pic = pic, extension = linker_info.static_library_extension)
     archive = make_archive(ctx, name, objects)
 
+    bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, pic, stripped)
+    if bitcode_bundle != None and bitcode_bundle.artifact != None:
+        bitcode_artifact = bitcode_bundle.artifact
+    else:
+        bitcode_artifact = None
+
     if use_archives(ctx):
         linkable = ArchiveLinkable(
             archive = archive,
+            bitcode_bundle = bitcode_artifact,
             linker_type = linker_type,
             link_whole = _attr_link_whole(ctx),
         )
     else:
         linkable = ObjectsLinkable(
             objects = objects,
+            bitcode_bundle = bitcode_artifact,
             linker_type = linker_type,
             link_whole = _attr_link_whole(ctx),
         )
@@ -1101,6 +1137,7 @@ def _static_library(
         _CxxLibraryOutput(
             default = archive.artifact,
             object_files = objects,
+            bitcode_bundle = bitcode_bundle,
             other = archive.external_objects,
         ),
         LinkInfo(
@@ -1117,11 +1154,27 @@ def _static_library(
         ),
     )
 
+# A bitcode bundle is very much like a static library and is generated from object file
+# inputs, except the output is a combined bitcode file, which is not machine code.
+def _bitcode_bundle(
+        ctx: "context",
+        objects: [["artifact"], None],
+        pic: bool.type = False,
+        stripped: bool.type = False,
+        name_extra = "") -> [BitcodeBundle.type, None]:
+    if objects == None or len(objects) == 0:
+        return None
+
+    base_name = _base_static_library_name(ctx, False)
+    name = name_extra + _bitcode_bundle_name(base_name, pic, stripped)
+    return make_bitcode_bundle(ctx, name, objects)
+
 _CxxSharedLibraryResult = record(
     # Shared library name (e.g. SONAME)
     soname = str.type,
     # Linking result, `LinkedObject` wrapping the shared library
     shlib = LinkedObject.type,
+    objects_bitcode_bundle = ["artifact", None],
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo.type,
     linker_map_data = [CxxLinkerMapData.type, None],
@@ -1147,6 +1200,8 @@ def _shared_library(
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
 
+    local_bitcode_bundle = _bitcode_bundle(ctx, objects, name_extra = "objects-")
+
     # NOTE(agallagher): We add exported link flags here because it's what v1
     # does, but the intent of exported link flags are to wrap the link output
     # that we propagate up the tree, rather than being used locally when
@@ -1158,6 +1213,7 @@ def _shared_library(
         ),
         linkables = [ObjectsLinkable(
             objects = objects,
+            bitcode_bundle = local_bitcode_bundle.artifact if local_bitcode_bundle else None,
             linker_type = linker_info.type,
             link_whole = True,
         )],
@@ -1230,6 +1286,7 @@ def _shared_library(
     return _CxxSharedLibraryResult(
         soname = soname,
         shlib = shlib,
+        objects_bitcode_bundle = local_bitcode_bundle.artifact if local_bitcode_bundle else None,
         info = LinkInfo(
             name = soname,
             linkables = [SharedLibLinkable(
@@ -1258,6 +1315,9 @@ def _base_static_library_name(ctx: "context", stripped: bool.type) -> str.type:
 
 def _archive_name(name: str.type, pic: bool.type, extension: str.type) -> str.type:
     return "lib{}{}.{}".format(name, ".pic" if pic else "", extension)
+
+def _bitcode_bundle_name(name: str.type, pic: bool.type, stripped: bool.type = False) -> str.type:
+    return "{}{}{}.bc".format(name, ".pic" if pic else "", ".stripped" if stripped else "")
 
 def _attr_link_whole(ctx: "context") -> bool.type:
     return value_or(ctx.attrs.link_whole, False)

@@ -20,6 +20,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkOrdering",
+    "LinkableType",
     "LinkedObject",
     "unpack_external_debug_info",
     "unpack_link_args",
@@ -27,6 +28,7 @@ load(
 load("@prelude//linking:lto.bzl", "darwin_lto_linker_flags")
 load("@prelude//linking:strip.bzl", "strip_shared_library")
 load("@prelude//utils:utils.bzl", "map_val", "value_or")
+load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_link_utility.bzl",
@@ -139,6 +141,21 @@ def cxx_link(
     if pdb_artifact != None:
         external_debug_artifacts.append(pdb_artifact)
 
+    bitcode_linkables = []
+    for link_item in links:
+        if link_item == None or link_item.infos == None:
+            continue
+        for link_info in link_item.infos:
+            for linkable in link_info.linkables:
+                if linkable._type == LinkableType("archive") or linkable._type == LinkableType("objects"):
+                    if linkable.bitcode_bundle != None:
+                        bitcode_linkables.append(linkable.bitcode_bundle)
+
+    if len(bitcode_linkables) > 0:
+        bitcode_artifact = make_bitcode_bundle(ctx, output.short_path + ".bc", bitcode_linkables)
+    else:
+        bitcode_artifact = None
+
     # If we're not stripping the output linked object, than add-in an externally
     # referenced debug info that the linked object may reference (and which may
     # need to be available for debugging).
@@ -223,6 +240,7 @@ def cxx_link(
 
     linked_object = LinkedObject(
         output = final_output,
+        bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
