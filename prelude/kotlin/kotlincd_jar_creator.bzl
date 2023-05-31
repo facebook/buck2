@@ -223,10 +223,12 @@ def create_jar_artifact_kotlincd(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
+            worker = kotlin_toolchain.kotlincd_worker[RunInfo],
             debug_port = kotlin_toolchain.kotlincd_debug_port,
             debug_target = kotlin_toolchain.kotlincd_debug_target,
             extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
         )
+
         args = cmd_args()
         args.add(
             "--action-id",
@@ -277,7 +279,7 @@ def create_jar_artifact_kotlincd(
             dep_files["classpath_jars"] = classpath_jars_tag
 
         actions.run(
-            cmd_args(exe, args),
+            args,
             env = {
                 "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
@@ -285,6 +287,7 @@ def create_jar_artifact_kotlincd(
             category = "{}kotlincd_jar".format(category_prefix),
             identifier = actions_identifier,
             dep_files = dep_files,
+            exe = exe,
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
