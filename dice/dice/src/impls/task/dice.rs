@@ -200,7 +200,6 @@ impl DiceTask {
         self.internal.read_value()
     }
 
-    #[allow(unused)] // future introspection functions
     /// true if this task is not yet complete and not yet canceled.
     pub(crate) fn is_pending(&self) -> bool {
         self.internal.is_pending()
