@@ -30,6 +30,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_core::soft_error;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
@@ -106,6 +107,7 @@ impl StreamingCommand for RunCommand {
             .build(
                 BuildRequest {
                     context: Some(context),
+                    // TODO(wendyy): glob patterns should be prohibited, and command should fail before the build event happens.
                     target_patterns: vec![buck2_data::TargetPattern {
                         value: self.target.clone(),
                     }],
@@ -140,6 +142,13 @@ impl StreamingCommand for RunCommand {
 
         if !success {
             return ExitResult::failure();
+        }
+
+        if response.build_targets.len() > 1 {
+            soft_error!(
+                "buck_run_multiple_targets",
+                RunCommandError::MultipleTargets.into()
+            )?;
         }
 
         // TODO(rafaelc): use absolute paths for artifacts in the cli
@@ -241,4 +250,8 @@ pub enum RunCommandError {
     NonBinaryRule(String),
     #[error("`--emit-shell` is not supported on Windows")]
     EmitShellNotSupportedOnWindows,
+    #[error(
+        "`buck2 run` only supports a single target, but multiple targets were requested. Only executing the first one built."
+    )]
+    MultipleTargets,
 }
