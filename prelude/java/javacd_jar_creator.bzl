@@ -194,7 +194,7 @@ def create_jar_artifact_javacd(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = java_toolchain.javac[DefaultInfo].default_outputs[0],
-            worker = java_toolchain.javacd_worker[RunInfo],
+            worker = java_toolchain.javacd_worker[WorkerInfo],
             debug_port = java_toolchain.javacd_debug_port,
             debug_target = java_toolchain.javacd_debug_target,
             extra_jvm_args = java_toolchain.javacd_jvm_args,

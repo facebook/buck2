@@ -223,7 +223,7 @@ def create_jar_artifact_kotlincd(
             qualified_name,
             java = java_toolchain.java[RunInfo],
             compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0],
-            worker = kotlin_toolchain.kotlincd_worker[RunInfo],
+            worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
             debug_port = kotlin_toolchain.kotlincd_debug_port,
             debug_target = kotlin_toolchain.kotlincd_debug_target,
             extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,

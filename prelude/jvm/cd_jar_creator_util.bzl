@@ -378,7 +378,7 @@ def prepare_cd_exe(
         qualified_name: str.type,
         java: RunInfo.type,
         compiler: "artifact",
-        worker: RunInfo.type,
+        worker: WorkerInfo.type,
         debug_port: [int.type, None],
         debug_target: ["label", None],
         extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, RunInfo.type]:
@@ -391,11 +391,9 @@ def prepare_cd_exe(
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
             exe = cmd_args([java, jvm_args, "-jar", compiler]),
-            worker = WorkerInfo(
-                # Specifies the command to initialize a new worker process.
-                # This is used for local execution if `build.use_persistent_workers=True`
-                exe = worker,
-            ),
+            # Specifies the command to initialize a new worker process.
+            # This is used for local execution if `build.use_persistent_workers=True`
+            worker = worker,
         )
         return worker_run_info
 
