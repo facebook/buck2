@@ -94,16 +94,8 @@ impl Develop {
             bail!("No targets can be inferred for the provided file.");
         }
 
-        tracing::info!("expanding targets");
         let targets = buck.expand_targets(&targets)?;
 
-        if targets.len() <= 10 {
-            // printing out 10 targets is pretty reasonable information for the user
-            tracing::info!(target_arg = ?targets, targets_num = targets.len(), ?targets, "resolving dependencies");
-        } else {
-            // after 10 targets, however, things tend to get a bit unwieldy.
-            info!(target_arg = ?targets, targets_num = targets.len(), "resolving dependencies")
-        }
         let target_map: BTreeMap<Target, TargetInfo> = buck.resolve_deps(&targets)?;
         let aliased_libraries = buck.query_aliased_libraries(&targets)?;
         let proc_macros = buck.query_proc_macros(&targets)?;
@@ -112,7 +104,7 @@ impl Develop {
             Some(s) => Some(expand_tilde(s)?.canonicalize()?),
             None => None,
         };
-        info!("Converting buck info to rust-project.json");
+        info!("converting buck info to rust-project.json");
         let rust_project =
             to_json_project(sysroot, targets, target_map, aliased_libraries, proc_macros)?;
 

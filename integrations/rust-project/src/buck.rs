@@ -317,6 +317,7 @@ impl Buck {
     ///
     /// Since `rust-project` accepts Buck target experssions like '//common/rust/tools/rust-project/...',
     /// it is necessary to expand the target expression to query the *actual* targets.
+    #[instrument(skip_all)]
     pub fn expand_targets(&self, targets: &[Target]) -> Result<Vec<Target>, anyhow::Error> {
         let mut command = self.command();
         command.args([
@@ -326,6 +327,7 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
+        tracing::info!("expanding provided target expressions");
         let raw = deserialize_output(command.output(), &command)?;
         if enabled!(Level::TRACE) {
             for target in &raw {
@@ -348,6 +350,19 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
+
+        if targets.len() <= 10 {
+            // printing out 10 targets is pretty reasonable information for the user
+            info!(
+                targets_num = targets.len(),
+                ?targets,
+                "resolving dependencies..."
+            );
+        } else {
+            // after 10 targets, however, things tend to get a bit unwieldy.
+            info!(targets_num = targets.len(), "resolving dependencies...");
+            debug!(?targets);
+        }
         let raw = deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
@@ -358,6 +373,7 @@ impl Buck {
         Ok(raw)
     }
 
+    #[instrument(skip_all)]
     pub fn query_proc_macros(
         &self,
         targets: &[Target],
@@ -372,7 +388,7 @@ impl Buck {
         ]);
         command.args(targets);
 
-        info!("Querying buck for aliased proc macros");
+        info!("building proc macros");
         let raw: BTreeMap<Target, MacroOutput> = deserialize_output(command.output(), &command)?;
 
         Ok(raw)
@@ -398,7 +414,7 @@ impl Buck {
         ]);
         command.args(targets);
 
-        info!("Querying buck for aliased libraries");
+        info!("resolving aliased libraries");
         let raw: BTreeMap<Target, AliasedTargetInfo> =
             deserialize_output(command.output(), &command)?;
 
