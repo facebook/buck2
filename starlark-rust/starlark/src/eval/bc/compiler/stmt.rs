@@ -265,12 +265,7 @@ impl StmtsCompiled {
         param_count: u32,
         heap: &FrozenHeap,
     ) -> Bc {
-        let mut bc = BcWriter::new(
-            compiler.record_call_enter_exit,
-            local_names,
-            param_count,
-            heap,
-        );
+        let mut bc = BcWriter::new(local_names, param_count, heap);
         self.write_bc(compiler, &mut bc);
 
         // Small optimization: if the last statement is return,

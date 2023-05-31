@@ -125,8 +125,6 @@ pub struct Evaluator<'v, 'a> {
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
     pub(crate) flame_profile: FlameProfile<'v>,
-    // Is either heap or flame profiling enabled, or instrumentation for these profiles enabled.
-    pub(crate) heap_or_flame_profile: bool,
     // Is GC disabled for some reason
     pub(crate) disable_gc: bool,
     // If true, the interpreter prints to stderr on GC.
@@ -166,6 +164,7 @@ struct EvaluationInstrumentation<'a> {
     bc_profile: BcProfile,
     // Extra functions to run on each statement, usually empty
     before_stmt: BeforeStmt<'a>,
+    heap_or_flame_profile: bool,
     // Whether we need to instrument evaluation or not, should be set if before_stmt or bc_profile are enabled.
     enabled: bool,
 }
@@ -175,13 +174,19 @@ impl<'a> EvaluationInstrumentation<'a> {
         Self {
             bc_profile: BcProfile::new(),
             before_stmt: BeforeStmt::default(),
+            heap_or_flame_profile: false,
             enabled: false,
         }
     }
 
+    fn enable_heap_or_flame_profile(&mut self) {
+        self.heap_or_flame_profile = true;
+    }
+
     fn change<F: FnOnce(&mut EvaluationInstrumentation<'a>)>(&mut self, f: F) {
         f(self);
-        self.enabled = self.bc_profile.enabled() || self.before_stmt.enabled();
+        self.enabled =
+            self.bc_profile.enabled() || self.before_stmt.enabled() || self.heap_or_flame_profile;
     }
 }
 
@@ -212,7 +217,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             stmt_profile: StmtProfile::new(),
             typecheck_profile: TypecheckProfile::default(),
             flame_profile: FlameProfile::new(),
-            heap_or_flame_profile: false,
             eval_instrumentation: EvaluationInstrumentation::new(),
             module_def_info: DefInfo::empty(), // Will be replaced before it is used
             string_pool: StringPool::default(),
@@ -257,7 +261,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             | ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained => {
                 self.heap_profile.enable();
-                self.heap_or_flame_profile = true;
+
                 match mode {
                     ProfileMode::HeapFlameRetained => self
                         .module_env
@@ -267,6 +271,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                         .enable_heap_profile(RetainedHeapProfileMode::Summary),
                     _ => {}
                 }
+
+                self.eval_instrumentation
+                    .change(|v| v.enable_heap_or_flame_profile());
 
                 // Disable GC because otherwise why lose the profile records, as we use the heap
                 // to store a complete list of what happened in linear order.
@@ -278,7 +285,8 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             }
             ProfileMode::TimeFlame => {
                 self.flame_profile.enable();
-                self.heap_or_flame_profile = true;
+                self.eval_instrumentation
+                    .change(|v| v.enable_heap_or_flame_profile());
             }
             ProfileMode::Bytecode => {
                 self.eval_instrumentation
@@ -740,18 +748,28 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     #[inline(never)]
     fn eval_bc_with_callbacks(
         &mut self,
-        _def: Value<'v>,
+        def: Value<'v>,
         bc: &Bc,
     ) -> Result<Value<'v>, EvalException> {
-        bc.run(
-            self,
-            &mut EvalCallbacksEnabled {
-                bc_profile: self.eval_instrumentation.bc_profile.enabled(),
-                before_stmt: self.eval_instrumentation.before_stmt.enabled(),
-                stmt_locs: &bc.instrs.stmt_locs,
-                bc_start_ptr: bc.instrs.start_ptr(),
-            },
-        )
+        debug_assert!(self.eval_instrumentation.enabled);
+        if self.eval_instrumentation.heap_or_flame_profile {
+            self.heap_profile.record_call_enter(def, self.heap());
+            self.flame_profile.record_call_enter(def);
+            let res = bc.run(self, &mut EvalCallbacksDisabled);
+            self.heap_profile.record_call_exit(self.heap());
+            self.flame_profile.record_call_exit();
+            res
+        } else {
+            bc.run(
+                self,
+                &mut EvalCallbacksEnabled {
+                    bc_profile: self.eval_instrumentation.bc_profile.enabled(),
+                    before_stmt: self.eval_instrumentation.before_stmt.enabled(),
+                    stmt_locs: &bc.instrs.stmt_locs,
+                    bc_start_ptr: bc.instrs.start_ptr(),
+                },
+            )
+        }
     }
 
     #[inline(always)]

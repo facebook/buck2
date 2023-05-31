@@ -195,3 +195,91 @@ impl<'v> FlameProfile<'v> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::thread;
+    use std::time::Duration;
+
+    use anyhow::Context;
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::Globals;
+    use crate::environment::GlobalsBuilder;
+    use crate::environment::Module;
+    use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileMode;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+    use crate::values::none::NoneType;
+
+    #[test]
+    fn test_time_flame_works_inside_frozen_module() {
+        #[starlark_module]
+        fn register_sleep(globals: &mut GlobalsBuilder) {
+            fn sleep() -> anyhow::Result<NoneType> {
+                thread::sleep(Duration::from_millis(2));
+                Ok(NoneType)
+            }
+        }
+
+        let mut a = Assert::new();
+        a.globals_add(register_sleep);
+        let a_bzl = a.pass_module(
+            r#"
+def foo():
+    for i in range(5):
+        # Must sleep otherwise time flame will round the duration to zero and erase it.
+        sleep()
+    "#,
+        );
+
+        let modules = HashMap::from_iter([("a.bzl".to_owned(), a_bzl)]);
+        let loader = ReturnOwnedFileLoader { modules };
+
+        let module = Module::new();
+        let mut eval = Evaluator::new(&module);
+        eval.enable_profile(&ProfileMode::TimeFlame).unwrap();
+        eval.set_loader(&loader);
+        eval.eval_module(
+            AstModule::parse(
+                "x.star",
+                r#"
+load("a.bzl", "foo")
+
+def bar():
+    for i in range(10):
+        foo()
+
+bar()
+"#
+                .to_owned(),
+                &Dialect::Standard,
+            )
+            .unwrap(),
+            &Globals::standard(),
+        )
+        .unwrap();
+
+        let profile = eval.gen_profile().unwrap().gen().unwrap();
+        let the_line = profile
+            .lines()
+            .find(|l| l.contains("foo"))
+            .with_context(|| {
+                format!(
+                    "There must be a line with `foo` in the profile: {:?}",
+                    profile
+                )
+            })
+            .unwrap();
+        assert!(
+            the_line.contains("bar"),
+            "Profile must contain a line `bar.*foo`: {:?}",
+            profile
+        );
+    }
+}

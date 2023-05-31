@@ -364,7 +364,6 @@ mod tests {
     use crate::const_frozen_string;
     use crate::eval::bc::instr_impl::InstrConst;
     use crate::eval::bc::instr_impl::InstrPossibleGc;
-    use crate::eval::bc::instr_impl::InstrRecordCallExit;
     use crate::eval::bc::instr_impl::InstrReturn;
     use crate::eval::bc::instrs::BcInstrs;
     use crate::eval::bc::instrs::BcInstrsWriter;
@@ -376,7 +375,7 @@ mod tests {
     #[test]
     fn write() {
         let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrRecordCallExit>(());
+        bc.write::<InstrPossibleGc>(());
         assert_eq!(1, bc.instrs.len());
         bc.write::<InstrPossibleGc>(());
         assert_eq!(2, bc.instrs.len());

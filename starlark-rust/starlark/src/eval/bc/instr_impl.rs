@@ -1718,12 +1718,8 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallMaybeKnownMethodImpl<A>
 }
 
 pub(crate) struct InstrPossibleGcImpl;
-pub(crate) struct InstrRecordCallEnterImpl;
-pub(crate) struct InstrRecordCallExitImpl;
 
 pub(crate) type InstrPossibleGc = InstrNoFlow<InstrPossibleGcImpl>;
-pub(crate) type InstrRecordCallEnter = InstrNoFlow<InstrRecordCallEnterImpl>;
-pub(crate) type InstrRecordCallExit = InstrNoFlow<InstrRecordCallExitImpl>;
 
 impl InstrNoFlowImpl for InstrPossibleGcImpl {
     type Arg = ();
@@ -1735,37 +1731,6 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         (): &(),
     ) -> anyhow::Result<()> {
         possible_gc(eval);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrRecordCallEnterImpl {
-    type Arg = BcSlotIn;
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        fun: &BcSlotIn,
-    ) -> anyhow::Result<()> {
-        let fun = frame.get_bc_slot(*fun);
-        eval.heap_profile.record_call_enter(fun, eval.heap());
-        eval.flame_profile.record_call_enter(fun);
-        Ok(())
-    }
-}
-
-impl InstrNoFlowImpl for InstrRecordCallExitImpl {
-    type Arg = ();
-
-    fn run_with_args<'v>(
-        eval: &mut Evaluator<'v, '_>,
-        _frame: BcFramePtr<'v>,
-        _ip: BcPtrAddr,
-        (): &(),
-    ) -> anyhow::Result<()> {
-        eval.heap_profile.record_call_exit(eval.heap());
-        eval.flame_profile.record_call_exit();
         Ok(())
     }
 }

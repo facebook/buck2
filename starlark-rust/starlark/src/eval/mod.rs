@@ -49,7 +49,6 @@ use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::hint::unlikely;
 use crate::slice_vec_ext::SliceExt;
 use crate::syntax::ast::AstModule;
 use crate::syntax::DialectTypes;
@@ -124,11 +123,6 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         // Set up the world to allow evaluation (do NOT use ? from now on)
 
         self.call_stack.push(Value::new_none(), None).unwrap();
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile
-                .record_call_enter(Value::new_none(), self.heap());
-            self.flame_profile.record_call_enter(Value::new_none());
-        }
 
         // Evaluation
         let mut compiler = Compiler {
@@ -144,10 +138,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
 
         // Clean up the world, putting everything back
         self.call_stack.pop();
-        if unlikely(self.heap_or_flame_profile) {
-            self.heap_profile.record_call_exit(self.heap());
-            self.flame_profile.record_call_exit();
-        }
+
         self.module_def_info = old_def_info;
 
         self.module_env.add_eval_duration(start.elapsed());

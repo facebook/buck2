@@ -115,8 +115,6 @@ pub(crate) enum BcOpcode {
     CallMaybeKnownMethodPos,
     Def,
     PossibleGc,
-    RecordCallEnter,
-    RecordCallExit,
     End,
 }
 

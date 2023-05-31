@@ -102,8 +102,6 @@ pub(crate) enum StmtCompiled {
 pub(crate) struct StmtCompileContext {
     /// Current function has return type.
     pub(crate) has_return_type: bool,
-    /// `RecordCallEnter`/`RecordCallExit` instructions for heap or flame profile.
-    pub(crate) record_call_enter_exit: bool,
 }
 
 pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
@@ -629,10 +627,7 @@ pub(crate) fn add_assign<'v>(
 
 impl Compiler<'_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
-        StmtCompileContext {
-            has_return_type,
-            record_call_enter_exit: self.eval.heap_or_flame_profile,
-        }
+        StmtCompileContext { has_return_type }
     }
 
     pub(crate) fn stmt(&mut self, stmt: CstStmt, allow_gc: bool) -> StmtsCompiled {

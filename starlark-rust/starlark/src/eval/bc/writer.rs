@@ -119,9 +119,6 @@ struct BcWriterForLoop {
 
 /// Write bytecode here.
 pub(crate) struct BcWriter<'f> {
-    /// Insert `RecordCallEnter`/`RecordCallExit` instructions.
-    record_call_enter_exit: bool,
-
     /// Serialized instructions.
     instrs: BcInstrsWriter,
     /// Instruction spans, used for errors.
@@ -148,7 +145,6 @@ pub(crate) struct BcWriter<'f> {
 impl<'f> BcWriter<'f> {
     /// Empty.
     pub(crate) fn new(
-        call_enter_exit: bool,
         local_names: FrozenRef<'f, [FrozenStringValue]>,
         param_count: u32,
         heap: &'f FrozenHeap,
@@ -160,7 +156,6 @@ impl<'f> BcWriter<'f> {
             definitely_assigned.mark_definitely_assigned(LocalSlotId(i));
         }
         BcWriter {
-            record_call_enter_exit: call_enter_exit,
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stmt_locs: BcStatementLocations::new(),
@@ -178,7 +173,6 @@ impl<'f> BcWriter<'f> {
     #[allow(let_underscore_drop)]
     pub(crate) fn finish(self) -> Bc {
         let BcWriter {
-            record_call_enter_exit: call_enter_exit,
             instrs,
             slow_args: spans,
             stmt_locs,
@@ -190,7 +184,6 @@ impl<'f> BcWriter<'f> {
             for_loops,
             max_loop_depth,
         } = self;
-        let _ = call_enter_exit;
         let _ = heap;
         let _ = definitely_assigned;
         assert_eq!(stack_size, 0);
@@ -213,10 +206,6 @@ impl<'f> BcWriter<'f> {
 
     fn local_count(&self) -> u32 {
         self.local_names.len().try_into().unwrap()
-    }
-
-    pub(crate) fn record_call_enter_exit(&self) -> bool {
-        self.record_call_enter_exit
     }
 
     /// Current offset.
