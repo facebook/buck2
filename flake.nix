@@ -33,6 +33,10 @@
           Security
         ]);
         packages = [ pkgs.cargo-bloat my-rust-bin ];
+        shellHook = ''
+          export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
+          export BUCK2_BUILD_PROTOC_INCLUDE=${pkgs.protobuf}/include
+        '';
       };
     });
 }
