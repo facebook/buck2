@@ -7,42 +7,4 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use allocative::Allocative;
-use buck2_node::configuration::execution::ExecutionPlatform;
-use buck2_node::configuration::resolved::ResolvedConfiguration;
-
 pub mod calculation;
-
-pub type ExecutionPlatforms = Arc<ExecutionPlatformsData>;
-
-#[derive(Debug, Allocative)]
-pub enum ExecutionPlatformFallback {
-    Error,
-    UseUnspecifiedExec,
-    Platform(ExecutionPlatform),
-}
-
-#[derive(Debug, Allocative)]
-pub struct ExecutionPlatformsData {
-    platforms: Vec<ExecutionPlatform>,
-    fallback: ExecutionPlatformFallback,
-}
-
-impl ExecutionPlatformsData {
-    pub fn new(platforms: Vec<ExecutionPlatform>, fallback: ExecutionPlatformFallback) -> Self {
-        Self {
-            platforms,
-            fallback,
-        }
-    }
-
-    pub fn candidates(&self) -> impl Iterator<Item = &ExecutionPlatform> {
-        self.platforms.iter()
-    }
-
-    pub fn fallback(&self) -> &ExecutionPlatformFallback {
-        &self.fallback
-    }
-}

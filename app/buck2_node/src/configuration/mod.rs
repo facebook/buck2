@@ -8,6 +8,7 @@
  */
 
 pub mod execution;
+pub mod execution_platforms;
 pub mod resolved;
 pub mod target_platform_detector;
 pub mod toolchain_constraints;
