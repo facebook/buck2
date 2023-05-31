@@ -183,9 +183,6 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # uses ruby
     "uses_ruby",
-
-    # Fixed by D46227259, see there for more details
-    "requires_facebook_dt_libs",
 ]}
 
 def genrule_labels_require_local(labels):
