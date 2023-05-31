@@ -275,12 +275,12 @@ impl TestOrchestrator for TestOrchestratorClient {
     }
 }
 
-pub struct Service<T> {
+struct TestOrchestratorService<T: TestOrchestrator> {
     inner: T,
 }
 
 #[async_trait::async_trait]
-impl<T> test_orchestrator_server::TestOrchestrator for Service<T>
+impl<T> test_orchestrator_server::TestOrchestrator for TestOrchestratorService<T>
 where
     T: TestOrchestrator + Send + Sync + 'static,
 {
@@ -466,8 +466,12 @@ where
     }
 }
 
+struct DownwardApiService<T: DownwardApi> {
+    inner: T,
+}
+
 #[async_trait::async_trait]
-impl<T> downward_api_server::DownwardApi for Service<T>
+impl<T> downward_api_server::DownwardApi for DownwardApiService<T>
 where
     T: DownwardApi + Send + Sync + 'static,
 {
@@ -552,14 +556,14 @@ where
     let router = tonic::transport::Server::builder()
         .layer(EventDispatcherLayer::new(dispatcher))
         .add_service(
-            test_orchestrator_server::TestOrchestratorServer::new(Service {
+            test_orchestrator_server::TestOrchestratorServer::new(TestOrchestratorService {
                 inner: orchestrator,
             })
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX),
         )
         .add_service(
-            downward_api_server::DownwardApiServer::new(Service {
+            downward_api_server::DownwardApiServer::new(DownwardApiService {
                 inner: downward_api,
             })
             .max_encoding_message_size(usize::MAX)
