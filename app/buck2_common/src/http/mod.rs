@@ -41,13 +41,12 @@ use tokio_util::io::StreamReader;
 
 mod proxy;
 mod redirect;
+#[cfg(fbcode_build)]
+mod x2p;
 use proxy::http_proxy_from_env;
 use proxy::https_proxy_from_env;
 use redirect::PendingRequest;
 use redirect::RedirectEngine;
-
-#[cfg(all(unix, fbcode_build))]
-mod x2p;
 
 /// Support following up to 10 redirects, after which a redirected request will
 /// error out.
@@ -61,8 +60,10 @@ const DEFAULT_MAX_REDIRECTS: usize = 10;
 pub fn http_client(allow_vpnless: bool) -> anyhow::Result<Arc<dyn HttpClient>> {
     if is_open_source() {
         http_client_for_oss()
+    } else if allow_vpnless && supports_vpnless() {
+        http_client_for_vpnless()
     } else {
-        http_client_for_internal(allow_vpnless)
+        http_client_for_internal()
     }
 }
 
@@ -92,7 +93,7 @@ pub fn http_client_for_oss() -> anyhow::Result<Arc<dyn HttpClient>> {
 
 /// Returns a client suitable for Meta-internal usecases. Supports standard
 /// $THRIFT_TLS_CL_* environment variables.
-fn http_client_for_internal(allow_vpnless: bool) -> anyhow::Result<Arc<dyn HttpClient>> {
+fn http_client_for_internal() -> anyhow::Result<Arc<dyn HttpClient>> {
     let tls_config = if let (Some(cert_path), Some(key_path)) = (
         std::env::var_os("THRIFT_TLS_CL_CERT_PATH"),
         std::env::var_os("THRIFT_TLS_CL_KEY_PATH"),
@@ -102,20 +103,36 @@ fn http_client_for_internal(allow_vpnless: bool) -> anyhow::Result<Arc<dyn HttpC
         tls_config_with_system_roots()?
     };
 
-    if allow_vpnless && supports_vpnless() {
-        #[cfg(all(unix, fbcode_build))]
-        return Ok(Arc::new(x2p::X2PAgentUnixSocketClient::new(
-            cpe::x2p::proxy_url_http1(),
-        )?));
-
-        #[cfg(not(all(unix, fbcode_build)))]
-        anyhow::bail!("Error: vpnless not supported for non-unix, non-fbcode build");
-    }
-
     Ok(Arc::new(SecureHttpClient::new(
         tls_config,
         DEFAULT_MAX_REDIRECTS,
     )))
+}
+
+/// Returns a client suitable for making http requests via the VPNless x2pagent
+/// proxy running on the local machine. Supports both http proxy server and
+/// unix domain socket proxy path.
+#[cfg(fbcode_build)]
+fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
+    if let Some(port) = cpe::x2p::http1_proxy_port() {
+        let client = x2p::X2PAgentProxyClient::new(port)?;
+        Ok(Arc::new(client))
+    } else {
+        #[cfg(unix)]
+        {
+            let proxy_path = cpe::x2p::proxy_url_http1();
+            let client = x2p::X2PAgentUnixSocketClient::new(proxy_path)?;
+            Ok(Arc::new(client))
+        }
+
+        #[cfg(not(unix))]
+        anyhow::bail!("VPNless unix domain socket http client not supported in non-unix");
+    }
+}
+
+#[cfg(not(fbcode_build))]
+fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
+    anyhow::bail!("VPNless client is not supported for non-internal fbcode builds")
 }
 
 /// Dice implementations so we can pass along the HttpClient to various subsystems
@@ -144,14 +161,13 @@ impl SetHttpClient for UserComputationData {
 }
 
 /// Whether the machine buck is running on supports vpnless operation.
-/// TODO(skarlage): Support windows.
 fn supports_vpnless() -> bool {
-    #[cfg(all(unix, fbcode_build))]
+    #[cfg(fbcode_build)]
     return cpe::x2p::is_edge_enabled()
         && cpe::user::is_gk_enabled("cpe_x2p_edgeterm_remote_execution")
         && cpe::user::is_gk_enabled("cpe_x2p_edgeterm_dotslash");
 
-    #[cfg(not(all(unix, fbcode_build)))]
+    #[cfg(not(fbcode_build))]
     return false;
 }
 

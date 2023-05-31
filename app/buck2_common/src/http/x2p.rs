@@ -20,55 +20,47 @@ use hyper::Response;
 use hyper_proxy::Intercept;
 use hyper_proxy::Proxy;
 use hyper_proxy::ProxyConnector;
-use hyper_unix_connector::UnixClient;
 
 use crate::http::HttpClient;
 use crate::http::HttpError;
 use crate::http::SecureHttpClient;
+use crate::http::SecureProxiedClient;
 use crate::http::DEFAULT_MAX_REDIRECTS;
 
-/// Wraps a secure client so that we can talk to the x2pagent-provided unix socket
-/// proxy server.
-///
-/// This server has a few requirements that are reflected in the methods below:
-/// 1. Requests are http-only. The proxy server handles TLS encapsulation + picking
-///    correct certs.
-/// 2. Requests must be sent to a unix domain socket
-#[derive(Allocative)]
-pub(super) struct X2PAgentUnixSocketClient {
-    inner: SecureHttpClient,
+/// x2pagent proxies only speak plain HTTP, so we need to mutate requests prior
+/// to sending them off.
+fn change_scheme_to_http(request: &mut Request<Bytes>) {
+    let uri = request.uri().clone();
+    let mut parts = uri.into_parts();
+    parts.scheme = Some(Scheme::HTTP);
+    *request.uri_mut() = Uri::from_parts(parts).expect("Unexpected invalid URI from request");
 }
 
-impl X2PAgentUnixSocketClient {
-    pub(super) fn new<P: AsRef<Path>>(socket_path: P) -> anyhow::Result<Self> {
+#[derive(Allocative)]
+pub(super) struct X2PAgentProxyClient {
+    inner: SecureProxiedClient,
+}
+
+impl X2PAgentProxyClient {
+    pub(super) fn new(http1_proxy_port: u16) -> anyhow::Result<Self> {
         let proxy = Proxy::new(
             Intercept::All,
-            hyper_unix_connector::Uri::new(socket_path, "/").into(),
+            format!("http://localhost:{}", http1_proxy_port)
+                .try_into()
+                .context("Error converting x2pagent proxy address into URI")?,
         );
-        let proxy_connector = ProxyConnector::from_proxy(UnixClient, proxy)
-            .context("Failed to create proxy connector to unix domain scoket")?;
-        Ok(Self {
-            inner: SecureHttpClient::with_connector(proxy_connector, DEFAULT_MAX_REDIRECTS),
-        })
+        let client = SecureProxiedClient::with_proxies([proxy])?;
+        Ok(Self { inner: client })
     }
 
     async fn request_impl(&self, mut request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
-        Self::change_scheme_to_http(&mut request);
+        change_scheme_to_http(&mut request);
         self.inner.request(request).await
-    }
-
-    /// The unix socket proxy server only speaks plain HTTP, so we need to mutate
-    /// requests prior to sending them off.
-    fn change_scheme_to_http(request: &mut Request<Bytes>) {
-        let uri = request.uri().clone();
-        let mut parts = uri.into_parts();
-        parts.scheme = Some(Scheme::HTTP);
-        *request.uri_mut() = Uri::from_parts(parts).expect("Unexpected invalid URI from request");
     }
 }
 
 #[async_trait::async_trait]
-impl HttpClient for X2PAgentUnixSocketClient {
+impl HttpClient for X2PAgentProxyClient {
     async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
         self.request_impl(request).await
     }
@@ -78,13 +70,106 @@ impl HttpClient for X2PAgentUnixSocketClient {
     }
 }
 
+// TODO(skarlage): Remove this client once x2pagent http proxy is deployed and works.
+#[cfg(unix)]
+mod unix {
+    use hyper_unix_connector::UnixClient;
+
+    use super::*;
+
+    /// Wraps a secure client so that we can talk to the x2pagent-provided unix socket
+    /// proxy server.
+    ///
+    /// This server has a few requirements that are reflected in the methods below:
+    /// 1. Requests are http-only. The proxy server handles TLS encapsulation + picking
+    ///    correct certs.
+    /// 2. Requests must be sent to a unix domain socket
+    #[derive(Allocative)]
+    pub struct X2PAgentUnixSocketClient {
+        inner: SecureHttpClient,
+    }
+
+    impl X2PAgentUnixSocketClient {
+        pub fn new<P: AsRef<Path>>(socket_path: P) -> anyhow::Result<Self> {
+            let proxy = Proxy::new(
+                Intercept::All,
+                hyper_unix_connector::Uri::new(socket_path, "/").into(),
+            );
+            let proxy_connector = ProxyConnector::from_proxy(UnixClient, proxy)
+                .context("Failed to create proxy connector to unix domain scoket")?;
+            Ok(Self {
+                inner: SecureHttpClient::with_connector(proxy_connector, DEFAULT_MAX_REDIRECTS),
+            })
+        }
+
+        async fn request_impl(
+            &self,
+            mut request: Request<Bytes>,
+        ) -> Result<Response<Body>, HttpError> {
+            change_scheme_to_http(&mut request);
+            self.inner.request(request).await
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl HttpClient for X2PAgentUnixSocketClient {
+        async fn request(&self, request: Request<Bytes>) -> Result<Response<Body>, HttpError> {
+            self.request_impl(request).await
+        }
+
+        fn supports_vpnless(&self) -> bool {
+            true
+        }
+    }
+}
+
+#[cfg(unix)]
+pub(super) use unix::X2PAgentUnixSocketClient;
+
 #[cfg(test)]
 mod tests {
+    use http::Method;
+
+    use super::*;
+
+    #[test]
+    fn test_change_scheme_to_http_succeeds() -> anyhow::Result<()> {
+        let mut request = Request::builder()
+            .method(Method::GET)
+            .uri("https://some.site/foo")
+            .body(Bytes::new())?;
+        change_scheme_to_http(&mut request);
+
+        assert_eq!(
+            Scheme::HTTP,
+            *request
+                .uri()
+                .scheme()
+                .expect("should have scheme after mutating request")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_change_scheme_to_http_no_effect() -> anyhow::Result<()> {
+        let uri: Uri = "http://some.site/foo".try_into()?;
+        let mut request = Request::builder()
+            .method(Method::GET)
+            .uri(uri.clone())
+            .body(Bytes::new())?;
+        change_scheme_to_http(&mut request);
+
+        assert_eq!(&uri, request.uri());
+        Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod unix_tests {
     use std::convert::Infallible;
     use std::path::PathBuf;
 
     use http::HeaderValue;
-    use http::Method;
     use httptest::matchers::*;
     use httptest::responders;
     use httptest::Expectation;
@@ -145,37 +230,6 @@ mod tests {
                 tempdir,
             })
         }
-    }
-
-    #[test]
-    fn test_change_scheme_to_http_succeeds() -> anyhow::Result<()> {
-        let mut request = Request::builder()
-            .method(Method::GET)
-            .uri("https://some.site/foo")
-            .body(Bytes::new())?;
-        X2PAgentUnixSocketClient::change_scheme_to_http(&mut request);
-
-        assert_eq!(
-            Scheme::HTTP,
-            *request
-                .uri()
-                .scheme()
-                .expect("should have scheme after mutating request")
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_change_scheme_to_http_no_effect() -> anyhow::Result<()> {
-        let uri: Uri = "http://some.site/foo".try_into()?;
-        let mut request = Request::builder()
-            .method(Method::GET)
-            .uri(uri.clone())
-            .body(Bytes::new())?;
-        X2PAgentUnixSocketClient::change_scheme_to_http(&mut request);
-
-        assert_eq!(&uri, request.uri());
-        Ok(())
     }
 
     #[tokio::test]
