@@ -46,7 +46,6 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::PackageSpec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::provider::label::ProvidersName;
 use buck2_core::tag_result;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetName;
@@ -726,36 +725,17 @@ fn spec_to_targets(
     spec: PackageSpec<ProvidersPatternExtra>,
     res: Arc<EvaluationResult>,
 ) -> anyhow::Result<SpecTargets> {
-    let available_targets = res.targets();
+    let skippable = matches!(spec, PackageSpec::All);
 
-    match spec {
-        PackageSpec::All => {
-            let labels = available_targets
-                .keys()
-                .map(|target| {
-                    (
-                        target.to_owned(),
-                        ProvidersPatternExtra {
-                            providers: ProvidersName::Default,
-                        },
-                    )
-                })
-                .collect();
-            Ok(SpecTargets {
-                labels,
-                skippable: true,
-            })
-        }
-        PackageSpec::Targets(labels) => {
-            for (target_name, _) in &labels {
-                res.resolve_target(target_name)?;
-            }
-            Ok(SpecTargets {
-                labels,
-                skippable: false,
-            })
-        }
+    let (targets, missing_targets) = res.apply_spec(spec);
+    if let Some(missing_targets) = missing_targets {
+        return Err(missing_targets.into_error());
     }
+
+    Ok(SpecTargets {
+        labels: targets.into_keys().collect(),
+        skippable,
+    })
 }
 
 async fn test_target(
