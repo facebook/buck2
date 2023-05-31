@@ -231,7 +231,7 @@ async fn install(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
-                .get_configured_target(&label, global_target_platform.dupe().as_ref())
+                .get_configured_provider_label(&label, global_target_platform.dupe().as_ref())
                 .await?;
             let frozen_providers = ctx
                 .get_providers(&providers_label)

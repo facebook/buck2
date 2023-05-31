@@ -539,7 +539,7 @@ async fn build_target(
 ) -> impl Stream<Item = anyhow::Result<BuildEvent>> + 'static {
     let res = async {
         let providers_label = ctx
-            .get_configured_target(
+            .get_configured_provider_label(
                 &ProvidersLabel::new(spec.target.label().dupe(), spec.providers),
                 spec.global_target_platform.as_ref(),
             )

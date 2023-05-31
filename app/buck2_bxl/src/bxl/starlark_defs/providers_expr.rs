@@ -105,7 +105,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             Self::unpack_providers_label(value, ctx)?.map_or(Ok(None), |label| {
                 let result: anyhow::Result<_> = try {
                     Self::Literal(ctx.async_ctx.via_dice(|ctx| {
-                        ctx.get_configured_target(&label, target_platform.as_ref())
+                        ctx.get_configured_provider_label(&label, target_platform.as_ref())
                     })?)
                 };
                 result.map(Some)

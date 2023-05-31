@@ -36,60 +36,6 @@ use crate::context::HasBuildContextData;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
-pub trait ConfigurableTargetLabel: Send + Sync {
-    type Configured;
-
-    fn target(&self) -> &TargetLabel;
-
-    fn configure(&self, cfg: ConfigurationData) -> Self::Configured;
-
-    fn configure_with_exec(
-        &self,
-        cfg: ConfigurationData,
-        exec_cfg: ConfigurationData,
-    ) -> Self::Configured;
-}
-
-impl ConfigurableTargetLabel for TargetLabel {
-    type Configured = ConfiguredTargetLabel;
-
-    fn target(&self) -> &TargetLabel {
-        self
-    }
-
-    fn configure(&self, cfg: ConfigurationData) -> Self::Configured {
-        self.configure(cfg)
-    }
-
-    fn configure_with_exec(
-        &self,
-        cfg: ConfigurationData,
-        exec_cfg: ConfigurationData,
-    ) -> Self::Configured {
-        self.configure_with_exec(cfg, exec_cfg)
-    }
-}
-
-impl ConfigurableTargetLabel for ProvidersLabel {
-    type Configured = ConfiguredProvidersLabel;
-
-    fn target(&self) -> &TargetLabel {
-        self.target()
-    }
-
-    fn configure(&self, cfg: ConfigurationData) -> Self::Configured {
-        self.configure(cfg)
-    }
-
-    fn configure_with_exec(
-        &self,
-        cfg: ConfigurationData,
-        exec_cfg: ConfigurationData,
-    ) -> Self::Configured {
-        self.configure_with_exec(cfg, exec_cfg)
-    }
-}
-
 /// Provides the Dice calculations used for implementing builds and related operations.
 ///
 /// Most of this is implemented within the buck2_build_api, with some thin wrappers over some
@@ -110,16 +56,22 @@ pub trait Calculation<'c> {
     /// unconfigured (or "lightly"-configured) thing and the Configuration will be determined as
     /// a mix of the global Configuration, the target's `default_target_platform` and
     /// (potentially) self-transitions on that node.
-    async fn get_configured_target<T: ConfigurableTargetLabel>(
+    async fn get_configured_target(
         &self,
-        target: &T,
+        target: &TargetLabel,
         global_target_platform: Option<&TargetLabel>,
-    ) -> anyhow::Result<T::Configured>;
+    ) -> anyhow::Result<ConfiguredTargetLabel>;
 
-    async fn get_default_configured_target<T: ConfigurableTargetLabel>(
+    async fn get_configured_provider_label(
         &self,
-        target: &T,
-    ) -> anyhow::Result<T::Configured>;
+        target: &ProvidersLabel,
+        global_target_platform: Option<&TargetLabel>,
+    ) -> anyhow::Result<ConfiguredProvidersLabel>;
+
+    async fn get_default_configured_target(
+        &self,
+        target: &TargetLabel,
+    ) -> anyhow::Result<ConfiguredTargetLabel>;
 }
 
 #[async_trait]
@@ -135,12 +87,12 @@ impl<'c> Calculation<'c> for DiceComputations {
         ))
     }
 
-    async fn get_configured_target<T: ConfigurableTargetLabel>(
+    async fn get_configured_target(
         &self,
-        target: &T,
+        target: &TargetLabel,
         global_target_platform: Option<&TargetLabel>,
-    ) -> anyhow::Result<T::Configured> {
-        let node = self.get_target_node(target.target()).await?;
+    ) -> anyhow::Result<ConfiguredTargetLabel> {
+        let node = self.get_target_node(target).await?;
 
         let get_platform_configuration = async || -> SharedResult<ConfigurationData> {
             Ok(match global_target_platform {
@@ -149,8 +101,8 @@ impl<'c> Calculation<'c> for DiceComputations {
                         .await?
                 }
                 None => match node.get_default_target_platform() {
-                    Some(target) => self.get_platform_configuration(target.target()).await?,
-                    None => self.get_default_platform(target.target()).await?,
+                    Some(target) => self.get_platform_configuration(target).await?,
+                    None => self.get_default_platform(target).await?,
                 },
             })
         };
@@ -162,7 +114,7 @@ impl<'c> Calculation<'c> for DiceComputations {
                 let cfg = get_platform_configuration().await?;
                 let exec_cfg = get_execution_platform_toolchain_dep(
                     self,
-                    &target.target().configure(cfg.dupe()),
+                    &target.configure(cfg.dupe()),
                     &node,
                 )
                 .await?
@@ -172,10 +124,24 @@ impl<'c> Calculation<'c> for DiceComputations {
         }
     }
 
-    async fn get_default_configured_target<T: ConfigurableTargetLabel>(
+    async fn get_configured_provider_label(
         &self,
-        target: &T,
-    ) -> anyhow::Result<T::Configured> {
+        target: &ProvidersLabel,
+        global_target_platform: Option<&TargetLabel>,
+    ) -> anyhow::Result<ConfiguredProvidersLabel> {
+        let configured_target_label = self
+            .get_configured_target(target.target(), global_target_platform)
+            .await?;
+        Ok(ConfiguredProvidersLabel::new(
+            configured_target_label,
+            target.name().clone(),
+        ))
+    }
+
+    async fn get_default_configured_target(
+        &self,
+        target: &TargetLabel,
+    ) -> anyhow::Result<ConfiguredTargetLabel> {
         self.get_configured_target(target, None).await
     }
 }

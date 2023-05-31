@@ -273,7 +273,10 @@ impl<'c> QueryLiterals<ActionQueryNode> for DiceAqueryDelegate<'c> {
                     let configured_label = self
                         .base_delegate
                         .ctx()
-                        .get_configured_target(&label, self.base_delegate.global_target_platform())
+                        .get_configured_provider_label(
+                            &label,
+                            self.base_delegate.global_target_platform(),
+                        )
                         .await?;
 
                     match self
