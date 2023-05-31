@@ -20,7 +20,6 @@ use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
-use buck2_test_api::protocol::TestOrchestrator;
 use clap::Parser;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;

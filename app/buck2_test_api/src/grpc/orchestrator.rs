@@ -127,9 +127,8 @@ impl DownwardApi for TestOrchestratorClient {
     }
 }
 
-#[async_trait::async_trait]
-impl TestOrchestrator for TestOrchestratorClient {
-    async fn execute2(
+impl TestOrchestratorClient {
+    pub async fn execute2(
         &self,
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
@@ -175,7 +174,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(result)
     }
 
-    async fn report_test_result(&self, result: TestResult) -> anyhow::Result<()> {
+    pub async fn report_test_result(&self, result: TestResult) -> anyhow::Result<()> {
         let result = result.try_into().context("Invalid `result`")?;
 
         self.test_orchestrator_client
@@ -188,7 +187,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn report_tests_discovered(
+    pub async fn report_tests_discovered(
         &self,
         target: ConfiguredTargetHandle,
         suite: String,
@@ -210,7 +209,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
+    pub async fn report_test_session(&self, session_info: String) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .report_test_session(ReportTestSessionRequest { session_info })
@@ -219,7 +218,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
+    pub async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .end_of_test_results(EndOfTestResultsRequest { exit_code })
@@ -228,7 +227,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn prepare_for_local_execution(
+    pub async fn prepare_for_local_execution(
         &self,
         ui_prints: DisplayMetadata,
         target: ConfiguredTargetHandle,
@@ -266,7 +265,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         Ok(result)
     }
 
-    async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
+    pub async fn attach_info_message(&self, message: String) -> anyhow::Result<()> {
         self.test_orchestrator_client
             .clone()
             .attach_info_message(AttachInfoMessageRequest { message })
