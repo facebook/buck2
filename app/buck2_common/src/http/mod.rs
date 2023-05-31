@@ -428,14 +428,14 @@ impl HttpClient for SecureHttpClient {
 }
 
 async fn read_truncated_error_response(mut resp: Response<Body>) -> String {
-    let mut read = StreamReader::new(
+    let read = StreamReader::new(
         resp.body_mut()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
     );
-    let mut buf = [0; 1024];
-    read.read(&mut buf).await.map_or_else(
+    let mut buf = Vec::with_capacity(1024);
+    read.take(1024).read_to_end(&mut buf).await.map_or_else(
         |e| format!("Error decoding response: {:?}", e),
-        |bytes| String::from_utf8_lossy(buf[..bytes].as_ref()).into_owned(),
+        |_| String::from_utf8_lossy(buf.as_ref()).into_owned(),
     )
 }
 
