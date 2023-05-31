@@ -96,7 +96,7 @@ load(
 )
 load(
     ":compile.bzl",
-    "CxxCompileCommandOutputForCompDb",
+    "CxxCompileCommandOutput",
     "compile_cxx",
     "create_compile_cmds",
 )
@@ -214,7 +214,7 @@ _CxxAllLibraryOutputs = record(
 # the commands use to compile them and all the object file variants.
 _CxxCompiledSourcesOutput = record(
     # Compile commands used to compile the source files or generate object files
-    compile_cmds = field(CxxCompileCommandOutputForCompDb.type),
+    compile_cmds = field(CxxCompileCommandOutput.type),
     # Non-PIC object files
     objects = field([["artifact"], None]),
     # Those outputs which are bitcode
@@ -325,7 +325,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
         )
 
     if impl_params.generate_sub_targets.argsfiles:
-        sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.source_commands.argsfiles_info]
+        sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.argsfiles_info]
 
     if impl_params.generate_sub_targets.clang_traces:
         if compiled_srcs.clang_traces:
@@ -343,11 +343,11 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
-        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.comp_db_commands.src_compile_cmds)
+        comp_db = create_compilation_database(ctx, compiled_srcs.compile_cmds.comp_db_compile_cmds)
         sub_targets["compilation-database"] = [comp_db]
     comp_db_info = None
     if impl_params.generate_providers.compilation_database:
-        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_commands.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
         providers.append(comp_db_info)
 
     # Link Groups
@@ -481,7 +481,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             output = default_output.default if default_output else None,
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional.srcs,
-            argsfiles_by_ext = compiled_srcs.compile_cmds.source_commands.argsfile_by_ext,
+            argsfiles_by_ext = compiled_srcs.compile_cmds.argsfile_by_ext,
             product_name = get_default_cxx_library_product_name(ctx, impl_params),
         )
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
@@ -771,7 +771,7 @@ def cxx_compile_srcs(
     external_debug_info = None
     stripped_objects = []
     clang_traces = []
-    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = True)
+    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
     pic_objects = [out.object for out in pic_cxx_outs]
     pic_objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, pic_cxx_outs)
     pic_external_debug_info = [out.external_debug_info for out in pic_cxx_outs if out.external_debug_info != None]
@@ -790,7 +790,7 @@ def cxx_compile_srcs(
     all_outs.extend(pic_cxx_outs)
 
     if preferred_linkage != Linkage("shared"):
-        cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = False)
+        cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
         all_outs.extend(cxx_outs)
         objects = [out.object for out in cxx_outs]
         objects_have_external_debug_info = is_any(lambda out: out.object_has_external_debug_info, cxx_outs)

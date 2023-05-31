@@ -174,14 +174,14 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
     )
-    cxx_outs = compile_cxx(ctx, compile_cmd_output.source_commands.src_compile_cmds, pic = link_style != LinkStyle("static"))
-    sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.source_commands.argsfiles_info]
+    cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
+    sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.argsfiles_info]
     sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
 
     # Compilation DB.
-    comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_commands.src_compile_cmds)
+    comp_db = create_compilation_database(ctx, compile_cmd_output.comp_db_compile_cmds)
     sub_targets["compilation-database"] = [comp_db]
-    comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_commands.src_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+    comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
 
     # Link deps
     link_deps = linkables(cxx_attr_deps(ctx)) + impl_params.extra_link_deps
@@ -437,7 +437,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles_by_ext = compile_cmd_output.source_commands.argsfile_by_ext,
+        argsfiles_by_ext = compile_cmd_output.argsfile_by_ext,
         product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info

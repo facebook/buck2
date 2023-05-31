@@ -117,20 +117,14 @@ CxxSrcCompileCommand = record(
 
 # Output of creating compile commands for Cxx source files.
 CxxCompileCommandOutput = record(
-    # List of compile commands for each source file
-    src_compile_cmds = field([CxxSrcCompileCommand.type]),
-    # Argsfiles to generate in order to compile these source files
-    argsfiles_info = field(DefaultInfo.type),
-    # Each argsfile by the file extension for which it is used
-    argsfile_by_ext = field({str.type: "artifact"}),
-)
-
-# Output of creating compile commands for Cxx source files.
-CxxCompileCommandOutputForCompDb = record(
-    # Output of creating compile commands for Cxx source files.
-    source_commands = field(CxxCompileCommandOutput.type),
-    # this field is only to be used in CDB generation
-    comp_db_commands = field(CxxCompileCommandOutput.type),
+    # List of compile commands for each source file.
+    src_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
+    # Argsfiles to generate in order to compile these source files.
+    argsfiles_info = field(DefaultInfo.type, default = DefaultInfo()),
+    # Each argsfile by the file extension for which it is used.
+    argsfile_by_ext = field({str.type: "artifact"}, default = {}),
+    # List of compile commands for use in compilation database generation.
+    comp_db_compile_cmds = field([CxxSrcCompileCommand.type], default = []),
 )
 
 # An input to cxx compilation, consisting of a file to compile and optional
@@ -159,7 +153,7 @@ def create_compile_cmds(
         ctx: "context",
         impl_params: "CxxRuleConstructorParams",
         own_preprocessors: [CPreprocessor.type],
-        inherited_preprocessor_infos: [CPreprocessorInfo.type]) -> CxxCompileCommandOutputForCompDb.type:
+        inherited_preprocessor_infos: [CPreprocessorInfo.type]) -> CxxCompileCommandOutput.type:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -180,10 +174,7 @@ def create_compile_cmds(
                     if header.extension in [".h", ".hpp"]:
                         srcs_with_flags.append(CxxSrcWithFlags(file = header))
             else:
-                return CxxCompileCommandOutputForCompDb(
-                    source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
-                    comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
-                )
+                return CxxCompileCommandOutput()
         else:
             header_only = True
             for header in all_headers:
@@ -273,14 +264,13 @@ def create_compile_cmds(
     argsfiles = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = other_outputs)
 
     if header_only:
-        return CxxCompileCommandOutputForCompDb(
-            source_commands = CxxCompileCommandOutput(src_compile_cmds = [], argsfiles_info = DefaultInfo(), argsfile_by_ext = {}),
-            comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
-        )
+        return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
     else:
-        return CxxCompileCommandOutputForCompDb(
-            source_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
-            comp_db_commands = CxxCompileCommandOutput(src_compile_cmds = src_compile_cmds, argsfiles_info = argsfiles, argsfile_by_ext = argsfile_artifacts_by_ext),
+        return CxxCompileCommandOutput(
+            src_compile_cmds = src_compile_cmds,
+            argsfiles_info = argsfiles,
+            argsfile_by_ext = argsfile_artifacts_by_ext,
+            comp_db_compile_cmds = src_compile_cmds,
         )
 
 def compile_cxx(
