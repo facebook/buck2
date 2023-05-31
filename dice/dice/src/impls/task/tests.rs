@@ -12,12 +12,12 @@ use std::sync::atomic::Ordering;
 use std::task::Poll;
 
 use allocative::Allocative;
+use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::poll;
 use futures::FutureExt;
-use more_futures::cancellation::future::TerminationStatus;
 use more_futures::cancellation::CancellationContext;
 use more_futures::spawner::TokioSpawner;
 use tokio::sync::Barrier;
@@ -545,9 +545,13 @@ async fn dropping_all_waiters_cancels_task() {
 
     barrier.wait().await;
 
+    let await_termination = task.await_termination();
+    futures::pin_mut!(await_termination);
+
     assert!(!task.internal.state.is_ready(Ordering::SeqCst));
     assert!(!task.internal.state.is_terminated(Ordering::SeqCst));
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -555,6 +559,7 @@ async fn dropping_all_waiters_cancels_task() {
         .unwrap();
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -562,10 +567,12 @@ async fn dropping_all_waiters_cancels_task() {
         .unwrap();
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     drop(promise1);
 
     assert!(task.is_pending());
+    assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -579,10 +586,10 @@ async fn dropping_all_waiters_cancels_task() {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(termination) => {
-            assert_eq!(termination.unwrap().await, TerminationStatus::Cancelled);
-        }
+        MaybeCancelled::Cancelled => {}
     }
+
+    task.await_termination().await;
 
     assert!(!task.internal.state.is_ready(Ordering::SeqCst));
     assert!(task.internal.state.is_terminated(Ordering::SeqCst));
@@ -595,17 +602,13 @@ async fn task_that_already_cancelled_returns_cancelled() {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    assert_eq!(
-        task.cancel().expect("should be cancellable").await,
-        TerminationStatus::Cancelled
-    );
+    task.cancel();
+    task.await_termination().await;
 
     match task.depended_on_by(ParentKey::None) {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(termination) => {
-            assert!(termination.is_none());
-        }
+        MaybeCancelled::Cancelled => {}
     }
 }

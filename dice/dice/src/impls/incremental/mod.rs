@@ -24,7 +24,6 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
 use more_futures::cancellable_future::DisableCancellationGuard;
-use more_futures::cancellation::future::TerminationStatus;
 use tokio::sync::oneshot;
 use tracing::Instrument;
 
@@ -98,27 +97,20 @@ impl IncrementalEngine {
             async move {
                 if let Some(previous) = previously_cancelled_task {
                     debug!(msg = "waiting for previously cancelled task");
-                    match previous.termination.await {
-                        TerminationStatus::Finished => {
-                            // old task actually finished, so just use that result if it wasn't
-                            // cancelled
+                    previous.previous.await_termination().await;
+                    // old task actually finished, so just use that result if it wasn't
+                    // cancelled
 
 
-                            match previous.previous.get_finished_value().expect("Terminated task must have finished value") {
-                                Ok(res) => {
-                                    debug!(msg = "previously cancelled task actually finished");
+                    match previous.previous.get_finished_value().expect("Terminated task must have finished value") {
+                        Ok(res) => {
+                            debug!(msg = "previously cancelled task actually finished");
 
-                                    handle.finished(res);
-                                    return Box::new(()) as Box<dyn Any + Send + 'static>;
-                                }
-                                Err(_err) => {
-                                    // actually was cancelled, so just continue re-evaluating
-
-                                }
-                            }
+                            handle.finished(res);
+                            return Box::new(()) as Box<dyn Any + Send + 'static>;
                         }
-                        _ => {
-                            // continue re-evaluating
+                        Err(_err) => {
+                            // actually was cancelled, so just continue re-evaluating
                         }
                     }
                 }

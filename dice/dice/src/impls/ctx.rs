@@ -405,7 +405,7 @@ impl SharedLiveTransactionCtx {
 
                         promise
                     },
-                    MaybeCancelled::Cancelled(termination) => {
+                    MaybeCancelled::Cancelled => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         let eval = eval.dupe();
@@ -421,9 +421,8 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                termination.map(|termination| PreviouslyCancelledTask {
+                                 Some(PreviouslyCancelledTask {
                                     previous,
-                                    termination,
                                 }),
                             )
                         });
@@ -489,8 +488,7 @@ impl SharedLiveTransactionCtx {
             Some(Entry::Occupied(mut occupied)) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
-                    MaybeCancelled::Cancelled(termination) => {
-                        let _ignored = termination; // for projections, since all projection evaluation is cheap and sync hence no side-effects, we ignore the termination
+                    MaybeCancelled::Cancelled => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                             sync_dice_task()

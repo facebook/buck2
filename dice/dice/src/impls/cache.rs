@@ -17,7 +17,6 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dupe::Dupe;
 use fnv::FnvBuildHasher;
-use more_futures::cancellation::future::TerminationObserver;
 
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
@@ -59,14 +58,15 @@ impl SharedCache {
 
     /// This function gets the termination observer for all running tasks when transaction is
     /// cancelled and prevents further tasks from being added
-    pub(crate) fn cancel_pending_tasks(self) -> Vec<TerminationObserver> {
+    pub(crate) fn cancel_pending_tasks(self) -> Vec<DiceTask> {
         self.data.is_cancelled.store(true, Ordering::Release);
         self.data
             .storage
             .iter()
             .filter_map(|entry| {
                 if entry.value().is_pending() {
-                    entry.value().cancel()
+                    entry.value().cancel();
+                    Some(entry.value().clone())
                 } else {
                     None
                 }
@@ -177,7 +177,9 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel().unwrap().await;
+        finished_cancelling_tasks.cancel();
+
+        finished_cancelling_tasks.await_termination().await;
 
         finished_cancelling_tasks
     }

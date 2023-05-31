@@ -623,11 +623,10 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         None,
     );
 
-    let termination = previous_task.cancel().unwrap();
+    previous_task.cancel();
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
-        termination,
     });
 
     let is_ran = Arc::new(AtomicBool::new(false));
@@ -703,11 +702,10 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         .unwrap()
         .await
         .unwrap();
-    let termination = previous_task.cancel().unwrap();
+    previous_task.cancel();
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
-        termination,
     });
 
     let is_ran = Arc::new(AtomicBool::new(false));

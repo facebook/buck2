@@ -9,20 +9,26 @@
 
 //! A task stored by Dice that is shared for all transactions at the same version
 use std::cell::UnsafeCell;
+use std::future::Future;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::pin::Pin;
 use std::sync::atomic::Ordering;
+use std::task::Context;
+use std::task::Poll;
 
 use allocative::Allocative;
 use allocative::Visitor;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use futures::future::Shared;
 use futures::task::AtomicWaker;
+use futures::FutureExt;
 use more_futures::cancellation::future::CancellationHandle;
-use more_futures::cancellation::future::TerminationObserver;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use slab::Slab;
+use tokio::sync::oneshot;
 
 use crate::arc::Arc;
 use crate::impls::key::ParentKey;
@@ -57,7 +63,7 @@ use crate::result::Cancelled;
 /// doesn't require weak ptr handling. This is just so that we have the JoinHandle so we can abort
 /// when canceled, but we could choose to change the implementation by moving cancellation
 /// notification into the DiceTaskInternal
-#[derive(Allocative)]
+#[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceTask {
     pub(super) internal: Arc<DiceTaskInternal>,
     /// Handle to cancel the spawned task
@@ -77,6 +83,11 @@ pub(super) struct DiceTaskInternal {
     pub(super) dependants: Mutex<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
     /// The value if finished computing
     maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
+
+    /// Must hold lock from `dependants` to read
+    termination_waiter: UnsafeCell<Shared<oneshot::Receiver<()>>>,
+    /// Must hold lock from `dependants` to send
+    termination_sender: UnsafeCell<Option<oneshot::Sender<()>>>,
 }
 
 impl Allocative for DiceTaskInternal {
@@ -94,14 +105,53 @@ impl Allocative for DiceTaskInternal {
 
 pub(crate) enum MaybeCancelled {
     Ok(DicePromise),
-    Cancelled(Option<TerminationObserver>),
+    Cancelled,
 }
 
 impl MaybeCancelled {
     pub(crate) fn not_cancelled(self) -> Option<DicePromise> {
         match self {
             MaybeCancelled::Ok(promise) => Some(promise),
-            MaybeCancelled::Cancelled(_) => None,
+            MaybeCancelled::Cancelled => None,
+        }
+    }
+}
+
+/// Future when resolves when task is finished or cancelled and terminated.
+pub(crate) struct TerminationObserver(TerminationObserverInternal);
+
+enum TerminationObserverInternal {
+    Waiting {
+        internals: Arc<DiceTaskInternal>,
+        waiter: Shared<oneshot::Receiver<()>>,
+    },
+    Done,
+}
+
+impl TerminationObserver {
+    pub(crate) fn is_terminated(&self) -> bool {
+        match &self.0 {
+            TerminationObserverInternal::Waiting { internals, .. } => !internals.is_pending(),
+            TerminationObserverInternal::Done => true,
+        }
+    }
+}
+
+impl Future for TerminationObserver {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match &mut self.0 {
+            TerminationObserverInternal::Waiting { internals, waiter } => {
+                if !internals.is_pending() {
+                    Poll::Ready(())
+                } else {
+                    waiter
+                        .poll_unpin(cx)
+                        .map(|res| res.expect("task dropped without notifying"))
+                }
+            }
+            TerminationObserverInternal::Done => Poll::Ready(()),
         }
     }
 }
@@ -113,12 +163,12 @@ impl DiceTask {
         if let Some(result) = self.internal.read_value() {
             match result {
                 Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                Err(_err) => MaybeCancelled::Cancelled(None),
+                Err(_err) => MaybeCancelled::Cancelled,
             }
         } else {
             let mut wakers = self.internal.dependants.lock();
-            if let Some(termination) = self.cancellations.is_cancelled(&wakers) {
-                return MaybeCancelled::Cancelled(Some(termination));
+            if self.cancellations.is_cancelled(&wakers) {
+                return MaybeCancelled::Cancelled;
             }
             match wakers.deref_mut() {
                 None => {
@@ -128,7 +178,7 @@ impl DiceTask {
                         .expect("invalid state where deps are taken before state is ready")
                     {
                         Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                        Err(_err) => MaybeCancelled::Cancelled(None),
+                        Err(_err) => MaybeCancelled::Cancelled,
                     }
                 }
                 Some(ref mut wakers) => {
@@ -153,8 +203,7 @@ impl DiceTask {
     #[allow(unused)] // future introspection functions
     /// true if this task is not yet complete and not yet canceled.
     pub(crate) fn is_pending(&self) -> bool {
-        !(self.internal.state.is_ready(Ordering::Acquire)
-            || self.internal.state.is_terminated(Ordering::Acquire))
+        self.internal.is_pending()
     }
 
     #[allow(unused)] // future introspection functions
@@ -167,10 +216,30 @@ impl DiceTask {
             .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
     }
 
-    pub(crate) fn cancel(&self) -> Option<TerminationObserver> {
+    pub(crate) fn cancel(&self) {
         let lock = self.internal.dependants.lock();
         self.cancellations.cancel(&lock);
-        self.cancellations.is_cancelled(&lock)
+    }
+
+    pub(crate) fn await_termination(&self) -> TerminationObserver {
+        if let Some(_result) = self.internal.read_value() {
+            TerminationObserver(TerminationObserverInternal::Done)
+        } else {
+            let mut wakers = self.internal.dependants.lock();
+            match wakers.deref_mut() {
+                None => {
+                    let _result = self
+                        .internal
+                        .read_value()
+                        .expect("invalid state where deps are taken before state is ready");
+                    TerminationObserver(TerminationObserverInternal::Done)
+                }
+                Some(_wakers) => TerminationObserver(TerminationObserverInternal::Waiting {
+                    internals: self.internal.dupe(),
+                    waiter: self.internal.termination_waiter(&wakers),
+                }),
+            }
+        }
     }
 }
 
@@ -190,10 +259,13 @@ impl DiceTaskInternal {
     }
 
     pub(super) fn new() -> Arc<Self> {
+        let (tx, rx) = oneshot::channel();
         Arc::new(Self {
             state: AtomicDiceTaskState::default(),
             dependants: Mutex::new(Some(Slab::new())),
             maybe_value: UnsafeCell::new(None),
+            termination_waiter: UnsafeCell::new(rx.shared()),
+            termination_sender: UnsafeCell::new(Some(tx)),
         })
     }
 
@@ -244,13 +316,21 @@ impl DiceTaskInternal {
     }
 
     pub(super) fn wake_dependents(&self) {
-        let mut deps = self
-            .dependants
-            .lock()
+        let mut deps_lock = self.dependants.lock();
+        let mut deps = deps_lock
             .take()
             .expect("Invalid state where deps where taken already");
 
         deps.drain().for_each(|(_k, waker)| waker.wake());
+
+        unsafe {
+            // SAFETY: locked by the MutexGuard of Slab
+            (&mut *self.termination_sender.get())
+                .take()
+                .expect("terminated twice")
+                .send(())
+                .expect("receiver held by self");
+        };
     }
 
     /// report the task as terminated. This should only be called once. No effect if called affect
@@ -277,6 +357,21 @@ impl DiceTaskInternal {
         self.state.report_terminated();
         self.wake_dependents();
     }
+
+    /// true if this task is not yet complete and not yet canceled.
+    pub(crate) fn is_pending(&self) -> bool {
+        !(self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire))
+    }
+
+    pub(crate) fn termination_waiter(
+        &self,
+        _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
+    ) -> Shared<oneshot::Receiver<()>> {
+        unsafe {
+            // SAFETY: locked by the MutexGuard of Slab
+            (*self.termination_waiter.get()).clone()
+        }
+    }
 }
 
 // our use of `UnsafeCell` is okay to be send and sync.
@@ -295,7 +390,7 @@ pub(super) struct Cancellations {
 
 enum CancellationsInternal {
     NotCancelled(CancellationHandle),
-    Cancelled(TerminationObserver),
+    Cancelled,
 }
 
 impl Cancellations {
@@ -320,7 +415,8 @@ impl Cancellations {
                 },
                 |internal| match internal {
                     CancellationsInternal::NotCancelled(handle) => {
-                        CancellationsInternal::Cancelled(handle.cancel())
+                        handle.cancel();
+                        CancellationsInternal::Cancelled
                     }
                     cancelled => cancelled,
                 },
@@ -331,14 +427,14 @@ impl Cancellations {
     pub(super) fn is_cancelled(
         &self,
         _lock: &MutexGuard<Option<Slab<(ParentKey, Arc<AtomicWaker>)>>>,
-    ) -> Option<TerminationObserver> {
-        self.internal.as_ref().and_then(|internal| {
+    ) -> bool {
+        self.internal.as_ref().map_or(false, |internal| {
             match unsafe {
                 // SAFETY: locked by the MutexGuard of Slab
                 &*internal.get()
             } {
-                CancellationsInternal::NotCancelled(_) => None,
-                CancellationsInternal::Cancelled(termination) => Some(termination.clone()),
+                CancellationsInternal::NotCancelled(_) => false,
+                CancellationsInternal::Cancelled => true,
             }
         })
     }

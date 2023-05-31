@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use more_futures::cancellation::future::TerminationObserver;
+use gazebo::prelude::SliceExt;
 
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -19,6 +19,8 @@ use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::key::DiceKey;
+use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -35,7 +37,7 @@ use crate::HashMap;
 pub(super) struct CoreState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
-    pending_termination_tasks: Vec<TerminationObserver>,
+    pending_termination_tasks: Vec<DiceTask>,
 }
 
 impl CoreState {
@@ -84,7 +86,7 @@ impl CoreState {
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         if let Some(evicted_cache) = self.version_tracker.drop_at_version(v) {
             self.pending_termination_tasks
-                .retain(|task| !task.is_terminated());
+                .retain(|task| task.is_pending());
             self.pending_termination_tasks
                 .extend(evicted_cache.cancel_pending_tasks());
         }
@@ -115,9 +117,10 @@ impl CoreState {
 
     pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<TerminationObserver> {
         self.pending_termination_tasks
-            .retain(|task| !task.is_terminated());
+            .retain(|task| task.is_pending());
 
-        self.pending_termination_tasks.clone()
+        self.pending_termination_tasks
+            .map(|task| task.await_termination())
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -258,7 +261,9 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel().unwrap().await;
+        finished_cancelling_tasks.cancel();
+
+        finished_cancelling_tasks.await_termination().await;
 
         finished_cancelling_tasks
     }
