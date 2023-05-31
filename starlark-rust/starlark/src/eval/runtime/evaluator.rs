@@ -431,16 +431,16 @@ impl<'v, 'a> Evaluator<'v, 'a> {
     /// Called to change the local variables, from the callee.
     /// Only called for user written functions.
     #[inline(always)] // There is only one caller
-    pub(crate) fn with_function_context<R>(
+    pub(crate) fn with_function_context(
         &mut self,
         module: Option<FrozenRef<'static, FrozenModuleData>>, // None == use module_env
-        within: impl FnOnce(&mut Self) -> R,
-    ) -> R {
+        bc: &Bc,
+    ) -> Result<Value<'v>, EvalException> {
         // Set up for the new function call
         let old_module_variables = mem::replace(&mut self.module_variables, module);
 
         // Run the computation
-        let res = within(self);
+        let res = self.eval_bc(bc);
 
         // Restore them all back
         self.module_variables = old_module_variables;
