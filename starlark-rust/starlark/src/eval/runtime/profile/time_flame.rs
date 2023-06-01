@@ -44,17 +44,55 @@ enum FlameProfileError {
 
 /// Index into FlameData.values
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
-struct ValueIndex(usize);
+struct ValueId(usize);
 
-impl ValueIndex {
+impl ValueId {
     fn lookup<T>(self, xs: &[T]) -> &T {
         &xs[self.0]
     }
 }
 
+/// Bimap between `Value` and `ValueId`.
+/// In order to optimise GC (which otherwise quickly becomes O(n^2)) we have to
+/// dedupe the values, so store them in `values`, with a fast map to get them in `map`.
+/// Whenever we GC, regenerate map.
+#[derive(Default)]
+struct ValueIndex<'v> {
+    /// Map from `ValueId` to `Value`.
+    values: Vec<Value<'v>>,
+    /// Map from `Value` to `ValueIndex`.
+    map: HashMap<RawPointer, ValueId>,
+}
+
+unsafe impl<'v> Trace<'v> for ValueIndex<'v> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.values.trace(tracer);
+        // Have to rebuild the map, as its keyed by ValuePtr which changes on GC
+        self.map.clear();
+        for (i, x) in self.values.iter().enumerate() {
+            self.map.insert(x.ptr_value(), ValueId(i));
+        }
+    }
+}
+
+impl<'v> ValueIndex<'v> {
+    /// Map `Value` to `ValueId`.
+    fn index(&mut self, value: Value<'v>) -> ValueId {
+        match self.map.entry(value.ptr_value()) {
+            Entry::Occupied(e) => *e.get(),
+            Entry::Vacant(e) => {
+                let res = ValueId(self.values.len());
+                self.values.push(value);
+                e.insert(res);
+                res
+            }
+        }
+    }
+}
+
 enum Frame {
     /// Entry recorded when we enter a function.
-    Push(ValueIndex),
+    Push(ValueId),
     /// Entry recorded when we exit a function.
     Pop,
 }
@@ -65,34 +103,17 @@ pub(crate) struct TimeFlameProfile<'v>(
     Option<Box<FlameData<'v>>>,
 );
 
-/// In order to optimise GC (which otherwise quickly becomes O(n^2)) we have to
-/// dedupe the values, so store them in `values`, with a fast map to get them in `map`.
-/// Whenever we GC, regenerate map.
-#[derive(Default)]
+#[derive(Default, Trace)]
 struct FlameData<'v> {
     /// All events in the profile, i.e. function entry or exit with timestamp.
     frames: Vec<(Frame, Instant)>,
-    /// Map from `ValueIndex` to `Value`.
-    values: Vec<Value<'v>>,
-    /// Map from `Value` to `ValueIndex`.
-    map: HashMap<RawPointer, ValueIndex>,
-}
-
-unsafe impl<'v> Trace<'v> for FlameData<'v> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.values.trace(tracer);
-        // Have to rebuild the map, as its keyed by ValuePtr which changes on GC
-        self.map.clear();
-        for (i, x) in self.values.iter().enumerate() {
-            self.map.insert(x.ptr_value(), ValueIndex(i));
-        }
-    }
+    index: ValueIndex<'v>,
 }
 
 struct Stacks<'a> {
     name: &'a str,
     time: SmallDuration,
-    children: HashMap<ValueIndex, Stacks<'a>>,
+    children: HashMap<ValueId, Stacks<'a>>,
 }
 
 impl<'a> Stacks<'a> {
@@ -163,15 +184,7 @@ impl<'v> TimeFlameProfile<'v> {
     #[inline(never)]
     pub(crate) fn record_call_enter(&mut self, function: Value<'v>) {
         if let Some(x) = &mut self.0 {
-            let ind = match x.map.entry(function.ptr_value()) {
-                Entry::Occupied(e) => *e.get(),
-                Entry::Vacant(e) => {
-                    let res = ValueIndex(x.values.len());
-                    x.values.push(function);
-                    e.insert(res);
-                    res
-                }
-            };
+            let ind = x.index.index(function);
             x.frames.push((Frame::Push(ind), Instant::now()))
         }
     }
@@ -196,7 +209,7 @@ impl<'v> TimeFlameProfile<'v> {
         // Need to write out lines which look like:
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
-        let names = x.values.map(|x| x.to_repr());
+        let names = x.index.values.map(|x| x.to_repr());
         ProfileData {
             profile_mode: ProfileMode::TimeFlame,
             profile: ProfileDataImpl::TimeFlameProfile(Stacks::new(&names, &x.frames).render()),
