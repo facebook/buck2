@@ -123,6 +123,7 @@ async fn get_installer_log_directory(
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
     let buck_out_path = out_path
+        .root()
         .as_forward_relative_path()
         .resolve(filesystem.root());
     let install_log_dir = buck_out_path.join(ForwardRelativePathBuf::unchecked_new(

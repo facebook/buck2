@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::result::SharedResult;
+use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -23,7 +23,7 @@ use dupe::Dupe;
 
 #[async_trait]
 pub trait HasBuildContextData {
-    async fn get_buck_out_path(&self) -> SharedResult<ProjectRelativePathBuf>;
+    async fn get_buck_out_path(&self) -> anyhow::Result<BuckOutPathResolver>;
 }
 
 pub trait SetBuildContextData {
@@ -49,9 +49,9 @@ impl InjectedKey for BuildDataKey {
 
 #[async_trait]
 impl HasBuildContextData for DiceComputations {
-    async fn get_buck_out_path(&self) -> SharedResult<ProjectRelativePathBuf> {
+    async fn get_buck_out_path(&self) -> anyhow::Result<BuckOutPathResolver> {
         let data = self.compute(&BuildDataKey).await?;
-        Ok(data.buck_out_path.to_buf())
+        Ok(BuckOutPathResolver::new(data.buck_out_path.to_buf()))
     }
 }
 

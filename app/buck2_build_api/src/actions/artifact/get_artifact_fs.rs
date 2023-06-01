@@ -11,7 +11,6 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -26,7 +25,7 @@ pub trait GetArtifactFs {
 #[async_trait]
 impl GetArtifactFs for DiceComputations {
     async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs> {
-        let buck_out_path_resolver = BuckOutPathResolver::new(self.get_buck_out_path().await?);
+        let buck_out_path_resolver = self.get_buck_out_path().await?;
         let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
         let buck_path_resolver = self.get_cell_resolver().await?;
         Ok(ArtifactFs::new(
