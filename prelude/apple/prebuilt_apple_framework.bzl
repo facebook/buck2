@@ -13,6 +13,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
@@ -61,7 +62,7 @@ def prebuilt_apple_framework_impl(ctx: "context") -> ["provider"]:
         inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
         providers.append(cxx_merge_cpreprocessors(
             ctx,
-            [CPreprocessor(args = ["-F", framework_dir])],
+            [CPreprocessor(relative_args = CPreprocessorArgs(args = ["-F", framework_dir]))],
             inherited_pp_info,
         ))
 

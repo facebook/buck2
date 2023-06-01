@@ -530,7 +530,7 @@ def _add_mixed_library_flags_to_cmd(
     # the debugger as they require absolute paths. Instead we will enforce
     # that mixed libraries do not have serialized debugging info and rely on
     # rdeps to serialize the correct paths.
-    for arg in objc_modulemap_pp_info.args:
+    for arg in objc_modulemap_pp_info.relative_args.args:
         cmd.add("-Xcc")
         cmd.add(arg)
 
