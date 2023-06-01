@@ -10,6 +10,7 @@
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::Value;
 

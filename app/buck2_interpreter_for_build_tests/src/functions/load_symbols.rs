@@ -8,7 +8,7 @@
  */
 
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter::functions::load_symbols::register_load_symbols;
+use buck2_interpreter_for_build::interpreter::functions::load_symbols::register_load_symbols;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 
 #[test]

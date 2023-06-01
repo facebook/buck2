@@ -15,6 +15,7 @@ use starlark::environment::GlobalsBuilder;
 use crate::attrs::attrs_global::register_attrs;
 use crate::interpreter::build_defs::register_base_natives;
 use crate::interpreter::functions::host_info::register_host_info;
+use crate::interpreter::functions::load_symbols::register_load_symbols;
 use crate::interpreter::functions::read_config::register_read_config;
 use crate::interpreter::natives::register_module_natives;
 use crate::rule::register_rule_function;
@@ -72,6 +73,7 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_build_bzl_natives(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
+    register_load_symbols(globals_builder);
     register_rule_function(globals_builder);
     register_attrs(globals_builder);
     (REGISTER_TRANSITION.get().unwrap())(globals_builder);

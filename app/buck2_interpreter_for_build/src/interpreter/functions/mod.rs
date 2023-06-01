@@ -9,5 +9,6 @@
 
 pub(crate) mod dedupe;
 pub mod host_info;
+pub mod load_symbols;
 pub mod read_config;
 pub mod sha256;

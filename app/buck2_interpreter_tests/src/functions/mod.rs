@@ -7,5 +7,4 @@
  * of this source tree.
  */
 
-mod load_symbols;
 mod regex;
