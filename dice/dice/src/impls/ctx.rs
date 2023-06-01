@@ -53,6 +53,7 @@ use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidity;
@@ -79,7 +80,6 @@ impl BaseComputeCtx {
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
-        cycles: UserCycleDetectorData,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
@@ -88,7 +88,7 @@ impl BaseComputeCtx {
                 per_live_version_ctx,
                 user_data,
                 dice,
-                cycles,
+                KeyComputingUserCycleDetectorData::Untracked,
             ))),
             live_version_guard,
         }
@@ -132,7 +132,7 @@ pub(crate) struct PerComputeCtxData {
     dep_trackers: Mutex<RecordingDepsTracker>, // If we make PerComputeCtx &mut, we can get rid of this mutex after some refactoring
     parent_key: ParentKey,
     #[allocative(skip)]
-    cycles: UserCycleDetectorData,
+    cycles: KeyComputingUserCycleDetectorData,
     // Same as above, PerComputeCtx isn't actually geting shared.
     #[allocative(skip)]
     evaluation_data: Mutex<EvaluationData>,
@@ -145,7 +145,7 @@ impl PerComputeCtx {
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
-        cycles: UserCycleDetectorData,
+        cycles: KeyComputingUserCycleDetectorData,
     ) -> Self {
         Self {
             data: Arc::new(PerComputeCtxData {

@@ -46,6 +46,7 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
@@ -194,7 +195,7 @@ impl IncrementalEngine {
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
-        mut cycles: UserCycleDetectorData,
+        cycles: UserCycleDetectorData,
         events_dispatcher: DiceEventDispatcher,
         task_handle: &DiceTaskHandle<'_>,
     ) -> CancellableResult<(DiceComputedValue, Option<DisableCancellationGuard>)> {
@@ -215,7 +216,7 @@ impl IncrementalEngine {
                 Ok((entry, None))
             }
             VersionedGraphResult::Compute => {
-                cycles.start_computing_key(
+                let cycles = cycles.start_computing_key(
                     k,
                     &eval.dice.key_index,
                     eval.user_data.cycle_detector.as_deref(),
@@ -226,7 +227,7 @@ impl IncrementalEngine {
             }
 
             VersionedGraphResult::CheckDeps(mismatch) => {
-                cycles.start_computing_key(
+                let cycles = cycles.start_computing_key(
                     k,
                     &eval.dice.key_index,
                     eval.user_data.cycle_detector.as_deref(),
@@ -296,7 +297,7 @@ impl IncrementalEngine {
         &self,
         k: DiceKey,
         eval: AsyncEvaluator,
-        cycles: UserCycleDetectorData,
+        cycles: KeyComputingUserCycleDetectorData,
         event_dispatcher: &DiceEventDispatcher,
         task_handle: &DiceTaskHandle<'_>,
     ) -> CancellableResult<(DiceComputedValue, DisableCancellationGuard)> {
@@ -374,7 +375,7 @@ impl IncrementalEngine {
         eval: AsyncEvaluator,
         verified_versions: &VersionRanges,
         deps: Arc<Vec<DiceKey>>,
-        cycles: &UserCycleDetectorData,
+        cycles: &KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DidDepsChange> {
         trace!(deps = ?deps);
 

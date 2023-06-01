@@ -17,65 +17,77 @@ use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;
 use crate::impls::key_index::DiceKeyIndex;
 
-/// User supplied cycle detector
-pub(crate) struct UserCycleDetectorData {
-    user_cycle_detector_guard: Option<(DiceKey, Option<Box<dyn UserCycleDetectorGuard>>)>,
-}
+pub(crate) struct UserCycleDetectorData(());
 
 impl UserCycleDetectorData {
-    pub(crate) fn new() -> Self {
-        UserCycleDetectorData {
-            user_cycle_detector_guard: None,
-        }
-    }
-
     pub(crate) fn start_computing_key(
-        &mut self,
+        self,
         k: DiceKey,
         key_index: &DiceKeyIndex,
         detector: Option<&dyn UserCycleDetector>,
-    ) {
-        assert!(self.user_cycle_detector_guard.is_none());
+    ) -> KeyComputingUserCycleDetectorData {
         if let Some(detector) = detector {
-            self.user_cycle_detector_guard =
-                Some((k, detector.start_computing_key(key_index.get(k).as_any())));
+            if let Some(guard) = detector.start_computing_key(key_index.get(k).as_any()) {
+                return KeyComputingUserCycleDetectorData::Detecting { k, guard };
+            }
         }
+        KeyComputingUserCycleDetectorData::Untracked
     }
 
+    #[cfg(test)]
+    pub(crate) fn testing_new() -> Self {
+        Self(())
+    }
+}
+
+/// User supplied cycle detector
+pub(crate) enum KeyComputingUserCycleDetectorData {
+    Detecting {
+        k: DiceKey,
+        guard: Box<dyn UserCycleDetectorGuard>,
+    },
+    Untracked,
+}
+
+impl KeyComputingUserCycleDetectorData {
     pub(crate) fn finished_computing_key(
         self,
         key_index: &DiceKeyIndex,
         detector: Option<&dyn UserCycleDetector>,
     ) {
-        if let Some((k, _)) = self.user_cycle_detector_guard {
-            detector
+        match self {
+            KeyComputingUserCycleDetectorData::Detecting { k, .. } => detector
                 .unwrap()
-                .finished_computing_key(key_index.get(k).as_any())
+                .finished_computing_key(key_index.get(k).as_any()),
+            KeyComputingUserCycleDetectorData::Untracked => {}
         }
     }
 
     pub(crate) fn subrequest(&self, k: DiceKey, key_index: &DiceKeyIndex) -> UserCycleDetectorData {
-        if let Some((_, Some(v))) = &self.user_cycle_detector_guard {
-            v.add_edge(key_index.get(k).as_any());
+        match self {
+            KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
+                guard.add_edge(key_index.get(k).as_any());
+            }
+            KeyComputingUserCycleDetectorData::Untracked => {}
         }
 
-        UserCycleDetectorData {
-            user_cycle_detector_guard: None,
-        }
+        UserCycleDetectorData(())
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<&T>> {
-        match &self.user_cycle_detector_guard {
-            Some((_, Some(guard))) => match guard.as_any().downcast_ref() {
-                Some(guard) => Ok(Some(guard)),
-                None => Err(DiceError(Arc::new(
-                    DiceErrorImpl::UnexpectedCycleGuardType {
-                        expected_type_name: std::any::type_name::<T>().to_owned(),
-                        actual_type_name: guard.type_name().to_owned(),
-                    },
-                ))),
-            },
-            _ => Ok(None),
+        match self {
+            KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
+                match guard.as_any().downcast_ref() {
+                    Some(guard) => Ok(Some(guard)),
+                    None => Err(DiceError(Arc::new(
+                        DiceErrorImpl::UnexpectedCycleGuardType {
+                            expected_type_name: std::any::type_name::<T>().to_owned(),
+                            actual_type_name: guard.type_name().to_owned(),
+                        },
+                    ))),
+                }
+            }
+            KeyComputingUserCycleDetectorData::Untracked => Ok(None),
         }
     }
 }

@@ -51,6 +51,7 @@ use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
@@ -137,7 +138,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let engine = IncrementalEngine::new(dice.state_handle.dupe(), VersionEpoch::testing_new(0));
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
-    let cycles = UserCycleDetectorData::new();
+    let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
     let (ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
     ctx.inject(
@@ -300,7 +301,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
-        UserCycleDetectorData::new(),
+        UserCycleDetectorData::testing_new(),
         events.dupe(),
         None,
     );
@@ -341,7 +342,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
-        UserCycleDetectorData::new(),
+        UserCycleDetectorData::testing_new(),
         events.dupe(),
         None,
     );
@@ -386,7 +387,7 @@ async fn test_values_gets_reevaluated_when_deps_change() -> anyhow::Result<()> {
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
-        UserCycleDetectorData::new(),
+        UserCycleDetectorData::testing_new(),
         events.dupe(),
         None,
     );
@@ -476,7 +477,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
-        UserCycleDetectorData::new(),
+        UserCycleDetectorData::testing_new(),
         events.dupe(),
         None,
     );
@@ -504,7 +505,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         key.dupe(),
         ctx.testing_get_epoch(),
         eval.dupe(),
-        UserCycleDetectorData::new(),
+        UserCycleDetectorData::testing_new(),
         events.dupe(),
         None,
     );
@@ -554,7 +555,7 @@ async fn spawn_with_no_previously_cancelled_task() {
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
     let previously_cancelled_task = None;
 
@@ -590,7 +591,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
@@ -631,7 +632,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let task = IncrementalEngine::spawn_for_key(
         k,
         VersionEpoch::testing_new(0),
@@ -664,7 +665,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
@@ -710,7 +711,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let task = IncrementalEngine::spawn_for_key(
         k,
         VersionEpoch::testing_new(0),
@@ -743,7 +744,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
-    let cycles = UserCycleDetectorData::new();
+    let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
     // trigger dice to delete and update the epoch

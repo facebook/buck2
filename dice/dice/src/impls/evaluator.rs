@@ -25,7 +25,7 @@ use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
-use crate::impls::user_cycle::UserCycleDetectorData;
+use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::result::CancellableResult;
 use crate::HashSet;
@@ -50,7 +50,7 @@ impl AsyncEvaluator {
     pub(crate) async fn evaluate<'b>(
         &self,
         key: DiceKey,
-        cycles: UserCycleDetectorData,
+        cycles: KeyComputingUserCycleDetectorData,
         cancellation: &CancellationContext,
     ) -> CancellableResult<KeyEvaluationResult> {
         let key_erased = self.dice.key_index.get(key);
@@ -86,7 +86,7 @@ impl AsyncEvaluator {
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself
                         self,
-                        cycles,
+                        cycles.subrequest(proj.base(), &self.dice.key_index),
                     )
                     .await?;
 
