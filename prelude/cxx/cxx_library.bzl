@@ -22,6 +22,10 @@ load(
     "apple_get_link_info_by_deduping_link_infos",
 )
 load(
+    "@prelude//apple:xcode.bzl",
+    "apple_get_xcode_absolute_path_prefix",
+)
+load(
     "@prelude//apple/swift:swift_runtime.bzl",
     "create_swift_runtime_linkable",
 )
@@ -287,7 +291,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     # TODO(T110378095) right now we implement reexport of exported_* flags manually, we should improve/automate that in the macro layer
 
-    absolute_path_prefix = None
+    absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
 
     # Gather preprocessor inputs.
     (own_non_exported_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(

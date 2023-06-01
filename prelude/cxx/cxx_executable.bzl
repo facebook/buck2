@@ -18,6 +18,10 @@ load(
     "apple_get_link_info_by_deduping_link_infos",
 )
 load(
+    "@prelude//apple:xcode.bzl",
+    "apple_get_xcode_absolute_path_prefix",
+)
+load(
     "@prelude//cxx:cxx_bolt.bzl",
     "cxx_use_bolt",
 )
@@ -151,7 +155,7 @@ CxxExecutableOutput = record(
 )
 
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
-    absolute_path_prefix = None
+    absolute_path_prefix = apple_get_xcode_absolute_path_prefix()
 
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])

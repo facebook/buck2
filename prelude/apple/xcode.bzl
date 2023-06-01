@@ -60,3 +60,6 @@ def _get_attribute_with_output(ctx: "context", attr_name: str.type) -> ["depende
             # So, an empty `DefaultInfo` basically signifies that there's no xctoolchain.
             return dep
     return None
+
+def apple_get_xcode_absolute_path_prefix() -> [str.type, None]:
+    return read_config("xcode", "absolute_path_prefix", None)
