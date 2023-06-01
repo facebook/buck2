@@ -163,6 +163,7 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
         },
         local_resources = {
             "ios_booted_simulator": ctx.attrs._ios_booted_simulator[LocalResourceInfo],
+            "macos_idb_companion": ctx.attrs._macos_idb_companion[LocalResourceInfo],
         },
     )
 
