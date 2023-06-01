@@ -16,6 +16,7 @@ tokio-stream = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
+buck2_configured = { workspace = true }
 buck2_core = { workspace = true }
 buck2_critical_path = { workspace = true }
 buck2_data = { workspace = true }

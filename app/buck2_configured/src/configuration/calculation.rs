@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;
+use allocative::Allocative;use starlark_map::small_map::SmallMap;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
@@ -46,13 +46,13 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
-use starlark::collections::SmallMap;
+
 use thiserror::Error;
 
-use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
-use crate::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
-use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 
 #[derive(Debug, Error)]
 pub enum ConfigurationError {

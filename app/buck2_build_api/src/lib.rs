@@ -31,8 +31,6 @@ pub mod audit_output;
 pub mod build;
 pub mod build_signals;
 pub mod bxl;
-pub mod calculation;
-pub mod configuration;
 pub mod configure_dice;
 pub mod configure_targets;
 pub mod context;
@@ -40,12 +38,6 @@ pub mod deferred;
 pub mod dynamic;
 pub mod interpreter;
 pub mod keep_going;
-pub mod nodes;
 pub mod query;
 pub mod spawner;
 pub mod transition;
-
-pub fn init_late_bindings() {
-    calculation::init_configured_target_calculation();
-    nodes::calculation::init_configured_target_node_calculation();
-}

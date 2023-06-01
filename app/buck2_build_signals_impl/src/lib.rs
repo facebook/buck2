@@ -32,7 +32,7 @@ use buck2_build_api::build_signals::NodeDuration;
 use buck2_build_api::build_signals::START_LISTENER_BY_BACKEND_NAME;
 use buck2_build_api::deferred::calculation::DeferredCompute;
 use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::nodes::calculation::ConfiguredTargetNodeKey;
+use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;

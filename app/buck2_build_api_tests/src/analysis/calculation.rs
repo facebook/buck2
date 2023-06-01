@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::configuration::calculation::ExecutionPlatformsKey;
 use buck2_build_api::deferred::types::testing::DeferredAnalysisResultExt;
 use buck2_build_api::interpreter::build_defs::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
@@ -24,6 +23,7 @@ use buck2_common::legacy_configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::alias::NonEmptyCellAlias;

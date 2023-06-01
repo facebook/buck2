@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
@@ -62,12 +63,11 @@ use dice::Key;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use more_futures::cancellation::CancellationContext;
-use starlark::collections::SmallSet;
+use starlark_map::small_set::SmallSet;
 use thiserror::Error;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::ConfigurationCalculation;
-use crate::transition::TRANSITION_CALCULATION;
 
 #[derive(Debug, thiserror::Error)]
 enum NodeCalculationError {
