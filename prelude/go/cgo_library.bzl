@@ -165,6 +165,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
         [own_pre, cgo_headers_pre],
         inherited_pre,
         [],
+        None,
         linkage,
     )
 

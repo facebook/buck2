@@ -150,6 +150,8 @@ CxxExecutableOutput = record(
 )
 
 def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, is_cxx_test: bool.type = False) -> CxxExecutableOutput.type:
+    absolute_path_prefix = None
+
     # Gather preprocessor inputs.
     preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
@@ -159,6 +161,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = preprocessor_deps,
         is_test = is_cxx_test,
+        absolute_path_prefix = absolute_path_prefix,
     )
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
@@ -173,9 +176,10 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
+        absolute_path_prefix,
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
-    sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.argsfiles_info]
+    sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.relative_argsfiles.info]
     sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
 
     # Compilation DB.
@@ -437,7 +441,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles_by_ext = compile_cmd_output.argsfile_by_ext,
+        argsfiles_by_ext = compile_cmd_output.relative_argsfiles.by_ext,
         product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
