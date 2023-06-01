@@ -53,20 +53,28 @@ impl ValueIndex {
 }
 
 enum Frame {
+    /// Entry recorded when we enter a function.
     Push(ValueIndex),
+    /// Entry recorded when we exit a function.
     Pop,
 }
 
 #[derive(Trace)]
-pub(crate) struct TimeFlameProfile<'v>(Option<Box<FlameData<'v>>>);
+pub(crate) struct TimeFlameProfile<'v>(
+    /// `Some` means enabled.
+    Option<Box<FlameData<'v>>>,
+);
 
 /// In order to optimise GC (which otherwise quickly becomes O(n^2)) we have to
 /// dedupe the values, so store them in `values`, with a fast map to get them in `map`.
 /// Whenever we GC, regenerate map.
 #[derive(Default)]
 struct FlameData<'v> {
+    /// All events in the profile, i.e. function entry or exit with timestamp.
     frames: Vec<(Frame, Instant)>,
+    /// Map from `ValueIndex` to `Value`.
     values: Vec<Value<'v>>,
+    /// Map from `Value` to `ValueIndex`.
     map: HashMap<RawPointer, ValueIndex>,
 }
 
