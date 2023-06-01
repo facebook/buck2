@@ -35,9 +35,17 @@ SystemIncludeDirs = record(
     include_dirs = field(["label_relative_path"]),
 )
 
-CPreprocessor = record(
+CPreprocessorArgs = record(
     # The arguments, [arglike things]
     args = field([""], []),
+    # File prefix args maps symlinks to source file location
+    file_prefix_args = field([""], []),
+)
+
+# Note: Any generic attributes are assumed to be relative.
+CPreprocessor = record(
+    # Relative path args to be used for build operations.
+    relative_args = field(CPreprocessorArgs.type, CPreprocessorArgs()),
     # Header specs
     headers = field([CHeader.type], []),
     # Those should be mutually exclusive with normal headers as per documentation
@@ -50,8 +58,6 @@ CPreprocessor = record(
     uses_modules = field(bool.type, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field([""], []),
-    # File prefix args maps symlinks to source file location
-    file_prefix_args = field([""], []),
     modulemap_path = field("", None),
 )
 
@@ -60,7 +66,7 @@ CPreprocessor = record(
 def _cpreprocessor_args(pres: [CPreprocessor.type]):
     args = cmd_args()
     for pre in pres:
-        args.add(pre.args)
+        args.add(pre.relative_args.args)
     return args
 
 def _cpreprocessor_modular_args(pres: [CPreprocessor.type]):
@@ -72,7 +78,7 @@ def _cpreprocessor_modular_args(pres: [CPreprocessor.type]):
 def _cpreprocessor_file_prefix_args(pres: [CPreprocessor.type]):
     args = cmd_args()
     for pre in pres:
-        args.add(pre.file_prefix_args)
+        args.add(pre.relative_args.file_prefix_args)
     return args
 
 def _cpreprocessor_include_dirs(pres: [CPreprocessor.type]):
@@ -242,17 +248,16 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
 
     # Append any extra preprocessor info passed in via the constructor params
     for pre in extra_preprocessors:
-        args.extend(pre.args)
+        args.extend(pre.relative_args.args)
         modular_args.extend(pre.modular_args)
 
     return CPreprocessor(
-        args = args,
+        relative_args = CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args),
         headers = exported_headers,
         raw_headers = raw_headers,
         include_dirs = include_dirs,
         system_include_dirs = SystemIncludeDirs(compiler_type = compiler_type, include_dirs = system_include_dirs),
         modular_args = modular_args,
-        file_prefix_args = file_prefix_args,
     )
 
 def cxx_private_preprocessor_info(
@@ -337,12 +342,11 @@ def _cxx_private_preprocessor_info(
         args.append(cmd_args().hidden(all_raw_headers))
 
     return CPreprocessor(
-        args = args,
+        relative_args = CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args),
         headers = headers,
         raw_headers = all_raw_headers,
         include_dirs = include_dirs,
         uses_modules = uses_modules,
-        file_prefix_args = file_prefix_args,
     )
 
 def _by_language_cxx(x: {"": ""}, label: "label") -> [""]:

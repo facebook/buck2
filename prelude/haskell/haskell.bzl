@@ -17,6 +17,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
@@ -293,7 +294,7 @@ def haskell_prebuilt_library_impl(ctx: "context") -> ["provider"]:
 
     inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
     own_pp_info = CPreprocessor(
-        args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs]),
+        relative_args = CPreprocessorArgs(args = flatten([["-isystem", d] for d in ctx.attrs.cxx_header_dirs])),
     )
 
     return [

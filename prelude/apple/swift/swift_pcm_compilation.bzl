@@ -28,7 +28,7 @@ def _project_as_clang_deps(value: SwiftPCMCompiledInfo.type):
         "-Xcc",
         cmd_args(["-fmodule-map-file=", value.exported_preprocessor.modulemap_path], delimiter = ""),
         "-Xcc",
-    ] + value.exported_preprocessor.args).hidden(value.exported_preprocessor.modular_args)
+    ] + value.exported_preprocessor.relative_args.args).hidden(value.exported_preprocessor.modular_args)
 
 PcmDepTSet = transitive_set(args_projections = {
     "clang_deps": _project_as_clang_deps,

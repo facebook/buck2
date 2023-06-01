@@ -55,6 +55,7 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "CPreprocessorInfo",  # @unused Used as a type
 )
 load(
@@ -198,7 +199,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: "context", pa
         return providers + [swift_dependency_info]
 
     framework_search_path_pre = CPreprocessor(
-        args = [get_framework_search_path_flags(ctx)],
+        relative_args = CPreprocessorArgs(args = [get_framework_search_path_flags(ctx)]),
     )
 
     return CxxRuleConstructorParams(

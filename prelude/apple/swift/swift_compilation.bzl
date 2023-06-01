@@ -24,6 +24,7 @@ load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
+    "CPreprocessorArgs",
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
@@ -207,7 +208,7 @@ def compile_swift(
     exported_pp_info = CPreprocessor(
         headers = [exported_swift_header],
         modular_args = modulemap_pp_info.modular_args,
-        args = modulemap_pp_info.args,
+        relative_args = CPreprocessorArgs(args = modulemap_pp_info.relative_args.args),
         modulemap_path = modulemap_pp_info.modulemap_path,
     )
 
