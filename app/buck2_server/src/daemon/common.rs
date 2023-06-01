@@ -35,7 +35,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
-use buck2_execute_impl::executors::caching::CachingExecutor;
+use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
@@ -238,27 +238,30 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 let (executor, cache_checker) = if disable_caching || !remote_cache_enabled {
                     (inner_executor, Arc::new(NoOpCommandExecutor {}) as _)
                 } else {
-                    (
-                        inner_executor.map(|inner_executor| {
-                            Arc::new(CachingExecutor {
-                                inner: inner_executor,
-                                artifact_fs: artifact_fs.clone(),
-                                materializer: self.materializer.dupe(),
-                                re_client: self.re_connection.get_client(),
-                                re_use_case: *re_use_case,
-                                upload_all_actions: self.upload_all_actions,
-                                knobs: self.executor_global_knobs.dupe(),
-                                cache_upload_behavior: *cache_upload_behavior,
-                            }) as _
-                        }),
-                        Arc::new(ActionCacheChecker {
-                            artifact_fs: artifact_fs.clone(),
-                            materializer: self.materializer.dupe(),
-                            re_client: self.re_connection.get_client(),
-                            re_use_case: *re_use_case,
-                            upload_all_actions: self.upload_all_actions,
-                        }) as _,
-                    )
+                    let executor =
+                        if let CacheUploadBehavior::Enabled { max_bytes } = cache_upload_behavior {
+                            inner_executor.map(|inner_executor| {
+                                Arc::new(CacheUploader {
+                                    inner: inner_executor,
+                                    artifact_fs: artifact_fs.clone(),
+                                    materializer: self.materializer.dupe(),
+                                    re_client: self.re_connection.get_client(),
+                                    re_use_case: *re_use_case,
+                                    knobs: self.executor_global_knobs.dupe(),
+                                    max_bytes: *max_bytes,
+                                }) as _
+                            })
+                        } else {
+                            inner_executor
+                        };
+                    let cacher = Arc::new(ActionCacheChecker {
+                        artifact_fs: artifact_fs.clone(),
+                        materializer: self.materializer.dupe(),
+                        re_client: self.re_connection.get_client(),
+                        re_use_case: *re_use_case,
+                        upload_all_actions: self.upload_all_actions,
+                    }) as _;
+                    (executor, cacher)
                 };
 
                 let platform = RE::Platform {

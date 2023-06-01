@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::ops::ControlFlow;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -605,7 +606,10 @@ impl IncrementalActionExecutable for RunAction {
 
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (outputs, meta) = ctx.exec_cmd(manager, &req, &prepared_action).await?;
+        let (outputs, meta) = match ctx.action_cache(manager, &req, &prepared_action).await {
+            ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await?,
+            ControlFlow::Break(res) => res?,
+        };
 
         let outputs = ActionOutputs::new(outputs);
 
