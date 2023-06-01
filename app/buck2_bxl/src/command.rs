@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::materialize_artifact_group;
 use buck2_build_api::build::BuildTargetResult;
@@ -21,7 +22,6 @@ use buck2_build_api::build::MaterializationContext;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::calculation::Calculation;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;

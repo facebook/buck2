@@ -10,13 +10,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
@@ -31,7 +27,6 @@ use gazebo::prelude::*;
 use thiserror::Error;
 
 use crate::configuration::calculation::ConfigurationCalculation;
-use crate::context::HasBuildContextData;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
@@ -41,9 +36,6 @@ use crate::nodes::calculation::ConfiguredTargetNodeKey;
 /// interpreter things.
 #[async_trait]
 pub trait Calculation<'c> {
-    /// Get the configured ArtifactFs
-    async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs>;
-
     /// Returns the Configuration for an unconfigured TargetLabel or ProvidersLabel.
     ///
     /// This performs "target platform resolution" on the provided target and returns the configured
@@ -75,17 +67,6 @@ pub trait Calculation<'c> {
 
 #[async_trait]
 impl<'c> Calculation<'c> for DiceComputations {
-    async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs> {
-        let buck_out_path_resolver = BuckOutPathResolver::new(self.get_buck_out_path().await?);
-        let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
-        let buck_path_resolver = self.get_cell_resolver().await?;
-        Ok(ArtifactFs::new(
-            buck_path_resolver,
-            buck_out_path_resolver,
-            project_filesystem,
-        ))
-    }
-
     async fn get_configured_target(
         &self,
         target: &TargetLabel,

@@ -49,6 +49,7 @@ use ref_cast::RefCast;
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::ActionCalculation;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::artifact_groups::ArtifactGroup;
@@ -333,7 +334,7 @@ impl Key for EnsureProjectedArtifactKey {
             .await?
             .unpack_single()?;
 
-        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
+        let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
 
         let base_path = match self.0.base() {
@@ -389,7 +390,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             .await
             .context("Failed to compute deferred")?;
 
-        let artifact_fs = crate::calculation::Calculation::get_artifact_fs(ctx).await?;
+        let artifact_fs = ctx.get_artifact_fs().await?;
 
         let sub_inputs = set
             .as_transitive_set()

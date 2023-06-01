@@ -17,11 +17,11 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;

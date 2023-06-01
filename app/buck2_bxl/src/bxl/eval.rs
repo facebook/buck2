@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::calculation::Calculation;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;

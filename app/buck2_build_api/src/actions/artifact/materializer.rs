@@ -21,9 +21,9 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build_signals::HasBuildSignals;
 use crate::build_signals::NodeDuration;
-use crate::calculation::Calculation;
 
 #[async_trait]
 pub trait ArtifactMaterializer {

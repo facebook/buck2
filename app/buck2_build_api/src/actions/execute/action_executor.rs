@@ -61,6 +61,7 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use more_futures::cancellation::CancellationContext;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::error::CommandExecutionErrorMarker;
 use crate::actions::execute::error::ExecuteError;
@@ -71,7 +72,6 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::calculation::Calculation;
 
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]

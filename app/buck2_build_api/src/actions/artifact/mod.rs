@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod get_artifact_fs;
 pub mod materializer;

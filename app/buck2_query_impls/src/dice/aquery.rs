@@ -13,6 +13,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_build_api::actions::query::ActionInput;
 use buck2_build_api::actions::query::ActionQueryNode;
