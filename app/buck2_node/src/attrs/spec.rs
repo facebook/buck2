@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_core::collections::ordered_map::OrderedMap;
+use buck2_util::collections::ordered_map::OrderedMap;
 use once_cell::sync::Lazy;
 use starlark_map::small_map;
 
@@ -253,7 +253,7 @@ impl AttributeSpec {
 
 pub(crate) mod testing {
 
-    use buck2_core::collections::ordered_map::OrderedMap;
+    use buck2_util::collections::ordered_map::OrderedMap;
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::spec::AttributeSpec;

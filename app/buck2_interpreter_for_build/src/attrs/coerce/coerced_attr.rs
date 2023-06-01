@@ -143,7 +143,6 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
-    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::configuration::config_setting::ConfigSettingData;
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
@@ -161,6 +160,7 @@ mod tests {
     use buck2_node::attrs::fmt_context::AttrFmtContext;
     use buck2_util::arc_str::ArcSlice;
     use buck2_util::arc_str::ArcStr;
+    use buck2_util::collections::ordered_map::OrderedMap;
     use dupe::Dupe;
 
     #[test]

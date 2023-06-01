@@ -12,11 +12,11 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;

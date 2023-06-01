@@ -43,7 +43,6 @@ pub mod build_file_path;
 pub mod bzl;
 pub mod category;
 pub mod cells;
-pub mod collections;
 pub mod configuration;
 pub mod directory;
 pub mod env_helper;

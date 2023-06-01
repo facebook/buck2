@@ -11,9 +11,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::buck_path::path::BuckPathRef;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
+use buck2_util::collections::ordered_set::OrderedSet;
 use dupe::Dupe;
 
 use crate::attrs::traversal::CoercedAttrTraversal;

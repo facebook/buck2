@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::collections::sorted_map::SortedMap;
+use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use internment_tweaks::Intern;

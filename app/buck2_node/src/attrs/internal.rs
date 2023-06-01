@@ -11,8 +11,8 @@
 
 use std::sync::Arc;
 
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::provider::id::ProviderId;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 

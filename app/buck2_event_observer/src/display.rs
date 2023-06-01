@@ -17,7 +17,6 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
@@ -29,6 +28,7 @@ use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
+use buck2_util::collections::ordered_set::OrderedSet;
 use buck2_util::commas::commas;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;

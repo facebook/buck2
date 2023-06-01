@@ -12,10 +12,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use buck2_core::collections::ordered_set;
-use buck2_core::collections::ordered_set::OrderedSet;
 use buck2_core::target::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
+use buck2_util::collections::ordered_set;
+use buck2_util::collections::ordered_set::OrderedSet;
 use buck2_util::indent::indent;
 use dupe::Dupe;
 

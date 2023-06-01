@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
-use buck2_core::collections::sorted_map::SortedMap;
+use buck2_util::collections::sorted_map::SortedMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;

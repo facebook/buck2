@@ -31,7 +31,6 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::result::ToSharedResultExt;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::collections::ordered_map::OrderedMap;
     use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -39,6 +38,7 @@ mod tests {
     use buck2_execute::digest_config::SetDigestConfig;
     use buck2_execute::execute::dice_data::set_fallback_executor_config;
     use buck2_interpreter::path::BxlFilePath;
+    use buck2_util::collections::ordered_map::OrderedMap;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
     use dupe::Dupe;

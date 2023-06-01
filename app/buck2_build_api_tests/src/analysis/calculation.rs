@@ -31,7 +31,6 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellsAggregator;
-use buck2_core::collections::ordered_map::OrderedMap;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -52,6 +51,7 @@ use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfig
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_util::collections::ordered_map::OrderedMap;
 use dice::testing::DiceBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
