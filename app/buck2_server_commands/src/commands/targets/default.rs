@@ -13,8 +13,6 @@
 use std::io::Write;
 use std::path::Path;
 
-use buck2_build_api::nodes::lookup::ConfiguredTargetNodeLookup;
-use buck2_build_api::nodes::lookup::TargetNodeLookup;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
@@ -28,6 +26,8 @@ use buck2_core::target::label::TargetLabel;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::lookup::ConfiguredTargetNodeLookup;
+use buck2_node::nodes::lookup::TargetNodeLookup;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceTransaction;

@@ -13,6 +13,7 @@ pub mod configured_node_visit_all_deps;
 pub mod configured_ref;
 pub mod eval_result;
 pub mod frontend;
+pub mod lookup;
 pub mod targets_map;
 pub mod unconfigured;
 

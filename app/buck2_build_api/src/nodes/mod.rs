@@ -8,4 +8,3 @@
  */
 
 pub mod calculation;
-pub mod lookup;
