@@ -13,6 +13,12 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use once_cell::sync::OnceCell;
 
+#[derive(Debug, thiserror::Error)]
+enum CwdError {
+    #[error("cwd is already set to `{}`", _0.display())]
+    CwdAlreadySet(PathBuf),
+}
+
 static CWD: OnceCell<PathBuf> = OnceCell::new();
 
 /// Promise the cwd will not change going forward. This should only be called once.
@@ -21,6 +27,13 @@ pub fn cwd_will_not_change() -> anyhow::Result<()> {
     CWD.set(cwd)
         .ok()
         .context("cwd_will_not_change was called twice")?;
+    Ok(())
+}
+
+pub(crate) fn assert_cwd_is_not_set() -> anyhow::Result<()> {
+    if let Some(cwd) = CWD.get() {
+        return Err(CwdError::CwdAlreadySet(cwd.clone()).into());
+    }
     Ok(())
 }
 

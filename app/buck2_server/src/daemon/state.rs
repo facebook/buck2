@@ -238,7 +238,7 @@ impl DaemonState {
             .roll();
 
         if cwd_buck_out {
-            std::env::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
+            fs_util::set_current_dir(paths.buck_out_path()).context("Error changing dirs")?;
             buck2_core::fs::cwd::cwd_will_not_change().context("Error initializing static cwd")?;
         }
 

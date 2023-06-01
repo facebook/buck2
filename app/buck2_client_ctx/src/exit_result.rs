@@ -308,8 +308,9 @@ pub enum FailureExitCode {
 /// in the case of successful execution.
 fn execv(args: ExecArgs) -> anyhow::Result<ExitResult> {
     if let Some(dir) = args.chdir {
+        // Note here we break `cwd::cwd_will_not_change` promise.
         // This is OK because we immediately call execv after this
-        // (otherwise this would be a really bad idea)
+        // (otherwise this would be a really bad idea, even without the promise).
         std::env::set_current_dir(dir)?;
     }
 
