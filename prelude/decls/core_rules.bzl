@@ -726,6 +726,10 @@ http_archive = prelude_rule(
         remote_common.urls_arg() |
         remote_common.sha256_arg() |
         {
+            "vpnless_urls": attrs.list(attrs.string(), default = [], doc = """
+                Additional URLs from which this resource can be downloaded when
+                  off VPN. Meta-internal only.
+            """),
             "out": attrs.option(attrs.string(), default = None, doc = """
                 An optional name to call the directory that the downloaded artifact is
                  extracted into. Buck will generate a default name if one is not
@@ -989,6 +993,10 @@ remote_file = prelude_rule(
                 You can specify an `http`, `https`, or a `mvn` URL. If you
                  specify a `mvn` URL, it will be decoded as described in the
                  javadocs for MavenUrlDecoder See the example section below.
+            """),
+            "vpnless_url": attrs.option(attrs.string(), default = None, doc = """
+                An optional additional URL from which this resource can be downloaded when
+                  off VPN. Meta-internal only.
             """),
             "sha1": attrs.string(default = "", doc = """
                 The [`SHA-1`](//wikipedia.org/wiki/SHA-1) hash of the downloaded artifact.

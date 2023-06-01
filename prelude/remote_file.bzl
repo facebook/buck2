@@ -58,6 +58,7 @@ def remote_file_impl(ctx: "context") -> ["provider"]:
         ctx.actions,
         name = value_or(ctx.attrs.out, ctx.label.name),
         url = url,
+        vpnless_url = ctx.attrs.vpnless_url,
         is_executable = ctx.attrs.type == "executable",
         is_exploded_zip = ctx.attrs.type == "exploded_zip",
         unzip_tool = ctx.attrs._unzip_tool[RunInfo],

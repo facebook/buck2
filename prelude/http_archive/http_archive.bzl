@@ -105,7 +105,8 @@ def _tar_strip_prefix_flags(strip_prefix: [str.type, None]) -> [str.type]:
     return []
 
 def http_archive_impl(ctx: "context") -> ["provider"]:
-    expect(len(ctx.attrs.urls) == 1, "multiple `urls` not support: {}".format(ctx.attrs.urls))
+    expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}".format(ctx.attrs.urls))
+    expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}".format(ctx.attrs.vpnless_urls))
 
     # The HTTP download is local so it makes little sense to run actions
     # remotely, unless we can defer them.
@@ -122,7 +123,15 @@ def http_archive_impl(ctx: "context") -> ["provider"]:
     # Download archive.
     archive = ctx.actions.declare_output("archive." + ext_type)
     url = ctx.attrs.urls[0]
-    ctx.actions.download_file(archive.as_output(), url, sha1 = ctx.attrs.sha1, sha256 = ctx.attrs.sha256, is_deferrable = True)
+    vpnless_url = None if len(ctx.attrs.vpnless_urls) == 0 else ctx.attrs.vpnless_urls[0]
+    ctx.actions.download_file(
+        archive.as_output(),
+        url,
+        vpnless_url = vpnless_url,
+        sha1 = ctx.attrs.sha1,
+        sha256 = ctx.attrs.sha256,
+        is_deferrable = True,
+    )
 
     # Unpack archive to output directory.
     exclude_flags = []
