@@ -8,6 +8,5 @@
  */
 
 pub mod more;
-pub mod soft_error;
 pub mod transition;
 pub mod warning;

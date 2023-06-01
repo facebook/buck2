@@ -10,6 +10,7 @@
 use buck2_core::soft_error;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 #[derive(Debug, thiserror::Error)]
