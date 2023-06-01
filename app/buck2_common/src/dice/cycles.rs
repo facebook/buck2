@@ -22,6 +22,7 @@ use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
 use futures::Future;
 use more_futures::cancellation::CancellationContext;
+use tracing::debug;
 
 /// Additional requirement for a CycleDescriptor to be used for defining a Dice UserCycleDetector through
 /// the CycleDetectorAdapter. Simply requires converting the Dice Key to the CycleDescriptor::Key type.
@@ -136,6 +137,7 @@ impl<D: CycleAdapterDescriptor> UserCycleDetector for CycleDetectorAdapter<D> {
 
     fn finished_computing_key(&self, key: &dyn Any) {
         if let Some(v) = D::to_key(key) {
+            debug!("finish computing key {}", v);
             self.inner.finish(v);
         }
     }

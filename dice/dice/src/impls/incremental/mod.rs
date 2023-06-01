@@ -123,6 +123,8 @@ impl IncrementalEngine {
                     .eval_entry_versioned(k, eval_dupe, cycles, events_dispatcher, &handle)
                     .await;
 
+                debug!("finished versioned evaluation");
+
                 match result {
                     Ok((res, _guard)) => {
                         handle.finished(res)

@@ -265,9 +265,13 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
                     NodeState::CycleDetected(e) => {
                         let _ignored = sender.send((**e).clone());
                     }
-                    NodeState::Working(v) => v.1 = sender,
+                    NodeState::Working(v) => {
+                        debug!("replace existing worker sender {}", k);
+                        v.1 = sender;
+                    }
                     v @ NodeState::Known => {
-                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
+                        debug!("known to working state {}", k);
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)));
                     }
                 }
             }
