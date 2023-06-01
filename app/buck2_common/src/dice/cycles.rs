@@ -179,7 +179,91 @@ impl<A: UserCycleDetector, B: UserCycleDetector> UserCycleDetector for PairDiceC
     }
 
     fn finished_computing_key(&self, key: &dyn Any) {
-        self.0.start_computing_key(key);
-        self.1.start_computing_key(key);
+        self.0.finished_computing_key(key);
+        self.1.finished_computing_key(key);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::any::Any;
+    use std::fmt::Debug;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+
+    use dice::UserCycleDetector;
+    use dice::UserCycleDetectorGuard;
+
+    use crate::dice::cycles::PairDiceCycleDetector;
+
+    #[test]
+    fn pair_cycle_detector() {
+        struct TestingGuard;
+
+        impl UserCycleDetectorGuard for TestingGuard {
+            fn add_edge(&self, _key: &dyn Any) {
+                unreachable!("testing")
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                unreachable!("testing")
+            }
+
+            fn type_name(&self) -> &'static str {
+                unreachable!("testing")
+            }
+        }
+
+        #[derive(Debug, Default)]
+        struct ReceivesStartAndFinish {
+            got_start: AtomicBool,
+            got_finish: AtomicBool,
+        }
+
+        impl UserCycleDetector for ReceivesStartAndFinish {
+            fn start_computing_key(
+                &self,
+                _key: &dyn Any,
+            ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+                self.got_start.store(true, Ordering::SeqCst);
+                Some(Box::new(TestingGuard))
+            }
+
+            fn finished_computing_key(&self, _key: &dyn Any) {
+                assert!(self.got_start.load(Ordering::SeqCst));
+                self.got_finish.store(true, Ordering::SeqCst);
+            }
+        }
+
+        #[derive(Debug, Default)]
+        struct ReceivesOnlyFinish {
+            got_finish: AtomicBool,
+        }
+
+        impl UserCycleDetector for ReceivesOnlyFinish {
+            fn start_computing_key(
+                &self,
+                _key: &dyn Any,
+            ) -> Option<Box<dyn UserCycleDetectorGuard>> {
+                panic!("shouldn't be called")
+            }
+
+            fn finished_computing_key(&self, _key: &dyn Any) {
+                self.got_finish.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let detector = PairDiceCycleDetector(
+            ReceivesStartAndFinish::default(),
+            ReceivesOnlyFinish::default(),
+        );
+
+        assert!(detector.start_computing_key(&()).is_some());
+
+        detector.finished_computing_key(&());
+
+        assert!(detector.0.got_start.load(Ordering::SeqCst));
+        assert!(detector.0.got_finish.load(Ordering::SeqCst));
+        assert!(detector.1.got_finish.load(Ordering::SeqCst));
     }
 }
