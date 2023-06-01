@@ -212,7 +212,7 @@ def cxx_exported_preprocessor_info(ctx: "context", headers_layout: CxxHeadersLay
     include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
     system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
-    header_root = prepare_headers(ctx, exported_header_map, "buck-headers")
+    header_root = prepare_headers(ctx, exported_header_map, "buck-headers", None)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
     args = []
@@ -323,7 +323,7 @@ def _cxx_private_preprocessor_info(
     # Create private header tree and propagate via args.
     args = []
     file_prefix_args = []
-    header_root = prepare_headers(ctx, header_map, "buck-private-headers")
+    header_root = prepare_headers(ctx, header_map, "buck-private-headers", None)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

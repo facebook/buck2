@@ -143,6 +143,7 @@ def cgo_library_impl(ctx: "context") -> ["provider"]:
             ctx,
             {h.basename: h for h in c_headers},
             "cgo-private-headers",
+            None,
         ).include_path,
     ])
 
