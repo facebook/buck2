@@ -61,6 +61,7 @@ buck2_execute_impl = { workspace = true }
 buck2_forkserver = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
+buck2_node = { workspace = true }
 buck2_profile = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_cli_proto = { workspace = true }

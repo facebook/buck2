@@ -13,12 +13,12 @@ use async_trait::async_trait;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::result::SharedResult;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::target::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
+use buck2_node::target_calculation::ConfiguredTargetCalculationImpl;
+use buck2_node::target_calculation::CONFIGURED_TARGET_CALCULATION;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -30,59 +30,31 @@ use crate::configuration::calculation::ConfigurationCalculation;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
 
-/// Provides the Dice calculations used for implementing builds and related operations.
-///
-/// Most of this is implemented within the buck2_build_api, with some thin wrappers over some
-/// interpreter things.
-#[async_trait]
-pub trait Calculation<'c> {
-    /// Returns the Configuration for an unconfigured TargetLabel or ProvidersLabel.
-    ///
-    /// This performs "target platform resolution" on the provided target and returns the configured
-    /// result.
-    ///
-    /// Normally, a TargetLabel and ProvidersLabel would
-    /// get its Configuration based on the context it's being requested in (i.e configuration is
-    /// passed down from higher nodes). For top-level requested things, though, we will have an
-    /// unconfigured (or "lightly"-configured) thing and the Configuration will be determined as
-    /// a mix of the global Configuration, the target's `default_target_platform` and
-    /// (potentially) self-transitions on that node.
-    async fn get_configured_target(
-        &self,
-        target: &TargetLabel,
-        global_target_platform: Option<&TargetLabel>,
-    ) -> anyhow::Result<ConfiguredTargetLabel>;
+struct ConfiguredTargetCalculationInstance;
 
-    async fn get_configured_provider_label(
-        &self,
-        target: &ProvidersLabel,
-        global_target_platform: Option<&TargetLabel>,
-    ) -> anyhow::Result<ConfiguredProvidersLabel>;
-
-    async fn get_default_configured_target(
-        &self,
-        target: &TargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetLabel>;
+pub(crate) fn init_configured_target_calculation() {
+    CONFIGURED_TARGET_CALCULATION.init(&ConfiguredTargetCalculationInstance);
 }
 
 #[async_trait]
-impl<'c> Calculation<'c> for DiceComputations {
+impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     async fn get_configured_target(
         &self,
+        ctx: &DiceComputations,
         target: &TargetLabel,
         global_target_platform: Option<&TargetLabel>,
     ) -> anyhow::Result<ConfiguredTargetLabel> {
-        let node = self.get_target_node(target).await?;
+        let node = ctx.get_target_node(target).await?;
 
         let get_platform_configuration = async || -> SharedResult<ConfigurationData> {
             Ok(match global_target_platform {
                 Some(global_target_platform) => {
-                    self.get_platform_configuration(global_target_platform)
+                    ctx.get_platform_configuration(global_target_platform)
                         .await?
                 }
                 None => match node.get_default_target_platform() {
-                    Some(target) => self.get_platform_configuration(target).await?,
-                    None => self.get_default_platform(target).await?,
+                    Some(target) => ctx.get_platform_configuration(target).await?,
+                    None => ctx.get_default_platform(target).await?,
                 },
             })
         };
@@ -92,37 +64,13 @@ impl<'c> Calculation<'c> for DiceComputations {
             RuleKind::Normal => Ok(target.configure(get_platform_configuration().await?)),
             RuleKind::Toolchain => {
                 let cfg = get_platform_configuration().await?;
-                let exec_cfg = get_execution_platform_toolchain_dep(
-                    self,
-                    &target.configure(cfg.dupe()),
-                    &node,
-                )
-                .await?
-                .cfg();
+                let exec_cfg =
+                    get_execution_platform_toolchain_dep(ctx, &target.configure(cfg.dupe()), &node)
+                        .await?
+                        .cfg();
                 Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
             }
         }
-    }
-
-    async fn get_configured_provider_label(
-        &self,
-        target: &ProvidersLabel,
-        global_target_platform: Option<&TargetLabel>,
-    ) -> anyhow::Result<ConfiguredProvidersLabel> {
-        let configured_target_label = self
-            .get_configured_target(target.target(), global_target_platform)
-            .await?;
-        Ok(ConfiguredProvidersLabel::new(
-            configured_target_label,
-            target.name().clone(),
-        ))
-    }
-
-    async fn get_default_configured_target(
-        &self,
-        target: &TargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetLabel> {
-        self.get_configured_target(target, None).await
     }
 }
 
