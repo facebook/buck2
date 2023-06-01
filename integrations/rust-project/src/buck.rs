@@ -29,6 +29,7 @@ use tracing::Level;
 
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
+use crate::json_project::Sysroot;
 use crate::target::AliasedTargetInfo;
 use crate::target::Kind;
 use crate::target::MacroOutput;
@@ -39,7 +40,7 @@ use crate::Crate;
 use crate::Dep;
 
 pub fn to_json_project(
-    sysroot: Option<PathBuf>,
+    sysroot: Sysroot,
     targets: Vec<Target>,
     target_map: BTreeMap<Target, TargetInfo>,
     aliases: BTreeMap<Target, AliasedTargetInfo>,
@@ -99,14 +100,8 @@ pub fn to_json_project(
         crates.push(crate_info);
     }
 
-    let (sysroot, sysroot_src) = match sysroot {
-        Some(s) => (Some(s), None),
-        None => rust_sysroot(&Buck.get_project_root()?)?,
-    };
-
     let jp = JsonProject {
         sysroot,
-        sysroot_src,
         crates,
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
@@ -232,62 +227,49 @@ fn merge_unit_test_targets(
 // Non-linux platforms use fbsource/xplat/rust/toolchain/sysroot/VERSION for
 // sysroot_src since their sysroot bundled with rustc doesn't ship source. Once it
 // does, dispense with sysroot_src completely.
-#[instrument(level = "debug", ret)]
-fn rust_sysroot(fbsource: &Path) -> Result<(Option<PathBuf>, Option<PathBuf>), anyhow::Error> {
+#[instrument(ret)]
+pub fn rust_sysroot(project_root: &Path) -> Result<Sysroot, anyhow::Error> {
     if cfg!(target_os = "linux") {
-        return Ok((
-            Some(fbsource.join("fbcode/third-party-buck/platform010/build/rust")),
-            None,
-        ));
+        let sysroot = Sysroot {
+            sysroot: Some(project_root.join("fbcode/third-party-buck/platform010/build/rust")),
+            sysroot_src: None,
+        };
+
+        return Ok(sysroot);
     }
-
     // Spawn both `rustc` and `buck audit config` in parallel without blocking.
-
-    let fbsource_rustc = fbsource.join("xplat/rust/toolchain/current/rustc");
+    let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/rustc");
     let mut sysroot_cmd = if cfg!(target_os = "macos") {
         // On Apple silicon, buck builds at Meta run under Rosetta.
         // So we force an x86-64 sysroot to avoid mixing architectures.
-        let mut arch_cmd = Command::new("arch");
-        arch_cmd.arg("-x86_64");
-        arch_cmd.arg(fbsource_rustc);
-        arch_cmd
+        let mut cmd = Command::new("arch");
+        cmd.arg("-x86_64").arg(fbsource_rustc);
+        cmd
     } else {
         Command::new(fbsource_rustc)
     };
-    sysroot_cmd.arg("--print=sysroot");
-    sysroot_cmd.stdin(Stdio::null());
-    sysroot_cmd.stdout(Stdio::piped());
-    sysroot_cmd.stderr(Stdio::piped());
+    sysroot_cmd
+        .arg("--print=sysroot")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     let sysroot_child = sysroot_cmd.spawn()?;
 
-    let mut buck_config_cmd = Buck.command();
-    buck_config_cmd.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
-    buck_config_cmd.stdin(Stdio::null());
-    buck_config_cmd.stdout(Stdio::piped());
-    buck_config_cmd.stderr(Stdio::piped());
-    let buck_config_child = buck_config_cmd.spawn()?;
+    let buck = Buck;
+    let sysroot_src = buck.resolve_sysroot_src()?;
+    let sysroot_src = project_root.join(sysroot_src);
 
     // Now block while we wait for both processes.
-
     let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
         .context("error asking rustc for sysroot")?;
     truncate_line_ending(&mut sysroot);
 
-    let sysroot_src = {
-        #[derive(Deserialize)]
-        struct BuckConfig {
-            #[serde(rename = "rust.sysroot_src_path")]
-            rust_sysroot_src_path: PathBuf,
-        }
-        let BuckConfig {
-            rust_sysroot_src_path,
-        } = deserialize_output(buck_config_child.wait_with_output(), &buck_config_cmd)?;
-        let mut p = fbsource.to_owned();
-        p.extend(&rust_sysroot_src_path);
-        p
+    let sysroot = Sysroot {
+        sysroot: Some(sysroot.into()),
+        sysroot_src: Some(sysroot_src),
     };
 
-    Ok((Some(sysroot.into()), Some(sysroot_src)))
+    Ok(sysroot)
 }
 
 #[derive(Debug)]
@@ -298,8 +280,8 @@ impl Buck {
         Command::new("buck2")
     }
 
-    /// Resolve the root of the current buck tree all-up
-    pub fn get_project_root(&self) -> Result<PathBuf, anyhow::Error> {
+    /// Return the absolute path of the current Buck project root.
+    pub fn resolve_project_root(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command();
         command.args(["root", "--kind=project"]);
 
@@ -307,10 +289,34 @@ impl Buck {
         truncate_line_ending(&mut stdout);
 
         if enabled!(Level::TRACE) {
-            trace!(%stdout, "Got root from buck");
+            trace!(%stdout, "got root from buck");
         }
 
         Ok(stdout.into())
+    }
+
+    fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
+        let mut command = self.command();
+        command.args(["audit", "config", "--json", "--", "rust.sysroot_src_path"]);
+        command
+            .stderr(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        // the `spawn()` here is load-bearing to allow spawning
+        // this command concurrently with rustc.
+        let child = command.spawn().context("Unable to spawn command")?;
+
+        #[derive(Deserialize)]
+        struct BuckConfig {
+            #[serde(rename = "rust.sysroot_src_path")]
+            sysroot_src_path: PathBuf,
+        }
+        let cfg: BuckConfig = deserialize_output(child.wait_with_output(), &command)?;
+        // the `library` path component needs to be appended to the `sysroot_src_path`
+        // so that rust-analyzer will be able to find standard library sources.
+        let cfg = cfg.sysroot_src_path.join("library");
+        Ok(cfg)
     }
 
     /// Expands a Buck target expression.
@@ -327,7 +333,7 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        tracing::info!("expanding provided target expressions");
+        tracing::info!(?targets);
         let raw = deserialize_output(command.output(), &command)?;
         if enabled!(Level::TRACE) {
             for target in &raw {
@@ -356,18 +362,18 @@ impl Buck {
             info!(
                 targets_num = targets.len(),
                 ?targets,
-                "resolving dependencies..."
+                "resolving dependencies"
             );
         } else {
             // after 10 targets, however, things tend to get a bit unwieldy.
-            info!(targets_num = targets.len(), "resolving dependencies...");
+            info!(targets_num = targets.len(), "resolving dependencies");
             debug!(?targets);
         }
         let raw = deserialize_output(command.output(), &command)?;
 
         if enabled!(Level::TRACE) {
             for (target, info) in &raw {
-                trace!(%target, ?info, "Parsed target from buck");
+                trace!(%target, ?info, "parsed target from buck");
             }
         }
         Ok(raw)

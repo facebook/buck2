@@ -17,7 +17,9 @@ use anyhow::bail;
 use tracing::info;
 
 use crate::buck;
+use crate::buck::rust_sysroot;
 use crate::buck::to_json_project;
+use crate::json_project::Sysroot;
 use crate::target::Target;
 use crate::target::TargetInfo;
 
@@ -101,8 +103,14 @@ impl Develop {
         let proc_macros = buck.query_proc_macros(&targets)?;
 
         let sysroot = match &sysroot {
-            Some(s) => Some(expand_tilde(s)?.canonicalize()?),
-            None => None,
+            Some(s) => Sysroot {
+                sysroot: Some(expand_tilde(s)?.canonicalize()?),
+                sysroot_src: None,
+            },
+            None => {
+                let project_root = buck.resolve_project_root()?;
+                rust_sysroot(&project_root)?
+            }
         };
         info!("converting buck info to rust-project.json");
         let rust_project =

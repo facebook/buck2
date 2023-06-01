@@ -24,27 +24,8 @@ use serde::Serialize;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct JsonProject {
-    /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
-    ///
-    /// This path provides rust-analyzer both the *source code* of libraries
-    /// like `std` and `core` and binaries like `rust-analyzer-proc-macro-srv`,
-    /// which enable rust-analyzer to expand procedural macros.
-    ///
-    /// For example, a `sysroot` is `~/fbsource/fbcode/third-party-buck/platform010/build/rust/`.
-    ///
-    /// `rust-analyzer` now relies on an external binary to expand procedural
-    /// macros and the source code location can be predictably inferred.
-    /// Assuming the example sysroot above, the source code would be located in
-    /// `/lib/rustlib/src/rust/`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sysroot: Option<PathBuf>,
-
-    /// Legacy sysroot config containing only the `std` and `core` source code.
-    /// Useful on non-linux platforms, but procedural macro expansion won't
-    /// work. Can be specified in addition to `sysroot` to override source
-    /// location.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sysroot_src: Option<PathBuf>,
+    #[serde(flatten)]
+    pub sysroot: Sysroot,
 
     /// The set of crates comprising the project.
     ///
@@ -137,4 +118,27 @@ pub struct Dep {
     #[serde(rename = "crate")]
     pub crate_index: usize,
     pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub struct Sysroot {
+    /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
+    ///
+    /// This path provides rust-analyzer both the *source code* of libraries
+    /// like `std` and `core` and binaries like `rust-analyzer-proc-macro-srv`,
+    /// which enable rust-analyzer to expand procedural macros.
+    ///
+    /// For example, a `sysroot` is `~/fbsource/fbcode/third-party-buck/platform010/build/rust/`.
+    ///
+    /// `rust-analyzer` relies on an external binary to expand procedural
+    /// macros and the source code location can be predictably inferred.
+    /// Assuming the example sysroot above, the source code would be located in
+    /// `/lib/rustlib/src/rust/`.
+    pub sysroot: Option<PathBuf>,
+    /// Legacy sysroot config containing only the source code of libraries such
+    /// as `std` and core`.
+    ///
+    /// Inside Meta, this is necessary on non-Linux platforms since the sources
+    /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
+    pub sysroot_src: Option<PathBuf>,
 }

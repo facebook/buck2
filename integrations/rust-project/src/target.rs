@@ -154,11 +154,7 @@ impl TargetInfo {
             ]
         };
 
-        tracing::debug!(
-            ?self,
-            ?root_candidates,
-            "trying to discover a good root module"
-        );
+        tracing::debug!(?self, ?root_candidates, "trying to discover a root module");
         // for all normal sources, we need to reference the file on the fbcode tree so navigation works
         match self.srcs.iter().find(|src| {
             root_candidates
@@ -169,10 +165,7 @@ impl TargetInfo {
             // This will not work with crate using more than one target as a direct src.
             // Fortunately this is not used at the moment. Likely to be fixed in BXL instead
             Some(path) => return path.to_path_buf(),
-            None => tracing::debug!(
-                ?self,
-                "unable to find root for crate; assuming it is a mapped crate"
-            ),
+            None => tracing::debug!(?self, "unable to find root for crate"),
         };
 
         for (dest, _) in self.mapped_srcs.iter() {
