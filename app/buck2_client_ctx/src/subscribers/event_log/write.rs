@@ -368,7 +368,7 @@ async fn start_persist_subprocess(
     let current_exe = std::env::current_exe().context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
     // @oss-disable: #[cfg(unix)]
-    #[cfg(tokio_unstable)] // @oss-enable
+    #[cfg(all(tokio_unstable, unix))] // @oss-enable
     {
         // Ensure that if we get CTRL-C, the persist-event-logs process does not get it.
         command.process_group(0);
