@@ -10,12 +10,10 @@ async-trait = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 fancy-regex = { workspace = true }
-hex = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
-sha2 = { workspace = true }
 thiserror = { workspace = true }
 glob = { workspace = true }
 plist = { workspace = true }

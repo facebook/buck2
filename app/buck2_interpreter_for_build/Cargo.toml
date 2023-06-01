@@ -12,6 +12,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 hashbrown = { workspace = true }
+hex = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
@@ -19,6 +20,7 @@ once_cell = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 twox-hash = { workspace = true }
+sha2 = { workspace = true }
 smallvec = { workspace = true }
 
 allocative = { workspace = true }

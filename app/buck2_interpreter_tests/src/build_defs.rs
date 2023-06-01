@@ -11,17 +11,6 @@ use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 #[test]
-fn test_sha256() {
-    let mut tester = Tester::new().unwrap();
-    tester.run_starlark_test(indoc!(
-            r#"
-            def test():
-                assert_eq(sha256("123"), "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")
-            "#
-        )).unwrap();
-}
-
-#[test]
 fn test_eval() {
     let mut tester = Tester::new().unwrap();
     tester

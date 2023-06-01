@@ -10,6 +10,7 @@
 use sha2::Digest;
 use sha2::Sha256;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 
 /// Contains functions that we include in all contexts.
 #[starlark_module]
@@ -22,5 +23,23 @@ pub fn register_sha256(builder: &mut GlobalsBuilder) {
     fn sha256(val: &str) -> anyhow::Result<String> {
         let hash = Sha256::digest(val.as_bytes());
         Ok(hex::encode(hash))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use starlark::assert::Assert;
+
+    use crate::interpreter::functions::sha256::register_sha256;
+
+    #[test]
+    fn test_sha256() {
+        let mut a = Assert::new();
+        a.globals_add(register_sha256);
+        a.eq(
+            "sha256('123')",
+            "'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'",
+        );
     }
 }
