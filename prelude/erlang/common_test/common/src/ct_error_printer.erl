@@ -57,12 +57,37 @@ format_reason(Reason) ->
         end,
         not_formatted,
         [
+            fun maybe_custom_format/1,
             fun maybe_proper_format/1,
             fun maybe_assert_format/1
         ]
     ).
 
--spec maybe_assert_format(term()) -> unrecognized_error | [unicode:chardata()].
+-spec maybe_custom_format(term()) -> unrecognized_error | {ok, [unicode:chardata()]}.
+maybe_custom_format({{Type, Props}, StackTrace}) when is_atom(Type), is_list(Props) ->
+    try proplists:to_map(Props) of
+        PropsMap -> maybe_custom_format({{Type, PropsMap}, StackTrace})
+    catch
+        _:_:_ -> unrecognized_error
+    end;
+maybe_custom_format({{Type, Props = #{formatter := Formatter}}, _StackTrace}) when is_atom(Formatter) ->
+    try
+        Formatter:format_assert(Type, Props)
+    catch
+        E:R:ST ->
+            {ok, [
+                io_lib:format(
+                    "unexpected error when formatting assertion: ~n"
+                    "~s~n",
+                    [erl_error:format_exception(E, R, ST)]
+                ),
+                io_lib:format("original assertion: ~n" "~p~n", {Type, Props})
+            ]}
+    end;
+maybe_custom_format(_Reason) ->
+    unrecognized_error.
+
+-spec maybe_assert_format(term()) -> unrecognized_error | {ok, [unicode:chardata()]}.
 maybe_assert_format({{Type, Props}, _StackTrace}) -> format_assert(Type, Props);
 maybe_assert_format(_Reason) -> unrecognized_error.
 
@@ -91,21 +116,7 @@ format_assert(_Type, _Props) ->
             )}
 ).
 
--spec format_assert0(atom(), map()) -> unrecognized_error | [unicode:chardata()].
-format_assert0(Type, Props = #{formatter := Formatter}) ->
-    try
-        Formatter:format_assert(Type, Props)
-    catch
-        E:R:ST ->
-            {ok, [
-                io_lib:format(
-                    "unexpected error when formatting assertion: ~n"
-                    "~s~n",
-                    [erl_error:format_exception(E, R, ST)]
-                ),
-                io_lib:format("original assertion: ~n" "~p~n", {Type, Props})
-            ]}
-    end;
+-spec format_assert0(atom(), map()) -> unrecognized_error | {ok, [unicode:chardata()]}.
 format_assert0(
     assert = Type,
     #{not_boolean := Value} = Props
