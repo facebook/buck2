@@ -58,7 +58,7 @@ enum Frame {
 }
 
 #[derive(Trace)]
-pub(crate) struct FlameProfile<'v>(Option<Box<FlameData<'v>>>);
+pub(crate) struct TimeFlameProfile<'v>(Option<Box<FlameData<'v>>>);
 
 /// In order to optimise GC (which otherwise quickly becomes O(n^2)) we have to
 /// dedupe the values, so store them in `values`, with a fast map to get them in `map`.
@@ -142,7 +142,7 @@ impl<'a> Stacks<'a> {
     }
 }
 
-impl<'v> FlameProfile<'v> {
+impl<'v> TimeFlameProfile<'v> {
     pub(crate) fn new() -> Self {
         Self(None)
     }

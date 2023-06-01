@@ -58,7 +58,7 @@ use crate::eval::runtime::profile::heap::HeapProfileFormat;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::profile::or_instrumentation::ProfileOrInstrumentationMode;
 use crate::eval::runtime::profile::stmt::StmtProfile;
-use crate::eval::runtime::profile::time_flame::FlameProfile;
+use crate::eval::runtime::profile::time_flame::TimeFlameProfile;
 use crate::eval::runtime::profile::typecheck::TypecheckProfile;
 use crate::eval::runtime::profile::ProfileMode;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
@@ -124,7 +124,7 @@ pub struct Evaluator<'v, 'a> {
     // Should we enable heap profiling or not
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
-    pub(crate) flame_profile: FlameProfile<'v>,
+    pub(crate) time_flame_profile: TimeFlameProfile<'v>,
     // Is GC disabled for some reason
     pub(crate) disable_gc: bool,
     // If true, the interpreter prints to stderr on GC.
@@ -216,7 +216,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             heap_profile: HeapProfile::new(),
             stmt_profile: StmtProfile::new(),
             typecheck_profile: TypecheckProfile::default(),
-            flame_profile: FlameProfile::new(),
+            time_flame_profile: TimeFlameProfile::new(),
             eval_instrumentation: EvaluationInstrumentation::new(),
             module_def_info: DefInfo::empty(), // Will be replaced before it is used
             string_pool: StringPool::default(),
@@ -284,7 +284,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.before_stmt_fn(&|span, eval| eval.stmt_profile.before_stmt(span));
             }
             ProfileMode::TimeFlame => {
-                self.flame_profile.enable();
+                self.time_flame_profile.enable();
                 self.eval_instrumentation
                     .change(|v| v.enable_heap_or_flame_profile());
             }
@@ -336,7 +336,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             ProfileMode::Coverage => Err(EvaluatorError::CoverageNotImplemented.into()),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
-            ProfileMode::TimeFlame => self.flame_profile.gen(),
+            ProfileMode::TimeFlame => self.time_flame_profile.gen(),
             ProfileMode::Typecheck => self.typecheck_profile.gen(),
         }
     }
@@ -680,7 +680,7 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         self.module_env.trace(tracer);
         self.current_frame.trace(tracer);
         self.call_stack.trace(tracer);
-        self.flame_profile.trace(tracer);
+        self.time_flame_profile.trace(tracer);
     }
 
     /// Perform a garbage collection.
@@ -754,10 +754,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
         debug_assert!(self.eval_instrumentation.enabled);
         if self.eval_instrumentation.heap_or_flame_profile {
             self.heap_profile.record_call_enter(def, self.heap());
-            self.flame_profile.record_call_enter(def);
+            self.time_flame_profile.record_call_enter(def);
             let res = bc.run(self, &mut EvalCallbacksDisabled);
             self.heap_profile.record_call_exit(self.heap());
-            self.flame_profile.record_call_exit();
+            self.time_flame_profile.record_call_exit();
             res
         } else {
             bc.run(
