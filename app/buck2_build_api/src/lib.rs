@@ -44,3 +44,7 @@ pub mod nodes;
 pub mod query;
 pub mod spawner;
 pub mod transition;
+
+pub fn init_late_bindings() {
+    nodes::calculation::init_configured_target_node_calculation();
+}

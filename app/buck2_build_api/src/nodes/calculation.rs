@@ -50,6 +50,9 @@ use buck2_node::configuration::resolved::ConfigurationSettingKeyRef;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;
+use buck2_node::nodes::configured_frontend::CONFIGURED_TARGET_NODE_CALCULATION;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
@@ -76,15 +79,6 @@ enum NodeCalculationError {
         LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
     )]
     BothTargetCompatibleWith(String),
-}
-
-#[async_trait]
-pub trait NodeCalculation {
-    /// Returns the ConfiguredTargetNode corresponding to a ConfiguredTargetLabel.
-    async fn get_configured_target_node(
-        &self,
-        target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 enum CompatibilityConstraints {
@@ -845,10 +839,17 @@ pub struct ConfiguredTransitionedNodeKey {
     transitioned: ConfiguredTargetLabel,
 }
 
+struct ConfiguredTargetNodeCalculationInstance;
+
+pub(crate) fn init_configured_target_node_calculation() {
+    CONFIGURED_TARGET_NODE_CALCULATION.init(&ConfiguredTargetNodeCalculationInstance);
+}
+
 #[async_trait]
-impl NodeCalculation for DiceComputations {
+impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
     async fn get_configured_target_node(
         &self,
+        ctx: &DiceComputations,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         #[async_trait]
@@ -871,7 +872,7 @@ impl NodeCalculation for DiceComputations {
             }
         }
 
-        self.compute(&ConfiguredTargetNodeKey(target.dupe()))
+        ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
             .unshared_error()
     }

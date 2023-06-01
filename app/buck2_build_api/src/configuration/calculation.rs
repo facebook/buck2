@@ -38,6 +38,7 @@ use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -52,7 +53,6 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
-use crate::nodes::calculation::NodeCalculation;
 
 #[derive(Debug, Error)]
 pub enum ConfigurationError {

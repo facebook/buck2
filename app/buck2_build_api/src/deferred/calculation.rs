@@ -28,6 +28,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_events::dispatch::create_span;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -58,7 +59,6 @@ use crate::deferred::types::DeferredValueAny;
 use crate::deferred::types::DeferredValueAnyReady;
 use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
-use crate::nodes::calculation::NodeCalculation;
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "ResolveDeferred({})", _0)]

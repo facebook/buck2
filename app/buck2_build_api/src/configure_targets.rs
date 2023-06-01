@@ -18,6 +18,7 @@ use buck2_events::dispatch::console_message;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
@@ -27,7 +28,6 @@ use gazebo::prelude::SliceExt;
 use starlark_map::small_set::SmallSet;
 
 use crate::calculation::Calculation;
-use crate::nodes::calculation::NodeCalculation;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(
