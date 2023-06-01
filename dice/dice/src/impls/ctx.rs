@@ -347,10 +347,7 @@ impl PerComputeCtx {
             .map_err(|_| "Error: tried to finalize when there are more references")
             .unwrap();
 
-        data.cycles.finished_computing_key(
-            &data.async_evaluator.dice.key_index,
-            data.async_evaluator.user_data.cycle_detector.as_deref(),
-        );
+        data.cycles.finished_computing_key();
 
         (
             data.dep_trackers.into_inner().collect_deps(),

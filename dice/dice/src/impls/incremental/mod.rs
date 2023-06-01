@@ -219,7 +219,7 @@ impl IncrementalEngine {
                 let cycles = cycles.start_computing_key(
                     k,
                     &eval.dice.key_index,
-                    eval.user_data.cycle_detector.as_deref(),
+                    eval.user_data.cycle_detector.as_ref(),
                 );
                 self.compute(k, eval, cycles, &events_dispatcher, task_handle)
                     .await
@@ -230,7 +230,7 @@ impl IncrementalEngine {
                 let cycles = cycles.start_computing_key(
                     k,
                     &eval.dice.key_index,
-                    eval.user_data.cycle_detector.as_deref(),
+                    eval.user_data.cycle_detector.as_ref(),
                 );
                 task_handle.checking_deps();
 
@@ -256,10 +256,7 @@ impl IncrementalEngine {
                         .await
                         .map(|(res, g)| (res, Some(g))),
                     DidDepsChange::NoChange(deps) => {
-                        cycles.finished_computing_key(
-                            &eval.dice.key_index,
-                            eval.user_data.cycle_detector.as_deref(),
-                        );
+                        cycles.finished_computing_key();
 
                         debug!(
                             msg = "reusing previous value because deps didn't change. Updating caches"

@@ -9,12 +9,15 @@
 
 use std::sync::Arc;
 
+use dupe::Dupe;
+
 use crate::api::error::DiceError;
 use crate::api::error::DiceErrorImpl;
 use crate::api::error::DiceResult;
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;
+use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
 
 pub(crate) struct UserCycleDetectorData(());
@@ -24,11 +27,16 @@ impl UserCycleDetectorData {
         self,
         k: DiceKey,
         key_index: &DiceKeyIndex,
-        detector: Option<&dyn UserCycleDetector>,
+        detector: Option<&Arc<dyn UserCycleDetector>>,
     ) -> KeyComputingUserCycleDetectorData {
         if let Some(detector) = detector {
-            if let Some(guard) = detector.start_computing_key(key_index.get(k).as_any()) {
-                return KeyComputingUserCycleDetectorData::Detecting { k, guard };
+            let k = key_index.get(k);
+            if let Some(guard) = detector.start_computing_key(k.as_any()) {
+                return KeyComputingUserCycleDetectorData::Detecting {
+                    k: k.dupe(),
+                    guard,
+                    detector: detector.dupe(),
+                };
             }
         }
         KeyComputingUserCycleDetectorData::Untracked
@@ -43,22 +51,19 @@ impl UserCycleDetectorData {
 /// User supplied cycle detector
 pub(crate) enum KeyComputingUserCycleDetectorData {
     Detecting {
-        k: DiceKey,
+        k: DiceKeyErased,
         guard: Box<dyn UserCycleDetectorGuard>,
+        detector: Arc<dyn UserCycleDetector>,
     },
     Untracked,
 }
 
 impl KeyComputingUserCycleDetectorData {
-    pub(crate) fn finished_computing_key(
-        self,
-        key_index: &DiceKeyIndex,
-        detector: Option<&dyn UserCycleDetector>,
-    ) {
+    pub(crate) fn finished_computing_key(self) {
         match self {
-            KeyComputingUserCycleDetectorData::Detecting { k, .. } => detector
-                .unwrap()
-                .finished_computing_key(key_index.get(k).as_any()),
+            KeyComputingUserCycleDetectorData::Detecting { k, detector, .. } => {
+                detector.finished_computing_key(k.as_any())
+            }
             KeyComputingUserCycleDetectorData::Untracked => {}
         }
     }
