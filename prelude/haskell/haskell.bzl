@@ -444,6 +444,12 @@ def _compile(
         else:
             compile_args.add(src)
 
+    for dep in ctx.attrs.deps:
+        # Make all exported files available for compilation
+        def_info = dep.get(DefaultInfo)
+        if def_info != None:
+            compile_args.hidden(def_info.default_outputs)
+
     argsfile = ctx.actions.declare_output("haskell_compile_" + link_style.value + ".argsfile")
     ctx.actions.write(argsfile.as_output(), compile_args, allow_args = True)
     hidden_args = [compile_args]
@@ -564,7 +570,6 @@ def haskell_library_impl(ctx: "context") -> ["provider"]:
     hlis = []
     nlis = []
     shared_library_infos = []
-
     for lib in _attr_deps(ctx):
         li = lib.get(HaskellLinkInfo)
         if li != None:
