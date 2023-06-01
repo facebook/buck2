@@ -103,6 +103,7 @@ load(
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
+    "ABS_ARGSFILES_SUBTARGET",
     "ARGSFILES_SUBTARGET",
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
@@ -330,6 +331,8 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
 
     if impl_params.generate_sub_targets.argsfiles:
         sub_targets[ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.relative_argsfiles.info]
+        if absolute_path_prefix:
+            sub_targets[ABS_ARGSFILES_SUBTARGET] = [compiled_srcs.compile_cmds.absolute_argsfiles.info]
 
     if impl_params.generate_sub_targets.clang_traces:
         if compiled_srcs.clang_traces:
@@ -485,7 +488,7 @@ def cxx_library_parameterized(ctx: "context", impl_params: "CxxRuleConstructorPa
             output = default_output.default if default_output else None,
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional.srcs,
-            argsfiles_by_ext = compiled_srcs.compile_cmds.relative_argsfiles.by_ext,
+            argsfiles_by_ext = compiled_srcs.compile_cmds.absolute_argsfiles.by_ext if absolute_path_prefix else compiled_srcs.compile_cmds.relative_argsfiles.by_ext,
             product_name = get_default_cxx_library_product_name(ctx, impl_params),
         )
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info

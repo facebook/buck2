@@ -76,6 +76,7 @@ load(
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
+    "ABS_ARGSFILES_SUBTARGET",
     "ARGSFILES_SUBTARGET",
     "OBJECTS_SUBTARGET",
     "cxx_attr_deps",
@@ -180,6 +181,8 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
     )
     cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_style != LinkStyle("static"))
     sub_targets[ARGSFILES_SUBTARGET] = [compile_cmd_output.relative_argsfiles.info]
+    if absolute_path_prefix:
+        sub_targets[ABS_ARGSFILES_SUBTARGET] = [compile_cmd_output.absolute_argsfiles.info]
     sub_targets[OBJECTS_SUBTARGET] = cxx_objects_sub_target(cxx_outs)
 
     # Compilation DB.
@@ -441,7 +444,7 @@ def cxx_executable(ctx: "context", impl_params: CxxRuleConstructorParams.type, i
         output = binary.output,
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles_by_ext = compile_cmd_output.relative_argsfiles.by_ext,
+        argsfiles_by_ext = compile_cmd_output.absolute_argsfiles.by_ext if absolute_path_prefix else compile_cmd_output.relative_argsfiles.by_ext,
         product_name = get_cxx_executable_product_name(ctx),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
