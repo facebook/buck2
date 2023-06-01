@@ -28,6 +28,11 @@ load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_out
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DEBUGINFO_SUBTARGET", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
+load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(
+    ":apple_sdk_metadata.bzl",
+    "MacOSXSdkMetadata",
+)
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 
 def apple_test_impl(ctx: "context") -> [["provider"], "promise"]:
@@ -140,6 +145,21 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
     labels = ctx.attrs.labels + [tpx_label]
     labels.append(tpx_label)
 
+    sdk_name = get_apple_sdk_name(ctx)
+    if sdk_name == MacOSXSdkMetadata.name:
+        # It's not possible to execute macOS tests on RE yet
+        local_enabled = True
+        remote_enabled = False
+        remote_execution_properties = None
+    else:
+        local_enabled = False
+        remote_enabled = True
+        remote_execution_properties = {
+            "platform": "ios-simulator-pure-re",
+            "subplatform": "iPhone 8.iOS 15.0",
+            "xcode-version": "xcodestable",
+        }
+
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
         command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
@@ -150,13 +170,9 @@ def _get_test_info(ctx: "context", xctest_bundle: "artifact", test_host_app_bund
         contacts = ctx.attrs.contacts,
         executor_overrides = {
             "ios-simulator": CommandExecutorConfig(
-                local_enabled = False,
-                remote_enabled = True,
-                remote_execution_properties = {
-                    "platform": "ios-simulator-pure-re",
-                    "subplatform": "iPhone 8.iOS 15.0",
-                    "xcode-version": "xcodestable",
-                },
+                local_enabled = local_enabled,
+                remote_enabled = remote_enabled,
+                remote_execution_properties = remote_execution_properties,
                 remote_execution_use_case = "buck2-default",
             ),
             "static-listing": CommandExecutorConfig(local_enabled = True, remote_enabled = False),
