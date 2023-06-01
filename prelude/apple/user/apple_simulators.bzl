@@ -12,7 +12,7 @@ def _impl(ctx: "context") -> ["provider"]:
         DefaultInfo(),
         LocalResourceInfo(
             source_target = ctx.label,
-            setup = cmd_args([ctx.attrs.broker[RunInfo]]),
+            setup = cmd_args([ctx.attrs.broker[RunInfo]] + ctx.attrs.args),
             resource_env_vars = {
                 "IDB_COMPANION": "socket_address",
             },
@@ -23,6 +23,7 @@ registration_spec = RuleRegistrationSpec(
     name = "apple_simulators",
     impl = _impl,
     attrs = {
+        "args": attrs.list(attrs.string(), default = []),
         "broker": attrs.exec_dep(providers = [RunInfo]),
     },
 )
