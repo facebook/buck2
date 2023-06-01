@@ -62,7 +62,7 @@ struct ValueIndex<'v> {
     /// Map from `ValueId` to `Value`.
     values: Vec<Value<'v>>,
     /// Map from `Value` to `ValueIndex`.
-    map: HashMap<RawPointer, ValueId>,
+    map: HashMap<RawPointer, ValueId, StarlarkHasherBuilder>,
 }
 
 unsafe impl<'v> Trace<'v> for ValueIndex<'v> {
