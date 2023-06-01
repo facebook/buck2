@@ -22,7 +22,7 @@ def get_flags_for_reproducible_build(compiler_type: str.type) -> [str.type]:
         flags.append("/Brepro")
 
     if compiler_type in ["clang", "clang_windows", "clang_cl"]:
-        flags.extend(["-Xclang", "-fdebug-compilation-dir", "-Xclang", "."])
+        flags.extend(["-Xclang", "-fdebug-compilation-dir", "-Xclang", "./"])
 
     if compiler_type == "clang_windows":
         flags.append("-mno-incremental-linker-compatible")
