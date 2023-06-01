@@ -9,12 +9,14 @@
 
 use std::any::Any;
 use std::fmt::Display;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use derive_more::Display;
 use dupe::Dupe;
 use fnv::FnvHasher;
 use gazebo::cmp::PartialEqAny;
@@ -50,7 +52,7 @@ pub(crate) enum ParentKey {
     Some(DiceKey),
 }
 
-#[derive(Allocative, Clone, Dupe)]
+#[derive(Allocative, Clone, Dupe, Display)]
 pub(crate) enum DiceKeyErased {
     Key(Arc<dyn DiceKeyDyn>),
     Projection(ProjectionWithBase),
@@ -134,7 +136,7 @@ impl PartialEq for DiceKeyErased {
 
 impl Eq for DiceKeyErased {}
 
-#[derive(Copy, Clone, Dupe)]
+#[derive(Copy, Clone, Dupe, Display)]
 pub(crate) enum DiceKeyErasedRef<'a> {
     Key(&'a dyn DiceKeyDyn),
     Projection(ProjectionWithBaseRef<'a>),
@@ -182,6 +184,7 @@ impl<'a> PartialEq for DiceKeyErasedRef<'a> {
     }
 }
 
+#[derive(Display)]
 pub(crate) enum CowDiceKey<'a> {
     Ref(DiceKeyErasedRef<'a>),
     Owned(DiceKeyErased),
@@ -240,6 +243,12 @@ impl<'a> CowDiceKeyHashed<'a> {
 
     pub(crate) fn into_cow(self) -> CowDiceKey<'a> {
         self.cow
+    }
+}
+
+impl<'a> Display for CowDiceKeyHashed<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.cow)
     }
 }
 
@@ -399,6 +408,12 @@ impl PartialEq for ProjectionWithBase {
 
 impl Eq for ProjectionWithBase {}
 
+impl Display for ProjectionWithBase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.proj)
+    }
+}
+
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct ProjectionWithBaseRef<'a> {
     base: DiceKey,
@@ -430,6 +445,12 @@ impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
 }
 
 impl<'a> Eq for ProjectionWithBaseRef<'a> {}
+
+impl<'a> Display for ProjectionWithBaseRef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.proj)
+    }
+}
 
 mod introspection {
     use std::fmt::Display;
