@@ -59,15 +59,6 @@ pub(crate) enum KeyComputingUserCycleDetectorData {
 }
 
 impl KeyComputingUserCycleDetectorData {
-    pub(crate) fn finished_computing_key(self) {
-        match self {
-            KeyComputingUserCycleDetectorData::Detecting { k, detector, .. } => {
-                detector.finished_computing_key(k.as_any())
-            }
-            KeyComputingUserCycleDetectorData::Untracked => {}
-        }
-    }
-
     pub(crate) fn subrequest(&self, k: DiceKey, key_index: &DiceKeyIndex) -> UserCycleDetectorData {
         match self {
             KeyComputingUserCycleDetectorData::Detecting { guard, .. } => {
@@ -93,6 +84,17 @@ impl KeyComputingUserCycleDetectorData {
                 }
             }
             KeyComputingUserCycleDetectorData::Untracked => Ok(None),
+        }
+    }
+}
+
+impl Drop for KeyComputingUserCycleDetectorData {
+    fn drop(&mut self) {
+        match self {
+            KeyComputingUserCycleDetectorData::Detecting { k, detector, .. } => {
+                detector.finished_computing_key(k.as_any())
+            }
+            KeyComputingUserCycleDetectorData::Untracked => {}
         }
     }
 }

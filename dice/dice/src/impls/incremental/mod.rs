@@ -256,8 +256,6 @@ impl IncrementalEngine {
                         .await
                         .map(|(res, g)| (res, Some(g))),
                     DidDepsChange::NoChange(deps) => {
-                        cycles.finished_computing_key();
-
                         debug!(
                             msg = "reusing previous value because deps didn't change. Updating caches"
                         );

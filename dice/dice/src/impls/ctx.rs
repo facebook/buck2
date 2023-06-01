@@ -347,8 +347,6 @@ impl PerComputeCtx {
             .map_err(|_| "Error: tried to finalize when there are more references")
             .unwrap();
 
-        data.cycles.finished_computing_key();
-
         (
             data.dep_trackers.into_inner().collect_deps(),
             data.evaluation_data.into_inner(),
