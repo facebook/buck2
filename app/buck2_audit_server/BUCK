@@ -15,6 +15,7 @@ rust_library(
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:ref-cast",
+        "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",

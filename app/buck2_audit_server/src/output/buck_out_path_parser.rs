@@ -48,35 +48,30 @@ pub(crate) struct BuckOutPathTypeCommon {
 pub(crate) enum BuckOutPathType {
     BxlOutput {
         // `BxlFunctionLabel` contains the `CellPath` to the bxl function.
-        _bxl_function_label: BxlFunctionLabel,
-        #[allow(unused)] // TODO(wendyy) temporary
+        bxl_function_label: BxlFunctionLabel,
         common_attrs: BuckOutPathTypeCommon,
     },
     AnonOutput {
-        _path: CellPath,
-        _target_label: TargetLabel,
+        path: CellPath,
+        target_label: TargetLabel,
         // Rule attr hash is part of anonymous target buck-outs.
-        _attr_hash: String,
-        #[allow(unused)] // TODO(wendyy) temporary
+        attr_hash: String,
         common_attrs: BuckOutPathTypeCommon,
     },
     RuleOutput {
-        _path: CellPath,
+        path: CellPath,
         target_label: TargetLabel,
         // This is the part of the buck-out after target name. For example, it would `artifact` in  `gen/path/to/__target_name__/artifact`
         path_after_target_name: ForwardRelativePathBuf,
-        #[allow(unused)] // TODO(wendyy) temporary
         common_attrs: BuckOutPathTypeCommon,
     },
     TestOutput {
-        _path: CellPath,
-        #[allow(unused)] // TODO(wendyy) temporary
+        path: CellPath,
         common_attrs: BuckOutPathTypeCommon,
     },
     TmpOutput {
-        _path: CellPath,
-        _target_label: TargetLabel,
-        #[allow(unused)] // TODO(wendyy) temporary
+        path: CellPath,
+        target_label: TargetLabel,
         common_attrs: BuckOutPathTypeCommon,
     },
 }
@@ -297,8 +292,8 @@ impl<'v> BuckOutPathParser<'v> {
                         };
 
                         Ok(BuckOutPathType::TmpOutput {
-                            _path: buck_out_path_data.cell_path,
-                            _target_label: target_label,
+                            path: buck_out_path_data.cell_path,
+                            target_label,
                             common_attrs,
                         })
                     }
@@ -312,7 +307,7 @@ impl<'v> BuckOutPathParser<'v> {
                         };
 
                         Ok(BuckOutPathType::TestOutput {
-                            _path: buck_out_path_data.cell_path,
+                            path: buck_out_path_data.cell_path,
                             common_attrs,
                         })
                     }
@@ -329,7 +324,7 @@ impl<'v> BuckOutPathParser<'v> {
                         };
 
                         Ok(BuckOutPathType::RuleOutput {
-                            _path: buck_out_path_data.cell_path,
+                            path: buck_out_path_data.cell_path,
                             target_label,
                             path_after_target_name,
                             common_attrs,
@@ -346,9 +341,9 @@ impl<'v> BuckOutPathParser<'v> {
                         };
 
                         Ok(BuckOutPathType::AnonOutput {
-                            _path: buck_out_path_data.cell_path,
-                            _target_label: target_label,
-                            _attr_hash: buck_out_path_data
+                            path: buck_out_path_data.cell_path,
+                            target_label,
+                            attr_hash: buck_out_path_data
                                 .anon_hash
                                 .expect("No hash found in anonymous artifact buck-out"),
                             common_attrs,
@@ -365,7 +360,7 @@ impl<'v> BuckOutPathParser<'v> {
                         };
 
                         Ok(BuckOutPathType::BxlOutput {
-                            _bxl_function_label: bxl_function_label,
+                            bxl_function_label,
                             common_attrs,
                         })
                     }
@@ -501,7 +496,7 @@ mod tests {
 
         match res {
             BuckOutPathType::RuleOutput {
-                _path: path,
+                path,
                 target_label,
                 path_after_target_name,
                 common_attrs,
@@ -535,7 +530,7 @@ mod tests {
 
         match res {
             BuckOutPathType::RuleOutput {
-                _path: path,
+                path,
                 target_label,
                 path_after_target_name,
                 common_attrs,
@@ -567,7 +562,7 @@ mod tests {
 
         match res {
             BuckOutPathType::RuleOutput {
-                _path: path,
+                path,
                 target_label,
                 path_after_target_name,
                 common_attrs,
@@ -596,8 +591,8 @@ mod tests {
 
         match res {
             BuckOutPathType::TmpOutput {
-                _path: path,
-                _target_label: target_label,
+                path,
+                target_label,
                 common_attrs,
             } => {
                 assert_eq!(path, expected_cell_path,);
@@ -624,10 +619,7 @@ mod tests {
         let res = buck_out_parser.parse(&test_path)?;
 
         match res {
-            BuckOutPathType::TestOutput {
-                _path: path,
-                common_attrs,
-            } => {
+            BuckOutPathType::TestOutput { path, common_attrs } => {
                 assert_eq!(path, expected_test_cell_path,);
                 assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(
@@ -647,9 +639,9 @@ mod tests {
 
         match res {
             BuckOutPathType::AnonOutput {
-                _path: path,
-                _target_label: target_label,
-                _attr_hash: attr_hash,
+                path,
+                target_label,
+                attr_hash,
                 common_attrs,
             } => {
                 assert_eq!(target_label, expected_target_label,);
@@ -673,7 +665,7 @@ mod tests {
 
         match res {
             BuckOutPathType::BxlOutput {
-                _bxl_function_label: bxl_function_label,
+                bxl_function_label,
                 common_attrs,
             } => {
                 let path = CellPath::new(

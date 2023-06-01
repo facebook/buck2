@@ -8,4 +8,6 @@
  */
 
 pub(crate) mod buck_out_path_parser;
+#[allow(unused)] // TODO(wendyy) temporary
+pub(crate) mod buck_out_path_type_printer;
 pub mod command;
