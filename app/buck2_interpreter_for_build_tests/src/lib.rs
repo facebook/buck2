@@ -17,6 +17,7 @@ mod rule;
 mod super_package;
 mod tests;
 mod uncategorized;
+mod uncategorized_2;
 
 #[test]
 fn init_late_bindings_for_test() {
