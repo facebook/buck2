@@ -93,6 +93,7 @@ def create_jar_artifact_kotlincd(
             standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
             annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
             compilationTracerPlugin = kotlin_toolchain.compilation_tracer_plugin,
+            qpldDotslash = kotlin_toolchain.qpld_dotslash,
             jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
             kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
             kosabiPluginOptions = struct(
