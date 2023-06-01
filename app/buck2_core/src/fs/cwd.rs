@@ -24,7 +24,7 @@ pub fn cwd_will_not_change() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn maybe_relativize(path: &Path) -> &Path {
+pub(crate) fn maybe_relativize(path: &Path) -> &Path {
     maybe_relativize_impl(path, &CWD)
 }
 
@@ -38,11 +38,11 @@ fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<PathBuf>) -> &'a
     path
 }
 
-pub fn maybe_relativize_str(path: &str) -> &str {
+pub(crate) fn maybe_relativize_str(path: &str) -> &str {
     maybe_relativize_str_impl(path, &CWD)
 }
 
-pub fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<PathBuf>) -> &'a str {
+fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<PathBuf>) -> &'a str {
     if let Some(cwd) = cell.get() {
         if let Some(path) = Path::new(path)
             .strip_prefix(cwd)
