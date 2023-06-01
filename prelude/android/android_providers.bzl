@@ -177,8 +177,6 @@ ExopackageResourcesInfo = record(
     assets_hash = ["artifact", None],
     res = "artifact",
     res_hash = "artifact",
-    third_party_jar_resources = "artifact",
-    third_party_jar_resources_hash = "artifact",
 )
 
 DexFilesInfo = record(

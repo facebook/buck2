@@ -103,26 +103,11 @@ def get_android_binary_resources_info(
             android_toolchain.zipalign[RunInfo],
         ]), category = "write_exo_resources")
 
-        third_party_jars = ctx.actions.write("third_party_jars", prebuilt_jars)
-        third_party_jar_resources = ctx.actions.declare_output("third_party_jars.resources")
-        third_party_jar_resources_hash = ctx.actions.declare_output("third_party_jars.resources.hash")
-        ctx.actions.run(cmd_args([
-            android_toolchain.merge_third_party_jar_resources[RunInfo],
-            "--output",
-            third_party_jar_resources.as_output(),
-            "--output-hash",
-            third_party_jar_resources_hash.as_output(),
-            "--third-party-jars",
-            third_party_jars,
-        ]).hidden(prebuilt_jars), category = "merge_third_party_jar_resources")
-
         exopackage_info = ExopackageResourcesInfo(
             assets = exopackaged_assets,
             assets_hash = exopackaged_assets_hash,
             res = exo_resources,
             res_hash = exo_resources_hash,
-            third_party_jar_resources = third_party_jar_resources,
-            third_party_jar_resources_hash = third_party_jar_resources_hash,
         )
     else:
         exopackage_info = None
