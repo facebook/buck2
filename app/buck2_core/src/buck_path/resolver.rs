@@ -30,6 +30,6 @@ impl BuckPathResolver {
     }
 
     pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-        Ok(self.0.get(path.cell())?.path().join(path.path()))
+        self.0.resolve_path(path)
     }
 }
