@@ -13,8 +13,15 @@ _NL = {
 }
 
 def _impl(ctx: "context"):
-    newline = _NL.get(ctx.attrs.newline, ctx.attrs._auto_newline)
+    # Figure out the type of newlines we're using.
+    newline_type = ctx.attrs.newline
+    if newline_type == "auto":
+        newline_type = ctx.attrs._auto_newline
+
+    # Join lines with newline.
+    newline = _NL[newline_type]
     content = "".join([line + newline for line in ctx.attrs.content])
+
     output = ctx.actions.write(
         ctx.attrs.out,
         content,
