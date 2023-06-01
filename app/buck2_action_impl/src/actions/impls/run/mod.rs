@@ -75,17 +75,26 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use thiserror::Error;
 
+use self::dep_files::DeclaredDepFiles;
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::CommandDigests;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::DepFilesKey;
+use crate::actions::impls::run::dep_files::PartitionedInputs;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
 pub(crate) mod audit_dep_files;
 pub mod dep_files;
 mod metadata;
+
+type DepFileLookUpKey = (
+    DepFilesKey,
+    CommandDigests,
+    PartitionedInputs<Vec<ArtifactGroup>>,
+    DeclaredDepFiles,
+);
 
 #[derive(Debug, Error)]
 enum RunActionValidationError {
@@ -404,6 +413,68 @@ impl RunAction {
             worker,
         })
     }
+
+    fn make_dep_file_lookup_key(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        visitor: DepFilesCommandLineVisitor<'_>,
+        prepared_action: &PreparedRunAction,
+    ) -> DepFileLookUpKey {
+        let digests = CommandDigests {
+            cli: prepared_action.expanded.fingerprint(),
+            directory: prepared_action
+                .paths
+                .input_directory()
+                .fingerprint()
+                .data()
+                .dupe(),
+        };
+        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
+
+        let DepFilesCommandLineVisitor {
+            inputs: declared_inputs,
+            outputs: declared_dep_files,
+            ..
+        } = visitor;
+        (dep_files_key, digests, declared_inputs, declared_dep_files)
+    }
+
+    async fn check_dep_files(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+        dep_files: &DepFileLookUpKey,
+    ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+        let (dep_files_key, digests, declared_inputs, declared_dep_files) = dep_files;
+
+        let matching_result = span_async(buck2_data::MatchDepFilesStart {}, async {
+            let res: anyhow::Result<_> = try {
+                match_or_clear_dep_file(
+                    dep_files_key,
+                    digests,
+                    declared_inputs,
+                    self.outputs.as_slice(),
+                    declared_dep_files,
+                    ctx,
+                )
+                .await?
+            };
+
+            (res, buck2_data::MatchDepFilesEnd {})
+        })
+        .await?;
+
+        if let Some(matching_result) = matching_result {
+            Ok(Some((
+                matching_result,
+                ActionExecutionMetadata {
+                    execution_kind: ActionExecutionKind::Skipped,
+                    timing: Default::default(),
+                },
+            )))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 struct PreparedRunAction {
@@ -537,57 +608,16 @@ impl IncrementalActionExecutable for RunAction {
                 None,
             )
         } else {
-            let (matching_result, prepared, dep_files) =
-                span_async(buck2_data::MatchDepFilesStart {}, async {
-                    let res: anyhow::Result<_> = try {
-                        let dep_files_key = DepFilesKey::from_action_execution_target(ctx.target());
-
-                        let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-                        let prepared = self.prepare(&mut visitor, ctx)?;
-
-                        let DepFilesCommandLineVisitor {
-                            inputs: declared_inputs,
-                            outputs: declared_dep_files,
-                            ..
-                        } = visitor;
-
-                        let digests = CommandDigests {
-                            cli: prepared.expanded.fingerprint(),
-                            directory: prepared.paths.input_directory().fingerprint().data().dupe(),
-                        };
-
-                        let matching_result = match_or_clear_dep_file(
-                            &dep_files_key,
-                            &digests,
-                            &declared_inputs,
-                            self.outputs.as_slice(),
-                            &declared_dep_files,
-                            ctx,
-                        )
-                        .await?;
-
-                        (
-                            matching_result,
-                            prepared,
-                            (dep_files_key, digests, declared_inputs, declared_dep_files),
-                        )
-                    };
-
-                    (res, buck2_data::MatchDepFilesEnd {})
-                })
-                .await?;
-
-            if let Some(matching_result) = matching_result {
-                return Ok((
-                    matching_result,
-                    ActionExecutionMetadata {
-                        execution_kind: ActionExecutionKind::Skipped,
-                        timing: Default::default(),
-                    },
-                ));
+            let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
+            let prepared = self.prepare(&mut visitor, ctx)?;
+            let dep_files = self.make_dep_file_lookup_key(ctx, visitor, &prepared);
+            match self.check_dep_files(ctx, &dep_files).await? {
+                Some(m) => {
+                    // Found a match
+                    return Ok(m);
+                }
+                None => (prepared, Some(dep_files)),
             }
-
-            (prepared, Some(dep_files))
         };
 
         // Run actions are assumed to be shared
