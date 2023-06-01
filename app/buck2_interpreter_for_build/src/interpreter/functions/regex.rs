@@ -9,6 +9,7 @@
 
 use fancy_regex::Regex;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 
 #[starlark_module]
 pub fn register_regex(builder: &mut GlobalsBuilder) {
@@ -24,5 +25,22 @@ pub fn register_regex(builder: &mut GlobalsBuilder) {
     fn regex_match(regex: &str, str: &str) -> anyhow::Result<bool> {
         let re = Regex::new(regex)?;
         Ok(re.is_match(str)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use starlark::assert::Assert;
+
+    use crate::interpreter::functions::regex::register_regex;
+
+    #[test]
+    fn test_regex() {
+        let mut a = Assert::new();
+        a.globals_add(register_regex);
+        a.eq("regex_match('abc|def|ghi', 'abc')", "True");
+        a.eq("regex_match('abc|def|ghi', 'xyz')", "False");
+        a.eq("regex_match('^((?!abc).)*$', 'abc')", "False");
+        a.eq("regex_match('^((?!abc).)*$', 'xyz')", "True");
     }
 }

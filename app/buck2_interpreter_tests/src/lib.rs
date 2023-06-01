@@ -10,4 +10,3 @@
 #![cfg(test)]
 
 pub mod build_defs;
-mod functions;
