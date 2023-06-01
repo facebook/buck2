@@ -25,7 +25,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_common::executor_config::PathSeparatorKind;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::buck_path::path::BuckPath;
-use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::category::Category;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -166,7 +165,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
                 .unwrap();
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(cell_info.1),
+            cell_info.1,
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "buck-out/v2".to_owned(),
             )),

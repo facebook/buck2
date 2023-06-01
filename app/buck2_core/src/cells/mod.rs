@@ -154,6 +154,7 @@ use itertools::Itertools;
 use sequence_trie::SequenceTrie;
 use thiserror::Error;
 
+use crate::buck_path::path::BuckPathRef;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
@@ -472,6 +473,12 @@ impl CellResolver {
     /// ```
     pub fn resolve_package(&self, pkg: PackageLabel) -> anyhow::Result<ProjectRelativePathBuf> {
         self.resolve_path(pkg.as_cell_path())
+    }
+
+    /// Resolves a 'BuckPath' into a 'ProjectRelativePath' based on the package
+    /// and cell.
+    pub fn resolve_buck_path(&self, path: BuckPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+        Ok(self.resolve_package(path.package())?.join(path.path()))
     }
 
     // These are constructors for tests.

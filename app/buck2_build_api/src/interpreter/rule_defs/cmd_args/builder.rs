@@ -136,7 +136,6 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
 #[cfg(test)]
 mod tests {
     use buck2_common::executor_config::PathSeparatorKind;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -156,10 +155,10 @@ mod tests {
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
                 .unwrap();
         let fs = ArtifactFs::new(
-            BuckPathResolver::new(CellResolver::testing_with_name_and_path(
+            CellResolver::testing_with_name_and_path(
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            )),
+            ),
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
         );

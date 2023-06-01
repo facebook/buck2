@@ -652,7 +652,6 @@ mod tests {
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::buck_path::path::BuckPath;
-    use buck2_core::buck_path::resolver::BuckPathResolver;
     use buck2_core::category::Category;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
@@ -719,7 +718,7 @@ mod tests {
 
         let project_fs = temp_fs.path().dupe();
         let artifact_fs = ArtifactFs::new(
-            BuckPathResolver::new(cells),
+            cells,
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
                 "cell/buck-out/v2".into(),
             )),

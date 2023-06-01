@@ -10,8 +10,8 @@
 use allocative::Allocative;
 
 use crate::buck_path::path::BuckPathRef;
-use crate::buck_path::resolver::BuckPathResolver;
 use crate::cells::cell_path::CellPathRef;
+use crate::cells::CellResolver;
 use crate::fs::buck_out_path::BuckOutPath;
 use crate::fs::buck_out_path::BuckOutPathResolver;
 use crate::fs::project::ProjectRoot;
@@ -19,14 +19,14 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 #[derive(Clone, Allocative)]
 pub struct ArtifactFs {
-    buck_path_resolver: BuckPathResolver,
+    buck_path_resolver: CellResolver,
     buck_out_path_resolver: BuckOutPathResolver,
     project_filesystem: ProjectRoot,
 }
 
 impl ArtifactFs {
     pub fn new(
-        buck_path_resolver: BuckPathResolver,
+        buck_path_resolver: CellResolver,
         buck_out_path_resolver: BuckOutPathResolver,
         project_filesystem: ProjectRoot,
     ) -> Self {
@@ -46,14 +46,15 @@ impl ArtifactFs {
     }
 
     pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.buck_path_resolver.resolve_cell_path(path)
+        self.buck_path_resolver.resolve_path(path)
     }
 
     pub fn resolve_source(
         &self,
         source_artifact_path: BuckPathRef,
     ) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.buck_path_resolver.resolve(source_artifact_path)
+        self.buck_path_resolver
+            .resolve_buck_path(source_artifact_path)
     }
 
     pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
@@ -68,7 +69,7 @@ impl ArtifactFs {
         &self.buck_out_path_resolver
     }
 
-    pub fn buck_path_resolver(&self) -> &BuckPathResolver {
+    pub fn buck_path_resolver(&self) -> &CellResolver {
         &self.buck_path_resolver
     }
 }

@@ -14,7 +14,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::result::SharedResult;
-use buck2_core::buck_path::resolver::BuckPathResolver;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
@@ -79,7 +78,7 @@ impl<'c> Calculation<'c> for DiceComputations {
     async fn get_artifact_fs(&self) -> anyhow::Result<ArtifactFs> {
         let buck_out_path_resolver = BuckOutPathResolver::new(self.get_buck_out_path().await?);
         let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
-        let buck_path_resolver = BuckPathResolver::new(self.get_cell_resolver().await?);
+        let buck_path_resolver = self.get_cell_resolver().await?;
         Ok(ArtifactFs::new(
             buck_path_resolver,
             buck_out_path_resolver,
