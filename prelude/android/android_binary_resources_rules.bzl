@@ -124,10 +124,8 @@ def get_android_binary_resources_info(
             third_party_jar_resources = third_party_jar_resources,
             third_party_jar_resources_hash = third_party_jar_resources_hash,
         )
-        jar_files_that_may_contain_resources = []
     else:
         exopackage_info = None
-        jar_files_that_may_contain_resources = prebuilt_jars
         r_dot_txt = aapt2_link_info.r_dot_txt
 
     override_symbols_paths = [override_symbols] if override_symbols else []
@@ -180,7 +178,7 @@ def get_android_binary_resources_info(
         r_dot_javas = r_dot_javas,
         string_source_map = string_source_map,
         voltron_string_source_map = voltron_string_source_map,
-        jar_files_that_may_contain_resources = jar_files_that_may_contain_resources,
+        jar_files_that_may_contain_resources = prebuilt_jars,
         unfiltered_resource_infos = unfiltered_resource_infos,
     )
 
