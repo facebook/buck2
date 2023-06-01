@@ -120,7 +120,19 @@ impl DiceKeyIndex {
         let index_in_shard = if let Some(index_in_shard) = shard.get(key.borrow(), hash) {
             index_in_shard
         } else {
-            shard.insert_unique_unchecked(&guard, key.into_owned(), hash)
+            let index_in_shard = shard.insert_unique_unchecked(&guard, key.into_owned(), hash);
+
+            trace!(
+                "{} maps to {:?}",
+                shard.key_by_index.get(index_in_shard as usize).unwrap(),
+                DiceKeyUnpacked {
+                    shard_index,
+                    index_in_shard,
+                }
+                .pack()
+            );
+
+            index_in_shard
         };
         DiceKeyUnpacked {
             shard_index,
