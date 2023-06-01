@@ -261,14 +261,14 @@ def create_compile_cmds(
     argsfiles_summary = ctx.actions.write("argsfiles", argsfile_names)
 
     # Create a provider that will output all the argsfiles necessary and generate those argsfiles.
-    argsfiles = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = other_outputs)
+    argsfile_info = DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = other_outputs)
 
     if header_only:
         return CxxCompileCommandOutput(comp_db_compile_cmds = src_compile_cmds)
     else:
         return CxxCompileCommandOutput(
             src_compile_cmds = src_compile_cmds,
-            argsfiles_info = argsfiles,
+            argsfiles_info = argsfile_info,
             argsfile_by_ext = argsfile_artifacts_by_ext,
             comp_db_compile_cmds = src_compile_cmds,
         )
