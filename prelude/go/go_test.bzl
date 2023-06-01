@@ -92,6 +92,7 @@ def go_test_impl(ctx: "context") -> ["provider"]:
         pkgs = {pkg_name: tests},
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
+        linker_flags = ctx.attrs.linker_flags,
     )
 
     run_cmd = cmd_args(bin).hidden(runtime_files)
