@@ -21,6 +21,7 @@ use std::slice;
 use std::time::Instant;
 
 use dupe::Dupe;
+use starlark_map::StarlarkHasherBuilder;
 
 use crate as starlark;
 use crate::eval::runtime::profile::data::ProfileData;
@@ -113,7 +114,7 @@ struct FlameData<'v> {
 struct Stacks<'a> {
     name: &'a str,
     time: SmallDuration,
-    children: HashMap<ValueId, Stacks<'a>>,
+    children: HashMap<ValueId, Stacks<'a>, StarlarkHasherBuilder>,
 }
 
 impl<'a> Stacks<'a> {
@@ -121,7 +122,7 @@ impl<'a> Stacks<'a> {
         Stacks {
             name,
             time: SmallDuration::default(),
-            children: HashMap::new(),
+            children: HashMap::with_hasher(StarlarkHasherBuilder::default()),
         }
     }
 
