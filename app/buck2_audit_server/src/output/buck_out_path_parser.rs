@@ -34,35 +34,50 @@ enum BuckOutPathParserError {
     MalformedOutputPath(String),
 }
 
-/// The types of the `buck-out` path. Each type contains the configuration hash.
+/// The common attributes of each `buck-out` path type,
+pub(crate) struct BuckOutPathTypeCommon {
+    /// Configuration hash within the `buck-out` path.
+    pub(crate) config_hash: String,
+    /// The path starting from cell to the artifact, without the configuration hash. For example, in
+    /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
+    #[allow(unused)] // TODO(wendyy) temporary
+    pub(crate) raw_path_to_output: ForwardRelativePathBuf,
+}
+
+/// The types of the `buck-out` path.
 pub(crate) enum BuckOutPathType {
     BxlOutput {
         // `BxlFunctionLabel` contains the `CellPath` to the bxl function.
         _bxl_function_label: BxlFunctionLabel,
-        _config_hash: String,
+        #[allow(unused)] // TODO(wendyy) temporary
+        common_attrs: BuckOutPathTypeCommon,
     },
     AnonOutput {
         _path: CellPath,
         _target_label: TargetLabel,
         // Rule attr hash is part of anonymous target buck-outs.
         _attr_hash: String,
-        _config_hash: String,
+        #[allow(unused)] // TODO(wendyy) temporary
+        common_attrs: BuckOutPathTypeCommon,
     },
     RuleOutput {
         _path: CellPath,
         target_label: TargetLabel,
         // This is the part of the buck-out after target name. For example, it would `artifact` in  `gen/path/to/__target_name__/artifact`
         path_after_target_name: ForwardRelativePathBuf,
-        config_hash: String,
+        #[allow(unused)] // TODO(wendyy) temporary
+        common_attrs: BuckOutPathTypeCommon,
     },
     TestOutput {
         _path: CellPath,
-        _config_hash: String,
+        #[allow(unused)] // TODO(wendyy) temporary
+        common_attrs: BuckOutPathTypeCommon,
     },
     TmpOutput {
         _path: CellPath,
         _target_label: TargetLabel,
-        _config_hash: String,
+        #[allow(unused)] // TODO(wendyy) temporary
+        common_attrs: BuckOutPathTypeCommon,
     },
 }
 
@@ -95,10 +110,13 @@ struct BuckOutPathData {
     cell_path: CellPath,
     config_hash: String,
     anon_hash: Option<String>,
+    /// The path starting from cell to the artifact, without the configuration hash. For example, in
+    /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
+    raw_path_to_output: ForwardRelativePathBuf,
 }
 
 fn get_cell_path<'v>(
-    iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
+    iter: &mut Peekable<impl Iterator<Item = &'v FileName> + Clone>,
     cell_resolver: &'v CellResolver,
     generated_prefix: &'v str,
 ) -> anyhow::Result<BuckOutPathData> {
@@ -108,6 +126,7 @@ fn get_cell_path<'v>(
     match iter.next() {
         Some(cell_name) => {
             let cell_name = CellName::unchecked_new(cell_name.as_str())?;
+            let mut raw_path_to_output = ForwardRelativePath::new(cell_name.as_str())?.to_buf();
 
             cell_resolver.get(cell_name)?;
 
@@ -120,6 +139,10 @@ fn get_cell_path<'v>(
                     ));
                 }
             };
+
+            iter.clone().for_each(|f| {
+                raw_path_to_output.push(f);
+            });
 
             // Get cell relative path and construct the cell path
             let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
@@ -162,6 +185,7 @@ fn get_cell_path<'v>(
                                 cell_path,
                                 config_hash: config_hash.to_string(),
                                 anon_hash,
+                                raw_path_to_output: raw_path_to_output.to_buf(),
                             };
 
                             return Ok(buck_out_path_data);
@@ -176,6 +200,7 @@ fn get_cell_path<'v>(
                     cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
                     config_hash: config_hash.to_string(),
                     anon_hash: None,
+                    raw_path_to_output: raw_path_to_output.to_buf(),
                 };
                 Ok(buck_out_path_data)
             } else {
@@ -266,19 +291,29 @@ impl<'v> BuckOutPathParser<'v> {
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
 
+                        let common_attrs = BuckOutPathTypeCommon {
+                            config_hash: buck_out_path_data.config_hash,
+                            raw_path_to_output: buck_out_path_data.raw_path_to_output,
+                        };
+
                         Ok(BuckOutPathType::TmpOutput {
                             _path: buck_out_path_data.cell_path,
                             _target_label: target_label,
-                            _config_hash: buck_out_path_data.config_hash,
+                            common_attrs,
                         })
                     }
                     "test" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, self.cell_resolver, "test")?;
 
+                        let common_attrs = BuckOutPathTypeCommon {
+                            config_hash: buck_out_path_data.config_hash,
+                            raw_path_to_output: buck_out_path_data.raw_path_to_output,
+                        };
+
                         Ok(BuckOutPathType::TestOutput {
                             _path: buck_out_path_data.cell_path,
-                            _config_hash: buck_out_path_data.config_hash,
+                            common_attrs,
                         })
                     }
                     "gen" => {
@@ -288,12 +323,16 @@ impl<'v> BuckOutPathParser<'v> {
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let path_after_target_name =
                             ForwardRelativePathBuf::new(iter.clone().join("/"))?;
+                        let common_attrs = BuckOutPathTypeCommon {
+                            config_hash: buck_out_path_data.config_hash,
+                            raw_path_to_output: buck_out_path_data.raw_path_to_output,
+                        };
 
                         Ok(BuckOutPathType::RuleOutput {
                             _path: buck_out_path_data.cell_path,
                             target_label,
                             path_after_target_name,
-                            config_hash: buck_out_path_data.config_hash,
+                            common_attrs,
                         })
                     }
                     "gen-anon" => {
@@ -301,6 +340,10 @@ impl<'v> BuckOutPathParser<'v> {
                             get_cell_path(&mut iter, self.cell_resolver, "gen-anon")?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                        let common_attrs = BuckOutPathTypeCommon {
+                            config_hash: buck_out_path_data.config_hash,
+                            raw_path_to_output: buck_out_path_data.raw_path_to_output,
+                        };
 
                         Ok(BuckOutPathType::AnonOutput {
                             _path: buck_out_path_data.cell_path,
@@ -308,7 +351,7 @@ impl<'v> BuckOutPathParser<'v> {
                             _attr_hash: buck_out_path_data
                                 .anon_hash
                                 .expect("No hash found in anonymous artifact buck-out"),
-                            _config_hash: buck_out_path_data.config_hash,
+                            common_attrs,
                         })
                     }
                     "gen-bxl" => {
@@ -316,10 +359,14 @@ impl<'v> BuckOutPathParser<'v> {
                             get_cell_path(&mut iter, self.cell_resolver, "gen-bxl")?;
                         let bxl_function_label =
                             get_bxl_function_label(&mut iter, buck_out_path_data.cell_path)?;
+                        let common_attrs = BuckOutPathTypeCommon {
+                            config_hash: buck_out_path_data.config_hash,
+                            raw_path_to_output: buck_out_path_data.raw_path_to_output,
+                        };
 
                         Ok(BuckOutPathType::BxlOutput {
                             _bxl_function_label: bxl_function_label,
-                            _config_hash: buck_out_path_data.config_hash,
+                            common_attrs,
                         })
                     }
                     _ => Err(anyhow::anyhow!(
@@ -457,7 +504,7 @@ mod tests {
                 _path: path,
                 target_label,
                 path_after_target_name,
-                config_hash,
+                common_attrs,
             } => {
                 assert_eq!(
                     path_after_target_name,
@@ -465,7 +512,11 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label,);
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -487,7 +538,7 @@ mod tests {
                 _path: path,
                 target_label,
                 path_after_target_name,
-                config_hash,
+                common_attrs,
             } => {
                 assert_eq!(
                     path_after_target_name,
@@ -495,7 +546,11 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label_with_slashes,);
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name_start/target_name_end__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -515,7 +570,7 @@ mod tests {
                 _path: path,
                 target_label,
                 path_after_target_name,
-                config_hash,
+                common_attrs,
             } => {
                 assert_eq!(
                     path_after_target_name,
@@ -523,7 +578,11 @@ mod tests {
                 );
                 assert_eq!(target_label, expected_target_label_with_equal_sign,);
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name_eqsb_out__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -539,11 +598,15 @@ mod tests {
             BuckOutPathType::TmpOutput {
                 _path: path,
                 _target_label: target_label,
-                _config_hash: config_hash,
+                common_attrs,
             } => {
                 assert_eq!(path, expected_cell_path,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
                 assert_eq!(target_label, expected_target_label,);
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/__target_name__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -563,10 +626,14 @@ mod tests {
         match res {
             BuckOutPathType::TestOutput {
                 _path: path,
-                _config_hash: config_hash,
+                common_attrs,
             } => {
                 assert_eq!(path, expected_test_cell_path,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/test/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -583,12 +650,16 @@ mod tests {
                 _path: path,
                 _target_label: target_label,
                 _attr_hash: attr_hash,
-                _config_hash: config_hash,
+                common_attrs,
             } => {
                 assert_eq!(target_label, expected_target_label,);
                 assert_eq!(path, expected_cell_path,);
                 assert_eq!(attr_hash, "anon_hash",);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/target/anon_hash/__target_name__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
@@ -603,7 +674,7 @@ mod tests {
         match res {
             BuckOutPathType::BxlOutput {
                 _bxl_function_label: bxl_function_label,
-                _config_hash: config_hash,
+                common_attrs,
             } => {
                 let path = CellPath::new(
                     CellName::testing_new("bar"),
@@ -617,7 +688,11 @@ mod tests {
                 };
 
                 assert_eq!(bxl_function_label, expected_bxl_function_label,);
-                assert_eq!(config_hash, expected_config_hash.as_str());
+                assert_eq!(common_attrs.config_hash, expected_config_hash.as_str());
+                assert_eq!(
+                    common_attrs.raw_path_to_output.as_str(),
+                    "bar/path/to/function.bxl/__function_name__/output"
+                )
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }

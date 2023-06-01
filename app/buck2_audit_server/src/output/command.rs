@@ -54,10 +54,14 @@ async fn audit_output<'v>(
     let (target_label, config_hash, path_after_target_name) = match parsed {
         BuckOutPathType::RuleOutput {
             target_label,
-            config_hash,
+            common_attrs,
             path_after_target_name,
             ..
-        } => (target_label, config_hash, path_after_target_name),
+        } => (
+            target_label,
+            common_attrs.config_hash,
+            path_after_target_name,
+        ),
         _ => {
             return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
                 output_path.to_owned()
