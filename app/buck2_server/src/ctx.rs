@@ -24,10 +24,6 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::interpreter::context::configure_build_file_globals;
-use buck2_build_api::interpreter::context::configure_extension_file_globals;
-use buck2_build_api::interpreter::context::configure_package_file_globals;
-use buck2_build_api::interpreter::context::prelude_path;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::client_context::HostArchOverride;
@@ -82,14 +78,18 @@ use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_forkserver::client::ForkserverClient;
-use buck2_interpreter::bxl::CONFIGURE_BXL_FILE_GLOBALS;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_profiler::StarlarkProfilerConfiguration;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
+use buck2_interpreter_for_build::interpreter::globals::configure_build_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_bxl_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_extension_file_globals;
+use buck2_interpreter_for_build::interpreter::globals::configure_package_file_globals;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceDataProvider;
@@ -674,7 +674,7 @@ impl DiceUpdater for DiceCommandUpdater {
             configure_build_file_globals,
             configure_package_file_globals,
             configure_extension_file_globals,
-            *CONFIGURE_BXL_FILE_GLOBALS.get()?,
+            configure_bxl_file_globals,
             None,
         )?;
 

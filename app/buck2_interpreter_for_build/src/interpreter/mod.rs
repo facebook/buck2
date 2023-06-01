@@ -16,6 +16,7 @@ pub mod cycles;
 pub mod dice_calculation_delegate;
 pub mod functions;
 pub mod global_interpreter_state;
+pub mod globals;
 pub mod interpreter_for_cell;
 pub mod interpreter_setup;
 pub mod module_internals;

@@ -43,6 +43,7 @@ buck2_analysis = { workspace = true }
 buck2_anon_target = { workspace = true }
 buck2_audit = { workspace = true }
 buck2_audit_server = { workspace = true }
+buck2_build_api = { workspace = true }
 buck2_build_signals_impl = { workspace = true }
 buck2_bxl = { workspace = true }
 buck2_configured = { workspace = true }

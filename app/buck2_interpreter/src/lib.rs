@@ -36,6 +36,7 @@ pub mod load_module;
 pub mod package_imports;
 pub mod parse_import;
 pub mod path;
+pub mod prelude_path;
 pub mod print_handler;
 pub mod selector;
 pub mod starlark_debug;

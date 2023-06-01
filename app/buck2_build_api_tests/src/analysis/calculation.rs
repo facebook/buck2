@@ -14,7 +14,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::deferred::types::testing::DeferredAnalysisResultExt;
 use buck2_build_api::interpreter::build_defs::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
-use buck2_build_api::interpreter::rule_defs::register_rule_defs;
+use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
@@ -46,11 +46,13 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::path::OwnedStarlarkModulePath;
+use buck2_interpreter_for_build::attrs::attrs_global::register_attrs;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::rule::register_rule_function;
 use buck2_util::collections::ordered_map::OrderedMap;
 use dice::testing::DiceBuilder;
 use dice::UserComputationData;
@@ -87,8 +89,10 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         resolver.dupe(),
         configs.dupe(),
     ))?;
-    interpreter.additional_globals(register_rule_defs);
+    interpreter.additional_globals(register_rule_function);
     interpreter.additional_globals(register_provider);
+    interpreter.additional_globals(register_builtin_providers);
+    interpreter.additional_globals(register_attrs);
     let module = interpreter
         .eval_import(
             &bzlfile,
@@ -173,7 +177,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             false,
             |_| {},
             |_| {},
-            register_rule_defs,
+            |_| {},
             |_| {},
             None,
         )?,

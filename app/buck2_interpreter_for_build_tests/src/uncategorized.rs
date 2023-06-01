@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::result::SharedResult;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::rule::register_rule_function;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -28,7 +28,7 @@ fn cannot_register_target_twice() {
         "#
     );
     let mut tester = Tester::new().unwrap();
-    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_rule_function);
     let err = tester.run_starlark_test(content).expect_err("should fail");
     assert!(
         err.to_string()
