@@ -86,7 +86,6 @@ enum EnumError {
 
 /// The type of an enumeration, created by `enum()`.
 #[derive(
-    Clone,
     Debug,
     Trace,
     Coerce,
