@@ -35,6 +35,7 @@
 //! # "#);
 //! ```
 
+use std::cell::UnsafeCell;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -103,12 +104,16 @@ pub struct EnumTypeGen<V, Typ: ExportedName> {
     typ: Typ,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
-    elements: SmallMap<V, V>,
+    #[allocative(skip)] // TODO(nga): do not skip.
+    elements: UnsafeCell<SmallMap<V, V>>,
 }
+
+unsafe impl<V: Send, Typ: ExportedName + Send> Send for EnumTypeGen<V, Typ> {}
+unsafe impl<V: Sync, Typ: ExportedName + Sync> Sync for EnumTypeGen<V, Typ> {}
 
 impl<V: Display, Typ: ExportedName> Display for EnumTypeGen<V, Typ> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_container(f, "enum(", ")", self.elements.iter().map(|(k, _v)| k))
+        fmt_container(f, "enum(", ")", self.elements().iter().map(|(k, _v)| k))
     }
 }
 
@@ -152,7 +157,7 @@ impl<'v> EnumType<'v> {
         // They both point at each other, which adds to the complexity.
         let typ = heap.alloc(EnumType {
             typ: MutableExportedName::default(),
-            elements: SmallMap::new(),
+            elements: UnsafeCell::new(SmallMap::new()),
         });
 
         let mut res = SmallMap::with_capacity(elements.len());
@@ -169,13 +174,9 @@ impl<'v> EnumType<'v> {
 
         // Here we tie the cycle
         let t = typ.downcast_ref::<EnumType>().unwrap();
-        #[allow(clippy::cast_ref_to_mut)]
         unsafe {
-            // To tie the cycle we can either have an UnsafeCell or similar, or just mutate in place.
-            // Since we only do the tie once, better to do the mutate in place.
-            // Safe because we know no one else has a copy of this reference at this point.
-            *(&t.elements as *const SmallMap<Value<'v>, Value<'v>>
-                as *mut SmallMap<Value<'v>, Value<'v>>) = res;
+            // SAFETY: we own unique reference to `t`.
+            *t.elements.get() = res;
         }
         Ok(typ)
     }
@@ -191,6 +192,13 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
     }
 }
 
+impl<V, Typ: ExportedName> EnumTypeGen<V, Typ> {
+    pub(crate) fn elements(&self) -> &SmallMap<V, V> {
+        // Safe because we never mutate the elements after construction.
+        unsafe { &*self.elements.get() }
+    }
+}
+
 impl<'v, Typ, V> EnumTypeGen<V, Typ>
 where
     Value<'v>: Equivalent<V>,
@@ -198,7 +206,7 @@ where
     V: ValueLike<'v> + 'v,
 {
     pub(crate) fn construct(&self, val: Value<'v>) -> anyhow::Result<V> {
-        match self.elements.get_hashed_by_value(val.get_hashed()?) {
+        match self.elements().get_hashed_by_value(val.get_hashed()?) {
             Some(v) => Ok(*v),
             None => Err(EnumError::InvalidElement(val.to_str(), self.to_string()).into()),
         }
@@ -225,13 +233,18 @@ where
     }
 
     fn length(&self) -> anyhow::Result<i32> {
-        Ok(self.elements.len() as i32)
+        Ok(self.elements().len() as i32)
     }
 
     fn at(&self, index: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let i = convert_index(index, self.elements.len() as i32)? as usize;
+        let i = convert_index(index, self.elements().len() as i32)? as usize;
         // Must be in the valid range since convert_index checks that, so just unwrap
-        Ok(self.elements.get_index(i).map(|x| *x.1).unwrap().to_value())
+        Ok(self
+            .elements()
+            .get_index(i)
+            .map(|x| *x.1)
+            .unwrap()
+            .to_value())
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -239,13 +252,13 @@ where
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
-        debug_assert!(index <= self.elements.len());
-        let rem = self.elements.len() - index;
+        debug_assert!(index <= self.elements().len());
+        let rem = self.elements().len() - index;
         (rem, Some(rem))
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.elements.values().nth(index).map(|v| v.to_value())
+        self.elements().values().nth(index).map(|v| v.to_value())
     }
 
     unsafe fn iter_stop(&self) {}
@@ -263,10 +276,10 @@ where
             if a.typ.borrow() != b.typ.borrow() {
                 return Ok(false);
             }
-            if a.elements.len() != b.elements.len() {
+            if a.elements().len() != b.elements().len() {
                 return Ok(false);
             }
-            for (k1, k2) in a.elements.keys().zip(b.elements.keys()) {
+            for (k1, k2) in a.elements().keys().zip(b.elements().keys()) {
                 if !k1.to_value().equals(k2.to_value())? {
                     return Ok(false);
                 }
@@ -301,8 +314,8 @@ fn enum_type_methods(builder: &mut MethodsBuilder) {
     fn values<'v>(this: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
         match this {
-            Either::Left(x) => Ok(heap.alloc_list_iter(x.elements.keys().copied())),
-            Either::Right(x) => Ok(heap.alloc_list_iter(x.elements.keys().map(|x| x.to_value()))),
+            Either::Left(x) => Ok(heap.alloc_list_iter(x.elements().keys().copied())),
+            Either::Right(x) => Ok(heap.alloc_list_iter(x.elements().keys().map(|x| x.to_value()))),
         }
     }
 }
