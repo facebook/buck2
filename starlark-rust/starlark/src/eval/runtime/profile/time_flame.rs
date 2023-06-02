@@ -227,8 +227,6 @@ impl<'v> TimeFlameProfile<'v> {
         self.0 = Some(Box::default());
     }
 
-    #[cold]
-    #[inline(never)]
     pub(crate) fn record_call_enter(&mut self, function: Value<'v>) {
         if let Some(x) = &mut self.0 {
             let ind = x.index.index(function);
@@ -236,8 +234,6 @@ impl<'v> TimeFlameProfile<'v> {
         }
     }
 
-    #[cold]
-    #[inline(never)]
     pub(crate) fn record_call_exit(&mut self) {
         if let Some(x) = &mut self.0 {
             x.frames.push((Frame::Pop, Instant::now()))
