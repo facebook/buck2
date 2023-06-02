@@ -39,7 +39,7 @@ impl CoercedAttrResolveExt for CoercedAttr {
             }
             CoercedAttr::None => Ok(Value::new_none()),
             CoercedAttr::Bool(b) => Ok(Value::new_bool(b.0)),
-            CoercedAttr::Int(i) => Ok(Value::new_int(*i)),
+            CoercedAttr::Int(i) => Ok(heap.alloc(*i)),
             CoercedAttr::String(s) | CoercedAttr::EnumVariant(s) => {
                 Ok(heap.alloc_str(s).to_value())
             }

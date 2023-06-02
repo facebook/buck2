@@ -90,7 +90,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     ) -> anyhow::Result<Value<'v>> {
         match self {
             ConfiguredAttr::Bool(v) => Ok(Value::new_bool(v.0)),
-            ConfiguredAttr::Int(v) => Ok(Value::new_int(*v)),
+            ConfiguredAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
             ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => {
                 Ok(ctx.heap().alloc(v.as_str()))
             }

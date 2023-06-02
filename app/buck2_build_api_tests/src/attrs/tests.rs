@@ -206,7 +206,7 @@ fn test_any() -> anyhow::Result<()> {
     let configured = coerced.configure(&attr, &configuration_ctx())?;
     assert_eq!("True", configured.as_display_no_ctx().to_string());
 
-    let value = Value::new_int(42);
+    let value = heap.alloc(42);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     assert_eq!("42", coerced.as_display_no_ctx().to_string());
     let configured = coerced.configure(&attr, &configuration_ctx())?;

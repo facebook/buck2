@@ -58,7 +58,7 @@ impl AnonTargetAttrExt for AnonTargetAttr {
     ) -> anyhow::Result<Value<'v>> {
         match self {
             AnonTargetAttr::Bool(v) => Ok(Value::new_bool(v.0)),
-            AnonTargetAttr::Int(v) => Ok(Value::new_int(*v)),
+            AnonTargetAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
             AnonTargetAttr::String(v) | AnonTargetAttr::EnumVariant(v) => {
                 Ok(ctx.heap().alloc(v.as_str()))
             }

@@ -171,7 +171,7 @@ impl CliArgValue {
     pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
         match self {
             CliArgValue::Bool(b) => Value::new_bool(*b),
-            CliArgValue::Int(i) => Value::new_int(*i),
+            CliArgValue::Int(i) => heap.alloc(*i),
             CliArgValue::Float(f) => heap.alloc(f.parse::<f64>().expect("already verified")),
             CliArgValue::String(s) => heap.alloc(s),
             CliArgValue::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
@@ -681,7 +681,7 @@ mod tests {
         );
 
         assert_eq!(
-            CliArgType::int().coerce_value(Value::new_int(42))?,
+            CliArgType::int().coerce_value(heap.alloc(42))?,
             CliArgValue::Int(42)
         );
 
