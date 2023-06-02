@@ -19,7 +19,6 @@ use buck2_common::result::SharedResult;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_types::GetDisableStarlarkTypes;
-use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::file_type::StarlarkFileType;
 use dice::DiceComputations;
 use dice::Key;
@@ -27,6 +26,7 @@ use dupe::Dupe;
 use more_futures::cancellation::CancellationContext;
 use starlark::environment::Globals;
 
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
 
@@ -36,7 +36,7 @@ use crate::interpreter::context::HasInterpreterContext;
 pub struct GlobalInterpreterState {
     pub cell_resolver: CellResolver,
 
-    pub cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
+    pub(crate) cell_configs: HashMap<BuildFileCell, InterpreterCellInfo>,
 
     /// The GlobalEnvironment contains all the globally available symbols
     /// (primarily starlark stdlib and Buck-provided functions) that should

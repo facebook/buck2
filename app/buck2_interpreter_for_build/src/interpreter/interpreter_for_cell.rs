@@ -24,7 +24,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -55,6 +54,7 @@ use thiserror::Error;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::data::SuperPackage;

@@ -12,12 +12,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use dupe::Dupe;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
-pub struct InterpreterCellInfo(Arc<Data>);
+pub(crate) struct InterpreterCellInfo(Arc<Data>);
 
 #[derive(Debug, Allocative)]
 struct Data {
@@ -27,7 +26,7 @@ struct Data {
 }
 
 impl InterpreterCellInfo {
-    pub fn new(
+    pub(crate) fn new(
         cell_name: BuildFileCell,
         config: &dyn LegacyBuckConfigView,
         cell_resolver: CellResolver,
@@ -44,23 +43,15 @@ impl InterpreterCellInfo {
         })))
     }
 
-    pub fn name(&self) -> BuildFileCell {
+    pub(crate) fn name(&self) -> BuildFileCell {
         self.0.cell_name
     }
 
-    pub fn cell_resolver(&self) -> &CellResolver {
+    pub(crate) fn cell_resolver(&self) -> &CellResolver {
         &self.0.cell_resolver
     }
 
-    pub fn cell_alias_resolver(&self) -> anyhow::Result<&CellAliasResolver> {
-        Ok(self
-            .0
-            .cell_resolver
-            .get(self.0.cell_name.name())?
-            .cell_alias_resolver())
-    }
-
-    pub fn default_visibility_to_public(&self) -> bool {
+    pub(crate) fn default_visibility_to_public(&self) -> bool {
         self.0.default_visibility_to_public
     }
 }

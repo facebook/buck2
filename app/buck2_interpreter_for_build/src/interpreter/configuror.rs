@@ -15,7 +15,6 @@ use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter::extra::cell_info::InterpreterCellInfo;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -28,6 +27,7 @@ use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::build_defs::configure_base_globals;
+use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;

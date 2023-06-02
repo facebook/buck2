@@ -10,6 +10,7 @@
 pub mod build_context;
 pub mod build_defs;
 pub mod calculation;
+pub(crate) mod cell_info;
 pub mod configuror;
 pub mod context;
 pub mod cycles;
