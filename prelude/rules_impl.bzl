@@ -465,6 +465,7 @@ inlined_extra_attributes = {
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_omnibus_environment": omnibus_environment_attr(),
+        "_target_os_type": buck.target_os_type_arg(),
     },
 
     #python
