@@ -45,9 +45,11 @@ pub fn to_json_project(
     target_map: BTreeMap<Target, TargetInfo>,
     aliases: BTreeMap<Target, AliasedTargetInfo>,
     proc_macros: BTreeMap<Target, MacroOutput>,
+    relative_paths: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let targets: BTreeSet<_> = targets.into_iter().collect();
     let target_index = merge_unit_test_targets(target_map);
+    let project_root = Buck.resolve_project_root()?;
 
     let mut crates: Vec<Crate> = Vec::with_capacity(target_index.len());
     for (target, TargetInfoEntry { info, index: _ }) in &target_index {
@@ -75,14 +77,19 @@ pub fn to_json_project(
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
-        let proc_macro_dylib_path = proc_macros
+        let mut proc_macro_dylib_path = proc_macros
             .values()
             .find(|macro_output| macro_output.actual == *target)
             .map(|macro_output| macro_output.dylib.clone());
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let root_module = info.root_module();
+        let mut root_module = info.root_module();
+
+        if relative_paths {
+            proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
+            root_module = relative_to(&root_module, &project_root);
+        }
 
         let crate_info = Crate {
             display_name: Some(info.name.clone()),
@@ -109,6 +116,15 @@ pub fn to_json_project(
     };
 
     Ok(jp)
+}
+
+/// If `path` starts with `base`, drop the prefix.
+pub fn relative_to(path: &Path, base: &Path) -> PathBuf {
+    match path.strip_prefix(base) {
+        Ok(rel_path) => rel_path,
+        Err(_) => path,
+    }
+    .to_owned()
 }
 
 fn resolve_dependencies_aliases(
@@ -228,10 +244,16 @@ fn merge_unit_test_targets(
 // sysroot_src since their sysroot bundled with rustc doesn't ship source. Once it
 // does, dispense with sysroot_src completely.
 #[instrument(ret)]
-pub fn rust_sysroot(project_root: &Path) -> Result<Sysroot, anyhow::Error> {
+pub fn rust_sysroot(project_root: &Path, relative_paths: bool) -> Result<Sysroot, anyhow::Error> {
     if cfg!(target_os = "linux") {
+        let base: PathBuf = if relative_paths {
+            PathBuf::from("")
+        } else {
+            project_root.into()
+        };
+
         let sysroot = Sysroot {
-            sysroot: Some(project_root.join("fbcode/third-party-buck/platform010/build/rust")),
+            sysroot: Some(base.join("fbcode/third-party-buck/platform010/build/rust")),
             sysroot_src: None,
         };
 
@@ -257,15 +279,21 @@ pub fn rust_sysroot(project_root: &Path) -> Result<Sysroot, anyhow::Error> {
 
     let buck = Buck;
     let sysroot_src = buck.resolve_sysroot_src()?;
-    let sysroot_src = project_root.join(sysroot_src);
+    let mut sysroot_src = project_root.join(sysroot_src);
 
     // Now block while we wait for both processes.
     let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
         .context("error asking rustc for sysroot")?;
     truncate_line_ending(&mut sysroot);
 
+    let mut sysroot: PathBuf = sysroot.into();
+    if relative_paths {
+        sysroot = relative_to(&sysroot, &project_root);
+        sysroot_src = relative_to(&sysroot_src, &project_root);
+    }
+
     let sysroot = Sysroot {
-        sysroot: Some(sysroot.into()),
+        sysroot: Some(sysroot),
         sysroot_src: Some(sysroot_src),
     };
 

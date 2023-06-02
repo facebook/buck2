@@ -74,6 +74,10 @@ enum Command {
         /// Pretty-print generated `rust-project.json` file.
         #[clap(short, long)]
         pretty: bool,
+
+        /// Use paths relative to the project root in `rust-project.json`.
+        #[clap(long, hide = true)]
+        relative_paths: bool,
     },
 }
 

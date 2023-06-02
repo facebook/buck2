@@ -17,6 +17,7 @@ use anyhow::bail;
 use tracing::info;
 
 use crate::buck;
+use crate::buck::relative_to;
 use crate::buck::rust_sysroot;
 use crate::buck::to_json_project;
 use crate::json_project::Sysroot;
@@ -28,6 +29,7 @@ pub struct Develop {
     pub out: Output,
     pub sysroot: Option<PathBuf>,
     pub pretty: bool,
+    pub relative_paths: bool,
 }
 
 impl From<crate::Command> for Develop {
@@ -39,6 +41,7 @@ impl From<crate::Command> for Develop {
             stdout,
             sysroot,
             pretty,
+            relative_paths,
         } = command
         {
             let input = if !targets.is_empty() {
@@ -58,6 +61,7 @@ impl From<crate::Command> for Develop {
                 out,
                 sysroot,
                 pretty,
+                relative_paths,
             };
         }
 
@@ -83,8 +87,10 @@ impl Develop {
             out,
             sysroot,
             pretty,
+            relative_paths,
         } = self;
         let buck = buck::Buck;
+        let project_root = buck.resolve_project_root()?;
 
         let targets = match input {
             Input::Targets(targets) => targets.iter().map(Target::new).collect::<Vec<Target>>(),
@@ -103,18 +109,31 @@ impl Develop {
         let proc_macros = buck.query_proc_macros(&targets)?;
 
         let sysroot = match &sysroot {
-            Some(s) => Sysroot {
-                sysroot: Some(expand_tilde(s)?.canonicalize()?),
-                sysroot_src: None,
-            },
+            Some(s) => {
+                let mut sysroot_path = expand_tilde(s)?.canonicalize()?;
+                if relative_paths {
+                    sysroot_path = relative_to(&sysroot_path, &project_root);
+                }
+
+                Sysroot {
+                    sysroot: Some(sysroot_path),
+                    sysroot_src: None,
+                }
+            }
             None => {
                 let project_root = buck.resolve_project_root()?;
-                rust_sysroot(&project_root)?
+                rust_sysroot(&project_root, relative_paths)?
             }
         };
         info!("converting buck info to rust-project.json");
-        let rust_project =
-            to_json_project(sysroot, targets, target_map, aliased_libraries, proc_macros)?;
+        let rust_project = to_json_project(
+            sysroot,
+            targets,
+            target_map,
+            aliased_libraries,
+            proc_macros,
+            relative_paths,
+        )?;
 
         let mut writer: BufWriter<Box<dyn Write>> = match out {
             Output::Path(ref p) => {
