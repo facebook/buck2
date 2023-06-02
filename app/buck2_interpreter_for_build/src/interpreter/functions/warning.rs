@@ -8,6 +8,7 @@
  */
 
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 #[starlark_module]

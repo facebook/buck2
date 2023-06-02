@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_interpreter::functions::warning::register_warning;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -26,5 +25,4 @@ pub mod transitive_set;
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     cmd_args::register_cmd_args(globals);
     register_builtin_providers(globals);
-    register_warning(globals);
 }

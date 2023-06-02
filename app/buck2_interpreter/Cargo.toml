@@ -17,7 +17,6 @@ thiserror = { workspace = true }
 glob = { workspace = true }
 plist = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }

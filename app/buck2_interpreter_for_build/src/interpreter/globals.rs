@@ -19,6 +19,7 @@ use crate::interpreter::functions::load_symbols::register_load_symbols;
 use crate::interpreter::functions::read_config::register_read_config;
 use crate::interpreter::functions::regex::register_regex;
 use crate::interpreter::functions::soft_error::register_soft_error;
+use crate::interpreter::functions::warning::register_warning;
 use crate::interpreter::natives::register_module_natives;
 use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
@@ -75,6 +76,7 @@ pub fn configure_extension_file_globals(globals_builder: &mut GlobalsBuilder) {
     register_build_bzl_natives(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_cmd_args)(globals_builder);
     (MORE_FUNCTIONS.get().unwrap().register_rule_defs)(globals_builder);
+    register_warning(globals_builder);
     register_soft_error(globals_builder);
     register_regex(globals_builder);
     register_load_symbols(globals_builder);

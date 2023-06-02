@@ -9,4 +9,3 @@
 
 pub mod more;
 pub mod transition;
-pub mod warning;
