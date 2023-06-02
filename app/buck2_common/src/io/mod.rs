@@ -65,7 +65,8 @@ pub async fn create_io_provider(
     {
         use buck2_core::rollout_percentage::RolloutPercentage;
 
-        let allow_eden_io_default = RolloutPercentage::from_bool(cfg!(target_os = "macos"));
+        let allow_eden_io_default =
+            RolloutPercentage::from_bool(cfg!(any(target_os = "macos", target_os = "windows")));
 
         let allow_eden_io = root_config
             .and_then(|c| c.parse("buck2", "allow_eden_io").transpose())
