@@ -49,11 +49,16 @@ def http_file_shared(
 
 def http_file_impl(ctx: "context") -> ["provider"]:
     expect(len(ctx.attrs.urls) == 1, "multiple `urls` not supported: {}", ctx.attrs.urls)
+    expect(len(ctx.attrs.vpnless_urls) < 2, "multiple `vpnless_urls` not supported: {}", ctx.attrs.vpnless_urls)
+    if len(ctx.attrs.vpnless_urls) > 0:
+        vpnless_url = ctx.attrs.vpnless_urls[0]
+    else:
+        vpnless_url = None
     return http_file_shared(
         ctx.actions,
         name = value_or(ctx.attrs.out, ctx.label.name),
         url = ctx.attrs.urls[0],
-        vpnless_url = ctx.attrs.vpnless_url,
+        vpnless_url = vpnless_url,
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
         is_executable = ctx.attrs.executable or False,

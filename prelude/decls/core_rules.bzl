@@ -726,10 +726,6 @@ http_archive = prelude_rule(
         remote_common.urls_arg() |
         remote_common.sha256_arg() |
         {
-            "vpnless_urls": attrs.list(attrs.string(), default = [], doc = """
-                Additional URLs from which this resource can be downloaded when
-                  off VPN. Meta-internal only.
-            """),
             "out": attrs.option(attrs.string(), default = None, doc = """
                 An optional name to call the directory that the downloaded artifact is
                  extracted into. Buck will generate a default name if one is not
