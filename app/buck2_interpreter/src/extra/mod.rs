@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod buckconfig;
 pub mod xcode;
 
 use allocative::Allocative;

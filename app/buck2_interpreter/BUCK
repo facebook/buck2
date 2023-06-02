@@ -16,7 +16,6 @@ rust_library(
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:glob",
-        "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:plist",
         "fbsource//third-party/rust:regex",

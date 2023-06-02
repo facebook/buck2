@@ -24,7 +24,7 @@ struct BuckConfigEntry {
 }
 
 /// Version of cell buckconfig optimized for fast query from `read_config` Starlark function.
-pub struct LegacyBuckConfigForStarlark<'a> {
+pub(crate) struct LegacyBuckConfigForStarlark<'a> {
     module: &'a Module,
     buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
     /// Hash map by `(section, key)` pair, so we do one table lookup per request.
@@ -58,7 +58,7 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
     }
 
     /// Constructor.
-    pub fn new(
+    pub(crate) fn new(
         module: &'a Module,
         buckconfig: &'a (dyn LegacyBuckConfigView + 'a),
     ) -> LegacyBuckConfigForStarlark<'a> {
@@ -101,7 +101,7 @@ impl<'a> LegacyBuckConfigForStarlark<'a> {
     }
 
     /// Find the buckconfig entry.
-    pub fn get(
+    pub(crate) fn get(
         &self,
         section: StringValue,
         key: StringValue,
