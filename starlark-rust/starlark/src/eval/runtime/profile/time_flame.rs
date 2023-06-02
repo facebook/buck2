@@ -161,7 +161,9 @@ impl<'a> Stacks<'a> {
         frames: &[(Frame, Instant)],
     ) -> Self {
         let mut res = Stacks::blank("root");
-        let mut last_time = frames.first().map_or_else(Instant::now, |x| x.1);
+        let Some(mut last_time) = frames.first().map(|x| x.1) else {
+            return res;
+        };
         res.add(
             mutable_names,
             frozen_names,
