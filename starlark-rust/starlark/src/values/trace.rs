@@ -116,7 +116,7 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for RefCell<T> {
     }
 }
 
-unsafe impl<'v, T: Trace<'v> + Copy> Trace<'v> for Cell<T> {
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for Cell<T> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.get_mut().trace(tracer);
     }
