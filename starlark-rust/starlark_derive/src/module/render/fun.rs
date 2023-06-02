@@ -700,7 +700,7 @@ fn render_signature_arg(
 fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
     let x = quote!(#default).to_string();
     if let Ok(x) = x.trim_end_matches("i32").parse::<i32>() {
-        Some(quote! { starlark::values::FrozenValue::new_int(#x) })
+        Some(quote! { globals_builder.alloc(#x) })
     } else if let Ok(x) = x.parse::<bool>() {
         Some(quote! { starlark::values::FrozenValue::new_bool(#x) })
     } else if x == "NoneOr :: None" {

@@ -263,7 +263,7 @@ impl<'v> Value<'v> {
 
     /// Create a new integer.
     #[inline]
-    pub fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: i32) -> Self {
         FrozenValue::new_int(x).to_value()
     }
 
@@ -870,7 +870,7 @@ impl FrozenValue {
 
     /// Create a new int in Starlark.
     #[inline]
-    pub fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: i32) -> Self {
         Self(FrozenPointer::new_int(x))
     }
 
