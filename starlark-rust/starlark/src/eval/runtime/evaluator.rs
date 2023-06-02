@@ -62,6 +62,7 @@ use crate::eval::runtime::profile::stmt::StmtProfile;
 use crate::eval::runtime::profile::time_flame::TimeFlameProfile;
 use crate::eval::runtime::profile::typecheck::TypecheckProfile;
 use crate::eval::runtime::profile::ProfileMode;
+use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::CallStack;
@@ -695,6 +696,9 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.heap().allocated_bytes()
             );
         }
+
+        self.stmt_profile
+            .before_stmt(rust_loc!().span.file_span_ref());
 
         self.time_flame_profile
             .record_call_enter(const_frozen_string!("GC").to_value());
