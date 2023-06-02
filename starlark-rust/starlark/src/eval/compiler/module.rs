@@ -18,6 +18,7 @@
 //! Compile and evaluate module top-level statements.
 
 use crate::codemap::Spanned;
+use crate::const_frozen_string;
 use crate::environment::EnvironmentError;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::add_span_to_expr_error;
@@ -109,7 +110,7 @@ impl<'v> Compiler<'v, '_, '_> {
                     local_count,
                     bc.max_stack_size,
                     bc.max_loop_depth,
-                    |eval| eval.eval_bc(Value::new_none(), &bc),
+                    |eval| eval.eval_bc(const_frozen_string!("module").to_value(), &bc),
                 )
             }
         }
