@@ -338,7 +338,9 @@ def _mk_hmap(ctx: "context", name: str.type, headers: {str.type: ("artifact", st
     header_args = cmd_args()
     for n, (path, fmt) in headers.items():
         header_args.add(n)
-        header_args.add(cmd_args(path, format = fmt))
+
+        # We don't care about the header contents -- just their names.
+        header_args.add(cmd_args(path, format = fmt).ignore_artifacts())
 
     hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
     cmd.add(["--mappings-file", hmap_args_file]).hidden(header_args)
