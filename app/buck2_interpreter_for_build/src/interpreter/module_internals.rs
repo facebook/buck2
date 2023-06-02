@@ -20,7 +20,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::console_message;
-use buck2_interpreter::globspec::GlobSpec;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
@@ -32,6 +31,7 @@ use starlark::environment::FrozenModule;
 use starlark::values::OwnedFrozenValue;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+use crate::interpreter::globspec::GlobSpec;
 use crate::super_package::data::SuperPackage;
 
 impl From<ModuleInternals> for EvaluationResult {

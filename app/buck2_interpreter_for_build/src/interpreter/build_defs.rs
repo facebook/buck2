@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_interpreter::globspec::GlobSpec;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
@@ -18,6 +17,7 @@ use starlark::values::Value;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::sha256::register_sha256;
+use crate::interpreter::globspec::GlobSpec;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::selector::register_select;
 

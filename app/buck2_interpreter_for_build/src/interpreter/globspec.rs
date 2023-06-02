@@ -78,7 +78,7 @@ impl GlobPattern {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct GlobSpec {
+pub(crate) struct GlobSpec {
     common_prefix: String,
     exact_matches: HashSet<String>,
     patterns: Vec<GlobPattern>,
@@ -118,7 +118,7 @@ fn longest_common_glob_prefix<P: AsRef<str>>(patterns: &[P]) -> &str {
 
 impl GlobSpec {
     const BINARY_SEARCH_CUTOFF: usize = 100;
-    pub fn new<P: AsRef<str>, Q: AsRef<str>>(
+    pub(crate) fn new<P: AsRef<str>, Q: AsRef<str>>(
         patterns: &[P],
         excludes: &[Q],
     ) -> anyhow::Result<Self> {
@@ -155,7 +155,7 @@ impl GlobSpec {
         })
     }
 
-    pub fn matches(&self, path: &str) -> bool {
+    pub(crate) fn matches(&self, path: &str) -> bool {
         let options = glob::MatchOptions {
             require_literal_separator: true,
             require_literal_leading_dot: true,
@@ -174,7 +174,7 @@ impl GlobSpec {
                 .any(|p| p.0.matches_with(path, options))
     }
 
-    pub fn resolve_glob<'a>(
+    pub(crate) fn resolve_glob<'a>(
         &'a self,
         spec: &'a PackageFileListing,
     ) -> Box<dyn Iterator<Item = &'a PackageRelativePath> + 'a> {
