@@ -10,8 +10,6 @@
 //! Contains the internal support within the attribute framework for `select()`.
 
 use anyhow::Context;
-use buck2_interpreter::selector::StarlarkSelector;
-use buck2_interpreter::selector::StarlarkSelectorGen;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -22,6 +20,8 @@ use starlark::values::Value;
 use thiserror::Error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::interpreter::selector::StarlarkSelector;
+use crate::interpreter::selector::StarlarkSelectorGen;
 
 #[derive(Error, Debug)]
 enum SelectError {

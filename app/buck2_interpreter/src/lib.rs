@@ -38,7 +38,6 @@ pub mod parse_import;
 pub mod path;
 pub mod prelude_path;
 pub mod print_handler;
-pub mod selector;
 pub mod starlark_debug;
 pub mod starlark_profiler;
 pub mod starlark_promise;

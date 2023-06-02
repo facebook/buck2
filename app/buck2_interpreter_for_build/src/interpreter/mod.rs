@@ -21,4 +21,5 @@ pub mod interpreter_for_cell;
 pub mod interpreter_setup;
 pub mod module_internals;
 pub mod natives;
+pub mod selector;
 pub mod testing;

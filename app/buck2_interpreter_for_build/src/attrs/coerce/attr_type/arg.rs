@@ -219,7 +219,6 @@ impl UnconfiguredMacroExt for UnconfiguredMacro {}
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::label::TargetLabel;
-    use buck2_interpreter::selector::register_select;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -236,6 +235,7 @@ mod tests {
     use crate::attrs::coerce::attr_type::AttrTypeExt;
     use crate::attrs::coerce::testing::coercion_ctx;
     use crate::attrs::coerce::testing::to_value;
+    use crate::interpreter::selector::register_select;
 
     trait GetMacroDeps {
         type DepsType;

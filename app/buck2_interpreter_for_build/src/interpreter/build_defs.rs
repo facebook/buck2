@@ -8,7 +8,6 @@
  */
 
 use buck2_interpreter::globspec::GlobSpec;
-use buck2_interpreter::selector::register_select;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 use starlark::eval::Evaluator;
@@ -20,6 +19,7 @@ use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::sha256::register_sha256;
 use crate::interpreter::module_internals::ModuleInternals;
+use crate::interpreter::selector::register_select;
 
 #[starlark_module]
 pub fn native_module(builder: &mut GlobalsBuilder) {

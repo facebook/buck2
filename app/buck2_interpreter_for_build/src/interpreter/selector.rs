@@ -17,6 +17,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
+use starlark::starlark_module;
 use starlark::starlark_type;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
