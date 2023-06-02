@@ -23,6 +23,8 @@
 //! Bazel's .bzl files) or the BUILD file dialect (i.e. used to interpret
 //! Bazel's BUILD file). The BUILD dialect does not allow `def` statements.
 
+use std::cmp;
+
 use starlark_derive::VisitSpanMut;
 use thiserror::Error;
 
@@ -546,7 +548,7 @@ pub(crate) fn possible_gc(eval: &mut Evaluator) {
         // references to all values, so walking covers everything and the unsafe
         // is satisfied.
         unsafe { eval.garbage_collect() }
-        eval.next_gc_level = eval.heap().allocated_bytes() + GC_THRESHOLD;
+        eval.next_gc_level = cmp::max(eval.heap().allocated_bytes() * 2, GC_THRESHOLD);
     }
 }
 
