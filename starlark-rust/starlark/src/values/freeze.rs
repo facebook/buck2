@@ -16,6 +16,7 @@
  */
 
 use std::cell::RefCell;
+use std::cell::UnsafeCell;
 use std::marker;
 use std::marker::PhantomData;
 
@@ -146,6 +147,17 @@ where
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<T::Frozen> {
         self.into_inner().freeze(freezer)
+    }
+}
+
+impl<T> Freeze for UnsafeCell<T>
+where
+    T: Freeze,
+{
+    type Frozen = UnsafeCell<T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        Ok(UnsafeCell::new(self.into_inner().freeze(freezer)?))
     }
 }
 
