@@ -30,6 +30,7 @@ use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;
 use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
+use crate::const_frozen_string;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::EnvironmentError;
 use crate::environment::FrozenModuleData;
@@ -694,7 +695,14 @@ impl<'v, 'a> Evaluator<'v, 'a> {
                 self.heap().allocated_bytes()
             );
         }
+
+        self.time_flame_profile
+            .record_call_enter(const_frozen_string!("GC").to_value());
+
         self.heap().garbage_collect(|tracer| self.trace(tracer));
+
+        self.time_flame_profile.record_call_exit();
+
         if self.verbose_gc {
             eprintln!(
                 "Starlark: GC complete. Allocated bytes: {}.",
