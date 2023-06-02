@@ -33,6 +33,7 @@ use crate::eval::ProfileMode;
 use crate::slice_vec_ext::SliceExt;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
+use crate::values::FrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -43,13 +44,25 @@ enum FlameProfileError {
     NotEnabled,
 }
 
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
+struct MutableValueId(usize);
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
+struct FrozenValueId(usize);
+
 /// Index into FlameData.values
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Dupe)]
-struct ValueId(usize);
+enum ValueId {
+    // This struct is two words, can be made one.
+    Mutable(MutableValueId),
+    Frozen(FrozenValueId),
+}
 
 impl ValueId {
-    fn lookup<T>(self, xs: &[T]) -> &T {
-        &xs[self.0]
+    fn lookup<'a, T>(self, mutable: &'a [T], frozen: &'a [T]) -> &'a T {
+        match self {
+            ValueId::Mutable(x) => &mutable[x.0],
+            ValueId::Frozen(x) => &frozen[x.0],
+        }
     }
 }
 
@@ -59,19 +72,24 @@ impl ValueId {
 /// Whenever we GC, regenerate map.
 #[derive(Default)]
 struct ValueIndex<'v> {
-    /// Map from `ValueId` to `Value`.
-    values: Vec<Value<'v>>,
-    /// Map from `Value` to `ValueIndex`.
-    map: HashMap<RawPointer, ValueId, StarlarkHasherBuilder>,
+    /// Map from `MutableValueId` to `Value`.
+    mutable_values: Vec<Value<'v>>,
+    /// Map from `FrozenValueId` to `Value`.
+    frozen_values: Vec<FrozenValue>,
+    /// Map from `Value` to `MutableValueId`.
+    mutable_map: HashMap<RawPointer, MutableValueId, StarlarkHasherBuilder>,
+    /// Map from `Value` to `FrozenValueId`.
+    frozen_map: HashMap<RawPointer, FrozenValueId, StarlarkHasherBuilder>,
 }
 
 unsafe impl<'v> Trace<'v> for ValueIndex<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.values.trace(tracer);
+        // We only need to trace mutable values.
+        self.mutable_values.trace(tracer);
         // Have to rebuild the map, as its keyed by ValuePtr which changes on GC
-        self.map.clear();
-        for (i, x) in self.values.iter().enumerate() {
-            self.map.insert(x.ptr_value(), ValueId(i));
+        self.mutable_map.clear();
+        for (i, x) in self.mutable_values.iter().enumerate() {
+            self.mutable_map.insert(x.ptr_value(), MutableValueId(i));
         }
     }
 }
@@ -79,14 +97,25 @@ unsafe impl<'v> Trace<'v> for ValueIndex<'v> {
 impl<'v> ValueIndex<'v> {
     /// Map `Value` to `ValueId`.
     fn index(&mut self, value: Value<'v>) -> ValueId {
-        match self.map.entry(value.ptr_value()) {
-            Entry::Occupied(e) => *e.get(),
-            Entry::Vacant(e) => {
-                let res = ValueId(self.values.len());
-                self.values.push(value);
-                e.insert(res);
-                res
-            }
+        match value.unpack_frozen() {
+            Some(frozen) => match self.frozen_map.entry(frozen.ptr_value()) {
+                Entry::Occupied(e) => ValueId::Frozen(*e.get()),
+                Entry::Vacant(e) => {
+                    let res = FrozenValueId(self.frozen_values.len());
+                    self.frozen_values.push(frozen);
+                    e.insert(res);
+                    ValueId::Frozen(res)
+                }
+            },
+            None => match self.mutable_map.entry(value.ptr_value()) {
+                Entry::Occupied(e) => ValueId::Mutable(*e.get()),
+                Entry::Vacant(e) => {
+                    let res = MutableValueId(self.mutable_values.len());
+                    self.mutable_values.push(value);
+                    e.insert(res);
+                    ValueId::Mutable(res)
+                }
+            },
         }
     }
 }
@@ -126,16 +155,26 @@ impl<'a> Stacks<'a> {
         }
     }
 
-    fn new(names: &'a [String], frames: &[(Frame, Instant)]) -> Self {
+    fn new(
+        mutable_names: &'a [String],
+        frozen_names: &'a [String],
+        frames: &[(Frame, Instant)],
+    ) -> Self {
         let mut res = Stacks::blank("root");
         let mut last_time = frames.first().map_or_else(Instant::now, |x| x.1);
-        res.add(names, &mut frames.iter(), &mut last_time);
+        res.add(
+            mutable_names,
+            frozen_names,
+            &mut frames.iter(),
+            &mut last_time,
+        );
         res
     }
 
     fn add(
         &mut self,
-        names: &'a [String],
+        mutable_names: &'a [String],
+        frozen_names: &'a [String],
         frames: &mut slice::Iter<(Frame, Instant)>,
         last_time: &mut Instant,
     ) {
@@ -145,10 +184,15 @@ impl<'a> Stacks<'a> {
             match frame {
                 Frame::Pop => return,
                 Frame::Push(i) => match self.children.entry(*i) {
-                    Entry::Occupied(mut e) => e.get_mut().add(names, frames, last_time),
+                    Entry::Occupied(mut e) => {
+                        e.get_mut()
+                            .add(mutable_names, frozen_names, frames, last_time)
+                    }
                     Entry::Vacant(e) => e
-                        .insert(Stacks::blank(i.lookup(names).as_str()))
-                        .add(names, frames, last_time),
+                        .insert(Stacks::blank(
+                            i.lookup(mutable_names, frozen_names).as_str(),
+                        ))
+                        .add(mutable_names, frozen_names, frames, last_time),
                 },
             }
         }
@@ -210,10 +254,13 @@ impl<'v> TimeFlameProfile<'v> {
         // Need to write out lines which look like:
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
-        let names = x.index.values.map(|x| x.to_repr());
+        let mutable_names = x.index.mutable_values.map(|x| x.to_repr());
+        let frozen_names = x.index.frozen_values.map(|x| x.to_value().to_repr());
         ProfileData {
             profile_mode: ProfileMode::TimeFlame,
-            profile: ProfileDataImpl::TimeFlameProfile(Stacks::new(&names, &x.frames).render()),
+            profile: ProfileDataImpl::TimeFlameProfile(
+                Stacks::new(&mutable_names, &frozen_names, &x.frames).render(),
+            ),
         }
     }
 }
