@@ -66,7 +66,7 @@ impl RawPointer {
 
     #[inline]
     pub(crate) fn new_int(i: i32) -> RawPointer {
-        let ptr = ((i as u32 as usize) << 3) | TAG_INT;
+        let ptr = ((i as u32 as usize) << TAG_BITS) | TAG_INT;
         unsafe { Self::new_unchecked(ptr) }
     }
 
@@ -119,10 +119,10 @@ impl RawPointer {
     pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
         debug_assert!(self.is_int());
 
-        const INT_DATA_MASK: usize = 0xffffffff << 3;
+        const INT_DATA_MASK: usize = 0xffffffff << TAG_BITS;
         debug_assert!(self.0.get() & !INT_DATA_MASK == TAG_INT);
 
-        ((self.0.get() as isize) >> 3) as i32
+        ((self.0.get() as isize) >> TAG_BITS) as i32
     }
 
     #[inline]
@@ -160,7 +160,10 @@ assert_eq_size!(Option<Pointer<'static>>, usize);
 assert_eq_size!(FrozenPointer<'static>, usize);
 assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
+const TAG_BITS: usize = 3;
 const TAG_MASK: usize = 0b111;
+#[allow(clippy::assertions_on_constants)]
+const _: () = assert!(TAG_MASK == (1 << TAG_BITS) - 1);
 
 const TAG_INT: usize = 0b010;
 const TAG_STR: usize = 0b100;
