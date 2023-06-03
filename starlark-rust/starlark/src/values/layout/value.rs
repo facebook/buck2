@@ -312,7 +312,7 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying numerical value, if it is one.
-    pub fn unpack_num(self) -> Option<Num<'v>> {
+    pub(crate) fn unpack_num(self) -> Option<Num<'v>> {
         Num::unpack_value(self)
     }
 

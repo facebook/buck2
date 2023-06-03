@@ -33,7 +33,7 @@ use crate::values::ValueLike;
 /// numerical types and helps in implementation of arithmetical operations
 /// between them.
 #[derive(Clone, Debug, Dupe, Copy)]
-pub enum Num<'v> {
+pub(crate) enum Num<'v> {
     Int(i32),
     BigInt(&'v StarlarkBigInt),
     Float(f64),
@@ -70,7 +70,7 @@ impl<'v> UnpackValue<'v> for Num<'v> {
 
 impl<'v> Num<'v> {
     /// Get underlying value as float
-    pub fn as_float(&self) -> f64 {
+    pub(crate) fn as_float(&self) -> f64 {
         match self {
             Self::Int(i) => *i as f64,
             Self::Float(f) => *f,
@@ -79,7 +79,7 @@ impl<'v> Num<'v> {
     }
 
     /// Get underlying value as int (if it can be precisely expressed as int)
-    pub fn as_int(&self) -> Option<i32> {
+    pub(crate) fn as_int(&self) -> Option<i32> {
         match self {
             Self::Int(i) => Some(*i),
             Self::Float(f) => {
