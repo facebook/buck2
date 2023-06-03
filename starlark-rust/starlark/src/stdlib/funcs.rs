@@ -614,10 +614,9 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a: Option<Value<'v>>,
         base: Option<i32>,
     ) -> anyhow::Result<Value<'v>> {
-        if a.is_none() {
+        let Some(a) = a else {
             return Ok(Value::new_int(0));
-        }
-        let a = a.unwrap();
+        };
         if let Some(s) = a.unpack_str() {
             let base = base.unwrap_or(0);
             if base == 1 || base < 0 || base > 36 {
