@@ -695,7 +695,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
             ))
         } else if let Some(num) = a.unpack_num() {
             match num {
-                Num::Float(f) => match Num::from(f.trunc()).as_int() {
+                // TODO(nga): large f64 can be represented as exact bigint.
+                Num::Float(f) => match Num::f64_to_i32_exact(f.trunc()) {
                     Some(i) => Ok(Value::new_int(i)),
                     None => Err(anyhow::anyhow!(
                         "int() cannot convert float to integer: {}",
@@ -1206,8 +1207,10 @@ hash(foo)
         assert::eq("-2147483647 - 1", "int('-2147483648')");
         assert::eq("0", "int('0')");
         assert::eq("0", "int('-0')");
+        // TODO(nga): all of the following are bugs.
         assert::fail("int('2147483648')", "overflow");
         assert::fail("int('-2147483649')", "overflow");
+        assert::fail("int(1e66)", "cannot convert float to integer");
     }
 
     #[test]

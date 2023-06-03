@@ -78,23 +78,16 @@ impl<'v> Num<'v> {
         }
     }
 
+    pub(crate) fn f64_to_i32_exact(f: f64) -> Option<i32> {
+        let i = f as i32;
+        if i as f64 == f { Some(i) } else { None }
+    }
+
     /// Get underlying value as int (if it can be precisely expressed as int)
     pub(crate) fn as_int(&self) -> Option<i32> {
         match self {
             Self::Int(i) => Some(*i),
-            Self::Float(f) => {
-                // f64 can precisely represent all i32 values
-                // by a simple cast here we get for free:
-                // - making sure f doesn't have fractional part
-                // - i32 boundary checks
-                // - handling of special floats (+/- inf, nan)
-                let int_candidate = *f as i32;
-                if *f == int_candidate as f64 {
-                    Some(int_candidate)
-                } else {
-                    None
-                }
-            }
+            Self::Float(f) => Self::f64_to_i32_exact(*f),
             Self::BigInt(..) => {
                 // `StarlarkBigInt` is outside of `i32` range.
                 None
