@@ -27,7 +27,13 @@ def _impl(ctx: "context"):
         content,
         is_executable = ctx.attrs.is_executable,
     )
-    return [DefaultInfo(default_output = output)]
+
+    providers = [DefaultInfo(default_output = output)]
+
+    if ctx.attrs.is_executable:
+        providers.append(RunInfo(cmd_args(output)))
+
+    return providers
 
 registration_spec = RuleRegistrationSpec(
     name = "write_file",
