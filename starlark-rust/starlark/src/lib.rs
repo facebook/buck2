@@ -273,10 +273,11 @@
 //! let module = Module::new();
 //! let mut eval = Evaluator::new(&module);
 //! let quad = eval.eval_module(ast, &globals)?;
+//! let heap = module.heap();
 //! let res = eval.eval_function(
 //!     quad,
-//!     &[Value::new_int(4), Value::new_int(2), Value::new_int(1)],
-//!     &[("x", Value::new_int(8))],
+//!     &[heap.alloc(4), heap.alloc(2), heap.alloc(1)],
+//!     &[("x", heap.alloc(8))],
 //! )?;
 //! assert_eq!(res.unpack_int(), Some(273));
 //! # Ok(())

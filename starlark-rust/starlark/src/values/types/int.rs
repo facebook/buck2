@@ -17,7 +17,6 @@
 
 //! The integer type. Currently limited to 32 bit.
 //!
-//! Can be created with [`new_int`](Value::new_int) and unwrapped with [`unpack_int`](Value::unpack_int).
 //! Unlike most Starlark values, these aren't actually represented on the [`Heap`], but as special values.
 //! At some point in the future we plan to support arbitrary sized integers (as required by the
 //! [Starlark spec](https://github.com/bazelbuild/starlark/blob/master/spec.md#integers)), and those larger
