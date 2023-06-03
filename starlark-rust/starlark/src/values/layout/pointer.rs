@@ -160,7 +160,7 @@ assert_eq_size!(Option<Pointer<'static>>, usize);
 assert_eq_size!(FrozenPointer<'static>, usize);
 assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
-const TAG_BITS: usize = 0b111;
+const TAG_MASK: usize = 0b111;
 
 const TAG_INT: usize = 0b010;
 const TAG_STR: usize = 0b100;
@@ -170,7 +170,7 @@ const TAG_UNFROZEN: usize = 0b001;
 
 #[inline]
 unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueOrForward {
-    cast::usize_to_ptr(x & !TAG_BITS)
+    cast::usize_to_ptr(x & !TAG_MASK)
 }
 
 impl<'p> Pointer<'p> {
@@ -184,7 +184,7 @@ impl<'p> Pointer<'p> {
 
     #[inline]
     pub(crate) unsafe fn new_unfrozen_usize_with_str_tag(x: usize) -> Self {
-        debug_assert!((x & TAG_BITS & !TAG_STR) == 0);
+        debug_assert!((x & TAG_MASK & !TAG_STR) == 0);
         Self::new(RawPointer::new_unchecked(x | TAG_UNFROZEN))
     }
 
@@ -277,7 +277,7 @@ impl<'p> FrozenPointer<'p> {
 
     #[inline]
     pub fn new_frozen_usize_with_str_tag(x: usize) -> Self {
-        debug_assert!((x & TAG_BITS & !TAG_STR) == 0);
+        debug_assert!((x & TAG_MASK & !TAG_STR) == 0);
         unsafe { Self::new(RawPointer::new_unchecked(x)) }
     }
 
@@ -331,7 +331,7 @@ impl<'p> FrozenPointer<'p> {
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueOrForward {
         let p = self.ptr.0.get();
-        debug_assert!(p & TAG_BITS == 0);
+        debug_assert!(p & TAG_MASK == 0);
         cast::usize_to_ptr(p)
     }
 }
