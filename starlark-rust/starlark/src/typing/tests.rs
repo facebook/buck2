@@ -28,6 +28,7 @@ use crate::typing::OracleNoBuiltins;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
 use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::typing::TypingOracle;
 
 fn mk_oracle() -> impl TypingOracle {
@@ -56,7 +57,19 @@ fn test_oracle() {
             Ty::int()
         )))
     );
-    assert_eq!(o.builtin("not_a_symbol"), Some(Err(())))
+    assert_eq!(o.builtin("not_a_symbol"), Some(Err(())));
+
+    fn get_type(x: &Option<Result<Ty, ()>>) -> &str {
+        match x {
+            Some(Ok(Ty::Function(TyFunction { type_attr, .. }))) => type_attr.as_str(),
+            _ => "",
+        }
+    }
+
+    assert_eq!(get_type(&o.builtin("int")), "int");
+    assert_eq!(get_type(&o.builtin("str")), "string");
+    assert_eq!(get_type(&o.builtin("list")), "list");
+    assert_eq!(get_type(&o.builtin("hash")), "");
 }
 
 #[derive(Default)]

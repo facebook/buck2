@@ -681,7 +681,11 @@ impl Ty {
                 DocParam::Kwargs { typ, .. } => params.push(Param::kwargs(Ty::from_docs_type(typ))),
             }
         }
-        Ty::function(params, Self::from_docs_type(&function.ret.typ))
+        let result = Self::from_docs_type(&function.ret.typ);
+        match &function.dot_type {
+            None => Ty::function(params, result),
+            Some(type_attr) => Ty::ctor_function(type_attr, params, result),
+        }
     }
 
     pub(crate) fn from_docs_type(ty: &Option<DocType>) -> Self {

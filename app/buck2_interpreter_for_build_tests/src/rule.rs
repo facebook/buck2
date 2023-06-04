@@ -369,6 +369,7 @@ fn returns_documentation() -> anyhow::Result<()> {
                 raw_type: "None".to_owned(),
             }),
         },
+        dot_type: None,
     });
 
     let tester = rule_tester();

@@ -51,6 +51,12 @@ def func3(a1: int.type, a2: int.type = _, step: int.type = 1) -> str.type
 
 A function with only positional arguments.
 
+#### `.type` attribute
+
+Produces `"magic"`
+
+#### Details
+
 And a slightly longer description. With some example code:
 
 ```python

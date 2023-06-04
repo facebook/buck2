@@ -590,6 +590,7 @@ impl<'v, T1: ValueLike<'v>> DefGen<T1> {
                 .documentation(parameter_types, HashMap::new()),
             return_type,
             self.def_info.docstring.as_ref().map(String::as_ref),
+            None,
         );
 
         Some(DocItem::Function(function_docs))

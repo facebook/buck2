@@ -54,6 +54,21 @@ impl StarFun {
         }
     }
 
+    fn type_str(&self) -> TokenStream {
+        match &self.type_attribute {
+            Some(x) => quote_spanned! {
+            self.span()=>
+                std::option::Option::Some(#x)
+            },
+            None => {
+                quote_spanned! {
+                    self.span()=>
+                    std::option::Option::None
+                }
+            }
+        }
+    }
+
     /// Evaluator function parameter and call argument.
     fn eval_param_arg(
         &self,
@@ -553,9 +568,9 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
 
     let return_type_str = render_starlark_return_type(x, &x.starlark_return_type);
     let var_name = format_ident!("__documentation");
+    let dot_type: TokenStream = x.type_str();
     let documentation = quote_spanned!(span=>
         let #var_name = {
-            let signature = #documentation_signature;
             let parameter_types = std::collections::HashMap::from([#(#parameter_types),*]);
             let return_type = Some(
                 starlark::docs::DocType {
@@ -564,9 +579,10 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
             );
             starlark::values::function::NativeCallableRawDocs {
                 rust_docstring: #docs,
-                signature,
+                signature: #documentation_signature,
                 parameter_types,
                 return_type,
+                dot_type: #dot_type,
             }
         };
     );

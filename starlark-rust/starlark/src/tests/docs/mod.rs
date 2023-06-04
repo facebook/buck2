@@ -118,6 +118,7 @@ fn module(builder: &mut GlobalsBuilder) {
     /// 1 == 1
     /// # "#);
     /// ```
+    #[starlark(dot_type = "magic")]
     fn func3(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
