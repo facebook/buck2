@@ -17,11 +17,8 @@
 
 use std::collections::HashMap;
 
-use starlark_map::small_map::SmallMap;
-
 use crate::docs::Doc;
 use crate::docs::DocItem;
-use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
@@ -51,17 +48,15 @@ impl OracleDocs {
 
     /// Add information from a [`Doc`] to the documentation, overwriting existing items.
     pub fn add_doc(&mut self, doc: &Doc) {
-        fn add_members(me: &mut OracleDocs, doc: &Doc, members: &SmallMap<String, DocMember>) {
-            let mut items = HashMap::with_capacity(members.len());
-            for (name, member) in members {
-                items.insert(name.clone(), Ty::from_docs_member(member));
-            }
-            me.objects.insert(doc.id.name.clone(), items);
-        }
-
         match &doc.item {
             DocItem::Module(modu) => self.add_module(modu),
-            DocItem::Object(obj) => add_members(self, doc, &obj.members),
+            DocItem::Object(obj) => {
+                let mut items = HashMap::with_capacity(obj.members.len());
+                for (name, member) in &obj.members {
+                    items.insert(name.clone(), Ty::from_docs_member(member));
+                }
+                self.objects.insert(doc.id.name.clone(), items);
+            }
             DocItem::Property(x) => {
                 self.functions
                     .insert(doc.id.name.clone(), Ty::from_docs_property(x));
