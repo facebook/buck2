@@ -173,7 +173,7 @@ itertools = "0.10.3"
 jemallocator = { version = "0.5.0", features = ["profiling"] }
 lalrpop = { version = "0.19.7", artifact = "bin" }
 lalrpop-util = "0.19.7"
-libc = "0.2.132"
+libc = "=0.2.144"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 log = "0.4"
 logos = "0.12"
