@@ -27,7 +27,6 @@ use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
 use num_traits::Signed;
-use num_traits::Zero;
 use serde::Serialize;
 
 use crate as starlark;
@@ -110,26 +109,6 @@ impl StarlarkBigInt {
 
     pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: i32) -> Ordering {
         Self::cmp_small_big(b, a).reverse()
-    }
-
-    pub(crate) fn percent_big<'v>(
-        a: &BigInt,
-        b: &BigInt,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if b.is_zero() {
-            return Err(ValueError::DivisionByZero.into());
-        }
-        let r = a % b;
-        if r.is_zero() {
-            Ok(Value::new_int(0))
-        } else {
-            Ok(heap.alloc(Self::try_from_bigint(if b.sign() != r.sign() {
-                r + b
-            } else {
-                r
-            })))
-        }
     }
 
     pub(crate) fn unpack_integer<'v, I: TryFrom<&'v BigInt>>(&'v self) -> Option<I> {
@@ -244,22 +223,13 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "%", other),
         };
-        let b;
-        let b = match rhs {
-            NumRef::Float(f) => {
-                return Ok(heap.alloc_float(StarlarkFloat(StarlarkFloat::percent_impl(
-                    self.to_f64(),
-                    f,
-                )?)));
-            }
-            NumRef::Int(StarlarkIntRef::Small(i)) => {
-                // TODO(nga): do not allocate.
-                b = BigInt::from(i);
-                &b
-            }
-            NumRef::Int(StarlarkIntRef::Big(b)) => &b.value,
-        };
-        StarlarkBigInt::percent_big(&self.value, b, heap)
+        match rhs {
+            NumRef::Float(f) => Ok(heap.alloc_float(StarlarkFloat(StarlarkFloat::percent_impl(
+                self.to_f64(),
+                f,
+            )?))),
+            NumRef::Int(rhs) => Ok(heap.alloc(StarlarkIntRef::Big(self).percent(rhs)?)),
+        }
     }
 
     fn to_int(&self) -> anyhow::Result<i32> {

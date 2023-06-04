@@ -52,6 +52,8 @@ enum StarlarkIntError {
     CannotRepresentAsExact(f64),
     #[error("Floor division by zero: {0} // {1}")]
     FloorDivisionByZero(StarlarkInt, StarlarkInt),
+    #[error("Modulo by zero: {0} % {1}")]
+    ModuloByZero(StarlarkInt, StarlarkInt),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
@@ -182,6 +184,62 @@ impl<'v> StarlarkIntRef<'v> {
             (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => {
                 Self::floor_div_big_big(a.get(), b.get())
             }
+        }
+    }
+
+    fn percent_small(a: i32, b: i32) -> anyhow::Result<i32> {
+        if b == 0 {
+            return Err(StarlarkIntError::ModuloByZero(
+                StarlarkInt::Small(a),
+                StarlarkInt::Small(b),
+            )
+            .into());
+        }
+        // In Rust `i32::min_value() % -1` is overflow, but we should eval it to zero.
+        if a == i32::min_value() && b == -1 {
+            return Ok(0);
+        }
+        let r = a % b;
+        if r == 0 {
+            Ok(0)
+        } else {
+            Ok(if b.signum() != r.signum() { r + b } else { r })
+        }
+    }
+
+    fn percent_big(a: &BigInt, b: &BigInt) -> anyhow::Result<StarlarkInt> {
+        if b.is_zero() {
+            return Err(StarlarkIntError::ModuloByZero(
+                StarlarkBigInt::try_from_bigint(a.clone()),
+                StarlarkBigInt::try_from_bigint(b.clone()),
+            )
+            .into());
+        }
+        let r = a % b;
+        if r.is_zero() {
+            Ok(StarlarkInt::Small(0))
+        } else {
+            Ok(StarlarkBigInt::try_from_bigint(if b.sign() != r.sign() {
+                r + b
+            } else {
+                r
+            }))
+        }
+    }
+
+    /// `%`.
+    pub(crate) fn percent(self, other: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => {
+                Ok(StarlarkInt::Small(Self::percent_small(a, b)?))
+            }
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Big(b)) => {
+                Self::percent_big(&BigInt::from(a), b.get())
+            }
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Small(b)) => {
+                Self::percent_big(a.get(), &BigInt::from(b))
+            }
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => Self::percent_big(a.get(), b.get()),
         }
     }
 }

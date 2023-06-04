@@ -232,28 +232,8 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "%", other),
             Some(NumRef::Float(_)) => return StarlarkFloat(self.get() as f64).percent(other, heap),
-            Some(NumRef::Int(StarlarkIntRef::Big(other))) => {
-                return StarlarkBigInt::percent_big(&BigInt::from(self.get()), other.get(), heap);
-            }
-            Some(NumRef::Int(StarlarkIntRef::Small(b))) => {
-                let a = self.get();
-                if b == 0 {
-                    return Err(ValueError::DivisionByZero.into());
-                }
-                // In Rust `i32::min_value() % -1` is overflow, but we should eval it to zero.
-                if self.get() == i32::min_value() && b == -1 {
-                    return Ok(Value::new_int(0));
-                }
-                let r = a % b;
-                if r == 0 {
-                    Ok(Value::new_int(0))
-                } else {
-                    Ok(Value::new_int(if b.signum() != r.signum() {
-                        r + b
-                    } else {
-                        r
-                    }))
-                }
+            Some(NumRef::Int(other)) => {
+                Ok(heap.alloc(StarlarkIntRef::Small(self.get()).percent(other)?))
             }
         }
     }
