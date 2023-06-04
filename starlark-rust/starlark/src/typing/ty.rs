@@ -536,6 +536,7 @@ impl Ty {
                     Ok(Ty::unions(rs))
                 }
             }
+            Ty::Function(x) if attr == "type" && !x.type_attr.is_empty() => Ok(Ty::string()),
             _ => match ctx.oracle.attribute(self, attr) {
                 Some(r) => r,
                 None => Ok(ctx.approximation("oracle.attribute", format!("{}.{}", self, attr))),

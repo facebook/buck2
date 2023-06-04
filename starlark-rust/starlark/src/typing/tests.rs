@@ -180,3 +180,24 @@ foo(**{1: "x"})
 "#,
         );
 }
+
+#[test]
+fn test_dot_type() {
+    TypeCheck::new().check(
+        r#"
+def foo(x: list.type) -> bool.type:
+    return type(x) == list.type
+foo([1,2,3])
+"#,
+    );
+    TypeCheck::new()
+        .error(r#"Expected type `[""]` but got `"bool"`, at filename:4:1-10"#)
+        .error(r#"Expected type `[Void]` but got `"string"`, at filename:3:12-25"#)
+        .check(
+            r#"
+def foo(x: list.type) -> bool.type:
+    return type(x) == []
+foo(True)
+"#,
+        );
+}
