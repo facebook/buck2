@@ -22,6 +22,7 @@ use std::ops::BitXor;
 use std::ops::Neg;
 use std::ops::Not;
 
+use dupe::Dupe;
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 use num_traits::Num;
@@ -52,7 +53,7 @@ pub(crate) enum StarlarkInt {
     Big(StarlarkBigInt),
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug)]
 pub(crate) enum StarlarkIntRef<'v> {
     Small(i32),
     Big(&'v StarlarkBigInt),

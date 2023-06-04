@@ -213,11 +213,11 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
         match other.unpack_num() {
             None => Ok(false),
-            Some(Num::Int(_)) => {
+            Some(Num::Int(StarlarkIntRef::Small(_))) => {
                 // `StarlarkBigInt` is out of range of `i32`.
                 Ok(false)
             }
-            Some(Num::BigInt(other)) => Ok(self == other),
+            Some(Num::Int(StarlarkIntRef::Big(other))) => Ok(self == other),
             Some(Num::Float(f)) => Ok(self.to_f64() == f),
         }
     }
@@ -225,16 +225,22 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
-            Some(Num::BigInt(b)) => Ok(self.value.cmp(&b.value)),
-            Some(Num::Int(i)) => Ok(StarlarkIntRef::Big(self).cmp(&StarlarkIntRef::Small(i))),
+            Some(Num::Int(StarlarkIntRef::Big(b))) => Ok(self.value.cmp(&b.value)),
+            Some(Num::Int(StarlarkIntRef::Small(i))) => {
+                Ok(StarlarkIntRef::Big(self).cmp(&StarlarkIntRef::Small(i)))
+            }
             Some(Num::Float(f)) => Ok(StarlarkFloat::compare_impl(self.to_f64(), f)),
         }
     }
 
     fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         match rhs.unpack_num()? {
-            Num::Int(i) => Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + i)))),
-            Num::BigInt(b) => Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + &b.value)))),
+            Num::Int(StarlarkIntRef::Small(i)) => {
+                Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + i))))
+            }
+            Num::Int(StarlarkIntRef::Big(b)) => {
+                Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + &b.value))))
+            }
             Num::Float(f) => Some(Ok(heap.alloc_float(StarlarkFloat(self.to_f64() + f)))),
         }
     }
@@ -245,8 +251,12 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "-", other),
         };
         match rhs {
-            Num::Int(i) => Ok(heap.alloc(Self::try_from_bigint(&self.value - i))),
-            Num::BigInt(b) => Ok(heap.alloc(Self::try_from_bigint(&self.value - &b.value))),
+            Num::Int(StarlarkIntRef::Small(i)) => {
+                Ok(heap.alloc(Self::try_from_bigint(&self.value - i)))
+            }
+            Num::Int(StarlarkIntRef::Big(b)) => {
+                Ok(heap.alloc(Self::try_from_bigint(&self.value - &b.value)))
+            }
             Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() - f))),
         }
     }
@@ -257,8 +267,12 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "*", other),
         };
         match rhs {
-            Num::Int(i) => Ok(heap.alloc(Self::try_from_bigint(&self.value * i))),
-            Num::BigInt(b) => Ok(heap.alloc(Self::try_from_bigint(&self.value * &b.value))),
+            Num::Int(StarlarkIntRef::Small(i)) => {
+                Ok(heap.alloc(Self::try_from_bigint(&self.value * i)))
+            }
+            Num::Int(StarlarkIntRef::Big(b)) => {
+                Ok(heap.alloc(Self::try_from_bigint(&self.value * &b.value)))
+            }
             Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() * f))),
         }
     }
@@ -286,7 +300,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                     )?)),
                 );
             }
-            Num::Int(i) => {
+            Num::Int(StarlarkIntRef::Small(i)) => {
                 if i == 0 {
                     return Err(ValueError::DivisionByZero.into());
                 }
@@ -294,7 +308,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                 b = BigInt::from(i);
                 &b
             }
-            Num::BigInt(b) => &b.value,
+            Num::Int(StarlarkIntRef::Big(b)) => &b.value,
         };
         StarlarkBigInt::floor_div_big(&self.value, b, heap)
     }
@@ -312,12 +326,12 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                     f,
                 )?)));
             }
-            Num::Int(i) => {
+            Num::Int(StarlarkIntRef::Small(i)) => {
                 // TODO(nga): do not allocate.
                 b = BigInt::from(i);
                 &b
             }
-            Num::BigInt(b) => &b.value,
+            Num::Int(StarlarkIntRef::Big(b)) => &b.value,
         };
         StarlarkBigInt::percent_big(&self.value, b, heap)
     }
@@ -399,7 +413,9 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        Num::BigInt(self).get_hash_64().hash(hasher);
+        Num::Int(StarlarkIntRef::Big(self))
+            .get_hash_64()
+            .hash(hasher);
         Ok(())
     }
 }

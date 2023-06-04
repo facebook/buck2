@@ -23,6 +23,7 @@ use crate::collections::StarlarkHashValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::float::StarlarkFloat;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -34,8 +35,7 @@ use crate::values::ValueLike;
 /// between them.
 #[derive(Clone, Debug, Dupe, Copy)]
 pub(crate) enum Num<'v> {
-    Int(i32),
-    BigInt(&'v StarlarkBigInt),
+    Int(StarlarkIntRef<'v>),
     Float(f64),
 }
 
@@ -43,7 +43,7 @@ impl<'v> StarlarkTypeRepr for Num<'v> {
     fn starlark_type_repr() -> String {
         format!(
             "[{}, {}]",
-            i32::starlark_type_repr(),
+            StarlarkBigInt::starlark_type_repr(),
             StarlarkFloat::starlark_type_repr()
         )
     }
@@ -56,12 +56,10 @@ impl<'v> UnpackValue<'v> for Num<'v> {
 
     #[allow(clippy::manual_map)]
     fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(i) = value.unpack_int() {
+        if let Some(i) = StarlarkIntRef::unpack_value(value) {
             Some(Num::Int(i))
         } else if let Some(f) = value.downcast_ref::<StarlarkFloat>() {
             Some(Num::Float(f.0))
-        } else if let Some(b) = value.downcast_ref::<StarlarkBigInt>() {
-            Some(Num::BigInt(b))
         } else {
             None
         }
@@ -72,9 +70,9 @@ impl<'v> Num<'v> {
     /// Get underlying value as float
     pub(crate) fn as_float(&self) -> f64 {
         match self {
-            Self::Int(i) => *i as f64,
+            Self::Int(StarlarkIntRef::Small(i)) => *i as f64,
+            Self::Int(StarlarkIntRef::Big(b)) => b.to_f64(),
             Self::Float(f) => *f,
-            Self::BigInt(b) => b.to_f64(),
         }
     }
 
@@ -86,12 +84,12 @@ impl<'v> Num<'v> {
     /// Get underlying value as int (if it can be precisely expressed as int)
     pub(crate) fn as_int(&self) -> Option<i32> {
         match self {
-            Self::Int(i) => Some(*i),
-            Self::Float(f) => Self::f64_to_i32_exact(*f),
-            Self::BigInt(..) => {
+            Self::Int(StarlarkIntRef::Small(i)) => Some(*i),
+            Self::Int(StarlarkIntRef::Big(_)) => {
                 // `StarlarkBigInt` is outside of `i32` range.
                 None
             }
+            Self::Float(f) => Self::f64_to_i32_exact(*f),
         }
     }
 
@@ -115,11 +113,11 @@ impl<'v> Num<'v> {
             // equal ints and floats should have the same hash
             (Some(i), _) => i as u64,
             (None, Self::Float(f)) => float_hash(f),
-            (None, Self::Int(i)) => {
+            (None, Self::Int(StarlarkIntRef::Small(i))) => {
                 // shouldn't happen - as_int() should have resulted in an int
                 i as u64
             }
-            (None, Self::BigInt(b)) => {
+            (None, Self::Int(StarlarkIntRef::Big(b))) => {
                 // Not perfect, but OK: `1000000000000000000000003` and `1000000000000000000000005`
                 // flush to the same float, and neither is exact float,
                 // so we could use better hash for such numbers.
@@ -135,7 +133,7 @@ impl<'v> Num<'v> {
 
 impl<'v> From<i32> for Num<'v> {
     fn from(i: i32) -> Self {
-        Self::Int(i)
+        Self::Int(StarlarkIntRef::Small(i))
     }
 }
 
@@ -172,9 +170,15 @@ mod tests {
 
     #[test]
     fn test_conversion_to_float() {
-        assert_eq!(Num::Int(0).as_float(), 0.0);
-        assert_eq!(Num::Int(i32::MAX).as_float(), i32::MAX as f64);
-        assert_eq!(Num::Int(i32::MIN).as_float(), i32::MIN as f64);
+        assert_eq!(Num::Int(StarlarkIntRef::Small(0)).as_float(), 0.0);
+        assert_eq!(
+            Num::Int(StarlarkIntRef::Small(i32::MAX)).as_float(),
+            i32::MAX as f64
+        );
+        assert_eq!(
+            Num::Int(StarlarkIntRef::Small(i32::MIN)).as_float(),
+            i32::MIN as f64
+        );
 
         assert_eq!(Num::Float(0.0).as_float(), 0.0);
         assert!(Num::Float(f64::NAN).as_float().is_nan());
@@ -182,9 +186,9 @@ mod tests {
 
     #[test]
     fn test_conversion_to_int() {
-        assert_eq!(Num::Int(0).as_int(), Some(0));
-        assert_eq!(Num::Int(42).as_int(), Some(42));
-        assert_eq!(Num::Int(-42).as_int(), Some(-42));
+        assert_eq!(Num::Int(StarlarkIntRef::Small(0)).as_int(), Some(0));
+        assert_eq!(Num::Int(StarlarkIntRef::Small(42)).as_int(), Some(42));
+        assert_eq!(Num::Int(StarlarkIntRef::Small(-42)).as_int(), Some(-42));
 
         assert_eq!(Num::Float(0_f64).as_int(), Some(0));
         assert_eq!(Num::Float(42_f64).as_int(), Some(42));
@@ -202,8 +206,14 @@ mod tests {
 
     #[test]
     fn test_hashing() {
-        assert_eq!(Num::Int(0).get_hash_64(), Num::Float(0.0).get_hash_64());
-        assert_eq!(Num::Int(42).get_hash_64(), Num::Float(42.0).get_hash_64());
+        assert_eq!(
+            Num::Int(StarlarkIntRef::Small(0)).get_hash_64(),
+            Num::Float(0.0).get_hash_64()
+        );
+        assert_eq!(
+            Num::Int(StarlarkIntRef::Small(42)).get_hash_64(),
+            Num::Float(42.0).get_hash_64()
+        );
 
         assert_eq!(
             Num::Float(f64::INFINITY + f64::NEG_INFINITY).get_hash_64(),

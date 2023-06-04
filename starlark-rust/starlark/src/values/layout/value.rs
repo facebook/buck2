@@ -98,6 +98,7 @@ use crate::values::stack_guard;
 use crate::values::string::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
@@ -322,8 +323,8 @@ impl<'v> Value<'v> {
     {
         match self.unpack_num()? {
             Num::Float(_) => None,
-            Num::Int(x) => I::try_from(x).ok(),
-            Num::BigInt(x) => x.unpack_integer(),
+            Num::Int(StarlarkIntRef::Small(x)) => I::try_from(x).ok(),
+            Num::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
         }
     }
 
