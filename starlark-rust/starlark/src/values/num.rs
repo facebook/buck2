@@ -18,10 +18,10 @@
 //! Helpers for numerical values.
 
 use dupe::Dupe;
+use either::Either;
 
 use crate::collections::StarlarkHashValue;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::UnpackValue;
@@ -41,11 +41,7 @@ pub(crate) enum Num<'v> {
 
 impl<'v> StarlarkTypeRepr for Num<'v> {
     fn starlark_type_repr() -> String {
-        format!(
-            "[{}, {}]",
-            StarlarkBigInt::starlark_type_repr(),
-            StarlarkFloat::starlark_type_repr()
-        )
+        Either::<StarlarkIntRef, StarlarkFloat>::starlark_type_repr()
     }
 }
 
