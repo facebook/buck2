@@ -70,8 +70,7 @@ impl<'v> Num<'v> {
     /// Get underlying value as float
     pub(crate) fn as_float(&self) -> f64 {
         match self {
-            Self::Int(StarlarkIntRef::Small(i)) => *i as f64,
-            Self::Int(StarlarkIntRef::Big(b)) => b.to_f64(),
+            Self::Int(i) => i.to_f64(),
             Self::Float(f) => *f,
         }
     }

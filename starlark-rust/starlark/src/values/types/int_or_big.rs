@@ -93,6 +93,13 @@ impl<'v> StarlarkIntRef<'v> {
             StarlarkIntRef::Big(i) => i.get().clone(),
         }
     }
+
+    pub(crate) fn to_f64(self) -> f64 {
+        match self {
+            StarlarkIntRef::Small(i) => i as f64,
+            StarlarkIntRef::Big(i) => i.to_f64(),
+        }
+    }
 }
 
 impl StarlarkTypeRepr for StarlarkInt {
