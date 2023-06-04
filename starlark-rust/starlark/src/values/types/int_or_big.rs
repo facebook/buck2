@@ -18,6 +18,7 @@
 use std::ops::BitAnd;
 use std::ops::BitOr;
 use std::ops::BitXor;
+use std::ops::Neg;
 use std::ops::Not;
 
 use num_bigint::BigInt;
@@ -172,5 +173,18 @@ impl<'v> Not for StarlarkIntRef<'v> {
             StarlarkIntRef::Small(a) => StarlarkInt::Small(!a),
             a => StarlarkBigInt::try_from_bigint(!a.to_big()),
         }
+    }
+}
+
+impl<'v> Neg for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn neg(self) -> StarlarkInt {
+        if let StarlarkIntRef::Small(i) = self {
+            if let Some(n) = i.checked_neg() {
+                return StarlarkInt::Small(n);
+            }
+        }
+        StarlarkBigInt::try_from_bigint(-self.to_big())
     }
 }

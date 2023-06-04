@@ -56,6 +56,7 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::Num;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -205,10 +206,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(Value::new_int(self.get()))
     }
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(self.get().checked_neg().map_or_else(
-            || heap.alloc(StarlarkBigInt::try_from_bigint(-BigInt::from(self.get()))),
-            Value::new_int,
-        ))
+        Ok(heap.alloc(-StarlarkIntRef::Small(self.get())))
     }
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         match other.unpack_num() {
