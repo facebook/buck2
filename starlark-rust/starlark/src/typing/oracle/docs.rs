@@ -23,7 +23,6 @@ use crate::docs::Doc;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
-use crate::docs::DocObject;
 use crate::typing::Ty;
 use crate::typing::TypingOracle;
 
@@ -61,7 +60,7 @@ impl OracleDocs {
         }
 
         match &doc.item {
-            DocItem::Module(modu) => add_members(self, doc, &modu.members),
+            DocItem::Module(modu) => self.add_module(modu),
             DocItem::Object(obj) => add_members(self, doc, &obj.members),
             DocItem::Property(x) => {
                 self.functions
@@ -77,16 +76,10 @@ impl OracleDocs {
     /// Add documentation usually from
     /// [`Globals::documentation`](crate::environment::Globals::documentation),
     /// overwriting any duplicates.
-    pub fn add_object(&mut self, docs: &DocItem) {
-        match docs {
-            DocItem::Object(DocObject { members, .. })
-            | DocItem::Module(DocModule { members, .. }) => {
-                for (name, member) in members {
-                    self.functions
-                        .insert(name.clone(), Ty::from_docs_member(member));
-                }
-            }
-            _ => {}
+    pub fn add_module(&mut self, docs: &DocModule) {
+        for (name, member) in &docs.members {
+            self.functions
+                .insert(name.clone(), Ty::from_docs_member(member));
         }
     }
 }
