@@ -41,7 +41,7 @@ pub(crate) fn get_builtin_bxl_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
     match interpreter_state.bxl_file_global_env.documentation() {
-        DocItem::Object(b_o) => {
+        DocItem::Module(b_o) => {
             let mut docs = vec![];
             for member in b_o.members {
                 if BXL_GLOBAL_METHOD_NAME_SET.contains(member.0.as_str()) {
