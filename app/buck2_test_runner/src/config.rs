@@ -23,6 +23,10 @@ pub struct Config {
     #[clap(long, default_value = "600", parse(try_from_str=try_parse_timeout_from_str))]
     pub timeout: Duration,
 
+    /// Avoid capturing STDIN/STDOUT
+    #[clap(long)]
+    pub nocapture: bool,
+
     #[clap(flatten)]
     ignored_args: IgnoredArgs,
 }

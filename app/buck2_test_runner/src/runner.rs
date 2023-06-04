@@ -80,7 +80,8 @@ impl Buck2TestRunner {
                     .await
                     .expect("Test execution request failed");
 
-                let test_result = get_test_result(name, target_handle, execution_result);
+                let test_result =
+                    get_test_result(name, target_handle, execution_result, &self.config);
                 let test_status = test_result.status.clone();
 
                 self.report_test_result(test_result)
@@ -185,6 +186,7 @@ fn get_test_result(
     name: String,
     target: ConfiguredTargetHandle,
     execution_result: ExecutionResult2,
+    config: &Config,
 ) -> TestResult {
     let status = match execution_result.status {
         ExecutionStatus::Finished { exitcode } => match exitcode {
@@ -193,16 +195,22 @@ fn get_test_result(
         },
         ExecutionStatus::TimedOut { .. } => TestStatus::TIMEOUT,
     };
+    let details = if status == TestStatus::FAIL || config.nocapture {
+        format!(
+            "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
+            execution_result.stdout, execution_result.stderr
+        )
+    } else {
+        String::from("")
+    };
+
     TestResult {
         target,
         name,
         status,
         msg: None,
         duration: Some(execution_result.execution_time),
-        details: format!(
-            "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
-            execution_result.stdout, execution_result.stderr
-        ),
+        details,
     }
 }
 
