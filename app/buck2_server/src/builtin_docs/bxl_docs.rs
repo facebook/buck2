@@ -40,29 +40,25 @@ static BXL_GLOBAL_METHOD_NAME_SET: Lazy<HashSet<&str>> = Lazy::new(|| {
 pub(crate) fn get_builtin_bxl_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
-    match interpreter_state.bxl_file_global_env.documentation() {
-        DocItem::Module(b_o) => {
-            let mut docs = vec![];
-            for member in b_o.members {
-                if BXL_GLOBAL_METHOD_NAME_SET.contains(member.0.as_str()) {
-                    match member.1 {
-                        DocMember::Function(function) => {
-                            // Convert the function to its own object so it gets its own markdown file name.
-                            // Otherwise, it will be named `native.md`, which is confusing in static docs.
-                            let doc_item = DocItem::Object(DocObject {
-                                docs: None,
-                                members: smallmap! {member.0.clone() => DocMember::Function(function)},
-                            });
+    let b_o = interpreter_state.bxl_file_global_env.documentation();
+    let mut docs = vec![];
+    for member in b_o.members {
+        if BXL_GLOBAL_METHOD_NAME_SET.contains(member.0.as_str()) {
+            match member.1 {
+                DocMember::Function(function) => {
+                    // Convert the function to its own object so it gets its own markdown file name.
+                    // Otherwise, it will be named `native.md`, which is confusing in static docs.
+                    let doc_item = DocItem::Object(DocObject {
+                        docs: None,
+                        members: smallmap! {member.0.clone() => DocMember::Function(function)},
+                    });
 
-                            docs.push(builtin_doc(member.0.as_str(), "bxl", doc_item));
-                        }
-                        _ => (),
-                    }
+                    docs.push(builtin_doc(member.0.as_str(), "bxl", doc_item));
                 }
+                _ => (),
             }
-
-            Ok(docs)
         }
-        _ => Ok(Vec::new()),
     }
+
+    Ok(docs)
 }

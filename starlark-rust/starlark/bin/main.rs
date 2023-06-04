@@ -38,6 +38,7 @@ use itertools::Itertools;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
+use starlark::docs::DocItem;
 use starlark::docs::Identifier;
 use starlark::docs::MarkdownFlavor;
 use starlark::docs::RenderMarkdown;
@@ -276,7 +277,7 @@ fn main() -> anyhow::Result<()> {
                     name: "globals".to_owned(),
                     location: None,
                 },
-                item: Globals::extended().documentation(),
+                item: DocItem::Module(Globals::extended().documentation()),
                 custom_attrs: HashMap::new(),
             });
 

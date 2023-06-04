@@ -40,8 +40,9 @@ pub struct OracleStandard {
 impl OracleStandard {
     /// Create a new [`OracleDocs`], following the Starlark standard, but with the given extension you intend to enable.
     pub fn new(extensions: &[LibraryExtension]) -> Self {
-        let mut fallback =
-            OracleDocs::new_object(&Globals::extended_by(extensions).documentation());
+        let mut fallback = OracleDocs::new_object(&DocItem::Module(
+            Globals::extended_by(extensions).documentation(),
+        ));
 
         fn add<T: StarlarkValue<'static>>(fallback: &mut OracleDocs) {
             if let Some(m) = T::get_methods() {

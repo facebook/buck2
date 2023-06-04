@@ -28,7 +28,6 @@ use crate::collections::symbol_map::Symbol;
 use crate::collections::symbol_map::SymbolMap;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
-use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocObject;
@@ -163,13 +162,13 @@ impl Globals {
             .join("\n")
     }
 
-    /// Get the documentation for both the object itself, and its members. Returned as a `Module`.
-    pub fn documentation(&self) -> DocItem {
+    /// Get the documentation for both the object itself, and its members.
+    pub fn documentation(&self) -> DocModule {
         let DocObject { docs, members } = common_documentation(
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
-        DocItem::Module(DocModule { docs, members })
+        DocModule { docs, members }
     }
 }
 

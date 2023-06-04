@@ -201,7 +201,7 @@ fn golden_docs_starlark() {
 fn golden_docs_module() {
     let res = docs_golden_test(
         "module",
-        GlobalsBuilder::new().with(module).build().documentation(),
+        DocItem::Module(GlobalsBuilder::new().with(module).build().documentation()),
     );
     assert!(!res.contains("starlark::assert::all_true"));
     assert!(res.contains(r#"string_default: str.type = "my_default"#));

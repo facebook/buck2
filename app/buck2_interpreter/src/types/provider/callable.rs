@@ -62,14 +62,13 @@ pub trait ProviderCallableLike {
         let ctor = match creator {
             Some(creator) => {
                 let docs = GlobalsBuilder::new().with(creator).build().documentation();
-                match docs {
-                    DocItem::Module(x) if x.members.len() == 1 => {
-                        match x.members.into_iter().next() {
-                            Some((name, DocMember::Function(x))) => Some((name, x)),
-                            _ => None,
-                        }
+                if docs.members.len() == 1 {
+                    match docs.members.into_iter().next() {
+                        Some((name, DocMember::Function(x))) => Some((name, x)),
+                        _ => None,
                     }
-                    _ => None,
+                } else {
+                    None
                 }
             }
             _ => None,
