@@ -221,10 +221,11 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         }
     }
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        if other.unpack_num().is_some() {
-            StarlarkFloat(self.get() as f64).div(other, heap)
-        } else {
-            ValueError::unsupported_with(self, "/", other)
+        match other.unpack_num() {
+            Some(other) => {
+                Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())).div(other)?))
+            }
+            None => ValueError::unsupported_with(self, "/", other),
         }
     }
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

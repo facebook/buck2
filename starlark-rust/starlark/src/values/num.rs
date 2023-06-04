@@ -39,6 +39,12 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
+#[derive(Debug, thiserror::Error)]
+enum NumError {
+    #[error("float division by zero: {0} / {1}")]
+    DivisionByZero(Num, Num),
+}
+
 /// [`NumRef`] represents a numerical value that can be unpacked from a [`Value`].
 ///
 /// It's an intermediate representation that facilitates conversions between
@@ -50,6 +56,7 @@ pub(crate) enum NumRef<'v> {
     Float(f64),
 }
 
+#[derive(Debug, derive_more::Display)]
 pub(crate) enum Num {
     Int(StarlarkInt),
     Float(f64),
@@ -159,6 +166,23 @@ impl<'v> NumRef<'v> {
 
     pub(crate) fn get_hash(self) -> StarlarkHashValue {
         StarlarkHashValue::hash_64(self.get_hash_64())
+    }
+
+    fn to_owned(self) -> Num {
+        match self {
+            NumRef::Int(i) => Num::Int(i.to_owned()),
+            NumRef::Float(f) => Num::Float(f),
+        }
+    }
+
+    pub(crate) fn div(self, other: NumRef) -> anyhow::Result<f64> {
+        let a = self.as_float();
+        let b = other.as_float();
+        if b == 0.0 {
+            Err(NumError::DivisionByZero(self.to_owned(), other.to_owned()).into())
+        } else {
+            Ok(a / b)
+        }
     }
 }
 

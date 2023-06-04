@@ -319,13 +319,10 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "/", |l, r| {
-            if r == 0.0 {
-                Err(ValueError::DivisionByZero.into())
-            } else {
-                Ok(l / r)
-            }
-        })
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "/", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).div(other)?)),
+        }
     }
 
     fn percent(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

@@ -242,10 +242,9 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        if other.unpack_num().is_some() {
-            StarlarkFloat(self.to_f64()).div(other, heap)
-        } else {
-            ValueError::unsupported_with(self, "/", other)
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).div(other)?)),
+            None => ValueError::unsupported_with(self, "/", other),
         }
     }
 

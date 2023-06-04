@@ -90,6 +90,13 @@ impl StarlarkInt {
 }
 
 impl<'v> StarlarkIntRef<'v> {
+    pub(crate) fn to_owned(self) -> StarlarkInt {
+        match self {
+            StarlarkIntRef::Small(i) => StarlarkInt::Small(i),
+            StarlarkIntRef::Big(i) => StarlarkInt::Big(i.clone()),
+        }
+    }
+
     fn to_big(self) -> BigInt {
         match self {
             StarlarkIntRef::Small(i) => BigInt::from(i),
