@@ -27,9 +27,11 @@ use std::ops::Sub;
 
 use dupe::Dupe;
 use num_bigint::BigInt;
+use num_bigint::Sign;
 use num_traits::FromPrimitive;
 use num_traits::Num;
 use num_traits::ToPrimitive;
+use num_traits::Zero;
 
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
@@ -48,6 +50,8 @@ enum StarlarkIntError {
     CannotParse(String, u32),
     #[error("Float `{0}` cannot be represented as exact integer")]
     CannotRepresentAsExact(f64),
+    #[error("Floor division by zero: {0} // {1}")]
+    FloorDivisionByZero(StarlarkInt, StarlarkInt),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
@@ -117,6 +121,66 @@ impl<'v> StarlarkIntRef<'v> {
             StarlarkIntRef::Big(_) => {
                 // `StarlarkBigInt` is out of range of `i32`.
                 None
+            }
+        }
+    }
+
+    fn floor_div_small_small(a: i32, b: i32) -> anyhow::Result<StarlarkInt> {
+        if b == 0 {
+            return Err(StarlarkIntError::FloorDivisionByZero(
+                StarlarkInt::Small(a),
+                StarlarkInt::Small(b),
+            )
+            .into());
+        }
+        let sig = b.signum() * a.signum();
+        let offset = if sig < 0 && a % b != 0 { 1 } else { 0 };
+        match a.checked_div(b) {
+            Some(div) => Ok(StarlarkInt::Small(div - offset)),
+            None => Self::floor_div_big_big(&BigInt::from(a), &BigInt::from(b)),
+        }
+    }
+
+    fn signum_big(b: &BigInt) -> i32 {
+        match b.sign() {
+            Sign::Plus => 1,
+            Sign::Minus => -1,
+            Sign::NoSign => 0,
+        }
+    }
+
+    fn floor_div_big_big(a: &BigInt, b: &BigInt) -> anyhow::Result<StarlarkInt> {
+        if b.is_zero() {
+            return Err(StarlarkIntError::FloorDivisionByZero(
+                StarlarkBigInt::try_from_bigint(a.clone()),
+                StarlarkBigInt::try_from_bigint(b.clone()),
+            )
+            .into());
+        }
+        let sig = Self::signum_big(b) * Self::signum_big(a);
+        // TODO(nga): optimize.
+        let offset = if sig < 0 && (a % b).is_zero().not() {
+            1
+        } else {
+            0
+        };
+        Ok(StarlarkBigInt::try_from_bigint((a / b) - offset))
+    }
+
+    /// `//`.
+    pub(crate) fn floor_div(self, other: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => {
+                Self::floor_div_small_small(a, b)
+            }
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Big(b)) => {
+                Self::floor_div_big_big(&BigInt::from(a), b.get())
+            }
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Small(b)) => {
+                Self::floor_div_big_big(a.get(), &BigInt::from(b))
+            }
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => {
+                Self::floor_div_big_big(a.get(), b.get())
             }
         }
     }

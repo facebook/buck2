@@ -21,7 +21,6 @@ mod convert;
 
 use std::cmp::Ordering;
 use std::hash::Hash;
-use std::ops::Not;
 
 use allocative::Allocative;
 use num_bigint::BigInt;
@@ -111,32 +110,6 @@ impl StarlarkBigInt {
 
     pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: i32) -> Ordering {
         Self::cmp_small_big(b, a).reverse()
-    }
-
-    fn signum(b: &BigInt) -> i32 {
-        match b.sign() {
-            Sign::Plus => 1,
-            Sign::Minus => -1,
-            Sign::NoSign => 0,
-        }
-    }
-
-    pub(crate) fn floor_div_big<'v>(
-        a: &BigInt,
-        b: &BigInt,
-        heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if b.is_zero() {
-            return Err(ValueError::DivisionByZero.into());
-        }
-        let sig = Self::signum(b) * Self::signum(a);
-        // TODO(nga): optimize.
-        let offset = if sig < 0 && (a % b).is_zero().not() {
-            1
-        } else {
-            0
-        };
-        Ok(heap.alloc(Self::try_from_bigint((a / b) - offset)))
     }
 
     pub(crate) fn percent_big<'v>(
@@ -253,8 +226,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "//", other),
         };
-        let b;
-        let b = match rhs {
+        match rhs {
             NumRef::Float(f) => {
                 return Ok(
                     heap.alloc_float(StarlarkFloat(StarlarkFloat::floor_div_impl(
@@ -263,17 +235,8 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                     )?)),
                 );
             }
-            NumRef::Int(StarlarkIntRef::Small(i)) => {
-                if i == 0 {
-                    return Err(ValueError::DivisionByZero.into());
-                }
-                // TODO(nga): do not allocate
-                b = BigInt::from(i);
-                &b
-            }
-            NumRef::Int(StarlarkIntRef::Big(b)) => &b.value,
-        };
-        StarlarkBigInt::floor_div_big(&self.value, b, heap)
+            NumRef::Int(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).floor_div(other)?)),
+        }
     }
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

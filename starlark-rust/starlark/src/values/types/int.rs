@@ -264,20 +264,8 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         };
         match rhs {
             NumRef::Float(_) => StarlarkFloat(self.get() as f64).floor_div(other, heap),
-            NumRef::Int(StarlarkIntRef::Small(b)) => {
-                let a = self.get();
-                if b == 0 {
-                    return Err(ValueError::DivisionByZero.into());
-                }
-                let sig = b.signum() * a.signum();
-                let offset = if sig < 0 && a % b != 0 { 1 } else { 0 };
-                match a.checked_div(b) {
-                    Some(div) => Ok(Value::new_int(div - offset)),
-                    None => StarlarkBigInt::floor_div_big(&BigInt::from(a), &BigInt::from(b), heap),
-                }
-            }
-            NumRef::Int(StarlarkIntRef::Big(b)) => {
-                StarlarkBigInt::floor_div_big(&BigInt::from(self.get()), b.get(), heap)
+            NumRef::Int(other) => {
+                Ok(heap.alloc(StarlarkIntRef::Small(self.get()).floor_div(other)?))
             }
         }
     }
