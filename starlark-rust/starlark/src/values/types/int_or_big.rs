@@ -20,6 +20,7 @@ use std::ops::Add;
 use std::ops::BitAnd;
 use std::ops::BitOr;
 use std::ops::BitXor;
+use std::ops::Mul;
 use std::ops::Neg;
 use std::ops::Not;
 use std::ops::Sub;
@@ -234,6 +235,44 @@ impl<'v> Sub for StarlarkIntRef<'v> {
             }
         }
         StarlarkBigInt::try_from_bigint(self.to_big() - other.to_big())
+    }
+}
+
+impl<'v> Mul<i32> for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn mul(self, rhs: i32) -> Self::Output {
+        match self {
+            StarlarkIntRef::Small(a) => {
+                if let Some(c) = a.checked_mul(rhs) {
+                    return StarlarkInt::Small(c);
+                }
+                StarlarkBigInt::try_from_bigint(BigInt::from(a) * rhs)
+            }
+            StarlarkIntRef::Big(b) => StarlarkBigInt::try_from_bigint(b.get() * rhs),
+        }
+    }
+}
+
+impl<'v> Mul<StarlarkIntRef<'v>> for i32 {
+    type Output = StarlarkInt;
+
+    fn mul(self, rhs: StarlarkIntRef<'v>) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl<'v> Mul for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn mul(self, other: Self) -> StarlarkInt {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), b) => a * b,
+            (a, StarlarkIntRef::Small(b)) => a * b,
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => {
+                StarlarkBigInt::try_from_bigint(a.get() * b.get())
+            }
+        }
     }
 }
 

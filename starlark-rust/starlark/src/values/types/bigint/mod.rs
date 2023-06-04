@@ -240,12 +240,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "*", other),
         };
         match rhs {
-            NumRef::Int(StarlarkIntRef::Small(i)) => {
-                Ok(heap.alloc(Self::try_from_bigint(&self.value * i)))
-            }
-            NumRef::Int(StarlarkIntRef::Big(b)) => {
-                Ok(heap.alloc(Self::try_from_bigint(&self.value * &b.value)))
-            }
+            NumRef::Int(i) => Ok(heap.alloc(StarlarkIntRef::Big(self) * i)),
             NumRef::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() * f))),
         }
     }
