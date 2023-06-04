@@ -26,6 +26,7 @@ pub mod exported_name;
 pub mod float;
 pub mod function;
 pub mod int;
+pub(crate) mod int_or_big;
 pub(crate) mod known_methods;
 pub mod list;
 pub mod none;

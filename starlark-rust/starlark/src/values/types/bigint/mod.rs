@@ -37,6 +37,9 @@ use crate::collections::StarlarkHasher;
 use crate::starlark_type;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;
+use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -55,6 +58,7 @@ use crate::values::ValueError;
     PartialOrd,
     Eq,
     PartialEq,
+    Hash,
     Allocative
 )]
 #[display(fmt = "{}", value)]
@@ -76,10 +80,10 @@ impl StarlarkBigInt {
         Self { value }
     }
 
-    pub(crate) fn try_from_bigint(value: BigInt) -> Result<StarlarkBigInt, i32> {
+    pub(crate) fn try_from_bigint(value: BigInt) -> StarlarkInt {
         match value.to_i32() {
-            Some(i) => Err(i),
-            None => Ok(StarlarkBigInt::unchecked_new(value)),
+            Some(i) => StarlarkInt::Small(i),
+            None => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
         }
     }
 
@@ -93,17 +97,11 @@ impl StarlarkBigInt {
     }
 
     pub(crate) fn alloc_bigint<'v>(value: BigInt, heap: &'v Heap) -> Value<'v> {
-        match Self::try_from_bigint(value) {
-            Ok(bigint) => heap.alloc_simple(bigint),
-            Err(i) => Value::new_int(i),
-        }
+        heap.alloc(Self::try_from_bigint(value))
     }
 
     pub(crate) fn alloc_bigint_frozen(value: BigInt, heap: &FrozenHeap) -> FrozenValue {
-        match Self::try_from_bigint(value) {
-            Ok(bigint) => heap.alloc_simple(bigint),
-            Err(i) => FrozenValue::new_int(i),
-        }
+        heap.alloc(Self::try_from_bigint(value))
     }
 
     pub(crate) fn cmp_small_big(a: i32, b: &StarlarkBigInt) -> Ordering {
@@ -183,6 +181,18 @@ impl Serialize for StarlarkBigInt {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.value.to_string())
+    }
+}
+
+impl<'v> AllocValue<'v> for StarlarkBigInt {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
+impl AllocFrozenValue for StarlarkBigInt {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc_simple(self)
     }
 }
 
