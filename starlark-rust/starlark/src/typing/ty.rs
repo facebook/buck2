@@ -324,6 +324,8 @@ impl Ty {
                 fields: BTreeMap::new(),
                 extra: true,
             },
+            // Note that "tuple" cannot be converted to Ty::Tuple
+            // since we don't know the length of the tuple.
             _ => Self::Name(TyName(name.to_owned())),
         }
     }
