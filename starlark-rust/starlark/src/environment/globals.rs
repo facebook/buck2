@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -171,17 +170,6 @@ impl Globals {
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
         DocItem::Module(DocModule { docs, members })
-    }
-
-    /// Get the documentation for each member. Useful when loading a number of objects into
-    /// a single [`Globals`] instance, but where the documentation for each member will be
-    /// split up later.
-    pub fn member_documentation(&self) -> HashMap<String, Option<DocItem>> {
-        self.0
-            .variables
-            .iter()
-            .map(|(symbol, value)| (symbol.as_str().to_owned(), value.to_value().documentation()))
-            .collect()
     }
 }
 
