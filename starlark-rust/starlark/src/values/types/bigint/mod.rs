@@ -226,7 +226,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
             Some(Num::BigInt(b)) => Ok(self.value.cmp(&b.value)),
-            Some(Num::Int(i)) => Ok(StarlarkBigInt::cmp_big_small(self, i)),
+            Some(Num::Int(i)) => Ok(StarlarkIntRef::Big(self).cmp(&StarlarkIntRef::Small(i))),
             Some(Num::Float(f)) => Ok(StarlarkFloat::compare_impl(self.to_f64(), f)),
         }
     }

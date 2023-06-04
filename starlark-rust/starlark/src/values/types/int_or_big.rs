@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
 use std::ops::BitAnd;
 use std::ops::BitOr;
 use std::ops::BitXor;
@@ -51,6 +52,7 @@ pub(crate) enum StarlarkInt {
     Big(StarlarkBigInt),
 }
 
+#[derive(Eq, PartialEq)]
 pub(crate) enum StarlarkIntRef<'v> {
     Small(i32),
     Big(&'v StarlarkBigInt),
@@ -186,5 +188,26 @@ impl<'v> Neg for StarlarkIntRef<'v> {
             }
         }
         StarlarkBigInt::try_from_bigint(-self.to_big())
+    }
+}
+
+impl<'v> PartialOrd for StarlarkIntRef<'v> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'v> Ord for StarlarkIntRef<'v> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => a.cmp(b),
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => a.cmp(b),
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Big(b)) => {
+                StarlarkBigInt::cmp_small_big(*a, b)
+            }
+            (StarlarkIntRef::Big(a), StarlarkIntRef::Small(b)) => {
+                StarlarkBigInt::cmp_big_small(a, *b)
+            }
+        }
     }
 }

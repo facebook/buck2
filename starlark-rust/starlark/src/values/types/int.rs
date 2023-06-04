@@ -309,7 +309,9 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         match other.unpack_num() {
             Some(Num::Int(other)) => Ok(self.get().cmp(&other)),
             Some(Num::Float(_)) => StarlarkFloat(self.get() as f64).compare(other),
-            Some(Num::BigInt(b)) => Ok(StarlarkBigInt::cmp_small_big(self.get(), b)),
+            Some(Num::BigInt(b)) => {
+                Ok(StarlarkIntRef::Small(self.get()).cmp(&StarlarkIntRef::Big(b)))
+            }
             None => ValueError::unsupported_with(self, "==", other),
         }
     }
