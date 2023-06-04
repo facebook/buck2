@@ -163,7 +163,7 @@ assert_eq(all([frozen_dict[x] != None for x in values]), True)
 
 #[test]
 fn test_compare() {
-    assert::fail("1 > False", "Operation `==` not supported");
+    assert::fail("1 > False", "Operation `compare` not supported");
     assert::is_true("[1, 2] == [1, 2]");
     assert::is_true("1 != True");
     assert::is_true("not (None == [1])");

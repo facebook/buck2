@@ -337,10 +337,9 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
-        if let Some(other_float) = other.unpack_num().map(|n| n.as_float()) {
-            Ok(StarlarkFloat::compare_impl(self.0, other_float))
-        } else {
-            ValueError::unsupported_with(self, "==", other)
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "compare", other),
+            Some(other) => Ok(Num::Float(self.0).cmp(&other)),
         }
     }
 }

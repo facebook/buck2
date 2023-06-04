@@ -217,11 +217,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
-            Some(Num::Int(StarlarkIntRef::Big(b))) => Ok(self.value.cmp(&b.value)),
-            Some(Num::Int(StarlarkIntRef::Small(i))) => {
-                Ok(StarlarkIntRef::Big(self).cmp(&StarlarkIntRef::Small(i)))
-            }
-            Some(Num::Float(f)) => Ok(StarlarkFloat::compare_impl(self.to_f64(), f)),
+            Some(other) => Ok(Num::Int(StarlarkIntRef::Big(self)).cmp(&other)),
         }
     }
 

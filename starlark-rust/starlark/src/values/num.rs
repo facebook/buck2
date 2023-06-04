@@ -149,6 +149,22 @@ impl<'v> PartialEq for Num<'v> {
 
 impl<'v> Eq for Num<'v> {}
 
+impl<'v> PartialOrd for Num<'v> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'v> Ord for Num<'v> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let (Num::Int(a), Num::Int(b)) = (self, other) {
+            a.cmp(b)
+        } else {
+            StarlarkFloat::compare_impl(self.as_float(), other.as_float())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
