@@ -43,11 +43,13 @@ use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::StringValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
@@ -692,17 +694,16 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 "int() cannot convert non-string with explicit base '{}'",
                 base
             ))
-        } else if let Some(num) = a.unpack_num() {
-            match num {
-                // TODO(nga): large f64 can be represented as exact bigint.
-                Num::Float(f) => match Num::f64_to_i32_exact(f.trunc()) {
-                    Some(i) => Ok(Value::new_int(i)),
-                    None => Err(anyhow::anyhow!(
-                        "int() cannot convert float to integer: {}",
-                        a.to_repr()
-                    )),
-                },
-                Num::Int(..) | Num::BigInt(..) => Ok(a),
+        } else if StarlarkIntRef::unpack_value(a).is_some() {
+            Ok(a)
+        } else if let Some(f) = StarlarkFloat::unpack_value(a) {
+            // TODO(nga): large f64 can be represented as exact bigint.
+            match Num::f64_to_i32_exact(f.0.trunc()) {
+                Some(i) => Ok(Value::new_int(i)),
+                None => Err(anyhow::anyhow!(
+                    "int() cannot convert float to integer: {}",
+                    a.to_repr()
+                )),
             }
         } else {
             Ok(Value::new_int(a.to_int()?))

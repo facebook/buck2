@@ -25,7 +25,9 @@ use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueLike;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkIntError {
@@ -37,6 +39,11 @@ enum StarlarkIntError {
 pub(crate) enum StarlarkInt {
     Small(i32),
     Big(StarlarkBigInt),
+}
+
+pub(crate) enum StarlarkIntRef<'v> {
+    Small(i32),
+    Big(&'v StarlarkBigInt),
 }
 
 impl StarlarkInt {
@@ -72,6 +79,22 @@ impl AllocFrozenValue for StarlarkInt {
         match self {
             StarlarkInt::Small(i) => heap.alloc(i),
             StarlarkInt::Big(i) => heap.alloc(i),
+        }
+    }
+}
+
+impl<'v> StarlarkTypeRepr for StarlarkIntRef<'v> {
+    fn starlark_type_repr() -> String {
+        StarlarkInt::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for StarlarkIntRef<'v> {
+    fn unpack_value(value: Value<'v>) -> Option<Self> {
+        if let Some(i) = i32::unpack_value(value) {
+            Some(StarlarkIntRef::Small(i))
+        } else {
+            value.downcast_ref().map(StarlarkIntRef::Big)
         }
     }
 }
