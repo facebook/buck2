@@ -312,30 +312,30 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn bit_and(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "&", other),
-            Some(Num::Int(StarlarkIntRef::Small(i))) => Ok(Value::new_int(self.get() & i)),
-            Some(Num::Int(StarlarkIntRef::Big(b))) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "&", other),
+            Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() & i)),
+            Some(StarlarkIntRef::Big(b)) => {
                 Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() & b.get())))
             }
         }
     }
 
     fn bit_or(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "|", other),
-            Some(Num::Int(StarlarkIntRef::Small(i))) => Ok(Value::new_int(self.get() | i)),
-            Some(Num::Int(StarlarkIntRef::Big(b))) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "|", other),
+            Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() | i)),
+            Some(StarlarkIntRef::Big(b)) => {
                 Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() | b.get())))
             }
         }
     }
 
     fn bit_xor(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "^", other),
-            Some(Num::Int(StarlarkIntRef::Small(i))) => Ok(Value::new_int(self.get() ^ i)),
-            Some(Num::Int(StarlarkIntRef::Big(b))) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "^", other),
+            Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() ^ i)),
+            Some(StarlarkIntRef::Big(b)) => {
                 Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() ^ b.get())))
             }
         }
@@ -346,9 +346,9 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn left_shift(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "<<", other),
-            Some(Num::Int(StarlarkIntRef::Small(other))) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "<<", other),
+            Some(StarlarkIntRef::Small(other)) => {
                 if let Ok(other) = other.try_into() {
                     if let Some(r) = self.get().checked_shl(other) {
                         Ok(Value::new_int(r))
@@ -365,7 +365,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
                     Err(ValueError::NegativeShiftCount.into())
                 }
             }
-            Some(Num::Int(StarlarkIntRef::Big(b))) => {
+            Some(StarlarkIntRef::Big(b)) => {
                 if b.get().is_negative() {
                     Err(ValueError::NegativeShiftCount.into())
                 } else if self.get() == 0 {
@@ -378,9 +378,9 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn right_shift(&self, other: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, ">>", other),
-            Some(Num::Int(StarlarkIntRef::Small(other))) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, ">>", other),
+            Some(StarlarkIntRef::Small(other)) => {
                 if let Ok(other) = other.try_into() {
                     if let Some(r) = self.get().checked_shr(other) {
                         Ok(Value::new_int(r))
@@ -391,7 +391,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
                     Err(ValueError::NegativeShiftCount.into())
                 }
             }
-            Some(Num::Int(StarlarkIntRef::Big(b))) => {
+            Some(StarlarkIntRef::Big(b)) => {
                 if b.get().is_negative() {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
