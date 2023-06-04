@@ -36,17 +36,21 @@ pub struct OracleDocs {
 }
 
 impl OracleDocs {
-    /// Create a new [`OracleDocs`], usually given the output of
-    /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
-    pub fn new(docs: &[Doc]) -> Self {
-        let mut res = Self::default();
-        for doc in docs {
-            res.add_doc(doc);
-        }
-        res
+    /// Create a new [`OracleDocs`] with no information.
+    /// You can then call the various methods to populate it with data.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Like [`Self::new`], but adding to an existing oracle (overwriting any duplicates).
+    /// Add multiple entries to the documentation, usually given the results of
+    /// [`get_registered_starlark_docs`](crate::docs::get_registered_starlark_docs).
+    pub fn add_docs(&mut self, docs: &[Doc]) {
+        for doc in docs {
+            self.add_doc(doc);
+        }
+    }
+
+    /// Add information from a [`Doc`] to the documentation, overwriting existing items.
     pub fn add_doc(&mut self, doc: &Doc) {
         fn add_members(me: &mut OracleDocs, doc: &Doc, members: &SmallMap<String, DocMember>) {
             let mut items = HashMap::with_capacity(members.len());
@@ -70,16 +74,9 @@ impl OracleDocs {
         }
     }
 
-    /// Create a new [`OracleDocs`] given the documentation, usually from
-    /// [`Globals::documentation`](crate::environment::Globals::documentation).
-    /// Only produces interesting content if the result is an [`Object`](crate::docs::DocObject) (which it is for those two).
-    pub fn new_object(docs: &DocItem) -> Self {
-        let mut res = Self::default();
-        res.add_object(docs);
-        res
-    }
-
-    /// Like [`Self::new_object`], but adding to an existing oracle (overwriting any duplicates).
+    /// Add documentation usually from
+    /// [`Globals::documentation`](crate::environment::Globals::documentation),
+    /// overwriting any duplicates.
     pub fn add_object(&mut self, docs: &DocItem) {
         match docs {
             DocItem::Object(DocObject { members, .. })
