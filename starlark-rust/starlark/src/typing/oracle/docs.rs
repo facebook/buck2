@@ -100,15 +100,7 @@ impl TypingOracle for OracleDocs {
             // We don't record operator info in the docs, so it is always missing
             return None;
         }
-        let name = match ty {
-            Ty::Name(x) => x.as_str(),
-            Ty::List(_) => "list",
-            Ty::Tuple(_) => "tuple",
-            Ty::Dict(_) => "dict",
-            Ty::Struct { .. } => "struct",
-            _ => return None,
-        };
-        match self.objects.get(name)?.get(attr) {
+        match self.objects.get(ty.as_name()?)?.get(attr) {
             None => Some(Err(())),
             Some(res) => Some(Ok(res.clone())),
         }

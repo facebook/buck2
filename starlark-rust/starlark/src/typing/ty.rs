@@ -330,6 +330,22 @@ impl Ty {
         }
     }
 
+    /// Turn a type back into a name, potentially erasing some structure.
+    /// E.g. the type `[bool]` would return `list`.
+    /// Types like [`Ty::Void`] and [`Ty::Any`] will return `None`.
+    pub(crate) fn as_name(&self) -> Option<&str> {
+        match self {
+            Ty::Name(x) => Some(x.as_str()),
+            Ty::None => Some("NoneType"),
+            Ty::List(_) => Some("list"),
+            Ty::Tuple(_) => Some("tuple"),
+            Ty::Dict(_) => Some("dict"),
+            Ty::Struct { .. } => Some("struct"),
+            Ty::Function { .. } => Some("function"),
+            _ => None,
+        }
+    }
+
     /// Create a boolean type.
     pub fn bool() -> Self {
         Self::name("bool")
