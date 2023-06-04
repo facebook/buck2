@@ -8,7 +8,6 @@
  */
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -22,7 +21,6 @@ use once_cell::unsync;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
 use starlark::docs::DocString;
-use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -43,7 +41,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark_map::small_set::SmallSet;
 
-use crate::interpreter::rule_defs::provider::registration::ProviderRegistration;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, thiserror::Error)]
@@ -167,16 +164,6 @@ impl UserProviderCallable {
             fields,
             callable: RefCell::new(UserProviderCallableImpl::Unbound),
         }
-    }
-
-    /// Get the documentation for all builtin providers that have been registered with `inventory`
-    pub fn builtin_provider_documentation() -> HashMap<String, Option<DocItem>> {
-        let mut provider_globals_builder = GlobalsBuilder::new();
-        for registration in inventory::iter::<ProviderRegistration> {
-            (registration.register_globals)(&mut provider_globals_builder);
-        }
-        let provider_globals = provider_globals_builder.build();
-        provider_globals.member_documentation()
     }
 }
 
