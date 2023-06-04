@@ -96,14 +96,6 @@ impl StarlarkBigInt {
         self.value.to_f64().unwrap()
     }
 
-    pub(crate) fn alloc_bigint<'v>(value: BigInt, heap: &'v Heap) -> Value<'v> {
-        heap.alloc(Self::try_from_bigint(value))
-    }
-
-    pub(crate) fn alloc_bigint_frozen(value: BigInt, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc(Self::try_from_bigint(value))
-    }
-
     pub(crate) fn cmp_small_big(a: i32, b: &StarlarkBigInt) -> Ordering {
         let a_sign = a.signum();
         let b_sign = match b.value.sign() {
@@ -142,7 +134,7 @@ impl StarlarkBigInt {
         } else {
             0
         };
-        Ok(StarlarkBigInt::alloc_bigint((a / b) - offset, heap))
+        Ok(heap.alloc(Self::try_from_bigint((a / b) - offset)))
     }
 
     pub(crate) fn percent_big<'v>(
@@ -157,10 +149,11 @@ impl StarlarkBigInt {
         if r.is_zero() {
             Ok(Value::new_int(0))
         } else {
-            Ok(StarlarkBigInt::alloc_bigint(
-                if b.sign() != r.sign() { r + b } else { r },
-                heap,
-            ))
+            Ok(heap.alloc(Self::try_from_bigint(if b.sign() != r.sign() {
+                r + b
+            } else {
+                r
+            })))
         }
     }
 
@@ -205,14 +198,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(StarlarkBigInt::alloc_bigint(-&self.value, heap))
+        Ok(heap.alloc(Self::try_from_bigint(-&self.value)))
     }
 
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // This unnecessarily allocates, could return `self`.
         // But practically people rarely write `+NNN` except in constants,
         // and in constants we fold `+NNN` into `NNN`.
-        Ok(StarlarkBigInt::alloc_bigint(self.value.clone(), heap))
+        Ok(heap.alloc(Self::try_from_bigint(self.value.clone())))
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
@@ -238,11 +231,8 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
 
     fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         match rhs.unpack_num()? {
-            Num::Int(i) => Some(Ok(StarlarkBigInt::alloc_bigint(&self.value + i, heap))),
-            Num::BigInt(b) => Some(Ok(StarlarkBigInt::alloc_bigint(
-                &self.value + &b.value,
-                heap,
-            ))),
+            Num::Int(i) => Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + i)))),
+            Num::BigInt(b) => Some(Ok(heap.alloc(Self::try_from_bigint(&self.value + &b.value)))),
             Num::Float(f) => Some(Ok(heap.alloc_float(StarlarkFloat(self.to_f64() + f)))),
         }
     }
@@ -253,8 +243,8 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "-", other),
         };
         match rhs {
-            Num::Int(i) => Ok(StarlarkBigInt::alloc_bigint(&self.value - i, heap)),
-            Num::BigInt(b) => Ok(StarlarkBigInt::alloc_bigint(&self.value - &b.value, heap)),
+            Num::Int(i) => Ok(heap.alloc(Self::try_from_bigint(&self.value - i))),
+            Num::BigInt(b) => Ok(heap.alloc(Self::try_from_bigint(&self.value - &b.value))),
             Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() - f))),
         }
     }
@@ -265,8 +255,8 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "*", other),
         };
         match rhs {
-            Num::Int(i) => Ok(StarlarkBigInt::alloc_bigint(&self.value * i, heap)),
-            Num::BigInt(b) => Ok(StarlarkBigInt::alloc_bigint(&self.value * &b.value, heap)),
+            Num::Int(i) => Ok(heap.alloc(Self::try_from_bigint(&self.value * i))),
+            Num::BigInt(b) => Ok(heap.alloc(Self::try_from_bigint(&self.value * &b.value))),
             Num::Float(f) => Ok(heap.alloc_float(StarlarkFloat(self.to_f64() * f))),
         }
     }
@@ -339,7 +329,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "&", other),
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value & &*rhs, heap))
+        Ok(heap.alloc(Self::try_from_bigint(&self.value & &*rhs)))
     }
 
     fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -347,7 +337,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "^", other),
             Some(rhs) => rhs,
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value ^ &*rhs, heap))
+        Ok(heap.alloc(Self::try_from_bigint(&self.value ^ &*rhs)))
     }
 
     fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -355,11 +345,11 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             None => return ValueError::unsupported_with(self, "|", other),
             Some(rhs) => rhs,
         };
-        Ok(StarlarkBigInt::alloc_bigint(&self.value | &*rhs, heap))
+        Ok(heap.alloc(Self::try_from_bigint(&self.value | &*rhs)))
     }
 
     fn bit_not(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(StarlarkBigInt::alloc_bigint(!&self.value, heap))
+        Ok(heap.alloc(Self::try_from_bigint(!&self.value)))
     }
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -369,7 +359,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                 if i < 0 {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
-                    Ok(StarlarkBigInt::alloc_bigint(&self.value << i, heap))
+                    Ok(heap.alloc(Self::try_from_bigint(&self.value << i)))
                 }
             }
             Some(Num::BigInt(b)) => {
@@ -389,7 +379,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
                 if i < 0 {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
-                    Ok(StarlarkBigInt::alloc_bigint(&self.value >> i, heap))
+                    Ok(heap.alloc(Self::try_from_bigint(&self.value >> i)))
                 }
             }
             Some(Num::BigInt(b)) => {

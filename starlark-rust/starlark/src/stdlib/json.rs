@@ -49,7 +49,7 @@ impl<'v> AllocValue<'v> for serde_json::Number {
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
         } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
-            StarlarkBigInt::alloc_bigint(x, heap)
+            heap.alloc(StarlarkBigInt::try_from_bigint(x))
         } else {
             panic!("Unrepresentable number: {:?}", self)
         }
@@ -65,7 +65,7 @@ impl AllocFrozenValue for serde_json::Number {
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
         } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
-            StarlarkBigInt::alloc_bigint_frozen(x, heap)
+            heap.alloc(StarlarkBigInt::try_from_bigint(x))
         } else {
             panic!("Unrepresentable number: {:?}", self)
         }
