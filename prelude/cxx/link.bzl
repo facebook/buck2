@@ -143,7 +143,7 @@ def cxx_link(
 
     bitcode_linkables = []
     for link_item in links:
-        if link_item == None or link_item.infos == None:
+        if link_item.infos == None:
             continue
         for link_info in link_item.infos:
             for linkable in link_info.linkables:
