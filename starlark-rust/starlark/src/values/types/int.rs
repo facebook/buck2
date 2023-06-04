@@ -215,13 +215,9 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         }
     }
     fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        if let Some(other) = other.unpack_int() {
-            Ok(self.get().checked_mul(other).map_or_else(
-                || heap.alloc(StarlarkBigInt::try_from_bigint(self.to_bigint() * other)),
-                Value::new_int,
-            ))
-        } else {
-            other.mul(Value::new_int(self.get()), heap)
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())) * other)),
+            None => other.mul(Value::new_int(self.get()), heap),
         }
     }
     fn div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

@@ -19,6 +19,7 @@
 
 use std::cmp::Ordering;
 use std::ops::Add;
+use std::ops::Mul;
 use std::ops::Sub;
 
 use dupe::Dupe;
@@ -221,6 +222,17 @@ impl<'v> Sub for NumRef<'v> {
             return Num::Int(a - b);
         }
         Num::Float(self.as_float() - rhs.as_float())
+    }
+}
+
+impl<'v> Mul for NumRef<'v> {
+    type Output = Num;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
+            return Num::Int(a * b);
+        }
+        Num::Float(self.as_float() * rhs.as_float())
     }
 }
 
