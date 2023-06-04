@@ -57,9 +57,9 @@ use crate::values::Value;
 pub struct Globals(Arc<GlobalsData>);
 
 /// Methods of an object.
-#[derive(Clone, Dupe, Debug, Display)]
+#[derive(Clone, Debug, Display)]
 #[display(fmt = "methods")]
-pub struct Methods(Arc<MethodsData>);
+pub struct Methods(MethodsData);
 
 #[derive(Debug, Allocative)]
 struct GlobalsData {
@@ -69,7 +69,7 @@ struct GlobalsData {
     docstring: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MethodsData {
     /// This field holds the objects referenced in `members`.
     #[allow(dead_code)]
@@ -361,11 +361,11 @@ impl MethodsBuilder {
 
     /// Called at the end to build a [`Methods`].
     pub fn build(self) -> Methods {
-        Methods(Arc::new(MethodsData {
+        Methods(MethodsData {
             heap: self.heap.into_ref(),
             members: self.members,
             docstring: self.docstring,
-        }))
+        })
     }
 
     /// A fluent API for modifying [`MethodsBuilder`] and returning the result.
