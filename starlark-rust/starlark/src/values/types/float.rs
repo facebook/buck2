@@ -276,11 +276,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        if other.unpack_num().is_some() {
-            Ok(self.compare(other)? == Ordering::Equal)
-        } else {
-            Ok(false)
-        }
+        Ok(Some(Num::Float(self.0)) == other.unpack_num())
     }
 
     fn collect_repr(&self, s: &mut String) {

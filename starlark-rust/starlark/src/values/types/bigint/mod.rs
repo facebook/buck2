@@ -211,15 +211,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
-        match other.unpack_num() {
-            None => Ok(false),
-            Some(Num::Int(StarlarkIntRef::Small(_))) => {
-                // `StarlarkBigInt` is out of range of `i32`.
-                Ok(false)
-            }
-            Some(Num::Int(StarlarkIntRef::Big(other))) => Ok(self == other),
-            Some(Num::Float(f)) => Ok(self.to_f64() == f),
-        }
+        Ok(Some(Num::Int(StarlarkIntRef::Big(self))) == other.unpack_num())
     }
 
     fn compare(&self, other: Value<'v>) -> anyhow::Result<Ordering> {

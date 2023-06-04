@@ -184,12 +184,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        Ok(match other.unpack_num() {
-            Some(Num::Int(StarlarkIntRef::Small(other))) => self.get() == other,
-            Some(Num::Float(other)) => self.get() as f64 == other,
-            Some(Num::Int(StarlarkIntRef::Big(b))) => *b == self.get(),
-            None => false,
-        })
+        Ok(Some(Num::Int(StarlarkIntRef::Small(self.get()))) == other.unpack_num())
     }
 
     fn to_int(&self) -> anyhow::Result<i32> {

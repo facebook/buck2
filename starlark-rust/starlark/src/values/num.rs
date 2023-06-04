@@ -17,6 +17,8 @@
 
 //! Helpers for numerical values.
 
+use std::cmp::Ordering;
+
 use dupe::Dupe;
 use either::Either;
 
@@ -134,6 +136,19 @@ impl<'v> From<f64> for Num<'v> {
     }
 }
 
+/// This is total eq per starlark spec, not Rust's partial eq.
+impl<'v> PartialEq for Num<'v> {
+    fn eq(&self, other: &Self) -> bool {
+        if let (Num::Int(a), Num::Int(b)) = (self, other) {
+            a == b
+        } else {
+            StarlarkFloat::compare_impl(self.as_float(), other.as_float()) == Ordering::Equal
+        }
+    }
+}
+
+impl<'v> Eq for Num<'v> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,5 +229,12 @@ mod tests {
             Num::Float("0.25".parse().unwrap()).get_hash_64(),
             Num::Float("25e-2".parse().unwrap()).get_hash_64()
         );
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(Num::Float(f64::NAN), Num::Float(f64::NAN));
+        assert_eq!(Num::Float(f64::INFINITY), Num::Float(f64::INFINITY));
+        assert_eq!(Num::Int(StarlarkIntRef::Small(10)), Num::Float(10.0));
     }
 }
