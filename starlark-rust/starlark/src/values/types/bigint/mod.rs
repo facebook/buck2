@@ -355,16 +355,16 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, "<<", other),
-            Some(Num::Int(i)) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, "<<", other),
+            Some(StarlarkIntRef::Small(i)) => {
                 if i < 0 {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
                     Ok(heap.alloc(Self::try_from_bigint(&self.value << i)))
                 }
             }
-            Some(Num::BigInt(b)) => {
+            Some(StarlarkIntRef::Big(b)) => {
                 if b.value.is_negative() {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
@@ -375,16 +375,16 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        match other.unpack_num() {
-            None | Some(Num::Float(_)) => ValueError::unsupported_with(self, ">>", other),
-            Some(Num::Int(i)) => {
+        match StarlarkIntRef::unpack_value(other) {
+            None => ValueError::unsupported_with(self, ">>", other),
+            Some(StarlarkIntRef::Small(i)) => {
                 if i < 0 {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
                     Ok(heap.alloc(Self::try_from_bigint(&self.value >> i)))
                 }
             }
-            Some(Num::BigInt(b)) => {
+            Some(StarlarkIntRef::Big(b)) => {
                 if b.value.is_negative() {
                     Err(ValueError::NegativeShiftCount.into())
                 } else {
