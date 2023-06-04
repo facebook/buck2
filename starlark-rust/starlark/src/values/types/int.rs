@@ -204,32 +204,15 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(heap.alloc(-StarlarkIntRef::Small(self.get())))
     }
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        match other.unpack_num() {
-            Some(Num::Int(StarlarkIntRef::Small(other))) => {
-                Some(Ok(self.get().checked_add(other).map_or_else(
-                    || heap.alloc(StarlarkBigInt::try_from_bigint(self.to_bigint() + other)),
-                    Value::new_int,
-                )))
-            }
-            Some(Num::Float(_)) => StarlarkFloat(self.get() as f64).add(other, heap),
-            Some(Num::Int(StarlarkIntRef::Big(other))) => Some(Ok(
-                heap.alloc(StarlarkBigInt::try_from_bigint(self.get() + other.get()))
-            )),
-            None => None,
+        match other.unpack_num()? {
+            Num::Int(other) => Some(Ok(heap.alloc(StarlarkIntRef::Small(self.get()) + other))),
+            Num::Float(_) => StarlarkFloat(self.get() as f64).add(other, heap),
         }
     }
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            Some(Num::Int(StarlarkIntRef::Small(other))) => {
-                Ok(self.get().checked_sub(other).map_or_else(
-                    || heap.alloc(StarlarkBigInt::try_from_bigint(self.to_bigint() - other)),
-                    Value::new_int,
-                ))
-            }
+            Some(Num::Int(other)) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()) - other)),
             Some(Num::Float(_)) => StarlarkFloat(self.get() as f64).sub(other, heap),
-            Some(Num::Int(StarlarkIntRef::Big(other))) => {
-                Ok(heap.alloc(StarlarkBigInt::try_from_bigint(self.get() - other.get())))
-            }
             None => ValueError::unsupported_with(self, "-", other),
         }
     }

@@ -16,11 +16,13 @@
  */
 
 use std::cmp::Ordering;
+use std::ops::Add;
 use std::ops::BitAnd;
 use std::ops::BitOr;
 use std::ops::BitXor;
 use std::ops::Neg;
 use std::ops::Not;
+use std::ops::Sub;
 
 use dupe::Dupe;
 use num_bigint::BigInt;
@@ -206,6 +208,32 @@ impl<'v> Neg for StarlarkIntRef<'v> {
             }
         }
         StarlarkBigInt::try_from_bigint(-self.to_big())
+    }
+}
+
+impl<'v> Add for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn add(self, other: Self) -> StarlarkInt {
+        if let (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) = (self, other) {
+            if let Some(c) = a.checked_add(b) {
+                return StarlarkInt::Small(c);
+            }
+        }
+        StarlarkBigInt::try_from_bigint(self.to_big() + other.to_big())
+    }
+}
+
+impl<'v> Sub for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn sub(self, other: Self) -> StarlarkInt {
+        if let (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) = (self, other) {
+            if let Some(c) = a.checked_sub(b) {
+                return StarlarkInt::Small(c);
+            }
+        }
+        StarlarkBigInt::try_from_bigint(self.to_big() - other.to_big())
     }
 }
 
