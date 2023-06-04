@@ -49,7 +49,7 @@ use crate::values::layout::value_size::ValueSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::none::NoneType;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::string::StarlarkStr;
 use crate::values::traits::StarlarkValueDyn;
 use crate::values::types::any_array::AnyArray;
@@ -329,7 +329,7 @@ impl<'v> AValue<'v> for AValueImpl<Direct, StarlarkFloat> {
     }
 
     fn get_hash(&self) -> anyhow::Result<StarlarkHashValue> {
-        Ok(Num::from(self.1.0).get_hash())
+        Ok(NumRef::from(self.1.0).get_hash())
     }
 }
 

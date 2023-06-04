@@ -30,7 +30,7 @@ use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int_or_big::StarlarkInt;
 
@@ -76,7 +76,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
                     StarlarkInt::Big(i) => Some((Key::BigInt(i), x.span)),
                 },
                 AstLiteral::Float(x) => {
-                    let n = Num::from(x.node);
+                    let n = NumRef::from(x.node);
                     if let Some(i) = n.as_int() {
                         // make an integer float always collide with other ints
                         Some((Key::Int(i), x.span))

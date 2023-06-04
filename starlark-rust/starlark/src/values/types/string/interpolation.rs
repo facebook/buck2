@@ -25,7 +25,7 @@ use thiserror::Error;
 
 use crate::values::float;
 use crate::values::num;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::string::dot_format::format_one;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::Heap;
@@ -217,8 +217,8 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
             Some(PercentSFormat::Repr) => next_value()?.collect_repr(&mut res),
             Some(PercentSFormat::Dec) => {
                 let value = next_value()?;
-                if let Some(num::Num::Float(v)) = value.unpack_num() {
-                    match num::Num::Float(v.trunc()).as_int() {
+                if let Some(num::NumRef::Float(v)) = value.unpack_num() {
+                    match num::NumRef::Float(v.trunc()).as_int() {
                         None => {
                             return ValueError::unsupported(&float::StarlarkFloat(v), "%d");
                         }
@@ -259,23 +259,23 @@ pub(crate) fn percent(format: &str, value: Value) -> anyhow::Result<String> {
                 .unwrap();
             }
             Some(PercentSFormat::Exp) => {
-                let v = Num::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_float();
                 float::write_scientific(&mut res, v, 'e', false).unwrap()
             }
             Some(PercentSFormat::ExpUpper) => {
-                let v = Num::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_float();
                 float::write_scientific(&mut res, v, 'E', false).unwrap()
             }
             Some(PercentSFormat::Float) => {
-                let v = Num::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_float();
                 float::write_decimal(&mut res, v).unwrap()
             }
             Some(PercentSFormat::FloatCompact) => {
-                let v = Num::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_float();
                 float::write_compact(&mut res, v, 'e').unwrap()
             }
             Some(PercentSFormat::FloatCompactUpper) => {
-                let v = Num::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_float();
                 float::write_compact(&mut res, v, 'E').unwrap()
             }
         }

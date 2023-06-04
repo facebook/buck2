@@ -53,7 +53,7 @@ use crate::values::layout::avalue::Basic;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
@@ -184,7 +184,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        Ok(Some(Num::Int(StarlarkIntRef::Small(self.get()))) == other.unpack_num())
+        Ok(Some(NumRef::Int(StarlarkIntRef::Small(self.get()))) == other.unpack_num())
     }
 
     fn to_int(&self) -> anyhow::Result<i32> {
@@ -194,7 +194,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         self.get() != 0
     }
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        hasher.write_u64(Num::from(self.get()).get_hash_64());
+        hasher.write_u64(NumRef::from(self.get()).get_hash_64());
         Ok(())
     }
     fn plus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -205,14 +205,14 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
         match other.unpack_num()? {
-            Num::Int(other) => Some(Ok(heap.alloc(StarlarkIntRef::Small(self.get()) + other))),
-            Num::Float(_) => StarlarkFloat(self.get() as f64).add(other, heap),
+            NumRef::Int(other) => Some(Ok(heap.alloc(StarlarkIntRef::Small(self.get()) + other))),
+            NumRef::Float(_) => StarlarkFloat(self.get() as f64).add(other, heap),
         }
     }
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            Some(Num::Int(other)) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()) - other)),
-            Some(Num::Float(_)) => StarlarkFloat(self.get() as f64).sub(other, heap),
+            Some(NumRef::Int(other)) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()) - other)),
+            Some(NumRef::Float(_)) => StarlarkFloat(self.get() as f64).sub(other, heap),
             None => ValueError::unsupported_with(self, "-", other),
         }
     }
@@ -236,11 +236,11 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "%", other),
-            Some(Num::Float(_)) => return StarlarkFloat(self.get() as f64).percent(other, heap),
-            Some(Num::Int(StarlarkIntRef::Big(other))) => {
+            Some(NumRef::Float(_)) => return StarlarkFloat(self.get() as f64).percent(other, heap),
+            Some(NumRef::Int(StarlarkIntRef::Big(other))) => {
                 return StarlarkBigInt::percent_big(&BigInt::from(self.get()), other.get(), heap);
             }
-            Some(Num::Int(StarlarkIntRef::Small(b))) => {
+            Some(NumRef::Int(StarlarkIntRef::Small(b))) => {
                 let a = self.get();
                 if b == 0 {
                     return Err(ValueError::DivisionByZero.into());
@@ -268,8 +268,8 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             Some(rhs) => rhs,
         };
         match rhs {
-            Num::Float(_) => StarlarkFloat(self.get() as f64).floor_div(other, heap),
-            Num::Int(StarlarkIntRef::Small(b)) => {
+            NumRef::Float(_) => StarlarkFloat(self.get() as f64).floor_div(other, heap),
+            NumRef::Int(StarlarkIntRef::Small(b)) => {
                 let a = self.get();
                 if b == 0 {
                     return Err(ValueError::DivisionByZero.into());
@@ -281,7 +281,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
                     None => StarlarkBigInt::floor_div_big(&BigInt::from(a), &BigInt::from(b), heap),
                 }
             }
-            Num::Int(StarlarkIntRef::Big(b)) => {
+            NumRef::Int(StarlarkIntRef::Big(b)) => {
                 StarlarkBigInt::floor_div_big(&BigInt::from(self.get()), b.get(), heap)
             }
         }
@@ -290,7 +290,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
-            Some(other) => Ok(Num::Int(StarlarkIntRef::Small(self.get())).cmp(&other)),
+            Some(other) => Ok(NumRef::Int(StarlarkIntRef::Small(self.get())).cmp(&other)),
         }
     }
 
@@ -391,7 +391,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
 
 impl<'v> StarlarkValueBasic<'v> for PointerI32 {
     fn get_hash(&self) -> StarlarkHashValue {
-        Num::from(self.get()).get_hash()
+        NumRef::from(self.get()).get_hash()
     }
 }
 

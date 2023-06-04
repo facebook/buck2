@@ -88,7 +88,7 @@ use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::vtable::AValueDyn;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::range::Range;
 use crate::values::record::FrozenRecord;
 use crate::values::record::RecordType;
@@ -312,8 +312,8 @@ impl<'v> Value<'v> {
     }
 
     /// Obtain the underlying numerical value, if it is one.
-    pub(crate) fn unpack_num(self) -> Option<Num<'v>> {
-        Num::unpack_value(self)
+    pub(crate) fn unpack_num(self) -> Option<NumRef<'v>> {
+        NumRef::unpack_value(self)
     }
 
     pub(crate) fn unpack_integer<I>(self) -> Option<I>
@@ -322,9 +322,9 @@ impl<'v> Value<'v> {
         I: TryFrom<&'v BigInt>,
     {
         match self.unpack_num()? {
-            Num::Float(_) => None,
-            Num::Int(StarlarkIntRef::Small(x)) => I::try_from(x).ok(),
-            Num::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
+            NumRef::Float(_) => None,
+            NumRef::Int(StarlarkIntRef::Small(x)) => I::try_from(x).ok(),
+            NumRef::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
         }
     }
 

@@ -33,7 +33,7 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::starlark_type;
-use crate::values::num::Num;
+use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -276,7 +276,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn equals(&self, other: Value) -> anyhow::Result<bool> {
-        Ok(Some(Num::Float(self.0)) == other.unpack_num())
+        Ok(Some(NumRef::Float(self.0)) == other.unpack_num())
     }
 
     fn collect_repr(&self, s: &mut String) {
@@ -288,7 +288,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        hasher.write_u64(Num::from(self.0).get_hash_64());
+        hasher.write_u64(NumRef::from(self.0).get_hash_64());
         Ok(())
     }
 
@@ -339,7 +339,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "compare", other),
-            Some(other) => Ok(Num::Float(self.0).cmp(&other)),
+            Some(other) => Ok(NumRef::Float(self.0).cmp(&other)),
         }
     }
 }
