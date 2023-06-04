@@ -32,7 +32,6 @@ use std::ptr;
 
 use allocative::Allocative;
 use num_bigint::BigInt;
-use num_traits::Signed;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::StarlarkDocs;
@@ -288,60 +287,14 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     fn left_shift(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
             None => ValueError::unsupported_with(self, "<<", other),
-            Some(StarlarkIntRef::Small(other)) => {
-                if let Ok(other) = other.try_into() {
-                    if let Some(r) = self.get().checked_shl(other) {
-                        Ok(Value::new_int(r))
-                    } else if other < 100_000 {
-                        // Limit the size of the BigInt to avoid accidentally consuming
-                        // too much memory. 100_000 is practically enough for most use cases.
-                        Ok(heap.alloc(StarlarkBigInt::try_from_bigint(
-                            BigInt::from(self.get()) << other,
-                        )))
-                    } else {
-                        Err(ValueError::IntegerOverflow.into())
-                    }
-                } else {
-                    Err(ValueError::NegativeShiftCount.into())
-                }
-            }
-            Some(StarlarkIntRef::Big(b)) => {
-                if b.get().is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else if self.get() == 0 {
-                    Ok(Value::new_int(0))
-                } else {
-                    Err(ValueError::IntegerOverflow.into())
-                }
-            }
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).left_shift(other)?)),
         }
     }
 
-    fn right_shift(&self, other: Value, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn right_shift(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
             None => ValueError::unsupported_with(self, ">>", other),
-            Some(StarlarkIntRef::Small(other)) => {
-                if let Ok(other) = other.try_into() {
-                    if let Some(r) = self.get().checked_shr(other) {
-                        Ok(Value::new_int(r))
-                    } else {
-                        Err(ValueError::IntegerOverflow.into())
-                    }
-                } else {
-                    Err(ValueError::NegativeShiftCount.into())
-                }
-            }
-            Some(StarlarkIntRef::Big(b)) => {
-                if b.get().is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    if self.get() >= 0 {
-                        Ok(Value::new_int(0))
-                    } else {
-                        Ok(Value::new_int(-1))
-                    }
-                }
-            }
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).right_shift(other)?)),
         }
     }
 }

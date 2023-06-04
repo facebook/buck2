@@ -52,8 +52,8 @@ fn bitwise_test() {
 "#,
     );
 
-    assert::fail("1 << -13", "Negative shift count");
-    assert::fail("1 >> -13", "Negative shift count");
+    assert::fail("1 << -13", "Negative left shift");
+    assert::fail("1 >> -13", "Negative right shift");
 }
 
 #[test]

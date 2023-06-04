@@ -30,6 +30,7 @@ use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::FromPrimitive;
 use num_traits::Num;
+use num_traits::Signed;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
 
@@ -54,6 +55,12 @@ enum StarlarkIntError {
     FloorDivisionByZero(StarlarkInt, StarlarkInt),
     #[error("Modulo by zero: {0} % {1}")]
     ModuloByZero(StarlarkInt, StarlarkInt),
+    #[error("Integer overflow computing left shift")]
+    LeftShiftOverflow,
+    #[error("Negative left shift")]
+    LeftShiftNegative,
+    #[error("Negative right shift")]
+    RightShiftNegative,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
@@ -127,6 +134,13 @@ impl<'v> StarlarkIntRef<'v> {
         }
     }
 
+    pub(crate) fn to_u64(self) -> Option<u64> {
+        match self {
+            StarlarkIntRef::Small(i) => u64::try_from(i).ok(),
+            StarlarkIntRef::Big(i) => i.get().to_u64(),
+        }
+    }
+
     fn floor_div_small_small(a: i32, b: i32) -> anyhow::Result<StarlarkInt> {
         if b == 0 {
             return Err(StarlarkIntError::FloorDivisionByZero(
@@ -140,6 +154,20 @@ impl<'v> StarlarkIntRef<'v> {
         match a.checked_div(b) {
             Some(div) => Ok(StarlarkInt::Small(div - offset)),
             None => Self::floor_div_big_big(&BigInt::from(a), &BigInt::from(b)),
+        }
+    }
+
+    fn is_negative(self) -> bool {
+        match self {
+            StarlarkIntRef::Small(i) => i < 0,
+            StarlarkIntRef::Big(i) => i.get().is_negative(),
+        }
+    }
+
+    fn is_zero(self) -> bool {
+        match self {
+            StarlarkIntRef::Small(i) => i == 0,
+            StarlarkIntRef::Big(_) => false,
         }
     }
 
@@ -240,6 +268,76 @@ impl<'v> StarlarkIntRef<'v> {
                 Self::percent_big(a.get(), &BigInt::from(b))
             }
             (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => Self::percent_big(a.get(), b.get()),
+        }
+    }
+
+    /// `<<`.
+    pub(crate) fn left_shift(self, other: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
+        // Handle the most common case first.
+        if let (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) = (self, other) {
+            if let Ok(b) = u32::try_from(b) {
+                if let Some(r) = a.checked_shl(b) {
+                    return Ok(StarlarkInt::Small(r));
+                }
+            }
+        }
+
+        if other.is_negative() {
+            return Err(StarlarkIntError::LeftShiftNegative.into());
+        }
+        if self.is_zero() || other.is_zero() {
+            return Ok(self.to_owned());
+        }
+        if other > StarlarkIntRef::Small(100_000) {
+            // Limit the size of the BigInt to avoid accidentally consuming
+            // too much memory. 100_000 is practically enough for most use cases.
+            return Err(StarlarkIntError::LeftShiftOverflow.into());
+        }
+
+        match other {
+            StarlarkIntRef::Big(_) => Err(StarlarkIntError::LeftShiftOverflow.into()),
+            StarlarkIntRef::Small(b) => {
+                // No overflow, checked above.
+                let b = b as u64;
+                Ok(StarlarkBigInt::try_from_bigint(self.to_big() << b))
+            }
+        }
+    }
+
+    /// `>>`.
+    pub(crate) fn right_shift(self, other: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
+        // Handle the most common case first.
+        if let (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) = (self, other) {
+            if let Ok(b) = u32::try_from(b) {
+                if let Some(r) = a.checked_shr(b) {
+                    return Ok(StarlarkInt::Small(r));
+                }
+            }
+        }
+
+        if other.is_negative() {
+            return Err(StarlarkIntError::RightShiftNegative.into());
+        }
+        if self.is_zero() || other.is_zero() {
+            return Ok(self.to_owned());
+        }
+        let Some(other) = other.to_u64() else {
+            return if self.is_negative() {
+                Ok(StarlarkInt::Small(-1))
+            } else {
+                Ok(StarlarkInt::Small(0))
+            }
+        };
+
+        match self {
+            StarlarkIntRef::Small(a) => {
+                if a < 0 {
+                    Ok(StarlarkInt::Small(-1))
+                } else {
+                    Ok(StarlarkInt::Small(0))
+                }
+            }
+            StarlarkIntRef::Big(a) => Ok(StarlarkBigInt::try_from_bigint(a.get() >> other)),
         }
     }
 }

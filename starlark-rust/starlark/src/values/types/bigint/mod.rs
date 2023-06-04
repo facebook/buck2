@@ -26,7 +26,6 @@ use allocative::Allocative;
 use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_traits::cast::ToPrimitive;
-use num_traits::Signed;
 use serde::Serialize;
 
 use crate as starlark;
@@ -248,44 +247,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
             None => ValueError::unsupported_with(self, "<<", other),
-            Some(StarlarkIntRef::Small(i)) => {
-                if i < 0 {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Ok(heap.alloc(Self::try_from_bigint(&self.value << i)))
-                }
-            }
-            Some(StarlarkIntRef::Big(b)) => {
-                if b.value.is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Err(ValueError::IntegerOverflow.into())
-                }
-            }
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
     fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value(other) {
             None => ValueError::unsupported_with(self, ">>", other),
-            Some(StarlarkIntRef::Small(i)) => {
-                if i < 0 {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    Ok(heap.alloc(Self::try_from_bigint(&self.value >> i)))
-                }
-            }
-            Some(StarlarkIntRef::Big(b)) => {
-                if b.value.is_negative() {
-                    Err(ValueError::NegativeShiftCount.into())
-                } else {
-                    if self.value.is_negative() {
-                        Ok(Value::new_int(-1))
-                    } else {
-                        Ok(Value::new_int(0))
-                    }
-                }
-            }
+            Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),
         }
     }
 
@@ -582,7 +551,7 @@ mod tests {
         );
         assert::fail(
             "0x10000000000000000000000000000000 << -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative left shift",
         );
     }
 
@@ -594,7 +563,7 @@ mod tests {
         );
         assert::fail(
             "0x10000000000000000000000000000000 << -1",
-            "Negative shift count",
+            "Negative left shift",
         );
         assert::fail(
             "1 << 0x10000000000000000000000000000000",
@@ -602,7 +571,7 @@ mod tests {
         );
         assert::fail(
             "1 << -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative left shift",
         );
         assert::eq("0", "0 << 0x10000000000000000000000000000000");
         assert::eq("1267650600228229401496703205376", "1 << 100");
@@ -627,7 +596,7 @@ mod tests {
         );
         assert::fail(
             "0x20000000000000000000000000000000 >> -0x20000000000000000000000000000000",
-            "Negative shift count",
+            "Negative right shift",
         );
     }
 
@@ -639,13 +608,13 @@ mod tests {
         );
         assert::fail(
             "0x20000000000000000000000000000000 >> -1",
-            "Negative shift count",
+            "Negative right shift",
         );
         assert::eq("0", "1 >> 0x20000000000000000000000000000000");
         assert::eq("-1", "-1 >> 0x20000000000000000000000000000000");
         assert::fail(
             "1 >> -0x10000000000000000000000000000000",
-            "Negative shift count",
+            "Negative right shift",
         );
     }
 
