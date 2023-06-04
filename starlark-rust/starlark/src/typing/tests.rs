@@ -16,20 +16,18 @@
  */
 
 use std::collections::HashMap;
+use std::fmt::Display;
 
-use maplit::hashmap;
 use once_cell::sync::Lazy;
 
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::typing::Approximation;
 use crate::typing::Interface;
 use crate::typing::OracleNoBuiltins;
 use crate::typing::OracleStandard;
 use crate::typing::Param;
 use crate::typing::Ty;
-use crate::typing::TypeMap;
 use crate::typing::TypingOracle;
 
 fn mk_oracle() -> impl TypingOracle {
@@ -61,94 +59,111 @@ fn test_oracle() {
     assert_eq!(o.builtin("not_a_symbol"), Some(Err(())))
 }
 
-fn typecheck(
-    code: &str,
-    loads: &HashMap<String, Interface>,
-) -> (Vec<anyhow::Error>, TypeMap, Interface, Vec<Approximation>) {
-    AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
-        .unwrap()
-        .typecheck(&mk_oracle(), loads)
+#[derive(Default)]
+struct TypeCheck {
+    expect_errors: Vec<String>,
+    expect_approximations: Vec<String>,
+    expect_interface: Vec<(String, Ty)>,
+    loads: HashMap<String, Interface>,
+}
+
+impl TypeCheck {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    fn error(mut self, x: &str) -> Self {
+        self.expect_errors.push(x.to_owned());
+        self
+    }
+
+    fn ty(mut self, name: &str, ty: Ty) -> Self {
+        self.expect_interface.push((name.to_owned(), ty));
+        self
+    }
+
+    fn load(mut self, file: &str, interface: Interface) -> Self {
+        self.loads.insert(file.to_owned(), interface);
+        self
+    }
+
+    fn check(&self, code: &str) -> Interface {
+        fn assert_list<T: Display>(got: Vec<T>, want: &[String]) {
+            let mut got = got.iter().map(|x| format!("{x:#}")).collect::<Vec<_>>();
+            let mut good = got.len() == want.len();
+            for w in want {
+                let before = got.len();
+                got.retain(|x| !x.contains(w));
+                good = good && before == got.len() + 1;
+            }
+            assert!(good, "Wanted {want:?}, got {got:?}");
+        }
+
+        let (errors, _, interface, approximations) =
+            AstModule::parse("filename", code.to_owned(), &Dialect::Extended)
+                .unwrap()
+                .typecheck(&mk_oracle(), &self.loads);
+        assert_list(approximations, &self.expect_approximations);
+        assert_list(errors, &self.expect_errors);
+        for (k, v) in &self.expect_interface {
+            assert_eq!(interface.get(k), Some(v));
+        }
+        interface
+    }
 }
 
 #[test]
 fn test_success() {
-    let (errs, _, interface, approx) = typecheck(
+    TypeCheck::default().ty("y", Ty::int()).check(
         r#"
 def foo(x: str.type) -> str.type:
     return x.removeprefix("test")
 y = hash(foo("magic"))
    "#,
-        &HashMap::new(),
     );
-    assert!(approx.is_empty());
-    assert!(errs.is_empty());
-    assert_eq!(interface.get("y").unwrap(), &Ty::int());
 }
 
 #[test]
 fn test_failure() {
-    let (errs, _, _, approx) = typecheck(
-        r#"
-hash(1)
-   "#,
-        &HashMap::new(),
-    );
-    assert!(approx.is_empty());
-    assert_eq!(errs.len(), 1);
-    assert_eq!(
-        format!("{:#}", errs[0]),
-        r#"Expected type `"string"` but got `"int"`, at filename:2:1-8"#
-    );
+    TypeCheck::new()
+        .error(r#"Expected type `"string"` but got `"int"`, at filename:1:1-8"#)
+        .check(r#"hash(1)"#);
 }
 
 #[test]
 fn test_load() {
-    let (errs, _, interface, approx) = typecheck(
+    let interface = TypeCheck::new().check(
         r#"
 def foo(x: [bool.type]) -> str.type:
     return "test"
    "#,
-        &HashMap::new(),
     );
-    assert!(approx.is_empty());
-    assert!(errs.is_empty());
-
-    let (errs, _, interface, approx) = typecheck(
-        r#"
+    TypeCheck::new()
+        .load("foo.bzl", interface)
+        .ty("res", Ty::list(Ty::string()))
+        .check(
+            r#"
 load("foo.bzl", "foo")
 res = [foo([])]
-   "#,
-        &hashmap!["foo.bzl".to_owned() => interface],
-    );
-    assert!(approx.is_empty());
-    assert!(errs.is_empty());
-    assert_eq!(interface.get("res").unwrap(), &Ty::list(Ty::string()));
+"#,
+        );
 }
 
 /// Test things that have previous claimed incorrectly they were type errors
 #[test]
 fn test_false_negative() {
-    let (errs, _, _, approx) = typecheck(
-        r#"fail("Expected variable expansion in string: `{}`".format("x"))"#,
-        &HashMap::new(),
-    );
-    assert!(approx.is_empty());
-    assert!(errs.is_empty());
+    TypeCheck::new().check(r#"fail("Expected variable expansion in string: `{}`".format("x"))"#);
 }
 
 #[test]
 fn test_type_kwargs() {
-    let (errs, _, _, _) = typecheck(
-        r#"
+    TypeCheck::new()
+        .error(r#"Expected type `{"string": ""}` but got `{"int": "string"}`, at filename:4:7-15"#)
+        .check(
+            r#"
 def foo(**kwargs):
     pass
 foo(**{1: "x"})
 "#,
-        &HashMap::new(),
-    );
-    assert_eq!(errs.len(), 1);
-    assert_eq!(
-        format!("{:#}", errs[0]),
-        r#"Expected type `{"string": ""}` but got `{"int": "string"}`, at filename:4:7-15"#
-    );
+        );
 }
