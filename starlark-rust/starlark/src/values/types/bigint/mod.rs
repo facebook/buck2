@@ -38,12 +38,14 @@ use crate::starlark_type;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::Num;
 use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -325,31 +327,31 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "&", other),
         };
-        Ok(heap.alloc(Self::try_from_bigint(&self.value & &*rhs)))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) & rhs))
     }
 
     fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
-            None => return ValueError::unsupported_with(self, "^", other),
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
+            None => return ValueError::unsupported_with(self, "^", other),
         };
-        Ok(heap.alloc(Self::try_from_bigint(&self.value ^ &*rhs)))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) ^ rhs))
     }
 
     fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_int_or_big() {
-            None => return ValueError::unsupported_with(self, "|", other),
+        let rhs = match StarlarkIntRef::unpack_value(other) {
             Some(rhs) => rhs,
+            None => return ValueError::unsupported_with(self, "|", other),
         };
-        Ok(heap.alloc(Self::try_from_bigint(&self.value | &*rhs)))
+        Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
 
     fn bit_not(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(Self::try_from_bigint(!&self.value)))
+        Ok(heap.alloc(!StarlarkIntRef::Big(self)))
     }
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

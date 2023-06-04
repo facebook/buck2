@@ -29,7 +29,6 @@
 // our val_ref requires a pointer to the value. We need to put that pointer
 // somewhere. The solution is to have a separate value storage vs vtable.
 
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -314,15 +313,6 @@ impl<'v> Value<'v> {
     /// Obtain the underlying numerical value, if it is one.
     pub(crate) fn unpack_num(self) -> Option<Num<'v>> {
         Num::unpack_value(self)
-    }
-
-    /// This operation allocates `BigInt` for small int, use carefully.
-    pub(crate) fn unpack_int_or_big(self) -> Option<Cow<'v, BigInt>> {
-        match self.unpack_num()? {
-            Num::Float(_) => None,
-            Num::Int(x) => Some(Cow::Owned(BigInt::from(x))),
-            Num::BigInt(x) => Some(Cow::Borrowed(x.get())),
-        }
     }
 
     pub(crate) fn unpack_integer<I>(self) -> Option<I>

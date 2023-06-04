@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+use std::ops::BitAnd;
+use std::ops::BitOr;
+use std::ops::BitXor;
+use std::ops::Not;
+
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 use num_traits::Num;
@@ -77,6 +82,15 @@ impl StarlarkInt {
     }
 }
 
+impl<'v> StarlarkIntRef<'v> {
+    fn to_big(self) -> BigInt {
+        match self {
+            StarlarkIntRef::Small(i) => BigInt::from(i),
+            StarlarkIntRef::Big(i) => i.get().clone(),
+        }
+    }
+}
+
 impl StarlarkTypeRepr for StarlarkInt {
     fn starlark_type_repr() -> String {
         StarlarkBigInt::starlark_type_repr()
@@ -113,6 +127,50 @@ impl<'v> UnpackValue<'v> for StarlarkIntRef<'v> {
             Some(StarlarkIntRef::Small(i))
         } else {
             value.downcast_ref().map(StarlarkIntRef::Big)
+        }
+    }
+}
+
+impl<'v> BitAnd for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn bitand(self, other: Self) -> StarlarkInt {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a & b),
+            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() & b.to_big()),
+        }
+    }
+}
+
+impl<'v> BitOr for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn bitor(self, other: Self) -> StarlarkInt {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a | b),
+            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() | b.to_big()),
+        }
+    }
+}
+
+impl<'v> BitXor for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn bitxor(self, other: Self) -> StarlarkInt {
+        match (self, other) {
+            (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a ^ b),
+            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() ^ b.to_big()),
+        }
+    }
+}
+
+impl<'v> Not for StarlarkIntRef<'v> {
+    type Output = StarlarkInt;
+
+    fn not(self) -> StarlarkInt {
+        match self {
+            StarlarkIntRef::Small(a) => StarlarkInt::Small(!a),
+            a => StarlarkBigInt::try_from_bigint(!a.to_big()),
         }
     }
 }
