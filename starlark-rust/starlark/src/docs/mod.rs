@@ -871,7 +871,7 @@ impl RegisteredDoc {
             name,
             location: None,
         };
-        let item = T::get_methods()?.documentation();
+        let item = DocItem::Object(T::get_methods()?.documentation());
         let custom_attrs = custom_attrs
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))

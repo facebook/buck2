@@ -267,7 +267,7 @@ pub trait StarlarkValue<'v>:
     where
         Self: Sized,
     {
-        Self::get_methods().map(|methods| methods.documentation())
+        Self::get_methods().map(|methods| DocItem::Object(methods.documentation()))
     }
 
     /// Return a string representation of self, as returned by the `repr()` function.

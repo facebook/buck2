@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use crate::docs::Doc;
+use crate::docs::DocItem;
 use crate::docs::Identifier;
 use crate::environment::Globals;
 use crate::stdlib::LibraryExtension;
@@ -49,7 +50,7 @@ impl OracleStandard {
                         name: T::TYPE.to_owned(),
                         location: None,
                     },
-                    item: m.documentation(),
+                    item: DocItem::Object(m.documentation()),
                     custom_attrs: HashMap::new(),
                 });
             }

@@ -205,15 +205,15 @@ impl Methods {
             .map(|(k, v)| (k.as_str(), v.to_frozen_value()))
     }
 
-    /// Fetch the documentation. Returned as an `Object`.
-    pub fn documentation(&self) -> DocItem {
-        DocItem::Object(common_documentation(
+    /// Fetch the documentation.
+    pub fn documentation(&self) -> DocObject {
+        common_documentation(
             &self.0.docstring,
             self.0
                 .members
                 .iter()
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
-        ))
+        )
     }
 }
 
