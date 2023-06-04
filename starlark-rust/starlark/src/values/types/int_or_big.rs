@@ -100,6 +100,16 @@ impl<'v> StarlarkIntRef<'v> {
             StarlarkIntRef::Big(i) => i.to_f64(),
         }
     }
+
+    pub(crate) fn to_i32(self) -> Option<i32> {
+        match self {
+            StarlarkIntRef::Small(i) => Some(i),
+            StarlarkIntRef::Big(_) => {
+                // `StarlarkBigInt` is out of range of `i32`.
+                None
+            }
+        }
+    }
 }
 
 impl StarlarkTypeRepr for StarlarkInt {

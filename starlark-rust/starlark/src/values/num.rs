@@ -83,11 +83,7 @@ impl<'v> Num<'v> {
     /// Get underlying value as int (if it can be precisely expressed as int)
     pub(crate) fn as_int(&self) -> Option<i32> {
         match self {
-            Self::Int(StarlarkIntRef::Small(i)) => Some(*i),
-            Self::Int(StarlarkIntRef::Big(_)) => {
-                // `StarlarkBigInt` is outside of `i32` range.
-                None
-            }
+            Self::Int(i) => i.to_i32(),
             Self::Float(f) => Self::f64_to_i32_exact(*f),
         }
     }
