@@ -100,6 +100,13 @@ impl StarlarkInt {
             Err(StarlarkIntError::CannotRepresentAsExact(f).into())
         }
     }
+
+    fn as_ref(&self) -> StarlarkIntRef {
+        match self {
+            StarlarkInt::Small(i) => StarlarkIntRef::Small(*i),
+            StarlarkInt::Big(i) => StarlarkIntRef::Big(i),
+        }
+    }
 }
 
 impl<'v> StarlarkIntRef<'v> {
@@ -436,6 +443,15 @@ impl<'v> Neg for StarlarkIntRef<'v> {
             }
         }
         StarlarkBigInt::try_from_bigint(-self.to_big())
+    }
+}
+
+impl Neg for StarlarkInt {
+    type Output = StarlarkInt;
+
+    fn neg(self) -> StarlarkInt {
+        // TODO(nga): can negate without allocating in most cases.
+        -self.as_ref()
     }
 }
 

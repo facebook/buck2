@@ -20,7 +20,6 @@
 
 use std::char;
 use std::cmp::Ordering;
-use std::fmt::Display;
 use std::num::NonZeroI32;
 
 use starlark_derive::starlark_module;
@@ -599,8 +598,8 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int(2e9) == 2000000000
     /// # "#);
     /// # starlark::assert::fail(r#"
-    /// int("hello")   # error: not a valid number
-    /// # "#, "not a valid number");
+    /// int("hello")   # error: Cannot parse
+    /// # "#, "Cannot parse");
     /// # starlark::assert::fail(r#"
     /// int(float("nan"))   # error: cannot be represented as exact integer
     /// # "#, "cannot be represented as exact integer");
@@ -666,27 +665,14 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
                 }
                 _ => s,
             };
-            fn err(a: Value, base: u32, error: impl Display) -> anyhow::Error {
-                anyhow::anyhow!(
-                    "{} is not a valid number in base {}: {}",
-                    a.to_repr(),
-                    base,
-                    error,
-                )
+            // We already handled the sign above, so we are not trying to parse another sign.
+            if s.starts_with('-') || s.starts_with('+') {
+                return Err(anyhow::anyhow!("Cannot parse `{}` as an integer", s,));
             }
-            match (u32::from_str_radix(s, base), negate) {
-                (Ok(i), false) => i32::try_from(i)
-                    .map(Value::new_int)
-                    .map_err(|_| err(a, base, "overflow")),
-                (Ok(i), true) => {
-                    if i > 0x80000000 {
-                        Err(err(a, base, "overflow"))
-                    } else {
-                        Ok(Value::new_int(0u32.wrapping_sub(i) as i32))
-                    }
-                }
-                (Err(x), _) => Err(err(a, base, x)),
-            }
+
+            let x = StarlarkInt::from_str_radix(s, base)?;
+            let x = if negate { -x } else { x };
+            Ok(heap.alloc(x))
         } else if let Some(base) = base {
             Err(anyhow::anyhow!(
                 "int() cannot convert non-string with explicit base '{}'",
@@ -1202,9 +1188,8 @@ hash(foo)
             "999999999999999945322333868247445125709646570021247924665841614848",
             "int(1e66)",
         );
-        // TODO(nga): all of the following are bugs.
-        assert::fail("int('2147483648')", "overflow");
-        assert::fail("int('-2147483649')", "overflow");
+        assert::eq("2147483648", "int('2147483648')");
+        assert::eq("-2147483649", "int('-2147483649')");
     }
 
     #[test]
