@@ -222,16 +222,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        match rhs.unpack_num()? {
-            NumRef::Int(rhs) => Some(Ok(heap.alloc(StarlarkIntRef::Big(self) + rhs))),
-            NumRef::Float(f) => Some(Ok(heap.alloc_float(StarlarkFloat(self.to_f64() + f)))),
-        }
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Big(self)) + rhs.unpack_num()?,
+        )))
     }
 
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            Some(NumRef::Int(other)) => Ok(heap.alloc(StarlarkIntRef::Big(self) - other)),
-            Some(NumRef::Float(_)) => StarlarkFloat(self.to_f64()).sub(other, heap),
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) - other)),
             None => ValueError::unsupported_with(self, "-", other),
         }
     }

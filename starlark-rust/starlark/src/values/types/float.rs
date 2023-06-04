@@ -301,13 +301,14 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn add(&self, other: Value, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        other
-            .unpack_num()
-            .map(|n| Ok(heap.alloc_float(StarlarkFloat(self.0 + n.as_float()))))
+        Some(Ok(heap.alloc(NumRef::Float(self.0) + other.unpack_num()?)))
     }
 
     fn sub(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "-", |l, r| Ok(l - r))
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "-", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0) - other)),
+        }
     }
 
     fn mul(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {

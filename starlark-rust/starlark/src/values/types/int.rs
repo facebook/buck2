@@ -204,15 +204,13 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(heap.alloc(-StarlarkIntRef::Small(self.get())))
     }
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<anyhow::Result<Value<'v>>> {
-        match other.unpack_num()? {
-            NumRef::Int(other) => Some(Ok(heap.alloc(StarlarkIntRef::Small(self.get()) + other))),
-            NumRef::Float(_) => StarlarkFloat(self.get() as f64).add(other, heap),
-        }
+        Some(Ok(heap.alloc(
+            NumRef::Int(StarlarkIntRef::Small(self.get())) + other.unpack_num()?,
+        )))
     }
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         match other.unpack_num() {
-            Some(NumRef::Int(other)) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()) - other)),
-            Some(NumRef::Float(_)) => StarlarkFloat(self.get() as f64).sub(other, heap),
+            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())) - other)),
             None => ValueError::unsupported_with(self, "-", other),
         }
     }

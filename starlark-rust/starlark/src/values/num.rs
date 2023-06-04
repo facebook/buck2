@@ -18,6 +18,8 @@
 //! Helpers for numerical values.
 
 use std::cmp::Ordering;
+use std::ops::Add;
+use std::ops::Sub;
 
 use dupe::Dupe;
 use either::Either;
@@ -25,7 +27,13 @@ use either::Either;
 use crate::collections::StarlarkHashValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::float::StarlarkFloat;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::FrozenHeap;
+use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -41,9 +49,20 @@ pub(crate) enum NumRef<'v> {
     Float(f64),
 }
 
+pub(crate) enum Num {
+    Int(StarlarkInt),
+    Float(f64),
+}
+
 impl<'v> StarlarkTypeRepr for NumRef<'v> {
     fn starlark_type_repr() -> String {
         Either::<StarlarkIntRef, StarlarkFloat>::starlark_type_repr()
+    }
+}
+
+impl StarlarkTypeRepr for Num {
+    fn starlark_type_repr() -> String {
+        NumRef::starlark_type_repr()
     }
 }
 
@@ -60,6 +79,24 @@ impl<'v> UnpackValue<'v> for NumRef<'v> {
             Some(NumRef::Float(f.0))
         } else {
             None
+        }
+    }
+}
+
+impl<'v> AllocValue<'v> for Num {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match self {
+            Self::Int(i) => heap.alloc(i),
+            Self::Float(f) => heap.alloc(f),
+        }
+    }
+}
+
+impl AllocFrozenValue for Num {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match self {
+            Self::Int(i) => heap.alloc(i),
+            Self::Float(f) => heap.alloc(f),
         }
     }
 }
@@ -162,6 +199,28 @@ impl<'v> Ord for NumRef<'v> {
         } else {
             StarlarkFloat::compare_impl(self.as_float(), other.as_float())
         }
+    }
+}
+
+impl<'v> Add for NumRef<'v> {
+    type Output = Num;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
+            return Num::Int(a + b);
+        }
+        Num::Float(self.as_float() + rhs.as_float())
+    }
+}
+
+impl<'v> Sub for NumRef<'v> {
+    type Output = Num;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
+            return Num::Int(a - b);
+        }
+        Num::Float(self.as_float() - rhs.as_float())
     }
 }
 
