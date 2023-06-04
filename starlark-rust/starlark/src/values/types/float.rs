@@ -238,23 +238,6 @@ impl<'v> UnpackValue<'v> for f64 {
     }
 }
 
-fn f64_arith_bin_op<'v, F>(
-    left: f64,
-    right: Value,
-    heap: &'v Heap,
-    op: &'static str,
-    f: F,
-) -> anyhow::Result<Value<'v>>
-where
-    F: FnOnce(f64, f64) -> anyhow::Result<f64>,
-{
-    if let Some(right) = right.unpack_num().map(|n| n.as_float()) {
-        Ok(heap.alloc_float(StarlarkFloat(f(left, right)?)))
-    } else {
-        ValueError::unsupported_with(&StarlarkFloat(left), op, right)
-    }
-}
-
 impl Display for StarlarkFloat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write_compact(f, self.0, 'e')
@@ -326,15 +309,17 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn percent(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "%", |a, b| {
-            StarlarkFloat::percent_impl(a, b)
-        })
+        match other.unpack_num() {
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).percent(other)?)),
+            None => ValueError::unsupported_with(self, "%", other),
+        }
     }
 
     fn floor_div(&self, other: Value, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        f64_arith_bin_op(self.0, other, heap, "//", |l, r| {
-            StarlarkFloat::floor_div_impl(l, r)
-        })
+        match other.unpack_num() {
+            None => ValueError::unsupported_with(self, "//", other),
+            Some(other) => Ok(heap.alloc(NumRef::Float(self.0).floor_div(other)?)),
+        }
     }
 
     fn compare(&self, other: Value) -> anyhow::Result<Ordering> {

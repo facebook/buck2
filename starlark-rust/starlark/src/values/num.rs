@@ -184,6 +184,22 @@ impl<'v> NumRef<'v> {
             Ok(a / b)
         }
     }
+
+    pub(crate) fn floor_div(self, other: NumRef) -> anyhow::Result<Num> {
+        if let (NumRef::Int(a), NumRef::Int(b)) = (self, other) {
+            a.floor_div(b).map(Num::Int)
+        } else {
+            StarlarkFloat::floor_div_impl(self.as_float(), other.as_float()).map(Num::Float)
+        }
+    }
+
+    pub(crate) fn percent(self, other: NumRef) -> anyhow::Result<Num> {
+        if let (NumRef::Int(a), NumRef::Int(b)) = (self, other) {
+            a.percent(b).map(Num::Int)
+        } else {
+            StarlarkFloat::percent_impl(self.as_float(), other.as_float()).map(Num::Float)
+        }
+    }
 }
 
 impl<'v> From<i32> for NumRef<'v> {

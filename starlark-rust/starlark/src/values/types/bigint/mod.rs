@@ -33,7 +33,6 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::starlark_type;
-use crate::values::float::StarlarkFloat;
 use crate::values::num::NumRef;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
@@ -201,34 +200,16 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "//", other),
-        };
-        match rhs {
-            NumRef::Float(f) => {
-                return Ok(
-                    heap.alloc_float(StarlarkFloat(StarlarkFloat::floor_div_impl(
-                        self.to_f64(),
-                        f,
-                    )?)),
-                );
-            }
-            NumRef::Int(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).floor_div(other)?)),
+        match other.unpack_num() {
+            Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).floor_div(rhs)?)),
+            None => ValueError::unsupported_with(self, "//", other),
         }
     }
 
     fn percent(&self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let rhs = match other.unpack_num() {
-            Some(rhs) => rhs,
-            None => return ValueError::unsupported_with(self, "%", other),
-        };
-        match rhs {
-            NumRef::Float(f) => Ok(heap.alloc_float(StarlarkFloat(StarlarkFloat::percent_impl(
-                self.to_f64(),
-                f,
-            )?))),
-            NumRef::Int(rhs) => Ok(heap.alloc(StarlarkIntRef::Big(self).percent(rhs)?)),
+        match other.unpack_num() {
+            Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).percent(rhs)?)),
+            None => ValueError::unsupported_with(self, "%", other),
         }
     }
 
