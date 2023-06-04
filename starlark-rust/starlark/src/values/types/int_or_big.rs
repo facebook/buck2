@@ -16,7 +16,9 @@
  */
 
 use num_bigint::BigInt;
+use num_traits::FromPrimitive;
 use num_traits::Num;
+use num_traits::ToPrimitive;
 
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
@@ -33,6 +35,8 @@ use crate::values::ValueLike;
 enum StarlarkIntError {
     #[error("Cannot parse `{0}` as an integer in base {1}")]
     CannotParse(String, u32),
+    #[error("Float `{0}` cannot be represented as exact integer")]
+    CannotRepresentAsExact(f64),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Display)]
@@ -55,6 +59,20 @@ impl StarlarkInt {
                 Ok(i) => Ok(StarlarkBigInt::try_from_bigint(i)),
                 Err(_) => Err(StarlarkIntError::CannotParse(s.to_owned(), base).into()),
             }
+        }
+    }
+
+    pub(crate) fn from_f64_exact(f: f64) -> anyhow::Result<StarlarkInt> {
+        let i = f as i32;
+        if i as f64 == f {
+            Ok(StarlarkInt::Small(i))
+        } else {
+            if let Some(i) = BigInt::from_f64(f) {
+                if i.to_f64() == Some(f) {
+                    return Ok(StarlarkBigInt::try_from_bigint(i));
+                }
+            }
+            Err(StarlarkIntError::CannotRepresentAsExact(f).into())
         }
     }
 }

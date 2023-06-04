@@ -38,11 +38,11 @@ use crate::values::int::INT_TYPE;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
-use crate::values::num::Num;
 use crate::values::range::Range;
 use crate::values::string::STRING_TYPE;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocValue;
@@ -602,19 +602,17 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
     /// int("hello")   # error: not a valid number
     /// # "#, "not a valid number");
     /// # starlark::assert::fail(r#"
-    /// int(1e100)   # error: overflow
-    /// # "#, "cannot convert float to integer");
+    /// int(float("nan"))   # error: cannot be represented as exact integer
+    /// # "#, "cannot be represented as exact integer");
     /// # starlark::assert::fail(r#"
-    /// int(float("nan"))   # error: cannot convert NaN to int
-    /// # "#, "cannot convert float to integer");
-    /// # starlark::assert::fail(r#"
-    /// int(float("inf"))   # error: cannot convert infinity to int
-    /// # "#, "cannot convert float to integer");
+    /// int(float("inf"))   # error: cannot be represented as exact integer
+    /// # "#, "cannot be represented as exact integer");
     /// ```
     #[starlark(dot_type = INT_TYPE, speculative_exec_safe, return_type = "int.type")]
     fn int<'v>(
         #[starlark(require = pos)] a: Option<Value<'v>>,
         base: Option<i32>,
+        heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let Some(a) = a else {
             return Ok(Value::new_int(0));
@@ -697,14 +695,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         } else if StarlarkIntRef::unpack_value(a).is_some() {
             Ok(a)
         } else if let Some(f) = StarlarkFloat::unpack_value(a) {
-            // TODO(nga): large f64 can be represented as exact bigint.
-            match Num::f64_to_i32_exact(f.0.trunc()) {
-                Some(i) => Ok(Value::new_int(i)),
-                None => Err(anyhow::anyhow!(
-                    "int() cannot convert float to integer: {}",
-                    a.to_repr()
-                )),
-            }
+            Ok(heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?))
         } else {
             Ok(Value::new_int(a.to_int()?))
         }
@@ -1207,10 +1198,13 @@ hash(foo)
         assert::eq("-2147483647 - 1", "int('-2147483648')");
         assert::eq("0", "int('0')");
         assert::eq("0", "int('-0')");
+        assert::eq(
+            "999999999999999945322333868247445125709646570021247924665841614848",
+            "int(1e66)",
+        );
         // TODO(nga): all of the following are bugs.
         assert::fail("int('2147483648')", "overflow");
         assert::fail("int('-2147483649')", "overflow");
-        assert::fail("int(1e66)", "cannot convert float to integer");
     }
 
     #[test]
