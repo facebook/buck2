@@ -434,15 +434,15 @@ impl DaemonState {
 
         let nested_invocation_config = root_config
             .parse::<NestedInvocation>("buck2", "nested_invocation")?
-            .unwrap_or(NestedInvocation::Run);
+            .unwrap_or(NestedInvocation::Error);
 
         let parallel_invocation_config = root_config
             .parse::<ParallelInvocation>("buck2", "parallel_invocation")?
-            .unwrap_or(ParallelInvocation::Run);
+            .unwrap_or(ParallelInvocation::Block);
 
         let cleanup_config = root_config
             .parse::<DiceCleanup>("buck2", "dice_cleanup")?
-            .unwrap_or(DiceCleanup::Run);
+            .unwrap_or(DiceCleanup::Block);
 
         let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
