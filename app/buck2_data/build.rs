@@ -193,6 +193,14 @@ fn main() -> io::Result<()> {
             "buck.data.CriticalPathEntry2.Materialization.owner",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
+        .type_attribute(
+            "buck.data.StarlarkUserMetadataValue",
+            "#[serde(transparent)]",
+        )
+        .type_attribute(
+            "buck.data.StarlarkUserMetadataValue.value",
+            "#[serde(untagged)]",
+        )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")
