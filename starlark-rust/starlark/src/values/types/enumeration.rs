@@ -347,9 +347,9 @@ where
         self.value.write_hash(hasher)
     }
 
-    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
         match attribute {
-            "index" => Some(Value::new_int(self.index)),
+            "index" => Some(heap.alloc(self.index)),
             "value" => Some(self.value.to_value()),
             _ => None,
         }

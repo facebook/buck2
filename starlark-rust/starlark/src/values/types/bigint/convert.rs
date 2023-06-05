@@ -17,6 +17,7 @@
 
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -33,7 +34,7 @@ impl StarlarkTypeRepr for u32 {
 
 impl<'v> AllocValue<'v> for u32 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => Value::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -42,7 +43,7 @@ impl<'v> AllocValue<'v> for u32 {
 
 impl AllocFrozenValue for u32 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -57,7 +58,7 @@ impl StarlarkTypeRepr for u64 {
 
 impl<'v> AllocValue<'v> for u64 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => Value::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -66,7 +67,7 @@ impl<'v> AllocValue<'v> for u64 {
 
 impl AllocFrozenValue for u64 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -81,7 +82,7 @@ impl StarlarkTypeRepr for i64 {
 
 impl<'v> AllocValue<'v> for i64 {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => Value::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -90,7 +91,7 @@ impl<'v> AllocValue<'v> for i64 {
 
 impl AllocFrozenValue for i64 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -105,7 +106,7 @@ impl StarlarkTypeRepr for usize {
 
 impl<'v> AllocValue<'v> for usize {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => Value::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -114,7 +115,7 @@ impl<'v> AllocValue<'v> for usize {
 
 impl AllocFrozenValue for usize {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -129,7 +130,7 @@ impl StarlarkTypeRepr for isize {
 
 impl<'v> AllocValue<'v> for isize {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => Value::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }
@@ -138,7 +139,7 @@ impl<'v> AllocValue<'v> for isize {
 
 impl AllocFrozenValue for isize {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match i32::try_from(self) {
+        match InlineInt::try_from(self) {
             Ok(x) => FrozenValue::new_int(x),
             Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
         }

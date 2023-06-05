@@ -39,6 +39,7 @@ use crate::cast;
 use crate::values::int::PointerI32;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
+use crate::values::types::inline_int::InlineInt;
 
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
 #[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
@@ -65,8 +66,8 @@ impl RawPointer {
     }
 
     #[inline]
-    pub(crate) fn new_int(i: i32) -> RawPointer {
-        let ptr = ((i as u32 as usize) << TAG_BITS) | TAG_INT;
+    pub(crate) fn new_int(i: InlineInt) -> RawPointer {
+        let ptr = ((i.to_i32() as u32 as usize) << TAG_BITS) | TAG_INT;
         unsafe { Self::new_unchecked(ptr) }
     }
 
@@ -106,7 +107,7 @@ impl RawPointer {
     }
 
     #[inline]
-    pub(crate) fn unpack_int(self) -> Option<i32> {
+    pub(crate) fn unpack_int(self) -> Option<InlineInt> {
         if !self.is_int() {
             None
         } else {
@@ -116,13 +117,13 @@ impl RawPointer {
 
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
+    pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
         debug_assert!(self.is_int());
 
         const INT_DATA_MASK: usize = 0xffffffff << TAG_BITS;
         debug_assert!(self.0.get() & !INT_DATA_MASK == TAG_INT);
 
-        ((self.0.get() as isize) >> TAG_BITS) as i32
+        InlineInt::new_unchecked(((self.0.get() as isize) >> TAG_BITS) as i32)
     }
 
     #[inline]
@@ -216,7 +217,7 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn unpack_int(self) -> Option<i32> {
+    pub fn unpack_int(self) -> Option<InlineInt> {
         self.ptr.unpack_int()
     }
 
@@ -240,7 +241,7 @@ impl<'p> Pointer<'p> {
 
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
+    pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
         self.ptr.unpack_int_unchecked()
     }
 
@@ -290,7 +291,7 @@ impl<'p> FrozenPointer<'p> {
     }
 
     #[inline]
-    pub(crate) fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: InlineInt) -> Self {
         FrozenPointer {
             ptr: RawPointer::new_int(x),
             phantom: PhantomData,
@@ -312,11 +313,6 @@ impl<'p> FrozenPointer<'p> {
         self.ptr
     }
 
-    #[inline]
-    pub(crate) fn unpack_int(self) -> Option<i32> {
-        self.ptr.unpack_int()
-    }
-
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueOrForward {
@@ -326,7 +322,7 @@ impl<'p> FrozenPointer<'p> {
 
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
-    pub(crate) unsafe fn unpack_int_unchecked(self) -> i32 {
+    pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
         self.ptr.unpack_int_unchecked()
     }
 
@@ -342,13 +338,13 @@ impl<'p> FrozenPointer<'p> {
 #[cfg(test)]
 #[test]
 fn test_int_tag() {
-    fn check(x: i32) {
+    fn check(x: InlineInt) {
         assert_eq!(x, RawPointer::new_int(x).unpack_int().unwrap());
     }
 
     for x in -10..10 {
-        check(x)
+        check(InlineInt::try_from(x).ok().unwrap());
     }
-    check(i32::MAX);
-    check(i32::MIN);
+    check(InlineInt::MAX);
+    check(InlineInt::MIN);
 }

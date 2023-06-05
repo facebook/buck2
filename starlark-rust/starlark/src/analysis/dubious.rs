@@ -72,7 +72,7 @@ fn duplicate_dictionary_key(module: &AstModule, res: &mut Vec<LintT<Dubious>>) {
         match &**x {
             Expr::Literal(x) => match x {
                 AstLiteral::Int(x) => match &x.node.0 {
-                    StarlarkInt::Small(i) => Some((Key::Int(*i), x.span)),
+                    StarlarkInt::Small(i) => Some((Key::Int(i.to_i32()), x.span)),
                     StarlarkInt::Big(i) => Some((Key::BigInt(i), x.span)),
                 },
                 AstLiteral::Float(x) => {

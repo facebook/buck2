@@ -246,7 +246,7 @@ fun
     let mut eval = Evaluator::new(&env);
     let hello = env.heap().alloc("hello");
     let v = eval
-        .eval_function(fun.value(), &[Value::new_int(8)], &[("y", hello)])
+        .eval_function(fun.value(), &[Value::testing_new_int(8)], &[("y", hello)])
         .unwrap();
     assert_eq!(v.unpack_str(), Some("(8, \"hello\", 1)"))
 }

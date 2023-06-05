@@ -81,7 +81,7 @@ where
                 self.string
                     .as_str()
                     .chars()
-                    .map(|c| Value::new_int(u32::from(c) as i32)),
+                    .map(|c| heap.alloc(u32::from(c))),
             )
         };
         Ok(iter)

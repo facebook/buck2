@@ -98,6 +98,7 @@ use crate::values::stack_guard;
 use crate::values::string::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::tuple::value::FrozenTuple;
@@ -263,8 +264,13 @@ impl<'v> Value<'v> {
 
     /// Create a new integer.
     #[inline]
-    pub(crate) fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: InlineInt) -> Self {
         FrozenValue::new_int(x).to_value()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new_int(x: i32) -> Self {
+        FrozenValue::testing_new_int(x).to_value()
     }
 
     /// Create a new blank string.
@@ -323,7 +329,7 @@ impl<'v> Value<'v> {
     {
         match self.unpack_num()? {
             NumRef::Float(_) => None,
-            NumRef::Int(StarlarkIntRef::Small(x)) => I::try_from(x).ok(),
+            NumRef::Int(StarlarkIntRef::Small(x)) => I::try_from(x.to_i32()).ok(),
             NumRef::Int(StarlarkIntRef::Big(x)) => x.unpack_integer(),
         }
     }
@@ -343,7 +349,7 @@ impl<'v> Value<'v> {
     /// Obtain the underlying `int` if it is an integer.
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
-        self.0.unpack_int()
+        Some(self.0.unpack_int()?.to_i32())
     }
 
     #[inline]
@@ -645,7 +651,7 @@ impl<'v> Value<'v> {
             if let Some(rs) = other.unpack_int() {
                 // On overflow take the slow path below.
                 if let Some(sum) = ls.checked_add(rs) {
-                    return Ok(Value::new_int(sum));
+                    return Ok(heap.alloc(sum));
                 }
             }
         }
@@ -861,8 +867,13 @@ impl FrozenValue {
 
     /// Create a new int in Starlark.
     #[inline]
-    pub(crate) fn new_int(x: i32) -> Self {
+    pub(crate) fn new_int(x: InlineInt) -> Self {
         Self(FrozenPointer::new_int(x))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new_int(x: i32) -> Self {
+        Self::new_int(InlineInt::try_from(x).ok().unwrap())
     }
 
     /// Create a new empty string.
@@ -897,7 +908,7 @@ impl FrozenValue {
     /// Return the int if the value is an integer, otherwise [`None`].
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
-        self.0.unpack_int()
+        self.to_value().unpack_int()
     }
 
     #[inline]
@@ -1215,7 +1226,7 @@ mod tests {
         let heap = Heap::new();
         let string = heap.alloc_str("asd").to_value();
         let none = Value::new_none();
-        let integer = Value::new_int(17);
+        let integer = Value::testing_new_int(17);
 
         assert!(string.downcast_ref::<NoneType>().is_none());
         assert!(integer.downcast_ref::<NoneType>().is_none());

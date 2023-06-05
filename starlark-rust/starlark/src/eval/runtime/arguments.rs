@@ -597,8 +597,12 @@ mod tests {
         fn f<'v, F: Fn(&Arguments<'v, '_>), const N: usize>(heap: &'v Heap, op: F) {
             for i in 0..=N {
                 let mut p = Arguments::default();
-                let pos = (0..i).map(|x| Value::new_int(x as i32)).collect::<Vec<_>>();
-                let args = (i..N).map(|x| Value::new_int(x as i32)).collect::<Vec<_>>();
+                let pos = (0..i)
+                    .map(|x| Value::testing_new_int(x as i32))
+                    .collect::<Vec<_>>();
+                let args = (i..N)
+                    .map(|x| Value::testing_new_int(x as i32))
+                    .collect::<Vec<_>>();
                 let empty_args = args.is_empty();
                 p.0.pos = &pos;
                 p.0.args = Some(heap.alloc(args));
@@ -621,19 +625,22 @@ mod tests {
         });
         f::<_, 1>(&heap, |p| {
             assert!(&p.positional::<0>(&heap).is_err());
-            assert_eq!(&p.positional::<1>(&heap).unwrap(), &[Value::new_int(0)]);
+            assert_eq!(
+                &p.positional::<1>(&heap).unwrap(),
+                &[Value::testing_new_int(0)]
+            );
             assert!(&p.positional::<2>(&heap).is_err());
             assert_eq!(
                 &p.optional::<0, 1>(&heap).unwrap(),
-                &([], [Some(Value::new_int(0))])
+                &([], [Some(Value::testing_new_int(0))])
             );
             assert_eq!(
                 &p.optional::<1, 1>(&heap).unwrap(),
-                &([Value::new_int(0)], [None])
+                &([Value::testing_new_int(0)], [None])
             );
             assert_eq!(
                 &p.optional::<0, 2>(&heap).unwrap(),
-                &([], [Some(Value::new_int(0)), None])
+                &([], [Some(Value::testing_new_int(0)), None])
             );
         });
         f::<_, 2>(&heap, |p| {
@@ -641,16 +648,25 @@ mod tests {
             assert!(&p.positional::<1>(&heap).is_err());
             assert_eq!(
                 &p.positional::<2>(&heap).unwrap(),
-                &[Value::new_int(0), Value::new_int(1)]
+                &[Value::testing_new_int(0), Value::testing_new_int(1)]
             );
             assert!(p.optional::<0, 1>(&heap).is_err());
             assert_eq!(
                 &p.optional::<1, 1>(&heap).unwrap(),
-                &([Value::new_int(0)], [Some(Value::new_int(1))])
+                &(
+                    [Value::testing_new_int(0)],
+                    [Some(Value::testing_new_int(1))]
+                )
             );
             assert_eq!(
                 &p.optional::<0, 2>(&heap).unwrap(),
-                &([], [Some(Value::new_int(0)), Some(Value::new_int(1))])
+                &(
+                    [],
+                    [
+                        Some(Value::testing_new_int(0)),
+                        Some(Value::testing_new_int(1))
+                    ]
+                )
             );
         });
         f::<_, 3>(&heap, |p| {
@@ -694,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_names_map_repeated_name_in_arg_names() {
-        let named = vec![Value::new_int(10), Value::new_bool(true)];
+        let named = vec![Value::testing_new_int(10), Value::new_bool(true)];
         let names = vec![
             (
                 Symbol::new("a"),

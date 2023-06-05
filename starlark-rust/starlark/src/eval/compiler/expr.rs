@@ -65,6 +65,7 @@ use crate::values::string::interpolation::parse_percent_s_one;
 use crate::values::types::bool::StarlarkBool;
 use crate::values::types::dict::Dict;
 use crate::values::types::float::StarlarkFloat;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 use crate::values::types::range::Range;
@@ -143,7 +144,7 @@ impl Builtin1 {
         match self {
             Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
             Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
-            Builtin1::BitNot => Some(Value::new_int(!v.to_value().to_int().ok()?)),
+            Builtin1::BitNot => Some(ctx.heap().alloc(!v.to_value().to_int().ok()?)),
             Builtin1::Not => Some(Value::new_bool(!v.to_value().to_bool())),
             Builtin1::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
             Builtin1::FormatOne(before, after) => {
@@ -945,7 +946,9 @@ impl ExprCompiled {
     pub(crate) fn len(span: FrameSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
         if let Some(arg) = arg.as_value() {
             if let Ok(len) = arg.to_value().length() {
-                return ExprCompiled::Value(FrozenValue::new_int(len));
+                if let Ok(len) = InlineInt::try_from(len) {
+                    return ExprCompiled::Value(FrozenValue::new_int(len));
+                }
             }
         }
         ExprCompiled::Call(Box::new(IrSpanned {

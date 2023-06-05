@@ -162,7 +162,7 @@ f
         let mut eval = Evaluator::new(&module2);
         eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
             .unwrap();
-        eval.eval_function(f, &[Value::new_int(100)], &[])?;
+        eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
 
         HeapProfile::write_summarized_heap_profile(module2.heap());
         HeapProfile::write_flame_heap_profile(module2.heap());
@@ -172,7 +172,7 @@ f
         module3.heap().alloc("Thing that goes before");
         eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
             .unwrap();
-        eval.eval_function(f, &[Value::new_int(100)], &[])?;
+        eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
 
         module3.heap().alloc("Thing that goes after");
         HeapProfile::write_summarized_heap_profile(module3.heap());

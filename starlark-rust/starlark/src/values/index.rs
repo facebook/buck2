@@ -168,82 +168,107 @@ pub(crate) fn apply_slice<T: Copy>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::values::types::inline_int::InlineInt;
     use crate::values::Heap;
 
     #[test]
     fn test_convert_index() {
         let heap = Heap::new();
-        assert_eq!(Some(6), convert_index(Value::new_int(6), 7).ok());
-        assert_eq!(Some(6), convert_index(Value::new_int(-1), 7).ok());
+        assert_eq!(Some(6), convert_index(Value::testing_new_int(6), 7).ok());
+        assert_eq!(Some(6), convert_index(Value::testing_new_int(-1), 7).ok());
         assert_eq!(
             Some((6, 7, 1)),
-            convert_slice_indices(7, Some(Value::new_int(6)), None, None).ok()
+            convert_slice_indices(7, Some(Value::testing_new_int(6)), None, None).ok()
         );
         assert_eq!(
             Some((6, -1, -1)),
-            convert_slice_indices(7, Some(Value::new_int(-1)), None, Some(Value::new_int(-1))).ok()
+            convert_slice_indices(
+                7,
+                Some(Value::testing_new_int(-1)),
+                None,
+                Some(Value::testing_new_int(-1))
+            )
+            .ok()
         );
         assert_eq!(
             Some((6, 7, 1)),
-            convert_slice_indices(7, Some(Value::new_int(-1)), Some(Value::new_int(10)), None).ok()
+            convert_slice_indices(
+                7,
+                Some(Value::testing_new_int(-1)),
+                Some(Value::testing_new_int(10)),
+                None
+            )
+            .ok()
         );
         // Errors
         assert!(convert_index(heap.alloc("a"), 7).is_err());
-        assert!(convert_index(Value::new_int(8), 7).is_err()); // 8 > 7 = len
-        assert!(convert_index(Value::new_int(-8), 7).is_err()); // -8 + 7 = -1 < 0
+        assert!(convert_index(Value::testing_new_int(8), 7).is_err()); // 8 > 7 = len
+        assert!(convert_index(Value::testing_new_int(-8), 7).is_err()); // -8 + 7 = -1 < 0
     }
 
     #[test]
     fn test_apply_slice() {
         let s = &[0, 1, 2, 3, 4, 5, 6];
 
-        let x = apply_slice(s, Some(Value::new_int(-1)), None, Some(Value::new_int(-1))).unwrap();
-        assert_eq!(x, &[6, 5, 4, 3, 2, 1, 0]);
-
-        let x = apply_slice(s, Some(Value::new_int(-1)), None, Some(Value::new_int(-1))).unwrap();
+        let x = apply_slice(
+            s,
+            Some(Value::new_int(InlineInt::MINUS_ONE)),
+            None,
+            Some(Value::new_int(InlineInt::MINUS_ONE)),
+        )
+        .unwrap();
         assert_eq!(x, &[6, 5, 4, 3, 2, 1, 0]);
 
         let x = apply_slice(
             s,
-            Some(Value::new_int(0)),
-            Some(Value::new_int(3)),
-            Some(Value::new_int(2)),
+            Some(Value::new_int(InlineInt::MINUS_ONE)),
+            None,
+            Some(Value::new_int(InlineInt::MINUS_ONE)),
+        )
+        .unwrap();
+        assert_eq!(x, &[6, 5, 4, 3, 2, 1, 0]);
+
+        let x = apply_slice(
+            s,
+            Some(Value::testing_new_int(0)),
+            Some(Value::testing_new_int(3)),
+            Some(Value::testing_new_int(2)),
         )
         .unwrap();
         assert_eq!(x, &[0, 2]);
 
         let x = apply_slice(
             s,
-            Some(Value::new_int(5)),
-            Some(Value::new_int(2)),
-            Some(Value::new_int(-2)),
+            Some(Value::testing_new_int(5)),
+            Some(Value::testing_new_int(2)),
+            Some(Value::testing_new_int(-2)),
         )
         .unwrap();
         assert_eq!(x, &[5, 3]);
 
         let x = apply_slice(
             s,
-            Some(Value::new_int(-1)),
-            Some(Value::new_int(-5)),
-            Some(Value::new_int(-1)),
+            Some(Value::testing_new_int(-1)),
+            Some(Value::testing_new_int(-5)),
+            Some(Value::testing_new_int(-1)),
         )
         .unwrap();
         assert_eq!(x, &[6, 5, 4, 3]);
 
         let x = apply_slice(
             s,
-            Some(Value::new_int(-1)),
-            Some(Value::new_int(0)),
-            Some(Value::new_int(-1)),
+            Some(Value::testing_new_int(-1)),
+            Some(Value::testing_new_int(0)),
+            Some(Value::testing_new_int(-1)),
         )
         .unwrap();
         assert_eq!(x, &[6, 5, 4, 3, 2, 1]);
 
         let x = apply_slice(
             &[1, 2, 3],
-            Some(Value::new_int(0)),
-            Some(Value::new_int(-2)),
-            Some(Value::new_int(-1)),
+            Some(Value::testing_new_int(0)),
+            Some(Value::testing_new_int(-2)),
+            Some(Value::testing_new_int(-1)),
         )
         .unwrap();
         assert_eq!(x, &[] as &[i32]);

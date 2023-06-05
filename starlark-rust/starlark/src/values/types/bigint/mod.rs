@@ -33,6 +33,7 @@ use crate::any::ProvidesStaticType;
 use crate::collections::StarlarkHasher;
 use crate::starlark_type;
 use crate::values::num::NumRef;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
@@ -72,16 +73,17 @@ pub struct StarlarkBigInt {
 impl StarlarkBigInt {
     fn unchecked_new(value: BigInt) -> Self {
         debug_assert!(
-            value.to_i32().is_none(),
-            "BigInt must be outside of i32 range"
+            InlineInt::try_from(&value).is_err(),
+            "BigInt must be outside of `InlineInt` range"
         );
         Self { value }
     }
 
+    #[inline]
     pub(crate) fn try_from_bigint(value: BigInt) -> StarlarkInt {
-        match value.to_i32() {
-            Some(i) => StarlarkInt::Small(i),
-            None => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
+        match InlineInt::try_from(&value) {
+            Ok(i) => StarlarkInt::Small(i),
+            Err(_) => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
         }
     }
 
@@ -94,7 +96,20 @@ impl StarlarkBigInt {
         self.value.to_f64().unwrap()
     }
 
-    pub(crate) fn cmp_small_big(a: i32, b: &StarlarkBigInt) -> Ordering {
+    pub(crate) fn to_i32(&self) -> Option<i32> {
+        // Avoid calling `to_i32` if the value is known to be out of range.
+        if InlineInt::smaller_than_i32() {
+            None
+        } else {
+            let v = self.value.to_i32();
+            if let Some(v) = v {
+                debug_assert!(InlineInt::try_from(v).is_err());
+            }
+            v
+        }
+    }
+
+    pub(crate) fn cmp_small_big(a: InlineInt, b: &StarlarkBigInt) -> Ordering {
         let a_sign = a.signum();
         let b_sign = match b.value.sign() {
             Sign::Plus => 2,
@@ -105,7 +120,7 @@ impl StarlarkBigInt {
         a_sign.cmp(&b_sign)
     }
 
-    pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: i32) -> Ordering {
+    pub(crate) fn cmp_big_small(a: &StarlarkBigInt, b: InlineInt) -> Ordering {
         Self::cmp_small_big(b, a).reverse()
     }
 

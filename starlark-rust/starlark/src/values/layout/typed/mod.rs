@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn int() {
-        let v = FrozenValueTyped::<PointerI32>::new(FrozenValue::new_int(17)).unwrap();
+        let v = FrozenValueTyped::<PointerI32>::new(FrozenValue::testing_new_int(17)).unwrap();
         assert_eq!(17, v.as_ref().to_int().unwrap());
     }
 }

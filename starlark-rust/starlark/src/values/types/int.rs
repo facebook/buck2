@@ -54,6 +54,7 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::inline_int::InlineInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -68,13 +69,19 @@ use crate::values::Value;
 pub const INT_TYPE: &str = "int";
 
 impl<'v> AllocValue<'v> for i32 {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
-        Value::new_int(self)
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        match InlineInt::try_from(self) {
+            Ok(x) => Value::new_int(x),
+            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
+        }
     }
 }
 impl AllocFrozenValue for i32 {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_int(self)
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        match InlineInt::try_from(self) {
+            Ok(x) => FrozenValue::new_int(x),
+            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
+        }
     }
 }
 
@@ -120,7 +127,7 @@ impl PointerI32 {
     };
 
     #[inline]
-    pub(crate) fn new(x: i32) -> &'static Self {
+    pub(crate) fn new(x: InlineInt) -> &'static Self {
         // UB if the pointer isn't aligned, or it is zero
         // Alignment is 1, so that's not an issue.
         // And the pointer is not zero because it has `TAG_INT` bit set.
@@ -136,7 +143,7 @@ impl PointerI32 {
     }
 
     #[inline]
-    pub(crate) fn get(&self) -> i32 {
+    pub(crate) fn get(&self) -> InlineInt {
         unsafe { RawPointer::new_unchecked(self as *const Self as usize).unpack_int_unchecked() }
     }
 
@@ -152,7 +159,7 @@ impl PointerI32 {
 
     /// This operation is expensive, use only if you have to.
     fn to_bigint(&self) -> BigInt {
-        BigInt::from(self.get())
+        self.get().to_bigint()
     }
 
     pub(crate) fn type_is_pointer_i32<'v, T: StarlarkValue<'v>>() -> bool {
@@ -186,13 +193,13 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn to_int(&self) -> anyhow::Result<i32> {
-        Ok(self.get())
+        Ok(self.get().to_i32())
     }
     fn to_bool(&self) -> bool {
-        self.get() != 0
+        self.get().to_i32() != 0
     }
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> anyhow::Result<()> {
-        hasher.write_u64(NumRef::from(self.get()).get_hash_64());
+        hasher.write_u64(NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash_64());
         Ok(())
     }
     fn plus(&self, _heap: &'v Heap) -> anyhow::Result<Value<'v>> {
@@ -301,7 +308,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
 
 impl<'v> StarlarkValueBasic<'v> for PointerI32 {
     fn get_hash(&self) -> StarlarkHashValue {
-        NumRef::from(self.get()).get_hash()
+        NumRef::Int(StarlarkIntRef::Small(self.get())).get_hash()
     }
 }
 
@@ -310,7 +317,7 @@ impl Serialize for PointerI32 {
     where
         S: Serializer,
     {
-        serializer.serialize_i32(self.get())
+        self.get().serialize(serializer)
     }
 }
 
@@ -346,15 +353,15 @@ mod tests {
 
     #[test]
     fn test_int_tag() {
-        fn check(x: i32) {
+        fn check(x: InlineInt) {
             assert_eq!(x, PointerI32::new(x).get())
         }
 
         for x in -10..10 {
-            check(x)
+            check(InlineInt::try_from(x).ok().unwrap())
         }
-        check(i32::MAX);
-        check(i32::MIN);
+        check(InlineInt::MAX);
+        check(InlineInt::MIN);
     }
 
     #[test]
@@ -365,6 +372,6 @@ mod tests {
     #[test]
     fn test_as_avalue_dyn() {
         // `get_type` calls `as_avalue_dyn` internally.
-        assert_eq!("int", Value::new_int(1).get_type());
+        assert_eq!("int", Value::new_int(InlineInt::MINUS_ONE).get_type());
     }
 }

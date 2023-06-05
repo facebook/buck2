@@ -480,12 +480,12 @@ len("😿") == 1
                     let start = if i == 6 {
                         None
                     } else {
-                        Some(Value::new_int(i))
+                        Some(Value::testing_new_int(i))
                     };
                     let stop = if j == 6 {
                         None
                     } else {
-                        Some(Value::new_int(j))
+                        Some(Value::testing_new_int(j))
                     };
                     // Compare list slicing (comparatively simple) to string slicing (complex unicode)
                     let res1 = apply_slice(&example.chars().collect::<Vec<_>>(), start, stop, None)
@@ -551,17 +551,16 @@ len("😿") == 1
             for (i, char) in chars.iter().enumerate() {
                 let char_str = char.to_string();
                 assert_eq!(
-                    val.at(Value::new_int(i as i32), &heap)?.unpack_str(),
+                    val.at(heap.alloc(i), &heap)?.unpack_str(),
                     Some(char_str.as_str())
                 );
                 assert_eq!(
-                    val.at(Value::new_int(-len + (i as i32)), &heap)?
-                        .unpack_str(),
+                    val.at(heap.alloc(-len + (i as i32)), &heap)?.unpack_str(),
                     Some(char_str.as_str())
                 );
             }
-            assert!(val.at(Value::new_int(len), &heap).is_err());
-            assert!(val.at(Value::new_int(-(len + 1)), &heap).is_err());
+            assert!(val.at(heap.alloc(len), &heap).is_err());
+            assert!(val.at(heap.alloc(-(len + 1)), &heap).is_err());
             Ok(())
         }
 

@@ -614,7 +614,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let Some(a) = a else {
-            return Ok(Value::new_int(0));
+            return Ok(heap.alloc(0));
         };
         if let Some(s) = a.unpack_str() {
             let base = base.unwrap_or(0);
@@ -683,7 +683,7 @@ pub(crate) fn global_functions(builder: &mut GlobalsBuilder) {
         } else if let Some(f) = StarlarkFloat::unpack_value(a) {
             Ok(heap.alloc(StarlarkInt::from_f64_exact(f.0.trunc())?))
         } else {
-            Ok(Value::new_int(a.to_int()?))
+            Ok(heap.alloc(a.to_int()?))
         }
     }
 

@@ -606,10 +606,10 @@ fn test_module_visibility_preserved_by_evaluator() -> anyhow::Result<()> {
     let globals = Globals::standard();
 
     let import = Module::new();
-    import.set("a", Value::new_int(1));
+    import.set("a", Value::testing_new_int(1));
     import.set_private(
         import.frozen_heap().alloc_str_intern("b"),
-        Value::new_int(2),
+        Value::testing_new_int(2),
     );
 
     {

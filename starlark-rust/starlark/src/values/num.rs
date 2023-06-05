@@ -153,7 +153,7 @@ impl<'v> NumRef<'v> {
             (None, Self::Float(f)) => float_hash(f),
             (None, Self::Int(StarlarkIntRef::Small(i))) => {
                 // shouldn't happen - as_int() should have resulted in an int
-                i as u64
+                i.to_i32() as u64
             }
             (None, Self::Int(StarlarkIntRef::Big(b))) => {
                 // Not perfect, but OK: `1000000000000000000000003` and `1000000000000000000000005`
@@ -199,12 +199,6 @@ impl<'v> NumRef<'v> {
         } else {
             StarlarkFloat::percent_impl(self.as_float(), other.as_float()).map(Num::Float)
         }
-    }
-}
-
-impl<'v> From<i32> for NumRef<'v> {
-    fn from(i: i32) -> Self {
-        Self::Int(StarlarkIntRef::Small(i))
     }
 }
 
@@ -279,6 +273,7 @@ impl<'v> Mul for NumRef<'v> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::values::types::inline_int::InlineInt;
 
     #[test]
     fn test_from_value() {
@@ -288,29 +283,38 @@ mod tests {
         assert!(NumRef::unpack_value(Value::new_none()).is_none());
 
         assert_eq!(
-            NumRef::unpack_value(Value::new_int(0)).unwrap().as_int(),
+            NumRef::unpack_value(Value::testing_new_int(0))
+                .unwrap()
+                .as_int(),
             Some(0)
         );
         assert_eq!(
-            NumRef::unpack_value(Value::new_int(42)).unwrap().as_int(),
+            NumRef::unpack_value(Value::testing_new_int(42))
+                .unwrap()
+                .as_int(),
             Some(42)
         );
         assert_eq!(
-            NumRef::unpack_value(Value::new_int(-42)).unwrap().as_int(),
+            NumRef::unpack_value(Value::testing_new_int(-42))
+                .unwrap()
+                .as_int(),
             Some(-42)
         );
     }
 
     #[test]
     fn test_conversion_to_float() {
-        assert_eq!(NumRef::Int(StarlarkIntRef::Small(0)).as_float(), 0.0);
         assert_eq!(
-            NumRef::Int(StarlarkIntRef::Small(i32::MAX)).as_float(),
-            i32::MAX as f64
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::ZERO)).as_float(),
+            0.0
         );
         assert_eq!(
-            NumRef::Int(StarlarkIntRef::Small(i32::MIN)).as_float(),
-            i32::MIN as f64
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::MAX)).as_float(),
+            InlineInt::MAX.to_f64()
+        );
+        assert_eq!(
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::MIN)).as_float(),
+            InlineInt::MIN.to_f64()
         );
 
         assert_eq!(NumRef::Float(0.0).as_float(), 0.0);
@@ -319,9 +323,18 @@ mod tests {
 
     #[test]
     fn test_conversion_to_int() {
-        assert_eq!(NumRef::Int(StarlarkIntRef::Small(0)).as_int(), Some(0));
-        assert_eq!(NumRef::Int(StarlarkIntRef::Small(42)).as_int(), Some(42));
-        assert_eq!(NumRef::Int(StarlarkIntRef::Small(-42)).as_int(), Some(-42));
+        assert_eq!(
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(0))).as_int(),
+            Some(0)
+        );
+        assert_eq!(
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(42))).as_int(),
+            Some(42)
+        );
+        assert_eq!(
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(-42))).as_int(),
+            Some(-42)
+        );
 
         assert_eq!(NumRef::Float(0_f64).as_int(), Some(0));
         assert_eq!(NumRef::Float(42_f64).as_int(), Some(42));
@@ -340,11 +353,11 @@ mod tests {
     #[test]
     fn test_hashing() {
         assert_eq!(
-            NumRef::Int(StarlarkIntRef::Small(0)).get_hash_64(),
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(0))).get_hash_64(),
             NumRef::Float(0.0).get_hash_64()
         );
         assert_eq!(
-            NumRef::Int(StarlarkIntRef::Small(42)).get_hash_64(),
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(42))).get_hash_64(),
             NumRef::Float(42.0).get_hash_64()
         );
 
@@ -362,6 +375,9 @@ mod tests {
     fn test_eq() {
         assert_eq!(NumRef::Float(f64::NAN), NumRef::Float(f64::NAN));
         assert_eq!(NumRef::Float(f64::INFINITY), NumRef::Float(f64::INFINITY));
-        assert_eq!(NumRef::Int(StarlarkIntRef::Small(10)), NumRef::Float(10.0));
+        assert_eq!(
+            NumRef::Int(StarlarkIntRef::Small(InlineInt::testing_new(10))),
+            NumRef::Float(10.0)
+        );
     }
 }
