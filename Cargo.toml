@@ -279,7 +279,7 @@ fbinit.version = "0.1"
 sorted_vector_map.version = "0.1"
 # @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
 
-allocative.version = "0.2"
+allocative.version = "0.3"
 allocative.path = "allocative/allocative"
 allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "relative-path", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 gazebo.version = "0.8.1"
