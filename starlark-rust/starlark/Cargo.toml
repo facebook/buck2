@@ -57,7 +57,7 @@ num-traits = "0.2"
 inventory = "0.1.9"
 clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 
-allocative = { workspace = true, features = ["bumpalo", "hashbrown", "num-bigint"] }
+allocative = { workspace = true, features = ["bumpalo", "num-bigint"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rustyline = "11.0"
