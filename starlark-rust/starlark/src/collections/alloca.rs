@@ -129,6 +129,19 @@ impl Alloca {
         rem_in_words * ALIGN / mem::size_of::<T>()
     }
 
+    #[inline(always)]
+    fn len_in_to_to_len_in_words<T>(len: usize) -> usize {
+        if mem::size_of::<T>() % ALIGN == 0 {
+            // Special case to make common case fast:
+            // https://rust.godbolt.org/z/adh3nzdzs
+            len * (mem::size_of::<T>() / ALIGN)
+        } else {
+            // Multiplication does not overflow because we know that `[T; len]`
+            // is within the size of the current buffer, which is smaller than `isize::MAX`.
+            (len * mem::size_of::<T>() + ALIGN - 1) / ALIGN
+        }
+    }
+
     /// Note that the `Drop` for the `T` will not be called. That's safe if there is no `Drop`,
     /// or you call it yourself.
     #[inline(always)]
@@ -146,8 +159,7 @@ impl Alloca {
             start = self.alloc.get();
         }
 
-        // Multiplication won't overflow, `allocate_more` checked that.
-        let size_words = mem::size_of::<T>() * len / ALIGN;
+        let size_words = Self::len_in_to_to_len_in_words::<T>(len);
 
         let stop = start.wrapping_add(size_words);
         let old = start;
@@ -259,6 +271,24 @@ mod tests {
     }
 
     #[test]
+    fn test_len_in_t_to_len_in_words() {
+        assert_eq!(10, Alloca::len_in_to_to_len_in_words::<Align>(10));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN - 1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(ALIGN + 1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN - 1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN));
+        assert_eq!(3, Alloca::len_in_to_to_len_in_words::<u8>(2 * ALIGN + 1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN - 1]>(1));
+        assert_eq!(1, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN]>(1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN + 1]>(1));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN - 1]>(2));
+        assert_eq!(2, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN]>(2));
+        assert_eq!(3, Alloca::len_in_to_to_len_in_words::<[u8; ALIGN + 1]>(2));
+    }
+
+    #[test]
     fn test_alloca() {
         // Use a small capacity to encourage overflow behaviour
         let a = Alloca::with_capacity(100);
@@ -285,6 +315,19 @@ mod tests {
         }
 
         assert_eq!(2, a.buffers.borrow().len());
+    }
+
+    #[test]
+    fn test_alloca_bug_not_aligned() {
+        let a = Alloca::with_capacity(100);
+        a.alloca_fill(1, 17u8, |xs| {
+            // Bug was triggered because the end of first allocation
+            // was rounded down instead of up.
+            a.alloca_fill(1, 19u8, |ys| {
+                assert_eq!([17], xs);
+                assert_eq!([19], ys);
+            });
+        })
     }
 
     #[test]
