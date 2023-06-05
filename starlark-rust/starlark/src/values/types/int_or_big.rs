@@ -24,6 +24,7 @@ use std::ops::Mul;
 use std::ops::Neg;
 use std::ops::Not;
 use std::ops::Sub;
+use std::str::FromStr;
 
 use anyhow::Context;
 use dupe::Dupe;
@@ -75,6 +76,15 @@ pub(crate) enum StarlarkInt {
 pub(crate) enum StarlarkIntRef<'v> {
     Small(InlineInt),
     Big(&'v StarlarkBigInt),
+}
+
+impl FromStr for StarlarkInt {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Not very efficient, but only used in tests.
+        Ok(StarlarkInt::from(BigInt::from_str(s)?))
+    }
 }
 
 impl StarlarkInt {
@@ -632,5 +642,138 @@ impl<'v> PartialOrd<StarlarkIntRef<'v>> for i32 {
     // TODO(nga): this is inefficient if `i32` cannot fit in `InlineInt`.
     fn partial_cmp(&self, other: &StarlarkIntRef<'v>) -> Option<Ordering> {
         StarlarkInt::from(*self).as_ref().partial_cmp(other)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::values::types::int_or_big::StarlarkInt;
+
+    fn int(s: &str) -> StarlarkInt {
+        StarlarkInt::from_str(s).unwrap()
+    }
+
+    fn floor_div(a: &str, b: &str) -> String {
+        int(a)
+            .as_ref()
+            .floor_div(int(b).as_ref())
+            .unwrap()
+            .to_string()
+    }
+
+    fn percent(a: &str, b: &str) -> String {
+        int(a)
+            .as_ref()
+            .percent(int(b).as_ref())
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn test_floor_div_big() {
+        assert_eq!(
+            "2",
+            floor_div("600000000000000000005", "300000000000000000000")
+        );
+        assert_eq!(
+            "-3",
+            floor_div("600000000000000000005", "-300000000000000000000")
+        );
+        assert_eq!(
+            "-3",
+            floor_div("-600000000000000000005", "300000000000000000000")
+        );
+        assert_eq!(
+            "2",
+            floor_div("-600000000000000000005", "-300000000000000000000")
+        );
+    }
+
+    #[test]
+    fn test_floor_div_big_small() {
+        assert_eq!(
+            "200000000000000000001",
+            floor_div("600000000000000000005", "3"),
+        );
+        assert_eq!(
+            "-200000000000000000002",
+            floor_div("600000000000000000005", "-3"),
+        );
+        assert_eq!(
+            "-200000000000000000002",
+            floor_div("-600000000000000000005", "3"),
+        );
+        assert_eq!(
+            "200000000000000000001",
+            floor_div("-600000000000000000005", "-3"),
+        );
+    }
+
+    #[test]
+    fn test_floor_div_small_big() {
+        assert_eq!("0", floor_div("3", "600000000000000000000"));
+        assert_eq!("0", floor_div("-3", "-600000000000000000000"));
+        assert_eq!("-1", floor_div("3", "-600000000000000000000"));
+        assert_eq!("-1", floor_div("-3", "600000000000000000000"));
+    }
+
+    #[test]
+    fn test_floor_div_small() {
+        assert_eq!("4", floor_div("13", "3"));
+        assert_eq!("-5", floor_div("13", "-3"));
+        assert_eq!("-5", floor_div("-13", "3"));
+        assert_eq!("4", floor_div("-13", "-3"));
+    }
+
+    #[test]
+    fn test_percent_big() {
+        assert_eq!(
+            "7",
+            percent("600000000000000000007", "200000000000000000000")
+        );
+        assert_eq!(
+            "-199999999999999999993",
+            percent("600000000000000000007", "-200000000000000000000")
+        );
+        assert_eq!(
+            "199999999999999999993",
+            percent("-600000000000000000007", "200000000000000000000")
+        );
+        assert_eq!(
+            "-7",
+            percent("-600000000000000000007", "-200000000000000000000")
+        );
+    }
+
+    #[test]
+    fn test_percent_big_small() {
+        assert_eq!("7", percent("600000000000000000007", "20"));
+        assert_eq!("-13", percent("600000000000000000007", "-20"));
+        assert_eq!("13", percent("-600000000000000000007", "20"));
+        assert_eq!("-7", percent("-600000000000000000007", "-20"));
+    }
+
+    #[test]
+    fn test_percent_small_big() {
+        assert_eq!("3", percent("3", "600000000000000000001"));
+        assert_eq!(
+            "-599999999999999999998",
+            percent("3", "-600000000000000000001")
+        );
+        assert_eq!(
+            "599999999999999999998",
+            percent("-3", "600000000000000000001")
+        );
+        assert_eq!("-3", percent("-3", "-600000000000000000001"));
+    }
+
+    #[test]
+    fn test_percent_small() {
+        assert_eq!("2", percent("5", "3"));
+        assert_eq!("-1", percent("5", "-3"));
+        assert_eq!("1", percent("-5", "3"));
+        assert_eq!("-2", percent("-5", "-3"));
     }
 }
