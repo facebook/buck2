@@ -123,8 +123,13 @@ impl DiceKeyIndex {
             let index_in_shard = shard.insert_unique_unchecked(&guard, key.into_owned(), hash);
 
             trace!(
-                "{} maps to {:?}",
+                "{} ({}) maps to {:?}",
                 shard.key_by_index.get(index_in_shard as usize).unwrap(),
+                shard
+                    .key_by_index
+                    .get(index_in_shard as usize)
+                    .unwrap()
+                    .key_type_name(),
                 DiceKeyUnpacked {
                     shard_index,
                     index_in_shard,
