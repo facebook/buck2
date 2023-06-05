@@ -73,18 +73,6 @@ enum ConcurrencyHandlerError {
 }
 
 #[derive(Clone, Dupe, Copy, Debug, Allocative)]
-pub enum ParallelInvocation {
-    Block,
-    Run,
-}
-
-#[derive(Clone, Dupe, Copy, Debug, Allocative)]
-pub enum NestedInvocation {
-    Error,
-    Run,
-}
-
-#[derive(Clone, Dupe, Copy, Debug, Allocative)]
 pub enum DiceCleanup {
     Block,
     Run,
@@ -93,30 +81,6 @@ pub enum DiceCleanup {
 #[derive(Error, Debug)]
 #[error("Invalid type of `{0}`: `{1}`")]
 pub struct InvalidType(String, String);
-
-impl FromStr for ParallelInvocation {
-    type Err = InvalidType;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "BLOCK" => Ok(ParallelInvocation::Block),
-            "RUN" => Ok(ParallelInvocation::Run),
-            _ => Err(InvalidType("ParallelInvocation".to_owned(), s.to_owned())),
-        }
-    }
-}
-
-impl FromStr for NestedInvocation {
-    type Err = InvalidType;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "ERROR" => Ok(NestedInvocation::Error),
-            "RUN" => Ok(NestedInvocation::Run),
-            _ => Err(InvalidType("NestedInvocation".to_owned(), s.to_owned())),
-        }
-    }
-}
 
 impl FromStr for DiceCleanup {
     type Err = InvalidType;
@@ -168,10 +132,6 @@ pub struct ConcurrencyHandler {
     #[allocative(skip)]
     cond: Arc<Condvar>,
     dice: Arc<Dice>,
-    // configuration on how to handle nested invocations with different states
-    nested_invocation_config: NestedInvocation,
-    // configuration on how to handle parallel invocations with different states
-    parallel_invocation_config: ParallelInvocation,
     /// Whether to wait for idle DICE.
     dice_cleanup_config: DiceCleanup,
     /// Used to prevent commands (clean --stale) from running in parallel with dice commands
@@ -385,12 +345,7 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
-    pub fn new(
-        dice: Arc<Dice>,
-        nested_invocation_config: NestedInvocation,
-        parallel_invocation_config: ParallelInvocation,
-        dice_cleanup_config: DiceCleanup,
-    ) -> Self {
+    pub fn new(dice: Arc<Dice>, dice_cleanup_config: DiceCleanup) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
@@ -401,8 +356,6 @@ impl ConcurrencyHandler {
             })),
             cond: Default::default(),
             dice,
-            nested_invocation_config,
-            parallel_invocation_config,
             dice_cleanup_config,
             exclusive_command_lock: Arc::new(ExclusiveCommandLock::new()),
         }
@@ -669,15 +622,9 @@ impl ConcurrencyHandler {
                 BypassSemaphore::Run(RunState::ParallelSameState)
             }
         } else if is_nested_invocation {
-            match self.nested_invocation_config {
-                NestedInvocation::Error => BypassSemaphore::Error,
-                NestedInvocation::Run => BypassSemaphore::Run(RunState::NestedDifferentState),
-            }
+            BypassSemaphore::Error
         } else {
-            match self.parallel_invocation_config {
-                ParallelInvocation::Run => BypassSemaphore::Run(RunState::ParallelDifferentState),
-                ParallelInvocation::Block => BypassSemaphore::Block,
-            }
+            BypassSemaphore::Block
         }
     }
 
@@ -844,12 +791,7 @@ mod tests {
 
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice,
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -916,12 +858,7 @@ mod tests {
     async fn nested_invocation_should_error() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice,
-            NestedInvocation::Error,
-            ParallelInvocation::Run,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -974,12 +911,7 @@ mod tests {
     async fn parallel_invocation_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice,
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -1046,12 +978,7 @@ mod tests {
     async fn parallel_invocation_different_traceid_blocks() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Run,
-            ParallelInvocation::Block,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -1183,117 +1110,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn parallel_invocation_different_traceid_bypass_semaphore() -> anyhow::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-            DiceCleanup::Block,
-        );
-
-        let traces1 = TraceId::new();
-        let traces2 = traces1.dupe();
-        let traces_different = TraceId::new();
-
-        let (events1, sink1) = create_source_sink_pair();
-        let (events2, sink2) = create_source_sink_pair();
-        let (events3, sink3) = create_source_sink_pair();
-
-        let barrier = Arc::new(Barrier::new(3));
-
-        let fut1 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        EventDispatcher::new(traces1, sink1),
-                        &TestDiceDataProvider,
-                        &NoChanges,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        false,
-                        CancellationContext::testing(),
-                    )
-                    .await
-            }
-        });
-
-        let fut2 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        EventDispatcher::new(traces2, sink2),
-                        &TestDiceDataProvider,
-                        &NoChanges,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        false,
-                        CancellationContext::testing(),
-                    )
-                    .await
-            }
-        });
-
-        let fut3 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        EventDispatcher::new(traces_different, sink3),
-                        &TestDiceDataProvider,
-                        &CtxDifferent,
-                        |_| async move {
-                            barrier.wait().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        false,
-                        CancellationContext::testing(),
-                    )
-                    .await
-            }
-        });
-
-        let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
-        r1??;
-        r2??;
-        r3??;
-
-        for mut events in [events1, events2, events3] {
-            assert!(has_taint_event(&mut events));
-        }
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Run,
-            ParallelInvocation::Block,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -1455,12 +1275,7 @@ mod tests {
 
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Error,
-            ParallelInvocation::Block,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
 
         // Kick off our computation and wait until it's running.
 
@@ -1613,12 +1428,7 @@ mod tests {
     #[tokio::test]
     async fn exclusive_command_lock() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Run,
-            ParallelInvocation::Run,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
         let (mut source, sink) = create_source_sink_pair();
         let dispatcher = EventDispatcher::new(TraceId::new(), sink);
 
@@ -1710,12 +1520,7 @@ mod tests {
 
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Error,
-            ParallelInvocation::Block,
-            DiceCleanup::Run,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Run);
 
         // Kick off our computation and wait until it's running.
 
@@ -1783,12 +1588,7 @@ mod tests {
     async fn test_thundering_herd() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(
-            dice.dupe(),
-            NestedInvocation::Error,
-            ParallelInvocation::Block,
-            DiceCleanup::Block,
-        );
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
 
         let concurrency = &concurrency;
 

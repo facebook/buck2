@@ -59,8 +59,6 @@ use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::concurrency::DiceCleanup;
-use buck2_server_ctx::concurrency::NestedInvocation;
-use buck2_server_ctx::concurrency::ParallelInvocation;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -432,14 +430,6 @@ impl DaemonState {
             .parse("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        let nested_invocation_config = root_config
-            .parse::<NestedInvocation>("buck2", "nested_invocation")?
-            .unwrap_or(NestedInvocation::Error);
-
-        let parallel_invocation_config = root_config
-            .parse::<ParallelInvocation>("buck2", "parallel_invocation")?
-            .unwrap_or(ParallelInvocation::Block);
-
         let cleanup_config = root_config
             .parse::<DiceCleanup>("buck2", "dice_cleanup")?
             .unwrap_or(DiceCleanup::Block);
@@ -482,12 +472,7 @@ impl DaemonState {
         // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
         // tokio::task::spawn(watchman_query.sync());
         Ok(Arc::new(DaemonStateData {
-            dice_manager: ConcurrencyHandler::new(
-                dice,
-                nested_invocation_config,
-                parallel_invocation_config,
-                cleanup_config,
-            ),
+            dice_manager: ConcurrencyHandler::new(dice, cleanup_config),
             file_watcher,
             io,
             re_client_manager,
