@@ -59,6 +59,7 @@ pub mod build_result;
 pub mod cli_args;
 pub mod context;
 pub mod cquery;
+pub mod event;
 pub mod file_expr;
 pub mod file_set;
 pub mod functions;
