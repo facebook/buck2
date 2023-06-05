@@ -258,16 +258,20 @@ impl<C: CycleDescriptor> CycleDetectorState<C> {
             Event::Started(k, sender) => {
                 debug!("started {}", k);
                 match self.node_mut(&k) {
-                    NodeState::Finished => {
-                        // this probably indicates a bug.
-                        error!("cycle detector got start event after finished for {}", k)
-                    }
                     NodeState::CycleDetected(e) => {
                         let _ignored = sender.send((**e).clone());
                     }
-                    NodeState::Working(v) => {
+                    v @ NodeState::Finished => {
+                        // we cancelled/finished once, but due to eager deps, are restarting the
+                        // node, so replace the entire node
+                        debug!("replace existing finished {}", k);
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
+                    }
+                    v @ NodeState::Working(_) => {
                         debug!("replace existing worker sender {}", k);
-                        v.1 = sender;
+                        // we cancelled/finished once, but due to eager deps, are restarting the
+                        // node, so replace the entire node
+                        *v = NodeState::Working(Box::new((VecDeque::new(), sender)))
                     }
                     v @ NodeState::Known => {
                         debug!("known to working state {}", k);
