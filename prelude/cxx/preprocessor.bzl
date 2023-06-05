@@ -354,7 +354,7 @@ def _cxx_private_preprocessor_info(
 
     return CPreprocessor(
         relative_args = CPreprocessorArgs(args = relative_args.args, file_prefix_args = relative_args.file_prefix_args),
-        absolute_args = CPreprocessorArgs(args = absolute_args.args, file_prefix_args = absolute_args.args),
+        absolute_args = CPreprocessorArgs(args = absolute_args.args, file_prefix_args = absolute_args.file_prefix_args),
         headers = headers,
         raw_headers = all_raw_headers,
         include_dirs = include_dirs,
