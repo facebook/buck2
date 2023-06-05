@@ -345,9 +345,10 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// Obtain the underlying `int` if it is an integer.
+    /// Obtain the underlying integer if it fits in an `i32`.
+    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
     #[inline]
-    pub fn unpack_int(self) -> Option<i32> {
+    pub fn unpack_i32(self) -> Option<i32> {
         i32::unpack_value(self)
     }
 
@@ -909,10 +910,11 @@ impl FrozenValue {
         self.to_value().unpack_bool()
     }
 
-    /// Return the int if the value is an integer, otherwise [`None`].
+    /// Obtain the underlying integer if it fits in an `i32`.
+    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
     #[inline]
-    pub fn unpack_int(self) -> Option<i32> {
-        self.to_value().unpack_int()
+    pub fn unpack_i32(self) -> Option<i32> {
+        self.to_value().unpack_i32()
     }
 
     #[inline]
@@ -1253,9 +1255,9 @@ mod tests {
     }
 
     #[test]
-    fn test_unpack_int() {
+    fn test_unpack_i32() {
         let heap = Heap::new();
         let value = heap.alloc(i32::MAX);
-        assert_eq!(Some(i32::MAX), value.unpack_int());
+        assert_eq!(Some(i32::MAX), value.unpack_i32());
     }
 }

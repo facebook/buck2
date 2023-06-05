@@ -288,7 +288,7 @@ impl CliArgType {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
-            CliArgType::Int => CliArgValue::Int(value.unpack_int().ok_or_else(|| {
+            CliArgType::Int => CliArgValue::Int(value.unpack_i32().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
             CliArgType::Float => CliArgValue::Float(

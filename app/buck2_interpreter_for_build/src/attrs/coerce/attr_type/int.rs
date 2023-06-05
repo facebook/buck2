@@ -23,7 +23,7 @@ impl AttrTypeCoerce for IntAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
-        match value.unpack_int() {
+        match value.unpack_i32() {
             Some(x) => Ok(CoercedAttr::Int(x)),
             None => Err(anyhow::anyhow!(CoercionError::type_error("int", value))),
         }

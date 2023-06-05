@@ -88,7 +88,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        let i = index.unpack_int().ok_or_else(|| {
+        let i = index.unpack_i32().ok_or_else(|| {
             ValueError::IncorrectParameterTypeWithExpected(
                 "int".to_owned(),
                 index.get_type().to_owned(),

@@ -93,7 +93,7 @@
 //!
 //! let ast = AstModule::parse("quadratic.star", starlark_code.to_owned(), &Dialect::Standard)?;
 //! let res = eval.eval_module(ast, &globals)?;
-//! assert_eq!(res.unpack_int(), Some(273)); // Verify that we got an `int` return value of 4 * 8^2 + 2 * 8 + 1 = 273
+//! assert_eq!(res.unpack_i32(), Some(273)); // Verify that we got an `int` return value of 4 * 8^2 + 2 * 8 + 1 = 273
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }
@@ -279,7 +279,7 @@
 //!     &[heap.alloc(4), heap.alloc(2), heap.alloc(1)],
 //!     &[("x", heap.alloc(8))],
 //! )?;
-//! assert_eq!(res.unpack_int(), Some(273));
+//! assert_eq!(res.unpack_i32(), Some(273));
 //! # Ok(())
 //! # }
 //! # fn main(){ run().unwrap(); }

@@ -515,9 +515,9 @@ b1 and b2 and b3
         sm.insert_hashed(k2, heap.alloc(56));
         let d = Dict::new(coerce(sm));
 
-        assert_eq!(d.get(heap.alloc("hello"))?.unwrap().unpack_int(), Some(12));
+        assert_eq!(d.get(heap.alloc("hello"))?.unwrap().unpack_i32(), Some(12));
         assert_eq!(d.get(heap.alloc("foo"))?, None);
-        assert_eq!(d.get_str("hello").unwrap().unpack_int(), Some(12));
+        assert_eq!(d.get_str("hello").unwrap().unpack_i32(), Some(12));
         assert_eq!(d.get_str("foo"), None);
         Ok(())
     }

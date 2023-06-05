@@ -72,7 +72,7 @@ pub(crate) fn to_starlark_user_event<'v>(
                         )),
                     },
                 ))
-            } else if let Some(v) = v.unpack_int() {
+            } else if let Some(v) = v.unpack_i32() {
                 Ok((
                     k,
                     StarlarkUserMetadataValue {

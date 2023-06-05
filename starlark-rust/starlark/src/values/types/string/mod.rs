@@ -330,7 +330,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         heap: &'v Heap,
     ) -> anyhow::Result<Value<'v>> {
         let s = self;
-        if matches!(stride, Some(stride) if stride.unpack_int() != Some(1)) {
+        if matches!(stride, Some(stride) if stride.unpack_i32() != Some(1)) {
             // The stride case is super rare and super complex, so let's do something inefficient but safe
             let xs = s.chars().collect::<Vec<_>>();
             let xs = apply_slice(&xs, start, stop, stride)?;
