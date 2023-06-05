@@ -30,10 +30,12 @@ impl UserCycleDetectorData {
         detector: Option<&Arc<dyn UserCycleDetector>>,
     ) -> KeyComputingUserCycleDetectorData {
         if let Some(detector) = detector {
-            let k = key_index.get(k);
-            if let Some(guard) = detector.start_computing_key(k.as_any()) {
+            let k_erased = key_index.get(k);
+            if let Some(guard) = detector.start_computing_key(k_erased.as_any()) {
+                debug!("cycles start key {:?}", k);
                 return KeyComputingUserCycleDetectorData::Detecting {
-                    k: k.dupe(),
+                    k_erased: k_erased.dupe(),
+                    k,
                     guard,
                     detector: detector.dupe(),
                 };
@@ -51,7 +53,8 @@ impl UserCycleDetectorData {
 /// User supplied cycle detector
 pub(crate) enum KeyComputingUserCycleDetectorData {
     Detecting {
-        k: DiceKeyErased,
+        k_erased: DiceKeyErased,
+        k: DiceKey,
         guard: Box<dyn UserCycleDetectorGuard>,
         detector: Arc<dyn UserCycleDetector>,
     },
@@ -91,8 +94,14 @@ impl KeyComputingUserCycleDetectorData {
 impl Drop for KeyComputingUserCycleDetectorData {
     fn drop(&mut self) {
         match self {
-            KeyComputingUserCycleDetectorData::Detecting { k, detector, .. } => {
-                detector.finished_computing_key(k.as_any())
+            KeyComputingUserCycleDetectorData::Detecting {
+                k_erased,
+                k,
+                detector,
+                ..
+            } => {
+                debug!("cycles finish key {:?}", k);
+                detector.finished_computing_key(k_erased.as_any())
             }
             KeyComputingUserCycleDetectorData::Untracked => {}
         }
