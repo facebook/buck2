@@ -18,7 +18,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -52,13 +51,11 @@ use crate::values::Heap;
 use crate::values::Value;
 
 /// The global values available during execution.
-#[derive(Clone, Dupe, Debug, Display, Allocative)]
-#[display(fmt = "globals")]
+#[derive(Clone, Dupe, Debug, Allocative)]
 pub struct Globals(Arc<GlobalsData>);
 
 /// Methods of an object.
-#[derive(Clone, Debug, Display)]
-#[display(fmt = "methods")]
+#[derive(Clone, Debug)]
 pub struct Methods(MethodsData);
 
 #[derive(Debug, Allocative)]

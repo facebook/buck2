@@ -71,7 +71,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             .frozen_heap()
             .alloc_any_display_from_debug(codemap.dupe());
 
-        let globals = self.module_env.frozen_heap().alloc_any(globals.dupe());
+        let globals = self
+            .module_env
+            .frozen_heap()
+            .alloc_any_display_from_type_name(globals.dupe());
 
         let mut scope_data = ScopeData::new();
 
