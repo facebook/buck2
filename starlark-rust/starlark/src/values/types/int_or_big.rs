@@ -83,7 +83,7 @@ impl StarlarkInt {
             Ok(StarlarkInt::Small(i))
         } else {
             match BigInt::from_str_radix(s, base) {
-                Ok(i) => Ok(StarlarkBigInt::try_from_bigint(i)),
+                Ok(i) => Ok(StarlarkInt::from(i)),
                 Err(_) => Err(StarlarkIntError::CannotParse(s.to_owned(), base).into()),
             }
         }
@@ -96,7 +96,7 @@ impl StarlarkInt {
         } else {
             if let Some(i) = BigInt::from_f64(f) {
                 if i.to_f64() == Some(f) {
-                    return Ok(StarlarkBigInt::try_from_bigint(i));
+                    return Ok(StarlarkInt::from(i));
                 }
             }
             Err(StarlarkIntError::CannotRepresentAsExact(f).into())
@@ -107,6 +107,19 @@ impl StarlarkInt {
         match self {
             StarlarkInt::Small(i) => StarlarkIntRef::Small(*i),
             StarlarkInt::Big(i) => StarlarkIntRef::Big(i),
+        }
+    }
+
+    #[inline]
+    fn from_impl<I>(value: I) -> StarlarkInt
+    where
+        I: Copy,
+        InlineInt: TryFrom<I>,
+        BigInt: From<I>,
+    {
+        match InlineInt::try_from(value) {
+            Ok(i) => StarlarkInt::Small(i),
+            Err(_) => StarlarkInt::Big(StarlarkBigInt::unchecked_new(BigInt::from(value))),
         }
     }
 }
@@ -190,8 +203,8 @@ impl<'v> StarlarkIntRef<'v> {
     fn floor_div_big_big(a: &BigInt, b: &BigInt) -> anyhow::Result<StarlarkInt> {
         if b.is_zero() {
             return Err(StarlarkIntError::FloorDivisionByZero(
-                StarlarkBigInt::try_from_bigint(a.clone()),
-                StarlarkBigInt::try_from_bigint(b.clone()),
+                StarlarkInt::from(a.clone()),
+                StarlarkInt::from(b.clone()),
             )
             .into());
         }
@@ -202,7 +215,7 @@ impl<'v> StarlarkIntRef<'v> {
         } else {
             0
         };
-        Ok(StarlarkBigInt::try_from_bigint((a / b) - offset))
+        Ok(StarlarkInt::from((a / b) - offset))
     }
 
     /// `//`.
@@ -250,8 +263,8 @@ impl<'v> StarlarkIntRef<'v> {
     fn percent_big(a: &BigInt, b: &BigInt) -> anyhow::Result<StarlarkInt> {
         if b.is_zero() {
             return Err(StarlarkIntError::ModuloByZero(
-                StarlarkBigInt::try_from_bigint(a.clone()),
-                StarlarkBigInt::try_from_bigint(b.clone()),
+                StarlarkInt::from(a.clone()),
+                StarlarkInt::from(b.clone()),
             )
             .into());
         }
@@ -259,7 +272,7 @@ impl<'v> StarlarkIntRef<'v> {
         if r.is_zero() {
             Ok(StarlarkInt::Small(InlineInt::ZERO))
         } else {
-            Ok(StarlarkBigInt::try_from_bigint(if b.sign() != r.sign() {
+            Ok(StarlarkInt::from(if b.sign() != r.sign() {
                 r + b
             } else {
                 r
@@ -311,7 +324,7 @@ impl<'v> StarlarkIntRef<'v> {
             StarlarkIntRef::Small(b) => {
                 // No overflow, checked above.
                 let b = b.to_u64().unwrap();
-                Ok(StarlarkBigInt::try_from_bigint(self.to_big() << b))
+                Ok(StarlarkInt::from(self.to_big() << b))
             }
         }
     }
@@ -349,7 +362,7 @@ impl<'v> StarlarkIntRef<'v> {
                     Ok(StarlarkInt::Small(InlineInt::ZERO))
                 }
             }
-            StarlarkIntRef::Big(a) => Ok(StarlarkBigInt::try_from_bigint(a.get() >> other)),
+            StarlarkIntRef::Big(a) => Ok(StarlarkInt::from(a.get() >> other)),
         }
     }
 }
@@ -397,10 +410,51 @@ impl<'v> UnpackValue<'v> for StarlarkIntRef<'v> {
 impl From<i32> for StarlarkInt {
     #[inline]
     fn from(value: i32) -> Self {
-        match InlineInt::try_from(value) {
+        StarlarkInt::from_impl(value)
+    }
+}
+
+impl From<BigInt> for StarlarkInt {
+    fn from(value: BigInt) -> Self {
+        match InlineInt::try_from(&value) {
             Ok(i) => StarlarkInt::Small(i),
-            Err(_) => StarlarkBigInt::try_from_bigint(value.into()),
+            Err(_) => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
         }
+    }
+}
+
+impl From<u32> for StarlarkInt {
+    #[inline]
+    fn from(value: u32) -> Self {
+        StarlarkInt::from_impl(value)
+    }
+}
+
+impl From<i64> for StarlarkInt {
+    #[inline]
+    fn from(value: i64) -> Self {
+        StarlarkInt::from_impl(value)
+    }
+}
+
+impl From<u64> for StarlarkInt {
+    #[inline]
+    fn from(value: u64) -> Self {
+        StarlarkInt::from_impl(value)
+    }
+}
+
+impl From<isize> for StarlarkInt {
+    #[inline]
+    fn from(value: isize) -> Self {
+        StarlarkInt::from_impl(value)
+    }
+}
+
+impl From<usize> for StarlarkInt {
+    #[inline]
+    fn from(value: usize) -> Self {
+        StarlarkInt::from_impl(value)
     }
 }
 
@@ -410,7 +464,7 @@ impl<'v> BitAnd for StarlarkIntRef<'v> {
     fn bitand(self, other: Self) -> StarlarkInt {
         match (self, other) {
             (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a & b),
-            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() & b.to_big()),
+            (a, b) => StarlarkInt::from(a.to_big() & b.to_big()),
         }
     }
 }
@@ -421,7 +475,7 @@ impl<'v> BitOr for StarlarkIntRef<'v> {
     fn bitor(self, other: Self) -> StarlarkInt {
         match (self, other) {
             (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a | b),
-            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() | b.to_big()),
+            (a, b) => StarlarkInt::from(a.to_big() | b.to_big()),
         }
     }
 }
@@ -432,7 +486,7 @@ impl<'v> BitXor for StarlarkIntRef<'v> {
     fn bitxor(self, other: Self) -> StarlarkInt {
         match (self, other) {
             (StarlarkIntRef::Small(a), StarlarkIntRef::Small(b)) => StarlarkInt::Small(a ^ b),
-            (a, b) => StarlarkBigInt::try_from_bigint(a.to_big() ^ b.to_big()),
+            (a, b) => StarlarkInt::from(a.to_big() ^ b.to_big()),
         }
     }
 }
@@ -443,7 +497,7 @@ impl<'v> Not for StarlarkIntRef<'v> {
     fn not(self) -> StarlarkInt {
         match self {
             StarlarkIntRef::Small(a) => StarlarkInt::Small(!a),
-            a => StarlarkBigInt::try_from_bigint(!a.to_big()),
+            a => StarlarkInt::from(!a.to_big()),
         }
     }
 }
@@ -457,7 +511,7 @@ impl<'v> Neg for StarlarkIntRef<'v> {
                 return StarlarkInt::Small(n);
             }
         }
-        StarlarkBigInt::try_from_bigint(-self.to_big())
+        StarlarkInt::from(-self.to_big())
     }
 }
 
@@ -479,7 +533,7 @@ impl<'v> Add for StarlarkIntRef<'v> {
                 return StarlarkInt::Small(c);
             }
         }
-        StarlarkBigInt::try_from_bigint(self.to_big() + other.to_big())
+        StarlarkInt::from(self.to_big() + other.to_big())
     }
 }
 
@@ -492,7 +546,7 @@ impl<'v> Sub for StarlarkIntRef<'v> {
                 return StarlarkInt::Small(c);
             }
         }
-        StarlarkBigInt::try_from_bigint(self.to_big() - other.to_big())
+        StarlarkInt::from(self.to_big() - other.to_big())
     }
 }
 
@@ -505,9 +559,9 @@ impl<'v> Mul<i32> for StarlarkIntRef<'v> {
                 if let Some(c) = a.checked_mul_i32(rhs) {
                     return StarlarkInt::Small(c);
                 }
-                StarlarkBigInt::try_from_bigint(a.to_bigint() * rhs)
+                StarlarkInt::from(a.to_bigint() * rhs)
             }
-            StarlarkIntRef::Big(b) => StarlarkBigInt::try_from_bigint(b.get() * rhs),
+            StarlarkIntRef::Big(b) => StarlarkInt::from(b.get() * rhs),
         }
     }
 }
@@ -528,7 +582,7 @@ impl<'v> Mul for StarlarkIntRef<'v> {
             (StarlarkIntRef::Small(a), b) => a.to_i32() * b,
             (a, StarlarkIntRef::Small(b)) => a * b.to_i32(),
             (StarlarkIntRef::Big(a), StarlarkIntRef::Big(b)) => {
-                StarlarkBigInt::try_from_bigint(a.get() * b.get())
+                StarlarkInt::from(a.get() * b.get())
             }
         }
     }

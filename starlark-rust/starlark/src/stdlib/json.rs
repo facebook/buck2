@@ -26,7 +26,7 @@ use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::values::dict::AllocDict;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -49,7 +49,7 @@ impl<'v> AllocValue<'v> for serde_json::Number {
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
         } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
-            heap.alloc(StarlarkBigInt::try_from_bigint(x))
+            heap.alloc(StarlarkInt::from(x))
         } else {
             panic!("Unrepresentable number: {:?}", self)
         }
@@ -65,7 +65,7 @@ impl AllocFrozenValue for serde_json::Number {
         } else if let Some(x) = self.as_f64() {
             heap.alloc(x)
         } else if let Ok(x) = BigInt::from_str(&self.to_string()) {
-            heap.alloc(StarlarkBigInt::try_from_bigint(x))
+            heap.alloc(StarlarkInt::from(x))
         } else {
             panic!("Unrepresentable number: {:?}", self)
         }

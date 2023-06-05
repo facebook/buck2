@@ -53,8 +53,8 @@ use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -69,19 +69,15 @@ use crate::values::Value;
 pub const INT_TYPE: &str = "int";
 
 impl<'v> AllocValue<'v> for i32 {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 impl AllocFrozenValue for i32 {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
@@ -262,7 +258,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, "&", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() & i)),
             Some(StarlarkIntRef::Big(b)) => {
-                Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() & b.get())))
+                Ok(heap.alloc(StarlarkInt::from(&self.to_bigint() & b.get())))
             }
         }
     }
@@ -272,7 +268,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, "|", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() | i)),
             Some(StarlarkIntRef::Big(b)) => {
-                Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() | b.get())))
+                Ok(heap.alloc(StarlarkInt::from(&self.to_bigint() | b.get())))
             }
         }
     }
@@ -282,7 +278,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
             None => ValueError::unsupported_with(self, "^", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() ^ i)),
             Some(StarlarkIntRef::Big(b)) => {
-                Ok(heap.alloc(StarlarkBigInt::try_from_bigint(&self.to_bigint() ^ b.get())))
+                Ok(heap.alloc(StarlarkInt::from(&self.to_bigint() ^ b.get())))
             }
         }
     }

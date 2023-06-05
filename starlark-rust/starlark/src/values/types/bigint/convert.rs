@@ -16,8 +16,7 @@
  */
 
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -33,20 +32,16 @@ impl StarlarkTypeRepr for u32 {
 }
 
 impl<'v> AllocValue<'v> for u32 {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
 impl AllocFrozenValue for u32 {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
@@ -57,20 +52,16 @@ impl StarlarkTypeRepr for u64 {
 }
 
 impl<'v> AllocValue<'v> for u64 {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
 impl AllocFrozenValue for u64 {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
@@ -81,20 +72,16 @@ impl StarlarkTypeRepr for i64 {
 }
 
 impl<'v> AllocValue<'v> for i64 {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
 impl AllocFrozenValue for i64 {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
@@ -105,20 +92,16 @@ impl StarlarkTypeRepr for usize {
 }
 
 impl<'v> AllocValue<'v> for usize {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
 impl AllocFrozenValue for usize {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
@@ -129,20 +112,16 @@ impl StarlarkTypeRepr for isize {
 }
 
 impl<'v> AllocValue<'v> for isize {
+    #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match InlineInt::try_from(self) {
-            Ok(x) => Value::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 
 impl AllocFrozenValue for isize {
+    #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        match InlineInt::try_from(self) {
-            Ok(x) => FrozenValue::new_int(x),
-            Err(_) => heap.alloc(StarlarkBigInt::try_from_bigint(self.into())),
-        }
+        heap.alloc(StarlarkInt::from(self))
     }
 }
 

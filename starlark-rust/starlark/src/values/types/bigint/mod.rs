@@ -71,20 +71,12 @@ pub struct StarlarkBigInt {
 }
 
 impl StarlarkBigInt {
-    fn unchecked_new(value: BigInt) -> Self {
+    pub(crate) fn unchecked_new(value: BigInt) -> Self {
         debug_assert!(
             InlineInt::try_from(&value).is_err(),
             "BigInt must be outside of `InlineInt` range"
         );
         Self { value }
-    }
-
-    #[inline]
-    pub(crate) fn try_from_bigint(value: BigInt) -> StarlarkInt {
-        match InlineInt::try_from(&value) {
-            Ok(i) => StarlarkInt::Small(i),
-            Err(_) => StarlarkInt::Big(StarlarkBigInt::unchecked_new(value)),
-        }
     }
 
     pub(crate) fn get(&self) -> &BigInt {
@@ -165,14 +157,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn minus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(heap.alloc(Self::try_from_bigint(-&self.value)))
+        Ok(heap.alloc(StarlarkInt::from(-&self.value)))
     }
 
     fn plus(&self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // This unnecessarily allocates, could return `self`.
         // But practically people rarely write `+NNN` except in constants,
         // and in constants we fold `+NNN` into `NNN`.
-        Ok(heap.alloc(Self::try_from_bigint(self.value.clone())))
+        Ok(heap.alloc(StarlarkInt::from(self.value.clone())))
     }
 
     fn equals(&self, other: Value<'v>) -> anyhow::Result<bool> {
