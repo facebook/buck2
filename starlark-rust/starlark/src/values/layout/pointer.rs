@@ -67,7 +67,7 @@ impl RawPointer {
 
     #[inline]
     pub(crate) fn new_int(i: InlineInt) -> RawPointer {
-        let ptr = ((i.to_i32() as u32 as usize) << TAG_BITS) | TAG_INT;
+        let ptr = ((i.to_i32() as isize) << INT_SHIFT) as usize | TAG_INT;
         unsafe { Self::new_unchecked(ptr) }
     }
 
@@ -121,11 +121,9 @@ impl RawPointer {
     #[inline]
     pub(crate) unsafe fn unpack_int_unchecked(self) -> InlineInt {
         debug_assert!(self.is_int());
-
-        const INT_DATA_MASK: usize = 0xffffffff << TAG_BITS;
         debug_assert!(self.0.get() & !INT_DATA_MASK == TAG_INT);
 
-        InlineInt::new_unchecked(((self.0.get() as isize) >> TAG_BITS) as i32)
+        InlineInt::new_unchecked(((self.0.get() as isize) >> INT_SHIFT) as i32)
     }
 
     #[inline]
@@ -163,6 +161,7 @@ assert_eq_size!(Option<Pointer<'static>>, usize);
 assert_eq_size!(FrozenPointer<'static>, usize);
 assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
+#[allow(dead_code)] // False positive.
 const TAG_BITS: usize = 3;
 const TAG_MASK: usize = 0b111;
 #[allow(clippy::assertions_on_constants)]
@@ -173,6 +172,10 @@ const TAG_STR: usize = 0b100;
 // Pointer to an object, which is not frozen.
 // Note, an object can be changed from unfrozen to frozen, not vice versa.
 const TAG_UNFROZEN: usize = 0b001;
+
+/// `InlineInt` is shift by this number of bits to the left to be stored in a pointer.
+const INT_SHIFT: usize = mem::size_of::<usize>() * 8 - InlineInt::BITS;
+const INT_DATA_MASK: usize = ((1usize << InlineInt::BITS) - 1) << INT_SHIFT;
 
 #[inline]
 unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueOrForward {
