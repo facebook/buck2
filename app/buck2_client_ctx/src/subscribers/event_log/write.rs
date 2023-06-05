@@ -107,15 +107,29 @@ where
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub(crate) enum EventLogType {
+    System,
+    User,
+}
+
 pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
     trace_id: TraceId,
+    #[allow(unused)] // TODO(wendyy) temporary
+    event_log_type: EventLogType,
 }
 
 pub(crate) enum LogWriterState {
-    Unopened(AbsNormPathBuf, Option<AbsPathBuf>),
-    Opened { writers: Vec<NamedEventLogWriter> },
+    Unopened {
+        logdir: AbsNormPathBuf,
+        extra_path: Option<AbsPathBuf>,
+        extra_user_event_log_path: Option<AbsPathBuf>,
+    },
+    Opened {
+        writers: Vec<NamedEventLogWriter>,
+    },
     Closed,
 }
 
@@ -136,6 +150,7 @@ impl<'a> WriteEventLog<'a> {
         logdir: AbsNormPathBuf,
         working_dir: WorkingDir,
         extra_path: Option<AbsPathBuf>,
+        extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
@@ -143,7 +158,11 @@ impl<'a> WriteEventLog<'a> {
         use_streaming_upload: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            state: LogWriterState::Unopened(logdir, extra_path),
+            state: LogWriterState::Unopened {
+                logdir,
+                extra_path,
+                extra_user_event_log_path,
+            },
             async_cleanup_context: Some(async_cleanup_context),
             sanitized_argv,
             command_name,
@@ -173,7 +192,8 @@ impl<'a> WriteEventLog<'a> {
         I: IntoIterator<Item = &'b T> + Clone + 'b,
     {
         match &mut self.state {
-            LogWriterState::Opened { writers } => {
+            // TODO(wendyy) - implement writing to simple event log
+            LogWriterState::Opened { writers, .. } => {
                 for writer in writers {
                     self.buf.clear();
 
@@ -202,7 +222,7 @@ impl<'a> WriteEventLog<'a> {
                 }
                 Ok(())
             }
-            LogWriterState::Unopened(..) | LogWriterState::Closed => {
+            LogWriterState::Unopened { .. } | LogWriterState::Closed => {
                 self.buf.clear();
                 if let Some(event) = events.into_iter().next() {
                     event.serialize_to_json(&mut self.buf)?;
@@ -219,8 +239,12 @@ impl<'a> WriteEventLog<'a> {
     }
 
     async fn ensure_log_writers_opened(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
-        let (logdir, maybe_extra_path) = match &self.state {
-            LogWriterState::Unopened(logdir, extra_path) => (logdir, extra_path),
+        let (logdir, maybe_extra_path, maybe_extra_user_event_log_path) = match &self.state {
+            LogWriterState::Unopened {
+                logdir,
+                extra_path,
+                extra_user_event_log_path,
+            } => (logdir, extra_path, extra_user_event_log_path),
             LogWriterState::Opened { .. } => return Ok(()),
             LogWriterState::Closed => {
                 return Err(anyhow::anyhow!("Received events after logs were closed"));
@@ -265,6 +289,7 @@ impl<'a> WriteEventLog<'a> {
                     path,
                     event.trace_id()?,
                     self.log_size_counter_bytes.clone(),
+                    EventLogType::System,
                 )
                 .await?
             }
@@ -283,6 +308,25 @@ impl<'a> WriteEventLog<'a> {
                     ),
                     event.trace_id()?,
                     self.log_size_counter_bytes.clone(),
+                    EventLogType::System,
+                )
+                .await?,
+            );
+        }
+
+        // Also open the user's simple log file, if any as provided, json-formatted with no compression.
+        if let Some(extra_user_event_log_path) = maybe_extra_user_event_log_path {
+            writers.push(
+                open_event_log_for_writing(
+                    EventLogPathBuf::infer_opt(extra_user_event_log_path.clone())?.unwrap_or_else(
+                        |NoInference(path)| EventLogPathBuf {
+                            path,
+                            encoding: Encoding::JSON,
+                        },
+                    ),
+                    event.trace_id()?,
+                    self.log_size_counter_bytes.clone(),
+                    EventLogType::User,
                 )
                 .await?,
             );
@@ -302,7 +346,7 @@ impl<'a> WriteEventLog<'a> {
         async move {
             let mut writers = match state {
                 LogWriterState::Opened { writers } => writers,
-                LogWriterState::Unopened(..) | LogWriterState::Closed => {
+                LogWriterState::Unopened { .. } | LogWriterState::Closed => {
                     // Nothing to do in this case, though this should be unreachable
                     // since we just did a write_ln.
                     return Ok(());
@@ -392,13 +436,14 @@ async fn start_persist_subprocess(
             )
         })?;
     let pipe = child.stdin.expect("stdin was piped");
-    get_writer(path, pipe, trace_id, bytes_written)
+    get_writer(path, pipe, trace_id, bytes_written, EventLogType::System)
 }
 
 async fn open_event_log_for_writing(
     path: EventLogPathBuf,
     trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
+    event_log_type: EventLogType,
 ) -> anyhow::Result<NamedEventLogWriter> {
     let file = OpenOptions::new()
         .create(true)
@@ -412,7 +457,7 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    get_writer(path, file, trace_id, bytes_written)
+    get_writer(path, file, trace_id, bytes_written, event_log_type)
 }
 
 fn get_writer(
@@ -420,6 +465,7 @@ fn get_writer(
     file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
     trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
+    event_log_type: EventLogType,
 ) -> Result<NamedEventLogWriter, anyhow::Error> {
     let file = match path.encoding.compression {
         Compression::None => Box::new(CountingReader::new(file, bytes_written)) as EventLogWriter,
@@ -436,6 +482,7 @@ fn get_writer(
         path,
         file,
         trace_id,
+        event_log_type,
     })
 }
 
@@ -465,7 +512,7 @@ impl<'a> WriteEventLog<'a> {
     ) -> anyhow::Result<()> {
         match &self.state {
             LogWriterState::Opened { .. } | LogWriterState::Closed => {}
-            LogWriterState::Unopened(..) => {
+            LogWriterState::Unopened { .. } => {
                 // This is a bit wonky. We can receive a CommandResult before we opened log files
                 // if the command crashed before it started. That can happen if the daemon
                 // initialization is what fails, since we need the daemon to initialize in order to
@@ -483,7 +530,7 @@ impl<'a> WriteEventLog<'a> {
     pub(crate) async fn flush_files(&mut self) -> anyhow::Result<()> {
         let writers = match &mut self.state {
             LogWriterState::Opened { writers } => writers,
-            LogWriterState::Unopened(..) | LogWriterState::Closed => return Ok(()),
+            LogWriterState::Unopened { .. } | LogWriterState::Closed => return Ok(()),
         };
 
         for writer in writers {
@@ -567,7 +614,10 @@ mod tests {
         async fn new_test(log: EventLogPathBuf) -> anyhow::Result<Self> {
             Ok(Self {
                 state: LogWriterState::Opened {
-                    writers: vec![open_event_log_for_writing(log, TraceId::new(), None).await?],
+                    writers: vec![
+                        open_event_log_for_writing(log, TraceId::new(), None, EventLogType::System)
+                            .await?,
+                    ],
                 },
                 sanitized_argv: SanitizedArgv {
                     argv: vec!["buck2".to_owned()],

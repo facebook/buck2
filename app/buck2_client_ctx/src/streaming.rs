@@ -71,6 +71,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
         ctx,
         log_size_counter_bytes.clone(),
         use_streaming_upload,
+        cmd.user_event_log(),
     )? {
         subscribers.push(event_log)
     }

@@ -718,7 +718,6 @@ fn register_context(builder: &mut MethodsBuilder) {
 
     /// Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the
     /// keys are strings, and values are either strings, bools, or ints. The id is user-supplied, and used to
-
     /// identify the instant events in the event logs more easily.
     fn instant_event<'v>(
         this: &BxlContext<'v>,
