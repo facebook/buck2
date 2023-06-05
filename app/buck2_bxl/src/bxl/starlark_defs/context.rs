@@ -24,6 +24,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_common::events::HasEvents;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
@@ -85,6 +86,7 @@ use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
+use crate::bxl::starlark_defs::event::to_starlark_user_event;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::target_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -712,5 +714,25 @@ fn register_context(builder: &mut MethodsBuilder) {
             .via_dice(|dice| action_factory.run_promises(dice, eval))?;
 
         Ok(promise.get())
+    }
+
+    /// Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the
+    /// keys are strings, and values are either strings, bools, or ints. The id is user-supplied, and used to
+
+    /// identify the instant events in the event logs more easily.
+    fn instant_event<'v>(
+        this: &BxlContext<'v>,
+        #[starlark(require = named)] id: &str,
+        #[starlark(require = named)] metadata: Value<'v>,
+    ) -> anyhow::Result<NoneType> {
+        let event = to_starlark_user_event(id, metadata)?;
+
+        this.async_ctx
+            .0
+            .per_transaction_data()
+            .get_dispatcher()
+            .instant_event(event);
+
+        Ok(NoneType)
     }
 }
