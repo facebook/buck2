@@ -24,6 +24,8 @@ pub(crate) fn ptr_to_usize<T: ?Sized>(x: &T) -> usize {
 /// of type `T`.
 #[inline(always)]
 pub(crate) unsafe fn usize_to_ptr<'a, T>(x: usize) -> &'a T {
+    debug_assert!(x != 0, "Zero is not a valid pointer");
+    debug_assert!(x % std::mem::align_of::<T>() == 0, "Pointer is not aligned");
     &*(x as *const T)
 }
 
