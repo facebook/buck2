@@ -76,12 +76,12 @@ use starlark::values::ValueOf;
 use thiserror::Error;
 
 use self::dep_files::DeclaredDepFiles;
+use self::dep_files::PartitionedInputs;
 use crate::actions::impls::run::dep_files::match_or_clear_dep_file;
 use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::CommandDigests;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::DepFilesKey;
-use crate::actions::impls::run::dep_files::PartitionedInputs;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
 
@@ -601,8 +601,7 @@ impl IncrementalActionExecutable for RunAction {
     ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let knobs = ctx.run_action_knobs();
         let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
-
-        let (prepared, dep_files) = if !process_dep_files {
+        let (prepared_run_action, dep_files) = if !process_dep_files {
             (
                 self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
                 None,
@@ -611,19 +610,13 @@ impl IncrementalActionExecutable for RunAction {
             let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
             let prepared = self.prepare(&mut visitor, ctx)?;
             let dep_files = self.make_dep_file_lookup_key(ctx, visitor, &prepared);
-            match self.check_dep_files(ctx, &dep_files).await? {
-                Some(m) => {
-                    // Found a match
-                    return Ok(m);
-                }
-                None => (prepared, Some(dep_files)),
-            }
+            (prepared, Some(dep_files))
         };
 
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
-        let req = prepared
+        let req = prepared_run_action
             .into_command_execution_request()
             .with_prefetch_lossy_stderr(true)
             .with_executor_preference(self.inner.executor_preference)
@@ -634,12 +627,31 @@ impl IncrementalActionExecutable for RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_custom_tmpdir(ctx.target().custom_tmpdir());
 
+        // First prepare the action, check the action cache, check dep_files if needed, and execute the command
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
-        let (outputs, meta) = match ctx.action_cache(manager, &req, &prepared_action).await {
-            ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await?,
-            ControlFlow::Break(res) => res?,
-        };
+        let ((outputs, meta), dep_files) =
+            match ctx.action_cache(manager, &req, &prepared_action).await {
+                ControlFlow::Break(res) => (res?, dep_files),
+                ControlFlow::Continue(manager) => {
+                    let dep_files = if let Some(dep_files) = dep_files {
+                        match self.check_dep_files(ctx, &dep_files).await? {
+                            Some(m) => {
+                                // We have a dep_file based match, return early
+                                return Ok(m);
+                            }
+                            None => Some(dep_files),
+                        }
+                    } else {
+                        None
+                    };
+
+                    (
+                        ctx.exec_cmd(manager, &req, &prepared_action).await?,
+                        dep_files,
+                    )
+                }
+            };
 
         let outputs = ActionOutputs::new(outputs);
 
