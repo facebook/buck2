@@ -174,7 +174,7 @@ jemallocator = { version = "0.5.0", features = ["profiling"] }
 lalrpop = { version = "0.19.7", artifact = "bin" }
 lalrpop-util = "0.19.7"
 # libc-0.2.145 causes a compile error with getrandom-0.1.6 on aarch64-unknown-linux-musl only
-# Pinning while we investigate.
+# Pinning while we investigate, see https://github.com/rust-random/getrandom/issues/363.
 libc = "=0.2.142"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 log = "0.4"
