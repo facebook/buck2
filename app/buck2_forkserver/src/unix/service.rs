@@ -114,12 +114,8 @@ impl Forkserver for UnixForkserverService {
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
-            let cwd = cwd
-                .as_ref()
-                .map(|c| OsStr::from_bytes(&c.path))
-                .map(|path| AbsPath::new(Path::new(path)))
-                .transpose()
-                .context("Invalid cwd")?;
+            let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
+            let cwd = AbsPath::new(Path::new(cwd)).context("Inalid cwd")?;
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
@@ -137,9 +133,7 @@ impl Forkserver for UnixForkserverService {
                 _ => (background_command(exe), None),
             };
 
-            if let Some(cwd) = cwd {
-                cmd.current_dir(cwd);
-            }
+            cmd.current_dir(cwd);
             cmd.args(argv);
 
             {
