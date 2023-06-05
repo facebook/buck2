@@ -40,7 +40,7 @@ threadpool = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-superconsole = { version = "0.1.0", path = "../../superconsole" }
+superconsole = { version = "0.2.0", path = "../../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_audit = { workspace = true }

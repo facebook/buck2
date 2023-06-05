@@ -48,7 +48,7 @@ which = "4.2.4"
 
 # @oss-disable: detect_eden = { path = "../../../common/rust/shed/detect_eden" }
 # @oss-disable: hostcaps = { path = "../../../common/rust/shed/hostcaps" }
-superconsole = { version = "0.1.0", path = "../../superconsole" }
+superconsole = { version = "0.2.0", path = "../../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_build_info = { workspace = true }
