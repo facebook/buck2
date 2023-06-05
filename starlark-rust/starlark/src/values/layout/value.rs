@@ -68,7 +68,6 @@ use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
 use crate::values::enumeration::FrozenEnumValue;
-use crate::values::float::StarlarkFloat;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
 use crate::values::function::FUNCTION_TYPE;
@@ -940,8 +939,7 @@ impl FrozenValue {
         self.is_none()
             || self.is_str()
             || self.unpack_bool().is_some()
-            || self.unpack_int().is_some()
-            || FrozenValueTyped::<StarlarkFloat>::new(self).is_some()
+            || NumRef::unpack_value(self.to_value()).is_some()
             || FrozenListData::from_frozen_value(&self).is_some()
             || FrozenDictRef::from_frozen_value(self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
