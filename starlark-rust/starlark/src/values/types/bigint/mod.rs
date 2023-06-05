@@ -91,13 +91,13 @@ impl StarlarkBigInt {
     pub(crate) fn to_i32(&self) -> Option<i32> {
         // Avoid calling `to_i32` if the value is known to be out of range.
         if InlineInt::smaller_than_i32() {
-            None
-        } else {
             let v = self.value.to_i32();
             if let Some(v) = v {
                 debug_assert!(InlineInt::try_from(v).is_err());
             }
             v
+        } else {
+            None
         }
     }
 

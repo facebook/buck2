@@ -348,8 +348,7 @@ impl<'v> Value<'v> {
     /// Obtain the underlying `int` if it is an integer.
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
-        // TODO(nga): this should also unpack bigint.
-        Some(self.0.unpack_int()?.to_i32())
+        i32::unpack_value(self)
     }
 
     #[inline]
@@ -1251,5 +1250,12 @@ mod tests {
         assert!(string.downcast_ref::<PointerI32>().is_none());
         assert_eq!(17, integer.downcast_ref::<PointerI32>().unwrap().get());
         assert!(none.downcast_ref::<PointerI32>().is_none());
+    }
+
+    #[test]
+    fn test_unpack_int() {
+        let heap = Heap::new();
+        let value = heap.alloc(i32::MAX);
+        assert_eq!(Some(i32::MAX), value.unpack_int());
     }
 }

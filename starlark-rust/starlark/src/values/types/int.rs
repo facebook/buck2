@@ -89,7 +89,11 @@ impl StarlarkTypeRepr for i32 {
 
 impl UnpackValue<'_> for i32 {
     fn unpack_value(value: Value) -> Option<Self> {
-        value.unpack_int()
+        if InlineInt::smaller_than_i32() {
+            StarlarkIntRef::unpack_value(value)?.to_i32()
+        } else {
+            Some(InlineInt::unpack_value(value)?.to_i32())
+        }
     }
 }
 
