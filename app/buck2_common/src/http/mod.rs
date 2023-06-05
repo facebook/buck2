@@ -803,7 +803,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@skarlage): Debug why this fails on CircleCI
     async fn test_uses_http_proxy() -> anyhow::Result<()> {
         let test_server = httptest::Server::run();
         test_server.expect(
@@ -829,7 +829,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@skarlage): Debug why this fails on CircleCI
     async fn test_uses_http_proxy_with_no_scheme_in_proxy_uri() -> anyhow::Result<()> {
         let test_server = httptest::Server::run();
         test_server.expect(
@@ -857,7 +857,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@skarlage): Debug why this fails on CircleCI
     async fn test_does_not_proxy_when_no_proxy_matches() -> anyhow::Result<()> {
         let test_server = httptest::Server::run();
         test_server.expect(
@@ -890,7 +890,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
+    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@skarlage): Debug why this fails on CircleCI
     async fn test_proxies_when_no_proxy_does_not_match() -> anyhow::Result<()> {
         let test_server = httptest::Server::run();
         test_server.expect(
