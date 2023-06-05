@@ -181,35 +181,46 @@ where
 mod tests {
     use crate::assert;
 
-    #[test]
-    fn test_partial() {
-        assert::pass(
-            r#"
+    fn eq(expected: &str, expr: &str) {
+        let sum = r#"
 def sum(a, b, *args, **kwargs):
     # print("a=%s b=%s args=%s kwargs=%s" % (a, b, args, kwargs))
     args = (a, b) + args
     return [args, kwargs]
+"#;
 
-# simple test
-assert_eq(
-    [(1, 2, 3), {"other": True, "third": None}],
-    (partial(sum, 1, other=True))(2, 3, third=None))
+        assert::eq(expected, &format!("{}{}", sum, expr));
+    }
 
-# passing *args **kwargs to partial
-assert_eq(
-    [(1, 2, 3), {"other": True, "third": None}],
-    (partial(sum, *[1], **{"other": True}))(2, 3, third=None))
+    #[test]
+    fn test_simple() {
+        eq(
+            "[(1, 2, 3), {'other': True, 'third': None}]",
+            "(partial(sum, 1, other=True))(2, 3, third=None)",
+        );
+    }
 
-# passing *args **kwargs to returned func
-assert_eq(
-    [(1, 2, 3), {"other": True, "third": None}],
-    (partial(sum, other=True))(*[1, 2, 3], **{"third": None}))
+    #[test]
+    fn test_star_to_partial() {
+        eq(
+            "[(1, 2, 3), {'other': True, 'third': None}]",
+            "(partial(sum, *[1], **{'other': True}))(2, 3, third=None)",
+        );
+    }
 
-# no args to partial
-assert_eq(
-    [(1, 2, 3), {"other": True, "third": None}],
-    (partial(sum))(1, 2, 3, third=None, **{"other": True}))
-"#,
+    #[test]
+    fn test_start_to_returned_func() {
+        eq(
+            "[(1, 2, 3), {'other': True, 'third': None}]",
+            "(partial(sum, other=True))(*[1, 2, 3], **{'third': None})",
+        );
+    }
+
+    #[test]
+    fn test_no_args_to_partial() {
+        eq(
+            "[(1, 2, 3), {'other': True, 'third': None}]",
+            "(partial(sum))(1, 2, 3, third=None, **{'other': True})",
         );
     }
 }
