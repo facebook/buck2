@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::ops::ControlFlow;
-use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,6 +25,7 @@ use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
@@ -148,8 +148,6 @@ impl LocalExecutor {
                 None => Cow::Borrowed(&self.root),
             };
 
-            let working_directory: &Path = working_directory.as_ref();
-
             match &self.forkserver {
                 Some(forkserver) => {
                     #[cfg(unix)]
@@ -159,7 +157,7 @@ impl LocalExecutor {
                             exe,
                             args,
                             env,
-                            working_directory,
+                            &working_directory,
                             timeout,
                             env_inheritance,
                             liveliness_observer,
@@ -177,11 +175,11 @@ impl LocalExecutor {
 
                 None => {
                     let mut cmd = background_command(exe);
-                    cmd.current_dir(working_directory);
+                    cmd.current_dir(working_directory.as_path());
                     cmd.args(args);
                     apply_local_execution_environment(
                         &mut cmd,
-                        working_directory,
+                        &working_directory,
                         env,
                         env_inheritance,
                     );
@@ -834,7 +832,7 @@ pub async fn create_output_dirs(
 
 pub fn apply_local_execution_environment(
     builder: &mut impl EnvironmentBuilder,
-    working_directory: &Path,
+    working_directory: &AbsPath,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
     env_inheritance: Option<&EnvironmentInheritance>,
 ) {
@@ -854,7 +852,7 @@ pub fn apply_local_execution_environment(
     for (key, val) in env {
         builder.set(key, val);
     }
-    builder.set("PWD", working_directory);
+    builder.set("PWD", working_directory.as_path());
 }
 
 pub trait EnvironmentBuilder {
@@ -906,7 +904,7 @@ mod unix {
         exe: impl AsRef<OsStr>,
         args: impl IntoIterator<Item = impl AsRef<OsStr>>,
         env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-        working_directory: &Path,
+        working_directory: &AbsPath,
         command_timeout: Option<Duration>,
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
@@ -921,7 +919,7 @@ mod unix {
                 .map(|s| s.as_ref().as_bytes().to_vec())
                 .collect(),
             cwd: Some(buck2_forkserver_proto::WorkingDirectory {
-                path: working_directory.as_os_str().as_bytes().to_vec(),
+                path: working_directory.as_path().as_os_str().as_bytes().to_vec(),
             }),
             env: vec![],
             timeout: command_timeout.try_map(|d| d.try_into())?,

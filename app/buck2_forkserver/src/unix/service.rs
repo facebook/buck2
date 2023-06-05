@@ -11,6 +11,7 @@ use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -19,6 +20,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
@@ -112,7 +114,12 @@ impl Forkserver for UnixForkserverService {
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
-            let cwd = cwd.as_ref().map(|c| OsStr::from_bytes(&c.path));
+            let cwd = cwd
+                .as_ref()
+                .map(|c| OsStr::from_bytes(&c.path))
+                .map(|path| AbsPath::new(Path::new(path)))
+                .transpose()
+                .context("Invalid cwd")?;
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
