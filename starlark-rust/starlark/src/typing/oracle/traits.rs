@@ -71,6 +71,15 @@ impl TypingOracle for OracleNoBuiltins {
     }
 }
 
+/// Declare that there are no attributes, usually used at the end of a [`Vec`].
+pub struct OracleNoAttributes;
+
+impl TypingOracle for OracleNoAttributes {
+    fn attribute(&self, _ty: &Ty, _attr: &str) -> Option<Result<Ty, ()>> {
+        Some(Err(()))
+    }
+}
+
 impl<T: TypingOracle> TypingOracle for [T] {
     fn attribute(&self, ty: &Ty, attr: &str) -> Option<Result<Ty, ()>> {
         self.iter().find_map(|oracle| oracle.attribute(ty, attr))

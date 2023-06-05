@@ -23,6 +23,7 @@ use once_cell::sync::Lazy;
 use crate::stdlib::LibraryExtension;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::typing::oracle::traits::OracleNoAttributes;
 use crate::typing::Interface;
 use crate::typing::OracleNoBuiltins;
 use crate::typing::OracleStandard;
@@ -34,7 +35,11 @@ use crate::typing::TypingOracle;
 fn mk_oracle() -> impl TypingOracle {
     static ORACLE: Lazy<Vec<Box<dyn TypingOracle + Send + Sync + 'static>>> = Lazy::new(|| {
         let standard = OracleStandard::new(LibraryExtension::all());
-        vec![Box::new(standard), Box::new(OracleNoBuiltins)]
+        vec![
+            Box::new(standard),
+            Box::new(OracleNoBuiltins),
+            Box::new(OracleNoAttributes),
+        ]
     });
     &*ORACLE
 }
