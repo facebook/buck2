@@ -294,8 +294,8 @@ more_futures = { path = "shed/more_futures" }
 lock_free_hashtable = { path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
-starlark = { version = "0.9.0-pre", path = "starlark-rust/starlark" }
-starlark_map = { version = "0.9.0-pre", path = "starlark-rust/starlark_map" }
+starlark = { version = "0.9.0", path = "starlark-rust/starlark" }
+starlark_map = { version = "0.9.0", path = "starlark-rust/starlark_map" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_analysis = { path = "app/buck2_analysis" }
