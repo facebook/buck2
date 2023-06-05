@@ -42,6 +42,7 @@ use crate::starlark_simple_value;
 use crate::starlark_type;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
+use crate::wasm::is_wasm;
 
 /// Main module docs
 #[starlark_module]
@@ -122,6 +123,11 @@ where
 
 #[test]
 fn test_derive_docs() {
+    if is_wasm() {
+        // `inventory` doesn't work on wasm.
+        return;
+    }
+
     let docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "TestExample")
@@ -150,6 +156,11 @@ fn test_derive_docs() {
 
 #[test]
 fn test_derive_docs_on_complex_values() {
+    if is_wasm() {
+        // `inventory` doesn't work on wasm.
+        return;
+    }
+
     let complex_docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "ComplexTestExample")
@@ -208,6 +219,11 @@ impl<'v> StarlarkValue<'v> for TestAttrExample {
 
 #[test]
 fn test_derive_docs_custom_attrs() {
+    if is_wasm() {
+        // `inventory` doesn't work on wasm.
+        return;
+    }
+
     let docs = get_registered_starlark_docs()
         .into_iter()
         .find(|d| d.id.name == "TestAttrExample")
