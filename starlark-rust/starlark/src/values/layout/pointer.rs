@@ -56,11 +56,6 @@ impl Debug for RawPointer {
 impl RawPointer {
     #[inline]
     pub(crate) unsafe fn new_unchecked(ptr: usize) -> RawPointer {
-        assert_eq!(
-            mem::size_of::<u64>(),
-            mem::size_of_val(&ptr),
-            "32 bit starlark is not supported yet"
-        );
         debug_assert!(ptr != 0);
         RawPointer(NonZeroUsize::new_unchecked(ptr))
     }
@@ -176,6 +171,8 @@ const TAG_UNFROZEN: usize = 0b001;
 /// `InlineInt` is shift by this number of bits to the left to be stored in a pointer.
 const INT_SHIFT: usize = mem::size_of::<usize>() * 8 - InlineInt::BITS;
 const INT_DATA_MASK: usize = ((1usize << InlineInt::BITS) - 1) << INT_SHIFT;
+#[allow(clippy::assertions_on_constants)]
+const _: () = assert!(INT_SHIFT >= TAG_BITS);
 
 #[inline]
 unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueOrForward {

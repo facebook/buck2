@@ -36,7 +36,10 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Clone)]
-#[repr(transparent)]
+#[repr(C, align(8))]
+// TODO(nga): we don't need to align the header to 8 bytes,
+// we only need to align allocations to 8 bytes.
+// With current setup, we waste 4 bytes per allocation in the header on 32-bit machines.
 pub(crate) struct AValueHeader(pub(crate) &'static AValueVTable);
 
 impl Hash for AValueHeader {
@@ -276,6 +279,10 @@ impl AValueHeader {
 }
 
 impl<T> AValueRepr<T> {
+    const _ASSERTIONS: () = {
+        assert!(mem::align_of::<Self>() == AValueHeader::ALIGN);
+    };
+
     pub(crate) const fn with_metadata(
         metadata: &'static AValueVTable,
         payload: T,

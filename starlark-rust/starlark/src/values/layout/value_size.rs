@@ -52,6 +52,6 @@ impl ValueSize {
 
     #[inline]
     pub(crate) const fn of_align_up<T>() -> ValueSize {
-        ValueSize::new(AlignedSize::of_align_up::<T>())
+        ValueSize::new(AlignedSize::of::<T>())
     }
 }

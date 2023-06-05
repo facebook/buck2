@@ -70,7 +70,10 @@ impl InlineInt {
     }
 
     /// Number of bits in the integer.
+    #[cfg(target_pointer_width = "64")]
     pub(crate) const BITS: usize = 32;
+    #[cfg(target_pointer_width = "32")]
+    pub(crate) const BITS: usize = 29;
 
     pub(crate) const ZERO: InlineInt = InlineInt(0);
     pub(crate) const MINUS_ONE: InlineInt = InlineInt(-1);
