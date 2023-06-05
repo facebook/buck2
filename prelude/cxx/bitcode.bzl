@@ -30,7 +30,7 @@ def _bundle_locally(ctx: "context", linker_info: "LinkerInfo") -> bool.type:
 def _bundle(ctx: "context", name: str.type, args: "cmd_args", prefer_local: bool.type) -> "artifact":
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link
     if llvm_link == None:
-        return None
+        fail("Bitcode generation not supported when no LLVM linker, the `cxx_toolchain` has no `llvm_link`.")
 
     bundle_output = ctx.actions.declare_output(name)
 
