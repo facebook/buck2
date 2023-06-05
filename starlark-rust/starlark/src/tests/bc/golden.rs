@@ -18,6 +18,7 @@
 use std::env;
 use std::fmt::Write;
 use std::fs;
+use std::mem;
 
 use anyhow::Context;
 
@@ -58,6 +59,11 @@ fn make_golden(program: &str) -> String {
 }
 
 pub(crate) fn bc_golden_test(test_name: &str, program: &str) {
+    if mem::size_of::<usize>() != mem::size_of::<u64>() {
+        // Bytecode addresses are different on 32-bit platforms.
+        return;
+    }
+
     let manifest_dir =
         env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` variable must be set");
 
