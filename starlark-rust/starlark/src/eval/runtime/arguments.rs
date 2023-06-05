@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::fmt::Debug;
 use std::iter;
 use std::marker::PhantomData;
 
@@ -68,7 +69,7 @@ pub(crate) enum FunctionError {
 }
 
 /// An object accompanying argument name for faster argument resolution.
-pub(crate) trait ArgSymbol: Coerce<Self> + 'static {
+pub(crate) trait ArgSymbol: Debug + Coerce<Self> + 'static {
     fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
         &self,
         ps: &ParametersSpec<V>,
@@ -91,6 +92,7 @@ impl ArgSymbol for Symbol {
 }
 
 /// `Symbol` resolved to function parameter index.
+#[derive(Debug)]
 pub(crate) struct ResolvedArgName {
     /// Hash of the argument name.
     pub(crate) hash: StarlarkHashValue,
@@ -153,7 +155,7 @@ impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
 }
 
 /// Either full arguments, or short arguments for positional-only calls.
-pub(crate) trait ArgumentsImpl<'v, 'a> {
+pub(crate) trait ArgumentsImpl<'v, 'a>: Debug {
     type ArgSymbol: ArgSymbol;
     fn pos(&self) -> &[Value<'v>];
     fn named(&self) -> &[Value<'v>];
@@ -164,7 +166,7 @@ pub(crate) trait ArgumentsImpl<'v, 'a> {
 
 /// Arguments object is passed from the starlark interpreter to function implementation
 /// when evaluation function or method calls.
-#[derive(Clone_, Dupe_)]
+#[derive(Clone_, Dupe_, Debug)]
 pub(crate) struct ArgumentsFull<'v, 'a, S: ArgSymbol> {
     /// Positional arguments.
     pub(crate) pos: &'a [Value<'v>],
@@ -222,6 +224,7 @@ impl<'v, 'a, S: ArgSymbol> ArgumentsImpl<'v, 'a> for ArgumentsFull<'v, 'a, S> {
 }
 
 /// Positional-only arguments, smaller and faster than `ArgumentsFull`.
+#[derive(Debug)]
 pub(crate) struct ArgumentsPos<'v, 'a, S: ArgSymbol> {
     pub(crate) pos: &'a [Value<'v>],
     pub(crate) names: PhantomData<&'static S>,
