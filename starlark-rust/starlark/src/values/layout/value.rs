@@ -348,12 +348,18 @@ impl<'v> Value<'v> {
     /// Obtain the underlying `int` if it is an integer.
     #[inline]
     pub fn unpack_int(self) -> Option<i32> {
+        // TODO(nga): this should also unpack bigint.
         Some(self.0.unpack_int()?.to_i32())
     }
 
     #[inline]
+    pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
+        self.0.unpack_int()
+    }
+
+    #[inline]
     pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'static, PointerI32>> {
-        if self.unpack_int().is_some() {
+        if self.unpack_inline_int().is_some() {
             // SAFETY: We've just checked the value is an int.
             unsafe {
                 Some(FrozenValueTyped::new_unchecked(
@@ -488,8 +494,8 @@ impl<'v> Value<'v> {
     /// `int(x)`.
     pub fn to_int(self) -> anyhow::Result<i32> {
         // Fast path for the common case
-        if let Some(x) = self.unpack_int() {
-            Ok(x)
+        if let Some(x) = self.unpack_inline_int() {
+            Ok(x.to_i32())
         } else {
             self.get_ref().to_int()
         }
@@ -646,8 +652,8 @@ impl<'v> Value<'v> {
     /// before falling back to [`add`](StarlarkValue::add).
     pub fn add(self, other: Value<'v>, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
         // Fast special case for ints.
-        if let Some(ls) = self.unpack_int() {
-            if let Some(rs) = other.unpack_int() {
+        if let Some(ls) = self.unpack_inline_int() {
+            if let Some(rs) = other.unpack_inline_int() {
                 // On overflow take the slow path below.
                 if let Some(sum) = ls.checked_add(rs) {
                     return Ok(heap.alloc(sum));
@@ -911,6 +917,11 @@ impl FrozenValue {
     }
 
     #[inline]
+    pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
+        self.to_value().unpack_inline_int()
+    }
+
+    #[inline]
     pub(crate) fn is_str(self) -> bool {
         self.to_value().is_str()
     }
@@ -1127,7 +1138,7 @@ impl<'v> ValueLike<'v> for Value<'v> {
                 None
             }
         } else if PointerI32::type_is_pointer_i32::<T>() {
-            if self.unpack_int().is_some() {
+            if self.unpack_inline_int().is_some() {
                 // SAFETY: we just checked this is int, and requested type is int.
                 Some(unsafe { self.downcast_ref_unchecked() })
             } else {

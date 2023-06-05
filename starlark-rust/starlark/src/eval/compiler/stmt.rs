@@ -595,7 +595,7 @@ pub(crate) fn add_assign<'v>(
     // Checking whether a value is an integer or a string is cheap (no virtual call),
     // and `Value::add` has optimizations for these types, so check them first
     // and delegate to `Value::add`.
-    if lhs.unpack_int().is_some() || lhs.is_str() {
+    if lhs.unpack_inline_int().is_some() || lhs.is_str() {
         return lhs.add(rhs, heap);
     }
 

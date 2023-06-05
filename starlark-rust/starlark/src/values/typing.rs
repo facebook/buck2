@@ -123,7 +123,7 @@ impl TypeCompiled {
 
         impl TypeCompiledImpl for IsInt {
             fn matches(&self, value: Value) -> bool {
-                value.unpack_int().is_some() || value.get_ref().matches_type("int")
+                value.unpack_inline_int().is_some() || value.get_ref().matches_type("int")
             }
         }
 
