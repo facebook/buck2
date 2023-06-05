@@ -285,7 +285,7 @@ allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "has
 gazebo.version = "0.8.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
-dupe.version = "0.8.1"
+dupe.version = "0.9.0"
 dupe.path = "gazebo/dupe"
 dice = { path = "dice/dice" }
 display_container = { path = "gazebo/display_container" }
