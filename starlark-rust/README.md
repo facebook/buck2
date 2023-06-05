@@ -4,7 +4,7 @@
 [![GitHub link](https://img.shields.io/badge/GitHub-facebookexperimental%2Fstarlark--rust-blue.svg)](https://github.com/facebookexperimental/starlark-rust)
 [![crates.io version](https://img.shields.io/crates/v/starlark.svg)](https://crates.io/crates/starlark)
 [![docs.rs availability](https://img.shields.io/docsrs/starlark?label=docs.rs)](https://docs.rs/starlark/)
-[![Build status](https://img.shields.io/github/workflow/status/facebookexperimental/starlark-rust/ci.svg)](https://github.com/facebookexperimental/starlark-rust/actions)
+[![Build status](https://img.shields.io/github/actions/workflow/status/facebookexperimental/starlark-rust/ci.yml?branch=main)](https://github.com/facebookexperimental/starlark-rust/actions)
 
 There are several copies of this repo on GitHub, [facebookexperimental/starlark-rust](https://github.com/facebookexperimental/starlark-rust) is the canonical one.
 
