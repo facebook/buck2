@@ -33,9 +33,11 @@ use crate::Span;
 /// Horizontal borders (i.e. top and bottom) are transposed.  For example, if `top = Word::new_unstyled("@@")`,
 /// then the resulting output would look something like this:
 ///
+/// ```console
 /// @@@@@@@@@@@@@@@@@@@@@
 /// @@@@@@@@@@@@@@@@@@@@@
 /// // rest of the output
+/// ```
 #[derive(Debug)]
 pub struct Bordered<C: Component = Box<dyn Component>> {
     child: Aligned<C>,
