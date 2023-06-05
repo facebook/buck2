@@ -381,7 +381,7 @@ def prepare_cd_exe(
         worker: WorkerInfo.type,
         debug_port: [int.type, None],
         debug_target: ["label", None],
-        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, RunInfo.type]:
+        extra_jvm_args: [str.type]) -> [WorkerRunInfo.type, cmd_args.type]:
     jvm_args = extra_jvm_args + ["-XX:-MaxFDLimit"]
     if debug_port and qualified_name.startswith(base_qualified_name(debug_target)):
         # Do not use a worker when debugging is enabled
