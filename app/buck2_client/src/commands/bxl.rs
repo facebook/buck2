@@ -19,6 +19,7 @@ use buck2_client_ctx::common::CommonDaemonCommandOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 use crate::commands::build::print_build_result;
@@ -60,6 +61,11 @@ pub struct BxlCommandOptions {
         raw = true
     )]
     pub bxl_args: Vec<String>,
+
+    /// Write user events to this log file. Both user and internal events are written to main event log.
+    /// If this flag is specified, user events are additionally written to user event log. Log format is JSONL, uncompressed.
+    #[clap(value_name = "PATH", long = "--user-event-log")]
+    pub user_event_log: Option<PathArg>,
 }
 
 #[async_trait]
@@ -130,5 +136,9 @@ impl StreamingCommand for BxlCommand {
 
     fn common_opts(&self) -> &CommonBuildConfigurationOptions {
         &self.common_ops.config_opts
+    }
+
+    fn user_event_log(&self) -> &Option<PathArg> {
+        &self.bxl_opts.user_event_log
     }
 }

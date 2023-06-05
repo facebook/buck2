@@ -30,6 +30,7 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::exit_result::gen_error_exit_code;
 use crate::exit_result::ExitResult;
 use crate::exit_result::FailureExitCode;
+use crate::path_arg::PathArg;
 use crate::subscribers::get::get_console_with_root;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
@@ -145,6 +146,11 @@ pub trait StreamingCommand: Sized + Send + Sync {
     /// Whether to show a "Waiting for daemon..." message in simple console during long waiting periods.
     fn should_show_waiting_message(&self) -> bool {
         true
+    }
+
+    /// Currently only for BxlCommand.
+    fn user_event_log(&self) -> &Option<PathArg> {
+        &None
     }
 }
 
