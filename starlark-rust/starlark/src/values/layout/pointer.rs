@@ -74,6 +74,7 @@ impl RawPointer {
     #[inline]
     pub(crate) fn new_unfrozen(ptr: &AValueHeader, is_string: bool) -> RawPointer {
         let ptr = cast::ptr_to_usize(ptr);
+        debug_assert!(ptr & TAG_MASK == 0);
         let ptr = if is_string { ptr | TAG_STR } else { ptr };
         let ptr = ptr | TAG_UNFROZEN;
         unsafe { Self::new_unchecked(ptr) }
@@ -82,6 +83,7 @@ impl RawPointer {
     #[inline]
     pub(crate) fn new_frozen(ptr: &AValueHeader, is_string: bool) -> RawPointer {
         let ptr = cast::ptr_to_usize(ptr);
+        debug_assert!(ptr & TAG_MASK == 0);
         let ptr = if is_string { ptr | TAG_STR } else { ptr };
         unsafe { Self::new_unchecked(ptr) }
     }
