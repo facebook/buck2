@@ -58,7 +58,6 @@ use buck2_forkserver::client::ForkserverClient;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
-use buck2_server_ctx::concurrency::DiceCleanup;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -430,10 +429,6 @@ impl DaemonState {
             .parse("buck2", "use_network_action_output_cache")?
             .unwrap_or(false);
 
-        let cleanup_config = root_config
-            .parse::<DiceCleanup>("buck2", "dice_cleanup")?
-            .unwrap_or(DiceCleanup::Block);
-
         let create_unhashed_outputs_lock = Arc::new(Mutex::new(()));
 
         let buffer_size = root_config
@@ -472,7 +467,7 @@ impl DaemonState {
         // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
         // tokio::task::spawn(watchman_query.sync());
         Ok(Arc::new(DaemonStateData {
-            dice_manager: ConcurrencyHandler::new(dice, cleanup_config),
+            dice_manager: ConcurrencyHandler::new(dice),
             file_watcher,
             io,
             re_client_manager,

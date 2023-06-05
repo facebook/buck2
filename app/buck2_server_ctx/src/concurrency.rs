@@ -16,7 +16,6 @@
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -72,45 +71,10 @@ enum ConcurrencyHandlerError {
     ExitWhenDifferentState,
 }
 
-#[derive(Clone, Dupe, Copy, Debug, Allocative)]
-pub enum DiceCleanup {
-    Block,
-    Run,
-}
-
-#[derive(Error, Debug)]
-#[error("Invalid type of `{0}`: `{1}`")]
-pub struct InvalidType(String, String);
-
-impl FromStr for DiceCleanup {
-    type Err = InvalidType;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "BLOCK" => Ok(DiceCleanup::Block),
-            "RUN" => Ok(DiceCleanup::Run),
-            _ => Err(InvalidType("DiceCleanup".to_owned(), s.to_owned())),
-        }
-    }
-}
-
 #[derive(Clone, Dupe, Copy, Debug)]
 pub enum RunState {
     NestedSameState,
-    NestedDifferentState,
     ParallelSameState,
-    ParallelDifferentState,
-}
-
-impl RunState {
-    fn will_taint(self) -> bool {
-        match self {
-            Self::NestedSameState => false,
-            Self::NestedDifferentState => true,
-            Self::ParallelSameState => false,
-            Self::ParallelDifferentState => true,
-        }
-    }
 }
 
 #[derive(Clone, Dupe, Copy, Debug)]
@@ -132,8 +96,6 @@ pub struct ConcurrencyHandler {
     #[allocative(skip)]
     cond: Arc<Condvar>,
     dice: Arc<Dice>,
-    /// Whether to wait for idle DICE.
-    dice_cleanup_config: DiceCleanup,
     /// Used to prevent commands (clean --stale) from running in parallel with dice commands
     exclusive_command_lock: Arc<ExclusiveCommandLock>,
 }
@@ -345,7 +307,7 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
-    pub fn new(dice: Arc<Dice>, dice_cleanup_config: DiceCleanup) -> Self {
+    pub fn new(dice: Arc<Dice>) -> Self {
         ConcurrencyHandler {
             data: Arc::new(FairMutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
@@ -356,7 +318,6 @@ impl ConcurrencyHandler {
             })),
             cond: Default::default(),
             dice,
-            dice_cleanup_config,
             exclusive_command_lock: Arc::new(ExclusiveCommandLock::new()),
         }
     }
@@ -457,16 +418,15 @@ impl ConcurrencyHandler {
                     let future = future.clone();
                     let epoch = *epoch;
 
-                    if matches!(self.dice_cleanup_config, DiceCleanup::Block) {
-                        drop(data);
-                        event_dispatcher
-                            .span_async(
-                                buck2_data::DiceCleanupStart { epoch: epoch as _ },
-                                async move { (future.await, buck2_data::DiceCleanupEnd {}) },
-                            )
-                            .await;
-                        data = self.data.lock();
-                    }
+                    // block while dice cleans up
+                    drop(data);
+                    event_dispatcher
+                        .span_async(
+                            buck2_data::DiceCleanupStart { epoch: epoch as _ },
+                            async move { (future.await, buck2_data::DiceCleanupEnd {}) },
+                        )
+                        .await;
+                    data = self.data.lock();
 
                     data.transition_to_idle(epoch);
                 }
@@ -538,7 +498,7 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Run(state) => {
                                 self.emit_logs(state, &data.active_commands, &command_data)?;
-                                break (transaction, state.will_taint());
+                                break (transaction, false);
                             }
                             BypassSemaphore::Block => {
                                 if exit_when_different_state {
@@ -791,7 +751,7 @@ mod tests {
 
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -858,7 +818,7 @@ mod tests {
     async fn nested_invocation_should_error() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -911,7 +871,7 @@ mod tests {
     async fn parallel_invocation_same_transaction() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice, DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -978,7 +938,7 @@ mod tests {
     async fn parallel_invocation_different_traceid_blocks() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -1091,29 +1051,11 @@ mod tests {
         Ok(())
     }
 
-    fn has_taint_event(receiver: &mut impl EventSource) -> bool {
-        while let Some(event) = receiver.try_receive() {
-            match event.unpack_buck().unwrap().data() {
-                buck2_data::buck_event::Data::Instant(i) => match &i.data {
-                    Some(buck2_data::instant_event::Data::TagEvent(e)) => {
-                        if e.tags.iter().any(|e| e == "concurrency-tainted") {
-                            return true;
-                        }
-                    }
-                    _ => {}
-                },
-                _ => {}
-            }
-        }
-
-        false
-    }
-
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -1275,7 +1217,7 @@ mod tests {
 
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         // Kick off our computation and wait until it's running.
 
@@ -1428,7 +1370,7 @@ mod tests {
     #[tokio::test]
     async fn exclusive_command_lock() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
         let dispatcher = EventDispatcher::new(TraceId::new(), sink);
 
@@ -1511,84 +1453,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cleanup_skipped_reports_tainted() -> anyhow::Result<()> {
-        let key = CleanupTestKey {
-            is_executing: Arc::new(Mutex::new(())),
-        };
-
-        let key = &key;
-
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Run);
-
-        // Kick off our computation and wait until it's running.
-
-        concurrency
-            .enter(
-                EventDispatcher::null(),
-                &TestDiceDataProvider,
-                &NoChanges,
-                |dice| async move {
-                    let compute = dice.compute(key).fuse();
-
-                    let started = async {
-                        while !key.is_executing.is_locked() {
-                            tokio::task::yield_now().await;
-                        }
-                    }
-                    .fuse();
-
-                    // NOTE: We still need to poll `compute` for it to actually spawn, hence the
-                    // select below.
-
-                    futures::pin_mut!(compute);
-                    futures::pin_mut!(started);
-
-                    futures::select! {
-                        _ = compute => panic!("compute finished before started?"),
-                        _ = started => {}
-                    }
-                },
-                false,
-                Vec::new(),
-                None,
-                false,
-                CancellationContext::testing(),
-            )
-            .await?;
-
-        // Now, enter with a different context. We're skipping cleanup.
-
-        let (mut events, sink) = create_source_sink_pair();
-
-        concurrency
-            .enter(
-                EventDispatcher::new(TraceId::new(), sink),
-                &TestDiceDataProvider,
-                &CtxDifferent,
-                |_dice| async move {
-                    // Check that we did in fact re-enter before cleanup was done.
-                    assert!(key.is_executing.is_locked());
-                },
-                false,
-                Vec::new(),
-                None,
-                false,
-                CancellationContext::testing(),
-            )
-            .await?;
-
-        assert!(has_taint_event(&mut events));
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_thundering_herd() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), DiceCleanup::Block);
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let concurrency = &concurrency;
 
