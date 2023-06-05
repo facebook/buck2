@@ -103,7 +103,7 @@ impl StarlarkInt {
         }
     }
 
-    fn as_ref(&self) -> StarlarkIntRef {
+    pub(crate) fn as_ref(&self) -> StarlarkIntRef {
         match self {
             StarlarkInt::Small(i) => StarlarkIntRef::Small(*i),
             StarlarkInt::Big(i) => StarlarkIntRef::Big(i),

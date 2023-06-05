@@ -272,7 +272,10 @@ impl<'v> Mul for NumRef<'v> {
 
 #[cfg(test)]
 mod tests {
+    use num_bigint::BigInt;
+
     use super::*;
+    use crate::values::types::bigint::StarlarkBigInt;
     use crate::values::types::inline_int::InlineInt;
 
     #[test]
@@ -369,6 +372,13 @@ mod tests {
             NumRef::Float("0.25".parse().unwrap()).get_hash_64(),
             NumRef::Float("25e-2".parse().unwrap()).get_hash_64()
         );
+
+        let x = 1u64 << 55;
+        assert_eq!(x as f64 as u64, x, "Self-check");
+        assert_eq!(
+            NumRef::Float(x as f64).get_hash_64(),
+            NumRef::Int(StarlarkBigInt::try_from_bigint(BigInt::from(x)).as_ref()).get_hash_64(),
+        )
     }
 
     #[test]
