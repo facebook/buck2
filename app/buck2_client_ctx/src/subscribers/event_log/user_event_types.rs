@@ -7,6 +7,28 @@
  * of this source tree.
  */
 
+use buck2_data::StarlarkUserEvent;
+
+use super::write::StreamValueForWrite;
+
+pub(crate) fn is_user_event<'v>(stream_value: &'v StreamValueForWrite<'v>) -> anyhow::Result<bool> {
+    match stream_value {
+        StreamValueForWrite::Event(buck_event) => {
+            match buck_event.data.as_ref().unwrap() {
+                buck2_data::buck_event::Data::Instant(ref instant) => {
+                    match instant.data.as_ref().unwrap() {
+                        buck2_data::instant_event::Data::StarlarkUserEvent(_) => Ok(true),
+                        _ => Ok(false),
+                    }
+                }
+                // TODO(wendyy) - support actions
+                _ => Ok(false),
+            }
+        }
+        _ => Ok(false),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
