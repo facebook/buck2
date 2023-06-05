@@ -270,7 +270,9 @@ impl PartialEq for Range {
 mod tests {
     use std::num::NonZeroI32;
 
+    use crate::assert;
     use crate::values::range::Range;
+    use crate::values::types::inline_int::InlineInt;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
@@ -361,5 +363,17 @@ mod tests {
                 )
             }
         }
+    }
+
+    #[test]
+    fn test_max_len() {
+        assert::eq(
+            &InlineInt::MAX.to_string(),
+            &format!("len(range({}))", InlineInt::MAX),
+        );
+        assert::eq(
+            &InlineInt::MAX.to_string(),
+            &format!("len(range({}, -1))", InlineInt::MIN),
+        );
     }
 }

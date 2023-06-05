@@ -73,6 +73,8 @@ fn test_go() {
             // We added copy, which throws off the assert
             "dir({})[:3]",
             "dir([])[:3]",
+            // We do not support range to `i32::MAX` on 32 bit.
+            "range(0x7fffffff)",
         ],
     ));
     assert.conformance(test_case!("control.star"));
