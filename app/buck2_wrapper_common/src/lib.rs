@@ -76,7 +76,7 @@ pub fn killall(write: impl Fn(String)) -> bool {
             // We don't really need to wait for forkserver shutdown,
             // we care about buckd shutdown. But logic to distinguish
             // between forkserver and buckd would be too fragile.
-            let timeout_secs = 10;
+            let timeout_secs = 30;
             while start.elapsed() < Duration::from_secs(timeout_secs) {
                 if !kill::process_exists(pid)? {
                     return Ok(());
