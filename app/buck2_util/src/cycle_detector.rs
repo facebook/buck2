@@ -16,6 +16,7 @@ use std::future::Future;
 use std::hash::Hash;
 use std::time::Duration;
 
+use anyhow::Context;
 use futures::lock::Mutex;
 use starlark_map::small_set::SmallSet;
 use tokio::select;
@@ -142,7 +143,7 @@ impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
             cycle = &mut *guard => {
                 match cycle {
                     Ok(e) => Ok(Err(e)),
-                    Err(e) => Err(anyhow::anyhow!("error on cycle detector guard receiver: {}", e))
+                    Err(e) => Err(anyhow::anyhow!("error on cycle detector guard receiver: {}", e)).context(format!("for key `{}`", self.key))
                 }
             }
         }
