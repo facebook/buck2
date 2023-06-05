@@ -24,6 +24,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
+use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::prepare_command;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_util::process::background_command;
@@ -46,7 +47,8 @@ async fn exec_spawn(
     stderr_path: &AbsNormPathBuf,
 ) -> anyhow::Result<Child> {
     // TODO(ctolliday) spawn using forkserver T153604128
-    let mut cmd = background_command(exe);
+    let exe = maybe_absolutize_exe(exe, root)?;
+    let mut cmd = background_command(exe.as_ref());
     cmd.current_dir(root);
     cmd.args(args);
     apply_local_execution_environment(&mut cmd, root, env, None);

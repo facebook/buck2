@@ -10,7 +10,9 @@
 mod interruptible_async_read;
 pub mod status_decoder;
 
+use std::borrow::Cow;
 use std::io;
+use std::path::Path;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
@@ -20,6 +22,8 @@ use std::task::Poll;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -335,6 +339,26 @@ fn kill_process_impl(pid: u32) -> anyhow::Result<()> {
 
     signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
         .with_context(|| format!("Failed to kill process {}", pid))
+}
+
+/// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
+/// UNIX, the path is understood to be relative to the cwd of the *spawned process*, whereas on
+/// Windows, it's relative ot the cwd of the *spawning* process.
+///
+/// Here, we unify the two behaviors since we always run our subprocesses with a known cwd: we
+/// check if the executable actually exists relative to said cwd, and if it does, we use that.
+pub fn maybe_absolutize_exe<'a>(
+    exe: &'a (impl AsRef<Path> + ?Sized),
+    spawned_process_cwd: &'_ AbsPath,
+) -> anyhow::Result<Cow<'a, Path>> {
+    let exe = exe.as_ref();
+
+    let abs = spawned_process_cwd.join(exe);
+    if fs_util::try_exists(&abs).context("Error absolute-izing executable")? {
+        return Ok(abs.into_path_buf().into());
+    }
+
+    Ok(exe.into())
 }
 
 pub fn prepare_command(mut cmd: Command) -> tokio::process::Command {

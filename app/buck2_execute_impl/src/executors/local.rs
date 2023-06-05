@@ -60,6 +60,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::gather_output;
+use buck2_forkserver::run::maybe_absolutize_exe;
 use buck2_forkserver::run::timeout_into_cancellation;
 use buck2_forkserver::run::GatherOutputStatus;
 use buck2_util::process::background_command;
@@ -174,7 +175,8 @@ impl LocalExecutor {
                 }
 
                 None => {
-                    let mut cmd = background_command(exe);
+                    let exe = maybe_absolutize_exe(exe, &working_directory)?;
+                    let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
                     cmd.args(args);
                     apply_local_execution_environment(
