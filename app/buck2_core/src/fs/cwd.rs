@@ -46,6 +46,9 @@ pub(crate) fn maybe_relativize(path: &Path) -> &Path {
 fn maybe_relativize_impl<'a>(path: &'a Path, cell: &'_ OnceCell<AbsPathBuf>) -> &'a Path {
     if let Some(cwd) = cell.get() {
         if let Ok(path) = path.strip_prefix(cwd) {
+            if path == Path::new("") {
+                return Path::new(".");
+            }
             return path;
         }
     }
@@ -58,14 +61,8 @@ pub(crate) fn maybe_relativize_str(path: &str) -> &str {
 }
 
 fn maybe_relativize_str_impl<'a>(path: &'a str, cell: &'_ OnceCell<AbsPathBuf>) -> &'a str {
-    if let Some(cwd) = cell.get() {
-        if let Some(path) = Path::new(path)
-            .strip_prefix(cwd)
-            .ok()
-            .and_then(|path| path.to_str())
-        {
-            return path;
-        }
+    if let Some(path) = maybe_relativize_impl(Path::new(path), cell).to_str() {
+        return path;
     }
 
     path
@@ -90,6 +87,7 @@ mod tests {
         assert_eq!(maybe_relativize_impl(&path, &cell), path);
         cell.set(foo_bar()).unwrap();
         assert_eq!(maybe_relativize_impl(&path, &cell), Path::new("baz"));
+        assert_eq!(maybe_relativize_impl(&foo_bar(), &cell), Path::new("."));
     }
 
     #[test]
@@ -99,5 +97,9 @@ mod tests {
         assert_eq!(maybe_relativize_str_impl(&path, &cell), path);
         cell.set(foo_bar()).unwrap();
         assert_eq!(maybe_relativize_str_impl(&path, &cell), "baz");
+        assert_eq!(
+            maybe_relativize_str_impl(foo_bar().to_str().unwrap(), &cell),
+            "."
+        );
     }
 }
