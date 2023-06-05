@@ -68,7 +68,7 @@ impl BcOpcode {
 }
 
 /// Invoke drop for instructions in the buffer.
-unsafe fn drop_instrs(instrs: &[usize]) {
+unsafe fn drop_instrs(instrs: &[u64]) {
     let end = BcPtrAddr::for_slice_end(instrs);
     let mut ptr = BcPtrAddr::for_slice_start(instrs);
     while ptr != end {
@@ -93,7 +93,7 @@ unsafe fn drop_instrs(instrs: &[usize]) {
 /// But if `BcInstrs::instrs` is `Either` allocated instructions or a pointer to statically
 /// allocated instructions, then both `BcInstrs::default` is free
 /// and evaluation start [is free](https://rust.godbolt.org/z/3nEhWGo4Y).
-fn empty_instrs() -> &'static [usize] {
+fn empty_instrs() -> &'static [u64] {
     static END_OF_BC: BcInstrRepr<InstrEnd> = BcInstrRepr {
         header: BcInstrHeader::for_opcode(BcOpcode::End),
         arg: BcInstrEndArg {
@@ -105,8 +105,8 @@ fn empty_instrs() -> &'static [usize] {
     };
     unsafe {
         slice::from_raw_parts(
-            &END_OF_BC as *const BcInstrRepr<_> as *const usize,
-            mem::size_of_val(&END_OF_BC) / mem::size_of::<usize>(),
+            &END_OF_BC as *const BcInstrRepr<_> as *const u64,
+            mem::size_of_val(&END_OF_BC) / mem::size_of::<u64>(),
         )
     }
 }
@@ -114,7 +114,7 @@ fn empty_instrs() -> &'static [usize] {
 pub(crate) struct BcInstrs {
     // We use `usize` here to guarantee the buffer is properly aligned
     // to store `BcInstrLayout`.
-    instrs: Either<Box<[usize]>, &'static [usize]>,
+    instrs: Either<Box<[u64]>, &'static [u64]>,
     #[allow(unused)]
     pub(crate) stmt_locs: BcStatementLocations,
 }
@@ -123,7 +123,7 @@ pub(crate) struct BcInstrs {
 ///
 /// Higher level wrapper is `BcWriter`.
 pub(crate) struct BcInstrsWriter {
-    pub(crate) instrs: Vec<usize>,
+    pub(crate) instrs: Vec<u64>,
 }
 
 impl Default for BcInstrs {
@@ -162,7 +162,7 @@ impl BcInstrs {
     }
 
     pub(crate) fn for_instrs(
-        instrs: Either<Box<[usize]>, &'static [usize]>,
+        instrs: Either<Box<[u64]>, &'static [u64]>,
         stmt_locs: BcStatementLocations,
     ) -> Self {
         Self { instrs, stmt_locs }
@@ -172,7 +172,7 @@ impl BcInstrs {
         BcAddr(
             self.instrs
                 .len()
-                .checked_mul(mem::size_of::<usize>())
+                .checked_mul(mem::size_of::<u64>())
                 .unwrap()
                 .try_into()
                 .unwrap(),
@@ -285,7 +285,7 @@ impl BcInstrsWriter {
     fn instrs_len_bytes(&self) -> usize {
         self.instrs
             .len()
-            .checked_mul(mem::size_of::<usize>())
+            .checked_mul(mem::size_of::<u64>())
             .unwrap()
     }
 
@@ -295,13 +295,13 @@ impl BcInstrsWriter {
 
     pub(crate) fn write<I: BcInstr>(&mut self, arg: I::Arg) -> (BcAddr, *const I::Arg) {
         let repr = BcInstrRepr::<I>::new(arg);
-        assert!(mem::size_of_val(&repr) % mem::size_of::<usize>() == 0);
+        assert!(mem::size_of_val(&repr) % mem::size_of::<u64>() == 0);
 
         let ip = self.ip();
 
         let offset_bytes = self.instrs_len_bytes();
         self.instrs.resize(
-            self.instrs.len() + mem::size_of_val(&repr) / mem::size_of::<usize>(),
+            self.instrs.len() + mem::size_of_val(&repr) / mem::size_of::<u64>(),
             0,
         );
         unsafe {
