@@ -30,6 +30,7 @@ use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
+use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -208,14 +209,14 @@ impl AValueHeader {
     }
 
     #[inline]
-    pub(crate) fn payload_ptr(&self) -> *const () {
+    pub(crate) fn payload_ptr(&self) -> StarlarkValueRawPtr {
         let self_repr = self as *const AValueHeader as *const AValueRepr<()>;
-        unsafe { &(*self_repr).payload }
+        unsafe { StarlarkValueRawPtr::new(&(*self_repr).payload as *const ()) }
     }
 
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
         debug_assert_eq!(self.unpack().static_type_of_value(), T::static_type_id());
-        &*(self.payload_ptr() as *const T)
+        &*self.payload_ptr().value_ptr::<T>()
     }
 
     pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
@@ -238,7 +239,7 @@ impl AValueHeader {
                 "value is a forward pointer; value cannot be unpacked during GC or freeze"
             );
         }
-        unsafe { AValueDyn::new(&*self.payload_ptr(), self.0) }
+        unsafe { AValueDyn::new(self.payload_ptr(), self.0) }
     }
 
     /// After performing the overwrite any existing pointers to this value

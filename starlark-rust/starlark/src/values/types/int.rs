@@ -51,6 +51,7 @@ use crate::values::layout::avalue::Basic;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
+use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::num::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::inline_int::InlineInt;
@@ -151,7 +152,7 @@ impl PointerI32 {
     pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
         unsafe {
             AValueDyn::new(
-                &*(self as *const Self as *const ()),
+                StarlarkValueRawPtr::new(&*(self as *const Self as *const ())),
                 AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
             )
         }

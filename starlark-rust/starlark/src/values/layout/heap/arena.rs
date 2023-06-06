@@ -446,7 +446,7 @@ impl<A: ArenaAllocator> Drop for Arena<A> {
     fn drop(&mut self) {
         self.for_each_drop_unordered(|x| {
             // Safe to convert to *mut because we are the only owner
-            let value = x.payload_ptr() as *mut ();
+            let value = x.payload_ptr();
             x.0.drop_in_place(value);
         });
     }
