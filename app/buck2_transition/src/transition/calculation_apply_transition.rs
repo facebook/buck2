@@ -17,7 +17,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::P
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::transition::TransitionCalculation;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
-use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
 use buck2_common::result::ToUnsharedResultExt;
@@ -27,7 +26,9 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::TargetLabel;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -131,64 +132,75 @@ async fn do_apply_transition(
         refs_refs.push(provider_collection_value);
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    let mut eval = Evaluator::new(&module);
-    eval.set_print_handler(&print);
-    let refs = module.heap().alloc(AllocStruct(refs));
-    let attrs = match (&transition.attrs, attrs) {
-        (Some(names), Some(values)) => {
-            if names.len() != values.len() {
-                return Err(SharedError::new(
-                    ApplyTransitionError::InconsistentTransitionAndComputation,
-                ));
-            }
-            let mut attrs = Vec::with_capacity(names.len());
-            for (name, value) in names.iter().zip(values.iter()) {
-                let value = match value {
-                    Some(value) => value.to_value(module.heap()).with_context(|| {
-                        format!(
-                            "Error converting attribute `{}={}` to Starlark value",
-                            name.as_str(),
-                            value.as_display_no_ctx(),
-                        )
-                    })?,
-                    None => Value::new_none(),
-                };
-                attrs.push((*name, value));
-            }
-            Some(module.heap().alloc(AllocStruct(attrs)))
-        }
-        (None, None) => None,
-        (Some(_), None) | (None, Some(_)) => {
-            return Err(SharedError::new(
-                ApplyTransitionError::InconsistentTransitionAndComputation,
-            ));
-        }
-    };
-    match call_transition_function(&transition, conf, refs, attrs, &mut eval).shared_error()? {
-        TransitionApplied::Single(new) => {
-            let new_2 = match call_transition_function(&transition, &new, refs, attrs, &mut eval)
-                .context("applying transition again on transition output")
-                .shared_error()?
-            {
-                TransitionApplied::Single(new_2) => new_2,
-                TransitionApplied::Split(_) => {
-                    unreachable!("split transition filtered out in call_transition_function")
+    with_starlark_eval_provider(
+        ctx,
+        &mut StarlarkProfilerOrInstrumentation::disabled(),
+        format!("transition:{}", transition_id),
+        move |provider| {
+            let mut eval = provider.make(&module)?;
+            eval.set_print_handler(&print);
+            let refs = module.heap().alloc(AllocStruct(refs));
+            let attrs = match (&transition.attrs, attrs) {
+                (Some(names), Some(values)) => {
+                    if names.len() != values.len() {
+                        return Err(
+                            ApplyTransitionError::InconsistentTransitionAndComputation.into()
+                        );
+                    }
+                    let mut attrs = Vec::with_capacity(names.len());
+                    for (name, value) in names.iter().zip(values.iter()) {
+                        let value = match value {
+                            Some(value) => value.to_value(module.heap()).with_context(|| {
+                                format!(
+                                    "Error converting attribute `{}={}` to Starlark value",
+                                    name.as_str(),
+                                    value.as_display_no_ctx(),
+                                )
+                            })?,
+                            None => Value::new_none(),
+                        };
+                        attrs.push((*name, value));
+                    }
+                    Some(module.heap().alloc(AllocStruct(attrs)))
+                }
+                (None, None) => None,
+                (Some(_), None) | (None, Some(_)) => {
+                    return Err(ApplyTransitionError::InconsistentTransitionAndComputation.into());
                 }
             };
-            if let Err(diff) = cfg_diff(&new, &new_2) {
-                return Err(SharedError::new(
-                    ApplyTransitionError::SplitTransitionAgainDifferentPlatformInfo(diff),
-                ));
+            match call_transition_function(&transition, conf, refs, attrs, &mut eval)? {
+                TransitionApplied::Single(new) => {
+                    let new_2 =
+                        match call_transition_function(&transition, &new, refs, attrs, &mut eval)
+                            .context("applying transition again on transition output")
+                            .shared_error()?
+                        {
+                            TransitionApplied::Single(new_2) => new_2,
+                            TransitionApplied::Split(_) => {
+                                unreachable!(
+                                    "split transition filtered out in call_transition_function"
+                                )
+                            }
+                        };
+                    if let Err(diff) = cfg_diff(&new, &new_2) {
+                        return Err(
+                            ApplyTransitionError::SplitTransitionAgainDifferentPlatformInfo(diff)
+                                .into(),
+                        );
+                    }
+                    Ok(TransitionApplied::Single(new))
+                }
+                TransitionApplied::Split(split) => {
+                    // Not validating split transitions yet, because it's not 100% clear what to validate,
+                    // and because it is not that important, because split transitions
+                    // are not used in per-rule transitions.
+                    Ok(TransitionApplied::Split(split))
+                }
             }
-            Ok(TransitionApplied::Single(new))
-        }
-        TransitionApplied::Split(split) => {
-            // Not validating split transitions yet, because it's not 100% clear what to validate,
-            // and because it is not that important, because split transitions
-            // are not used in per-rule transitions.
-            Ok(TransitionApplied::Split(split))
-        }
-    }
+        },
+    )
+    .await
+    .shared_error()
 }
 
 #[async_trait]
