@@ -174,12 +174,11 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
             }
         } else {
             unsafe {
-                &*(self
-                    .0
+                self.0
                     .0
                     .unpack_ptr_no_int_unchecked()
                     .unpack_header_unchecked()
-                    .payload_ptr() as *const T)
+                    .payload::<T>()
             }
         }
     }
@@ -236,24 +235,22 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
             }
         } else if T::static_type_id() == StarlarkStr::static_type_id() {
             unsafe {
-                &*(self
-                    .0
+                self.0
                     .0
                     .unpack_ptr_no_int_unchecked()
                     .unpack_header_unchecked()
-                    .payload_ptr() as *const T)
+                    .payload::<T>()
             }
         } else {
             // When a frozen pointer is not str and not int,
             // unpack is does not need untagging.
             // This generates slightly more efficient machine code.
             unsafe {
-                &*(self
-                    .0
+                self.0
                     .0
                     .unpack_ptr_no_int_no_str_unchecked()
                     .unpack_header_unchecked()
-                    .payload_ptr() as *const T)
+                    .payload::<T>()
             }
         }
     }
