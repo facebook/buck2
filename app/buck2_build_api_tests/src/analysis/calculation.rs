@@ -42,6 +42,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use buck2_execute::execute::dice_data::set_fallback_executor_config;
+use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_loader::LoadedModules;
@@ -160,6 +161,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .build({
             let mut data = UserComputationData::new();
             data.set_keep_going(true);
+            data.set_starlark_debugger_handle(None);
             set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
             data.data.set(EventDispatcher::null());
             data.spawner = Arc::new(BuckSpawner::default());

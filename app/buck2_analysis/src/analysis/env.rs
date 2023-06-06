@@ -28,6 +28,7 @@ use buck2_core::target::label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::starlark_profiler::StarlarkProfileModeOrInstrumentation;
 use buck2_interpreter::starlark_profiler::StarlarkProfiler;
@@ -236,13 +237,15 @@ async fn run_analysis_with_env_underlying(
     let env = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
-    let resolution_ctx = RuleAnalysisAttrResolutionContext {
-        module: &env,
-        dep_analysis_results: analysis_env.deps,
-        query_results: analysis_env.query_results,
-    };
+    let attributes = {
+        let resolution_ctx = RuleAnalysisAttrResolutionContext {
+            module: &env,
+            dep_analysis_results: analysis_env.deps,
+            query_results: analysis_env.query_results,
+        };
 
-    let attributes = node_to_attrs_struct(node, &resolution_ctx)?;
+        node_to_attrs_struct(node, &resolution_ctx)?
+    };
 
     let registry = AnalysisRegistry::new_from_owner(
         BaseDeferredKey::TargetLabel(node.label().dupe()),
@@ -258,43 +261,55 @@ async fn run_analysis_with_env_underlying(
         Some(profiler) => StarlarkProfilerOrInstrumentation::for_profiler(profiler),
     };
 
-    let analysis_registry = {
-        let mut eval = Evaluator::new(&env);
-        eval.set_print_handler(&print);
+    let (mut eval, ctx, list_res) = with_starlark_eval_provider(
+        dice,
+        &mut profiler,
+        format!("analysis:{}", node.label()),
+        |provider| {
+            let mut eval = provider.make(&env)?;
+            eval.set_print_handler(&print);
 
-        let ctx = env.heap().alloc_typed(AnalysisContext::new(
-            eval.heap(),
-            attributes,
-            Some(
-                eval.heap()
-                    .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
-                        analysis_env.label,
-                        ProvidersName::Default,
-                    ))),
-            ),
-            registry,
-            dice.global_data().get_digest_config(),
-        ));
+            let ctx = env.heap().alloc_typed(AnalysisContext::new(
+                eval.heap(),
+                attributes,
+                Some(
+                    eval.heap()
+                        .alloc_typed(Label::new(ConfiguredProvidersLabel::new(
+                            analysis_env.label,
+                            ProvidersName::Default,
+                        ))),
+                ),
+                registry,
+                dice.global_data().get_digest_config(),
+            ));
 
-        profiler.initialize(&mut eval)?;
+            let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
 
-        let list_res = analysis_env.impl_function.invoke(&mut eval, ctx)?;
+            // TODO(cjhopman): This seems quite wrong. This should be happening after run_promises.
+            provider
+                .evaluation_complete(&mut eval)
+                .context("Profiler finalization failed")?;
+            // TODO(cjhopman): This is gross, but we can't await on running the promises within
+            // the with_starlark_eval_provider scoped thing (as we may be holding a debugger
+            // permit, running the promises may require doing more starlark evaluation which in
+            // turn requires those permits). We will actually re-enter a provider scope in the
+            // run_promises call when we get back to resolving the promises (and running the starlark
+            // Promise::map() lambdas).
+            Ok((eval, ctx, list_res))
+        },
+    )
+    .await?;
 
-        profiler
-            .evaluation_complete(&mut eval)
-            .context("Profiler finalization failed")?;
+    ctx.actions.run_promises(dice, &mut eval).await?;
 
-        ctx.actions.run_promises(dice, &mut eval).await?;
+    // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
+    let res_typed = ProviderCollection::try_from_value(list_res)?;
+    let res = env.heap().alloc(res_typed);
+    env.set_extra_value(res);
 
-        // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
-        let res_typed = ProviderCollection::try_from_value(list_res)?;
-        let res = env.heap().alloc(res_typed);
-        env.set_extra_value(res);
-
-        // Pull the ctx object back out, and steal ctx.action's state back
-        ctx.take_state()
-    };
-
+    // Pull the ctx object back out, and steal ctx.action's state back
+    let analysis_registry = ctx.take_state();
+    std::mem::drop(eval);
     let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
 
     profiler
