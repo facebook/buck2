@@ -40,9 +40,11 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::values::demand::Demand;
+use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::const_type_id::ConstTypeId;
+use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::traits::StarlarkValueVTable;
@@ -69,7 +71,16 @@ pub(crate) struct StarlarkValueRawPtr {
 
 impl StarlarkValueRawPtr {
     #[inline]
-    pub(crate) fn new(ptr: *const ()) -> Self {
+    pub(crate) fn new_header(ptr: &AValueHeader) -> Self {
+        unsafe {
+            let ptr = (ptr as *const AValueHeader).add(1) as *const ();
+            StarlarkValueRawPtr { ptr }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn new_pointer_i32(ptr: &'static PointerI32) -> Self {
+        let ptr = ptr as *const PointerI32 as *const ();
         StarlarkValueRawPtr { ptr }
     }
 

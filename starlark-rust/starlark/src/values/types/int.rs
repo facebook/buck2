@@ -152,7 +152,7 @@ impl PointerI32 {
     pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
         unsafe {
             AValueDyn::new(
-                StarlarkValueRawPtr::new(&*(self as *const Self as *const ())),
+                StarlarkValueRawPtr::new_pointer_i32(self),
                 AValueVTable::new::<AValueImpl<Basic, PointerI32>>(),
             )
         }

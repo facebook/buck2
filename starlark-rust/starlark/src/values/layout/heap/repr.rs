@@ -210,8 +210,7 @@ impl AValueHeader {
 
     #[inline]
     pub(crate) fn payload_ptr(&self) -> StarlarkValueRawPtr {
-        let self_repr = self as *const AValueHeader as *const AValueRepr<()>;
-        unsafe { StarlarkValueRawPtr::new(&(*self_repr).payload as *const ()) }
+        StarlarkValueRawPtr::new_header(self)
     }
 
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
