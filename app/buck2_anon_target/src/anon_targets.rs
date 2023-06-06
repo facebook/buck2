@@ -383,7 +383,9 @@ impl AnonTargetKey {
                 )
                 .await?;
 
-                ctx.actions.run_promises(dice, &mut eval).await?;
+                ctx.actions
+                    .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
+                    .await?;
                 let res_typed = ProviderCollection::try_from_value(list_res)?;
                 let res = env.heap().alloc(res_typed);
                 env.set("", res);
@@ -582,6 +584,19 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
             .filter(|p| !p.is_empty())
             .map(|p| Box::new(p) as Box<dyn AnonPromisesDyn>)
     }
+
+    /*
+    pub(crate) fn get_promises(&mut self) -> Option<AnonTargetsRegistry<'v>> {
+        if self.entries.is_empty() {
+            None
+        } else {
+            // We swap it out, so we can still collect new promises
+            let mut new = AnonTargetsRegistry::new(self.execution_platform.dupe());
+            mem::swap(&mut new, self);
+            Some(new)
+        }
+    }
+    */
 
     fn assert_no_promises(&self) -> anyhow::Result<()> {
         if self.promises.is_empty() {

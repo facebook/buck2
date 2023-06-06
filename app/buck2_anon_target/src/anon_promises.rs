@@ -10,6 +10,8 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::starlark_profiler::StarlarkProfilerOrInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
 use either::Either;
@@ -59,6 +61,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         self: Box<Self>,
         dice: &DiceComputations,
         eval: &mut Evaluator<'v, '_>,
+        description: String,
     ) -> anyhow::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
@@ -79,30 +82,38 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
 
         let values =
             future::try_join_all(targets.iter().map(|target| target.resolve(dice))).await?;
-        // But must bind the promises sequentially
-        for (promise, xs) in shape {
-            match xs {
-                Either::Left(i) => {
-                    let val = values[i]
-                        .provider_collection
-                        .value()
-                        .owned_value(eval.frozen_heap());
-                    promise.resolve(val, eval)?
-                }
-                Either::Right(is) => {
-                    let xs: Vec<_> = is
-                        .map(|i| {
-                            values[i]
+        with_starlark_eval_provider(
+            dice,
+            &mut StarlarkProfilerOrInstrumentation::disabled(),
+            description,
+            |_provider| {
+                // But must bind the promises sequentially
+                for (promise, xs) in shape {
+                    match xs {
+                        Either::Left(i) => {
+                            let val = values[i]
                                 .provider_collection
                                 .value()
-                                .owned_value(eval.frozen_heap())
-                        })
-                        .collect();
-                    let list = eval.heap().alloc(AllocList(xs));
-                    promise.resolve(list, eval)?
+                                .owned_value(eval.frozen_heap());
+                            promise.resolve(val, eval)?
+                        }
+                        Either::Right(is) => {
+                            let xs: Vec<_> = is
+                                .map(|i| {
+                                    values[i]
+                                        .provider_collection
+                                        .value()
+                                        .owned_value(eval.frozen_heap())
+                                })
+                                .collect();
+                            let list = eval.heap().alloc(AllocList(xs));
+                            promise.resolve(list, eval)?
+                        }
+                    }
                 }
-            }
-        }
-        Ok(())
+                Ok(())
+            },
+        )
+        .await
     }
 }

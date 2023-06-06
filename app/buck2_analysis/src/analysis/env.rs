@@ -300,7 +300,13 @@ async fn run_analysis_with_env_underlying(
     )
     .await?;
 
-    ctx.actions.run_promises(dice, &mut eval).await?;
+    ctx.actions
+        .run_promises(
+            dice,
+            &mut eval,
+            format!("anon_analysis$promises:{}", node.label()),
+        )
+        .await?;
 
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;

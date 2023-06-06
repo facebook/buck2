@@ -710,9 +710,9 @@ fn register_context(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_>,
     ) -> anyhow::Result<Option<Value<'v>>> {
-        this.async_ctx
-            .via_dice(|dice| action_factory.run_promises(dice, eval))?;
-
+        this.async_ctx.via_dice(|dice| {
+            action_factory.run_promises(dice, eval, format!("bxl$promises:{}", &this.current_bxl))
+        })?;
         Ok(promise.get())
     }
 
