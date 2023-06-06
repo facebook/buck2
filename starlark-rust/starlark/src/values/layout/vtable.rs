@@ -60,18 +60,14 @@ use crate::values::Value;
 /// * `'v` lifetime is heap lifetime
 /// * `'a` lifetime is value lifetime
 #[repr(C)]
-pub(crate) struct StarlarkValueRawPtr<'a, 'v> {
+pub(crate) struct StarlarkValueRawPtr {
     ptr: *const (),
-    _phantom: PhantomData<(&'a (), &'v ())>,
 }
 
-impl<'a, 'v> StarlarkValueRawPtr<'a, 'v> {
+impl StarlarkValueRawPtr {
     #[inline]
     fn new(ptr: *const ()) -> Self {
-        Self {
-            ptr,
-            _phantom: PhantomData,
-        }
+        StarlarkValueRawPtr { ptr }
     }
 
     #[inline]
