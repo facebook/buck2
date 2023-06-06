@@ -76,6 +76,10 @@ impl DaemonConstraintsRequest {
         })
     }
 
+    fn is_trace_io_requested(&self) -> bool {
+        matches!(self.desired_trace_io_state, DesiredTraceIoState::Enabled)
+    }
+
     fn satisfied(&self, daemon: &buck2_cli_proto::DaemonConstraints) -> bool {
         if self.version != daemon.version {
             return false;
@@ -128,10 +132,6 @@ impl DaemonConstraintsRequest {
         }
 
         true
-    }
-
-    pub fn is_trace_io_requested(&self) -> bool {
-        matches!(self.desired_trace_io_state, DesiredTraceIoState::Enabled)
     }
 }
 
@@ -460,14 +460,20 @@ impl BootstrapBuckdClient {
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
 
-        establish_connection(paths, constraints)
-            .await
-            .with_context(|| daemon_connect_error(paths))
-            .context(
-                "Failed to connect to buck daemon. \
+        match constraints {
+            BuckdConnectConstraints::ExistingOnly => {
+                establish_connection_existing(&daemon_dir).await
+            }
+            BuckdConnectConstraints::Constraints(constraints) => {
+                establish_connection(paths, constraints).await
+            }
+        }
+        .with_context(|| daemon_connect_error(paths))
+        .context(
+            "Failed to connect to buck daemon. \
                 Try running `buck2 clean` and your command afterwards. \
                 Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards",
-            )
+        )
     }
 
     pub fn with_subscribers<'a>(
@@ -529,9 +535,21 @@ impl<'a> BuckdConnectOptions<'a> {
     }
 }
 
+pub async fn establish_connection_existing(
+    daemon_dir: &DaemonDir,
+) -> anyhow::Result<BootstrapBuckdClient> {
+    let deadline = StartupDeadline::duration_from_now(buckd_startup_timeout()?)?;
+    deadline
+        .run(
+            "establishing connection to existing Buck daemon",
+            async move { try_connect_existing_impl(daemon_dir).await?.upgrade().await },
+        )
+        .await
+}
+
 async fn establish_connection(
     paths: &InvocationPaths,
-    constraints: BuckdConnectConstraints,
+    constraints: DaemonConstraintsRequest,
 ) -> anyhow::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
@@ -547,19 +565,19 @@ async fn establish_connection(
 
 async fn establish_connection_inner(
     paths: &InvocationPaths,
-    constraints: BuckdConnectConstraints,
+    constraints: DaemonConstraintsRequest,
     deadline: StartupDeadline,
 ) -> anyhow::Result<BootstrapBuckdClient> {
+    let daemon_dir = paths.daemon_dir()?;
     let connect_before_restart = deadline
         .half()?
         .run("connecting to existing buck daemon", {
-            try_connect_existing_before_daemon_restart(paths, &constraints)
+            try_connect_existing_before_daemon_restart(&daemon_dir, &constraints)
         })
         .await?;
 
-    let constraints = match connect_before_restart {
-        ConnectBeforeRestart::Accepted(client) => return Ok(client),
-        ConnectBeforeRestart::Rejected(constraints) => constraints,
+    if let ConnectBeforeRestart::Accepted(client) = connect_before_restart {
+        return Ok(client);
     };
 
     // At this point, we've either failed to connect to buckd or buckd had the wrong constraints.
@@ -572,7 +590,7 @@ async fn establish_connection_inner(
 
     // Even if we didn't connect before, it's possible that we just raced with another invocation
     // starting the server, so we try to connect again while holding the lock.
-    if let Ok(channel) = try_connect_existing(&paths.daemon_dir()?, &deadline).await {
+    if let Ok(channel) = try_connect_existing(&daemon_dir, &deadline).await {
         let mut client = channel.upgrade().await?;
         if constraints.satisfied(&client.constraints) {
             return Ok(client);
@@ -618,9 +636,9 @@ async fn establish_connection_inner(
     Ok(client)
 }
 
-enum ConnectBeforeRestart<'a> {
+enum ConnectBeforeRestart {
     Accepted(BootstrapBuckdClient),
-    Rejected(&'a DaemonConstraintsRequest),
+    Rejected,
 }
 
 /// Connect to buckd before attempt to restart the server.
@@ -630,35 +648,20 @@ enum ConnectBeforeRestart<'a> {
 /// * `Ok(Some(client))` if we connected to an existing buckd
 /// * `Ok(None)` if we failed to connect and should restart buckd
 /// * `Err` if we failed to connect and should abandon startup
-async fn try_connect_existing_before_daemon_restart<'a>(
-    paths: &'_ InvocationPaths,
-    constraints: &'a BuckdConnectConstraints,
-) -> anyhow::Result<ConnectBeforeRestart<'a>> {
-    match try_connect_existing_impl(&paths.daemon_dir()?).await {
+async fn try_connect_existing_before_daemon_restart(
+    daemon_dir: &DaemonDir,
+    constraints: &DaemonConstraintsRequest,
+) -> anyhow::Result<ConnectBeforeRestart> {
+    match try_connect_existing_impl(&daemon_dir).await {
         Ok(channel) => {
             let client = channel.upgrade().await?;
-
-            let constraints = match constraints {
-                BuckdConnectConstraints::ExistingOnly => {
-                    return Ok(ConnectBeforeRestart::Accepted(client));
-                }
-                BuckdConnectConstraints::Constraints(constraints) => constraints,
-            };
-
             if constraints.satisfied(&client.constraints) {
-                return Ok(ConnectBeforeRestart::Accepted(client));
+                Ok(ConnectBeforeRestart::Accepted(client))
+            } else {
+                Ok(ConnectBeforeRestart::Rejected)
             }
-
-            Ok(ConnectBeforeRestart::Rejected(constraints))
         }
-        Err(e) => match constraints {
-            BuckdConnectConstraints::ExistingOnly => {
-                Err(e.context("No existing connection and not asked to start one"))
-            }
-            BuckdConnectConstraints::Constraints(constraints) => {
-                Ok(ConnectBeforeRestart::Rejected(constraints))
-            }
-        },
+        Err(_) => Ok(ConnectBeforeRestart::Rejected),
     }
 }
 
