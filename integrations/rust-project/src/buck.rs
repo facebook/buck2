@@ -288,8 +288,8 @@ pub fn rust_sysroot(project_root: &Path, relative_paths: bool) -> Result<Sysroot
 
     let mut sysroot: PathBuf = sysroot.into();
     if relative_paths {
-        sysroot = relative_to(&sysroot, &project_root);
-        sysroot_src = relative_to(&sysroot_src, &project_root);
+        sysroot = relative_to(&sysroot, project_root);
+        sysroot_src = relative_to(&sysroot_src, project_root);
     }
 
     let sysroot = Sysroot {
