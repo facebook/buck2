@@ -16,7 +16,7 @@ pub(crate) mod observer;
 pub mod re_log;
 pub mod recorder;
 pub(crate) mod simpleconsole;
-pub(crate) mod stdout_stderr_forwarder;
+pub mod stdout_stderr_forwarder;
 pub mod subscriber;
 pub mod subscriber_unpack;
 pub mod superconsole;
