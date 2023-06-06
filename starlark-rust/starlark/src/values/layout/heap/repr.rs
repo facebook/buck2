@@ -293,10 +293,8 @@ impl<T> AValueRepr<T> {
         }
     }
 
-    fn assert_no_padding_between_header_and_payload() {
-        // We can make it work when there's padding, but we don't need to,
-        // and for now just make an assertion.
-        assert!(memoffset::offset_of!(Self, payload) == mem::size_of::<AValueHeader>());
+    fn offset_of_payload() -> usize {
+        memoffset::offset_of!(Self, payload)
     }
 
     /// Offset of value extra content relative to `AValueRepr` start.
@@ -304,14 +302,12 @@ impl<T> AValueRepr<T> {
     where
         T: AValue<'v>,
     {
-        Self::assert_no_padding_between_header_and_payload();
-
-        mem::size_of::<AValueHeader>() + T::offset_of_extra()
+        Self::offset_of_payload() + T::offset_of_extra()
     }
 
     pub(crate) fn from_payload_ptr_mut(payload_ptr: *mut T) -> *mut AValueRepr<T> {
         let payload_ptr = payload_ptr as usize;
-        let header_ptr = payload_ptr - mem::size_of::<AValueHeader>();
+        let header_ptr = payload_ptr - Self::offset_of_payload();
         header_ptr as *mut AValueRepr<T>
     }
 }
