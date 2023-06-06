@@ -166,6 +166,10 @@ impl<'v, 'a> Evaluator<'v, 'a> {
             args: None,
             kwargs: None,
         });
-        function.invoke(&params, self)
+        // eval_module pushes an "empty" call stack frame. other places expect that first frame to be ignorable, and
+        // so we push an empty frame too (otherwise things would ignore this function's own frame).
+        self.with_call_stack(Value::new_none(), None, |this| {
+            function.invoke(&params, this)
+        })
     }
 }
