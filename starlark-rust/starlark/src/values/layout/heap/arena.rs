@@ -179,7 +179,7 @@ impl<A: ArenaAllocator> Arena<A> {
             AValueHeader::ALIGN,
         );
 
-        let size = T::memory_size_for_extra_len(extra_len).add_header();
+        let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();
         unsafe {
             let repr = &mut *(p as *mut MaybeUninit<AValueRepr<T>>);
@@ -216,7 +216,7 @@ impl<A: ArenaAllocator> Arena<A> {
         // so very important to put in a current vtable
         // We always alloc at least one pointer worth of space, so can write in a one-ST blackhole
 
-        let x = BlackHole(T::memory_size_for_extra_len(extra_len));
+        let x = BlackHole(T::alloc_size_for_extra_len(extra_len));
         let p = unsafe {
             transmute!(
                 &mut MaybeUninit<AValueRepr<T>>,

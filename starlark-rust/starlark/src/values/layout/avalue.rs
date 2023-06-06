@@ -41,11 +41,13 @@ use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::DictGen;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::float::StarlarkFloat;
+use crate::values::layout::aligned_size::AlignedSize;
+use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
-use crate::values::layout::value_size::ValueSize;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
 use crate::values::none::NoneType;
@@ -150,19 +152,23 @@ pub(crate) trait AValue<'v>: StarlarkValueDyn<'v> + Sized {
     /// Type is `StarlarkStr`.
     const IS_STR: bool = false;
 
-    /// Memory size of starlark value without vtable (`AValueHeader`).
-    fn memory_size_for_extra_len(extra_len: usize) -> ValueSize {
+    /// Memory size of starlark value including `AValueHeader`.
+    fn alloc_size_for_extra_len(extra_len: usize) -> ValueAllocSize {
         assert!(
             Self::offset_of_extra() % mem::align_of::<Self::ExtraElem>() == 0,
             "extra must be aligned"
         );
-        cmp::max(
-            ValueSize::of_align_up::<Self::StarlarkValue>(),
-            // Content is not necessarily aligned to end of `A`.
-            ValueSize::align_up(
-                Self::offset_of_extra() + (mem::size_of::<Self::ExtraElem>() * extra_len),
+        ValueAllocSize::new(cmp::max(
+            cmp::max(
+                AlignedSize::of::<AValueRepr<Self::StarlarkValue>>(),
+                MIN_ALLOC,
             ),
-        )
+            // Content is not necessarily aligned to end of `A`.
+            AlignedSize::align_up(
+                AValueRepr::<Self>::offset_of_extra()
+                    + (mem::size_of::<Self::ExtraElem>() * extra_len),
+            ),
+        ))
     }
 
     unsafe fn heap_freeze(
@@ -762,7 +768,7 @@ where
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[display(fmt = "BlackHole")]
-pub(crate) struct BlackHole(pub(crate) ValueSize);
+pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 
 impl Serialize for BlackHole {
     fn serialize<S>(&self, _s: S) -> Result<S::Ok, S::Error>

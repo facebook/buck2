@@ -44,7 +44,7 @@ use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::const_type_id::ConstTypeId;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::value_size::ValueSize;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
 use crate::values::Freezer;
@@ -96,7 +96,7 @@ pub(crate) struct AValueVTable {
 
     // `AValue`
     is_str: bool,
-    memory_size: fn(*const ()) -> ValueSize,
+    memory_size: fn(*const ()) -> ValueAllocSize,
     heap_freeze: fn(*mut (), &Freezer) -> anyhow::Result<FrozenValue>,
     heap_copy: for<'v> fn(*mut (), &Tracer<'v>) -> Value<'v>,
 
@@ -163,7 +163,7 @@ impl AValueVTable {
             is_str: T::IS_STR,
             memory_size: |p| unsafe {
                 let p = p as *const T;
-                T::memory_size_for_extra_len((*p).extra_len())
+                T::alloc_size_for_extra_len((*p).extra_len())
             },
             heap_freeze: |p, freezer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p as *mut T);
@@ -235,7 +235,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn memory_size(self) -> ValueSize {
+    pub(crate) fn memory_size(self) -> ValueAllocSize {
         (self.vtable.memory_size)(self.value as *const ())
     }
 
@@ -244,7 +244,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     pub(crate) fn total_memory(self) -> usize {
-        (self.memory_size().add_header().bytes() as usize)
+        (self.memory_size().bytes() as usize)
             + allocative::size_of_unique_allocated_data(self.as_allocative())
     }
 

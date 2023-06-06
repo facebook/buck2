@@ -28,7 +28,6 @@ use crate::cast;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
-use crate::values::layout::value_size::ValueSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::FrozenValue;
@@ -105,12 +104,12 @@ impl ForwardPtr {
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
     forward_ptr: usize,
-    /// Size of `<T>`. Does not include [`AValueHeader`].
-    object_size: ValueSize,
+    /// Size of `AValueRepr<T>` including extra.
+    object_size: ValueAllocSize,
 }
 
 impl AValueForward {
-    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueSize) -> AValueForward {
+    pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
         AValueForward {
             forward_ptr: forward_ptr.0 | 1,
             object_size,
@@ -174,14 +173,13 @@ impl AValueOrForward {
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
     pub(crate) fn alloc_size(&self) -> ValueAllocSize {
-        let n = match self.unpack() {
+        match self.unpack() {
             Either::Left(ptr) => ptr.unpack().memory_size(),
             Either::Right(forward) => {
                 // Overwritten, so the next word will be the size of the memory
                 forward.object_size
             }
-        };
-        n.add_header()
+        }
     }
 }
 
