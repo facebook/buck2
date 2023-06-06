@@ -467,7 +467,7 @@ impl RunAction {
             Ok(Some((
                 matching_result,
                 ActionExecutionMetadata {
-                    execution_kind: ActionExecutionKind::Skipped,
+                    execution_kind: ActionExecutionKind::LocalDepFile,
                     timing: Default::default(),
                 },
             )))
