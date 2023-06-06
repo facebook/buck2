@@ -127,6 +127,9 @@ pub enum ActionExecutionKind {
     /// This action logically executed, but didn't do all the work.
     #[display(fmt = "deferred")]
     Deferred,
+    /// This action was served by the local dep file cache and not executed.
+    #[display(fmt = "local_dep_files")]
+    LocalDepFile,
 }
 
 pub struct CommandExecutionRef<'a> {
@@ -145,6 +148,7 @@ impl ActionExecutionKind {
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
             ActionExecutionKind::Skipped => buck2_data::ActionExecutionKind::Skipped,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
+            ActionExecutionKind::LocalDepFile => buck2_data::ActionExecutionKind::LocalDepFile,
         }
     }
 
@@ -165,7 +169,7 @@ impl ActionExecutionKind {
                 did_cache_upload: *did_cache_upload,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
-            Self::Simple | Self::Skipped | Self::Deferred => None,
+            Self::Simple | Self::Skipped | Self::Deferred | Self::LocalDepFile => None,
         }
     }
 }
