@@ -117,7 +117,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[cfg(any(fbcode_build, cargo_internal_build))] // TODO(@akozhevnikov): Debug why this fails on CircleCI
     async fn test_graceful_termination() -> anyhow::Result<()> {
         let dir = tempfile::tempdir()?;
 
@@ -126,7 +125,7 @@ mod tests {
         let mut parent_file = File::create(dir.path().join("parent.sh")).await?;
         let parent_script = r#"
             sh child.sh &
-            sleep 1  # wait to give an opportunity for a child script to register a trap
+            while [ ! -f trap_registered ]; do sleep 1; done # wait for a child script to register a trap
             echo $!
         "#;
         parent_file.write_all(parent_script.as_bytes()).await?;
@@ -137,7 +136,8 @@ mod tests {
             {
                 touch gracefully_terminated
             }
-            trap sigterm SIGTERM
+            trap sigterm TERM
+            touch trap_registered
 
             sleep 100 &
             wait
@@ -178,7 +178,7 @@ mod tests {
         let mut parent_file = File::create(dir.path().join("parent.sh")).await?;
         let parent_script = r#"
             sh child.sh &
-            sleep 1  # wait to give an opportunity for a child script to register a trap
+            while [ ! -f trap_registered ]; do sleep 1; done # wait for a child script to register a trap
             echo $!
         "#;
         parent_file.write_all(parent_script.as_bytes()).await?;
@@ -190,7 +190,8 @@ mod tests {
                 sleep 3  # block termination
                 touch gracefully_terminated
             }
-            trap sigterm SIGTERM
+            trap sigterm TERM
+            touch trap_registered
 
             sleep 100 &
             wait
