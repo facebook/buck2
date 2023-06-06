@@ -64,14 +64,16 @@ use crate::values::Value;
 #[repr(C)]
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct StarlarkValueRawPtr {
-    /// Pointer to `payload` field of `AValueRepr<T>`,
-    /// or a fake pointer to `PointerI32`.
+    /// Points to the end of `AValueHeader`.
+    /// May not be equal to to the start of `StarlarkValue` due to alignment.
     ptr: *const (),
 }
 
 impl StarlarkValueRawPtr {
     #[inline]
     pub(crate) fn new_header(ptr: &AValueHeader) -> Self {
+        debug_assert!(ptr as *const AValueHeader as usize % AValueHeader::ALIGN == 0);
+
         unsafe {
             let ptr = (ptr as *const AValueHeader).add(1) as *const ();
             StarlarkValueRawPtr { ptr }
@@ -86,7 +88,16 @@ impl StarlarkValueRawPtr {
 
     #[inline]
     pub(crate) unsafe fn value_ptr<T>(self) -> *mut T {
-        self.ptr as *mut T
+        assert!(
+            AValueRepr::<PointerI32>::padding_after_header() == 0,
+            "There is no header for `PointerI32`, but following code should work"
+        );
+
+        // `self.ptr` is a pointer to the end of `AValueHeader`.
+        // Align it up to `T` by adding padding between `AValueRepr` fields.
+        let ptr = self.ptr as usize + AValueRepr::<T>::padding_after_header();
+        debug_assert!(ptr % mem::align_of::<T>() == 0);
+        ptr as *mut T
     }
 
     #[inline]

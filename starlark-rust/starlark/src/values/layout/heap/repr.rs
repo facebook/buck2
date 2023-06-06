@@ -36,10 +36,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Clone)]
-#[repr(C, align(8))]
-// TODO(nga): we don't need to align the header to 8 bytes,
-// we only need to align allocations to 8 bytes.
-// With current setup, we waste 4 bytes per allocation in the header on 32-bit machines.
+#[repr(C)]
 pub(crate) struct AValueHeader(pub(crate) &'static AValueVTable);
 
 impl Hash for AValueHeader {
@@ -60,9 +57,12 @@ impl Eq for AValueHeader {}
 impl Dupe for AValueHeader {}
 
 /// How object is represented in arena.
-#[repr(C)]
+#[repr(C, align(8))]
 pub(crate) struct AValueRepr<T> {
     pub(crate) header: AValueHeader,
+    /// Payload of the object, i.e. `StarlarkValue`.
+    /// Note that `T` may have larger alignment that `AValueHeader`,
+    /// so we cannot add fixed offset to `self` to get to the payload.
     pub(crate) payload: T,
 }
 
@@ -191,8 +191,10 @@ impl AValueForward {
 }
 
 impl AValueHeader {
-    /// Alignment of values in Starlark heap.
-    pub(crate) const ALIGN: usize = mem::align_of::<AValueHeader>();
+    /// Alignment of objects in Starlark heap.
+    /// We must use 8 byte alignment because we use three lowest bits for tags.
+    /// Note the alignment of `AValueHeader` may be smaller than this.
+    pub(crate) const ALIGN: usize = 8;
 
     pub(crate) fn new<'v, T: AValue<'v>>() -> AValueHeader {
         let header = AValueHeader::new_const::<T>();
@@ -259,11 +261,13 @@ impl AValueHeader {
     /// Cast header pointer to repr pointer.
     #[inline]
     pub(crate) unsafe fn as_repr<'v, A: AValue<'v>>(&self) -> &AValueRepr<A> {
-        debug_assert_eq!(
-            A::StarlarkValue::static_type_id(),
-            self.unpack().static_type_of_value()
-        );
-        &*(self as *const AValueHeader as *const AValueRepr<A>)
+        &*(self.as_repr_v::<A::StarlarkValue>() as *const _ as *const _)
+    }
+
+    #[inline]
+    pub(crate) unsafe fn as_repr_v<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
+        debug_assert_eq!(T::static_type_id(), self.unpack().static_type_of_value());
+        &*(self as *const AValueHeader as *const AValueRepr<T>)
     }
 
     fn as_avalue_or_header(&self) -> &AValueOrForward {
@@ -291,8 +295,14 @@ impl<T> AValueRepr<T> {
         }
     }
 
-    fn offset_of_payload() -> usize {
+    pub(crate) fn offset_of_payload() -> usize {
         memoffset::offset_of!(Self, payload)
+    }
+
+    /// Padding between header and payload.
+    /// Non-zero when alignment of payload is larger than alignment of pointer.
+    pub(crate) fn padding_after_header() -> usize {
+        Self::offset_of_payload() - mem::size_of::<AValueHeader>()
     }
 
     /// Offset of value extra content relative to `AValueRepr` start.
