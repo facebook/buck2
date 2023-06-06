@@ -14,14 +14,15 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use regex::Regex;
 use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum XcodeVersionError {
-    #[error("Unable to construct path to `version.plist` in Xcode install directory.")]
-    UnableToConstructVersionInfoPath,
+    #[error("XCode select symlink `{}` resolved to path without parent: `{}`", XCODE_SELECT_SYMLINK, _0.display())]
+    XcodeSelectSymlinkResolvedToPathWithoutParent(AbsNormPathBuf),
     #[error("Expected short version `{0}` to contain at least major and minor versions")]
     MalformedShortVersion(String),
     #[error("Expected valid format for 'version-build' (e.g., 14.3.0-14C18 or 14.1-14B47b)")]
@@ -63,9 +64,11 @@ impl XcodeVersionInfo {
             Some(p) => p,
             None => return Ok(None),
         };
-        let plist_parent_path = resolved_xcode_path
-            .parent()
-            .ok_or(XcodeVersionError::UnableToConstructVersionInfoPath)?;
+        let plist_parent_path = resolved_xcode_path.parent().ok_or_else(|| {
+            XcodeVersionError::XcodeSelectSymlinkResolvedToPathWithoutParent(
+                resolved_xcode_path.clone(),
+            )
+        })?;
         let plist_path = plist_parent_path.as_path().join("version.plist");
         Self::from_plist(&plist_path)
     }
