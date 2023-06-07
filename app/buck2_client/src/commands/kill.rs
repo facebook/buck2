@@ -37,7 +37,6 @@ impl KillCommand {
                 "kill",
                 std::env::args().collect(),
                 None,
-                false,
             )?;
 
             match ctx

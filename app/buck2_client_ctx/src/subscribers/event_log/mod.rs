@@ -10,7 +10,6 @@
 pub mod file_names;
 pub mod read;
 pub mod subscriber;
-pub mod upload;
 #[allow(unused)] // TODO(wendyy) temporary
 pub mod user_event_types;
 pub mod utils;

@@ -111,7 +111,6 @@ pub(crate) fn try_get_event_log_subscriber<'a>(
     sanitized_argv: SanitizedArgv,
     ctx: &ClientCommandContext<'a>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    use_streaming_upload: bool,
     user_event_log: &Option<PathArg>,
 ) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if event_log_opts.no_event_log {
@@ -130,7 +129,6 @@ pub(crate) fn try_get_event_log_subscriber<'a>(
         ctx.async_cleanup_context().dupe(),
         ctx.command_name.clone(),
         log_size_counter_bytes,
-        use_streaming_upload,
     )?;
     Ok(Some(Box::new(log)))
 }

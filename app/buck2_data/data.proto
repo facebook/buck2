@@ -1446,7 +1446,7 @@ message TypedMetadata {
 
 // Record event sent directly to scribe.
 message InvocationRecord {
-  reserved 22, 36;
+  reserved 22, 36, 66;
 
   // Optional - present if ever sent to client.
   CommandStart command_start = 1;
@@ -1558,7 +1558,6 @@ message InvocationRecord {
   optional string restarted_trace_id = 63;
   optional bool has_command_result = 64;
   optional uint64 compressed_event_log_size_bytes = 65;
-  bool use_streaming_upload = 66;
   optional bool has_end_of_stream = 67;
   optional string critical_path_backend = 68;
 }

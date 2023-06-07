@@ -25,7 +25,6 @@ use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::WorkingDir;
-use buck2_core::soft_error;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::future::Future;
@@ -41,8 +40,6 @@ use crate::cleanup_ctx::AsyncCleanupContext;
 use crate::subscribers::event_log::file_names::get_logfile_name;
 use crate::subscribers::event_log::file_names::remove_old_logs;
 use crate::subscribers::event_log::read::EventLogPathBuf;
-use crate::subscribers::event_log::upload::log_upload;
-use crate::subscribers::event_log::upload::LogUploadError;
 use crate::subscribers::event_log::utils::Compression;
 use crate::subscribers::event_log::utils::Encoding;
 use crate::subscribers::event_log::utils::EventLogErrors;
@@ -116,7 +113,6 @@ pub(crate) enum EventLogType {
 pub(crate) struct NamedEventLogWriter {
     path: EventLogPathBuf,
     file: EventLogWriter,
-    trace_id: TraceId,
     #[allow(unused)] // TODO(wendyy) temporary
     event_log_type: EventLogType,
 }
@@ -142,7 +138,6 @@ pub(crate) struct WriteEventLog<'a> {
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    use_streaming_upload: bool,
 }
 
 impl<'a> WriteEventLog<'a> {
@@ -155,7 +150,6 @@ impl<'a> WriteEventLog<'a> {
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-        use_streaming_upload: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             state: LogWriterState::Unopened {
@@ -169,7 +163,6 @@ impl<'a> WriteEventLog<'a> {
             working_dir,
             buf: Vec::new(),
             log_size_counter_bytes,
-            use_streaming_upload,
         })
     }
 
@@ -275,25 +268,12 @@ impl<'a> WriteEventLog<'a> {
             path: logdir.as_abs_path().join(file_name),
             encoding,
         };
-        let writer = match self.use_streaming_upload {
-            true => {
-                start_persist_subprocess(
-                    path,
-                    event.trace_id()?.clone(),
-                    self.log_size_counter_bytes.clone(),
-                )
-                .await?
-            }
-            false => {
-                open_event_log_for_writing(
-                    path,
-                    event.trace_id()?,
-                    self.log_size_counter_bytes.clone(),
-                    EventLogType::System,
-                )
-                .await?
-            }
-        };
+        let writer = start_persist_subprocess(
+            path,
+            event.trace_id()?.clone(),
+            self.log_size_counter_bytes.clone(),
+        )
+        .await?;
         let mut writers = vec![writer];
 
         // Also open the user's log file, if any as provided, with no encoding.
@@ -306,7 +286,6 @@ impl<'a> WriteEventLog<'a> {
                             encoding: Encoding::JSON_GZIP,
                         },
                     ),
-                    event.trace_id()?,
                     self.log_size_counter_bytes.clone(),
                     EventLogType::System,
                 )
@@ -324,7 +303,6 @@ impl<'a> WriteEventLog<'a> {
                             encoding: Encoding::JSON,
                         },
                     ),
-                    event.trace_id()?,
                     self.log_size_counter_bytes.clone(),
                     EventLogType::User,
                 )
@@ -341,7 +319,6 @@ impl<'a> WriteEventLog<'a> {
     ) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
         // Shut down writers, flush all our files before exiting.
         let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
-        let use_streaming_upload = self.use_streaming_upload;
 
         async move {
             let mut writers = match state {
@@ -355,30 +332,6 @@ impl<'a> WriteEventLog<'a> {
             for writer in writers.iter_mut() {
                 writer.file.shutdown().await?;
             }
-            if use_streaming_upload {
-                // The subprocess handles the uploading
-                return Ok(());
-            }
-            let log_file_to_upload = match writers.first() {
-                Some(log) => log,
-                None => return Ok(()),
-            };
-            // NOTE: we ignore outputs here so that we don't fail if e.g. something deleted our log
-            // file while we were about to upload it.
-            if let Err(e) = log_upload(&log_file_to_upload.path, &log_file_to_upload.trace_id).await
-            {
-                if matches!(e, LogUploadError::LogWasDeleted) {
-                    // This is expected to happen if more than 10 commands are run in parallel,
-                    // since we only keep the 10 most recent logs
-                    tracing::debug!("{}", e);
-                } else {
-                    // Do not fail e2e tests if manifold is not available.
-                    // TODO(nga): there's no ready to use API to send such warning to Scuba,
-                    //   so use `soft_error!` for now.
-                    let _ignore = soft_error!("event_log_upload_failed", anyhow::Error::new(e));
-                }
-            }
-
             Ok(())
         }
     }
@@ -436,12 +389,11 @@ async fn start_persist_subprocess(
             )
         })?;
     let pipe = child.stdin.expect("stdin was piped");
-    get_writer(path, pipe, trace_id, bytes_written, EventLogType::System)
+    get_writer(path, pipe, bytes_written, EventLogType::System)
 }
 
 async fn open_event_log_for_writing(
     path: EventLogPathBuf,
-    trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
     event_log_type: EventLogType,
 ) -> anyhow::Result<NamedEventLogWriter> {
@@ -457,13 +409,12 @@ async fn open_event_log_for_writing(
             )
         })?;
 
-    get_writer(path, file, trace_id, bytes_written, event_log_type)
+    get_writer(path, file, bytes_written, event_log_type)
 }
 
 fn get_writer(
     path: EventLogPathBuf,
     file: impl AsyncWrite + std::marker::Send + std::marker::Unpin + std::marker::Sync + 'static,
-    trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
     event_log_type: EventLogType,
 ) -> Result<NamedEventLogWriter, anyhow::Error> {
@@ -481,7 +432,6 @@ fn get_writer(
     Ok(NamedEventLogWriter {
         path,
         file,
-        trace_id,
         event_log_type,
     })
 }
@@ -615,8 +565,7 @@ mod tests {
             Ok(Self {
                 state: LogWriterState::Opened {
                     writers: vec![
-                        open_event_log_for_writing(log, TraceId::new(), None, EventLogType::System)
-                            .await?,
+                        open_event_log_for_writing(log, None, EventLogType::System).await?,
                     ],
                 },
                 sanitized_argv: SanitizedArgv {
@@ -628,7 +577,6 @@ mod tests {
                 working_dir: WorkingDir::current_dir()?,
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
-                use_streaming_upload: false,
             })
         }
     }

@@ -86,7 +86,6 @@ impl CleanCommand {
             "clean",
             std::env::args().collect(),
             None,
-            false,
         )?;
 
         ctx.with_runtime(async move |ctx| {
