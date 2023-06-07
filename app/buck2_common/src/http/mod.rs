@@ -39,6 +39,7 @@ use tokio::io::AsyncReadExt;
 use tokio_rustls::TlsConnector;
 use tokio_util::io::StreamReader;
 
+mod counting_client;
 mod proxy;
 mod redirect;
 pub mod retries;

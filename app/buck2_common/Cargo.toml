@@ -27,6 +27,7 @@ ipnetwork = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 once_cell = { workspace = true }
+pin-project = { workspace = true }
 prost-types = { workspace = true }
 rand = { workspace = true }
 ref-cast = { workspace = true }
