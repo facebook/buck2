@@ -39,7 +39,6 @@ use futures::Future;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
 use once_cell::sync::Lazy;
 
@@ -217,44 +216,17 @@ async fn compute_deferred(
 
             let target_node_futs = FuturesUnordered::new();
             let deferreds_futs = FuturesUnordered::new();
-            let artifacts_futs = FuturesUnordered::new();
             let materialized_artifacts = FuturesUnordered::new();
 
             deferred.inputs().iter().for_each(|input| match input {
-                DeferredInput::ConfiguredTarget(target) => target_node_futs.push(async move {
-                    Ok((
-                        target.dupe(),
-                        ctx.get_configured_target_node(target)
-                            .await?
-                            .require_compatible()?,
-                    ))
-                }),
-                DeferredInput::Deferred(deferred_key) => {
-                    let deferred_key = deferred_key.dupe();
-                    deferreds_futs.push(async move {
-                        Ok((
-                            deferred_key.dupe(),
-                            resolve_deferred(ctx, &deferred_key).await?,
-                        ))
-                    })
-                }
-                DeferredInput::Artifact(artifact) => {
-                    // TODO ():
-                    let artifact = artifact.dupe();
-                    artifacts_futs.push(async move {
-                        Ok((
-                            artifact.dupe(),
-                            // TODO(bobyf) import artifact calculation
-                            ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact))
-                                .await?
-                                .iter()
-                                .into_singleton()
-                                .context("Expected Artifact to yield a single value")?
-                                .1
-                                .dupe(),
-                        ))
-                    })
-                }
+                DeferredInput::ConfiguredTarget(target) => target_node_futs.push(
+                    ctx.get_configured_target_node(target)
+                        .map(|res| anyhow::Ok((target.dupe(), res?.require_compatible()?))),
+                ),
+                DeferredInput::Deferred(deferred_key) => deferreds_futs.push(
+                    resolve_deferred(ctx, deferred_key)
+                        .map(|res| anyhow::Ok((deferred_key.dupe(), res?))),
+                ),
                 DeferredInput::MaterializedArtifact(artifact) => {
                     materialized_artifacts.push(artifact.dupe());
                 }
@@ -302,10 +274,9 @@ async fn compute_deferred(
             };
 
             // TODO(nga): do we need to compute artifacts?
-            let (targets, deferreds, _artifacts, materialized_artifacts) = futures::future::join4(
+            let (targets, deferreds, materialized_artifacts) = futures::future::join3(
                 futures_pair_to_map(target_node_futs),
                 futures_pair_to_map(deferreds_futs),
-                futures_pair_to_map(artifacts_futs),
                 materialized_artifacts_fut,
             )
             .await;

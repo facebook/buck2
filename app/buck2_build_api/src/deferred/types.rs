@@ -152,7 +152,6 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
 pub enum DeferredInput {
     ConfiguredTarget(ConfiguredTargetLabel),
     Deferred(DeferredKey),
-    Artifact(Artifact),
     MaterializedArtifact(Artifact),
 }
 
