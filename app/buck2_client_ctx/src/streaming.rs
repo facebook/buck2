@@ -96,10 +96,6 @@ fn default_subscribers<'a, T: StreamingCommand>(
 }
 
 fn streaming_uploads() -> anyhow::Result<bool> {
-    if cfg!(windows) {
-        // TODO T149151673: support windows streaming upload
-        return Ok(false);
-    };
     Ok(USE_STREAMING_UPLOADS.get_copied()?.unwrap_or(true))
 }
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
