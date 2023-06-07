@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_data::ActionExecutionEnd;
+use buck2_data::ActionExecutionStart;
 use buck2_data::StarlarkUserEvent;
 
 use super::write::StreamValueForWrite;
@@ -19,7 +21,18 @@ pub(crate) fn is_user_event<'v>(buck_event: &'v buck2_data::BuckEvent) -> bool {
                 _ => false,
             }
         }
-        // TODO(wendyy) - support actions
+        buck2_data::buck_event::Data::SpanStart(ref span_start_event) => {
+            match span_start_event.data.as_ref().unwrap() {
+                buck2_data::span_start_event::Data::ActionExecution(_) => true,
+                _ => false,
+            }
+        }
+        buck2_data::buck_event::Data::SpanEnd(ref span_end_event) => {
+            match span_end_event.data.as_ref().unwrap() {
+                buck2_data::span_end_event::Data::ActionExecution(_) => true,
+                _ => false,
+            }
+        }
         _ => false,
     }
 }
