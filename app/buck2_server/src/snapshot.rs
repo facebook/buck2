@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context as _;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_events::EventSink;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -34,6 +35,8 @@ pub struct SnapshotCollector {
     materializer: Arc<dyn Materializer>,
     event_sink: Option<Arc<dyn EventSink>>,
     net_io_collector: SystemNetworkIoCollector,
+    /// This is only used to obtain statistics from the HTTP client.
+    http_client: CountingHttpClient,
 }
 
 impl SnapshotCollector {
@@ -44,6 +47,7 @@ impl SnapshotCollector {
         dice: Arc<Dice>,
         materializer: Arc<dyn Materializer>,
         event_sink: Option<Arc<dyn EventSink>>,
+        http_client: CountingHttpClient,
     ) -> SnapshotCollector {
         SnapshotCollector {
             re_client_manager,
@@ -53,6 +57,7 @@ impl SnapshotCollector {
             materializer,
             event_sink,
             net_io_collector: SystemNetworkIoCollector::new(),
+            http_client,
         }
     }
 
@@ -70,6 +75,7 @@ impl SnapshotCollector {
         let mut snapshot = Self::pre_initialization_snapshot(self.daemon_start_time);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
+        self.add_http_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
         self.add_materializer_metrics(&mut snapshot);
@@ -159,6 +165,11 @@ impl SnapshotCollector {
         if let Err(e) = inner(snapshot, &self.re_client_manager) {
             tracing::debug!("Error collecting network stats: {:#}", e);
         }
+    }
+
+    fn add_http_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let stats = self.http_client.get_updated_http_network_stats();
+        snapshot.http_download_bytes = stats.downloaded_bytes;
     }
 
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

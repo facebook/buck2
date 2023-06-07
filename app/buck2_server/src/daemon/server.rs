@@ -869,6 +869,7 @@ impl DaemonApi for BuckdServer {
                         data.dice_manager.unsafe_dice().dupe(),
                         data.materializer.dupe(),
                         data.scribe_sink.dupe() as _,
+                        data.http_client.dupe(),
                     )
                     .create_snapshot(),
                 )

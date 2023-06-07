@@ -546,6 +546,8 @@ message Snapshot {
   // Network statistics for "interesting" network interfaces.
   map<string, NetworkInterfaceStats> network_interface_stats = 109;
 
+  uint64 http_download_bytes = 110;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received

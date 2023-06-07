@@ -26,6 +26,11 @@ use pin_project::pin_project;
 use crate::http::HttpClient;
 use crate::http::HttpError;
 
+#[derive(Allocative)]
+pub struct HttpNetworkStats {
+    pub downloaded_bytes: u64,
+}
+
 /// Wrapper for the HTTP client, storing collected metrics such as the number
 /// of bytes downloaded by the client's GET requests during its entire lifetime.
 #[derive(Allocative, Clone, Dupe)]
@@ -39,6 +44,12 @@ impl CountingHttpClient {
         Self {
             inner: client,
             bytes_downloaded: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    pub fn get_updated_http_network_stats(&self) -> HttpNetworkStats {
+        HttpNetworkStats {
+            downloaded_bytes: self.bytes_downloaded.load(Ordering::Relaxed),
         }
     }
 }
