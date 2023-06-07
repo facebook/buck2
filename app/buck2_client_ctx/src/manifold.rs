@@ -91,34 +91,26 @@ impl From<io::Error> for UploadError {
 }
 
 #[derive(Clone, Copy)]
-pub enum Bucket {
-    EventLogs,
-    RageDumps,
-    ReLogs,
-}
-
-pub struct BucketInfo<'a> {
-    pub name: &'a str,
-    key: &'a str,
+pub struct Bucket {
+    pub name: &'static str,
+    key: &'static str,
 }
 
 impl Bucket {
-    pub fn info(self) -> BucketInfo<'static> {
-        match self {
-            Bucket::EventLogs => BucketInfo {
-                name: "buck2_logs",
-                key: "buck2_logs-key",
-            },
-            Bucket::RageDumps => BucketInfo {
-                name: "buck2_rage_dumps",
-                key: "buck2_rage_dumps-key",
-            },
-            Bucket::ReLogs => BucketInfo {
-                name: "buck2_re_logs",
-                key: "buck2_re_logs-key",
-            },
-        }
-    }
+    pub const EVENT_LOGS: Bucket = Bucket {
+        name: "buck2_logs",
+        key: "buck2_logs-key",
+    };
+
+    pub const RAGE_DUMPS: Bucket = Bucket {
+        name: "buck2_rage_dumps",
+        key: "buck2_rage_dumps-key",
+    };
+
+    pub const RE_LOGS: Bucket = Bucket {
+        name: "buck2_re_logs",
+        key: "buck2_re_logs-key",
+    };
 }
 
 pub struct Upload<'a> {
@@ -168,7 +160,7 @@ impl<'a> Upload<'a> {
     }
 
     pub(super) fn upload_command(&self) -> Result<Command, UploadError> {
-        let bucket = self.bucket.info();
+        let bucket = self.bucket;
         // we use manifold CLI as it works cross-platform
         let manifold_cli_path = get_cli_path();
         let bucket_path = &format!("flat/{}", self.filename);
@@ -313,7 +305,7 @@ where
 }
 
 fn curl_write_command(
-    bucket: BucketInfo,
+    bucket: Bucket,
     manifold_bucket_path: &str,
     ttl: Option<Duration>,
     cert: &OsString,
@@ -443,7 +435,7 @@ impl ManifoldClient {
 
     pub async fn write(
         &self,
-        bucket: BucketInfo<'_>,
+        bucket: Bucket,
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         ttl: Option<Duration>,
@@ -489,7 +481,7 @@ impl ManifoldClient {
 
     pub async fn append(
         &self,
-        bucket: BucketInfo<'_>,
+        bucket: Bucket,
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         offset: u64,

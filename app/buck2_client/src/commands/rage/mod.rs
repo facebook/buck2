@@ -410,7 +410,7 @@ async fn upload_daemon_stderr(
         .context(RageError::OpenFileError(path.display().to_string()))?
         .into();
     let filename = format!("{}.stderr", manifold_id);
-    manifold::Upload::new(manifold::Bucket::RageDumps, &filename)
+    manifold::Upload::new(manifold::Bucket::RAGE_DUMPS, &filename)
         .with_default_ttl()
         .from_stdio(upload_log_file)?
         .spawn()
@@ -420,13 +420,13 @@ async fn upload_daemon_stderr(
 
 async fn upload_event_logs(path: &EventLogPathBuf, manifold_id: &str) -> anyhow::Result<String> {
     let filename = format!("{}-event_log{}", manifold_id, path.extension());
-    let bucket = manifold::Bucket::RageDumps;
+    let bucket = manifold::Bucket::RAGE_DUMPS;
     manifold::Upload::new(bucket, &filename)
         .with_default_ttl()
         .from_file(path.path())?
         .spawn()
         .await?;
-    Ok(format!("{}/flat/{}", bucket.info().name, filename))
+    Ok(format!("{}/flat/{}", bucket.name, filename))
 }
 
 async fn dispatch_invoked_event(

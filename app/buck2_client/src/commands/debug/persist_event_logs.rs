@@ -194,7 +194,7 @@ async fn do_the_upload_and_increment_read_position(
         // First chunk
         manifold_client
             .write(
-                manifold::Bucket::EventLogs.info(),
+                manifold::Bucket::EVENT_LOGS,
                 manifold_path,
                 buf.into(),
                 MANIFOLD_TTL_S.get_copied()?.map(Duration::from_secs),
@@ -203,7 +203,7 @@ async fn do_the_upload_and_increment_read_position(
     } else {
         manifold_client
             .append(
-                manifold::Bucket::EventLogs.info(),
+                manifold::Bucket::EVENT_LOGS,
                 manifold_path,
                 buf.into(),
                 *read_position,
