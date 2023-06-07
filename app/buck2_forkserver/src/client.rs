@@ -15,6 +15,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use buck2_common::result::SharedError;
+use buck2_core::tag_error;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -96,7 +97,13 @@ impl ForkserverClient {
         C: Future<Output = ()> + Send + 'static,
     {
         if let Some(err) = &*self.inner.error.load() {
-            return Err(SharedError::from(err.dupe()).into());
+            return Err(tag_error!(
+                "forkserver_exit",
+                SharedError::from(err.dupe()).into(),
+                quiet: true,
+                task: false,
+                daemon_in_memory_state_is_corrupted: true,
+            ));
         }
 
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
