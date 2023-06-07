@@ -73,6 +73,7 @@ message StatusResponse {
   DaemonConstraints daemon_constraints = 8;
   string project_root = 9;
   string isolation_dir = 10;
+  optional uint32 forkserver_pid = 11;
 }
 
 message PingRequest {

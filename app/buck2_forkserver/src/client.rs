@@ -47,6 +47,7 @@ struct ForkserverClientInner {
     /// Error from the forkserver process, if any.
     #[allocative(skip)]
     error: Arc<ArcSwapOption<anyhow::Error>>,
+    pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
 }
@@ -57,6 +58,8 @@ impl ForkserverClient {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
+
+        let pid = child.id().expect("Child has not been polled");
 
         let error = Arc::new(ArcSwapOption::empty());
 
@@ -76,8 +79,12 @@ impl ForkserverClient {
         });
 
         Self {
-            inner: Arc::new(ForkserverClientInner { error, rpc }),
+            inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
         }
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.inner.pid
     }
 
     pub async fn execute<C>(

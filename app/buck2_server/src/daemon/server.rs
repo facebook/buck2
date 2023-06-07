@@ -898,6 +898,11 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
+                forkserver_pid: daemon_state
+                    .data
+                    .as_ref()
+                    .ok()
+                    .and_then(|state| state.forkserver.as_ref().map(|f| f.pid())),
                 ..Default::default()
             };
             Ok(base)

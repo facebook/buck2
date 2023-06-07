@@ -138,6 +138,7 @@ fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
         "snapshot": serde_json::to_value(status.snapshot)?,
         "project_root": status.project_root,
         "isolation_dir": status.isolation_dir,
+        "forkserver_pid": serde_json::to_value(status.forkserver_pid)?,
     }))
 }
 

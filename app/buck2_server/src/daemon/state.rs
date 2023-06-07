@@ -85,7 +85,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    data: SharedResult<Arc<DaemonStateData>>,
+    pub(crate) data: SharedResult<Arc<DaemonStateData>>,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
