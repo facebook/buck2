@@ -373,26 +373,22 @@ fn build_targets_in_universe<'a>(
         .map(|p| {
             let materialization_context = materialization_context.dupe();
             let providers_to_build = providers_to_build.clone();
-            ctx.temporary_spawn(|ctx, _cancellations| {
-                async move {
-                    let res = build::build_configured_label(
-                        &ctx,
-                        &materialization_context,
-                        p,
-                        &providers_to_build,
-                        false,
-                    )
-                    .await;
+            async move {
+                let res = build::build_configured_label(
+                    ctx,
+                    &materialization_context,
+                    p,
+                    &providers_to_build,
+                    false,
+                )
+                .await;
 
-                    match res {
-                        Ok(stream) => stream.map(Ok).left_stream(),
-                        Err(e) => {
-                            futures::stream::once(futures::future::ready(Err(e))).right_stream()
-                        }
-                    }
+                match res {
+                    Ok(stream) => stream.map(Ok).left_stream(),
+                    Err(e) => futures::stream::once(futures::future::ready(Err(e))).right_stream(),
                 }
-                .boxed()
-            })
+            }
+            .boxed()
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -509,19 +505,16 @@ fn build_targets_for_spec<'a>(
             .map(|build_spec| {
                 let materialization_context = materialization_context.dupe();
                 let providers_to_build = providers_to_build.clone();
-                // TODO(cjhopman): Figure out why we need these explicit spawns to get actual multithreading.
-                ctx.temporary_spawn(move |ctx, _cancellations| {
-                    async move {
-                        build_target(
-                            &ctx,
-                            build_spec,
-                            &providers_to_build,
-                            &materialization_context,
-                        )
-                        .await
-                    }
-                    .boxed()
-                })
+                async move {
+                    build_target(
+                        ctx,
+                        build_spec,
+                        &providers_to_build,
+                        &materialization_context,
+                    )
+                    .await
+                }
+                .boxed()
             })
             .collect::<FuturesUnordered<_>>()
             .flatten_unordered(None);
