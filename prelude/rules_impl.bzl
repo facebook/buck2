@@ -461,7 +461,7 @@ inlined_extra_attributes = {
         "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
-        "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
+        "supports_python_dlopen": attrs.bool(default = True),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_omnibus_environment": omnibus_environment_attr(),
