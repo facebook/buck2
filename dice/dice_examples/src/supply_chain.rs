@@ -32,6 +32,7 @@ use dice::Key;
 use dupe::Dupe;
 use futures::future::join_all;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use futures::StreamExt;
 use gazebo::prelude::*;
 use more_futures::cancellation::CancellationContext;
@@ -227,12 +228,9 @@ async fn lookup_company_resource_cost(
             let mut futs: FuturesUnordered<_> = recipe
                 .ingredients
                 .iter()
-                .map(|(required, resource)| async move {
-                    Ok::<_, Arc<anyhow::Error>>(
-                        ctx.resource_cost(resource)
-                            .await?
-                            .map(|x| x * *required as u16),
-                    )
+                .map(|(required, resource)| {
+                    ctx.resource_cost(resource)
+                        .map(|res| Ok::<_, Arc<anyhow::Error>>(res?.map(|x| x * *required as u16)))
                 })
                 .collect();
 
@@ -281,9 +279,11 @@ impl Cost for DiceComputations {
                     .await
                     .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-                let costs = join_all(companies.iter().map(|company| async move {
-                    lookup_company_resource_cost(ctx, company, &self.0).await
-                }))
+                let costs = join_all(
+                    companies
+                        .iter()
+                        .map(|company| lookup_company_resource_cost(ctx, company, &self.0)),
+                )
                 .await;
 
                 Ok(costs
