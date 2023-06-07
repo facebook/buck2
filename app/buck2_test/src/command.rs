@@ -450,6 +450,15 @@ async fn test_targets(
 
                     let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
+                    let resolve_tests_platform_independently = ctx
+                        .parse_legacy_config_property(
+                            cell_resolver.root_cell(),
+                            "buck2",
+                            "independent_tests_platform_resolution",
+                        )
+                        .await?
+                        .unwrap_or(false);
+
                     let mut driver = TestDriver::new(TestDriverState {
                         ctx: &ctx,
                         label_filtering: &label_filtering,
@@ -458,6 +467,7 @@ async fn test_targets(
                         test_executor: &test_executor,
                         cell_resolver: &cell_resolver,
                         working_dir_cell,
+                        resolve_tests_platform_independently,
                     });
 
                     driver.push_pattern(pattern.convert_pattern().context(
@@ -567,6 +577,7 @@ pub(crate) struct TestDriverState<'a, 'e> {
     test_executor: &'a Arc<dyn TestExecutor + 'e>,
     cell_resolver: &'a CellResolver,
     working_dir_cell: CellName,
+    resolve_tests_platform_independently: bool,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -673,10 +684,22 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 // Test this, it's compatible.
                 let mut labels = vec![label];
 
-                // Look up `tests` in the the target we're testing, and if we find any tests them, add them to the
-                // test backlog.
-                for test in node.tests() {
-                    labels.push(test);
+                // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
+                if state.resolve_tests_platform_independently {
+                    for test in node.unconfigured_tests() {
+                        let label = state
+                            .ctx
+                            .get_configured_provider_label(
+                                test,
+                                state.global_target_platform.as_ref(),
+                            )
+                            .await?;
+                        labels.push(label);
+                    }
+                } else {
+                    for test in node.tests() {
+                        labels.push(test);
+                    }
                 }
 
                 anyhow::Ok(TestDriverTask::TestTargets { labels })
