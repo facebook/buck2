@@ -94,6 +94,12 @@ impl From<anyhow::Error> for SharedError {
     }
 }
 
+impl From<Arc<anyhow::Error>> for SharedError {
+    fn from(err: Arc<anyhow::Error>) -> Self {
+        SharedError(err)
+    }
+}
+
 impl From<std::io::Error> for SharedError {
     fn from(err: std::io::Error) -> Self {
         SharedError(Arc::new(err.into()))

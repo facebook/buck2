@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+arc-swap = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 bytes = { workspace = true }
@@ -13,6 +14,7 @@ libc = { workspace = true }
 pin-project = { workspace = true }
 rand = { workspace = true }
 take_mut = { workspace = true }
+thiserror = { workspace = true }
 tokio-util = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
