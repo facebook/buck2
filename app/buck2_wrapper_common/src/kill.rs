@@ -67,15 +67,15 @@ mod os_specific {
     }
 
     pub(super) fn kill(pid: u32) -> anyhow::Result<Option<impl KilledProcessHandle>> {
-        let daemon_pid = nix::unistd::Pid::from_raw(
+        let pid = nix::unistd::Pid::from_raw(
             pid.try_into()
                 .with_context(|| format!("Integer overflow converting pid {} to pid_t", pid))?,
         );
 
-        match nix::sys::signal::kill(daemon_pid, Signal::SIGKILL) {
-            Ok(()) => Ok(Some(UnixKilledProcessHandle { pid: daemon_pid })),
+        match nix::sys::signal::kill(pid, Signal::SIGKILL) {
+            Ok(()) => Ok(Some(UnixKilledProcessHandle { pid })),
             Err(nix::errno::Errno::ESRCH) => Ok(None),
-            Err(e) => Err(e).context("Failed to kill daemon"),
+            Err(e) => Err(e).with_context(|| format!("Failed to kill pid {}", pid)),
         }
     }
 
@@ -143,7 +143,7 @@ pub mod os_specific {
                     }
                 }
 
-                return Err(os_error).with_context(|| format!("Failed to kill daemon ({})", pid));
+                return Err(os_error).with_context(|| format!("Failed to kill pid {}", pid));
             }
 
             Ok(Some(WindowsKilledProcessHandle {
