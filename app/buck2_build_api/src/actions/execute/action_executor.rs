@@ -18,8 +18,8 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::executor_config::CommandExecutorConfig;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::HasHttpClient;
-use buck2_common::http::HttpClient;
 use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -270,7 +270,7 @@ pub struct BuckActionExecutor {
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
-    http_client: Arc<dyn HttpClient>,
+    http_client: CountingHttpClient,
 }
 
 impl BuckActionExecutor {
@@ -283,7 +283,7 @@ impl BuckActionExecutor {
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
     ) -> Self {
         Self {
             command_executor,
@@ -530,7 +530,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.io_provider.dupe()
     }
 
-    fn http_client(&self) -> Arc<dyn HttpClient> {
+    fn http_client(&self) -> CountingHttpClient {
         self.executor.http_client.dupe()
     }
 }
@@ -652,6 +652,7 @@ mod tests {
     use buck2_common::executor_config::CommandExecutorConfig;
     use buck2_common::executor_config::CommandGenerationOptions;
     use buck2_common::executor_config::PathSeparatorKind;
+    use buck2_common::http::counting_client::CountingHttpClient;
     use buck2_common::http::ClientForTest;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -755,7 +756,7 @@ mod tests {
                 project_fs,
                 CasDigestConfig::testing_default(),
             )),
-            Arc::new(ClientForTest {}),
+            CountingHttpClient::new(Arc::new(ClientForTest {})),
         );
 
         #[derive(Debug, Allocative)]

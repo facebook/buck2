@@ -20,8 +20,8 @@ use buck2_build_api::build_signals::CriticalPathBackendName;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::http_client;
-use buck2_common::http::HttpClient;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -155,7 +155,7 @@ pub struct DaemonStateData {
     pub enable_restarter: bool,
 
     /// Http client used for materializer and RunAction implementations.
-    pub http_client: Arc<dyn HttpClient>,
+    pub http_client: CountingHttpClient,
 
     /// Are we using buck-out as our cwd?
     pub cwd_buck_out: bool,
@@ -499,7 +499,7 @@ impl DaemonState {
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
     ) -> anyhow::Result<Arc<dyn Materializer>> {
         match materialization_method {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(

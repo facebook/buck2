@@ -11,16 +11,17 @@ use std::ffi::OsString;
 use std::io;
 use std::io::ErrorKind;
 use std::process::Stdio;
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
 use buck2_common::http;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::retries::http_retry;
 use buck2_common::http::retries::AsHttpError;
 use buck2_common::http::retries::HttpError;
+use buck2_common::http::HttpClient;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use bytes::Bytes;
 use futures::stream::BoxStream;
@@ -424,7 +425,7 @@ fn log_upload_url() -> Option<&'static str> {
 }
 
 pub struct ManifoldClient {
-    client: Arc<dyn http::HttpClient>,
+    client: CountingHttpClient,
 }
 
 impl ManifoldClient {

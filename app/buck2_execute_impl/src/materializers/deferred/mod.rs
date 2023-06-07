@@ -30,7 +30,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::result::SharedError;
 use buck2_common::result::SharedResult;
 use buck2_common::result::ToSharedResultExt;
@@ -878,7 +878,7 @@ impl DeferredMaterializer {
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
-        http_client: Arc<dyn HttpClient>,
+        http_client: CountingHttpClient,
     ) -> anyhow::Result<Self> {
         let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
         let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();

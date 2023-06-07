@@ -276,13 +276,10 @@ impl IncrementalActionExecutable for DownloadFileAction {
         }
 
         let client = ctx.http_client();
-        let url = self.url(&*client)?;
+        let url = self.url(&client)?;
 
         let (value, execution_kind) = {
-            match self
-                .declared_metadata(&*client, ctx.digest_config())
-                .await?
-            {
+            match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
                     let rel_path = artifact_fs.resolve_build(self.output().get_path());
@@ -312,7 +309,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     // Slow path: download now.
                     let digest = http_download(
-                        &*client,
+                        &client,
                         project_fs,
                         ctx.digest_config(),
                         &rel_path,

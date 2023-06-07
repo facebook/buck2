@@ -37,7 +37,7 @@ use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
@@ -169,7 +169,7 @@ pub struct BaseServerCommandContext {
     /// Mutex for creating symlinks
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
     /// Http client used during run actions; shared with materializer.
-    pub http_client: Arc<dyn HttpClient>,
+    pub http_client: CountingHttpClient,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -513,7 +513,7 @@ struct DiceCommandDataProvider {
     create_unhashed_symlink_lock: Arc<Mutex<()>>,
     starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
-    http_client: Arc<dyn HttpClient>,
+    http_client: CountingHttpClient,
 }
 
 #[async_trait]

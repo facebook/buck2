@@ -41,12 +41,13 @@ use tokio::io::AsyncReadExt;
 use tokio_rustls::TlsConnector;
 use tokio_util::io::StreamReader;
 
-mod counting_client;
+pub mod counting_client;
 mod proxy;
 mod redirect;
 pub mod retries;
 #[cfg(fbcode_build)]
 mod x2p;
+use counting_client::CountingHttpClient;
 use proxy::http_proxy_from_env;
 use proxy::https_proxy_from_env;
 use redirect::PendingRequest;
@@ -61,14 +62,15 @@ const DEFAULT_MAX_REDIRECTS: usize = 10;
 ///
 /// This should work for internal and OSS use cases.
 /// TODO(skarlage): Remove `allow_vpnless` when vpnless becomes default.
-pub fn http_client(allow_vpnless: bool) -> anyhow::Result<Arc<dyn HttpClient>> {
-    if is_open_source() {
+pub fn http_client(allow_vpnless: bool) -> anyhow::Result<CountingHttpClient> {
+    let http_client = if is_open_source() {
         http_client_for_oss()
     } else if allow_vpnless && supports_vpnless() {
         http_client_for_vpnless()
     } else {
         http_client_for_internal()
-    }
+    }?;
+    Ok(CountingHttpClient::new(http_client))
 }
 
 /// Returns a client suitable for OSS usecases. Supports standard Curl-like
@@ -142,24 +144,24 @@ fn http_client_for_vpnless() -> anyhow::Result<Arc<dyn HttpClient>> {
 /// Dice implementations so we can pass along the HttpClient to various subsystems
 /// that need to use it (Materializer, RunActions, etc).
 pub trait HasHttpClient {
-    fn get_http_client(&self) -> Arc<dyn HttpClient>;
+    fn get_http_client(&self) -> CountingHttpClient;
 }
 
 pub trait SetHttpClient {
-    fn set_http_client(&mut self, client: Arc<dyn HttpClient>);
+    fn set_http_client(&mut self, client: CountingHttpClient);
 }
 
 impl HasHttpClient for UserComputationData {
-    fn get_http_client(&self) -> Arc<dyn HttpClient> {
+    fn get_http_client(&self) -> CountingHttpClient {
         self.data
-            .get::<Arc<dyn HttpClient>>()
+            .get::<CountingHttpClient>()
             .expect("HttpClient should be set")
             .dupe()
     }
 }
 
 impl SetHttpClient for UserComputationData {
-    fn set_http_client(&mut self, client: Arc<dyn HttpClient>) {
+    fn set_http_client(&mut self, client: CountingHttpClient) {
         self.data.set(client);
     }
 }

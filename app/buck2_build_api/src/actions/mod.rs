@@ -44,7 +44,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::executor_config::CommandExecutorConfig;
-use buck2_common::http::HttpClient;
+use buck2_common::http::counting_client::CountingHttpClient;
 use buck2_common::io::IoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
@@ -249,7 +249,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn io_provider(&self) -> Arc<dyn IoProvider>;
 
     /// Http client used for fetching and downloading remote artifacts.
-    fn http_client(&self) -> Arc<dyn HttpClient>;
+    fn http_client(&self) -> CountingHttpClient;
 }
 
 #[derive(Error, Debug)]
