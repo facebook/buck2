@@ -11,12 +11,17 @@ use std::ffi::OsString;
 use std::io;
 use std::io::ErrorKind;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use anyhow::Context;
+use buck2_common::http;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use hyper::body::HttpBody;
+use hyper::Body;
+use hyper::Response;
 use tokio::io::AsyncRead;
 use tokio::process::Child;
 use tokio::process::Command;
@@ -432,4 +437,92 @@ fn log_upload_url() -> Option<&'static str> {
 
         None
     }
+}
+
+pub struct ManifoldClient {
+    client: Arc<dyn http::HttpClient>,
+}
+
+impl ManifoldClient {
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self {
+            client: http::http_client(false)?,
+        })
+    }
+
+    pub async fn write(
+        &self,
+        bucket: BucketInfo<'_>,
+        manifold_bucket_path: &str,
+        buf: bytes::Bytes,
+        ttl_s: Option<u64>,
+    ) -> anyhow::Result<()> {
+        let manifold_url = match log_upload_url() {
+            None => return Ok(()),
+            Some(x) => x,
+        };
+        let url = format!(
+            "{}/v0/write/{}?bucketName={}&apiKey={}&timeoutMsec=20000",
+            manifold_url, manifold_bucket_path, bucket.name, bucket.key
+        );
+
+        let mut headers = vec![(
+            "X-Manifold-Obj-Predicate".to_owned(),
+            "NoPredicate".to_owned(),
+        )];
+
+        if let Some(ttl_s) = ttl_s {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+            let expiration = now.as_secs() + ttl_s;
+            headers.push((
+                "X-Manifold-Obj-ExpiresAt".to_owned(),
+                expiration.to_string(),
+            ));
+        }
+
+        // TODO iguridi: implement retries
+        let res = self
+            .client
+            .put(&url, buf, headers)
+            .await
+            .context("failed write request")?;
+
+        consume_response(res).await;
+
+        Ok(())
+    }
+
+    pub async fn append(
+        &self,
+        bucket: BucketInfo<'_>,
+        manifold_bucket_path: &str,
+        buf: bytes::Bytes,
+        offset: u64,
+    ) -> anyhow::Result<()> {
+        let manifold_url = match log_upload_url() {
+            None => return Ok(()),
+            Some(x) => x,
+        };
+        let url = format!(
+            "{}/v0/append/{}?bucketName={}&apiKey={}&timeoutMsec=20000&writeOffset={}",
+            manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
+        );
+
+        // TODO iguridi: implement retries
+        let res = self
+            .client
+            .post(&url, buf, vec![])
+            .await
+            .context("failed append request")?;
+
+        consume_response(res).await;
+
+        Ok(())
+    }
+}
+
+async fn consume_response(res: Response<Body>) {
+    // HTTP/1: Allow reusing the connection by consuming entire response
+    let mut response_body = res.into_body();
+    while let Some(_chunk) = response_body.data().await {}
 }
