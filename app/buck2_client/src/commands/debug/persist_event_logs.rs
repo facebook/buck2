@@ -7,13 +7,9 @@
  * of this source tree.
  */
 
-use std::ffi::OsString;
-use std::process::Stdio;
-
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::find_certs;
 use buck2_client_ctx::manifold;
 use buck2_core::env_helper::EnvHelper;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -122,9 +118,9 @@ async fn upload_task(
     if no_upload {
         return Ok(());
     }
+    let manifold_client = manifold::ManifoldClient::new()?;
     let manifold_path = format!("flat/{}", manifold_name);
     let upload_chunk_size = UPLOAD_CHUNK_SIZE.get_copied()?.unwrap_or(8 * 1024 * 1024);
-    let cert = find_certs::find_meta_internal_tls_cert()?;
     let mut read_position = 0;
     let mut total_bytes = 0_u64;
 
@@ -132,10 +128,10 @@ async fn upload_task(
         total_bytes += n;
         while should_upload_chunk(total_bytes, read_position, upload_chunk_size).await? {
             do_the_upload_and_increment_read_position(
+                &manifold_client,
                 file_mutex,
                 &mut read_position,
                 &manifold_path,
-                &cert,
                 upload_chunk_size,
             )
             .await?;
@@ -145,10 +141,10 @@ async fn upload_task(
     // When tx gets dropped, rx will return None
     while should_upload_chunk(total_bytes, read_position, upload_chunk_size).await? {
         do_the_upload_and_increment_read_position(
+            &manifold_client,
             file_mutex,
             &mut read_position,
             &manifold_path,
-            &cert,
             upload_chunk_size,
         )
         .await?;
@@ -156,10 +152,10 @@ async fn upload_task(
 
     // Last chunk to upload is smaller than UPLOAD_CHUNK_SIZE
     do_the_upload_and_increment_read_position(
+        &manifold_client,
         file_mutex,
         &mut read_position,
         &manifold_path,
-        &cert,
         upload_chunk_size,
     )
     .await?;
@@ -179,10 +175,10 @@ async fn should_upload_chunk(
 }
 
 async fn do_the_upload_and_increment_read_position(
+    manifold_client: &manifold::ManifoldClient,
     file_mutex: &Mutex<File>,
     read_position: &mut u64,
     manifold_path: &str,
-    cert: &OsString,
     upload_chunk_size: u64,
 ) -> anyhow::Result<u64> {
     let mut file = file_mutex.lock().await;
@@ -194,9 +190,23 @@ async fn do_the_upload_and_increment_read_position(
     drop(file);
     if *read_position == 0 {
         // First chunk
-        upload_write(manifold_path, &buf, cert).await?;
+        manifold_client
+            .write(
+                manifold::Bucket::EventLogs.info(),
+                manifold_path,
+                buf.into(),
+                MANIFOLD_TTL_S.get_copied()?,
+            )
+            .await?
     } else {
-        upload_append(manifold_path, &buf, cert, *read_position).await?;
+        manifold_client
+            .append(
+                manifold::Bucket::EventLogs.info(),
+                manifold_path,
+                buf.into(),
+                *read_position,
+            )
+            .await?
     }
     *read_position += len;
     Ok(len)
@@ -222,60 +232,5 @@ async fn write_to_file(
         .context("Failed to seek log file")?;
     file.write_all(buf).await?;
     file.flush().await?;
-    Ok(())
-}
-
-async fn upload_write(manifold_path: &str, buf: &[u8], cert: &OsString) -> anyhow::Result<()> {
-    // TODO T149151673: support windows uploads
-    let upload = manifold::curl_write_command(
-        manifold::Bucket::EventLogs.info(),
-        manifold_path,
-        MANIFOLD_TTL_S.get_copied()?,
-        cert,
-    )?;
-    if let Some(mut upload) = upload {
-        let mut child = upload
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()
-            .context("Error spawning command")?;
-        let stdin = child.stdin.as_mut().expect("stdin was piped");
-        stdin.write_all(buf).await?;
-        let exit_code_error = |code: i32, stderr: String| {
-            manifold::UploadError::StreamUploadExitCode { code, stderr }
-        };
-        manifold::wait_for_command(None, child, exit_code_error).await?;
-    }
-    Ok(())
-}
-
-async fn upload_append(
-    manifold_path: &str,
-    buf: &[u8],
-    cert: &OsString,
-    offset: u64,
-) -> anyhow::Result<()> {
-    // TODO T149151673: support windows uploads
-    let upload = manifold::curl_append_command(
-        manifold::Bucket::EventLogs.info(),
-        manifold_path,
-        offset,
-        cert,
-    )?;
-    if let Some(mut upload) = upload {
-        let mut child = upload
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::piped())
-            .spawn()
-            .context("Error spawning command")?;
-        let stdin = child.stdin.as_mut().expect("stdin was piped");
-        stdin.write_all(buf).await?;
-        let exit_code_error = |code: i32, stderr: String| {
-            manifold::UploadError::StreamUploadExitCode { code, stderr }
-        };
-        manifold::wait_for_command(None, child, exit_code_error).await?;
-    }
     Ok(())
 }
